@@ -12,7 +12,8 @@
     "import": "tsx --env-file=.env scripts/import.ts",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:tables": "node --env-file=.env scripts/tables.mjs"
+    "db:tables": "node --env-file=.env scripts/tables.mjs",
+    "worker": "tsx --env-file=.env scripts/worker.ts"
   },
   "dependencies": {
     "next": "^15.0.0",
