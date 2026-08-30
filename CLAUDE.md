@@ -15,6 +15,24 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   spærrer, tages som feed-aftale eller slet ikke.
 - **Ingen kilde uden en linje i `sources`.** Alt der skrives til `listings`
   skal have et `source_id` og et `source_type`. Ingen løse import-scripts.
+- **Adapteren læser felter fra en allowlist, aldrig fra en denylist.**
+  Hver adapter navngiver eksplicit de felter, den læser ud af kildens
+  objekt, og kasserer resten ulæst. Aldrig `...raw`, aldrig en løkke over
+  `Object.keys`, aldrig et felt hvis indhold ikke er set på mindst ti
+  rigtige poster.
+  **Hvorfor:** kildernes datamodeller bærer interne sagsbehandlernoter med
+  navne, telefonnumre og mailadresser på *nuværende* lejere. Hos
+  findbolig.nu hedder feltet `comment`. Dem har vi hverken ret til eller
+  brug for, og de må ikke læses, skrives eller logges. En denylist dækker
+  i dag og svigter i morgen: tilføjer kilden et nyt felt med samme slags
+  indhold, flyder det lige igennem. En allowlist svigter den anden vej —
+  nye felter ignoreres, indtil nogen bevidst tilføjer dem.
+  Af samme grund henter findbolig-adapteren aldrig detaljesiden: det, vi
+  ikke modtager, kan vi ikke komme til at gemme.
+- **Slå aldrig TLS-verifikation fra.** `NODE_TLS_REJECT_UNAUTHORIZED=0`
+  gælder hele processen og ville også ramme Supabase. Mangler en kilde et
+  mellemcertifikat, lægges det i `certs/` og peges på med
+  `NODE_EXTRA_CA_CERTS`.
 - **Kopiér aldrig kildens brødtekst.** `description` bygges af egne
   strukturerede felter. Fakta er frie, prosa er ikke.
 - **Kopiér aldrig kildens billeder.** Gem `external_url`, servér gennem

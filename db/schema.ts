@@ -30,6 +30,13 @@ export const crawlRunStatusEnum = pgEnum('crawl_run_status', [
   'running', 'ok', 'failed',
 ])
 
+// Hvordan man faar boligen. 'regular' er foerst til moelle og er det eneste,
+// hastighedsloeftet giver mening for; 'waiting_list' gaar efter anciennitet,
+// hvor det er ligegyldigt, om man ser annoncen fem minutter foer alle andre.
+export const applicationTypeEnum = pgEnum('application_type', [
+  'regular', 'waiting_list',
+])
+
 export const sources = pgTable('sources', {
   id: uuid('id').primaryKey().defaultRandom(),
   slug: text('slug').notNull().unique(),
@@ -108,6 +115,10 @@ export const listings = pgTable('listings', {
   utilitiesHeat: integer('utilities_heat'),
   utilitiesWater: integer('utilities_water'),
   utilitiesElectricity: integer('utilities_electricity'),
+  // Aconto som kilden opkraever, men ikke specificerer. Findes fordi
+  // findbolig.nu oplyser en samlet aconto plus en delvis opdeling: uden
+  // resten ville totalen vaere lavere end det, lejeren faktisk betaler.
+  utilitiesOther: integer('utilities_other'),
   // Summen. Udfyldes KUN naar husleje og samtlige aconto-poster for boligen
   // er kendt. Mangler ét beloeb, staar totalMonthly null — et gaet her ville
   // ramme praecis det loefte (fuld oekonomi), der skiller os fra de andre.
@@ -117,6 +128,15 @@ export const listings = pgTable('listings', {
   // altid kan efterproeves. Null naar totalMonthly er null.
   totalMonthlyComponents: text('total_monthly_components').array().$type<string[]>(),
   moveInCost: integer('move_in_cost'),
+
+  applicationType: applicationTypeEnum('application_type'),
+  rentModel: text('rent_model'),
+
+  // Kildens egne tidsstempler. IKKE det samme som first_seen_at/last_seen_at,
+  // som er vores egne observationer. En annonce oprettet hos kilden for tre
+  // dage siden er ikke ny, selv om vi foerst saa den i dag.
+  sourceCreatedAt: timestamp('source_created_at', { withTimezone: true }),
+  sourceUpdatedAt: timestamp('source_updated_at', { withTimezone: true }),
 
   amenities: jsonb('amenities').$type<string[]>().default([]),
   openHouseAt: timestamp('open_house_at', { withTimezone: true }),

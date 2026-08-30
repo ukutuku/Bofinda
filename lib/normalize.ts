@@ -33,7 +33,7 @@ export function normaliserBoligtype(raw: string | null | undefined): Boligtype |
   return null
 }
 
-const ACONTO = ['heat', 'water', 'electricity'] as const
+const ACONTO = ['heat', 'water', 'electricity', 'other'] as const
 
 export interface Total {
   totalMonthly: number | null
@@ -58,6 +58,7 @@ export function beregnTotal(r: RawListing): Total {
     heat: r.utilitiesHeat,
     water: r.utilitiesWater,
     electricity: r.utilitiesElectricity,
+    other: r.utilitiesOther,
   }
   for (const n of ACONTO) {
     const v = poster[n]
@@ -68,9 +69,13 @@ export function beregnTotal(r: RawListing): Total {
   return { totalMonthly: sum, totalMonthlyComponents: med }
 }
 
-/** Sandt naar samtlige fire poster er kendt — "fuld oekonomi". */
+/**
+ * "Fuld oekonomi" kraever husleje OG alle tre navngivne aconto-poster.
+ * 'other' taeller ikke med: uspecificeret aconto kan indeholde hvad som helst,
+ * og maa ikke kunne lyve en bolig op i den kategori, loeftet handler om.
+ */
 export const erFuldOekonomi = (k: string[] | null): boolean =>
-  k != null && ['rent', ...ACONTO].every((n) => k.includes(n))
+  k != null && ['rent', 'heat', 'water', 'electricity'].every((n) => k.includes(n))
 
 const MDR = ['januar','februar','marts','april','maj','juni',
              'juli','august','september','oktober','november','december']
@@ -116,7 +121,7 @@ export function genererBeskrivelse(f: {
   if (f.rentMonthly != null) {
     if (f.totalMonthly != null && f.totalMonthlyComponents) {
       const navne: Record<string, string> = {
-        heat: 'varme', water: 'vand', electricity: 'el',
+        heat: 'varme', water: 'vand', electricity: 'el', other: 'øvrig aconto',
       }
       const aconto = f.totalMonthlyComponents.filter((k) => k !== 'rent').map((k) => navne[k] ?? k)
       // Dansk opremsning: "varme, vand og el" — ikke "varme og vand og el".
@@ -163,12 +168,24 @@ export interface NormaliseretBolig {
   utilitiesHeat: number | null
   utilitiesWater: number | null
   utilitiesElectricity: number | null
+  utilitiesOther: number | null
   totalMonthly: number | null
   totalMonthlyComponents: string[] | null
   moveInCost: number | null
+  applicationType: 'regular' | 'waiting_list' | null
+  rentModel: string | null
+  openHouseAt: Date | null
+  sourceCreatedAt: Date | null
+  sourceUpdatedAt: Date | null
   amenities: string[]
   description: string | null
   imageUrls: string[]
+}
+
+const dato = (s: string | undefined | null): Date | null => {
+  if (!s) return null
+  const d = new Date(s)
+  return isNaN(+d) ? null : d
 }
 
 export async function normaliser(r: RawListing): Promise<NormaliseretBolig> {
@@ -193,8 +210,9 @@ export async function normaliser(r: RawListing): Promise<NormaliseretBolig> {
     unitAddressUuid: adr.unitAddressUuid,
     accessAddressUuid: adr.accessAddressUuid,
     addressMatchLevel: adr.addressMatchLevel,
-    lat: adr.lat,
-    lng: adr.lng,
+    // Kildens egne koordinater vinder. Vaskeren har dem ikke endnu.
+    lat: r.lat != null ? String(r.lat) : adr.lat,
+    lng: r.lng != null ? String(r.lng) : adr.lng,
     propertyType,
     sizeM2: r.sizeM2 ?? null,
     rooms: r.rooms ?? null,
@@ -203,9 +221,15 @@ export async function normaliser(r: RawListing): Promise<NormaliseretBolig> {
     utilitiesHeat: r.utilitiesHeat ?? null,
     utilitiesWater: r.utilitiesWater ?? null,
     utilitiesElectricity: r.utilitiesElectricity ?? null,
+    utilitiesOther: r.utilitiesOther ?? null,
     totalMonthly,
     totalMonthlyComponents,
     moveInCost: r.moveInCost ?? null,
+    applicationType: r.applicationType ?? null,
+    rentModel: r.rentModel ?? null,
+    openHouseAt: dato(r.openHouseAt),
+    sourceCreatedAt: dato(r.sourceCreatedAt),
+    sourceUpdatedAt: dato(r.sourceUpdatedAt),
     // Ingen pladsholder. Fandt adapteren ingen billeder, er listen tom.
     imageUrls: r.imageUrls ?? [],
     amenities: r.amenities ?? [],

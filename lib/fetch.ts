@@ -19,14 +19,20 @@ async function pace(host: string) {
   lastHit.set(host, Date.now())
 }
 
-export async function politeFetch(url: string, tries = 3): Promise<Response> {
+export async function politeFetch(
+  url: string,
+  tries = 3,
+  init: RequestInit = {},
+): Promise<Response> {
   const host = new URL(url).host
 
   for (let attempt = 1; attempt <= tries; attempt++) {
     await pace(host)
 
     const res = await fetch(url, {
+      ...init,
       headers: {
+        ...(init.headers as Record<string, string> | undefined),
         'User-Agent': UA,
         // Uden disse afviser flere danske hosts (Simply.com foran laros og
         // dacas) forespoergslen med 454. Det er ikke omgaaelse — det er at

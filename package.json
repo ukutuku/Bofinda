@@ -9,11 +9,11 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "import": "tsx --env-file=.env scripts/import.ts",
+    "import": "NODE_EXTRA_CA_CERTS=./certs/rapidssl-tls-rsa-ca-g1.pem tsx --env-file=.env scripts/import.ts",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:tables": "node --env-file=.env scripts/tables.mjs",
-    "worker": "tsx --env-file=.env scripts/worker.ts"
+    "worker": "NODE_EXTRA_CA_CERTS=./certs/rapidssl-tls-rsa-ca-g1.pem tsx --env-file=.env scripts/worker.ts"
   },
   "dependencies": {
     "next": "^15.0.0",

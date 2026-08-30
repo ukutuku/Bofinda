@@ -26,7 +26,22 @@ export interface RawListing {
   utilitiesHeat?: number
   utilitiesWater?: number
   utilitiesElectricity?: number
+  /** Aconto kilden opkraever men ikke specificerer. Uden den bliver totalen
+   *  lavere end det, lejeren faktisk betaler. */
+  utilitiesOther?: number
   moveInCost?: number
+
+  /** Kildens egne koordinater. Er de der, geokoder vi ikke. */
+  lat?: number
+  lng?: number
+
+  applicationType?: 'regular' | 'waiting_list'
+  rentModel?: string
+  /** Naeste aabne hus, ISO. */
+  openHouseAt?: string
+  /** Kildens egne tidsstempler, ISO. Ikke vores observationer. */
+  sourceCreatedAt?: string
+  sourceUpdatedAt?: string
 
   amenities?: string[]
   /** Kildens egne billed-URL'er. Hotlinkes, kopieres aldrig. */
