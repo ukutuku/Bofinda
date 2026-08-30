@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import type { Config } from 'drizzle-kit'
 
 // Migrationer skal ALDRIG gaa gennem PgBouncer i transaction mode.

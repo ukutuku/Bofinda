@@ -9,7 +9,10 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "import": "tsx scripts/import.ts"
+    "import": "tsx scripts/import.ts",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:tables": "node --env-file=.env scripts/tables.mjs"
   },
   "dependencies": {
     "next": "^15.0.0",
@@ -25,6 +28,7 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "drizzle-kit": "^0.30.0",
-    "tsx": "^4.19.0"
+    "tsx": "^4.19.0",
+    "dotenv": "^16.4.0"
   }
 }
