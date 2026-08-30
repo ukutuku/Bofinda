@@ -31,7 +31,13 @@ function connectionString() {
         : 'DATABASE_URL_DIRECT mangler (Supabase session/direct, port 5432)',
     )
   }
-  return url
+  // ?pgbouncer=true er Prismas flag for at slaa prepared statements fra.
+  // postgres.js kender det ikke og ville sende det videre som en
+  // startup-parameter til serveren. Hos os er mekanismen prepare: false
+  // nedenfor, saa parameteren fjernes her.
+  const parsed = new URL(url)
+  parsed.searchParams.delete('pgbouncer')
+  return parsed.toString()
 }
 
 export const sql = postgres(connectionString(), {

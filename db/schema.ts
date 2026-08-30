@@ -1,6 +1,7 @@
+import { sql } from 'drizzle-orm'
 import {
   pgTable, uuid, text, integer, numeric, boolean,
-  timestamp, jsonb, index, uniqueIndex, pgEnum,
+  timestamp, jsonb, index, uniqueIndex, check, pgEnum,
 } from 'drizzle-orm/pg-core'
 
 export const sourceTypeEnum = pgEnum('source_type', ['feed', 'spider', 'native'])
@@ -10,6 +11,25 @@ export const subStatusEnum = pgEnum('sub_status', [
   'trialing', 'active', 'past_due', 'canceled', 'expired',
 ])
 
+// Hvor praecist adressen kunne slaas op i det officielle register.
+//   unit   = enhedsadresse, inkl. etage og doer. Én bestemt bolig.
+//   access = adgangsadresse, opgangen. Vi ved hvilken opgang, ikke hvilken doer.
+//   failed = ingen traeffer. Boligen vises ikke.
+export const addressMatchLevelEnum = pgEnum('address_match_level', [
+  'unit', 'access', 'failed',
+])
+
+// Fast liste, ikke fritekst. Kildens egne ord mappes centralt i normaliseringen.
+// Kan typen ikke afgoeres, forbliver feltet null — 'andet' betyder "kendt og
+// ingen af de andre", ikke "vi ved det ikke".
+export const propertyTypeEnum = pgEnum('property_type', [
+  'lejlighed', 'hus', 'raekkehus', 'vaerelse', 'studiebolig', 'andet',
+])
+
+export const crawlRunStatusEnum = pgEnum('crawl_run_status', [
+  'running', 'ok', 'failed',
+])
+
 export const sources = pgTable('sources', {
   id: uuid('id').primaryKey().defaultRandom(),
   slug: text('slug').notNull().unique(),
@@ -17,9 +37,10 @@ export const sources = pgTable('sources', {
   sourceType: sourceTypeEnum('source_type').notNull(),
   baseUrl: text('base_url'),
   enabled: boolean('enabled').notNull().default(true),
-  lastRunAt: timestamp('last_run_at', { withTimezone: true }),
-  lastRunCount: integer('last_run_count'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  // Historikken over koersler ligger i crawl_runs. Der staar bevidst ikke et
+  // lastRunCount her — det ville friste alarmen til at sammenligne mod sidste
+  // koersel i stedet for mod medianen.
 })
 
 export const users = pgTable('users', {
@@ -55,7 +76,9 @@ export const listings = pgTable('listings', {
   // Sat naar sourceType = 'native'
   landlordId: uuid('landlord_id').references(() => users.id),
 
-  // Adresse. addressRaw er kildens streng; resten kommer fra adressevask.
+  // ── Adresse ────────────────────────────────────────────────────────────
+  // addressRaw er kildens streng. Resten kommer fra adressevask mod det
+  // officielle register (Datafordeleren/DAR, lokal tabel — se noten nederst).
   addressRaw: text('address_raw').notNull(),
   street: text('street'),
   houseNumber: text('house_number'),
@@ -63,24 +86,36 @@ export const listings = pgTable('listings', {
   door: text('door'),
   postalCode: text('postal_code'),
   city: text('city'),
-  // Officielt adresse-UUID. Dedup-noeglen. Null = vask fejlede, skjul boligen.
-  addressUuid: text('address_uuid'),
-  addressMatchQuality: text('address_match_quality'),
+  // Enhedsadresse: én bestemt bolig, inkl. etage og doer.
+  unitAddressUuid: text('unit_address_uuid'),
+  // Adgangsadresse: opgangen. Saettes ogsaa naar enhedsadressen er fundet.
+  accessAddressUuid: text('access_address_uuid'),
+  // Hvor langt vasken naaede. Default 'failed': en bolig der endnu ikke er
+  // vasket, er ikke matchet — og vises derfor ikke.
+  addressMatchLevel: addressMatchLevelEnum('address_match_level')
+    .notNull().default('failed'),
   lat: numeric('lat', { precision: 10, scale: 7 }),
   lng: numeric('lng', { precision: 10, scale: 7 }),
 
-  propertyType: text('property_type'),
+  propertyType: propertyTypeEnum('property_type'),
   sizeM2: integer('size_m2'),
   rooms: integer('rooms'),
   availableFrom: timestamp('available_from', { withTimezone: false }),
 
-  // Oekonomi. Alt i oere for at undgaa float-fejl.
+  // ── Oekonomi ───────────────────────────────────────────────────────────
+  // Alt i oere. Aldrig float. Et felt kilden ikke oplyser, forbliver null.
   rentMonthly: integer('rent_monthly'),
   utilitiesHeat: integer('utilities_heat'),
   utilitiesWater: integer('utilities_water'),
   utilitiesElectricity: integer('utilities_electricity'),
-  // Beregnet ved skrivning: rent + alle aconto. Konkurrenterne viser kun rent.
+  // Summen. Udfyldes KUN naar husleje og samtlige aconto-poster for boligen
+  // er kendt. Mangler ét beloeb, staar totalMonthly null — et gaet her ville
+  // ramme praecis det loefte (fuld oekonomi), der skiller os fra de andre.
   totalMonthly: integer('total_monthly'),
+  // Hvilke poster der faktisk er talt med, fx
+  // ['rent','heat','water','electricity']. Gemmes sammen med summen, saa den
+  // altid kan efterproeves. Null naar totalMonthly er null.
+  totalMonthlyComponents: text('total_monthly_components').array().$type<string[]>(),
   moveInCost: integer('move_in_cost'),
 
   amenities: jsonb('amenities').$type<string[]>().default([]),
@@ -103,9 +138,73 @@ export const listings = pgTable('listings', {
   viewCount: integer('view_count').notNull().default(0),
 }, (t) => ({
   sourceKeyIdx: uniqueIndex('listing_source_key_idx').on(t.sourceId, t.externalKey),
-  dedupIdx: index('listing_dedup_idx').on(t.addressUuid, t.rentMonthly),
+
+  // ── Dedup i to niveauer ────────────────────────────────────────────────
+  // Ikke unikke: to kilder maa gerne have den samme bolig. Indekserne er der,
+  // for at dedup kan finde gruppen — ikke for at afvise den anden kilde.
+  // 'unit': enhedsadressen er noeglen alene. Samme UUID = samme bolig.
+  dedupUnitIdx: index('listing_dedup_unit_idx')
+    .on(t.unitAddressUuid)
+    .where(sql`${t.addressMatchLevel} = 'unit'`),
+  // 'access': opgangen alene er ikke nok — der kan ligge otte lejligheder.
+  // Noeglen er opgang + areal + vaerelser + husleje.
+  dedupAccessIdx: index('listing_dedup_access_idx')
+    .on(t.accessAddressUuid, t.sizeM2, t.rooms, t.rentMonthly)
+    .where(sql`${t.addressMatchLevel} = 'access'`),
+  // 'failed' dedupes ikke og vises ikke.
+
+  // "Fuld oekonomi kendt" — filteret bag det ene af de to loefter.
+  fullEconomyIdx: index('listing_full_economy_idx')
+    .on(t.status, t.totalMonthly)
+    .where(sql`${t.totalMonthly} is not null`),
+
   freshIdx: index('listing_fresh_idx').on(t.status, t.firstSeenAt),
   geoIdx: index('listing_geo_idx').on(t.postalCode, t.status),
+
+  // Databasen haandhaever, at der ikke gaettes: en total uden husleje eller
+  // uden liste over hvad der er talt med, kan ikke skrives.
+  totalMonthlyHonest: check('listing_total_monthly_honest', sql`
+    ${t.totalMonthly} is null
+    or (${t.rentMonthly} is not null
+        and cardinality(${t.totalMonthlyComponents}) > 0)`),
+
+  // Et matchniveau uden det UUID, det bygger paa, er ikke et match.
+  addressLevelHonest: check('listing_address_level_honest', sql`
+    (${t.addressMatchLevel} = 'unit' and ${t.unitAddressUuid} is not null)
+    or (${t.addressMatchLevel} = 'access' and ${t.accessAddressUuid} is not null)
+    or ${t.addressMatchLevel} = 'failed'`),
+}))
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Én raekke per discovery-koersel. Grundlaget for alarmen.
+//  Alarmen sammenligner discoveredCount mod den loebende median af de
+//  seneste 10 FAERDIGE koersler (status = 'ok') for samme kilde — ikke mod
+//  sidste koersel. En enkelt daarlig koersel skal ikke kunne flytte
+//  referencen og dermed skjule, at kilden er ved at doe.
+//    select discovered_count from crawl_runs
+//     where source_id = $1 and status = 'ok'
+//     order by started_at desc limit 10
+//  Taellerne er null indtil koerslen er faerdig. En koersel der styrtede,
+//  bidrager ikke til medianen.
+// ═══════════════════════════════════════════════════════════════════════════
+export const crawlRuns = pgTable('crawl_runs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sourceId: uuid('source_id').notNull()
+    .references(() => sources.id, { onDelete: 'cascade' }),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  // Antal URL'er discovery fandt hos kilden.
+  discoveredCount: integer('discovered_count'),
+  // Antal boliger der faktisk kunne laeses og skrives.
+  extractedCount: integer('extracted_count'),
+  errorCount: integer('error_count').notNull().default(0),
+  status: crawlRunStatusEnum('status').notNull().default('running'),
+  // Fri tekst til drift: hvad der gik galt, hvilken side den stoppede paa.
+  notes: text('notes'),
+}, (t) => ({
+  // Baerer opslaget "seneste 10 for denne kilde".
+  sourceRecentIdx: index('crawl_run_source_recent_idx')
+    .on(t.sourceId, t.startedAt.desc()),
 }))
 
 // Billeder hotlinkes. externalUrl gaar gennem signeret proxy ved visning.
@@ -165,3 +264,13 @@ export const messages = pgTable('messages', {
 }, (t) => ({
   convIdx: index('msg_conv_idx').on(t.conversationId, t.createdAt),
 }))
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Adressevask — beslutning, ikke kode endnu.
+//  Byg mod Datafordeleren, ikke DAWA: DAWA lukker 1. oktober 2026.
+//  Hent DAR som fildownload til en lokal tabel og slaa op lokalt. Ét kald per
+//  adresse mod en ekstern tjeneste ville goere importen langsom og goere
+//  hastighedsloeftet afhaengigt af en andens oppetid.
+//  DAR-tabellen ligger her, naar den bygges — sammen med opslaget, der saetter
+//  unitAddressUuid / accessAddressUuid / addressMatchLevel.
+// ═══════════════════════════════════════════════════════════════════════════

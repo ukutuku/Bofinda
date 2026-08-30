@@ -1,4 +1,6 @@
+CREATE TYPE "public"."address_match_level" AS ENUM('unit', 'access', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."listing_status" AS ENUM('active', 'delisted');--> statement-breakpoint
+CREATE TYPE "public"."property_type" AS ENUM('lejlighed', 'hus', 'raekkehus', 'vaerelse', 'studiebolig', 'andet');--> statement-breakpoint
 CREATE TYPE "public"."source_type" AS ENUM('feed', 'spider', 'native');--> statement-breakpoint
 CREATE TYPE "public"."sub_status" AS ENUM('trialing', 'active', 'past_due', 'canceled', 'expired');--> statement-breakpoint
 CREATE TYPE "public"."user_role" AS ENUM('tenant', 'landlord', 'admin');--> statement-breakpoint
@@ -38,11 +40,12 @@ CREATE TABLE "listings" (
 	"door" text,
 	"postal_code" text,
 	"city" text,
-	"address_uuid" text,
-	"address_match_quality" text,
+	"unit_address_uuid" text,
+	"access_address_uuid" text,
+	"address_match_level" "address_match_level" DEFAULT 'failed' NOT NULL,
 	"lat" numeric(10, 7),
 	"lng" numeric(10, 7),
-	"property_type" text,
+	"property_type" "property_type",
 	"size_m2" integer,
 	"rooms" integer,
 	"available_from" timestamp,
@@ -51,6 +54,7 @@ CREATE TABLE "listings" (
 	"utilities_water" integer,
 	"utilities_electricity" integer,
 	"total_monthly" integer,
+	"total_monthly_components" text[],
 	"move_in_cost" integer,
 	"amenities" jsonb DEFAULT '[]'::jsonb,
 	"open_house_at" timestamp with time zone,
@@ -62,7 +66,15 @@ CREATE TABLE "listings" (
 	"first_seen_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"last_seen_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"delisted_at" timestamp with time zone,
-	"view_count" integer DEFAULT 0 NOT NULL
+	"view_count" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "listing_total_monthly_honest" CHECK (
+    "listings"."total_monthly" is null
+    or ("listings"."rent_monthly" is not null
+        and cardinality("listings"."total_monthly_components") > 0)),
+	CONSTRAINT "listing_address_level_honest" CHECK (
+    ("listings"."address_match_level" = 'unit' and "listings"."unit_address_uuid" is not null)
+    or ("listings"."address_match_level" = 'access' and "listings"."access_address_uuid" is not null)
+    or "listings"."address_match_level" = 'failed')
 );
 --> statement-breakpoint
 CREATE TABLE "messages" (
@@ -91,8 +103,6 @@ CREATE TABLE "sources" (
 	"source_type" "source_type" NOT NULL,
 	"base_url" text,
 	"enabled" boolean DEFAULT true NOT NULL,
-	"last_run_at" timestamp with time zone,
-	"last_run_count" integer,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "sources_slug_unique" UNIQUE("slug")
 );
@@ -135,7 +145,9 @@ CREATE INDEX "conv_landlord_idx" ON "conversations" USING btree ("landlord_id");
 CREATE UNIQUE INDEX "fav_pk" ON "favorites" USING btree ("user_id","listing_id");--> statement-breakpoint
 CREATE INDEX "img_listing_idx" ON "listing_images" USING btree ("listing_id","position");--> statement-breakpoint
 CREATE UNIQUE INDEX "listing_source_key_idx" ON "listings" USING btree ("source_id","external_key");--> statement-breakpoint
-CREATE INDEX "listing_dedup_idx" ON "listings" USING btree ("address_uuid","rent_monthly");--> statement-breakpoint
+CREATE INDEX "listing_dedup_unit_idx" ON "listings" USING btree ("unit_address_uuid") WHERE "listings"."address_match_level" = 'unit';--> statement-breakpoint
+CREATE INDEX "listing_dedup_access_idx" ON "listings" USING btree ("access_address_uuid","size_m2","rooms","rent_monthly") WHERE "listings"."address_match_level" = 'access';--> statement-breakpoint
+CREATE INDEX "listing_full_economy_idx" ON "listings" USING btree ("status","total_monthly") WHERE "listings"."total_monthly" is not null;--> statement-breakpoint
 CREATE INDEX "listing_fresh_idx" ON "listings" USING btree ("status","first_seen_at");--> statement-breakpoint
 CREATE INDEX "listing_geo_idx" ON "listings" USING btree ("postal_code","status");--> statement-breakpoint
 CREATE INDEX "msg_conv_idx" ON "messages" USING btree ("conversation_id","created_at");--> statement-breakpoint

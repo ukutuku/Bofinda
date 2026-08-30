@@ -1,6 +1,6 @@
 {
-  "id": "dbdee504-8418-445b-a4ce-cb4eee560d10",
-  "prevId": "87cd5c1e-0158-4ce6-8607-300c7faf92c3",
+  "id": "4bf0d458-3fe8-478f-814f-36d7fe844f88",
+  "prevId": "b37e96f4-9e74-4ea5-94cc-9dbe328b056b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -59,9 +59,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "conv_landlord_idx": {
           "name": "conv_landlord_idx",
@@ -74,50 +74,158 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "conversations_listing_id_listings_id_fk": {
           "name": "conversations_listing_id_listings_id_fk",
           "tableFrom": "conversations",
+          "tableTo": "listings",
           "columnsFrom": [
             "listing_id"
           ],
-          "tableTo": "listings",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "conversations_tenant_id_users_id_fk": {
           "name": "conversations_tenant_id_users_id_fk",
           "tableFrom": "conversations",
+          "tableTo": "users",
           "columnsFrom": [
             "tenant_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "conversations_landlord_id_users_id_fk": {
           "name": "conversations_landlord_id_users_id_fk",
           "tableFrom": "conversations",
+          "tableTo": "users",
           "columnsFrom": [
             "landlord_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.crawl_runs": {
+      "name": "crawl_runs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discovered_count": {
+          "name": "discovered_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "extracted_count": {
+          "name": "extracted_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_count": {
+          "name": "error_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "status": {
+          "name": "status",
+          "type": "crawl_run_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'running'"
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "crawl_run_source_recent_idx": {
+          "name": "crawl_run_source_recent_idx",
+          "columns": [
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "crawl_runs_source_id_sources_id_fk": {
+          "name": "crawl_runs_source_id_sources_id_fk",
+          "tableFrom": "crawl_runs",
+          "tableTo": "sources",
+          "columnsFrom": [
+            "source_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -168,37 +276,37 @@
             }
           ],
           "isUnique": true,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "favorites_user_id_users_id_fk": {
           "name": "favorites_user_id_users_id_fk",
           "tableFrom": "favorites",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "favorites_listing_id_listings_id_fk": {
           "name": "favorites_listing_id_listings_id_fk",
           "tableFrom": "favorites",
+          "tableTo": "listings",
           "columnsFrom": [
             "listing_id"
           ],
-          "tableTo": "listings",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -256,24 +364,24 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "listing_images_listing_id_listings_id_fk": {
           "name": "listing_images_listing_id_listings_id_fk",
           "tableFrom": "listing_images",
+          "tableTo": "listings",
           "columnsFrom": [
             "listing_id"
           ],
-          "tableTo": "listings",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -366,17 +474,25 @@
           "primaryKey": false,
           "notNull": false
         },
-        "address_uuid": {
-          "name": "address_uuid",
+        "unit_address_uuid": {
+          "name": "unit_address_uuid",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "address_match_quality": {
-          "name": "address_match_quality",
+        "access_address_uuid": {
+          "name": "access_address_uuid",
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "address_match_level": {
+          "name": "address_match_level",
+          "type": "address_match_level",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'failed'"
         },
         "lat": {
           "name": "lat",
@@ -392,7 +508,8 @@
         },
         "property_type": {
           "name": "property_type",
-          "type": "text",
+          "type": "property_type",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": false
         },
@@ -441,6 +558,12 @@
         "total_monthly": {
           "name": "total_monthly",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "total_monthly_components": {
+          "name": "total_monthly_components",
+          "type": "text[]",
           "primaryKey": false,
           "notNull": false
         },
@@ -542,15 +665,43 @@
             }
           ],
           "isUnique": true,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
-        "listing_dedup_idx": {
-          "name": "listing_dedup_idx",
+        "listing_dedup_unit_idx": {
+          "name": "listing_dedup_unit_idx",
           "columns": [
             {
-              "expression": "address_uuid",
+              "expression": "unit_address_uuid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"listings\".\"address_match_level\" = 'unit'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "listing_dedup_access_idx": {
+          "name": "listing_dedup_access_idx",
+          "columns": [
+            {
+              "expression": "access_address_uuid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "size_m2",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "rooms",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -563,9 +714,32 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "where": "\"listings\".\"address_match_level\" = 'access'",
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
+        },
+        "listing_full_economy_idx": {
+          "name": "listing_full_economy_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "total_monthly",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"listings\".\"total_monthly\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         },
         "listing_fresh_idx": {
           "name": "listing_fresh_idx",
@@ -584,9 +758,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "listing_geo_idx": {
           "name": "listing_geo_idx",
@@ -605,43 +779,52 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "listings_source_id_sources_id_fk": {
           "name": "listings_source_id_sources_id_fk",
           "tableFrom": "listings",
+          "tableTo": "sources",
           "columnsFrom": [
             "source_id"
           ],
-          "tableTo": "sources",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "listings_landlord_id_users_id_fk": {
           "name": "listings_landlord_id_users_id_fk",
           "tableFrom": "listings",
+          "tableTo": "users",
           "columnsFrom": [
             "landlord_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "listing_total_monthly_honest": {
+          "name": "listing_total_monthly_honest",
+          "value": "\n    \"listings\".\"total_monthly\" is null\n    or (\"listings\".\"rent_monthly\" is not null\n        and cardinality(\"listings\".\"total_monthly_components\") > 0)"
+        },
+        "listing_address_level_honest": {
+          "name": "listing_address_level_honest",
+          "value": "\n    (\"listings\".\"address_match_level\" = 'unit' and \"listings\".\"unit_address_uuid\" is not null)\n    or (\"listings\".\"address_match_level\" = 'access' and \"listings\".\"access_address_uuid\" is not null)\n    or \"listings\".\"address_match_level\" = 'failed'"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.messages": {
@@ -705,37 +888,37 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "messages_conversation_id_conversations_id_fk": {
           "name": "messages_conversation_id_conversations_id_fk",
           "tableFrom": "messages",
+          "tableTo": "conversations",
           "columnsFrom": [
             "conversation_id"
           ],
-          "tableTo": "conversations",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "messages_sender_id_users_id_fk": {
           "name": "messages_sender_id_users_id_fk",
           "tableFrom": "messages",
+          "tableTo": "users",
           "columnsFrom": [
             "sender_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -806,24 +989,24 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "saved_searches_user_id_users_id_fk": {
           "name": "saved_searches_user_id_users_id_fk",
           "tableFrom": "saved_searches",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -875,18 +1058,6 @@
           "notNull": true,
           "default": true
         },
-        "last_run_at": {
-          "name": "last_run_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_run_count": {
-          "name": "last_run_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -901,10 +1072,10 @@
       "uniqueConstraints": {
         "sources_slug_unique": {
           "name": "sources_slug_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "slug"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -974,34 +1145,34 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "subscriptions_user_id_users_id_fk": {
           "name": "subscriptions_user_id_users_id_fk",
           "tableFrom": "subscriptions",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "subscriptions_stripe_subscription_id_unique": {
           "name": "subscriptions_stripe_subscription_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "stripe_subscription_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -1059,10 +1230,10 @@
       "uniqueConstraints": {
         "users_email_unique": {
           "name": "users_email_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "email"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -1071,12 +1242,42 @@
     }
   },
   "enums": {
+    "public.address_match_level": {
+      "name": "address_match_level",
+      "schema": "public",
+      "values": [
+        "unit",
+        "access",
+        "failed"
+      ]
+    },
+    "public.crawl_run_status": {
+      "name": "crawl_run_status",
+      "schema": "public",
+      "values": [
+        "running",
+        "ok",
+        "failed"
+      ]
+    },
     "public.listing_status": {
       "name": "listing_status",
       "schema": "public",
       "values": [
         "active",
         "delisted"
+      ]
+    },
+    "public.property_type": {
+      "name": "property_type",
+      "schema": "public",
+      "values": [
+        "lejlighed",
+        "hus",
+        "raekkehus",
+        "vaerelse",
+        "studiebolig",
+        "andet"
       ]
     },
     "public.source_type": {
@@ -1110,10 +1311,10 @@
     }
   },
   "schemas": {},
-  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
+  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},

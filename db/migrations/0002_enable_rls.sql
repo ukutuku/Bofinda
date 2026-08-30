@@ -11,12 +11,12 @@
 --  uden om RLS. anon og authenticated faar dermed adgang til ingenting
 --  gennem PostgREST, hvilket er praecis det, vi vil.
 --
---  Skal en tabel senere laeses direkte fra browseren, skrives en
---  politik til netop den tabel og netop de kolonner. Aldrig ved at slaa
---  RLS fra.
+--  Skal en tabel senere laeses direkte fra browseren, skrives en politik
+--  til netop den tabel og netop de kolonner. Aldrig ved at slaa RLS fra.
 -- ═══════════════════════════════════════════════════════════════
 
 alter table "sources"        enable row level security;
+alter table "crawl_runs"     enable row level security;
 alter table "users"          enable row level security;
 alter table "subscriptions"  enable row level security;
 alter table "listings"       enable row level security;
@@ -26,6 +26,5 @@ alter table "favorites"      enable row level security;
 alter table "conversations"  enable row level security;
 alter table "messages"       enable row level security;
 
--- Ingen skal kunne naa tabellerne gennem PostgREST-rollerne.
 revoke all on all tables    in schema public from anon, authenticated;
 revoke all on all sequences in schema public from anon, authenticated;
