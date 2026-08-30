@@ -71,6 +71,62 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 - Al brugervendt tekst på dansk. Identifiers uden æøå.
 - Alle beløb i øre. Aldrig float.
 
+## Noterede kilder
+
+Beslutninger om enkeltkilder. Skrevet ned, fordi begrundelsen er dyrere at
+genfinde end at skrive ned — og fordi et fravalg uden begrundelse bliver
+lavet om af den næste, der kigger på tallene.
+
+### findbolig.nu — i brug, med allowlist
+
+`POST /api/search`, filtre i body'ens `filters`, ikke som query-parametre.
+Gyldige værdier fra `GET /api/search/suggestions/{tekst}`.
+
+Svaret blander `$type: "Property"` (ejendomme med venteliste) og
+`$type: "Residence"` (enkelte lejemål). Kun `Residence` er et lejemål.
+`totalResults` tæller på tværs af ejendomme og er **ikke** længden af
+`results` — pagineringen kører til `results` er tom.
+
+**Adapteren henter aldrig detaljesiden.** Søge-API'et giver hele objektet,
+så `discover()` cacher det og `extract()` læser fra cachen. Det er ikke en
+optimering, det er privatlivsgrænsen: det, vi ikke modtager, kan vi ikke
+komme til at gemme. Feltet `comment` med interne sagsbehandlernoter fandtes
+ikke i søge-API'ets svar (72 poster gennemgået), men allowlisten står, fordi
+det kan ændre sig uden varsel.
+
+Serveren sender ikke sit mellemcertifikat. Se `certs/`.
+
+### Propstep — fravalgt 30. august 2026
+
+Teknisk var den den bedste af de undersøgte: 692 lejemål i sitemap'et, ID i
+stien, `propertiesGridProps` med paginering, og `/_next/data/{buildId}/…json`
+med fuld økonomi. Platformen er en white-label af Rotation CRM, så adapteren
+ville formentlig kunne genbruges mod andre udlejere.
+
+**Fravalgt alligevel.** `__NEXT_DATA__` på en offentlig boligside serverer
+blandt andet `propertyGroup.contractBankAccount` (registreringsnummer,
+kontonummer, bank), `owner.emails`, `property.note` med fri intern tekst, et
+`application`-objekt og `statusHistory[].authorId`.
+
+Begrundelsen er ikke kun, at vi ikke må røre de felter — det klarer en
+allowlist. Det er, at **en kilde, der lækker den slags, er ustabil**. Den
+bliver lukket eller låst i det øjeblik nogen opdager det, og så står vi med
+en adapter, der pludselig ikke virker, og en dækning der falder uden varsel.
+At bygge oven på den er at bygge på noget, der skal laves om.
+
+Skulle den tages op igen: kontrollér først, om felterne stadig serveres.
+Er de væk, er indvendingen væk med dem.
+
+### Ikke undersøgt endnu
+
+Cepheus (tom robots.txt, intet sitemap), Lokalbolig (robots tillader
+`User-agent: *` og `Content-Signal: search=yes`, men sitemap svarer 502).
+
+### BoligPortal — må ikke bruges
+
+Deres robots.txt forbyder crawling udtrykkeligt på skrift. Kræver skriftlig
+aftale først. Se reglen ovenfor.
+
 ## Om projektet
 
 Bofinda samler ledige lejeboliger fra flere kilder, lader brugeren søge
