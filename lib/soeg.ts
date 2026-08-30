@@ -1,0 +1,126 @@
+// ═══════════════════════════════════════════════════════════════
+//  Soegningen. Ét sted, saa baade siden og et senere API spoerger ens.
+//
+//  Kontaktfelter hentes IKKE. Ikke fordi der staar noget i dem paa
+//  importerede boliger, men fordi den dag muren kommer, skal den staa i
+//  query'en — ikke i skabelonen.
+// ═══════════════════════════════════════════════════════════════
+
+import { and, asc, desc, eq, gte, ilike, inArray, lte, ne, sql } from 'drizzle-orm'
+import { db } from '../db/client'
+import { listings, sources } from '../db/schema'
+
+export interface Filtre {
+  by?: string
+  postnr?: string
+  prisMin?: number      // oere
+  prisMax?: number
+  vaerelserMin?: number
+  arealMin?: number
+  kilder?: string[]
+  fuldOekonomi?: boolean
+  sorter?: 'nyeste' | 'pris_op' | 'pris_ned' | 'areal_ned'
+}
+
+/** Alle fire aconto-poster kendt. Se erFuldOekonomi i normalize.ts. */
+const FULD = sql`${listings.totalMonthlyComponents} @> ARRAY['rent','heat','water','electricity']::text[]`
+
+function hvor(f: Filtre) {
+  const d = [
+    eq(listings.status, 'active'),
+    // En bolig uden adressematch ved vi ikke hvor ligger. Den vises ikke.
+    ne(listings.addressMatchLevel, 'failed'),
+  ]
+  if (f.by) d.push(ilike(listings.city, `%${f.by}%`))
+  if (f.postnr) d.push(eq(listings.postalCode, f.postnr))
+  if (f.prisMin != null) d.push(gte(listings.rentMonthly, f.prisMin))
+  if (f.prisMax != null) d.push(lte(listings.rentMonthly, f.prisMax))
+  if (f.vaerelserMin != null) d.push(gte(listings.rooms, f.vaerelserMin))
+  if (f.arealMin != null) d.push(gte(listings.sizeM2, f.arealMin))
+  if (f.kilder?.length) d.push(inArray(sources.slug, f.kilder))
+  if (f.fuldOekonomi) d.push(FULD)
+  return and(...d)
+}
+
+const ORDEN = {
+  nyeste: desc(listings.firstSeenAt),
+  pris_op: asc(listings.rentMonthly),
+  pris_ned: desc(listings.rentMonthly),
+  areal_ned: desc(listings.sizeM2),
+}
+
+export async function soeg(f: Filtre, graense = 200) {
+  return db
+    .select({
+      id: listings.id,
+      adresse: listings.addressRaw,
+      vej: listings.street,
+      husnr: listings.houseNumber,
+      etage: listings.floor,
+      doer: listings.door,
+      postnr: listings.postalCode,
+      by: listings.city,
+      type: listings.propertyType,
+      areal: listings.sizeM2,
+      vaerelser: listings.rooms,
+      ledigFra: listings.availableFrom,
+      leje: listings.rentMonthly,
+      varme: listings.utilitiesHeat,
+      vand: listings.utilitiesWater,
+      el: listings.utilitiesElectricity,
+      oevrig: listings.utilitiesOther,
+      total: listings.totalMonthly,
+      poster: listings.totalMonthlyComponents,
+      indflytning: listings.moveInCost,
+      ansoegning: listings.applicationType,
+      match: listings.addressMatchLevel,
+      foerstSet: listings.firstSeenAt,
+      hosKilden: listings.sourceCreatedAt,
+      url: listings.sourceUrl,
+      kilde: sources.slug,
+      kildeNavn: sources.name,
+      billeder: sql<number>`(select count(*)::int from listing_images i where i.listing_id = ${listings.id})`,
+    })
+    .from(listings)
+    .innerJoin(sources, eq(sources.id, listings.sourceId))
+    .where(hvor(f))
+    .orderBy(ORDEN[f.sorter ?? 'nyeste'])
+    .limit(graense)
+}
+
+export type Bolig = Awaited<ReturnType<typeof soeg>>[number]
+
+/** Tal til linjen over listen. Regnes paa samme filtre som listen. */
+export async function opsummering(f: Filtre) {
+  const [r] = await db
+    .select({
+      antal: sql<number>`count(*)::int`,
+      medTotal: sql<number>`count(${listings.totalMonthly})::int`,
+      medIndflytning: sql<number>`count(${listings.moveInCost})::int`,
+      fuld: sql<number>`count(*) filter (where ${FULD})::int`,
+      billigst: sql<number | null>`min(${listings.rentMonthly})`,
+      dyrest: sql<number | null>`max(${listings.rentMonthly})`,
+    })
+    .from(listings)
+    .innerJoin(sources, eq(sources.id, listings.sourceId))
+    .where(hvor(f))
+  return r!
+}
+
+/** Byer og kilder til filterfelterne — kun dem der faktisk har boliger. */
+export async function facetter() {
+  const byer = await db
+    .select({ by: listings.city, postnr: listings.postalCode, antal: sql<number>`count(*)::int` })
+    .from(listings)
+    .where(and(eq(listings.status, 'active'), ne(listings.addressMatchLevel, 'failed')))
+    .groupBy(listings.city, listings.postalCode)
+    .orderBy(desc(sql`count(*)`))
+  const kilder = await db
+    .select({ slug: sources.slug, navn: sources.name, antal: sql<number>`count(*)::int` })
+    .from(listings)
+    .innerJoin(sources, eq(sources.id, listings.sourceId))
+    .where(and(eq(listings.status, 'active'), ne(listings.addressMatchLevel, 'failed')))
+    .groupBy(sources.slug, sources.name)
+    .orderBy(desc(sql`count(*)`))
+  return { byer, kilder }
+}

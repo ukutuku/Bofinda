@@ -13,5 +13,10 @@ if (slug && !valgte.length) {
   process.exit(1)
 }
 
-for (const r of await koerAlle(valgte)) console.log(formatResultat(r))
+// Navngives en kilde udtrykkeligt, koeres den — ogsaa en testkilde.
+// Uden argument koeres kun de rigtige.
+const resultater = slug
+  ? [await (await import('../lib/ingest')).koerKilde(valgte[0]!.adapter, valgte[0]!.navn, { baseUrl: valgte[0]!.baseUrl })]
+  : await koerAlle(valgte)
+for (const r of resultater) console.log(formatResultat(r))
 await sql.end()

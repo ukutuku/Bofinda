@@ -22,11 +22,18 @@ export function formatResultat(r: KoerselsResultat): string {
 
 const sov = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-/** Koerer alle aktive kilder én gang. Én kildes fejl stopper ikke de andre. */
+/**
+ * Koerer alle aktive kilder én gang. Én kildes fejl stopper ikke de andre.
+ *
+ * Testkilder springes ALTID over her. De maa kun koere, naar nogen navngiver
+ * dem — `npm run import -- dummy`. Foer den regel blev testboliger blandet
+ * ind i de rigtige ved et almindeligt `npm run import`, og en testbolig til
+ * 4.200 kr staar i listen praecis som en rigtig.
+ */
 export async function koerAlle(kilder: Registreret[] = KILDER): Promise<KoerselsResultat[]> {
   const ud: KoerselsResultat[] = []
   for (const k of kilder) {
-    if (k.kunUdvikling && process.env.NODE_ENV === 'production') continue
+    if (k.kunUdvikling) continue
     try {
       ud.push(await koerKilde(k.adapter, k.navn, { baseUrl: k.baseUrl }))
     } catch (e) {

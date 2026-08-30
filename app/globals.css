@@ -1,0 +1,92 @@
+:root {
+  --bg: #fbfaf8;
+  --kort: #ffffff;
+  --tekst: #16181d;
+  --daempet: #6b7280;
+  --svag: #9aa1ac;
+  --linje: #e6e3dd;
+  --accent: #1f6f5c;
+  --accent-svag: #eaf3f0;
+  --advarsel: #8a5a00;
+  --advarsel-svag: #fdf4e3;
+  --radius: 10px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--tekst);
+  font: 15px/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; }
+.ramme { max-width: 1080px; margin: 0 auto; padding: 0 20px 64px; }
+
+header.top { border-bottom: 1px solid var(--linje); background: var(--kort); }
+header.top .ramme { padding: 18px 20px; display: flex; align-items: baseline; gap: 14px; }
+.maerke { font-size: 19px; font-weight: 650; letter-spacing: -0.02em; }
+.maerke span { color: var(--accent); }
+.undertitel { color: var(--daempet); font-size: 13px; }
+
+form.filtre {
+  background: var(--kort); border: 1px solid var(--linje); border-radius: var(--radius);
+  padding: 16px; margin: 22px 0 18px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 12px 14px;
+  align-items: end;
+}
+.felt { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.felt label { font-size: 11px; font-weight: 600; color: var(--daempet); text-transform: uppercase; letter-spacing: .04em; }
+.felt input, .felt select {
+  font: inherit; font-size: 14px; padding: 7px 9px;
+  border: 1px solid var(--linje); border-radius: 7px; background: #fff; color: inherit; width: 100%;
+}
+.felt input:focus, .felt select:focus { outline: 2px solid var(--accent-svag); border-color: var(--accent); }
+.afkryds { flex-direction: row; align-items: center; gap: 8px; }
+.afkryds input { width: auto; }
+.afkryds label { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--tekst); font-weight: 500; }
+.knapper { display: flex; gap: 8px; }
+button, .nulstil {
+  font: inherit; font-size: 14px; font-weight: 550; padding: 8px 15px; border-radius: 7px;
+  border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer;
+  text-decoration: none; display: inline-block; white-space: nowrap;
+}
+.nulstil { background: #fff; color: var(--daempet); border-color: var(--linje); }
+
+.optaelling { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline;
+  font-size: 13px; color: var(--daempet); margin-bottom: 14px; }
+.optaelling strong { color: var(--tekst); font-size: 15px; }
+
+.liste { display: flex; flex-direction: column; gap: 10px; }
+.kort {
+  background: var(--kort); border: 1px solid var(--linje); border-radius: var(--radius);
+  padding: 15px 17px; display: block; text-decoration: none;
+}
+.kort:hover { border-color: #cfcabf; }
+.kort .raek1 { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; }
+.adresse { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.sted { color: var(--daempet); font-size: 13px; margin-top: 1px; }
+.fakta { color: var(--daempet); font-size: 13px; margin-top: 7px; }
+.fakta b { color: var(--tekst); font-weight: 550; }
+
+.oekonomi { margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--linje);
+  display: flex; flex-wrap: wrap; gap: 4px 22px; align-items: baseline; }
+.leje { font-size: 17px; font-weight: 650; letter-spacing: -0.02em; }
+.leje small { font-size: 12px; font-weight: 500; color: var(--daempet); }
+.total { font-size: 13px; color: var(--daempet); }
+.total b { color: var(--tekst); font-weight: 600; }
+.ukendt { font-size: 12px; color: var(--advarsel); background: var(--advarsel-svag);
+  padding: 2px 8px; border-radius: 20px; }
+
+.maerkat { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 20px;
+  white-space: nowrap; letter-spacing: .01em; }
+.m-kilde { background: #f1efe9; color: var(--daempet); }
+.m-ny { background: var(--accent-svag); color: var(--accent); }
+.m-vent { background: var(--advarsel-svag); color: var(--advarsel); }
+.hoejre { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+
+.tom { background: var(--kort); border: 1px dashed var(--linje); border-radius: var(--radius);
+  padding: 44px 24px; text-align: center; color: var(--daempet); }
+.tom p { margin: 0 0 6px; }
+footer.bund { margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--linje);
+  color: var(--svag); font-size: 12px; }
+.afvig { font-size: 12px; color: var(--advarsel); margin-top: 3px; }

@@ -90,7 +90,7 @@ export function parsAdresse(raw: string): ParsetAdresse {
     const m = d.match(/^(st|stuen|kl|k(æ|ae)lder|\d{1,2})\.?\s*(?:sal)?\.?\s*([a-zæøå0-9.-]{1,6})?\.?$/i)
     if (m) {
       floor = normaliserEtage(m[1]!)
-      door = m[3] ? normaliserDoer(m[3]) : null
+      door = m[3] ? paenDoer(m[3]) : null
       break
     }
   }
@@ -117,7 +117,24 @@ export function normaliserEtage(s: string): string {
   return k.replace(/^0+/, '') || k
 }
 
-/** "t.v.", "TV", "venstre" -> "tv". Numre og bogstaver beholdes som de er. */
+/**
+ * Doeren som den GEMMES: smaa bogstaver, uden afsluttende punktum, og med
+ * de klassiske forkortelser ensrettet. Danske bogstaver bevares — "Dør2"
+ * bliver "dør2", ikke "doer2".
+ *
+ * Kanoniseringen (ae/oe/aa) hoerer til i noeglen, ikke i data. Blander man
+ * de to, ender kildens egen skrivemaade forvansket i basen.
+ */
+export function paenDoer(s: string): string {
+  const t = s.trim().toLowerCase().replace(/\.+$/, '')
+  const uden = t.replace(/[^a-z0-9æøå]/g, '')
+  if (uden === 'tv' || uden === 'venstre') return 'tv'
+  if (uden === 'th' || uden === 'højre' || uden === 'hoejre') return 'th'
+  if (uden === 'mf' || uden === 'midt' || uden === 'midtfor') return 'mf'
+  return t
+}
+
+/** "t.v.", "TV", "venstre" -> "tv". Til NOEGLEN — kanoniserer æøå. */
 export function normaliserDoer(s: string): string {
   const k = kanonisk(s)
   if (k === 'tv' || k === 'venstre') return 'tv'
