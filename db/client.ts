@@ -1,17 +1,17 @@
 // ═══════════════════════════════════════════════════════════════
-//  Databaseklient.
+//  Databaseklient — Supabase Postgres.
 //
-//  To vidt forskellige kaldere, to vidt forskellige indstillinger:
+//  To kaldere, to profiler:
 //
 //    Frontend  Vercel, serverless. Mange kortlivede processer, hver med
-//              sin egen pool. Gaar gennem PgBouncer. Pool paa 1.
-//    Worker    Railway, én lang proces. Gaar direkte paa Postgres over
-//              Railways private net. Pool paa 10.
+//              sin egen pool. Gaar gennem Supavisor i TRANSACTION mode
+//              (port 6543). Pool paa 1, prepared statements slaaet fra.
+//    Worker    Railway, én lang proces. Gaar paa session/direct (port
+//              5432). Pool paa 10, prepared statements slaaet til.
 //
-//  Applikationslags-pooling loeser IKKE serverless-problemet: hver
-//  lambda har sin egen pool, saa "max: 10" i tyve samtidige lambdaer er
-//  200 forbindelser mod en database der taaler 100. Poolen skal ligge
-//  UDEN for processerne. Derfor PgBouncer.
+//  Applikationslags-pooling loeser ikke serverless: hver lambda har sin
+//  egen pool. Poolen skal ligge uden for processerne — det er derfor
+//  frontenden skal gennem Supavisor og ikke paa direct.
 // ═══════════════════════════════════════════════════════════════
 
 import { drizzle } from 'drizzle-orm/postgres-js'
@@ -22,30 +22,32 @@ const isServerless = Boolean(process.env.VERCEL)
 
 function connectionString() {
   const url = isServerless
-    ? process.env.DATABASE_URL          // PgBouncer, offentlig TCP-proxy
-    : process.env.DATABASE_URL_DIRECT   // Postgres direkte, privat net
+    ? process.env.DATABASE_URL          // Supavisor transaction pooler, :6543
+    : process.env.DATABASE_URL_DIRECT   // session pooler eller direct, :5432
   if (!url) {
     throw new Error(
       isServerless
-        ? 'DATABASE_URL mangler (skal pege paa PgBouncer)'
-        : 'DATABASE_URL_DIRECT mangler (skal pege paa Postgres direkte)',
+        ? 'DATABASE_URL mangler (Supabase transaction pooler, port 6543)'
+        : 'DATABASE_URL_DIRECT mangler (Supabase session/direct, port 5432)',
     )
   }
   return url
 }
 
 export const sql = postgres(connectionString(), {
-  // Konservativt med vilje. Se README, afsnittet "Forbindelsesbudget".
+  // Konservativt med vilje. Se README, "Forbindelsesbudget".
   max: isServerless ? 1 : 10,
 
-  // PgBouncer i transaction mode kan ikke haandtere prepared statements:
-  // naeste transaktion lander maaske paa en anden server-forbindelse, og
-  // du faar "prepared statement does not exist". Skal vaere false her.
-  // Workeren koerer direkte og beholder dem — de er hurtigere.
+  // Transaction mode kan ikke haandtere prepared statements: naeste
+  // transaktion lander maaske paa en anden server-forbindelse, og den fejler
+  // med "prepared statement does not exist" — typisk foerst under belastning.
+  // Session/direct beholder dem, de er hurtigere.
   prepare: !isServerless,
 
-  // Slip forbindelsen hurtigt i serverless, saa PgBouncer kan genbruge
-  // den. Workeren maa gerne holde paa sine.
+  // Supabase kraever TLS. 'require' verificerer ikke certifikatkaeden, hvilket
+  // er det Supabase selv anbefaler til pooleren.
+  ssl: 'require',
+
   idle_timeout: isServerless ? 20 : 300,
   max_lifetime: 60 * 30,
   connect_timeout: 10,

@@ -9,89 +9,83 @@ Se `BRIEF.md` for produktet og `CLAUDE.md` for reglerne i mappen.
 
 ## Topologi
 
-Alt undtagen frontenden ligger på Railway.
+Databasen ligger på Supabase. Railway beholdes udelukkende til
+scraper-workeren.
 
 ```
-                       ┌─────────────────────────────────────┐
-                       │  Railway-projekt                    │
-   Vercel              │                                     │
-   (serverless)        │   ┌───────────┐   privat net        │
-   ┌──────────┐        │   │ PgBouncer │──────────┐          │
-   │ Next.js  │───TCP──┼──▶│  :6432    │          ▼          │
-   │ frontend │  proxy │   │ transaction│    ┌──────────┐    │
-   └──────────┘        │   └───────────┘    │ Postgres │    │
-                       │                     │  :5432   │    │
-                       │   ┌───────────┐     └──────────┘    │
-                       │   │  worker   │──────────▲          │
-                       │   │ (scraper) │  direkte, privat net│
-                       │   └───────────┘                     │
-                       └─────────────────────────────────────┘
+   Vercel                    Supabase
+   ┌──────────┐              ┌─────────────────────────┐
+   │ Next.js  │──── :6543 ──▶│ Supavisor               │
+   │ frontend │  transaction │  transaction mode       │
+   └──────────┘              │         │               │
+                             │         ▼               │
+   Railway                   │   ┌───────────┐         │
+   ┌──────────┐              │   │ Postgres  │         │
+   │  worker  │──── :5432 ──▶│   │           │         │
+   │ (scraper)│ session/direct   └───────────┘         │
+   └──────────┘              └─────────────────────────┘
 ```
 
-Workeren går **uden om** PgBouncer. Den er én lang proces med sin egen
-pool, den har ingen brug for multipleksering, og direkte forbindelser
-lader den beholde prepared statements.
-
-## Hvorfor PgBouncer og ikke bare pooling i appen
-
-Applikationslags-pooling løser ikke serverless. Hver Vercel-lambda er sin
-egen proces med sin egen pool — `max: 10` i tyve samtidige lambdaer er 200
-forbindelser mod en Railway-Postgres, der som standard tager omkring 100.
-Poolen skal ligge **uden for** processerne.
-
-Derfor: PgBouncer i transaction mode foran, og `max: 1` inde i hver
-lambda. Lambdaerne får en billig klientforbindelse hver; PgBouncer
-multiplekser dem ned på tyve rigtige server-forbindelser.
-
-## Forbindelsesbudget
-
-Tjek først hvad du faktisk har:
-
-```sql
-SHOW max_connections;
-SHOW superuser_reserved_connections;
-```
-
-Railway leverer typisk 100. Med tre reserveret til superuser er der 97 at
-gøre godt med:
-
-| Forbruger | Server-forbindelser |
-|---|---:|
-| PgBouncer (`DEFAULT_POOL_SIZE`) | 20 |
-| Worker (`max: 10`) | 10 |
-| `drizzle-kit`, psql, ad hoc | 5 |
-| **I alt** | **35** |
-| Hovedrum | 62 |
-
-Frontenden tæller ikke med: den rammer PgBouncers `MAX_CLIENT_CONN` (500),
-ikke Postgres. 500 samtidige lambdaer på 20 server-forbindelser.
-
-Rykker tallene sig, er `DEFAULT_POOL_SIZE` den knap, der skal drejes på —
-ikke `max` i Drizzle-klienten.
+Supavisor er indbygget, så der skal ikke køre en pooler-service nogen
+steder. Workeren går uden om den: den er én lang proces med sin egen
+pool, den har intet at multiplekse, og session/direct lader den beholde
+prepared statements.
 
 ## To connection strings, og de er ikke ombyttelige
 
-| Variabel | Peger på | Bruges af |
-|---|---|---|
-| `DATABASE_URL` | PgBouncer, offentlig TCP-proxy `:6432` | Vercel-frontenden |
-| `DATABASE_URL_DIRECT` | Postgres, `postgres.railway.internal:5432` | Workeren og `drizzle-kit` |
+| Variabel | Port | Peger på | Bruges af |
+|---|---|---|---|
+| `DATABASE_URL` | 6543 | Supavisor, transaction mode | Vercel-frontenden |
+| `DATABASE_URL_DIRECT` | 5432 | Session pooler eller direct | Worker og `drizzle-kit` |
 
 **Migrationer skal køre på `DATABASE_URL_DIRECT`.** DDL og advisory locks
-kræver en session, og transaction pooling giver en tilfældig
+kræver en session, og transaction mode giver en tilfældig
 server-forbindelse per transaktion. `drizzle.config.ts` peger derfor
-bevidst på den direkte URL.
+bevidst på 5432.
+
+Direct connection (`db.<ref>.supabase.co:5432`) er IPv6-only på nye
+Supabase-projekter. Virker din maskine eller Railway ikke på IPv6, så tag
+**session pooleren** på port 5432 i stedet — den er IPv4 og kan lige så
+godt holde en session.
 
 ## Faldgruben: prepared statements
 
-`postgres.js` bruger prepared statements som standard. Bag PgBouncer i
+`postgres.js` bruger prepared statements som standard. Bag Supavisor i
 transaction mode lander næste transaktion måske på en anden
 server-forbindelse, og så fejler den med *"prepared statement does not
 exist"* — typisk først under belastning, hvilket gør den ubehagelig at
 finde.
 
 `db/client.ts` sætter derfor `prepare: false`, når koden kører på Vercel,
-og lader dem være slået til i workeren. Bliver det nogensinde ét flag for
-begge, skal det være `false`.
+og lader dem være slået til i workeren.
+
+## RLS er ikke valgfrit her
+
+Supabase eksponerer `public`-skemaet gennem PostgREST. En tabel uden RLS
+kan læses af enhver med den offentlige publishable-nøgle — også
+`listings.contact_email`, som er præcis det, betalingsmuren sælger.
+
+Migration `0001_enable_rls.sql` slår RLS til på samtlige tabeller og
+opretter med vilje **ingen** politikker: Bofinda taler med databasen over
+en almindelig Postgres-forbindelse som ejer-rollen, og den går uden om
+RLS. `anon` og `authenticated` får dermed adgang til ingenting.
+
+Ny tabel skal have `enable row level security` i samme migration.
+
+## Forbindelsesbudget
+
+Tallene afhænger af Supabase-planen. Slå dem op under
+**Project Settings → Database**, og fordel dem sådan:
+
+| Forbruger | Går på | Forbindelser |
+|---|---|---:|
+| Vercel-lambdaer | Supavisor `:6543` | 1 hver, mange klienter |
+| Worker på Railway | `:5432` | 10 |
+| `drizzle-kit`, psql, ad hoc | `:5432` | 5 |
+
+Frontenden tæller mod Supavisors klientgrænse, ikke mod Postgres'
+`max_connections`. Rykker tallene sig, er pool size i Supabase-dashboardet
+knappen der skal drejes på — ikke `max` i Drizzle-klienten.
 
 ## Kom i gang
 

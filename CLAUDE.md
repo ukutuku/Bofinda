@@ -19,10 +19,17 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   strukturerede felter. Fakta er frie, prosa er ikke.
 - **Kopiér aldrig kildens billeder.** Gem `external_url`, servér gennem
   signeret proxy.
-- **Migrationer må aldrig køre gennem PgBouncer.** `drizzle-kit` bruger
-  `DATABASE_URL_DIRECT`. Transaction pooling kan ikke holde en session.
+- **Slå aldrig Row Level Security fra.** Supabase eksponerer `public` gennem
+  PostgREST; en tabel uden RLS kan læses med den offentlige nøgle, og så er
+  betalingsmuren pynt. Ny tabel = `enable row level security` i samme
+  migration. Fejler et kald, er det politikken der er forkert — ikke RLS.
+- **Secret-nøglen (tidl. `service_role`) må aldrig i frontend.** Kun den
+  offentlige publishable-nøgle når browseren.
+- **Migrationer må aldrig køre gennem transaction pooleren (:6543).**
+  `drizzle-kit` bruger `DATABASE_URL_DIRECT` på 5432. Transaction mode kan
+  ikke holde en session, og DDL kræver en.
 - **`prepare: false` når koden kører på Vercel.** Prepared statements bag
-  PgBouncer i transaction mode fejler først under belastning.
+  Supavisor i transaction mode fejler først under belastning.
 - **Betalingsmuren håndhæves server-side**, i selve query'en. Aldrig ved at
   skjule et felt i klienten.
 - **BoligPortal er ikke en kilde.** Deres robots.txt forbyder crawling
@@ -35,7 +42,7 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 - Normalisering, adressevask, dedup og upsert ligger centralt i `lib/`,
   ikke i adapteren. En ny kilde er én fil i `adapters/`.
 - Maks 1 request/sekund per domæne. Backoff på 429 og 503.
-- Databasen og workeren ligger på Railway, frontenden på Vercel.
+- Databasen ligger på Supabase, workeren på Railway, frontenden på Vercel.
   Se README for topologi og forbindelsesbudget.
 - Al brugervendt tekst på dansk. Identifiers uden æøå.
 - Alle beløb i øre. Aldrig float.

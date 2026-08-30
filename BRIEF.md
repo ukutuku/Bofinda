@@ -8,8 +8,14 @@ Differentiator: hastighed (nye boliger inden for minutter) og fuld økonomi
 ## Stack
 
 - Next.js 15 (App Router) + TypeScript, Vercel
-- Postgres (Neon eller Supabase) + Drizzle ORM
-- Worker: separat proces (Hetzner + BullMQ + Redis, eller Inngest).
+- Supabase Postgres + Drizzle ORM. Pooling er indbygget (Supavisor):
+  transaction mode pa 6543 til serverless, session/direct pa 5432 til
+  migrationer og worker.
+- Supabase Auth. Erstatter den auth, fase 0 oprindeligt lagde op til —
+  vi bygger ikke vores egen. Bemaerk at `users`-tabellen i skemaet dermed
+  skal binde til `auth.users`, ikke eje adgangskoder selv.
+- Worker: separat proces pa Railway. Railway beholdes udelukkende til
+  denne — databasen ligger pa Supabase.
   **Importerne kan ikke køre på Vercel** — serverless timeout er sekunder,
   en discovery-kørsel tager minutter. Byg worker fra dag ét.
 - Stripe Billing til abonnementer
@@ -44,6 +50,11 @@ tone på tværs af alle kilder.
 `is_blurred` afgør i API-laget om kontaktfelter returneres.
 Aldrig klient-side. Nulstil felterne i selve query'en, ikke i UI.
 
+På Supabase er der et lag mere: `public`-skemaet eksponeres gennem
+PostgREST. En tabel uden RLS kan læses direkte med den offentlige
+nøgle, og så er muren ligegyldig, uanset hvad API-laget gør.
+RLS skal være slået til på hver eneste tabel.
+
 ### 6. Manglende felter forbliver tomme
 Fandt adapteren ikke et billede, indsættes ingen placeholder. Fandt den
 ikke arealet, står feltet null og vises ikke. Udfyld aldrig et manglende
@@ -77,7 +88,8 @@ går via deres udlejningsafdeling.
 ## Byggerækkefølge
 
 **Fase 0 — fundament (2-3 dage)**
-Repo, Neon-database, Drizzle-skema, auth, deploy, domæne, mail.
+Repo, Supabase-projekt, Drizzle-skema, RLS pa alle tabeller,
+Supabase Auth, deploy, domæne, mail.
 
 **Fase 1 — forsyning (5-7 dage)**
 Adapter-kontrakt, tre kilder, discovery/extract/normalize, adressevask
