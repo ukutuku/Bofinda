@@ -182,14 +182,20 @@ function laesResidence(raw: Ukendt): RawListing | null {
   // Kilden oplyser én samlet aconto OG en delvis opdeling. Resten er reel
   // udgift, som bare ikke er specificeret — den skal med i totalen, ellers
   // undervurderer vi det, lejeren betaler.
+  let varmeUd = varmeO, vandUd = vandO, elUd = elO
   let restO: number | undefined
   if (acontoOere != null) {
     const specificeret = (varmeO ?? 0) + (vandO ?? 0) + (elO ?? 0)
     const rest = acontoOere - specificeret
-    // Negativ rest betyder, at opdelingen ikke stemmer med totalen. Saa er
-    // der noget vi ikke forstaar, og saa gaetter vi ikke.
-    if (rest > 0) restO = rest
-    else if (rest < 0) return null
+    if (rest > 0) {
+      restO = rest
+    } else if (rest < 0) {
+      // Opdelingen overstiger kildens egen aconto-total. Saa forstaar vi ikke
+      // tallene, og saa oplyser vi ingen oekonomi ud over huslejen — boligen
+      // beholdes, men uden en total vi ikke kan staa inde for.
+      varmeUd = vandUd = elUd = undefined
+      restO = undefined
+    }
   }
 
   // Indflytningspris = leje x (depositum + forudbetalt + foerste maaned)
@@ -217,9 +223,9 @@ function laesResidence(raw: Ukendt): RawListing | null {
     propertyType: boligtype,
     availableFrom,
     rentMonthly: rentOere,
-    utilitiesHeat: varmeO,
-    utilitiesWater: vandO,
-    utilitiesElectricity: elO,
+    utilitiesHeat: varmeUd,
+    utilitiesWater: vandUd,
+    utilitiesElectricity: elUd,
     utilitiesOther: restO,
     moveInCost,
     lat: latitude,
