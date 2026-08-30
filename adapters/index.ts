@@ -13,9 +13,17 @@ export interface Registreret {
   kunUdvikling?: boolean
 }
 
-// Startfilteret. Sat til ét postnummer, mens kilden koeres ind — udvides,
-// naar en fuld koersel har vaeret stabil.
-const FINDBOLIG_FILTER = { PostalCodeAndPostalCodeName: ['2300 København S'] }
+// Postnummer-begraensning under indkoering. Tom = fuld daekning.
+//   PROPSTEP_POSTNR=2300           kun ét postnummer
+//   FINDBOLIG_OMRAADE='2300 København S'
+// Vaerdierne til findbolig skal matche GET /api/search/suggestions/{tekst}.
+const liste = (v: string | undefined) =>
+  v?.split(',').map((x) => x.trim()).filter(Boolean)
+
+const FINDBOLIG_OMRAADE = liste(process.env.FINDBOLIG_OMRAADE)
+const FINDBOLIG_FILTER: Record<string, string[]> = FINDBOLIG_OMRAADE
+  ? { PostalCodeAndPostalCodeName: FINDBOLIG_OMRAADE }
+  : {}
 
 export const KILDER: Registreret[] = [
   {
@@ -24,7 +32,7 @@ export const KILDER: Registreret[] = [
     baseUrl: 'https://findbolig.nu',
   },
   {
-    adapter: propstepAdapter({ postalCodes: ['2300'] }),
+    adapter: propstepAdapter({ postalCodes: liste(process.env.PROPSTEP_POSTNR) }),
     navn: 'Propstep',
     baseUrl: 'https://propstep.com',
   },
