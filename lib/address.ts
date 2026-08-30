@@ -24,9 +24,14 @@
  *  Praefikset er den eneste maade at kende dem fra rigtige DAR-UUID'er,
  *  naar de en dag ligger side om side i samme kolonne:
  *      update listings set ... where unit_address_uuid like 'intern:v1:%'
- *  Versionsnummeret skal haeves, hvis normaliseringen aendres — ellers
- *  aendrer gamle raekker gruppe uden at blive skrevet om. */
-export const INTERN_PRAEFIKS = 'intern:v1:'
+ *  Versionsnummeret skal haeves, hvis noeglen dannes anderledes — ogsaa naar
+ *  det skyldes bedre parsning og ikke aendret normalisering. Ellers aendrer
+ *  gamle raekker gruppe uden at blive skrevet om, og man kan ikke se hvilke.
+ *
+ *  v1 -> v2 (31. aug. 2026): parsningen laeser nu etage og doer, ogsaa naar
+ *  de staar uden komma efter husnummeret. 111 af 686 Propstep-adresser fik
+ *  foer enten intet husnummer eller etagen med i vejnavnet. */
+export const INTERN_PRAEFIKS = 'intern:v2:'
 
 export const erInternNoegle = (n: string | null): boolean =>
   n != null && n.startsWith(INTERN_PRAEFIKS)
@@ -79,14 +84,21 @@ export function parsAdresse(raw: string): ParsetAdresse {
   const foran = (post ? raw.slice(0, post.index) : raw).replace(/,\s*$/, '').trim()
   const dele = foran.split(',').map((d) => d.trim()).filter(Boolean)
 
+  // Etage og doer staar IKKE altid efter et komma. Nogle kilder skriver
+  //   "Marielundvej 47E st. th., 2730 Herlev"
+  //   "Honningvaenget 85 2. 3, 8381 Tilst"
+  // hvor alt staar i samme del. Uden det her bliver etagen en del af
+  // vejnavnet, eller doeren bliver laest som husnummer.
   const vejDel = dele[0] ?? ''
-  const vej = vejDel.match(/^(.*?)\s+(\d+\s*[A-Za-z]?)$/)
+  const vej = vejDel.match(/^(.*?)\s+(\d+\s*[A-Za-z]?)(?:\s+(.+))?$/)
   const street = vej ? vej[1]!.trim() : (vejDel || null)
   const houseNumber = vej ? vej[2]!.replace(/\s+/g, '').toUpperCase() : null
+  const restEfterHusnr = vej?.[3]?.trim()
 
   let floor: string | null = null
   let door: string | null = null
-  for (const d of dele.slice(1)) {
+  // Baade det der stod efter husnummeret og det der stod efter et komma.
+  for (const d of [restEfterHusnr, ...dele.slice(1)].filter((x): x is string => !!x)) {
     const m = d.match(/^(st|stuen|kl|k(æ|ae)lder|\d{1,2})\.?\s*(?:sal)?\.?\s*([a-zæøå0-9.-]{1,6})?\.?$/i)
     if (m) {
       floor = normaliserEtage(m[1]!)

@@ -57,9 +57,10 @@ const bool = (v: unknown): boolean | undefined =>
   typeof v === 'boolean' ? v : undefined
 
 /** Verificerede propertyDetails.type. Ukendte giver null — vi gaetter ikke.
- *  1 er efterset mod den rendrede side ("Lejlighed"). i18n har ogsaa
- *  TypeTownhouse og TypeHouse, men hvilke tal de har, er ikke bekraeftet. */
-const BOLIGTYPER: Record<number, string> = { 1: 'Lejlighed' }
+ *  Begge er eftersete mod den rendrede side: 1 = "Lejlighed", 2 = "Raekkehus"
+ *  (bekraeftet paa fire uafhaengige boliger). i18n har ogsaa TypeHouse, men
+ *  hvilket tal den har, er ikke set endnu. */
+const BOLIGTYPER: Record<number, string> = { 1: 'Lejlighed', 2: 'Raekkehus' }
 const ukendteTyper = new Set<number>()
 
 /** utilitiesNew -> vores poster. Alt der ikke er varme/vand/el laegges
@@ -165,7 +166,12 @@ function laesBolig(property: Ukendt, gitter: GitterRaekke): RawListing | null {
 
   const typeNr = tal(pd['type'])
   const boligtype = typeNr != null ? BOLIGTYPER[typeNr] : undefined
-  if (typeNr != null && !boligtype) ukendteTyper.add(typeNr)
+  if (typeNr != null && !boligtype && !ukendteTyper.has(typeNr)) {
+    ukendteTyper.add(typeNr)
+    // Logges her, ikke i discover(): saettet fyldes foerst under extract.
+    console.warn(`  propstep: ukendt propertyDetails.type = ${typeNr} `
+      + `(boligtype sat til null). Efterse den rendrede side og udvid BOLIGTYPER.`)
+  }
 
   const amenities: string[] = []
   for (const [felt, navn] of FACILITETER) if (bool(pd[felt]) === true) amenities.push(navn)
