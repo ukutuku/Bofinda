@@ -179,14 +179,33 @@ export async function koerKilde(
   }
 
   // ── Afmeldning, med sikring ──────────────────────────────────────────
+  //
+  // Tre uafhaengige grunde til IKKE at afmelde. En kilde der pludselig
+  // leverer mindre, er langt oftere en knaekket parser end et tomt marked
+  // — og afmelder vi paa den, toemmer én daarlig eftermiddag hele basen.
+  //
+  // Bemaerk at de tre daekker forskellige nedbrud. Discovery kan virke
+  // perfekt, mens hvert eneste udtraek fejler (fx fordi adressevasken er
+  // nede). Saa er discovered_count helt normalt, ingenting blev skrevet,
+  // og en sikring der kun kiggede paa discovery ville afmelde alt.
   const median = await medianFund(kilde.id, 10)
+  const skrevet = nye + opdaterede
+  const fejlandel = fundne.length ? fejl / fundne.length : 0
+
+  const spring =
+    fundne.length > 0 && skrevet === 0
+      ? `intet kunne skrives: ${fundne.length} fundet, 0 skrevet, ${fejl} fejl`
+    : fejlandel > 0.2
+      ? `for mange udtraek fejlede: ${fejl} af ${fundne.length} `
+        + `(${Math.round(fejlandel * 100)} %, graensen er 20 %)`
+    : median != null && fundne.length < median * graense
+      ? `for faa fundet: ${fundne.length} mod en median paa ${median} `
+        + `(under ${Math.round(graense * 100)} %)`
+    : null
+
   let afmeldte = 0
-  if (median != null && fundne.length < median * graense) {
-    noter.push(
-      `AFMELDNING SPRUNGET OVER: fandt ${fundne.length}, median er ${median} `
-      + `(under ${Math.round(graense * 100)} %). Sandsynligvis knaekket parser, ikke tomt marked. `
-      + `${'Ingen boliger afmeldt.'}`,
-    )
+  if (spring) {
+    noter.push(`AFMELDNING SPRUNGET OVER — ${spring}. Ingen boliger afmeldt.`)
     return afslut({ fundet: fundne.length, nye, opdaterede, afmeldte: 0, fejl, status: 'failed', noter })
   }
 

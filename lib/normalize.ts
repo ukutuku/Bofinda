@@ -172,8 +172,8 @@ export interface NormaliseretBolig {
 }
 
 export async function normaliser(r: RawListing): Promise<NormaliseretBolig> {
-  const adr = await vaskAdresse(r.address)
-  // Kilden kan have et renere postnummer end vores parsning fandt.
+  // Kildens eget postnummer bruges som fallback, hvis strengen ikke bar det.
+  const adr = await vaskAdresse(r.address, { postalCode: r.postalCode })
   const postalCode = adr.postalCode ?? r.postalCode ?? null
 
   const propertyType = normaliserBoligtype(r.propertyType)

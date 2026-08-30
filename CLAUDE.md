@@ -41,6 +41,12 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 - Fase 1 er projektets port. Gå ikke videre, før én kørsel har været stabil.
 - Normalisering, adressevask, dedup og upsert ligger centralt i `lib/`,
   ikke i adapteren. En ny kilde er én fil i `adapters/`.
+- Adressenøgler fra `SimpelAdressevask` er **interne**, ikke DAR-UUID'er.
+  De bærer præfikset `intern:v1:`. Ændres normaliseringen, skal versionen
+  hæves — ellers skifter gamle rækker gruppe uden at blive skrevet om.
+- **Afmeldning skal altid gennem sikringen i `koerKilde`.** Tre grunde til
+  at springe over: intet skrevet, over 20 % fejlede udtræk, eller under
+  halvdelen af medianen. En knækket parser må aldrig tømme basen.
 - Maks 1 request/sekund per domæne. Backoff på 429 og 503.
 - Databasen ligger på Supabase, workeren på Railway, frontenden på Vercel.
   Se README for topologi og forbindelsesbudget.
