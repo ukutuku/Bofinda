@@ -160,5 +160,14 @@ To ting adskiller os fra Rentola og Bolivo: **hastighed** (nye boliger
 inden for minutter, drevet af `first_seen_at`) og **fuld økonomi**
 (indflytningspris og reel månedlig udgift, ikke bare husleje).
 
+**Fuld økonomi** betyder huslejen og samtlige aconto-poster, *udlejeren*
+opkræver. El indgår ikke i kravet: i dansk udlejning har lejeren normalt
+egen elmåler og egen aftale med elselskabet, så el er ikke udlejerens
+opkrævning. Opkræver en udlejer alligevel el aconto, tæller den med som
+enhver anden post — derfor bliver `utilities_electricity` i skemaet.
+Boligkortet siger "El afregnes direkte med elselskabet", men kun når vi har
+gjort rede for hele udlejerens aconto. Kender vi ikke totalen, ved vi heller
+ikke, om el mangler i opgørelsen eller ikke opkræves, og så siger vi intet.
+
 Begge løfter afhænger af, at data er ægte. Et estimeret areal eller et
 gættet aconto-beløb ødelægger dem begge.

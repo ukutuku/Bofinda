@@ -6,7 +6,7 @@
 //  query'en — ikke i skabelonen.
 // ═══════════════════════════════════════════════════════════════
 
-import { and, asc, desc, eq, gte, ilike, inArray, lte, ne, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, lte, ne, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { listings, sources } from '../db/schema'
 
@@ -22,8 +22,12 @@ export interface Filtre {
   sorter?: 'nyeste' | 'pris_op' | 'pris_ned' | 'areal_ned'
 }
 
-/** Alle fire aconto-poster kendt. Se erFuldOekonomi i normalize.ts. */
-const FULD = sql`${listings.totalMonthlyComponents} @> ARRAY['rent','heat','water','electricity']::text[]`
+/**
+ * Fuld oekonomi: huslejen og alle aconto-poster udlejeren opkraever.
+ * total_monthly saettes praecis naar det er tilfaeldet — se beregnTotal og
+ * erFuldOekonomi i normalize.ts. El indgaar ikke i kravet.
+ */
+const FULD = isNotNull(listings.totalMonthly)
 
 function hvor(f: Filtre) {
   const d = [

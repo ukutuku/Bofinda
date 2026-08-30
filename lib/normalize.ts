@@ -70,12 +70,20 @@ export function beregnTotal(r: RawListing): Total {
 }
 
 /**
- * "Fuld oekonomi" kraever husleje OG alle tre navngivne aconto-poster.
- * 'other' taeller ikke med: uspecificeret aconto kan indeholde hvad som helst,
- * og maa ikke kunne lyve en bolig op i den kategori, loeftet handler om.
+ * "Fuld oekonomi" = huslejen og samtlige aconto-poster, UDLEJEREN opkraever.
+ *
+ * El indgaar med vilje ikke i kravet. I dansk udlejning har lejeren normalt
+ * sin egen elmaaler og sin egen aftale med elselskabet — el er saa ikke
+ * udlejerens opkraevning, og at kraeve den ville goere loeftet umuligt at
+ * indfri. Opkraever udlejeren alligevel el aconto, taeller den med som
+ * enhver anden post.
+ *
+ * Kravet er derfor: husleje kendt, og mindst én aconto-post kendt. Vi kan
+ * ikke skelne "ingen aconto" fra "aconto ikke oplyst", saa en bolig med
+ * husleje alene regnes ikke som fuld.
  */
 export const erFuldOekonomi = (k: string[] | null): boolean =>
-  k != null && ['rent', 'heat', 'water', 'electricity'].every((n) => k.includes(n))
+  k != null && k.includes('rent') && k.some((n) => n !== 'rent')
 
 const MDR = ['januar','februar','marts','april','maj','juni',
              'juli','august','september','oktober','november','december']

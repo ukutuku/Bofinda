@@ -116,6 +116,11 @@ function Kort({ b }: { b: Bolig }) {
         ) : (
           <span className="ukendt">aconto ikke oplyst — samlet udgift ukendt</span>
         )}
+        {/* Kun naar vi har gjort rede for hele udlejerens aconto. Ellers ved
+            vi ikke, om el mangler i opgoerelsen eller ikke opkraeves. */}
+        {b.total != null && b.el == null && (
+          <div className="el">El afregnes direkte med elselskabet</div>
+        )}
         {b.indflytning != null && (
           <div className="total">indflytning <b>{kr(b.indflytning)} kr</b></div>
         )}
@@ -213,7 +218,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Sp>
         </div>
         <div className="felt afkryds">
           <input type="checkbox" id="fuld" name="fuld" value="1" defaultChecked={f.fuldOekonomi} />
-          <label htmlFor="fuld">Alle udgifter oplyst (inkl. el)</label>
+          <label htmlFor="fuld">Fuld økonomi kendt</label>
         </div>
         <div className="knapper">
           <button type="submit">Søg</button>
@@ -223,9 +228,8 @@ export default async function Side({ searchParams }: { searchParams: Promise<Sp>
 
       <div className="optaelling">
         <span><strong>{sum.antal}</strong> {sum.antal === 1 ? 'bolig' : 'boliger'}</span>
-        <span>{sum.medTotal} med samlet månedlig udgift</span>
+        <span>{sum.fuld} med fuld økonomi</span>
         <span>{sum.medIndflytning} med indflytningspris</span>
-        <span>{sum.fuld} med alle udgifter oplyst</span>
         {sum.billigst != null && sum.dyrest != null && (
           <span>{kr(sum.billigst)}–{kr(sum.dyrest)} kr/md</span>
         )}
