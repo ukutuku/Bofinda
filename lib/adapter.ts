@@ -1,0 +1,66 @@
+// ═══════════════════════════════════════════════════════════════
+//  Adapter-kontrakten.
+//  En ny kilde skal vaere EN fil i adapters/ — ikke en ombygning.
+//  Adapteren henter og laeser. Den normaliserer ikke, vasker ikke
+//  adresser og skriver ikke til databasen. Det ligger centralt.
+// ═══════════════════════════════════════════════════════════════
+
+/** Boligen som kilden praesenterer den. Ravarer, ikke faerdigvarer. */
+export interface RawListing {
+  /** Hash af kilde-URL. Stabil paa tvaers af koersler -> upsert, ikke duplikat. */
+  externalKey: string
+  sourceUrl: string
+
+  /** Kildens egen adressestreng. Vaskes centralt bagefter. */
+  address: string
+  postalCode?: string
+
+  sizeM2?: number
+  rooms?: number
+  propertyType?: string
+  availableFrom?: string        // ISO-dato
+
+  // Oekonomi. Alt i oere. Udelad feltet helt hvis kilden ikke oplyser det —
+  // et gaet her forplanter sig til totalMonthly og goer alarmerne upaalidelige.
+  rentMonthly?: number
+  utilitiesHeat?: number
+  utilitiesWater?: number
+  utilitiesElectricity?: number
+  moveInCost?: number
+
+  amenities?: string[]
+  /** Kildens egne billed-URL'er. Hotlinkes, kopieres aldrig. */
+  imageUrls: string[]
+}
+
+export interface DiscoveredListing {
+  externalKey: string
+  url: string
+}
+
+export interface SourceAdapter {
+  /** Skal matche sources.slug i databasen. */
+  id: string
+  sourceType: 'feed' | 'spider'
+  /** Domaene der rate-limites paa. Ét request/sekund per domaene. */
+  host: string
+
+  /** Find alle aktuelle boliger hos kilden. Kun noegle og URL. */
+  discover(): Promise<DiscoveredListing[]>
+
+  /** Hent én bolig. Kastes der, springes den bolig over — resten koerer videre. */
+  extract(url: string): Promise<RawListing>
+}
+
+/** Kilde-URL ind, stabil noegle ud. Samme URL giver altid samme noegle. */
+export async function keyFromUrl(url: string): Promise<string> {
+  const u = new URL(url)
+  // Sporingsparametre maa ikke aendre noeglen, ellers bliver alt en dublet.
+  for (const p of [...u.searchParams.keys()]) {
+    if (/^(utm_|fbclid|gclid|ref$)/i.test(p)) u.searchParams.delete(p)
+  }
+  u.hash = ''
+  const canonical = `${u.protocol}//${u.host}${u.pathname}${u.search}`
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical))
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 32)
+}
