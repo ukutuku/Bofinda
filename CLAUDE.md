@@ -96,26 +96,44 @@ det kan ændre sig uden varsel.
 
 Serveren sender ikke sit mellemcertifikat. Se `certs/`.
 
-### Propstep — fravalgt 30. august 2026
+### Propstep — i brug, med allowlist
 
-Teknisk var den den bedste af de undersøgte: 692 lejemål i sitemap'et, ID i
-stien, `propertiesGridProps` med paginering, og `/_next/data/{buildId}/…json`
-med fuld økonomi. Platformen er en white-label af Rotation CRM, så adapteren
-ville formentlig kunne genbruges mod andre udlejere.
+White-label af Rotation CRM. `__NEXT_DATA__` læses ud af HTML'en på to sider:
+`/da-DK/lejebolig?page=N` (søgegitteret, 29 sider à 24) og
+`/da-DK/bolig/{id}-{slug}` (økonomi og boligdetaljer).
 
-**Fravalgt alligevel.** `__NEXT_DATA__` på en offentlig boligside serverer
-blandt andet `propertyGroup.contractBankAccount` (registreringsnummer,
-kontonummer, bank), `owner.emails`, `property.note` med fri intern tekst, et
-`application`-objekt og `statusHistory[].authorId`.
+Der findes også `/_next/data/{buildId}/…json`. **Brug den ikke.** `buildId`
+skifter ved hver deploy, og en adapter, der skal gætte deres deploy-id,
+knækker stille. HTML'en koster ~100 kB ekstra og har ingen bevægelige dele.
 
-Begrundelsen er ikke kun, at vi ikke må røre de felter — det klarer en
-allowlist. Det er, at **en kilde, der lækker den slags, er ustabil**. Den
-bliver lukket eller låst i det øjeblik nogen opdager det, og så står vi med
-en adapter, der pludselig ikke virker, og en dækning der falder uden varsel.
-At bygge oven på den er at bygge på noget, der skal laves om.
+Beløb er allerede i mindste enhed — `transactionDetails.unit = 'cents'`.
+Er `unit` noget andet, forstår vi ikke tallene, og så oplyses ingen økonomi.
 
-Skulle den tages op igen: kontrollér først, om felterne stadig serveres.
-Er de væk, er indvendingen væk med dem.
+**Fravalgt 30. august, taget ind igen samme dag.** Baggrunden skal stå, for
+den kan blive relevant igen: `__NEXT_DATA__` på en offentlig boligside
+serverer også `propertyGroup.contractBankAccount`, `owner.emails`,
+`property.note`, `application` og `statusHistory[].authorId`. Ejeren har
+efterset én annonce: felterne findes i modellen, men står tomme, og
+`owner.emails` indeholder kun Propsteps egen firmamail. Det er altså tomme
+DTO-felter, ikke et læk. Vi har **ikke** scannet flere annoncer for at
+bekræfte det, og det er en bevidst beslutning.
+
+Indvendingen var aldrig, at vi kunne komme til at læse felterne — det
+forhindrer allowlisten. Den var, at en kilde, der lækker den slags, bliver
+lukket eller låst, når nogen opdager det, og så står vi med en adapter, der
+skal laves om. Den risiko er vurderet og accepteret.
+
+Discovery filtrerer på postnummer **i gitteret**, før nogen detaljeside
+hentes. Gitterobjektet har 19 felter, alle harmløse. Kun `extract()` rører
+detaljesiden, og kun `propertyOverview.property`.
+
+Aldrig: `note` · `owner` · `propertyGroup` · `application` ·
+`statusHistory` · `transactionStatusHistory` · `accountId` · `companyId` ·
+`ownerId` · `transactionId` · `settings`.
+
+Kun `propertyDetails.type = 1` er verificeret (renderer som "Lejlighed").
+Andre værdier giver `null` og logges — de gættes ikke, heller ikke ud fra
+rækkefølgen i deres i18n-nøgler.
 
 ### Ikke undersøgt endnu
 
