@@ -57,10 +57,10 @@ const bool = (v: unknown): boolean | undefined =>
   typeof v === 'boolean' ? v : undefined
 
 /** Verificerede propertyDetails.type. Ukendte giver null — vi gaetter ikke.
- *  Begge er eftersete mod den rendrede side: 1 = "Lejlighed", 2 = "Raekkehus"
- *  (bekraeftet paa fire uafhaengige boliger). i18n har ogsaa TypeHouse, men
- *  hvilket tal den har, er ikke set endnu. */
-const BOLIGTYPER: Record<number, string> = { 1: 'Lejlighed', 2: 'Raekkehus' }
+ *  Alle tre er eftersete mod den rendrede side, hver paa flere uafhaengige
+ *  boliger: 1 = "Lejlighed", 2 = "Raekkehus", 3 = "Hus". Dukker en fjerde op,
+ *  logger extract() den — gaet aldrig ud fra raekkefoelgen i deres i18n. */
+const BOLIGTYPER: Record<number, string> = { 1: 'Lejlighed', 2: 'Raekkehus', 3: 'Hus' }
 const ukendteTyper = new Set<number>()
 
 /** utilitiesNew -> vores poster. Alt der ikke er varme/vand/el laegges
