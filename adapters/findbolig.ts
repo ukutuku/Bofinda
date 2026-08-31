@@ -29,7 +29,10 @@ import { kronerTilOere } from '../lib/money'
 
 const ORIGIN = 'https://findbolig.nu'
 const API = `${ORIGIN}/api/search`
-const SIDESTOERRELSE = 50
+// Kilden har et loft paa hvor mange resultater den overhovedet udleverer.
+// Ti sider a 50 gav 141 boliger; én side a 500 gav 147. Stoerre sider naar
+// altsaa laengere ned OG koster faerre kald.
+const SIDESTOERRELSE = 200
 
 // ═══════════════════════════════════════════════════════════════
 //  ALLOWLIST — laes dette foer du roerer noget herunder.

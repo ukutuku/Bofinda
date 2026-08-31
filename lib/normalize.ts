@@ -222,8 +222,12 @@ export async function normaliser(r: RawListing): Promise<NormaliseretBolig> {
     lat: r.lat != null ? String(r.lat) : adr.lat,
     lng: r.lng != null ? String(r.lng) : adr.lng,
     propertyType,
-    sizeM2: r.sizeM2 ?? null,
-    rooms: r.rooms ?? null,
+    // Kilder oplyser areal med decimal (findbolig: "134.5"). Kolonnen er
+    // heltal, og et kvadratmeter-komma har ingen betydning for hverken
+    // soegning eller visning. Rundes centralt, saa ingen adapter skal huske
+    // det — og saa en decimal aldrig kan vaelte en hel raekke igen.
+    sizeM2: r.sizeM2 == null ? null : Math.round(r.sizeM2),
+    rooms: r.rooms == null ? null : Math.round(r.rooms),
     availableFrom: availableFrom && !isNaN(+availableFrom) ? availableFrom : null,
     rentMonthly: r.rentMonthly ?? null,
     utilitiesHeat: r.utilitiesHeat ?? null,
