@@ -9,12 +9,12 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "import": "NODE_EXTRA_CA_CERTS=./certs/rapidssl-tls-rsa-ca-g1.pem tsx --env-file=.env scripts/import.ts",
+    "import": "NODE_EXTRA_CA_CERTS=./certs/rapidssl-tls-rsa-ca-g1.pem tsx --env-file-if-exists=.env scripts/import.ts",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:tables": "node --env-file=.env scripts/tables.mjs",
-    "worker": "NODE_EXTRA_CA_CERTS=./certs/rapidssl-tls-rsa-ca-g1.pem tsx --env-file=.env scripts/worker.ts",
-    "puls": "node --env-file=.env scripts/puls.mjs"
+    "db:tables": "node --env-file-if-exists=.env scripts/tables.mjs",
+    "worker": "NODE_EXTRA_CA_CERTS=./certs/rapidssl-tls-rsa-ca-g1.pem tsx --env-file-if-exists=.env scripts/worker.ts",
+    "puls": "node --env-file-if-exists=.env scripts/puls.mjs"
   },
   "dependencies": {
     "next": "^15.0.0",
@@ -23,14 +23,17 @@
     "drizzle-orm": "^0.38.0",
     "postgres": "^3.4.0",
     "zod": "^3.23.0",
-    "cheerio": "^1.0.0"
+    "cheerio": "^1.0.0",
+    "tsx": "^4.19.0"
   },
   "devDependencies": {
     "typescript": "^5.6.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "drizzle-kit": "^0.30.0",
-    "tsx": "^4.19.0",
     "dotenv": "^16.4.0"
+  },
+  "engines": {
+    "node": ">=22.9"
   }
 }

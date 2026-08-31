@@ -106,3 +106,55 @@ npm run db:push             # kører den — mod DATABASE_URL_DIRECT
 
 Lokalt sættes `VERCEL` ikke, så klienten vælger worker-profilen og går på
 `DATABASE_URL_DIRECT`. Det er det rigtige til udvikling.
+
+---
+
+## Workeren på Railway
+
+Importen kører som en **cron-service**, ikke som en evigt kørende proces.
+Kørslen tager omkring fem minutter; en proces der sover de resterende 55
+koster containertid uden at lave noget, og hver cron-kørsel bliver sin egen
+aflæselige log i dashboardet.
+
+Servicen kører `npm run import`, som afslutter af sig selv.
+`restartPolicyType: NEVER` sikrer, at Railway ikke genstarter den i ring —
+cron-planen er det, der starter den igen.
+
+### Miljøvariabler i Railway-panelet
+
+| Variabel | Værdi | Hvorfor |
+|---|---|---|
+| `DATABASE_URL_DIRECT` | Supabase **session pooler**, port 5432 | Det eneste, workeren bruger. `VERCEL` er ikke sat, så `db/client.ts` vælger worker-profilen: pool på 10, prepared statements slået til. |
+| `ADDRESS_WASHER` | `simpel` | Indtil DAR er bygget. |
+| `CRAWLER_USER_AGENT` | `BofindaBot/1.0 (+https://bofinda.dk/bot; kontakt@bofinda.dk)` | Crawleren præsenterer sig altid. |
+| `CRAWLER_RATE_MS` | `1000` | Ét request i sekundet per domæne. |
+| `TZ` | `Europe/Copenhagen` | Så logtidspunkter kan læses uden hovedregning. |
+
+**Sæt ikke** `DATABASE_URL` — det er poolerens URL til Vercel-frontenden, og
+workeren skal netop uden om transaction-pooleren.
+
+**Sæt ikke** `PROPSTEP_POSTNR` eller `FINDBOLIG_OMRAADE` — tomme betyder
+fuld dækning.
+
+`NODE_EXTRA_CA_CERTS` sættes ikke i panelet: den står i `npm run import` og
+peger på `certs/rapidssl-tls-rsa-ca-g1.pem`, som er committet og følger med
+deployet. findbolig.nu sender ikke sit mellemcertifikat — uden det fejler
+kilden med `UNABLE_TO_VERIFY_LEAF_SIGNATURE`.
+
+### Cron-planen
+
+Sættes på servicen i Railway: **Settings → Cron Schedule → `0 * * * *`**
+(hver time, minut 0). Nøglen findes ikke pålideligt i `railway.json`, så den
+skal sættes i panelet.
+
+### Kontrol efter første kørsel
+
+Loggen skal vise to linjer som disse:
+
+    [findbolig] ✓ fandt 147 · 0 nye · 0 hentet igen · 147 bekræftet · 0 afmeldt · 0 fejl
+    [propstep]  ✓ fandt 692 · 0 nye · 60 hentet igen · 626 bekræftet · 0 afmeldt · 6 fejl
+
+De 6 fejl hos Propstep er 404 på ejendommen Kochsgade 21B: gitteret viser
+dem, detaljesiderne er væk. Kilden er ude af trit med sig selv.
+
+Bagefter lokalt: `npm run puls` — kørslerne skal fortsætte i samme takt.
