@@ -4,6 +4,11 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 
 ## Må aldrig ske
 
+- **En manglende oplysning skal være synlig, ikke fraværende.** Kender vi
+  ikke totalen, skriver kortet "Udlejer oplyser ikke aconto — spørg om varme
+  og vand." Vi kan ikke skelne "udlejer opkræver intet" fra "udlejer oplyser
+  intet", så vi påstår ingen af delene — vi siger, hvad brugeren skal spørge
+  om. Et gæt her ville love hende noget om hendes økonomi, som ikke holder.
 - **Opfind aldrig data.** Fandt adapteren ikke et billede, indsættes ingen
   placeholder. Fandt den ikke arealet, står feltet `null` og vises ikke.
   Ingen eksempelbilleder, ingen estimerede arealer, ingen opdigtede tal.

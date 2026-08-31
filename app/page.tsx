@@ -114,7 +114,13 @@ function Kort({ b }: { b: Bolig }) {
             <b>{kr(b.total)} kr/md</b> i alt — {['husleje', ...aconto].join(' + ')}
           </div>
         ) : (
-          <span className="ukendt">aconto ikke oplyst — samlet udgift ukendt</span>
+          /* Manglen skal vaere synlig for brugeren, ikke bare fravaerende.
+             Vi kan ikke skelne "udlejer opkraever intet" fra "udlejer oplyser
+             intet", saa vi paastaar ingen af delene — vi siger, hvad hun skal
+             spoerge om. */
+          <span className="ukendt">
+            Udlejer oplyser ikke aconto — spørg om varme og vand.
+          </span>
         )}
         {/* Kun naar vi har gjort rede for hele udlejerens aconto. Ellers ved
             vi ikke, om el mangler i opgoerelsen eller ikke opkraeves. */}

@@ -74,8 +74,8 @@ button, .nulstil {
 .leje small { font-size: 12px; font-weight: 500; color: var(--daempet); }
 .total { font-size: 13px; color: var(--daempet); }
 .total b { color: var(--tekst); font-weight: 600; }
-.ukendt { font-size: 12px; color: var(--advarsel); background: var(--advarsel-svag);
-  padding: 2px 8px; border-radius: 20px; }
+.ukendt { font-size: 12.5px; color: var(--advarsel); background: var(--advarsel-svag);
+  padding: 3px 10px; border-radius: 6px; }
 
 .maerkat { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 20px;
   white-space: nowrap; letter-spacing: .01em; }
