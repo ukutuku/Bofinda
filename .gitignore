@@ -7,3 +7,4 @@ node_modules/
 
 # harness-arbejdsmapper
 .claude/
+logs/

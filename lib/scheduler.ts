@@ -15,8 +15,8 @@ const INTERVAL_MS = Number(process.env.DISCOVERY_INTERVAL_MS ?? 15 * 60 * 1000)
 
 export function formatResultat(r: KoerselsResultat): string {
   const hoved = `[${r.kilde}] ${r.status === 'ok' ? '✓' : '✗'} `
-    + `fandt ${r.fundet} · ${r.nye} nye · ${r.opdaterede} opdateret `
-    + `· ${r.afmeldte} afmeldt · ${r.fejl} fejl`
+    + `fandt ${r.fundet} · ${r.nye} nye · ${r.opdaterede} hentet igen `
+    + `· ${r.bekraeftede} bekræftet · ${r.afmeldte} afmeldt · ${r.fejl} fejl`
   return r.noter.length ? `${hoved}\n${r.noter.map((n) => `    ${n}`).join('\n')}` : hoved
 }
 
@@ -38,8 +38,8 @@ export async function koerAlle(kilder: Registreret[] = KILDER): Promise<Koersels
       ud.push(await koerKilde(k.adapter, k.navn, { baseUrl: k.baseUrl }))
     } catch (e) {
       ud.push({
-        kilde: k.adapter.id, fundet: 0, nye: 0, opdaterede: 0, afmeldte: 0,
-        fejl: 1, status: 'failed', noter: [`uventet: ${(e as Error).message}`],
+        kilde: k.adapter.id, fundet: 0, nye: 0, opdaterede: 0, bekraeftede: 0,
+        afmeldte: 0, fejl: 1, status: 'failed', noter: [`uventet: ${(e as Error).message}`],
       })
     }
   }

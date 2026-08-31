@@ -11,7 +11,7 @@
 //  "ny bolig", og en genudlejning er ikke en ny bolig.
 // ═══════════════════════════════════════════════════════════════
 
-import { and, desc, eq, lt, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, lt, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { crawlRuns, listingImages, listings, sources } from '../db/schema'
 import type { SourceAdapter } from './adapter'
@@ -22,11 +22,26 @@ export interface KoerselsResultat {
   fundet: number
   nye: number
   opdaterede: number
+  /** Set i discovery, men ikke hentet igen. Kun last_seen_at flyttet. */
+  bekraeftede: number
   afmeldte: number
   fejl: number
   status: 'ok' | 'failed'
   noter: string[]
 }
+
+/**
+ * Hvor mange kendte boliger vi genopfrisker pr. koersel, og hvor gammel en
+ * hentning skal vaere foer den fornyes.
+ *
+ * Uden det her henter en timekoersel af Propstep 692 detaljesider hver time
+ * — 17.000 kald i doegnet mod en lille udlejerplatform. Med det henter vi
+ * discovery hver time (29 kald), nye boliger straks, og ruller resten
+ * igennem over et doegn. Loftet pr. koersel forhindrer samtidig, at alt
+ * forfalder paa én gang og giver et bjerg af kald i én time.
+ */
+const GENOPFRISK_EFTER_TIMER = 24
+const GENOPFRISK_PR_KOERSEL = 60
 
 /** Opretter kilden hvis den mangler, ellers holder navn og type ajour. */
 export async function sikreKilde(a: SourceAdapter, navn: string, baseUrl?: string) {
@@ -89,7 +104,7 @@ async function skrivBolig(
       amenities: b.amenities, description: b.description,
       // Importerede boliger har aldrig kontakt i basen. Muren staar ved kilden.
       contactEmail: null, contactPhone: null, isBlurred: true,
-      status: 'active', lastSeenAt: nu,
+      status: 'active', lastSeenAt: nu, lastFetchedAt: nu,
     })
     .onConflictDoUpdate({
       target: [listings.sourceId, listings.externalKey],
@@ -111,7 +126,7 @@ async function skrivBolig(
         amenities: b.amenities, description: b.description,
         // Dukker en afmeldt bolig op igen, er den ledig igen.
         status: 'active', delistedAt: null,
-        lastSeenAt: nu,
+        lastSeenAt: nu, lastFetchedAt: nu,
         // first_seen_at staar med vilje IKKE her.
       },
     })
@@ -158,6 +173,10 @@ export async function koerKilde(
       finishedAt: sql`now()`,
       discoveredCount: r.fundet,
       extractedCount: r.nye + r.opdaterede,
+      newCount: r.nye,
+      updatedCount: r.opdaterede,
+      touchedCount: r.bekraeftede,
+      delistedCount: r.afmeldte,
       errorCount: r.fejl,
       status: r.status,
       notes: r.noter.length ? r.noter.join('\n') : null,
@@ -170,11 +189,49 @@ export async function koerKilde(
     fundne = await adapter.discover()
   } catch (e) {
     noter.push(`discovery fejlede: ${(e as Error).message}`)
-    return afslut({ fundet: 0, nye: 0, opdaterede: 0, afmeldte: 0, fejl: 1, status: 'failed', noter })
+    return afslut({ fundet: 0, nye: 0, opdaterede: 0, bekraeftede: 0, afmeldte: 0, fejl: 1, status: 'failed', noter })
+  }
+
+  // ── Hvad skal hentes? ────────────────────────────────────────────────
+  // Kendte boliger hentes ikke igen hver gang. De faar last_seen_at flyttet,
+  // saa afmeldningen ved at de stadig findes, og hentes paa tur.
+  const kendte = new Map(
+    (await db.select({
+      key: listings.externalKey,
+      hentet: listings.lastFetchedAt,
+      status: listings.status,
+    }).from(listings).where(eq(listings.sourceId, kilde.id)))
+      .map((r) => [r.key, r]),
+  )
+
+  const forfaldenFoer = new Date(Date.now() - GENOPFRISK_EFTER_TIMER * 3600_000)
+  const skalHentes: typeof fundne = []
+  const bekraeftes: string[] = []
+  const forfaldne: { url: string; hentet: Date }[] = []
+
+  for (const f of fundne) {
+    const k = kendte.get(f.externalKey)
+    if (!k || k.status === 'delisted') {
+      // Ny, eller vendt tilbage efter afmeldning. Hentes altid.
+      skalHentes.push(f)
+    } else if (!k.hentet || k.hentet < forfaldenFoer) {
+      forfaldne.push({ url: f.url, hentet: k.hentet ?? new Date(0) })
+    } else {
+      bekraeftes.push(f.externalKey)
+    }
+  }
+
+  // AEldste foerst, saa alle kommer igennem over et doegn.
+  forfaldne.sort((a, b) => +a.hentet - +b.hentet)
+  for (const f of forfaldne.slice(0, GENOPFRISK_PR_KOERSEL)) {
+    skalHentes.push({ externalKey: '', url: f.url })
+  }
+  for (const f of forfaldne.slice(GENOPFRISK_PR_KOERSEL)) {
+    bekraeftes.push(fundne.find((x) => x.url === f.url)!.externalKey)
   }
 
   let nye = 0, opdaterede = 0, fejl = 0
-  for (const { url } of fundne) {
+  for (const { url } of skalHentes) {
     try {
       const raa = await adapter.extract(url)
       const b = await normaliser(raa)
@@ -184,6 +241,17 @@ export async function koerKilde(
       fejl++
       if (fejl <= 5) noter.push(`${url}: ${(e as Error).message}`)
     }
+  }
+
+  // Bekraeftede: kun last_seen_at flyttes. Ingen netvaerkskald.
+  let bekraeftede = 0
+  for (let i = 0; i < bekraeftes.length; i += 500) {
+    const batch = bekraeftes.slice(i, i + 500)
+    const r = await db.update(listings)
+      .set({ lastSeenAt: sql`now()`, status: 'active', delistedAt: null })
+      .where(and(eq(listings.sourceId, kilde.id), inArray(listings.externalKey, batch)))
+      .returning({ id: listings.id })
+    bekraeftede += r.length
   }
 
   // ── Afmeldning, med sikring ──────────────────────────────────────────
@@ -197,14 +265,14 @@ export async function koerKilde(
   // nede). Saa er discovered_count helt normalt, ingenting blev skrevet,
   // og en sikring der kun kiggede paa discovery ville afmelde alt.
   const median = await medianFund(kilde.id, 10)
-  const skrevet = nye + opdaterede
-  const fejlandel = fundne.length ? fejl / fundne.length : 0
+  const skrevet = nye + opdaterede + bekraeftede
+  const fejlandel = skalHentes.length ? fejl / skalHentes.length : 0
 
   const spring =
     fundne.length > 0 && skrevet === 0
       ? `intet kunne skrives: ${fundne.length} fundet, 0 skrevet, ${fejl} fejl`
     : fejlandel > 0.2
-      ? `for mange udtraek fejlede: ${fejl} af ${fundne.length} `
+      ? `for mange udtraek fejlede: ${fejl} af ${skalHentes.length} `
         + `(${Math.round(fejlandel * 100)} %, graensen er 20 %)`
     : median != null && fundne.length < median * graense
       ? `for faa fundet: ${fundne.length} mod en median paa ${median} `
@@ -214,7 +282,7 @@ export async function koerKilde(
   let afmeldte = 0
   if (spring) {
     noter.push(`AFMELDNING SPRUNGET OVER — ${spring}. Ingen boliger afmeldt.`)
-    return afslut({ fundet: fundne.length, nye, opdaterede, afmeldte: 0, fejl, status: 'failed', noter })
+    return afslut({ fundet: fundne.length, nye, opdaterede, bekraeftede, afmeldte: 0, fejl, status: 'failed', noter })
   }
 
   const afmeldt = await db.update(listings)
@@ -232,5 +300,5 @@ export async function koerKilde(
       + `${Math.round((1 - fundne.length / median) * 100)} %.`)
   }
 
-  return afslut({ fundet: fundne.length, nye, opdaterede, afmeldte, fejl, status: 'ok', noter })
+  return afslut({ fundet: fundne.length, nye, opdaterede, bekraeftede, afmeldte, fejl, status: 'ok', noter })
 }

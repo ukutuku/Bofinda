@@ -155,6 +155,10 @@ export const listings = pgTable('listings', {
   firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull().defaultNow(),
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
   delistedAt: timestamp('delisted_at', { withTimezone: true }),
+  // Sidst vi faktisk hentede detaljesiden. last_seen_at betyder kun "set i
+  // discovery". Adskillelsen er det, der goer inkrementel import mulig:
+  // vi kan bekraefte at boligen stadig findes uden at hente den igen.
+  lastFetchedAt: timestamp('last_fetched_at', { withTimezone: true }),
   viewCount: integer('view_count').notNull().default(0),
 }, (t) => ({
   sourceKeyIdx: uniqueIndex('listing_source_key_idx').on(t.sourceId, t.externalKey),
@@ -217,6 +221,11 @@ export const crawlRuns = pgTable('crawl_runs', {
   discoveredCount: integer('discovered_count'),
   // Antal boliger der faktisk kunne laeses og skrives.
   extractedCount: integer('extracted_count'),
+  newCount: integer('new_count'),
+  updatedCount: integer('updated_count'),
+  delistedCount: integer('delisted_count'),
+  // Set i discovery, men ikke hentet — kun last_seen_at flyttet.
+  touchedCount: integer('touched_count'),
   errorCount: integer('error_count').notNull().default(0),
   status: crawlRunStatusEnum('status').notNull().default('running'),
   // Fri tekst til drift: hvad der gik galt, hvilken side den stoppede paa.

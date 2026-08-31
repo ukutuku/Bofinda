@@ -77,6 +77,14 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   at springe over: intet skrevet, over 20 % fejlede udtræk, eller under
   halvdelen af medianen. En knækket parser må aldrig tømme basen.
 - Maks 1 request/sekund per domæne. Backoff på 429 og 503.
+- **Kendte boliger hentes ikke igen ved hver kørsel.** Discovery kører hver
+  time; detaljesiden hentes kun for nye boliger plus en rullende
+  genopfriskning (`GENOPFRISK_PR_KOERSEL`), så alt fornyes over et døgn.
+  Uden det ville en timekørsel af Propstep koste 17.000 kald i døgnet mod
+  en lille udlejerplatform. Boliger der kun bekræftes, får `last_seen_at`
+  flyttet — ellers ville afmeldningen tage dem.
+- `last_seen_at` = set i discovery. `last_fetched_at` = detaljesiden hentet.
+  Adskillelsen er det, der gør inkrementel import mulig.
 - Databasen ligger på Supabase, workeren på Railway, frontenden på Vercel.
   Se README for topologi og forbindelsesbudget.
 - Al brugervendt tekst på dansk. Identifiers uden æøå.
@@ -165,6 +173,20 @@ Cepheus (tom robots.txt, intet sitemap), Lokalbolig (robots tillader
 
 Deres robots.txt forbyder crawling udtrykkeligt på skrift. Kræver skriftlig
 aftale først. Se reglen ovenfor.
+
+## Den løbende import
+
+Kører som launchd-agent på ejerens Mac under indkøringen:
+
+    ~/Library/LaunchAgents/dk.bofinda.import.plist   → bin/import.sh, hver time
+    logs/import.log                                   → rå output pr. kørsel
+    npm run puls                                      → nye pr. døgn, forsinkelse, afmeldinger
+
+Stop den med `launchctl unload ~/Library/LaunchAgents/dk.bofinda.import.plist`.
+
+Det er en midlertidig placering. Produktionshjemmet er workeren på Railway —
+en Mac der sover, springer kørsler over, og det forfalsker netop de tal, vi
+måler på.
 
 ## Om projektet
 

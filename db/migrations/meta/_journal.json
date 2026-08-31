@@ -29,6 +29,13 @@
       "when": 1788122423729,
       "tag": "0003_findbolig_felter",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788158770017,
+      "tag": "0004_loebende_import",
+      "breakpoints": true
     }
   ]
 }
