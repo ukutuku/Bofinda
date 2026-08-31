@@ -176,16 +176,21 @@ aftale først. Se reglen ovenfor.
 
 ## Den løbende import
 
-Kører som launchd-agent på ejerens Mac under indkøringen:
+Under indkøringen kører den som en løsrevet proces på ejerens Mac:
 
-    ~/Library/LaunchAgents/dk.bofinda.import.plist   → bin/import.sh, hver time
-    logs/import.log                                   → rå output pr. kørsel
-    npm run puls                                      → nye pr. døgn, forsinkelse, afmeldinger
+    DISCOVERY_INTERVAL_MS=3600000 nohup npm run worker >> logs/worker.log 2>&1 &
+    npm run puls        → kørsler, nye pr. døgn, forsinkelse, afmeldinger
 
-Stop den med `launchctl unload ~/Library/LaunchAgents/dk.bofinda.import.plist`.
+Stop den med `pkill -f scripts/worker.ts`.
 
-Det er en midlertidig placering. Produktionshjemmet er workeren på Railway —
-en Mac der sover, springer kørsler over, og det forfalsker netop de tal, vi
+**Launchd virker ikke, når projektet ligger i `~/Desktop`.** macOS' TCC
+spærrer launchd-agenter fra Skrivebord, Dokumenter og Hentede filer:
+`/bin/bash: bin/import.sh: Operation not permitted`, exit 126. `bin/` har
+stadig `import.sh` og en plist, som virker, hvis projektet flyttes uden for
+de beskyttede mapper.
+
+Begge dele er midlertidige. Produktionshjemmet er workeren på Railway. En
+Mac der sover, springer kørsler over — og det forfalsker præcis de tal, vi
 måler på.
 
 ## Om projektet
