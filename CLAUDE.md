@@ -176,20 +176,23 @@ aftale først. Se reglen ovenfor.
 
 ## Den løbende import
 
-Under indkøringen kører den som en løsrevet proces på ejerens Mac:
+Under indkøringen kører den som launchd-agent på ejerens Mac, hver time:
 
-    DISCOVERY_INTERVAL_MS=3600000 nohup npm run worker >> logs/worker.log 2>&1 &
-    npm run puls        → kørsler, nye pr. døgn, forsinkelse, afmeldinger
+    ~/Library/LaunchAgents/dk.bofinda.import.plist  →  bin/import.sh
+    logs/import.log     rå output pr. kørsel
+    logs/launchd.err    tom, hvis launchd selv er tilfreds
+    npm run puls        kørsler, nye pr. døgn, forsinkelse, afmeldinger
 
-Stop den med `pkill -f scripts/worker.ts`.
+    launchctl unload ~/Library/LaunchAgents/dk.bofinda.import.plist   # stop
+    launchctl load   ~/Library/LaunchAgents/dk.bofinda.import.plist   # start
 
-**Launchd virker ikke, når projektet ligger i `~/Desktop`.** macOS' TCC
-spærrer launchd-agenter fra Skrivebord, Dokumenter og Hentede filer:
-`/bin/bash: bin/import.sh: Operation not permitted`, exit 126. `bin/` har
-stadig `import.sh` og en plist, som virker, hvis projektet flyttes uden for
-de beskyttede mapper.
+**Projektet må ikke ligge i `~/Desktop`, `~/Documents` eller `~/Downloads`.**
+macOS' TCC spærrer launchd-agenter fra de mapper — scriptet fejler med
+`Operation not permitted` og exit 126, uden at noget andet ser forkert ud.
+Derfor ligger repoet i `~/Bofinda`. Flyttes det tilbage, dør timekørslen
+stille. Plist'en indeholder absolutte stier og skal rettes ved flytning.
 
-Begge dele er midlertidige. Produktionshjemmet er workeren på Railway. En
+Det er stadig midlertidigt. Produktionshjemmet er workeren på Railway: en
 Mac der sover, springer kørsler over — og det forfalsker præcis de tal, vi
 måler på.
 

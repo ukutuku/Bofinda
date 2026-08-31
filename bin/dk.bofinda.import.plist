@@ -5,13 +5,13 @@
   <key>Label</key>            <string>dk.bofinda.import</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/fl/Desktop/Bofinda/bin/import.sh</string>
+    <string>/Users/fl/Bofinda/bin/import.sh</string>
   </array>
   <key>StartInterval</key>    <integer>3600</integer>
   <key>RunAtLoad</key>        <true/>
-  <key>WorkingDirectory</key> <string>/Users/fl/Desktop/Bofinda</string>
-  <key>StandardErrorPath</key><string>/Users/fl/Desktop/Bofinda/logs/launchd.err</string>
-  <key>StandardOutPath</key>  <string>/Users/fl/Desktop/Bofinda/logs/launchd.out</string>
+  <key>WorkingDirectory</key> <string>/Users/fl/Bofinda</string>
+  <key>StandardErrorPath</key><string>/Users/fl/Bofinda/logs/launchd.err</string>
+  <key>StandardOutPath</key>  <string>/Users/fl/Bofinda/logs/launchd.out</string>
   <key>ProcessType</key>      <string>Background</string>
 </dict>
 </plist>
