@@ -30,8 +30,13 @@
  *
  *  v1 -> v2 (31. aug. 2026): parsningen laeser nu etage og doer, ogsaa naar
  *  de staar uden komma efter husnummeret. 111 af 686 Propstep-adresser fik
- *  foer enten intet husnummer eller etagen med i vejnavnet. */
-export const INTERN_PRAEFIKS = 'intern:v2:'
+ *  foer enten intet husnummer eller etagen med i vejnavnet.
+ *
+ *  v2 -> v3 (31. aug. 2026): noegleordene "lejl.", "Lejl.", "dør" og "Dør"
+ *  mellem etage og doer laeses nu. 29 af findboligs 50 access-adresser var
+ *  i virkeligheden enhedsadresser — "Godsbanen 101, 2. lejl. 1". Et
+ *  efterstillet lejlighedsnummer ("4. tv 35") ignoreres. */
+export const INTERN_PRAEFIKS = 'intern:v3:'
 
 export const erInternNoegle = (n: string | null): boolean =>
   n != null && n.startsWith(INTERN_PRAEFIKS)
@@ -99,10 +104,18 @@ export function parsAdresse(raw: string): ParsetAdresse {
   let door: string | null = null
   // Baade det der stod efter husnummeret og det der stod efter et komma.
   for (const d of [restEfterHusnr, ...dele.slice(1)].filter((x): x is string => !!x)) {
-    const m = d.match(/^(st|stuen|kl|k(æ|ae)lder|\d{1,2})\.?\s*(?:sal)?\.?\s*([a-zæøå0-9.-]{1,6})?\.?$/i)
+    // Etage, saa evt. "sal", saa evt. nøgleordet "lejl."/"dør", saa doeren,
+    // og til sidst et evt. lejlighedsnummer vi ikke bruger.
+    //   "0."          -> etage st, ingen doer
+    //   "2. lejl. 1"  -> etage 2, doer 1
+    //   "1. Dør 3"    -> etage 1, doer 3
+    //   "4. tv 35"    -> etage 4, doer tv   (35 er lejlighedsnummeret)
+    const m = d.match(
+      /^(st|stuen|kl|k(?:æ|ae)lder|\d{1,2})\.?\s*(?:sal)?\.?\s*(?:(?:lejl|lejlighed|d(?:ø|oe)r)\.?\s*)?([a-zæøå0-9.-]{1,6})?\.?(?:\s+\d{1,4})?$/i,
+    )
     if (m) {
       floor = normaliserEtage(m[1]!)
-      door = m[3] ? paenDoer(m[3]) : null
+      door = m[2] ? paenDoer(m[2]) : null
       break
     }
   }
