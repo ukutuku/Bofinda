@@ -37,14 +37,19 @@ function parsetAdresse(b: Bolig): string {
   return [vej, etageDoer].filter(Boolean).join(', ') || b.adresse
 }
 
-/** Sammenlign paa bogstaver og tal alene. Er der forskel, har parsningen
- *  tabt noget, og saa vises kildens egen streng ved siden af. */
+/**
+ * Er der forskel ud over det, vi normaliserer med vilje, vises kildens egen
+ * streng ved siden af. Linjen er oplysende, ikke en fejlmelding: kilder
+ * skriver stednavne ("Fjerbregnevej 2, Trøstrup") og lejlighedsnumre
+ * ("4. tv 35"), som vi ikke har felter til. Den fangede til gengaeld to
+ * rigtige parsningsfejl under indkoeringen, saa den bliver staaende.
+ */
 const nogenlunde = (a: string, b: string) => {
   // "sal" og "lejl" er ord, vores normalisering med rette taber. De taeller
   // ikke som forskel — ellers advarer vi om hver eneste bolig, og saa holder
   // ingen op med at se advarslen.
   const skrael = (s: string) => s.toLowerCase()
-    .replace(/\b(sal|lejl|lejlighed|vaer|vær)\b/g, '')
+    .replace(/\b(sal|lejl|lejlighed|dør|doer|vaer|vær)\b/g, '')
     // Kilder skriver stueetagen som baade "0" og "st". Det er samme etage.
     .replace(/\b0\b/g, 'st')
     .replace(/[^a-z0-9æøå]/g, '')

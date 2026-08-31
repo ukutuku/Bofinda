@@ -146,6 +146,16 @@ Kun `propertyDetails.type = 1` er verificeret (renderer som "Lejlighed").
 Andre værdier giver `null` og logges — de gættes ikke, heller ikke ud fra
 rækkefølgen i deres i18n-nøgler.
 
+### Kendt begrænsning: stednavne
+
+Nogle kilder skriver et stednavn mellem husnummer og postnummer —
+`"Fjerbregnevej 2, Trøstrup, 5210 Odense NV"`. Vi har ingen kolonne til det,
+så det droppes. Adressenøglen er postnr + vej + husnr, hvilket i teorien kan
+kollidere, hvis samme vejnavn og husnummer findes i to stednavne inden for
+ét postnummer. Efterset på Fjerbregnevej: Trøstrup har nr. 2–25, Slukefter
+27–45, altså én vej gennem to stednavne og ingen kollision. Rigtig
+adressevask mod DAR løser det endeligt.
+
 ### Ikke undersøgt endnu
 
 Cepheus (tom robots.txt, intet sitemap), Lokalbolig (robots tillader
