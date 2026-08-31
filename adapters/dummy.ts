@@ -15,6 +15,7 @@
 //  er kommet til. Det er saadan afmeldning og first_seen_at afproeves.
 // ═══════════════════════════════════════════════════════════════
 
+import { maaTestkilderKoere } from './index'
 import type { DiscoveredListing, RawListing, SourceAdapter } from '../lib/adapter'
 import { keyFromUrl } from '../lib/adapter'
 import { kronerTilOere as kr } from '../lib/money'
@@ -105,8 +106,13 @@ export const dummyAdapter: SourceAdapter = {
   host: 'dummy.invalid',
 
   async discover(): Promise<DiscoveredListing[]> {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('dummy-kilden maa ikke koere i produktion')
+    // Ikke NODE_ENV: kun den kodevej, der navngiver kilden udtrykkeligt,
+    // taender flaget. Se adapters/index.ts.
+    if (!maaTestkilderKoere()) {
+      throw new Error(
+        'dummy er en testkilde og maa kun køres, når den navngives: '
+        + 'npm run import -- dummy',
+      )
     }
     return Promise.all(saet().map(async (p) => {
       const url = `${BASE}/${p.id}`

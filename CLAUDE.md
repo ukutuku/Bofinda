@@ -18,9 +18,16 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   proxy-rotation for at skjule os, ingen fingerprint-spoofing, ingen
   falsk User-Agent. Crawleren præsenterer sig med kontakt-URL. Kilder der
   spærrer, tages som feed-aftale eller slet ikke.
-- **Testkilder kører kun, når nogen navngiver dem.** `npm run import` uden
-  argument springer alt med `kunUdvikling` over. En testbolig til 4.200 kr
-  står i søgelisten præcis som en rigtig, og `NODE_ENV` er ikke sat lokalt.
+- **Testkilder kører kun, når nogen navngiver dem** — `npm run import -- dummy`.
+  `rigtigeKilder()` er det eneste, `koerAlle` og startlinjen må bruge.
+  Spærringen hviler **aldrig** på `NODE_ENV`: den er ikke sat lokalt, den var
+  ikke sat på Railway, og en spærring der afhænger af en variabel, ingen
+  husker at sætte, er ingen spærring. Kun kodevejen, der navngiver en kilde,
+  kalder `tilladTestkilder()`.
+- **Log kun det, der faktisk køres.** Startlinjen printede engang hele
+  registret, mens `koerAlle` filtrerede. Det så ud som om testkilderne kørte
+  i produktion, og kostede en fejlsøgning. En logline, der ikke svarer til
+  virkeligheden, er værre end ingen logline.
 - **Kanonisering hører til i nøglen, ikke i data.** `listings.door` gemmer
   kildens skrivemåde (`dør2`), mens dedup-nøglen kanoniserer (`doer2`).
   Blandes de to, ender kildens egen stavemåde forvansket i basen.

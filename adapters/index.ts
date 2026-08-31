@@ -41,3 +41,15 @@ export const KILDER: Registreret[] = [
 ]
 
 export const findKilde = (slug: string) => KILDER.find((k) => k.adapter.id === slug)
+
+/** Kilderne der maa koere uden at nogen navngiver dem. */
+export const rigtigeKilder = () => KILDER.filter((k) => !k.kunUdvikling)
+
+// ── Spaerring af testkilder ───────────────────────────────────────────────
+// Bevidst UDEN NODE_ENV. Den er ikke sat lokalt, den var ikke sat paa
+// Railway, og en spaerring der hviler paa en variabel, ingen husker at
+// saette, er ingen spaerring. Flaget kan kun taendes af den kodevej, der
+// navngiver en kilde udtrykkeligt.
+let testkilderTilladt = false
+export const tilladTestkilder = () => { testkilderTilladt = true }
+export const maaTestkilderKoere = () => testkilderTilladt

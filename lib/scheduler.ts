@@ -8,7 +8,7 @@
 //  Forskellige kilder koerer gerne parallelt.
 // ═══════════════════════════════════════════════════════════════
 
-import { KILDER, type Registreret } from '../adapters'
+import { rigtigeKilder, type Registreret } from '../adapters'
 import { koerKilde, type KoerselsResultat } from './ingest'
 
 const INTERVAL_MS = Number(process.env.DISCOVERY_INTERVAL_MS ?? 15 * 60 * 1000)
@@ -31,7 +31,7 @@ const sov = (ms: number) => new Promise((r) => setTimeout(r, ms))
  * 4.200 kr staar i listen praecis som en rigtig.
  */
 export async function koerAlle(
-  kilder: Registreret[] = KILDER,
+  kilder: Registreret[] = rigtigeKilder(),
   /** Kaldes SAA SNART en kilde er faerdig — ikke naar alle er. */
   paaResultat: (r: KoerselsResultat) => void = () => {},
 ): Promise<KoerselsResultat[]> {
@@ -62,7 +62,7 @@ export async function start(): Promise<void> {
   console.log(`scheduler startet, interval ${Math.round(INTERVAL_MS / 1000)} s`)
   while (!stop) {
     const t0 = Date.now()
-    await koerAlle(KILDER, (r) => process.stdout.write(formatResultat(r) + '\n'))
+    await koerAlle(rigtigeKilder(), (r) => process.stdout.write(formatResultat(r) + '\n'))
     const rest = INTERVAL_MS - (Date.now() - t0)
     if (rest > 0 && !stop) await sov(rest)
   }
