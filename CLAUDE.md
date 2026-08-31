@@ -54,7 +54,14 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 - **Kopiér aldrig kildens brødtekst.** `description` bygges af egne
   strukturerede felter. Fakta er frie, prosa er ikke.
 - **Kopiér aldrig kildens billeder.** Gem `external_url`, servér gennem
-  signeret proxy.
+  `/api/billede`. Signaturen dækker `(url, bredde)`, så en fremmed hverken
+  kan bruge proxyen til vilkårlige adresser eller bede om vilkårlige
+  størrelser. Værtslisten i `lib/billede.ts` er andet lag og tjekkes **før**
+  signaturen — slipper hemmeligheden ud, kan proxyen stadig kun pege på de
+  kilder, vi allerede henter fra. Nye kilder skal tilføjes dér.
+- **Kontaktfelterne må aldrig stå i en select-liste.** `hentBolig` og `soeg`
+  henter dem ikke. Muren står i query-laget, ikke i skabelonen: et felt der
+  aldrig forlader databasen, kan ikke lække ved en uopmærksom UI-ændring.
 - **Slå aldrig Row Level Security fra.** Supabase eksponerer `public` gennem
   PostgREST; en tabel uden RLS kan læses med den offentlige nøgle, og så er
   betalingsmuren pynt. Ny tabel = `enable row level security` i samme

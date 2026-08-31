@@ -86,7 +86,7 @@ function Kort({ b }: { b: Bolig }) {
   const parsningTabteNoget = !nogenlunde(vist, raaUdenSted)
 
   return (
-    <a className="kort" href={b.url} target="_blank" rel="noopener noreferrer">
+    <a className="kort" href={`/bolig/${b.id}`}>
       <div className="raek1">
         <div>
           <div className="adresse">{vist}</div>

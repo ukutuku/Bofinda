@@ -91,3 +91,66 @@ footer.bund { margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--l
   color: var(--svag); font-size: 12px; }
 .afvig { font-size: 12px; color: var(--svag); margin-top: 3px; }
 .el { font-size: 12px; color: var(--svag); }
+
+/* ─── Boligside ─────────────────────────────────────────────── */
+.detalje { padding-bottom: 60px; }
+.tilbage { display: inline-block; margin: 18px 0 14px; color: var(--daempet);
+  font-size: 14px; text-decoration: none; }
+.tilbage:hover { color: var(--accent); }
+
+.galleri { display: grid; gap: 4px; border-radius: var(--radius); overflow: hidden;
+  grid-template-columns: 2fr 1fr 1fr; grid-template-rows: 1fr 1fr; position: relative; }
+.galleri.g1 { grid-template-columns: 1fr; grid-template-rows: auto; }
+.galleri.g2 { grid-template-columns: 1fr 1fr; grid-template-rows: auto; }
+.galleri a { display: block; overflow: hidden; background: #eee; }
+.galleri a:first-child { grid-row: span 2; }
+.galleri.g1 a:first-child, .galleri.g2 a:first-child { grid-row: span 1; }
+.galleri img { width: 100%; height: 100%; object-fit: cover; display: block;
+  aspect-ratio: 4/3; }
+.galleri.g1 img { aspect-ratio: 16/9; }
+.flere { position: absolute; right: 10px; bottom: 10px; background: rgba(0,0,0,.66);
+  color: #fff; font-size: 12px; padding: 4px 10px; border-radius: 20px; }
+.ingen-billeder { background: var(--kort); border: 1px dashed var(--linje);
+  border-radius: var(--radius); padding: 34px; text-align: center; color: var(--daempet); font-size: 14px; }
+
+.hoved { display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 18px; margin: 20px 0 6px; flex-wrap: wrap; }
+.hoved h1 { font-size: 25px; margin: 0; letter-spacing: -0.025em; }
+.hoved .sted { color: var(--daempet); font-size: 15px; margin-top: 3px; }
+.maerkater { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.blok { background: var(--kort); border: 1px solid var(--linje);
+  border-radius: var(--radius); padding: 18px 20px; margin-top: 14px; }
+.blok h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--daempet); margin: 0 0 12px; font-weight: 650; }
+
+.fakta2 { display: grid; grid-template-columns: auto 1fr; gap: 7px 20px; margin: 0; }
+.fakta2 dt { color: var(--daempet); font-size: 14px; }
+.fakta2 dd { margin: 0; font-size: 14px; font-weight: 550; }
+.mangler { color: var(--svag); font-weight: 400; }
+
+.oek { width: 100%; border-collapse: collapse; }
+.oek th { text-align: left; font-weight: 400; color: var(--daempet); font-size: 14px;
+  padding: 5px 0; }
+.oek td { text-align: right; font-size: 14px; font-weight: 550; padding: 5px 0;
+  font-variant-numeric: tabular-nums; }
+.oek tr.sum th, .oek tr.sum td { border-top: 1px solid var(--linje); padding-top: 9px;
+  font-size: 16px; font-weight: 700; color: var(--tekst); }
+.advarsel { margin: 6px 0 0; font-size: 13px; color: var(--advarsel);
+  background: var(--advarsel-svag); padding: 9px 12px; border-radius: 7px; }
+.note { margin: 9px 0 0; font-size: 12.5px; color: var(--svag); line-height: 1.5; }
+
+.indflytning { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--linje); }
+.ibeloeb { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.ibeloeb small { font-size: 13px; font-weight: 500; color: var(--daempet); }
+
+.chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.chips li { background: #f4f2ec; border-radius: 20px; padding: 4px 12px; font-size: 13px; }
+.brodtekst { margin: 0; font-size: 15px; line-height: 1.65; }
+
+.kort { width: 100%; height: 300px; border: 0; border-radius: 8px; display: block; }
+
+.kontakt .skjult { margin: 0 0 12px; font-size: 14px; color: var(--daempet);
+  background: #f4f2ec; padding: 12px 14px; border-radius: 7px; }
+.knap { display: inline-block; background: var(--accent); color: #fff; font-weight: 550;
+  font-size: 14px; padding: 10px 18px; border-radius: 7px; text-decoration: none; }

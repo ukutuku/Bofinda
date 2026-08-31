@@ -8,7 +8,7 @@
 
 import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, lte, ne, sql } from 'drizzle-orm'
 import { db } from '../db/client'
-import { listings, sources } from '../db/schema'
+import { listingImages, listings, sources } from '../db/schema'
 
 export interface Filtre {
   by?: string
@@ -128,3 +128,67 @@ export async function facetter() {
     .orderBy(desc(sql`count(*)`))
   return { byer, kilder }
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  Én bolig.
+//
+//  Kontaktfelterne staar med vilje IKKE i select-listen. Muren haandhaeves
+//  i query'en, ikke i skabelonen: et felt der aldrig forlader databasen,
+//  kan ikke laekke ved en uopmaerksom aendring i UI'et senere.
+// ═══════════════════════════════════════════════════════════════
+
+export async function hentBolig(id: string) {
+  const [b] = await db
+    .select({
+      id: listings.id,
+      adresse: listings.addressRaw,
+      vej: listings.street,
+      husnr: listings.houseNumber,
+      etage: listings.floor,
+      doer: listings.door,
+      postnr: listings.postalCode,
+      by: listings.city,
+      match: listings.addressMatchLevel,
+      lat: listings.lat,
+      lng: listings.lng,
+      type: listings.propertyType,
+      areal: listings.sizeM2,
+      vaerelser: listings.rooms,
+      ledigFra: listings.availableFrom,
+      leje: listings.rentMonthly,
+      varme: listings.utilitiesHeat,
+      vand: listings.utilitiesWater,
+      el: listings.utilitiesElectricity,
+      oevrig: listings.utilitiesOther,
+      total: listings.totalMonthly,
+      poster: listings.totalMonthlyComponents,
+      indflytning: listings.moveInCost,
+      ansoegning: listings.applicationType,
+      faciliteter: listings.amenities,
+      beskrivelse: listings.description,
+      aabentHus: listings.openHouseAt,
+      status: listings.status,
+      foerstSet: listings.firstSeenAt,
+      hosKilden: listings.sourceCreatedAt,
+      url: listings.sourceUrl,
+      kilde: sources.slug,
+      kildeNavn: sources.name,
+      // contactEmail og contactPhone hentes ALDRIG her. Se noten ovenfor.
+      skjult: listings.isBlurred,
+    })
+    .from(listings)
+    .innerJoin(sources, eq(sources.id, listings.sourceId))
+    .where(eq(listings.id, id))
+    .limit(1)
+  if (!b) return null
+
+  const billeder = await db
+    .select({ url: listingImages.externalUrl, position: listingImages.position })
+    .from(listingImages)
+    .where(eq(listingImages.listingId, id))
+    .orderBy(asc(listingImages.position))
+
+  return { ...b, billeder }
+}
+
+export type BoligDetalje = NonNullable<Awaited<ReturnType<typeof hentBolig>>>

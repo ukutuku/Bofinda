@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "NODE_EXTRA_CA_CERTS=./certs/rapidssl-tls-rsa-ca-g1.pem next dev",
+    "build": "NODE_EXTRA_CA_CERTS=./certs/rapidssl-tls-rsa-ca-g1.pem next build",
+    "start": "NODE_EXTRA_CA_CERTS=./certs/rapidssl-tls-rsa-ca-g1.pem next start",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
