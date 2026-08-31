@@ -30,18 +30,25 @@ const sov = (ms: number) => new Promise((r) => setTimeout(r, ms))
  * ind i de rigtige ved et almindeligt `npm run import`, og en testbolig til
  * 4.200 kr staar i listen praecis som en rigtig.
  */
-export async function koerAlle(kilder: Registreret[] = KILDER): Promise<KoerselsResultat[]> {
+export async function koerAlle(
+  kilder: Registreret[] = KILDER,
+  /** Kaldes SAA SNART en kilde er faerdig — ikke naar alle er. */
+  paaResultat: (r: KoerselsResultat) => void = () => {},
+): Promise<KoerselsResultat[]> {
   const ud: KoerselsResultat[] = []
   for (const k of kilder) {
     if (k.kunUdvikling) continue
+    let r: KoerselsResultat
     try {
-      ud.push(await koerKilde(k.adapter, k.navn, { baseUrl: k.baseUrl }))
+      r = await koerKilde(k.adapter, k.navn, { baseUrl: k.baseUrl })
     } catch (e) {
-      ud.push({
+      r = {
         kilde: k.adapter.id, fundet: 0, nye: 0, opdaterede: 0, bekraeftede: 0,
         afmeldte: 0, fejl: 1, status: 'failed', noter: [`uventet: ${(e as Error).message}`],
-      })
+      }
     }
+    ud.push(r)
+    paaResultat(r)
   }
   return ud
 }
@@ -55,7 +62,7 @@ export async function start(): Promise<void> {
   console.log(`scheduler startet, interval ${Math.round(INTERVAL_MS / 1000)} s`)
   while (!stop) {
     const t0 = Date.now()
-    for (const r of await koerAlle()) console.log(formatResultat(r))
+    await koerAlle(KILDER, (r) => process.stdout.write(formatResultat(r) + '\n'))
     const rest = INTERVAL_MS - (Date.now() - t0)
     if (rest > 0 && !stop) await sov(rest)
   }

@@ -129,6 +129,7 @@ cron-planen er det, der starter den igen.
 | `CRAWLER_USER_AGENT` | `BofindaBot/1.0 (+https://bofinda.dk/bot; kontakt@bofinda.dk)` | Crawleren præsenterer sig altid. |
 | `CRAWLER_RATE_MS` | `1000` | Ét request i sekundet per domæne. |
 | `TZ` | `Europe/Copenhagen` | Så logtidspunkter kan læses uden hovedregning. |
+| `RUNNER` | `railway` | Skrives i `crawl_runs.runner`. Uden den kan to importører ikke skelnes i basen. |
 
 **Sæt ikke** `DATABASE_URL` — det er poolerens URL til Vercel-frontenden, og
 workeren skal netop uden om transaction-pooleren.

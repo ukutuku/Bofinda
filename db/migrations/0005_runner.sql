@@ -1,0 +1,1 @@
+ALTER TABLE "crawl_runs" ADD COLUMN "runner" text;

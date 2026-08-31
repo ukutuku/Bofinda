@@ -230,6 +230,10 @@ export const crawlRuns = pgTable('crawl_runs', {
   status: crawlRunStatusEnum('status').notNull().default('running'),
   // Fri tekst til drift: hvad der gik galt, hvilken side den stoppede paa.
   notes: text('notes'),
+  // HVEM koerte den. Uden det kan to importoerer ikke skelnes i basen, og
+  // saa kan man ikke afgoere om en fjern kilde overhovedet naaede at koere.
+  // Saettes af RUNNER, ellers maskinens vaertsnavn.
+  runner: text('runner'),
 }, (t) => ({
   // Baerer opslaget "seneste 10 for denne kilde".
   sourceRecentIdx: index('crawl_run_source_recent_idx')

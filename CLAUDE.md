@@ -73,6 +73,15 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 - Adressenøgler fra `SimpelAdressevask` er **interne**, ikke DAR-UUID'er.
   De bærer præfikset `intern:v1:`. Ændres normaliseringen, skal versionen
   hæves — ellers skifter gamle rækker gruppe uden at blive skrevet om.
+- **Skriv resultatet, så snart en kilde er færdig — aldrig til sidst.**
+  findbolig tager 5 sekunder, Propstep to minutter. Samles output og skrives
+  efter begge, mister man ALT, hvis den anden bliver dræbt midt i. Det var
+  præcis dét, der gjorde Railway-loggen tom, mens `crawl_runs` viste
+  aktivitet. Brug `process.stdout.write`, ikke `console.log` — til et rør
+  bufres console.log, og bufferen går tabt ved SIGKILL.
+- **Hver kørsel skal skrive `runner`.** Sat af `RUNNER`, ellers værtsnavnet.
+  Uden det kan to importører ikke skelnes i basen, og man kan ikke afgøre,
+  om en fjern kilde overhovedet nåede at køre.
 - **Afmeldning skal altid gennem sikringen i `koerKilde`.** Tre grunde til
   at springe over: intet skrevet, over 20 % fejlede udtræk, eller under
   halvdelen af medianen. En knækket parser må aldrig tømme basen.

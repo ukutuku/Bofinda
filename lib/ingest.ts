@@ -11,11 +11,20 @@
 //  "ny bolig", og en genudlejning er ikke en ny bolig.
 // ═══════════════════════════════════════════════════════════════
 
-import { and, asc, desc, eq, inArray, lt, or, sql } from 'drizzle-orm'
+import { hostname } from 'node:os'
+import { and, desc, eq, inArray, lt, ne, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { crawlRuns, listingImages, listings, sources } from '../db/schema'
 import type { SourceAdapter } from './adapter'
 import { normaliser } from './normalize'
+
+/**
+ * Skriv straks. console.log til et roer bufres, og bliver processen draebt,
+ * gaar bufferen tabt — det var praecis det, der gjorde Railway-loggen tom.
+ */
+function log(linje: string) {
+  process.stdout.write(linje + '\n')
+}
 
 export interface KoerselsResultat {
   kilde: string
@@ -42,6 +51,32 @@ export interface KoerselsResultat {
  */
 const GENOPFRISK_EFTER_TIMER = 24
 const GENOPFRISK_PR_KOERSEL = 60
+
+/** Hvem koerer. Uden det kan to importoerer ikke skelnes i basen. */
+export const RUNNER = process.env.RUNNER ?? hostname()
+
+/**
+ * Koersler der aldrig blev afsluttet, staar som 'running' for evigt. Det
+ * sker, naar processen bliver draebt midt i — fx en container der lukkes.
+ * De lukkes her, saa de ikke ligner noget der stadig arbejder, og saa man
+ * kan se HVOR mange gange det er sket.
+ */
+async function lukStrandede(sourceId: string, aeldreEndMin = 30) {
+  const graense = new Date(Date.now() - aeldreEndMin * 60_000)
+  const r = await db.update(crawlRuns)
+    .set({
+      status: 'failed',
+      finishedAt: sql`now()`,
+      notes: 'Aldrig afsluttet — processen blev sandsynligvis dræbt midt i kørslen.',
+    })
+    .where(and(
+      eq(crawlRuns.sourceId, sourceId),
+      eq(crawlRuns.status, 'running'),
+      lt(crawlRuns.startedAt, graense),
+    ))
+    .returning({ id: crawlRuns.id })
+  return r.length
+}
 
 /** Opretter kilden hvis den mangler, ellers holder navn og type ajour. */
 export async function sikreKilde(a: SourceAdapter, navn: string, baseUrl?: string) {
@@ -162,8 +197,11 @@ export async function koerKilde(
   const noter: string[] = []
   const kilde = await sikreKilde(adapter, navn, opts.baseUrl)
 
+  const strandede = await lukStrandede(kilde.id)
+  if (strandede) noter.push(`${strandede} tidligere kørsel(er) stod som 'running' og er lukket som fejlet.`)
+
   const [run] = await db.insert(crawlRuns)
-    .values({ sourceId: kilde.id, status: 'running' })
+    .values({ sourceId: kilde.id, status: 'running', runner: RUNNER })
     .returning({ id: crawlRuns.id, startedAt: crawlRuns.startedAt })
   const runId = run!.id
   const runStart = run!.startedAt
@@ -230,8 +268,13 @@ export async function koerKilde(
     bekraeftes.push(fundne.find((x) => x.url === f.url)!.externalKey)
   }
 
+  if (skalHentes.length) {
+    log(`[${adapter.id}] henter ${skalHentes.length} af ${fundne.length}`)
+  }
   let nye = 0, opdaterede = 0, fejl = 0
+  let i = 0
   for (const { url } of skalHentes) {
+    if (++i % 20 === 0) log(`[${adapter.id}] ${i}/${skalHentes.length} hentet`)
     try {
       const raa = await adapter.extract(url)
       const b = await normaliser(raa)
