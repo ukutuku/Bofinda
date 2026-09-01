@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { hentBolig, type BoligDetalje } from '../../../lib/soeg'
 import { billedUrl } from '../../../lib/billede'
+import { Galleri } from './Galleri'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,9 +27,9 @@ function siden(d: Date): string {
   return `${m} ${m === 1 ? 'måned' : 'måneder'} siden`
 }
 
-const POSTNAVN: Record<string, string> = {
-  rent: 'husleje', heat: 'varme', water: 'vand',
-  electricity: 'el', other: 'øvrig aconto',
+const TYPENAVN: Record<string, string> = {
+  lejlighed: 'Lejlighed', raekkehus: 'Rækkehus', hus: 'Hus',
+  vaerelse: 'Værelse', studiebolig: 'Studiebolig', andet: 'Bolig',
 }
 
 function adresselinje(b: BoligDetalje): string {
@@ -47,181 +48,178 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
   const b = await hentBolig(id)
   if (!b) notFound()
 
-  const aconto = (b.poster ?? []).filter((p) => p !== 'rent')
-  const galleri = b.billeder.map((x) => ({
-    lille: billedUrl(x.url, 400),
-    stor: billedUrl(x.url, 1600),
-  })).filter((x) => x.lille)
+  const galleri = b.billeder
+    .map((x) => ({ lille: billedUrl(x.url, 800), stor: billedUrl(x.url, 1600) }))
+    .filter((x): x is { lille: string; stor: string } => !!x.lille && !!x.stor)
 
-  // Indflytningsprisen vises med sine led, saa tallet kan efterproeves.
-  // Vi kender ikke kildens fordeling paa depositum og forudbetalt, kun
-  // summen — og saa siger vi det i stedet for at gaette en opdeling.
-  const restIndflytning =
-    b.indflytning != null && b.leje != null ? b.indflytning - b.leje - (b.total != null ? b.total - b.leje : 0) : null
+  const acontoIalt = b.total != null && b.leje != null ? b.total - b.leje : null
+  // Kilden oplyser summen, ikke fordelingen mellem depositum og forudbetalt.
+  // Resten regnes ud, men praesenteres som ét tal — ikke som et gaet paa to.
+  const depositumMv = b.indflytning != null && b.leje != null
+    ? b.indflytning - b.leje - (acontoIalt ?? 0)
+    : null
+
+  const noegletal = [
+    b.areal != null ? { v: `${b.areal}`, e: 'm²' } : null,
+    b.vaerelser != null ? { v: `${b.vaerelser}`, e: b.vaerelser === 1 ? 'værelse' : 'værelser' } : null,
+    b.type ? { v: TYPENAVN[b.type] ?? b.type, e: '' } : null,
+  ].filter((x): x is { v: string; e: string } => !!x)
 
   return (
     <article className="detalje">
       <a className="tilbage" href="/">← Alle boliger</a>
 
-      {galleri.length > 0 ? (
-        <div className={`galleri g${Math.min(galleri.length, 5)}`}>
-          {galleri.slice(0, 5).map((g, i) => (
-            <a key={i} href={g.stor!} target="_blank" rel="noopener noreferrer">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={g.lille!} alt="" loading={i === 0 ? 'eager' : 'lazy'} />
-            </a>
-          ))}
-          {galleri.length > 5 && (
-            <div className="flere">+{galleri.length - 5} billeder</div>
-          )}
-        </div>
-      ) : (
-        <div className="ingen-billeder">Kilden har ingen billeder af denne bolig.</div>
-      )}
+      {galleri.length > 0
+        ? <Galleri billeder={galleri} />
+        : <div className="ingen-billeder">Kilden har ingen billeder af denne bolig.</div>}
 
       <header className="hoved">
-        <div>
+        <div className="hoved-tekst">
           <h1>{adresselinje(b)}</h1>
-          <div className="sted">{b.postnr} {b.by}</div>
+          <p className="sted">{b.postnr} {b.by}</p>
+          <ul className="noegletal">
+            {noegletal.map((n, i) => (
+              <li key={i}><strong>{n.v}</strong>{n.e && <span> {n.e}</span>}</li>
+            ))}
+          </ul>
         </div>
         <div className="maerkater">
-          {b.status === 'delisted' && <span className="maerkat m-vent">ikke længere ledig</span>}
+          {b.status === 'delisted' && <span className="maerkat m-vaek">ikke længere ledig</span>}
           {b.ansoegning === 'waiting_list'
-            ? <span className="maerkat m-vent">venteliste — efter anciennitet</span>
+            ? <span className="maerkat m-vent">Venteliste · efter anciennitet</span>
             : b.ansoegning === 'regular'
-              ? <span className="maerkat m-ny">først til mølle</span>
+              ? <span className="maerkat m-ny">Først til mølle</span>
               : null}
-          <span className="maerkat m-kilde">{b.kildeNavn}</span>
         </div>
       </header>
 
-      <section className="blok">
-        <h2>Boligen</h2>
-        <dl className="fakta2">
-          {b.type && <><dt>Boligtype</dt><dd>{b.type === 'raekkehus' ? 'rækkehus' : b.type}</dd></>}
-          {b.areal != null && <><dt>Areal</dt><dd>{b.areal} m²</dd></>}
-          {b.vaerelser != null && <><dt>Værelser</dt><dd>{b.vaerelser}</dd></>}
-          {b.etage && <><dt>Etage</dt><dd>{b.etage === 'st' ? 'stuen' : b.etage === 'kl' ? 'kælder' : `${b.etage}.`}</dd></>}
-          {b.doer && <><dt>Dør</dt><dd>{b.doer}</dd></>}
-          <dt>Ledig fra</dt>
-          <dd>{b.ledigFra
-            ? (b.ledigFra.getTime() <= Date.now() ? 'nu' : dato(b.ledigFra))
-            : <span className="mangler">ikke oplyst</span>}</dd>
-          {b.aabentHus && <><dt>Åbent hus</dt><dd>{dato(b.aabentHus)}</dd></>}
-        </dl>
-      </section>
-
-      <section className="blok">
-        <h2>Økonomi</h2>
-        <table className="oek">
-          <tbody>
-            <tr>
-              <th>Husleje</th>
-              <td>{kr(b.leje) ?? <span className="mangler">ikke oplyst</span>}{b.leje != null && ' kr.'}</td>
-            </tr>
-            {b.varme != null && <tr><th>Aconto varme</th><td>{kr(b.varme)} kr.</td></tr>}
-            {b.vand != null && <tr><th>Aconto vand</th><td>{kr(b.vand)} kr.</td></tr>}
-            {b.el != null && <tr><th>Aconto el</th><td>{kr(b.el)} kr.</td></tr>}
-            {b.oevrig != null && <tr><th>Øvrig aconto</th><td>{kr(b.oevrig)} kr.</td></tr>}
+      <div className="spalter">
+        {/* ── Økonomien. Sidens vigtigste element, og derfor det første
+              øjet lander på. Alt andet er understøttende. ── */}
+        <aside className="oekonomi">
+          <div className="oek-kort">
             {b.total != null ? (
-              <tr className="sum">
-                <th>Samlet pr. måned</th>
-                <td>{kr(b.total)} kr.</td>
-              </tr>
+              <>
+                <div className="oek-etiket">Reel månedlig udgift</div>
+                <div className="oek-tal">{kr(b.total)}<span className="enhed"> kr.</span></div>
+                <ul className="oek-poster">
+                  <li><span>Husleje</span><b>{kr(b.leje)}</b></li>
+                  {b.varme != null && <li><span>Aconto varme</span><b>{kr(b.varme)}</b></li>}
+                  {b.vand != null && <li><span>Aconto vand</span><b>{kr(b.vand)}</b></li>}
+                  {b.el != null && <li><span>Aconto el</span><b>{kr(b.el)}</b></li>}
+                  {b.oevrig != null && <li><span>Øvrig aconto</span><b>{kr(b.oevrig)}</b></li>}
+                </ul>
+                {b.el == null && (
+                  <p className="oek-note">
+                    El afregnes direkte med elselskabet og indgår ikke i beløbet.
+                  </p>
+                )}
+              </>
             ) : (
-              <tr><td colSpan={2}>
-                <p className="advarsel">
-                  Udlejer oplyser ikke aconto — spørg om varme og vand.
-                  Den samlede månedlige udgift kendes ikke.
-                </p>
-              </td></tr>
+              <>
+                <div className="oek-etiket">Månedlig udgift</div>
+                <div className="oek-tal ukendt-tal">
+                  {kr(b.leje) ?? '—'}<span className="enhed"> kr.</span>
+                </div>
+                <p className="oek-etiket-under">kun husleje</p>
+                <div className="oek-mangler">
+                  <strong>Udlejer oplyser ikke aconto.</strong>
+                  <span>Spørg om varme og vand, før du regner på det —
+                    den samlede udgift kendes ikke.</span>
+                </div>
+              </>
             )}
-          </tbody>
-        </table>
 
-        {b.total != null && (
-          <p className="note">
-            Beregnet som {['husleje', ...aconto.map((p) => POSTNAVN[p] ?? p)].join(' + ')}.
-            {b.el == null && ' El afregnes direkte med elselskabet og indgår ikke.'}
-          </p>
-        )}
+            {b.indflytning != null && (
+              <div className="oek-indflytning">
+                <div className="oek-etiket">At betale ved indflytning</div>
+                <div className="oek-tal2">{kr(b.indflytning)}<span className="enhed"> kr.</span></div>
+                <ul className="oek-poster">
+                  {b.leje != null && <li><span>Første måneds husleje</span><b>{kr(b.leje)}</b></li>}
+                  {acontoIalt != null && acontoIalt > 0 && (
+                    <li><span>Aconto</span><b>{kr(acontoIalt)}</b></li>
+                  )}
+                  {depositumMv != null && depositumMv > 0 && (
+                    <li><span>Depositum og forudbetalt leje</span><b>{kr(depositumMv)}</b></li>
+                  )}
+                </ul>
+                <p className="oek-note">
+                  Kilden oplyser summen, ikke fordelingen mellem depositum og
+                  forudbetalt leje — så den er ikke delt op her.
+                </p>
+              </div>
+            )}
 
-        {b.indflytning != null && (
-          <div className="indflytning">
-            <div className="ibeloeb">{kr(b.indflytning)} kr. <small>at betale ved indflytning</small></div>
-            <p className="note">
-              {b.leje != null && restIndflytning != null && restIndflytning > 0 ? (
-                <>Første måneds husleje {kr(b.leje)} kr.
-                  {b.total != null && b.total > b.leje && <> plus aconto {kr(b.total - b.leje)} kr.</>}
-                  {' '}plus depositum og forudbetalt leje {kr(restIndflytning)} kr.
-                  {' '}Kilden oplyser summen, ikke fordelingen mellem depositum og
-                  forudbetalt — så den er ikke delt op her.</>
-              ) : (
-                <>Beløbet er kildens eget. Fordelingen mellem første måneds leje,
-                  depositum og forudbetalt leje er ikke oplyst.</>
-              )}
+            <a className="knap" href={b.url} target="_blank" rel="noopener noreferrer">
+              Se annoncen hos {b.kildeNavn}
+            </a>
+            <p className="oek-kilde">
+              Kontaktoplysninger vises hos kilden. Annonceret{' '}
+              {b.hosKilden ? siden(b.hosKilden) : 'på ukendt tidspunkt'} · set af os {siden(b.foerstSet)}.
             </p>
           </div>
-        )}
-      </section>
+        </aside>
 
-      {b.faciliteter && b.faciliteter.length > 0 && (
-        <section className="blok">
-          <h2>Faciliteter</h2>
-          <ul className="chips">
-            {b.faciliteter.map((f) => <li key={f}>{f}</li>)}
-          </ul>
-        </section>
-      )}
+        <div className="indhold">
+          <section className="blok">
+            <h2>Boligen</h2>
+            <dl className="fakta2">
+              {b.type && <><dt>Boligtype</dt><dd>{TYPENAVN[b.type] ?? b.type}</dd></>}
+              {b.areal != null && <><dt>Areal</dt><dd>{b.areal} m²</dd></>}
+              {b.vaerelser != null && <><dt>Værelser</dt><dd>{b.vaerelser}</dd></>}
+              {b.etage && (
+                <><dt>Etage</dt>
+                  <dd>{b.etage === 'st' ? 'Stuen' : b.etage === 'kl' ? 'Kælder' : `${b.etage}.`}</dd></>
+              )}
+              {b.doer && <><dt>Dør</dt><dd>{b.doer}</dd></>}
+              <dt>Ledig fra</dt>
+              <dd>{b.ledigFra
+                ? (b.ledigFra.getTime() <= Date.now() ? 'Nu' : dato(b.ledigFra))
+                : <span className="mangler">ikke oplyst</span>}</dd>
+              {b.aabentHus && <><dt>Åbent hus</dt><dd>{dato(b.aabentHus)}</dd></>}
+              <dt>Kilde</dt><dd>{b.kildeNavn}</dd>
+            </dl>
+          </section>
 
-      {b.beskrivelse && (
-        <section className="blok">
-          <h2>Beskrivelse</h2>
-          <p className="brodtekst">{b.beskrivelse}</p>
-          <p className="note">
-            Teksten er skrevet af os ud fra boligens oplysninger — ikke kopieret fra kilden.
-          </p>
-        </section>
-      )}
+          {b.faciliteter && b.faciliteter.length > 0 && (
+            <section className="blok">
+              <h2>Faciliteter</h2>
+              <ul className="chips">{b.faciliteter.map((f) => <li key={f}>{f}</li>)}</ul>
+            </section>
+          )}
 
-      <section className="blok">
-        <h2>Beliggenhed</h2>
-        {b.lat && b.lng ? (
-          <>
-            <iframe
-              className="kort"
-              loading="lazy"
-              title="Kort"
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${
-                Number(b.lng) - 0.006},${Number(b.lat) - 0.003},${
-                Number(b.lng) + 0.006},${Number(b.lat) + 0.003}&layer=mapnik&marker=${b.lat},${b.lng}`}
-            />
-            <p className="note">
-              {b.match === 'unit'
-                ? 'Adressen er stedfæstet på den enkelte bolig.'
-                : 'Adressen er stedfæstet på opgangen — kilden oplyser ikke etage og dør.'}
-              {' '}Koordinater {Number(b.lat).toFixed(5)}, {Number(b.lng).toFixed(5)} fra kilden.
-            </p>
-          </>
-        ) : (
-          <p className="mangler">Kilden oplyser ingen koordinater.</p>
-        )}
-      </section>
+          {b.beskrivelse && (
+            <section className="blok">
+              <h2>Beskrivelse</h2>
+              <p className="brodtekst">{b.beskrivelse}</p>
+              <p className="note">
+                Teksten er skrevet ud fra boligens oplysninger — ikke kopieret fra kilden.
+              </p>
+            </section>
+          )}
 
-      <section className="blok kontakt">
-        <h2>Kontakt udlejer</h2>
-        <p className="skjult">
-          Kontaktoplysninger vises ikke her. Boligen er hentet fra {b.kildeNavn},
-          og henvendelsen skal ske hos dem.
-        </p>
-        <a className="knap" href={b.url} target="_blank" rel="noopener noreferrer">
-          Åbn annoncen hos {b.kildeNavn} →
-        </a>
-        <p className="note">
-          Annonceret hos kilden {b.hosKilden ? siden(b.hosKilden) : 'på ukendt tidspunkt'}
-          {' · '}set af os {siden(b.foerstSet)}
-        </p>
-      </section>
+          <section className="blok">
+            <h2>Beliggenhed</h2>
+            {b.lat && b.lng ? (
+              <>
+                <iframe
+                  className="kort" loading="lazy" title="Kort"
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${
+                    Number(b.lng) - 0.006},${Number(b.lat) - 0.003},${
+                    Number(b.lng) + 0.006},${Number(b.lat) + 0.003}&layer=mapnik&marker=${b.lat},${b.lng}`}
+                />
+                <p className="note">
+                  {b.match === 'unit'
+                    ? 'Adressen er stedfæstet på den enkelte bolig.'
+                    : 'Adressen er stedfæstet på opgangen — kilden oplyser ikke etage og dør.'}
+                </p>
+              </>
+            ) : (
+              <p className="mangler">Kilden oplyser ingen koordinater.</p>
+            )}
+          </section>
+        </div>
+      </div>
     </article>
   )
 }

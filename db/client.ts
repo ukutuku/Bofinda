@@ -18,15 +18,24 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import * as schema from './schema'
 
-const isServerless = Boolean(process.env.VERCEL)
+/**
+ * Webappen skal ALTID gennem transaction-pooleren, ogsaa lokalt.
+ *
+ * Foer valgte den paa `VERCEL`, som ikke er sat lokalt — saa tog `next dev`
+ * worker-profilen med ti forbindelser paa SESSION-pooleren, samtidig med at
+ * workeren tog ti. Supabases session-pool er 15, og siden faldt med
+ * MAX_CLIENTS_REACHED. `NEXT_RUNTIME` saettes af Next selv i alle
+ * servermiljoeer, saa den skelner rigtigt baade lokalt og paa Vercel.
+ */
+const iWebappen = Boolean(process.env.NEXT_RUNTIME || process.env.VERCEL)
 
 function connectionString() {
-  const url = isServerless
+  const url = iWebappen
     ? process.env.DATABASE_URL          // Supavisor transaction pooler, :6543
     : process.env.DATABASE_URL_DIRECT   // session pooler eller direct, :5432
   if (!url) {
     throw new Error(
-      isServerless
+      iWebappen
         ? 'DATABASE_URL mangler (Supabase transaction pooler, port 6543)'
         : 'DATABASE_URL_DIRECT mangler (Supabase session/direct, port 5432)',
     )
@@ -41,20 +50,22 @@ function connectionString() {
 }
 
 export const sql = postgres(connectionString(), {
-  // Konservativt med vilje. Se README, "Forbindelsesbudget".
-  max: isServerless ? 1 : 10,
+  // Konservativt med vilje. Session-pooleren giver kun 15 pladser i alt, og
+  // workeren deler dem med migrationer og ad hoc-forespoergsler.
+  // Se README, "Forbindelsesbudget".
+  max: iWebappen ? 1 : 5,
 
   // Transaction mode kan ikke haandtere prepared statements: naeste
   // transaktion lander maaske paa en anden server-forbindelse, og den fejler
   // med "prepared statement does not exist" — typisk foerst under belastning.
   // Session/direct beholder dem, de er hurtigere.
-  prepare: !isServerless,
+  prepare: !iWebappen,
 
   // Supabase kraever TLS. 'require' verificerer ikke certifikatkaeden, hvilket
   // er det Supabase selv anbefaler til pooleren.
   ssl: 'require',
 
-  idle_timeout: isServerless ? 20 : 300,
+  idle_timeout: iWebappen ? 20 : 120,
   max_lifetime: 60 * 30,
   connect_timeout: 10,
 

@@ -1,4 +1,5 @@
 import { facetter, opsummering, soeg, type Bolig, type Filtre } from '../lib/soeg'
+import { billedUrl } from '../lib/billede'
 
 export const dynamic = 'force-dynamic'
 
@@ -86,60 +87,80 @@ function Kort({ b }: { b: Bolig }) {
   const parsningTabteNoget = !nogenlunde(vist, raaUdenSted)
 
   return (
-    <a className="kort" href={`/bolig/${b.id}`}>
-      <div className="raek1">
-        <div>
-          <div className="adresse">{vist}</div>
-          <div className="sted">
-            {b.postnr} {b.by}
-            {b.match === 'access' && ' · uden etage/dør'}
-            {b.billeder === 0 && ' · ingen billeder'}
+    <a className={`kort${b.forside ? '' : ' uden-billede'}`} href={`/bolig/${b.id}`}>
+      {b.forside && billedUrl(b.forside, 400) && (
+        <div className="kort-billede">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={billedUrl(b.forside, 400)!} alt="" loading="lazy" />
+          {b.billeder > 1 && <span className="kort-antal">{b.billeder} billeder</span>}
+        </div>
+      )}
+
+      <div className="kort-krop">
+        <div className="raek1">
+          <div>
+            <div className="adresse">{vist}</div>
+            <div className="sted">
+              {b.postnr} {b.by}
+              {b.match === 'access' && ' · uden etage/dør'}
+              {b.billeder === 0 && ' · ingen billeder'}
+            </div>
+            {parsningTabteNoget && (
+              <div className="afvig">kilden skriver: {raaUdenSted}</div>
+            )}
           </div>
-          {parsningTabteNoget && (
-            <div className="afvig">kilden skriver: {raaUdenSted}</div>
+          <div className="hoejre">
+            {b.ansoegning === 'waiting_list' && <span className="maerkat m-vent">venteliste</span>}
+            {nyligt && <span className="maerkat m-ny">ny {siden(paaMarkedet)}</span>}
+            <span className="maerkat m-kilde">{b.kildeNavn}</span>
+          </div>
+        </div>
+
+        <div className="fakta">
+          {fakta.map((f, i) => <span key={i}>{i > 0 && ' · '}{f}</span>)}
+        </div>
+
+        {/* Det store tal er den REELLE maanedlige udgift, ikke huslejen.
+            Kender vi den ikke, staar huslejen der i stedet — men uden
+            accentfarven, saa de to aldrig kan forveksles paa afstand. */}
+        <div className="oekonomi-linje">
+          {b.total != null ? (
+            <div className="kort-pris">
+              {kr(b.total)} <small>kr/md i alt</small>
+            </div>
+          ) : (
+            <div className="kort-pris kun-leje">
+              {kr(b.leje) ?? '—'} <small>kr/md i husleje</small>
+            </div>
+          )}
+
+          {b.indflytning != null && (
+            <div className="total">indflytning <b>{kr(b.indflytning)} kr.</b></div>
+          )}
+
+          {b.total == null && (
+            /* Manglen skal vaere synlig for brugeren, ikke bare fravaerende.
+               Vi kan ikke skelne "udlejer opkraever intet" fra "udlejer
+               oplyser intet", saa vi paastaar ingen af delene — vi siger,
+               hvad hun skal spoerge om. */
+            <span className="ukendt">
+              Udlejer oplyser ikke aconto — spørg om varme og vand.
+            </span>
+          )}
+          {b.total != null && b.el == null && (
+            <div className="el">El afregnes direkte med elselskabet</div>
+          )}
+          {!nyligt && (
+            <div className="total">
+              {b.hosKilden ? `annonceret ${siden(b.hosKilden)}` : `set ${siden(b.foerstSet)}`}
+            </div>
+          )}
+          {/* Egen linje nederst: den forklarer det store tal og skal staa
+              under det, ikke klemmes ind mellem de andre oplysninger. */}
+          {b.total != null && (
+            <div className="poster">{['husleje', ...aconto].join(' + ')}</div>
           )}
         </div>
-        <div className="hoejre">
-          {b.ansoegning === 'waiting_list' && <span className="maerkat m-vent">venteliste</span>}
-          {nyligt && <span className="maerkat m-ny">ny {siden(paaMarkedet)}</span>}
-          <span className="maerkat m-kilde">{b.kildeNavn}</span>
-        </div>
-      </div>
-
-      <div className="fakta">
-        {fakta.map((f, i) => <span key={i}>{i > 0 && ' · '}{f}</span>)}
-      </div>
-
-      <div className="oekonomi">
-        <div className="leje">
-          {kr(b.leje) ?? '—'} <small>kr/md</small>
-        </div>
-        {b.total != null ? (
-          <div className="total">
-            <b>{kr(b.total)} kr/md</b> i alt — {['husleje', ...aconto].join(' + ')}
-          </div>
-        ) : (
-          /* Manglen skal vaere synlig for brugeren, ikke bare fravaerende.
-             Vi kan ikke skelne "udlejer opkraever intet" fra "udlejer oplyser
-             intet", saa vi paastaar ingen af delene — vi siger, hvad hun skal
-             spoerge om. */
-          <span className="ukendt">
-            Udlejer oplyser ikke aconto — spørg om varme og vand.
-          </span>
-        )}
-        {/* Kun naar vi har gjort rede for hele udlejerens aconto. Ellers ved
-            vi ikke, om el mangler i opgoerelsen eller ikke opkraeves. */}
-        {b.total != null && b.el == null && (
-          <div className="el">El afregnes direkte med elselskabet</div>
-        )}
-        {b.indflytning != null && (
-          <div className="total">indflytning <b>{kr(b.indflytning)} kr</b></div>
-        )}
-        {!nyligt && (
-          <div className="total">
-            {b.hosKilden ? `annonceret ${siden(b.hosKilden)}` : `set ${siden(b.foerstSet)}`}
-          </div>
-        )}
       </div>
     </a>
   )
@@ -245,6 +266,12 @@ export default async function Side({ searchParams }: { searchParams: Promise<Sp>
           <span>{kr(sum.billigst)}–{kr(sum.dyrest)} kr/md</span>
         )}
       </div>
+
+      {sum.antal > boliger.length && (
+        <p className="begraensning">
+          Viser de {boliger.length} nyeste af {sum.antal}. Brug filtrene for at indsnævre.
+        </p>
+      )}
 
       {boliger.length === 0 ? (
         <div className="tom">

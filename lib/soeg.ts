@@ -53,7 +53,9 @@ const ORDEN = {
   areal_ned: desc(listings.sizeM2),
 }
 
-export async function soeg(f: Filtre, graense = 200) {
+// 48 og ikke 200: hvert kort henter et billede gennem proxyen, og to hundrede
+// paa én side er baade en langsom side og en unoedig belastning af kilderne.
+export async function soeg(f: Filtre, graense = 48) {
   return db
     .select({
       id: listings.id,
@@ -84,6 +86,11 @@ export async function soeg(f: Filtre, graense = 200) {
       kilde: sources.slug,
       kildeNavn: sources.name,
       billeder: sql<number>`(select count(*)::int from listing_images i where i.listing_id = ${listings.id})`,
+      // Foerste billede til kortet. Underforespoergsel frem for join, saa
+      // en bolig med tyve billeder ikke bliver til tyve raekker.
+      forside: sql<string | null>`(
+        select i.external_url from listing_images i
+        where i.listing_id = ${listings.id} order by i.position limit 1)`,
     })
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
