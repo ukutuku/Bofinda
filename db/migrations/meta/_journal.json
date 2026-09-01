@@ -64,6 +64,20 @@
       "when": 1788300761876,
       "tag": "0008_el_egen_maaler",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788302013762,
+      "tag": "0009_alarmkoe",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788302015252,
+      "tag": "0010_rls_alarm",
+      "breakpoints": true
     }
   ]
 }

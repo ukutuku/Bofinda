@@ -29,7 +29,13 @@ export interface Filtre {
  */
 const FULD = isNotNull(listings.totalMonthly)
 
-function hvor(f: Filtre) {
+/**
+ * Filterprædikatet. Eksporteret, fordi alarmen SKAL matche præcis som
+ * søgesiden filtrerer. To implementeringer ville betyde, at beskeden
+ * rammer noget andet, end brugeren så, da hun oprettede søgningen — og
+ * det ville hverken kunne ses eller fejles på.
+ */
+export function hvor(f: Filtre) {
   const d = [
     eq(listings.status, 'active'),
     // En bolig uden adressematch ved vi ikke hvor ligger. Den vises ikke.

@@ -21,6 +21,19 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   bolig uden el-aconto, hvilket er en antagelse præsenteret som en oplysning.
   En check-constraint forhindrer, at en bolig både har el-aconto og "egen
   måler" — sker det, har vi læst kilden forkert.
+- **Alarmen skal matche præcis som søgesiden filtrerer.** `hvor()` i
+  `lib/soeg.ts` er eksporteret og bruges begge steder. To implementeringer
+  ville betyde, at beskeden rammer noget andet, end brugeren så, da hun
+  oprettede søgningen — og det ville hverken kunne ses eller fejles på.
+- **"Ny" er ikke "vi så den nu".** Ved første import af en kilde får hele
+  bagkataloget `first_seen_at = nu`. En bolig varsles kun, når kilden siger,
+  den er oprettet efter søgningen — eller, for kilder uden dato, når den
+  dukkede op efter mindst et døgns overvågning af den kilde. Uden reglen gav
+  en prøvekørsel 68 falske varsler ud af 87, med en medianalder på 37 dage.
+- **Matchning og afsendelse er adskilt.** `alert_matches` skabes ved match;
+  `sent_at` sættes først, når beskeden faktisk er sendt. En afsendelse der
+  fejler, mister ikke træffet — og træfsikkerheden kan efterses, før nogen
+  får mails. En mail kan ikke kaldes tilbage.
 - **Opfind aldrig data.** Fandt adapteren ikke et billede, indsættes ingen
   placeholder. Fandt den ikke arealet, står feltet `null` og vises ikke.
   Ingen eksempelbilleder, ingen estimerede arealer, ingen opdigtede tal.

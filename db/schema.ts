@@ -305,12 +305,42 @@ export const savedSearches = pgTable('saved_searches', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   name: text('name'),
+  /** Samme form som `Filtre` i lib/soeg.ts. Gemmes som den blev valgt. */
   criteria: jsonb('criteria').$type<Record<string, unknown>>().notNull(),
   notifyPush: boolean('notify_push').notNull().default(true),
   notifyEmail: boolean('notify_email').notNull().default(true),
   lastNotifiedAt: timestamp('last_notified_at', { withTimezone: true }),
+  // Gulvet for hvad der er "nyt". En gemt soegning varsler om boliger, vi
+  // saa EFTER den blev oprettet — ikke om hele det bestaaende udbud.
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   userIdx: index('search_user_idx').on(t.userId),
+}))
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Alarmkoeen. Én raekke per (soegning, bolig).
+//
+//  Matchning og afsendelse er adskilt med vilje. Raekken skabes, naar
+//  boligen matcher; sent_at saettes foerst, naar beskeden faktisk er sendt.
+//  Saa kan traefsikkerheden efterses, foer nogen faar mails — og en
+//  afsendelse der fejler, mister ikke traeffet.
+//
+//  Den unikke noegle er (saved_search_id, listing_id): den samme bolig
+//  varsles aldrig to gange for den samme soegning, uanset hvor mange gange
+//  matchningen koerer.
+// ═══════════════════════════════════════════════════════════════════════════
+export const alertMatches = pgTable('alert_matches', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  savedSearchId: uuid('saved_search_id').notNull()
+    .references(() => savedSearches.id, { onDelete: 'cascade' }),
+  listingId: uuid('listing_id').notNull()
+    .references(() => listings.id, { onDelete: 'cascade' }),
+  matchedAt: timestamp('matched_at', { withTimezone: true }).notNull().defaultNow(),
+  /** Null = endnu ikke sendt. Under indkoeringen er den altid null. */
+  sentAt: timestamp('sent_at', { withTimezone: true }),
+}, (t) => ({
+  enGang: uniqueIndex('alert_match_unik').on(t.savedSearchId, t.listingId),
+  ventende: index('alert_match_ventende_idx').on(t.sentAt, t.matchedAt),
 }))
 
 export const favorites = pgTable('favorites', {

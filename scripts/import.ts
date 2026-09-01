@@ -4,6 +4,7 @@
 import { KILDER, findKilde, rigtigeKilder, tilladTestkilder } from '../adapters'
 import { koerAlle, formatResultat } from '../lib/scheduler'
 import { koerKilde, RUNNER } from '../lib/ingest'
+import { matchAlarmer } from '../lib/alarm'
 import { sql } from '../db/client'
 
 const ud = (s: string) => process.stdout.write(s + '\n')
@@ -35,6 +36,11 @@ if (slug) {
 } else {
   await koerAlle(valgte, (r) => ud(formatResultat(r)))
 }
+
+// Alarmerne matches efter importen, saa nye boliger fanges i samme
+// koersel som de kom ind. Der SENDES ikke — koeen fyldes kun.
+const alarmer = await matchAlarmer()
+for (const a of alarmer) ud(`[alarm] ${a.soegning}: ${a.nyeTraef} nye træf`)
 
 ud('import afsluttet')
 await sql.end()
