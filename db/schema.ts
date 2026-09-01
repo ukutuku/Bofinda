@@ -119,6 +119,14 @@ export const listings = pgTable('listings', {
   // findbolig.nu oplyser en samlet aconto plus en delvis opdeling: uden
   // resten ville totalen vaere lavere end det, lejeren faktisk betaler.
   utilitiesOther: integer('utilities_other'),
+  // Sat naar kilden UDTRYKKELIGT oplyser, at lejeren selv afregner el.
+  // Null betyder "ikke oplyst" — ikke "udlejer opkraever el".
+  //
+  // Findes fordi det er forskellen paa at vide og at formode. Uden feltet
+  // maatte boligsiden udlede af et tomt utilities_electricity, at el
+  // afregnes direkte, og det er en antagelse praesenteret som en oplysning.
+  // Dacas skriver "El: Eget ansvar" paa hver bolig; de oevrige kilder tier.
+  electricityOwnMeter: boolean('electricity_own_meter'),
   // Summen. Udfyldes KUN naar husleje og samtlige aconto-poster for boligen
   // er kendt. Mangler ét beloeb, staar totalMonthly null — et gaet her ville
   // ramme praecis det loefte (fuld oekonomi), der skiller os fra de andre.
@@ -191,6 +199,11 @@ export const listings = pgTable('listings', {
     ${t.totalMonthly} is null
     or (${t.rentMonthly} is not null
         and cardinality(${t.totalMonthlyComponents}) > 0)`),
+
+  // Udlejeren kan ikke baade opkraeve el aconto OG oplyse, at lejeren selv
+  // afregner. Sker det, har vi laest kilden forkert.
+  elEnten: check('listing_el_enten_eller', sql`
+    ${t.electricityOwnMeter} is not true or ${t.utilitiesElectricity} is null`),
 
   // Et matchniveau uden det UUID, det bygger paa, er ikke et match.
   addressLevelHonest: check('listing_address_level_honest', sql`

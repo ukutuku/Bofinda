@@ -177,6 +177,7 @@ export interface NormaliseretBolig {
   utilitiesWater: number | null
   utilitiesElectricity: number | null
   utilitiesOther: number | null
+  electricityOwnMeter: boolean | null
   totalMonthly: number | null
   totalMonthlyComponents: string[] | null
   moveInCost: number | null
@@ -234,6 +235,7 @@ export async function normaliser(r: RawListing): Promise<NormaliseretBolig> {
     utilitiesWater: r.utilitiesWater ?? null,
     utilitiesElectricity: r.utilitiesElectricity ?? null,
     utilitiesOther: r.utilitiesOther ?? null,
+    electricityOwnMeter: r.electricityOwnMeter ?? null,
     totalMonthly,
     totalMonthlyComponents,
     moveInCost: r.moveInCost ?? null,

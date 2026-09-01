@@ -4,6 +4,7 @@ import { dummyAdapter } from './dummy'
 import { dummy2Adapter } from './dummy2'
 import { findboligAdapter } from './findbolig'
 import { propstepAdapter } from './propstep'
+import { dacasAdapter } from './dacas'
 
 export interface Registreret {
   adapter: SourceAdapter
@@ -35,6 +36,11 @@ export const KILDER: Registreret[] = [
     adapter: propstepAdapter({ postalCodes: liste(process.env.PROPSTEP_POSTNR) }),
     navn: 'Propstep',
     baseUrl: 'https://propstep.com',
+  },
+  {
+    adapter: dacasAdapter(),
+    navn: 'Dacas',
+    baseUrl: 'https://dacas.dk',
   },
   { adapter: dummyAdapter, navn: 'Dummy (testdata)', baseUrl: 'https://dummy.invalid', kunUdvikling: true },
   { adapter: dummy2Adapter, navn: 'Dummy 2 (testdata)', baseUrl: 'https://dummy2.invalid', kunUdvikling: true },

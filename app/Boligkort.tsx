@@ -151,8 +151,14 @@ export function Kort({ b }: { b: Bolig }) {
               Udlejer oplyser ikke aconto — spørg om varme og vand.
             </span>
           )}
+          {/* Kun naar KILDEN siger det. Foer stod der "El afregnes direkte
+              med elselskabet" paa alt uden el-aconto — en antagelse
+              praesenteret som en oplysning. Nu staar den kun, hvor den er
+              oplyst, og resten faar den ærlige formulering. */}
           {b.total != null && b.el == null && (
-            <div className="el">El afregnes direkte med elselskabet</div>
+            b.elEgenMaaler
+              ? <div className="el">Udlejer oplyser: el afregnes direkte med elselskabet</div>
+              : <div className="el">El indgår ikke — udlejer oplyser ikke hvordan</div>
           )}
           {!nyligt && (
             <div className="total">

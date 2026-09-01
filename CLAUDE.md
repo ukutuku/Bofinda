@@ -14,6 +14,13 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   regnes, udelades sætningen frem for at blive fyldt med noget, der lyder
   rigtigt. Der står altid, at tallene er talt af de boliger, vi har hentet,
   og ikke er et udtryk for hele markedet.
+- **Sig aldrig, at el afregnes direkte, medmindre kilden siger det.**
+  `electricity_own_meter` sættes kun, når kilden udtrykkeligt oplyser det.
+  Null betyder "ikke oplyst" — ikke "udlejer opkræver ikke el". Boligsiden
+  skelnede før ikke: den skrev "El afregnes direkte med elselskabet" på hver
+  bolig uden el-aconto, hvilket er en antagelse præsenteret som en oplysning.
+  En check-constraint forhindrer, at en bolig både har el-aconto og "egen
+  måler" — sker det, har vi læst kilden forkert.
 - **Opfind aldrig data.** Fandt adapteren ikke et billede, indsættes ingen
   placeholder. Fandt den ikke arealet, står feltet `null` og vises ikke.
   Ingen eksempelbilleder, ingen estimerede arealer, ingen opdigtede tal.
@@ -228,6 +235,29 @@ Aldrig: `note` · `owner` · `propertyGroup` · `application` ·
 Kun `propertyDetails.type = 1` er verificeret (renderer som "Lejlighed").
 Andre værdier giver `null` og logges — de gættes ikke, heller ikke ud fra
 rækkefølgen i deres i18n-nøgler.
+
+### Dacas — i brug, med allowlist
+
+Ren HTML. WordPress med Divi; posttypen `lejlighed` er ikke eksponeret i
+REST-API'et (404, og typen mangler i `/types`), så der er intet JSON.
+`lejlighed-sitemap.xml` er hele udbuddet — 19 boliger — og hentes i ét kald.
+
+**Siden læses på navngivne etiketter, ikke på position i markuppen**, og
+udtrækket er typebestemt: beløb matches som beløb, tal som tal. Et generisk
+"alt efter etiketten indtil næste etiket" knækkede to gange på ting, kilden
+ikke havde fortalt os om, og gav tomme felter uden at fejle.
+
+Aldrig: kontaktblokken. Hver boligside har en navngiven udlejningskonsulent
+med direkte mailadresse og telefonnummer i brødteksten. Etiket-tilgangen gør,
+at den aldrig læses — den står i en anden sektion og har ingen af vores
+etiketter. Udvid **aldrig** til "tag alt i denne div".
+
+Adressen står i `<h1>`, ikke i `<title>`: titlen har to formater, og fire af
+nitten mangler postnummeret i den. Datoer er dansk tekst (`1. november 2026`),
+ikke ISO. `Snarest` betyder ledig nu.
+
+Kilden oplyser **Indflytningspris direkte**, så den regnes ikke ud, og den er
+den eneste kilde, der skriver `El: Eget ansvar` — se reglen nedenfor.
 
 ### Kendt begrænsning: stednavne
 

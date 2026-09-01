@@ -29,6 +29,8 @@ export interface RawListing {
   /** Aconto kilden opkraever men ikke specificerer. Uden den bliver totalen
    *  lavere end det, lejeren faktisk betaler. */
   utilitiesOther?: number
+  /** Sat kun naar kilden UDTRYKKELIGT siger, at lejeren selv afregner el. */
+  electricityOwnMeter?: boolean
   moveInCost?: number
 
   /** Kildens egne koordinater. Er de der, geokoder vi ikke. */

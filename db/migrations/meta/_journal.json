@@ -57,6 +57,13 @@
       "when": 1788297633518,
       "tag": "0007_rls_fetch_failures",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788300761876,
+      "tag": "0008_el_egen_maaler",
+      "breakpoints": true
     }
   ]
 }

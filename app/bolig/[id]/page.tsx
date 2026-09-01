@@ -111,7 +111,10 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
                 </ul>
                 {b.el == null && (
                   <p className="oek-note">
-                    El afregnes direkte med elselskabet og indgår ikke i beløbet.
+                    {b.elEgenMaaler
+                      ? 'Udlejer oplyser, at el afregnes direkte med elselskabet. Det indgår ikke i beløbet.'
+                      : 'El indgår ikke i beløbet. Udlejer oplyser ikke, hvordan el afregnes — '
+                        + 'i dansk udlejning har lejeren som regel sin egen måler, men spørg for en sikkerheds skyld.'}
                   </p>
                 )}
               </>
