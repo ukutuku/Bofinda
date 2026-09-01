@@ -115,6 +115,10 @@ export async function ventende() {
       kriterier: savedSearches.criteria,
       modtager: users.email,
       paaMail: savedSearches.notifyEmail,
+      afmeldt: savedSearches.unsubscribedAt,
+      token: savedSearches.unsubscribeToken,
+      sidstSendt: savedSearches.lastNotifiedAt,
+      matchId: alertMatches.id,
       matchetKl: alertMatches.matchedAt,
       adresse: listings.addressRaw,
       postnr: listings.postalCode,
@@ -191,3 +195,133 @@ export async function soegninger() {
     .innerJoin(users, eq(users.id, savedSearches.userId))
     .orderBy(asc(savedSearches.createdAt))
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  Afsendelse.
+// ═══════════════════════════════════════════════════════════════
+
+import { inArray } from 'drizzle-orm'
+import { maaSendeTil, sendMail } from './mail'
+
+/** Højst én mail i timen per søgning, uanset hvor tit importen kører. */
+const MINDST_MELLEM_MAILS_MIN = 60
+
+const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000'
+const kr = (o: number | null) => o == null ? '—' : (o / 100).toLocaleString('da-DK')
+const und = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+export interface SendResultat {
+  soegning: string
+  modtager: string
+  antal: number
+  sendt: boolean
+  grund?: string
+}
+
+/**
+ * Sender én mail per søgning med ventende træf, og sætter sent_at.
+ *
+ * Rækkefølgen er med vilje: mailen sendes FØRST, sent_at bagefter. Fejler
+ * afsendelsen, står træffene stadig i køen og prøves igen. Modsat ville en
+ * fejlet mail betyde, at boligerne var markeret sendt uden nogensinde at
+ * være det — og det opdager ingen.
+ */
+export async function sendAlarmer(): Promise<SendResultat[]> {
+  const grupper = await ventende()
+  const ud: SendResultat[] = []
+
+  for (const g of grupper) {
+    const f = g[0]!
+    const navn = f.soegning ?? 'din søgning'
+
+    if (!f.paaMail || f.afmeldt) {
+      ud.push({ soegning: navn, modtager: f.modtager, antal: g.length,
+        sendt: false, grund: 'afmeldt — mail slået fra' })
+      continue
+    }
+    if (f.sidstSendt && Date.now() - +f.sidstSendt < MINDST_MELLEM_MAILS_MIN * 60_000) {
+      const min = Math.round((MINDST_MELLEM_MAILS_MIN * 60_000 - (Date.now() - +f.sidstSendt)) / 60_000)
+      ud.push({ soegning: navn, modtager: f.modtager, antal: g.length,
+        sendt: false, grund: `sendt for nylig — venter ${min} min.` })
+      continue
+    }
+
+    // Siden til mennesker; POST-ruten til mailklientens ét-klik.
+    const afmeldUrl = `${BASE}/afmeld/${f.token}`
+    const afmeldPost = `${BASE}/api/afmeld?t=${f.token}`
+    const emne = `${g.length} ${g.length === 1 ? 'ny bolig' : 'nye boliger'} — ${navn}`
+
+    const linjer = g.map((b) => {
+      const pris = b.total != null
+        ? `${kr(b.total)} kr/md i alt`
+        : `${kr(b.leje)} kr/md i husleje — total ukendt, aconto ikke oplyst`
+      const indf = b.indflytning != null ? ` · indflytning ${kr(b.indflytning)} kr.` : ''
+      const maal = [b.areal && `${b.areal} m²`, b.vaerelser && `${b.vaerelser} vær.`]
+        .filter(Boolean).join(' · ')
+      return { adresse: b.adresse, maal, pris, indf, url: `${BASE}/bolig/${b.boligId}`,
+        kilde: b.kilde, uvis: b.total == null }
+    })
+
+    const tekst = [
+      `${g.length} ${g.length === 1 ? 'ny bolig matcher' : 'nye boliger matcher'} "${navn}"`,
+      beskrivFiltre(f.kriterier),
+      '',
+      ...linjer.flatMap((l) => [
+        l.adresse, `  ${l.maal}`, `  ${l.pris}${l.indf}`,
+        ...(l.uvis ? ['  OBS: kan være dyrere end din grænse — den er sat på huslejen alene.'] : []),
+        `  ${l.url}`, '',
+      ]),
+      `Afmeld: ${afmeldUrl}`,
+    ].join('\n')
+
+    const html = `<div style="font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;color:#14161a;max-width:600px">
+<p style="margin:0 0 4px"><strong>${g.length} ${g.length === 1 ? 'ny bolig' : 'nye boliger'}</strong> matcher «${und(navn)}»</p>
+<p style="margin:0 0 20px;color:#5f6672;font-size:13px">${und(beskrivFiltre(f.kriterier))}</p>
+${linjer.map((l) => `<div style="border-top:1px solid #e8e5de;padding:14px 0">
+<a href="${l.url}" style="font-size:16px;font-weight:600;color:#14161a;text-decoration:none">${und(l.adresse)}</a>
+<div style="color:#5f6672;font-size:13px;margin-top:3px">${und(l.maal)}</div>
+<div style="margin-top:7px;font-weight:600;color:${l.uvis ? '#14161a' : '#14624f'}">${und(l.pris)}</div>
+${l.indf ? `<div style="color:#5f6672;font-size:13px">${und(l.indf.replace(' · ', ''))}</div>` : ''}
+${l.uvis ? '<div style="color:#8a5300;font-size:12.5px;margin-top:5px">Kan være dyrere end din grænse — den er sat på huslejen alene.</div>' : ''}
+<div style="color:#9aa1ac;font-size:12px;margin-top:6px">${und(l.kilde)}</div>
+</div>`).join('')}
+<p style="margin:22px 0 0;color:#9aa1ac;font-size:12px">
+Du får denne mail, fordi du har gemt en søgning på Bofinda.
+<a href="${afmeldUrl}" style="color:#9aa1ac">Afmeld</a>.</p></div>`
+
+    const r = await sendMail({ til: f.modtager, emne, tekst, html,
+      afmeldUrl: afmeldPost, afmeldSideUrl: afmeldUrl })
+    if (r.sendt) {
+      // Først når mailen ER afsendt.
+      await db.update(alertMatches)
+        .set({ sentAt: sql`now()` })
+        .where(inArray(alertMatches.id, g.map((x) => x.matchId)))
+      await db.update(savedSearches)
+        .set({ lastNotifiedAt: sql`now()` })
+        .where(eq(savedSearches.id, f.soegningId))
+    }
+    ud.push({ soegning: navn, modtager: f.modtager, antal: g.length,
+      sendt: r.sendt, grund: r.grund })
+  }
+  return ud
+}
+
+/** Afmelding. Slår mail fra; søgningen og køen bevares. */
+export async function afmeld(token: string): Promise<{ navn: string | null } | null> {
+  const [s] = await db.update(savedSearches)
+    .set({ notifyEmail: false, unsubscribedAt: sql`now()` })
+    .where(eq(savedSearches.unsubscribeToken, token))
+    .returning({ navn: savedSearches.name })
+  return s ?? null
+}
+
+export async function findPaaToken(token: string) {
+  const [s] = await db
+    .select({ navn: savedSearches.name, afmeldt: savedSearches.unsubscribedAt })
+    .from(savedSearches)
+    .where(eq(savedSearches.unsubscribeToken, token))
+    .limit(1)
+  return s ?? null
+}
+
+export { maaSendeTil }

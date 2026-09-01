@@ -30,6 +30,19 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   den er oprettet efter søgningen — eller, for kilder uden dato, når den
   dukkede op efter mindst et døgns overvågning af den kilde. Uden reglen gav
   en prøvekørsel 68 falske varsler ud af 87, med en medianalder på 37 dage.
+- **Afmeldingslinket må aldrig afmelde på et GET.** Mailscannere og
+  forhåndsvisninger henter hvert link i en mail. `/afmeld/<token>` viser en
+  knap; `POST /api/afmeld` afmelder. Mailklienternes ét-klik-afmelding
+  (`List-Unsubscribe-Post`) rammer POST-ruten og virker derfor uden at åbne
+  siden. Tokenet er den eneste nøgle — modtageren skal ikke oprette en konto
+  for at slippe af med os.
+- **Mailen sendes FØR `sent_at` sættes.** Fejler afsendelsen, står træffene
+  stadig i køen og prøves igen. Modsat ville en fejlet mail betyde, at
+  boligerne var markeret sendt uden nogensinde at være det — og det opdager
+  ingen.
+- **`ALARM_TILLADTE_MODTAGERE` er indkøringsventilen.** Er den sat, får kun
+  de adresser mail; alle andre springes over og logges. Fjern den først, når
+  nogen har set, hvad der faktisk lander i en indbakke.
 - **Matchning og afsendelse er adskilt.** `alert_matches` skabes ved match;
   `sent_at` sættes først, når beskeden faktisk er sendt. En afsendelse der
   fejler, mister ikke træffet — og træfsikkerheden kan efterses, før nogen

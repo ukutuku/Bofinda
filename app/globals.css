@@ -369,3 +369,11 @@ iframe.kort { width: 100%; height: 290px; border: 0; border-radius: 8px; display
   max-width: 78ch; line-height: 1.5;
 }
 .prisnote strong { color: var(--tekst); font-weight: 600; }
+
+/* ─── Afmelding ─────────────────────────────────────────────── */
+.afmeld { max-width: 52ch; margin: 44px auto; }
+.afmeld h1 { font-size: 24px; font-weight: 660; margin: 0 0 12px; }
+.afmeld p { font-size: 15px; line-height: 1.6; margin: 0 0 14px; }
+.afmeld form { margin: 18px 0; }
+.afmeld .note { font-size: 13px; color: var(--svag); }
+.afmeld .note a { color: var(--accent); text-decoration: none; }

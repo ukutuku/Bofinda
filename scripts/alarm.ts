@@ -5,7 +5,7 @@
 //   npm run alarm -- match                         kør matchningen nu
 //   npm run alarm -- opret <mail> "<navn>" k=v ...
 //     fx: opret mig@x.dk "3 vær i 2300" postnr=2300 vaerelserMin=3 prisMax=18000
-import { beskrivFiltre, matchAlarmer, opretSoegning, soegninger, ventende } from '../lib/alarm'
+import { beskrivFiltre, maaSendeTil, matchAlarmer, opretSoegning, sendAlarmer, soegninger, ventende } from '../lib/alarm'
 import type { Filtre } from '../lib/soeg'
 import { sql } from '../db/client'
 
@@ -50,6 +50,22 @@ if (kmd === 'opret') {
     ud(`  ${x.ventende} i kø`)
     ud()
   }
+
+} else if (kmd === 'send') {
+  const r = await sendAlarmer()
+  if (!r.length) ud('  ingen ventende beskeder')
+  for (const x of r) {
+    ud(`  ${x.sendt ? 'SENDT ' : 'sprang '} ${x.soegning} → ${x.modtager} (${x.antal} boliger)`
+      + (x.grund ? `  — ${x.grund}` : ''))
+  }
+
+} else if (kmd === 'tjek') {
+  const mail = process.argv[3] ?? ''
+  const r = maaSendeTil(mail)
+  ud(`  ${mail || '(ingen adresse)'}: ${r.ok ? 'må sendes til' : 'SPÆRRET — ' + r.grund}`)
+  ud(`  RESEND_API_KEY:            ${process.env.RESEND_API_KEY ? 'sat' : 'MANGLER'}`)
+  ud(`  ALARM_AFSENDER:            ${process.env.ALARM_AFSENDER ?? 'MANGLER'}`)
+  ud(`  ALARM_TILLADTE_MODTAGERE:  ${process.env.ALARM_TILLADTE_MODTAGERE ?? '(ikke sat — alle tilladt)'}`)
 
 } else if (kmd === 'match') {
   const r = await matchAlarmer()

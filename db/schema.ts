@@ -313,8 +313,15 @@ export const savedSearches = pgTable('saved_searches', {
   // Gulvet for hvad der er "nyt". En gemt soegning varsler om boliger, vi
   // saa EFTER den blev oprettet — ikke om hele det bestaaende udbud.
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  // Afmelding uden login. Uudregnelig, egen pr. soegning, og den eneste
+  // noegle der skal til — modtageren skal ikke oprette en konto for at
+  // slippe af med os.
+  unsubscribeToken: text('unsubscribe_token').notNull()
+    .default(sql`gen_random_uuid()::text`),
+  unsubscribedAt: timestamp('unsubscribed_at', { withTimezone: true }),
 }, (t) => ({
   userIdx: index('search_user_idx').on(t.userId),
+  token: uniqueIndex('search_token_unik').on(t.unsubscribeToken),
 }))
 
 // ═══════════════════════════════════════════════════════════════════════════

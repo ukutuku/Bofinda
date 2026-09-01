@@ -4,7 +4,7 @@
 import { KILDER, findKilde, rigtigeKilder, tilladTestkilder } from '../adapters'
 import { koerAlle, formatResultat } from '../lib/scheduler'
 import { koerKilde, RUNNER } from '../lib/ingest'
-import { matchAlarmer } from '../lib/alarm'
+import { matchAlarmer, sendAlarmer } from '../lib/alarm'
 import { sql } from '../db/client'
 
 const ud = (s: string) => process.stdout.write(s + '\n')
@@ -41,6 +41,13 @@ if (slug) {
 // koersel som de kom ind. Der SENDES ikke — koeen fyldes kun.
 const alarmer = await matchAlarmer()
 for (const a of alarmer) ud(`[alarm] ${a.soegning}: ${a.nyeTraef} nye træf`)
+
+// Afsendelsen spærrer sig selv, hvis noeglerne mangler eller modtageren
+// ikke staar paa listen — se lib/mail.ts.
+for (const r of await sendAlarmer()) {
+  ud(`[mail] ${r.soegning} → ${r.modtager}: ${r.antal} boliger — `
+    + (r.sendt ? 'SENDT' : `ikke sendt (${r.grund})`))
+}
 
 ud('import afsluttet')
 await sql.end()
