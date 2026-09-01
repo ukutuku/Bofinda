@@ -52,11 +52,11 @@ export default async function Side({ searchParams }: { searchParams: Promise<Sp>
           <input id="postnr" name="postnr" defaultValue={f.postnr ?? ''} placeholder="fx 2300" inputMode="numeric" />
         </div>
         <div className="felt">
-          <label htmlFor="prisMin">Pris fra (kr)</label>
+          <label htmlFor="prisMin">Md. udgift fra</label>
           <input id="prisMin" name="prisMin" defaultValue={en(sp.prisMin) ?? ''} inputMode="numeric" />
         </div>
         <div className="felt">
-          <label htmlFor="prisMax">Pris til (kr)</label>
+          <label htmlFor="prisMax">Md. udgift til</label>
           <input id="prisMax" name="prisMax" defaultValue={en(sp.prisMax) ?? ''} inputMode="numeric" />
         </div>
         <div className="felt">
@@ -94,6 +94,12 @@ export default async function Side({ searchParams }: { searchParams: Promise<Sp>
           <a className="nulstil" href="/">Nulstil</a>
         </div>
       </form>
+
+      <p className="prisnote">
+        Prisfilteret gælder den <strong>samlede månedlige udgift</strong> — husleje
+        plus aconto. Kender vi ikke totalen, filtreres der på huslejen alene, og
+        boligen kan være dyrere end grænsen.
+      </p>
 
       <div className="optaelling">
         <span><strong>{sum.antal}</strong> {sum.antal === 1 ? 'bolig' : 'boliger'}</span>

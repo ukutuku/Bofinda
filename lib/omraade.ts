@@ -88,12 +88,12 @@ export async function statistik(o: Omraade): Promise<Statistik> {
     .select({
       antal: sql<number>`count(*)::int`,
       medTotal: sql<number>`count(${listings.totalMonthly})::int`,
-      // Gennemsnittet regnes af huslejen, som naesten alle boliger har.
-      // Totalen mangler paa en tredjedel, og et gennemsnit af en delmaengde
-      // ville ligne et gennemsnit af dem alle.
-      gennemsnitLeje: sql<number | null>`round(avg(${listings.rentMonthly}))::int`,
-      billigst: sql<number | null>`min(${listings.rentMonthly})`,
-      dyrest: sql<number | null>`max(${listings.rentMonthly})`,
+      // Samme tal som soegesiden filtrerer og sorterer paa: den reelle
+      // maanedlige udgift naar den kendes, ellers huslejen. Ellers ville
+      // omraadesidens prisinterval sige noget andet end filteret.
+      gennemsnitLeje: sql<number | null>`round(avg(coalesce(${listings.totalMonthly}, ${listings.rentMonthly})))::int`,
+      billigst: sql<number | null>`min(coalesce(${listings.totalMonthly}, ${listings.rentMonthly}))`,
+      dyrest: sql<number | null>`max(coalesce(${listings.totalMonthly}, ${listings.rentMonthly}))`,
       // Median og ikke gennemsnit: én dyr bolig maa ikke flytte "typisk".
       medianIndflytning: sql<number | null>`
         percentile_cont(0.5) within group (order by ${listings.moveInCost})::int`,

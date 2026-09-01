@@ -74,10 +74,16 @@ if (kmd === 'opret') {
       ud(`  ${b.adresse}`)
       ud(`    ${[b.areal && `${b.areal} m²`, b.vaerelser && `${b.vaerelser} vær.`]
         .filter(Boolean).join(' · ')}`)
+      // Filteret bruger huslejen, naar totalen er ukendt. Saa kan boligen
+      // vaere dyrere end bestilt, og det skal staa her — ikke opdages
+      // foerst ved fremvisningen.
       ud(`    ${b.total != null
         ? `${kr(b.total)} kr/md i alt`
-        : `${kr(b.leje)} kr/md i husleje — aconto ikke oplyst`}`
+        : `TOTAL UKENDT — huslejen er ${kr(b.leje)} kr/md, aconto ikke oplyst`}`
         + (b.indflytning != null ? `   ·   indflytning ${kr(b.indflytning)} kr.` : ''))
+      if (b.total == null) {
+        ud('      ⚠ Kan være dyrere end søgningens grænse — den er sat på huslejen alene.')
+      }
       ud(`    ${b.kilde} · set ${klokken(b.foerstSet)}`
         + (forsinkelse != null ? ` · ${forsinkelse} min. efter kilden oprettede den` : '')
         + (b.status === 'delisted' ? '  ⚠ IKKE LÆNGERE LEDIG' : ''))

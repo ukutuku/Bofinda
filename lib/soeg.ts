@@ -30,6 +30,21 @@ export interface Filtre {
 const FULD = isNotNull(listings.totalMonthly)
 
 /**
+ * Prisen der filtreres, sorteres og opsummeres på.
+ *
+ * Den reelle månedlige udgift, når vi kender den — ellers huslejen. Det er
+ * det tal, brugeren SER som overskrift på kortet, og dermed det, hun mener,
+ * når hun skriver "under 18.000". Filtrerede vi på huslejen alene, ville en
+ * bolig til 17.200 i husleje og 18.100 i alt slippe gennem et 18.000-filter
+ * og se dyrere ud end bestilt.
+ *
+ * Boliger uden kendt total falder tilbage på huslejen. De er dermed
+ * potentielt dyrere end filteret siger, og skal mærkes som sådan der, hvor
+ * de vises — se alarmen.
+ */
+const PRIS = sql`coalesce(${listings.totalMonthly}, ${listings.rentMonthly})`
+
+/**
  * Filterprædikatet. Eksporteret, fordi alarmen SKAL matche præcis som
  * søgesiden filtrerer. To implementeringer ville betyde, at beskeden
  * rammer noget andet, end brugeren så, da hun oprettede søgningen — og
@@ -43,8 +58,8 @@ export function hvor(f: Filtre) {
   ]
   if (f.by) d.push(ilike(listings.city, `%${f.by}%`))
   if (f.postnr) d.push(eq(listings.postalCode, f.postnr))
-  if (f.prisMin != null) d.push(gte(listings.rentMonthly, f.prisMin))
-  if (f.prisMax != null) d.push(lte(listings.rentMonthly, f.prisMax))
+  if (f.prisMin != null) d.push(sql`${PRIS} >= ${f.prisMin}`)
+  if (f.prisMax != null) d.push(sql`${PRIS} <= ${f.prisMax}`)
   if (f.vaerelserMin != null) d.push(gte(listings.rooms, f.vaerelserMin))
   if (f.arealMin != null) d.push(gte(listings.sizeM2, f.arealMin))
   if (f.kilder?.length) d.push(inArray(sources.slug, f.kilder))
@@ -54,8 +69,10 @@ export function hvor(f: Filtre) {
 
 const ORDEN = {
   nyeste: desc(listings.firstSeenAt),
-  pris_op: asc(listings.rentMonthly),
-  pris_ned: desc(listings.rentMonthly),
+  // Sorteres på samme tal som der filtreres på — ellers ville "billigst
+  // først" og "under 18.000" pege på to forskellige priser.
+  pris_op: sql`${PRIS} asc nulls last`,
+  pris_ned: sql`${PRIS} desc nulls last`,
   areal_ned: desc(listings.sizeM2),
 }
 
@@ -116,8 +133,8 @@ export async function opsummering(f: Filtre) {
       medTotal: sql<number>`count(${listings.totalMonthly})::int`,
       medIndflytning: sql<number>`count(${listings.moveInCost})::int`,
       fuld: sql<number>`count(*) filter (where ${FULD})::int`,
-      billigst: sql<number | null>`min(${listings.rentMonthly})`,
-      dyrest: sql<number | null>`max(${listings.rentMonthly})`,
+      billigst: sql<number | null>`min(${PRIS})`,
+      dyrest: sql<number | null>`max(${PRIS})`,
     })
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
