@@ -116,6 +116,12 @@ Kørslen tager omkring fem minutter; en proces der sover de resterende 55
 koster containertid uden at lave noget, og hver cron-kørsel bliver sin egen
 aflæselige log i dashboardet.
 
+**Servicen bygger ikke frontenden.** `buildCommand` er sat til et `echo`,
+fordi Railpack ellers opdager Next.js og kører `next build` — et byg denne
+service aldrig bruger, men som kan vælte importen. Det skete: efter
+design-ændringerne fejlede deployet på `next build`, mens importen selv var
+uberørt. Frontenden bygges på Vercel, hvor den hører hjemme.
+
 Servicen kører `npm run import`, som afslutter af sig selv.
 `restartPolicyType: NEVER` sikrer, at Railway ikke genstarter den i ring —
 cron-planen er det, der starter den igen.

@@ -15,8 +15,10 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
+import postgres, { type Sql } from 'postgres'
 import * as schema from './schema'
+
+type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>
 
 /**
  * Webappen skal ALTID gennem transaction-pooleren, ogsaa lokalt.
@@ -29,7 +31,7 @@ import * as schema from './schema'
  */
 const iWebappen = Boolean(process.env.NEXT_RUNTIME || process.env.VERCEL)
 
-function connectionString() {
+function forbindelse() {
   const url = iWebappen
     ? process.env.DATABASE_URL          // Supavisor transaction pooler, :6543
     : process.env.DATABASE_URL_DIRECT   // session pooler eller direct, :5432
@@ -49,27 +51,62 @@ function connectionString() {
   return parsed.toString()
 }
 
-export const sql = postgres(connectionString(), {
-  // Konservativt med vilje. Session-pooleren giver kun 15 pladser i alt, og
-  // workeren deler dem med migrationer og ad hoc-forespoergsler.
-  // Se README, "Forbindelsesbudget".
-  max: iWebappen ? 1 : 5,
+/**
+ * Klienten oprettes ved FOERSTE BRUG, ikke ved modulindlaesning.
+ *
+ * Next importerer hver sides modul under `next build` for at samle
+ * konfiguration. Blev klienten oprettet paa modulniveau, kraevede et
+ * sidebyg en gyldig forbindelsesstreng — og Railway-bygget faldt med
+ * "DATABASE_URL mangler", selv om servicen kun koerer importoeren og
+ * aldrig rammer webappen. Et byg skal kunne lykkes uden en database.
+ */
+let _sql: Sql | null = null
+function klient(): Sql {
+  if (_sql) return _sql
+  _sql = postgres(forbindelse(), {
+    // Konservativt med vilje. Session-pooleren giver kun 15 pladser i alt,
+    // og workeren deler dem med migrationer og ad hoc-forespoergsler.
+    // Se README, "Forbindelsesbudget".
+    max: iWebappen ? 1 : 5,
 
-  // Transaction mode kan ikke haandtere prepared statements: naeste
-  // transaktion lander maaske paa en anden server-forbindelse, og den fejler
-  // med "prepared statement does not exist" — typisk foerst under belastning.
-  // Session/direct beholder dem, de er hurtigere.
-  prepare: !iWebappen,
+    // Transaction mode kan ikke haandtere prepared statements: naeste
+    // transaktion lander maaske paa en anden server-forbindelse, og den
+    // fejler med "prepared statement does not exist" — typisk foerst under
+    // belastning. Session/direct beholder dem, de er hurtigere.
+    prepare: !iWebappen,
 
-  // Supabase kraever TLS. 'require' verificerer ikke certifikatkaeden, hvilket
-  // er det Supabase selv anbefaler til pooleren.
-  ssl: 'require',
+    // Supabase kraever TLS. 'require' verificerer ikke certifikatkaeden,
+    // hvilket er det Supabase selv anbefaler til pooleren.
+    ssl: 'require',
 
-  idle_timeout: iWebappen ? 20 : 120,
-  max_lifetime: 60 * 30,
-  connect_timeout: 10,
+    idle_timeout: iWebappen ? 20 : 120,
+    max_lifetime: 60 * 30,
+    connect_timeout: 10,
 
-  onnotice: () => {},
-})
+    onnotice: () => {},
+  })
+  return _sql
+}
 
-export const db = drizzle(sql, { schema })
+let _db: DrizzleDb | null = null
+function drizzleKlient(): DrizzleDb {
+  if (!_db) _db = drizzle(klient(), { schema })
+  return _db
+}
+
+/** Metoder skal bindes til den rigtige instans, ikke til stedfortraederen. */
+function stedfortraeder<T extends object>(hent: () => T, maal: object): T {
+  return new Proxy(maal as T, {
+    apply: (_m, _this, args) => (hent() as unknown as (...a: unknown[]) => unknown)(...args),
+    get: (_m, n) => {
+      const i = hent()
+      const v = (i as Record<string | symbol, unknown>)[n]
+      return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(i) : v
+    },
+  })
+}
+
+// `sql` bruges baade som skabelontag og som objekt (sql.end, sql.unsafe),
+// saa stedfortraederens maal skal vaere en funktion.
+export const sql: Sql = stedfortraeder(klient, function () {})
+export const db: DrizzleDb = stedfortraeder(drizzleKlient, {})
