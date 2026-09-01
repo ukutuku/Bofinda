@@ -52,6 +52,19 @@ export interface KoerselsResultat {
 const GENOPFRISK_EFTER_TIMER = 24
 const GENOPFRISK_PR_KOERSEL = 60
 
+/**
+ * Fejlprocenten maales af de hentninger, koerslen faktisk foretog — men den
+ * siger kun noget, naar der er nok af dem. Med inkrementel import kan en
+ * time have seks hentninger, og hvis de seks er de samme kendte 404-sider,
+ * er andelen 100 % uden at kilden fejler noget: de oevrige 736 boliger blev
+ * bekraeftet fint samme koersel.
+ *
+ * Under graensen her springes fejlandelen over som signal. De to andre
+ * sikringer staar stadig — intet skrevet, og for faa fundet mod medianen —
+ * og de maaler paa hele udbuddet i stedet for paa en tilfaeldig delmaengde.
+ */
+const MINDST_HENTNINGER_FOR_FEJLANDEL = 20
+
 /** Hvem koerer. Uden det kan to importoerer ikke skelnes i basen. */
 export const RUNNER = process.env.RUNNER ?? hostname()
 
@@ -245,7 +258,7 @@ export async function koerKilde(
   const forfaldenFoer = new Date(Date.now() - GENOPFRISK_EFTER_TIMER * 3600_000)
   const skalHentes: typeof fundne = []
   const bekraeftes: string[] = []
-  const forfaldne: { url: string; hentet: Date }[] = []
+  const forfaldne: { externalKey: string; url: string; hentet: Date }[] = []
 
   for (const f of fundne) {
     const k = kendte.get(f.externalKey)
@@ -253,7 +266,7 @@ export async function koerKilde(
       // Ny, eller vendt tilbage efter afmeldning. Hentes altid.
       skalHentes.push(f)
     } else if (!k.hentet || k.hentet < forfaldenFoer) {
-      forfaldne.push({ url: f.url, hentet: k.hentet ?? new Date(0) })
+      forfaldne.push({ externalKey: f.externalKey, url: f.url, hentet: k.hentet ?? new Date(0) })
     } else {
       bekraeftes.push(f.externalKey)
     }
@@ -262,7 +275,7 @@ export async function koerKilde(
   // AEldste foerst, saa alle kommer igennem over et doegn.
   forfaldne.sort((a, b) => +a.hentet - +b.hentet)
   for (const f of forfaldne.slice(0, GENOPFRISK_PR_KOERSEL)) {
-    skalHentes.push({ externalKey: '', url: f.url })
+    skalHentes.push({ externalKey: f.externalKey, url: f.url })
   }
   for (const f of forfaldne.slice(GENOPFRISK_PR_KOERSEL)) {
     bekraeftes.push(fundne.find((x) => x.url === f.url)!.externalKey)
@@ -273,7 +286,8 @@ export async function koerKilde(
   }
   let nye = 0, opdaterede = 0, fejl = 0
   let i = 0
-  for (const { url } of skalHentes) {
+  const fejledeNoegler: string[] = []
+  for (const { url, externalKey } of skalHentes) {
     if (++i % 20 === 0) log(`[${adapter.id}] ${i}/${skalHentes.length} hentet`)
     try {
       const raa = await adapter.extract(url)
@@ -282,7 +296,36 @@ export async function koerKilde(
       ny ? nye++ : opdaterede++
     } catch (e) {
       fejl++
+      // Alle poster i skalHentes baerer nu deres noegle — baade nye og
+      // forfaldne — saa den kan altid slaas op.
+      if (externalKey) fejledeNoegler.push(externalKey)
       if (fejl <= 5) noter.push(`${url}: ${(e as Error).message}`)
+    }
+  }
+
+  // En bolig, VI ALLEREDE KENDER, hvis detaljeside pludselig fejler, faar
+  // alligevel begge tidsstempler flyttet:
+  //
+  //   last_seen_at    discovery SAA den — den staar stadig i kildens liste,
+  //                   og saa maa afmeldningen ikke tage den.
+  //   last_fetched_at vi FORSOEGTE at hente den.
+  //
+  // Uden det sidste kom den aldrig ud af genopfriskningskoeen: den sorteres
+  // aeldst foerst, og et forsoeg der fejler, opdaterede ingenting.
+  //
+  // BEMAERK at det ikke hjaelper paa boliger, der ALDRIG er blevet skrevet.
+  // Propsteps seks 404-sider staar i gitteret men har ingen raekke i
+  // listings, saa der er intet at opdatere — de bliver forsoegt hentet hver
+  // time. Det koster seks kald i timen og staar som fejl i hver koersel.
+  // En rigtig loesning kraever et sted at huske mislykkede noegler.
+  if (fejledeNoegler.length) {
+    for (let n = 0; n < fejledeNoegler.length; n += 500) {
+      await db.update(listings)
+        .set({ lastSeenAt: sql`now()`, lastFetchedAt: sql`now()` })
+        .where(and(
+          eq(listings.sourceId, kilde.id),
+          inArray(listings.externalKey, fejledeNoegler.slice(n, n + 500)),
+        ))
     }
   }
 
@@ -314,7 +357,7 @@ export async function koerKilde(
   const spring =
     fundne.length > 0 && skrevet === 0
       ? `intet kunne skrives: ${fundne.length} fundet, 0 skrevet, ${fejl} fejl`
-    : fejlandel > 0.2
+    : skalHentes.length >= MINDST_HENTNINGER_FOR_FEJLANDEL && fejlandel > 0.2
       ? `for mange udtraek fejlede: ${fejl} af ${skalHentes.length} `
         + `(${Math.round(fejlandel * 100)} %, graensen er 20 %)`
     : median != null && fundne.length < median * graense
@@ -338,6 +381,10 @@ export async function koerKilde(
     .returning({ id: listings.id })
   afmeldte = afmeldt.length
 
+  if (fejl && skalHentes.length < MINDST_HENTNINGER_FOR_FEJLANDEL) {
+    noter.push(`${fejl} af ${skalHentes.length} hentninger fejlede. For faa `
+      + `hentninger til at fejlandelen siger noget — afmeldning ikke sprunget over.`)
+  }
   if (median != null && fundne.length < median * 0.7) {
     noter.push(`ALARM: fandt ${fundne.length}, median er ${median} — fald paa `
       + `${Math.round((1 - fundne.length / median) * 100)} %.`)
