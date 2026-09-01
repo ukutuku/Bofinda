@@ -326,3 +326,41 @@ iframe.kort { width: 100%; height: 290px; border: 0; border-radius: 8px; display
 .begraensning {
   font-size: 12.5px; color: var(--svag); margin: 0 0 12px; padding: 0 2px;
 }
+
+/* ─── Områdesider ───────────────────────────────────────────── */
+.omraade { padding-top: 4px; }
+.krumme {
+  display: flex; gap: 8px; align-items: center; font-size: 13px;
+  color: var(--svag); margin: 18px 0 10px;
+}
+.krumme a { color: var(--daempet); text-decoration: none; }
+.krumme a:hover { color: var(--accent); }
+.omraade h1 {
+  font-size: 28px; font-weight: 660; margin: 0 0 14px; letter-spacing: -0.026em;
+}
+.fakta-blok {
+  background: var(--kort); border: 1px solid var(--linje); border-radius: var(--r);
+  padding: 18px 20px; margin-bottom: 18px; max-width: 74ch;
+}
+.fakta-blok p { margin: 0 0 9px; font-size: 14.5px; line-height: 1.62; }
+.fakta-blok p:last-child { margin-bottom: 0; }
+.fakta-blok strong { font-weight: 640; }
+.fakta-blok .note { font-size: 12px; color: var(--svag); line-height: 1.5; }
+
+.naboer { margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--linje); }
+.naboer h2 {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--svag); margin: 0 0 12px; font-weight: 660;
+}
+.naboer ul {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 7px;
+}
+.naboer a {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  background: var(--kort); border: 1px solid var(--linje); border-radius: var(--r-s);
+  padding: 9px 13px; font-size: 14px; text-decoration: none;
+}
+.naboer a:hover { border-color: var(--accent); color: var(--accent); }
+.naboer a span { color: var(--svag); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.begraensning a { color: var(--accent); text-decoration: none; }

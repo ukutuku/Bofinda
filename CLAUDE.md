@@ -9,6 +9,11 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   og vand." Vi kan ikke skelne "udlejer opkræver intet" fra "udlejer oplyser
   intet", så vi påstår ingen af delene — vi siger, hvad brugeren skal spørge
   om. Et gæt her ville love hende noget om hendes økonomi, som ikke holder.
+- **Områdesidernes tekst må kun indeholde tal, vi kan pege på rækkerne bag.**
+  Ingen påstande om markedet, ingen "populært område". Kan et tal ikke
+  regnes, udelades sætningen frem for at blive fyldt med noget, der lyder
+  rigtigt. Der står altid, at tallene er talt af de boliger, vi har hentet,
+  og ikke er et udtryk for hele markedet.
 - **Opfind aldrig data.** Fandt adapteren ikke et billede, indsættes ingen
   placeholder. Fandt den ikke arealet, står feltet `null` og vises ikke.
   Ingen eksempelbilleder, ingen estimerede arealer, ingen opdigtede tal.
@@ -77,6 +82,37 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   skjule et felt i klienten.
 - **BoligPortal er ikke en kilde.** Deres robots.txt forbyder crawling
   udtrykkeligt på skrift. Kræver skriftlig aftale først.
+
+## Slug-reglen — må aldrig ændres
+
+Områdesidernes URL er `/lejeboliger/{slug}`. Reglen står ét sted,
+`lib/slug.ts`, og bruges både til at bygge sitemap'et og til at slå
+området op. Den er:
+
+    æ Æ → ae        mellemrum → bindestreg
+    ø Ø → oe        alt andet end a-z0-9 → bindestreg
+    å Å → aa        gentagne bindestreger → én
+
+    "København S"  →  koebenhavn-s
+    "Aarhus C"     →  aarhus-c
+    "Smørum"       →  smoerum
+
+**Postnumre står alene i stien** — `/lejeboliger/2300`, aldrig
+`/lejeboliger/2300-koebenhavn-s`. Byen kan skifte navn i kildernes data;
+postnummeret gør ikke.
+
+Hver slug er en URL, Google har indekseret. Ændres reglen, brækker alle
+indekserede adresser på én gang, og den optjente placering starter forfra.
+Skal formen laves om, sker det som en **ny rute med 301 fra den gamle** —
+aldrig ved at rette i `slug()`.
+
+Slug'en beregnes i JS, ikke i SQL. Ellers ville reglen findes to steder,
+og to steder driver fra hinanden.
+
+**Områder under `MINDST_BOLIGER` (3) får ingen side** og kommer ikke i
+sitemap'et. En tynd side bliver ikke placeret og trækker resten ned.
+`findOmraade` returnerer kun områder over grænsen, så en for tynd side
+giver 404 — grænsen håndhæves ét sted og gælder både ruten og sitemap'et.
 
 ## Arbejdsform
 
