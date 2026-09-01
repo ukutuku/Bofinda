@@ -12,9 +12,9 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { hostname } from 'node:os'
-import { and, desc, eq, inArray, lt, ne, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm'
 import { db } from '../db/client'
-import { crawlRuns, listingImages, listings, sources } from '../db/schema'
+import { crawlRuns, fetchFailures, listingImages, listings, sources } from '../db/schema'
 import type { SourceAdapter } from './adapter'
 import { normaliser } from './normalize'
 
@@ -33,6 +33,8 @@ export interface KoerselsResultat {
   opdaterede: number
   /** Set i discovery, men ikke hentet igen. Kun last_seen_at flyttet. */
   bekraeftede: number
+  /** Sprunget over, fordi de er i tilbagetraekning. IKKE fejl. */
+  iTilbagetraekning: number
   afmeldte: number
   fejl: number
   status: 'ok' | 'failed'
@@ -64,6 +66,17 @@ const GENOPFRISK_PR_KOERSEL = 60
  * og de maaler paa hele udbuddet i stedet for paa en tilfaeldig delmaengde.
  */
 const MINDST_HENTNINGER_FOR_FEJLANDEL = 20
+
+/**
+ * Tilbagetraekning for detaljesider, der ikke kan hentes.
+ * Se noten over `fetchFailures` i db/schema.ts for hvorfor.
+ */
+function naesteForsoeg(forsoeg: number): Date {
+  const nu = Date.now()
+  if (forsoeg >= 5) return new Date(nu + 7 * 24 * 3600_000)   // en uge
+  if (forsoeg >= 3) return new Date(nu + 24 * 3600_000)       // et doegn
+  return new Date(nu)                                          // naeste koersel
+}
 
 /** Hvem koerer. Uden det kan to importoerer ikke skelnes i basen. */
 export const RUNNER = process.env.RUNNER ?? hostname()
@@ -227,6 +240,7 @@ export async function koerKilde(
       newCount: r.nye,
       updatedCount: r.opdaterede,
       touchedCount: r.bekraeftede,
+      skippedCount: r.iTilbagetraekning,
       delistedCount: r.afmeldte,
       errorCount: r.fejl,
       status: r.status,
@@ -240,7 +254,7 @@ export async function koerKilde(
     fundne = await adapter.discover()
   } catch (e) {
     noter.push(`discovery fejlede: ${(e as Error).message}`)
-    return afslut({ fundet: 0, nye: 0, opdaterede: 0, bekraeftede: 0, afmeldte: 0, fejl: 1, status: 'failed', noter })
+    return afslut({ fundet: 0, nye: 0, opdaterede: 0, bekraeftede: 0, iTilbagetraekning: 0, afmeldte: 0, fejl: 1, status: 'failed', noter })
   }
 
   // ── Hvad skal hentes? ────────────────────────────────────────────────
@@ -255,13 +269,35 @@ export async function koerKilde(
       .map((r) => [r.key, r]),
   )
 
+  // Noegler der ikke maa forsoeges endnu. Hentes foer udvaelgelsen, saa de
+  // hverken koster et kald eller taeller som fejl.
+  const tilbagetrukne = new Set(
+    (await db.select({ key: fetchFailures.externalKey })
+      .from(fetchFailures)
+      .where(and(
+        eq(fetchFailures.sourceId, kilde.id),
+        gt(fetchFailures.retryAfter, sql`now()`),
+      )))
+      .map((r) => r.key),
+  )
+
   const forfaldenFoer = new Date(Date.now() - GENOPFRISK_EFTER_TIMER * 3600_000)
   const skalHentes: typeof fundne = []
   const bekraeftes: string[] = []
   const forfaldne: { externalKey: string; url: string; hentet: Date }[] = []
 
+  let iTilbagetraekning = 0
   for (const f of fundne) {
     const k = kendte.get(f.externalKey)
+
+    if (tilbagetrukne.has(f.externalKey)) {
+      iTilbagetraekning++
+      // Kender vi boligen i forvejen, skal den stadig bekraeftes — discovery
+      // saa den, og saa maa afmeldningen ikke tage den.
+      if (k) bekraeftes.push(f.externalKey)
+      continue
+    }
+
     if (!k || k.status === 'delisted') {
       // Ny, eller vendt tilbage efter afmeldning. Hentes altid.
       skalHentes.push(f)
@@ -294,11 +330,45 @@ export async function koerKilde(
       const b = await normaliser(raa)
       const { ny } = await skrivBolig(kilde.id, adapter.sourceType, b)
       ny ? nye++ : opdaterede++
+      // Foerste succes nulstiller: en midlertidig fejl maa ikke haenge ved.
+      if (externalKey) {
+        await db.delete(fetchFailures).where(and(
+          eq(fetchFailures.sourceId, kilde.id),
+          eq(fetchFailures.externalKey, externalKey),
+        ))
+      }
     } catch (e) {
       fejl++
       // Alle poster i skalHentes baerer nu deres noegle — baade nye og
       // forfaldne — saa den kan altid slaas op.
-      if (externalKey) fejledeNoegler.push(externalKey)
+      if (externalKey) {
+        fejledeNoegler.push(externalKey)
+        const [r] = await db.insert(fetchFailures)
+          .values({
+            sourceId: kilde.id, externalKey, url,
+            attempts: 1, retryAfter: naesteForsoeg(1),
+            lastError: (e as Error).message.slice(0, 500),
+          })
+          .onConflictDoUpdate({
+            target: [fetchFailures.sourceId, fetchFailures.externalKey],
+            set: {
+              attempts: sql`${fetchFailures.attempts} + 1`,
+              lastFailedAt: sql`now()`,
+              lastError: (e as Error).message.slice(0, 500),
+              url,
+              // Naeste forsoeg beregnes af det NYE forsoegstal.
+              retryAfter: sql`case
+                when ${fetchFailures.attempts} + 1 >= 5 then now() + interval '7 days'
+                when ${fetchFailures.attempts} + 1 >= 3 then now() + interval '1 day'
+                else now() end`,
+            },
+          })
+          .returning({ forsoeg: fetchFailures.attempts, naeste: fetchFailures.retryAfter })
+        if (r && r.forsoeg >= 3) {
+          noter.push(`${url}: fejlet ${r.forsoeg} gange — prøves tidligst `
+            + `${r.naeste.toISOString().slice(0, 16).replace('T', ' ')}`)
+        }
+      }
       if (fejl <= 5) noter.push(`${url}: ${(e as Error).message}`)
     }
   }
@@ -368,7 +438,7 @@ export async function koerKilde(
   let afmeldte = 0
   if (spring) {
     noter.push(`AFMELDNING SPRUNGET OVER — ${spring}. Ingen boliger afmeldt.`)
-    return afslut({ fundet: fundne.length, nye, opdaterede, bekraeftede, afmeldte: 0, fejl, status: 'failed', noter })
+    return afslut({ fundet: fundne.length, nye, opdaterede, bekraeftede, iTilbagetraekning, afmeldte: 0, fejl, status: 'failed', noter })
   }
 
   const afmeldt = await db.update(listings)
@@ -390,5 +460,5 @@ export async function koerKilde(
       + `${Math.round((1 - fundne.length / median) * 100)} %.`)
   }
 
-  return afslut({ fundet: fundne.length, nye, opdaterede, bekraeftede, afmeldte, fejl, status: 'ok', noter })
+  return afslut({ fundet: fundne.length, nye, opdaterede, bekraeftede, iTilbagetraekning, afmeldte, fejl, status: 'ok', noter })
 }

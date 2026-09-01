@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm'
 import {
   pgTable, uuid, text, integer, numeric, boolean,
-  timestamp, jsonb, index, uniqueIndex, check, pgEnum,
+  timestamp, jsonb, index, uniqueIndex, check, primaryKey, pgEnum,
 } from 'drizzle-orm/pg-core'
 
 export const sourceTypeEnum = pgEnum('source_type', ['feed', 'spider', 'native'])
@@ -227,6 +227,9 @@ export const crawlRuns = pgTable('crawl_runs', {
   // Set i discovery, men ikke hentet — kun last_seen_at flyttet.
   touchedCount: integer('touched_count'),
   errorCount: integer('error_count').notNull().default(0),
+  // Boliger sprunget over, fordi de er i tilbagetraekning. Taelles adskilt
+  // fra error_count: en side vi bevidst IKKE forsoegte, er ikke en fejl.
+  skippedCount: integer('skipped_count'),
   status: crawlRunStatusEnum('status').notNull().default('running'),
   // Fri tekst til drift: hvad der gik galt, hvilken side den stoppede paa.
   notes: text('notes'),
@@ -238,6 +241,41 @@ export const crawlRuns = pgTable('crawl_runs', {
   // Baerer opslaget "seneste 10 for denne kilde".
   sourceRecentIdx: index('crawl_run_source_recent_idx')
     .on(t.sourceId, t.startedAt.desc()),
+}))
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Detaljesider vi ikke kunne hente.
+//
+//  Findes af én grund: en side, der aldrig kan hentes, maa ikke koste kald i
+//  al fremtid. Propstep viser seks lejemaal i sit soegegitter, hvis
+//  detaljesider svarer 404. De faar aldrig en raekke i `listings`, saa de
+//  saa nye ud ved hver eneste koersel og blev forsoegt hentet hver time —
+//  144 spildte kald i doegnet, og seks fejl i hver rapport.
+//
+//  Tabellen husker noeglen paa tvaers af koersler og traekker sig tilbage:
+//    1.-2. fejl  proev igen naeste koersel
+//    3.-4. fejl  proev igen om et doegn
+//    5. fejl og derefter  proev igen om en uge
+//  Foerste succes sletter raekken, saa en midlertidig fejl ikke haenger ved.
+//
+//  En bolig i tilbagetraekning taelles IKKE som fejl i koerselsrapporten.
+//  Ellers ville stoejen bare vaere flyttet i stedet for fjernet.
+// ═══════════════════════════════════════════════════════════════════════════
+export const fetchFailures = pgTable('fetch_failures', {
+  sourceId: uuid('source_id').notNull()
+    .references(() => sources.id, { onDelete: 'cascade' }),
+  externalKey: text('external_key').notNull(),
+  url: text('url').notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  firstFailedAt: timestamp('first_failed_at', { withTimezone: true }).notNull().defaultNow(),
+  lastFailedAt: timestamp('last_failed_at', { withTimezone: true }).notNull().defaultNow(),
+  /** Foer dette tidspunkt forsoeges den ikke igen. */
+  retryAfter: timestamp('retry_after', { withTimezone: true }).notNull(),
+  lastError: text('last_error'),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.sourceId, t.externalKey] }),
+  // Baerer opslaget "hvilke noegler er i tilbagetraekning lige nu".
+  retryIdx: index('fetch_failure_retry_idx').on(t.sourceId, t.retryAfter),
 }))
 
 // Billeder hotlinkes. externalUrl gaar gennem signeret proxy ved visning.

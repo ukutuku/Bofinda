@@ -14,18 +14,20 @@ console.log('\n═══ KØRSLER ═══')
 const runs = await sql`
   select s.slug, cr.started_at, cr.finished_at, cr.status,
          cr.discovered_count d, cr.new_count n, cr.updated_count u,
-         cr.touched_count t, cr.delisted_count dl, cr.error_count e, cr.notes
+         cr.touched_count t, cr.delisted_count dl, cr.error_count e,
+         cr.skipped_count sk, cr.notes
   from crawl_runs cr join sources s on s.id = cr.source_id
   where cr.new_count is not null
   order by cr.started_at desc limit 30`
 if (!runs.length) console.log('  ingen kørsler med de nye tællere endnu')
-console.log('  tidspunkt         kilde       fundet  nye  hentet  bekræft  afmeldt  fejl')
-console.log('  ' + '─'.repeat(76))
+console.log('  tidspunkt         kilde       fundet  nye  hentet  bekræft  afmeldt  fejl  tilbagetr.')
+console.log('  ' + '─'.repeat(88))
 for (const r of runs) {
   const min = r.finished_at ? Math.round((r.finished_at - r.started_at) / 60000) : null
   console.log(`  ${r.started_at.toISOString().slice(0,16).replace('T',' ')}  ${r.slug.padEnd(10)}`
     + `${String(r.d).padStart(6)}${String(r.n).padStart(5)}${String(r.u).padStart(8)}`
     + `${String(r.t).padStart(9)}${String(r.dl).padStart(9)}${String(r.e).padStart(6)}`
+    + `${String(r.sk ?? '—').padStart(12)}`
     + `${r.status === 'ok' ? '' : '  ✗'}${min != null ? `   ${min} min` : ''}`)
   if (r.notes && r.status !== 'ok') for (const l of r.notes.split('\n').slice(0,1)) console.log(`      ${l}`)
 }
@@ -82,4 +84,14 @@ for (const r of await sql`
   from listings l join sources s on s.id=l.source_id
   where l.status='delisted' order by l.delisted_at desc limit 5`)
   console.log(`    ${r.d.toISOString().slice(0,16).replace('T',' ')}  ${r.slug.padEnd(10)} ${r.address_raw}`)
+const bag = await sql`
+  select s.slug, f.attempts, count(*)::int n, min(f.retry_after) naeste
+  from fetch_failures f join sources s on s.id = f.source_id
+  group by 1,2 order by 1,2`
+if (bag.length) {
+  console.log('\n═══ SIDER I TILBAGETRÆKNING ═══')
+  for (const r of bag)
+    console.log(`  ${r.slug.padEnd(11)}${r.n} sider efter ${r.attempts} fejl — `
+      + `prøves tidligst ${r.naeste.toISOString().slice(0,16).replace('T',' ')}`)
+}
 await sql.end()

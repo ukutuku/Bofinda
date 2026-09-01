@@ -96,6 +96,22 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 - **Hver kørsel skal skrive `runner`.** Sat af `RUNNER`, ellers værtsnavnet.
   Uden det kan to importører ikke skelnes i basen, og man kan ikke afgøre,
   om en fjern kilde overhovedet nåede at køre.
+- **En detaljeside, der ikke kan hentes, må ikke koste kald i al fremtid.**
+  `fetch_failures` husker nøglen på tværs af kørsler og trækker sig tilbage:
+  1.–2. fejl → næste kørsel, 3.–4. → et døgn, 5. og derefter → en uge.
+  Første succes sletter rækken, så en midlertidig fejl ikke hænger ved.
+  **Hvorfor tabellen findes:** Propstep viser seks lejemål i sit søgegitter,
+  hvis detaljesider svarer 404. De får aldrig en række i `listings`, så de så
+  nye ud ved hver eneste kørsel — 144 spildte kald i døgnet, og seks fejl i
+  hver rapport. Uden et sted at huske nøglen på tværs af kørsler kan det ikke
+  løses; `last_fetched_at` virker kun for boliger, vi allerede kender.
+- **En bolig i tilbagetrækning tæller aldrig som fejl.** Den har sin egen
+  tæller (`skipped_count`) og sin egen linje i kørselsrapporten. Talte den
+  med i `error_count`, ville støjen være flyttet i stedet for fjernet — og
+  fejlprocenten er en sikring, der skal kunne stoles på.
+- **Fejlprocenten kræver mindst 20 hentninger for at tælle som signal.**
+  Med inkrementel import kan en time have seks hentninger; er de seks de
+  samme kendte 404-sider, er andelen 100 %, uden at kilden fejler noget.
 - **Afmeldning skal altid gennem sikringen i `koerKilde`.** Tre grunde til
   at springe over: intet skrevet, over 20 % fejlede udtræk, eller under
   halvdelen af medianen. En knækket parser må aldrig tømme basen.

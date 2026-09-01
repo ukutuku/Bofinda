@@ -17,6 +17,7 @@ export function formatResultat(r: KoerselsResultat): string {
   const hoved = `[${r.kilde}] ${r.status === 'ok' ? '✓' : '✗'} `
     + `fandt ${r.fundet} · ${r.nye} nye · ${r.opdaterede} hentet igen `
     + `· ${r.bekraeftede} bekræftet · ${r.afmeldte} afmeldt · ${r.fejl} fejl`
+    + (r.iTilbagetraekning ? ` · ${r.iTilbagetraekning} i tilbagetrækning` : '')
   return r.noter.length ? `${hoved}\n${r.noter.map((n) => `    ${n}`).join('\n')}` : hoved
 }
 
@@ -44,7 +45,8 @@ export async function koerAlle(
     } catch (e) {
       r = {
         kilde: k.adapter.id, fundet: 0, nye: 0, opdaterede: 0, bekraeftede: 0,
-        afmeldte: 0, fejl: 1, status: 'failed', noter: [`uventet: ${(e as Error).message}`],
+        iTilbagetraekning: 0, afmeldte: 0, fejl: 1,
+        status: 'failed', noter: [`uventet: ${(e as Error).message}`],
       }
     }
     ud.push(r)
