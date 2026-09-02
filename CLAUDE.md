@@ -204,6 +204,24 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   `NODE_EXTRA_CA_CERTS`.
 - **Kopiér aldrig kildens brødtekst.** `description` bygges af egne
   strukturerede felter. Fakta er frie, prosa er ikke.
+- **Kortfliserne kommer fra OpenStreetMaps donationsdrevne tjeneste, og
+  deres Tile Usage Policy er bindende.** Vores brug ligger inden for den:
+  et menneske ser et kort, browseren henter kun fliserne til det udsnit.
+  Kravene er bygget ind i `app/Landkort.tsx` — præcis URL'en, synlig
+  kreditering der aldrig må skjules, "Meld en fejl i kortet"-link, ingen
+  forhentning og ingen offline. Browserens egen User-Agent og cache
+  opfylder resten; vi sætter ingen Referrer-Policy, og det skal blive
+  sådan — en restriktiv ville fjerne den Referer, de identificerer os på.
+  **Flise-URL'en er ikke hardkodet.** Politikkens afsnit 7 siger, at
+  adgang kan trækkes uden varsel, og at kommercielle tjenester særligt
+  skal regne med det. Bofinda er en kommerciel tjeneste. Skift kilde med
+  `NEXT_PUBLIC_FLISE_URL` og `NEXT_PUBLIC_FLISE_KREDIT` — ikke med en
+  kodeændring.
+- **Kortet indlæses først, når det er synligt**, og der er højst ét mærke
+  pr. KORT — en gruppe er ét mærke med sit antal, så de 48 viste kort
+  giver højst 48 mærker. Målingen sker med både IntersectionObserver og
+  en afstandsmåling ved scroll: en indlæsning, der stille lader være med
+  at ske, er værre end en, der koster en scroll-lytter.
 - **Har en vært bedt om mindre, får den mindre.** `lokalbolig.io` svarer med
   `Content-Signal: search=yes,ai-train=no,use=reference`, og filen definerer
   selv `search` som "hyperlinks and short excerpts". Et billede i 1600 px er

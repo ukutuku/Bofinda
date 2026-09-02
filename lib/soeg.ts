@@ -273,6 +273,10 @@ const KORTFELTER = {
   indflytning: listings.moveInCost,
   ansoegning: listings.applicationType,
   match: listings.addressMatchLevel,
+  // Kildens egne koordinater. Vi opfinder dem aldrig — Dacas oplyser dem
+  // ikke, og de nitten boliger derfra har null. De skal stadig kunne vises.
+  lat: listings.lat,
+  lng: listings.lng,
   foerstSet: listings.firstSeenAt,
   hosKilden: listings.sourceCreatedAt,
   url: listings.sourceUrl,

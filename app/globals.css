@@ -615,3 +615,56 @@ form.filtre.soegt { margin-top: 20px; }
    løsrevne mærkater. */
 .kilder { display: inline-flex; gap: 3px; align-items: center; }
 .kilder .m-kilde:not(:first-child) { background: var(--kort); box-shadow: inset 0 0 0 1px var(--linje); }
+
+/* ─── Kortvisning ───────────────────────────────────────────────
+   Kortet står ved siden af listen og følger med ned. Slås det fra,
+   fylder listen hele bredden — se .udenkort. */
+.listehoved {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 14px; margin: 4px 0 7px; padding: 0 2px;
+}
+.listehoved .listetitel { margin: 0; }
+.kortknap {
+  margin-left: auto; font-size: 13px; font-weight: 570; color: var(--accent);
+  text-decoration: none; white-space: nowrap; padding: 3px 0;
+}
+.kortknap:hover { text-decoration: underline; }
+
+.medkort { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px; align-items: start; }
+.udenkort { display: block; }
+.kortspalte { position: sticky; top: 16px; }
+.kortboks {
+  height: calc(100vh - 150px); min-height: 340px; max-height: 720px;
+  border: 1px solid var(--linje); border-radius: 14px; overflow: hidden;
+  background: var(--linje-svag);
+}
+.landkort-flade { width: 100%; height: 100%; }
+.kortnote { margin: 9px 2px 0; font-size: 12.5px; color: var(--svag); line-height: 1.5; }
+
+/* Mærket. Et tal kun når det dækker flere boliger. */
+.maerke-ikon { background: none; border: 0; }
+.maerke-boble {
+  display: grid; place-items: center; width: 100%; height: 100%;
+  background: var(--accent); color: #fff; border: 2px solid #fff;
+  border-radius: 50%; font-size: 11.5px; font-weight: 660;
+  box-shadow: 0 1px 4px rgba(20,22,26,.35); font-variant-numeric: tabular-nums;
+}
+.maerke-boble.valgt { background: var(--advarsel); transform: scale(1.18); }
+
+/* Kortet i listen, når man klikker et mærke. */
+.kort.fremhaevet {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-lys), 0 10px 26px rgba(20,22,26,.08);
+}
+
+/* Leaflets egen kreditering skal blive, hvor den er — OSM's politik
+   forbyder at skjule den bag knapper eller uden for skærmen. */
+.leaflet-container { font: inherit; font-size: 11px; background: var(--linje-svag); }
+.leaflet-control-attribution { font-size: 10.5px; }
+
+@media (max-width: 900px) {
+  /* Listen først. Kortet ligger under og indlæses, når man ruller ned. */
+  .medkort { grid-template-columns: 1fr; }
+  .kortspalte { position: static; order: 2; }
+  .kortboks { height: 60vh; max-height: 460px; }
+}

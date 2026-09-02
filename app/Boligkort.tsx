@@ -127,7 +127,14 @@ export function Kort({ b }: { b: Bolig }) {
   const parsningTabteNoget = !nogenlunde(vist, raaUdenSted)
 
   return (
-    <a className={`kort${b.forside ? '' : ' uden-billede'}`} href={`/bolig/${b.id}`}>
+    <a
+      className={`kort${b.forside ? '' : ' uden-billede'}`}
+      href={`/bolig/${b.id}`}
+      // Landkortet peger paa kortet med id'et og laeser data-bolig, naar
+      // musen er over. De to skal vaere den samme noegle som maerket.
+      id={`kort-${b.id}`}
+      data-bolig={b.id}
+    >
       {b.forside && billedUrl(b.forside, 400) && (
         <div className="kort-billede">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -257,7 +264,12 @@ export function Gruppekort({ g }: { g: Gruppe }) {
   const spredt = g.prisMax > g.prisMin * SPREDT
 
   return (
-    <a className={`kort gruppekort${forside ? '' : ' uden-billede'}`} href={gruppeUrl(n)}>
+    <a
+      className={`kort gruppekort${forside ? '' : ' uden-billede'}`}
+      href={gruppeUrl(n)}
+      id={`kort-${r.id}`}
+      data-bolig={r.id}
+    >
       {forside && (
         <div className="kort-billede">
           {/* eslint-disable-next-line @next/next/no-img-element */}

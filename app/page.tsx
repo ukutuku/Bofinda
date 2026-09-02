@@ -5,6 +5,7 @@ import {
 import { facetterCached, forsidetalCached } from './cache'
 import { GemSoegning } from './GemSoegning'
 import { Visningskort, kr } from './Boligkort'
+import { Landkort, type Maerke } from './Landkort'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,6 +15,24 @@ export const dynamic = 'force-dynamic'
 const TYPENAVN: Record<string, string> = {
   lejlighed: 'Lejlighed', hus: 'Hus', raekkehus: 'Rækkehus',
   vaerelse: 'Værelse', studiebolig: 'Studiebolig', andet: 'Anden bolig',
+}
+
+/**
+ * Til- og fravalg af kortet, som et almindeligt link.
+ *
+ * Tilstanden ligger i URL'en ligesom alt andet: den kan deles, den
+ * overlever et genindlæs, og listen er allerede bred på serveren — så den
+ * hopper ikke i bredden, når siden er færdig.
+ */
+function kortLink(sp: Soegeparametre, visesNu: boolean): string {
+  const q = new URLSearchParams()
+  for (const [k, v] of Object.entries(sp)) {
+    if (v == null || k === 'kort') continue
+    for (const x of Array.isArray(v) ? v : [v]) q.append(k, x)
+  }
+  if (visesNu) q.set('kort', '0')
+  const s = q.toString()
+  return s ? `/?${s}` : '/'
 }
 
 /** Første værdi af en URL-parameter — til formularens defaultValue. */
@@ -47,6 +66,30 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   const tal = await forsidetalCached()
   const vist = antalBoliger(visninger)
   const sted = en(sp.sted) ?? f.postnr ?? f.by ?? ''
+
+  // ── Kortet ───────────────────────────────────────────────────
+  // Slaas fra med ?kort=0. Tilstanden ligger i URL'en som alt andet paa
+  // siden: saa kan den deles, den overlever et genindlaes, og listen er
+  // allerede bred paa serveren — den hopper ikke, naar siden er klar.
+  const kortVises = en(sp.kort) !== '0'
+  // Ét maerke pr. KORT, ikke pr. bolig: en gruppe er ét maerke med sit
+  // antal. Hoejst 48, fordi listen hoejst viser 48.
+  const maerker: Maerke[] = []
+  const udenPlacering: { navn: string; antal: number }[] = []
+  for (const v of visninger) {
+    const b = v.slags === 'gruppe' ? v.gruppe.repraesentant : v.bolig
+    const antal = v.slags === 'gruppe' ? v.gruppe.antal : 1
+    if (b.lat && b.lng) {
+      maerker.push({
+        id: b.id, lat: Number(b.lat), lng: Number(b.lng), antal,
+        etiket: v.slags === 'gruppe' ? `${b.vej ?? b.adresse} — ${antal} boliger` : b.adresse,
+      })
+    } else {
+      const k = udenPlacering.find((x) => x.navn === b.kildeNavn)
+      if (k) k.antal += antal
+      else udenPlacering.push({ navn: b.kildeNavn, antal })
+    }
+  }
   // Over en time skifter vi ENHED, ikke paastand. Der maa aldrig staa
   // noget kortere, end vi har maalt.
   const timer = tal.minutterP90 == null ? null
@@ -262,9 +305,16 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         </div>
       )}
 
-      {!soegt && visninger.length > 0 && (
-        <h2 className="listetitel">Nyeste boliger</h2>
-      )}
+      <div className="listehoved">
+        {!soegt && visninger.length > 0 && (
+          <h2 className="listetitel">Nyeste boliger</h2>
+        )}
+        {visninger.length > 0 && (
+          <a className="kortknap" href={kortLink(sp, kortVises)}>
+            {kortVises ? 'Skjul kort' : 'Vis kort'}
+          </a>
+        )}
+      </div>
 
       {/* Tallet er BOLIGER, ikke kort. Et gruppekort daekker flere, og
           "viser 48 af 904" ville vaere forkert paa begge maader. */}
@@ -280,13 +330,35 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           <p>Prøv at fjerne et filter.</p>
         </div>
       ) : (
-        <div className="liste">
-          {visninger.map((v) => (
-            <Visningskort
-              key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
-              v={v}
-            />
-          ))}
+        <div className={kortVises ? 'medkort' : 'udenkort'}>
+          <div className="liste">
+            {visninger.map((v) => (
+              <Visningskort
+                key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
+                v={v}
+              />
+            ))}
+          </div>
+
+          {kortVises && (
+            <aside className="kortspalte">
+              <div className="kortboks">
+                <Landkort maerker={maerker} />
+              </div>
+              {/* Kilde-oplysning, ikke en fejlmelding: det er kilden der
+                  ikke oplyser placeringen, ikke boligen der mangler noget.
+                  Boligerne staar stadig i listen. */}
+              {udenPlacering.length > 0 && (
+                <p className="kortnote">
+                  {udenPlacering.map((k) => `${k.navn} oplyser ikke placering`).join(' · ')}
+                  {' — '}
+                  {udenPlacering.reduce((a, k) => a + k.antal, 0) === 1
+                    ? 'boligen står i listen uden mærke på kortet.'
+                    : 'boligerne står i listen uden mærke på kortet.'}
+                </p>
+              )}
+            </aside>
+          )}
         </div>
       )}
 
