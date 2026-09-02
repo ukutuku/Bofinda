@@ -217,6 +217,15 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   skal regne med det. Bofinda er en kommerciel tjeneste. Skift kilde med
   `NEXT_PUBLIC_FLISE_URL` og `NEXT_PUBLIC_FLISE_KREDIT` — ikke med en
   kodeændring.
+- **Kortet vises kun, når der er filtreret.** Uden en søgning spænder
+  mærkerne over hele landet, og udsnittet siger ingenting. Samme regel som
+  gem-boksen og prisnoten — på forsiden er det svar på et spørgsmål,
+  brugeren ikke har stillet. Der fylder listen hele bredden.
+- **Boligkortene brydes efter DERES egen bredde, ikke efter vinduets.**
+  `.liste` er en `container-type: inline-size`, og kortenes brydning ligger
+  i `@container`, ikke i `@media`. Med kortvisningen ved siden af er listen
+  smal på en bred skærm, og en medieforespørgsel ville ikke opdage det:
+  adresserne brød i to linjer på en 1180 px skærm.
 - **Kortet indlæses først, når det er synligt**, og der er højst ét mærke
   pr. KORT — en gruppe er ét mærke med sit antal, så de 48 viste kort
   giver højst 48 mærker. Målingen sker med både IntersectionObserver og

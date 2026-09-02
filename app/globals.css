@@ -97,7 +97,10 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 .optaelling strong { color: var(--tekst); font-size: 15px; font-weight: 640; }
 
 /* ─── Søgekort ──────────────────────────────────────────────── */
-.liste { display: flex; flex-direction: column; gap: 12px; }
+/* Boligkortene skal bryde efter DERES egen bredde, ikke efter vinduets.
+   Med kortvisningen ved siden af er listen smal på en bred skærm, og en
+   medieforespørgsel ville ikke opdage det. */
+.liste { display: flex; flex-direction: column; gap: 12px; container-type: inline-size; }
 /* Billedet er et element i kortet, ikke en kant af det: egen radius og
    egen afstand til teksten. */
 .kort {
@@ -559,11 +562,15 @@ form.filtre.soegt { margin-top: 20px; }
   .punkter { margin-bottom: 30px; }
 }
 /* Maerkaterne under adressen, naar de ellers klemmer den i to linjer. */
-@media (max-width: 860px) {
+@container (max-width: 780px) {
   .raek1 { flex-direction: column; align-items: flex-start; gap: 7px; }
 }
+/* Et smallere billede, saa teksten faar pladsen. */
+@container (max-width: 660px) {
+  .kort { grid-template-columns: 168px 1fr; gap: 14px; }
+}
 /* Billede over tekst, naar der ikke er plads ved siden af. */
-@media (max-width: 560px) {
+@container (max-width: 460px) {
   .kort { grid-template-columns: 1fr; gap: 12px; }
   .kort-billede img { aspect-ratio: 16/9; }
   .kort-krop { padding: 0 4px 4px; }
@@ -630,7 +637,7 @@ form.filtre.soegt { margin-top: 20px; }
 }
 .kortknap:hover { text-decoration: underline; }
 
-.medkort { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 18px; align-items: start; }
+.medkort { display: grid; grid-template-columns: minmax(0, 1fr) 316px; gap: 16px; align-items: start; }
 .udenkort { display: block; }
 .kortspalte { position: sticky; top: 16px; }
 .kortboks {

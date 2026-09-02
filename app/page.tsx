@@ -71,7 +71,11 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // Slaas fra med ?kort=0. Tilstanden ligger i URL'en som alt andet paa
   // siden: saa kan den deles, den overlever et genindlaes, og listen er
   // allerede bred paa serveren — den hopper ikke, naar siden er klar.
-  const kortVises = en(sp.kort) !== '0'
+  // Kun naar der er filtreret. Uden en soegning spaender maerkerne over
+  // hele landet, og udsnittet siger ingenting. Samme regel som gem-boksen
+  // og prisnoten: paa forsiden er det svar paa et spoergsmaal, brugeren
+  // ikke har stillet.
+  const kortVises = soegt && en(sp.kort) !== '0'
   // Ét maerke pr. KORT, ikke pr. bolig: en gruppe er ét maerke med sit
   // antal. Hoejst 48, fordi listen hoejst viser 48.
   const maerker: Maerke[] = []
@@ -309,7 +313,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         {!soegt && visninger.length > 0 && (
           <h2 className="listetitel">Nyeste boliger</h2>
         )}
-        {visninger.length > 0 && (
+        {soegt && visninger.length > 0 && (
           <a className="kortknap" href={kortLink(sp, kortVises)}>
             {kortVises ? 'Skjul kort' : 'Vis kort'}
           </a>
