@@ -568,3 +568,22 @@ form.filtre.soegt { margin-top: 20px; }
   .kort-billede img { aspect-ratio: 16/9; }
   .kort-krop { padding: 0 4px 4px; }
 }
+
+/* ─── Gruppekort ────────────────────────────────────────────────
+   Ens boliger vist som ét. Skal kunne skelnes fra et enkeltkort på
+   afstand, uden at få en anden farve: en anelse kraftigere ramme og
+   et mærkat på billedet, der tæller boligerne. */
+.gruppekort { border-color: #ddd8cc; }
+.gruppekort .kort-antal { background: rgba(20,98,79,.86); }
+.gruppe-flere {
+  flex-basis: 100%; order: 8; font-size: 13px; font-weight: 570;
+  color: var(--accent); margin-top: 2px;
+}
+.gruppekort:hover .gruppe-flere { text-decoration: underline; }
+
+/* Gruppesiden */
+.gruppe-manchet {
+  font-size: 15px; line-height: 1.6; color: var(--daempet);
+  margin: 0 0 16px; max-width: 68ch;
+}
+.gruppe-manchet strong { color: var(--tekst); font-weight: 620; }

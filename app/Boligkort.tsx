@@ -4,7 +4,8 @@
 //  igennem begge steder.
 // ═══════════════════════════════════════════════════════════════
 
-import type { Bolig } from '../lib/soeg'
+import type { Bolig, Gruppe, Visning } from '../lib/soeg'
+import { gruppeUrl } from '../lib/soeg'
 import { billedUrl } from '../lib/billede'
 
 // ─── Formatering ───────────────────────────────────────────────
@@ -66,6 +67,25 @@ const POSTNAVN: Record<string, string> = {
   electricity: 'el', other: 'øvrig aconto',
 }
 
+/** Kilderne gemmer typen uden danske bogstaver. Ental og flertal. */
+const TYPEORD: Record<string, [string, string]> = {
+  lejlighed: ['lejlighed', 'lejligheder'],
+  raekkehus: ['rækkehus', 'rækkehuse'],
+  hus: ['hus', 'huse'],
+  villa: ['villa', 'villaer'],
+  vaerelse: ['værelse', 'værelser'],
+}
+/** Kender vi ikke typen — eller er den blandet i en gruppe — siger vi "bolig",
+ *  ikke noget vi ikke ved. */
+function typeord(t: string | null, flertal = false): string | null {
+  if (!t) return flertal ? 'boliger' : null
+  const par = TYPEORD[t]
+  return par ? par[flertal ? 1 : 0] : t
+}
+
+const areal = (min: number | null, max: number | null) =>
+  min == null ? null : min === max ? <><b>{min}</b> m²</> : <><b>{min}–{max}</b> m²</>
+
 // ─── Kortet ────────────────────────────────────────────────────
 
 export function Kort({ b }: { b: Bolig }) {
@@ -77,7 +97,7 @@ export function Kort({ b }: { b: Bolig }) {
   const fakta = [
     b.areal != null ? <><b>{b.areal}</b> m²</> : null,
     b.vaerelser != null ? <><b>{b.vaerelser}</b> {b.vaerelser === 1 ? 'værelse' : 'værelser'}</> : null,
-    b.type,
+    typeord(b.type),
     // En dato i fortiden betyder ikke "ledig 15. juni" — den betyder ledig nu.
     b.ledigFra ? (b.ledigFra.getTime() <= Date.now() ? 'ledig nu' : `ledig fra ${dato(b.ledigFra)}`) : null,
   ].filter(Boolean)
@@ -174,4 +194,108 @@ export function Kort({ b }: { b: Bolig }) {
       </div>
     </a>
   )
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Gruppekortet.
+//
+//  Femten rækkehuse på samme vej til samme pris er femten kort, der
+//  siger det samme. De vises som ét, og klikket åbner adresserne.
+//
+//  Kortet påstår kun det, der gælder for HELE gruppen. Er arealerne
+//  forskellige, står der et spænd. Er ledigdatoerne forskellige, står
+//  der, at de er forskellige — ikke den tidligste, som om den var alles.
+//  Er aconto-posterne ikke ens, står de slet ikke.
+// ═══════════════════════════════════════════════════════════════
+
+export function Gruppekort({ g }: { g: Gruppe }) {
+  const { noegle: n, repraesentant: r } = g
+  const nyligt = Date.now() - g.nyesteMarkedet.getTime() < 1000 * 60 * 60 * 24 * 3
+
+  const ensLedig = g.ledigUkendte === 0 && g.ledigMin != null && g.ledigMax != null
+    && g.ledigMin.getTime() === g.ledigMax.getTime()
+  const ledig = ensLedig
+    ? (g.ledigMin!.getTime() <= Date.now() ? 'ledig nu' : `ledig fra ${dato(g.ledigMin!)}`)
+    : g.ledigUkendte === g.antal ? null
+    : 'flere ledigdatoer'
+
+  // Typen staar allerede i underlinjen ("3 ledige raekkehuse") — den skal
+  // ikke ogsaa staa her.
+  const fakta = [
+    areal(g.arealMin, g.arealMax),
+    <><b>{n.vaerelser}</b> {n.vaerelser === 1 ? 'værelse' : 'værelser'}</>,
+    ledig,
+  ].filter(Boolean)
+
+  const aconto = (r.poster ?? []).filter((p) => p !== 'rent').map((p) => POSTNAVN[p] ?? p)
+  const forside = r.forside && billedUrl(r.forside, 400)
+
+  return (
+    <a className={`kort gruppekort${forside ? '' : ' uden-billede'}`} href={gruppeUrl(n)}>
+      {forside && (
+        <div className="kort-billede">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={forside} alt="" loading="lazy" />
+          <span className="kort-antal">{g.antal} boliger</span>
+        </div>
+      )}
+
+      <div className="kort-krop">
+        <div className="raek1">
+          <div>
+            <div className="adresse">{n.vej}</div>
+            <div className="sted">
+              {n.postnr} {r.by} · {g.antal} ledige {typeord(g.type, true)}
+            </div>
+          </div>
+          <div className="hoejre">
+            {/* "ny bolig", ikke "ny": det er én i gruppen, der er kommet
+                til — ikke dem alle. */}
+            {nyligt && <span className="maerkat m-ny">ny bolig {siden(g.nyesteMarkedet)}</span>}
+            <span className="maerkat m-kilde">{r.kildeNavn}</span>
+          </div>
+        </div>
+
+        <div className="fakta">
+          {fakta.map((f, i) => <span key={i}>{i > 0 && ' · '}{f}</span>)}
+        </div>
+
+        <div className="oekonomi-linje">
+          <div className={n.total ? 'kort-pris' : 'kort-pris kun-leje'}>
+            fra {kr(n.pris)} <small>kr/md {n.total ? 'i alt' : 'i husleje'}</small>
+          </div>
+
+          {g.indflytningMin != null && (
+            <div className="total">
+              indflytning{' '}
+              <b>
+                {g.indflytningMin === g.indflytningMax
+                  ? `${kr(g.indflytningMin)} kr.`
+                  : `fra ${kr(g.indflytningMin)} kr.`}
+              </b>
+            </div>
+          )}
+
+          {!n.total && (
+            <span className="ukendt">
+              Udlejer oplyser ikke aconto — spørg om varme og vand.
+            </span>
+          )}
+
+          <div className="gruppe-flere">Se de {g.antal} adresser →</div>
+
+          {/* Kun naar posterne er ens i hele gruppen. Ellers ville
+              repraesentantens saet staa som om det var alles. */}
+          {n.total && g.ensPoster && (
+            <div className="poster">{['husleje', ...aconto].join(' + ')}</div>
+          )}
+        </div>
+      </div>
+    </a>
+  )
+}
+
+/** Ét element i listen: enten en bolig eller en gruppe af ens boliger. */
+export function Visningskort({ v }: { v: Visning }) {
+  return v.slags === 'gruppe' ? <Gruppekort g={v.gruppe} /> : <Kort b={v.bolig} />
 }

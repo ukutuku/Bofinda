@@ -31,6 +31,22 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   `lib/soeg.ts` er eksporteret og bruges begge steder. To implementeringer
   ville betyde, at beskeden rammer noget andet, end brugeren så, da hun
   oprettede søgningen — og det ville hverken kunne ses eller fejles på.
+- **Gruppering er en visning, aldrig et filter.** Ens boliger — samme kilde,
+  postnummer, vejnavn, værelsestal og pris — vises som ét kort med et link
+  til de enkelte adresser. Det sker i `soegGrupperet()`, som ligger UDEN OM
+  `hvor()`. Alarmen matcher stadig på de enkelte boliger, og en gruppe må
+  aldrig kunne skjule en bolig for et match. Tre ting følger med:
+  · Er en nøgledel ukendt, grupperes boligen ikke — to ukendte værelsestal
+  er ikke "det samme".
+  · Nøglen bærer også, om totalen er kendt. `pris` er
+  `coalesce(total, husleje)`, så uden det ville en bolig til 15.000 i alt og
+  en til 15.000 i husleje lande i samme gruppe, og kortet ville sige "i alt"
+  om dem begge.
+  · Kortet påstår kun det, der gælder for hele gruppen. Forskellige arealer
+  bliver et spænd, forskellige ledigdatoer bliver "flere ledigdatoer" — ikke
+  den tidligste, som om den var alles — og uens aconto-poster står slet ikke.
+- **Tællelinjen tæller boliger, ikke kort.** "Viser de 62 nyeste af 904" er
+  boliger. Et gruppekort dækker flere, så kortenes antal ville være forkert.
 - **"Ny" er ikke "vi så den nu".** Ved første import af en kilde får hele
   bagkataloget `first_seen_at = nu`. En bolig varsles kun, når kilden siger,
   den er oprettet efter søgningen — eller, for kilder uden dato, når den

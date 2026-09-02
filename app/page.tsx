@@ -1,9 +1,9 @@
 import {
-  facetter, filtreFraParametre, forsidetal, harFiltre, opsummering, soeg,
-  type Soegeparametre,
+  antalBoliger, facetter, filtreFraParametre, forsidetal, harFiltre,
+  opsummering, soegGrupperet, type Soegeparametre,
 } from '../lib/soeg'
 import { GemSoegning } from './GemSoegning'
-import { Kort, kr } from './Boligkort'
+import { Visningskort, kr } from './Boligkort'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,9 +21,13 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // Har hun soegt? Uden filtre er det forsiden, med filtre er det
   // resultatsiden. Samme rute, to tilstande.
   const soegt = harFiltre(f)
-  const [boliger, sum, fac, tal] = await Promise.all([
-    soeg(f), opsummering(f), facetter(), forsidetal(),
+  // Listen viser KORT, ikke boliger: ens boliger paa samme vej til samme
+  // pris staar som ét. Grupperingen er kun en visning — alarmen matcher
+  // stadig paa de enkelte boliger gennem hvor().
+  const [visninger, sum, fac, tal] = await Promise.all([
+    soegGrupperet(f), opsummering(f), facetter(), forsidetal(),
   ])
+  const vist = antalBoliger(visninger)
   const sted = en(sp.sted) ?? f.postnr ?? f.by ?? ''
   // Over en time skifter vi ENHED, ikke paastand. Der maa aldrig staa
   // noget kortere, end vi har maalt.
@@ -185,24 +189,31 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         </div>
       )}
 
-      {!soegt && boliger.length > 0 && (
+      {!soegt && visninger.length > 0 && (
         <h2 className="listetitel">Nyeste boliger</h2>
       )}
 
-      {sum.antal > boliger.length && (
+      {/* Tallet er BOLIGER, ikke kort. Et gruppekort daekker flere, og
+          "viser 48 af 904" ville vaere forkert paa begge maader. */}
+      {sum.antal > vist && (
         <p className="begraensning">
-          Viser de {boliger.length} nyeste af {sum.antal}. Brug filtrene for at indsnævre.
+          Viser de {vist} nyeste af {sum.antal}. Brug filtrene for at indsnævre.
         </p>
       )}
 
-      {boliger.length === 0 ? (
+      {visninger.length === 0 ? (
         <div className="tom">
           <p>Ingen boliger matcher.</p>
           <p>Prøv at fjerne et filter.</p>
         </div>
       ) : (
         <div className="liste">
-          {boliger.map((b) => <Kort key={b.id} b={b} />)}
+          {visninger.map((v) => (
+            <Visningskort
+              key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
+              v={v}
+            />
+          ))}
         </div>
       )}
 

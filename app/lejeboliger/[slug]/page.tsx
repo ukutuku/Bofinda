@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { findOmraade, naboer, statistik, type Omraade } from '../../../lib/omraade'
-import { soeg } from '../../../lib/soeg'
-import { Kort, kr } from '../../Boligkort'
+import { antalBoliger, soegGrupperet } from '../../../lib/soeg'
+import { Visningskort, kr } from '../../Boligkort'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,9 +61,11 @@ export default async function Side({ params }: { params: Promise<{ slug: string 
   // giver 404 og kommer heller ikke i sitemap'et.
   if (!o) notFound()
 
-  const [s, boliger, nabo] = await Promise.all([
-    statistik(o), soeg(filterFor(o), 48), naboer(o),
+  const [s, visninger, nabo] = await Promise.all([
+    statistik(o), soegGrupperet(filterFor(o), 48), naboer(o),
   ])
+  // Kort er ikke boliger: ens boliger paa samme vej staar som ét kort.
+  const vist = antalBoliger(visninger)
 
   const typeListe = s.typer
     .filter((t) => t.antal > 0)
@@ -114,15 +116,22 @@ export default async function Side({ params }: { params: Promise<{ slug: string 
         </p>
       </div>
 
-      {boliger.length === 0 ? (
+      {visninger.length === 0 ? (
         <div className="tom"><p>Ingen boliger lige nu.</p></div>
       ) : (
-        <div className="liste">{boliger.map((b) => <Kort key={b.id} b={b} />)}</div>
+        <div className="liste">
+          {visninger.map((v) => (
+            <Visningskort
+              key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
+              v={v}
+            />
+          ))}
+        </div>
       )}
 
-      {s.antal > boliger.length && (
+      {s.antal > vist && (
         <p className="begraensning">
-          Viser de {boliger.length} nyeste af {s.antal}.{' '}
+          Viser de {vist} nyeste af {s.antal}.{' '}
           <a href={o.slags === 'by'
             ? `/?by=${encodeURIComponent(o.vaerdi)}`
             : `/?postnr=${o.vaerdi}`}>Søg med filtre for at indsnævre →</a>
