@@ -64,12 +64,21 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   dem overhovedet, så et facilitetsfilter skjuler 400+ boliger, fordi deres
   kilde tier. Det SKAL stå på skærmen, når filteret er slået til; noten på
   søgesiden navngiver kilderne og tallet.
-- **Sider med flere forespørgsler skal køre dem EFTER HINANDEN, ikke i
-  `Promise.all`.** Webappen har én forbindelse i puljen (transaction-
-  pooleren, `max: 1` i `db/client.ts`), og samtidige kæder bliver til
-  pipelinede sætninger på den ene forbindelse. Det holdt lige akkurat med
-  syv forespørgsler; den ottende fik hver eneste listeside til at hænge i
-  minutter uden en fejl nogen steder. I række tager de under et sekund.
+- **Webappens pulje er fem, ikke én, og den går på TRANSACTION-pooleren.**
+  Session-poolerens 15 pladser er workerens budget, ikke webappens.
+  `max: 1` serialiserede alt i en lambda-instans — både sidens egne
+  forespørgsler og de samtidige requests, instansen betjener. Lokalt hang
+  hver listeside i minutter; i produktionen blev det 504
+  FUNCTION_INVOCATION_TIMEOUT.
+- **Sider med flere forespørgsler kører dem efter hinanden, ikke i
+  `Promise.all`.** Samtidige kæder bliver til pipelinede sætninger gennem
+  Supavisor i transaction mode, og det var dét, der væltede ved den ottende
+  forespørgsel. Rækkefølgen koster ingenting nu, hvor `facetter()` og
+  `forsidetal()` er cachede: to forespørgsler pr. sidevisning mod otte før.
+- **`facetter()` og `forsidetal()` caches i fem minutter** i `app/cache.ts`.
+  De regnes på hele bestanden, og importen kører én gang i timen. Cachen
+  ligger i app-laget og ikke i `lib/`: `next/cache` hører til webappen, og
+  workeren og alarmen kører i tsx uden Next omkring sig.
 - **Forsidens hastighedstal måler kun boliger, der dukkede op MENS vi
   kiggede.** Grænsen går et døgn efter den enkelte KILDES første kørsel. Ved
   første import får hele bagkataloget `first_seen_at = nu`, og en kilde med
