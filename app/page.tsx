@@ -1,39 +1,22 @@
-import { facetter, opsummering, soeg, type Filtre } from '../lib/soeg'
+import {
+  facetter, filtreFraParametre, harFiltre, opsummering, soeg,
+  type Soegeparametre,
+} from '../lib/soeg'
+import { GemSoegning } from './GemSoegning'
 import { Kort, kr } from './Boligkort'
 
 export const dynamic = 'force-dynamic'
 
 // ─── Siden ─────────────────────────────────────────────────────
 
-const heltal = (v: string | undefined) => {
-  const n = Number(v)
-  return v && Number.isFinite(n) ? Math.trunc(n) : undefined
-}
-const kroner = (v: string | undefined) => {
-  const n = heltal(v)
-  return n == null ? undefined : n * 100
-}
-
-type Sp = Record<string, string | string[] | undefined>
+/** Første værdi af en URL-parameter — til formularens defaultValue. */
 const en = (v: string | string[] | undefined) => Array.isArray(v) ? v[0] : v
 
-export default async function Side({ searchParams }: { searchParams: Promise<Sp> }) {
+export default async function Side({ searchParams }: { searchParams: Promise<Soegeparametre> }) {
   const sp = await searchParams
-  const kilderValgt = sp.kilde
-    ? (Array.isArray(sp.kilde) ? sp.kilde : [sp.kilde])
-    : undefined
-
-  const f: Filtre = {
-    by: en(sp.by) || undefined,
-    postnr: en(sp.postnr) || undefined,
-    prisMin: kroner(en(sp.prisMin)),
-    prisMax: kroner(en(sp.prisMax)),
-    vaerelserMin: heltal(en(sp.vaerelser)),
-    arealMin: heltal(en(sp.areal)),
-    kilder: kilderValgt,
-    fuldOekonomi: en(sp.fuld) === '1',
-    sorter: (en(sp.sorter) as Filtre['sorter']) || 'nyeste',
-  }
+  // Samme parsing som gem-formularen bruger. Se noten i lib/soeg.ts.
+  const f = filtreFraParametre(sp)
+  const kilderValgt = f.kilder
 
   const [boliger, sum, fac] = await Promise.all([soeg(f), opsummering(f), facetter()])
 
@@ -94,6 +77,8 @@ export default async function Side({ searchParams }: { searchParams: Promise<Sp>
           <a className="nulstil" href="/">Nulstil</a>
         </div>
       </form>
+
+      <GemSoegning sp={sp} />
 
       <p className="prisnote">
         Prisfilteret gælder den <strong>samlede månedlige udgift</strong> — husleje

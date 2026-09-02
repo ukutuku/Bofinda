@@ -85,6 +85,13 @@
       "when": 1788302974378,
       "tag": "0011_afmelding",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788341603587,
+      "tag": "0012_bekraeftelse",
+      "breakpoints": true
     }
   ]
 }

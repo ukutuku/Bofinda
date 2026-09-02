@@ -224,3 +224,45 @@ export async function hentBolig(id: string) {
 }
 
 export type BoligDetalje = NonNullable<Awaited<ReturnType<typeof hentBolig>>>
+
+// ═══════════════════════════════════════════════════════════════
+//  URL-parametre -> Filtre.
+//
+//  Ligger her, fordi BÅDE søgesiden og gem-formularen skal bruge den.
+//  Læste de to hver sin vej, ville den gemte søgning matche noget andet,
+//  end brugeren havde på skærmen, da hun trykkede.
+// ═══════════════════════════════════════════════════════════════
+
+export type Soegeparametre = Record<string, string | string[] | undefined>
+
+const en = (v: string | string[] | undefined) => Array.isArray(v) ? v[0] : v
+const heltal = (v: string | undefined) => {
+  const n = Number(v)
+  return v && Number.isFinite(n) ? Math.trunc(n) : undefined
+}
+const kroner = (v: string | undefined) => {
+  const n = heltal(v)
+  return n == null ? undefined : n * 100
+}
+
+export function filtreFraParametre(sp: Soegeparametre): Filtre {
+  const kilder = sp.kilde ? (Array.isArray(sp.kilde) ? sp.kilde : [sp.kilde]) : undefined
+  return {
+    by: en(sp.by) || undefined,
+    postnr: en(sp.postnr) || undefined,
+    prisMin: kroner(en(sp.prisMin)),
+    prisMax: kroner(en(sp.prisMax)),
+    vaerelserMin: heltal(en(sp.vaerelser)),
+    arealMin: heltal(en(sp.areal)),
+    kilder,
+    fuldOekonomi: en(sp.fuld) === '1',
+    sorter: (en(sp.sorter) as Filtre['sorter']) || 'nyeste',
+  }
+}
+
+/** Har brugeren overhovedet filtreret? En gemt søgning uden filtre er
+ *  "alle boliger i landet" og giver hende hundredvis af mails. */
+export function harFiltre(f: Filtre): boolean {
+  return Boolean(f.by || f.postnr || f.prisMin != null || f.prisMax != null
+    || f.vaerelserMin != null || f.arealMin != null || f.kilder?.length || f.fuldOekonomi)
+}

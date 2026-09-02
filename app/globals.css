@@ -377,3 +377,33 @@ iframe.kort { width: 100%; height: 290px; border: 0; border-radius: 8px; display
 .afmeld form { margin: 18px 0; }
 .afmeld .note { font-size: 13px; color: var(--svag); }
 .afmeld .note a { color: var(--accent); text-decoration: none; }
+
+/* ─── Gem søgning ───────────────────────────────────────────── */
+.gem, .gem-tom, .gem-svar {
+  background: var(--kort); border: 1px solid var(--linje);
+  border-radius: var(--r); padding: 15px 17px; margin: 0 0 14px;
+}
+.gem-tom { color: var(--svag); font-size: 13.5px; border-style: dashed; }
+.gem-hoved strong { font-size: 15px; font-weight: 620; }
+.gem-filtre { color: var(--daempet); font-size: 13px; margin-top: 2px; }
+.gem-raek { display: flex; gap: 8px; margin: 12px 0 0; flex-wrap: wrap; }
+.gem-raek input {
+  font: inherit; font-size: 14px; padding: 8px 11px; flex: 1 1 190px; min-width: 0;
+  border: 1px solid var(--linje); border-radius: var(--r-s); background: #fff;
+}
+.gem-raek input:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-lys);
+}
+.gem-raek button { flex: 0 0 auto; }
+.gem-vilkaar {
+  font-size: 12px; color: var(--svag); line-height: 1.55; margin: 11px 0 0; max-width: 82ch;
+}
+.gem-vilkaar strong { color: var(--daempet); font-weight: 600; }
+.gem-vilkaar a { color: var(--accent); }
+.gem-svar { font-size: 14px; line-height: 1.55; }
+.gem-svar.ok { border-color: var(--accent); background: var(--accent-lys); }
+.gem-svar.advarsel { border-color: #e8d9b8; background: var(--advarsel-lys); color: var(--advarsel); }
+.afmeld .kriterier {
+  background: var(--linje-svag); border-radius: var(--r-s);
+  padding: 10px 13px; font-size: 13.5px; color: var(--daempet);
+}

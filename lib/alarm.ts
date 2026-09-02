@@ -6,7 +6,7 @@
 //  tilbage.
 // ═══════════════════════════════════════════════════════════════
 
-import { and, asc, desc, eq, gt, isNull, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, isNotNull, isNull, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { alertMatches, crawlRuns, listings, savedSearches, sources, users } from '../db/schema'
 import { hvor, type Filtre } from './soeg'
@@ -50,6 +50,9 @@ export async function matchAlarmer(): Promise<MatchResultat[]> {
       oprettet: savedSearches.createdAt,
     })
     .from(savedSearches)
+    // Ubekraeftede soegninger matches ikke. En adresse, der ikke har
+    // bekraeftet, har ikke bedt om noget.
+    .where(isNotNull(savedSearches.confirmedAt))
 
   // Hvornaar begyndte vi at kigge paa hver kilde? Bruges til kilder uden
   // egen dato: en bolig der dukker op efter indkoeringen, er ny.
@@ -139,7 +142,7 @@ export async function ventende() {
     .innerJoin(users, eq(users.id, savedSearches.userId))
     .innerJoin(listings, eq(listings.id, alertMatches.listingId))
     .innerJoin(sources, eq(sources.id, listings.sourceId))
-    .where(isNull(alertMatches.sentAt))
+    .where(and(isNull(alertMatches.sentAt), isNotNull(savedSearches.confirmedAt)))
     .orderBy(savedSearches.name, desc(alertMatches.matchedAt))
 
   const grupper = new Map<string, typeof raekker>()
@@ -325,3 +328,107 @@ export async function findPaaToken(token: string) {
 }
 
 export { maaSendeTil }
+
+// ═══════════════════════════════════════════════════════════════
+//  Dobbelt tilmelding.
+//
+//  Uden den kunne enhver tilmelde en fremmed adresse til en strøm af
+//  mail. Søgningen gemmes, men varsler intet, før adressens ejer har
+//  trykket på knappen i bekræftelsesmailen.
+// ═══════════════════════════════════════════════════════════════
+
+/** Højst så mange ubekræftede søgninger per adresse. Bremser at nogen
+ *  bruger formularen som mailkanon mod en fremmed. */
+const MAKS_UBEKRAEFTEDE = 3
+/** Og højst én bekræftelsesmail per adresse i dette interval. */
+const MELLEM_BEKRAEFTELSER_MIN = 10
+
+export type OpretSvar =
+  | { slags: 'sendt'; mail: string }
+  | { slags: 'spaerret'; grund: string }
+  | { slags: 'for-mange' }
+  | { slags: 'for-hurtigt'; minutter: number }
+  | { slags: 'ugyldig-mail' }
+
+const MAIL_MOENSTER = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i
+
+export async function tilmeld(
+  mail: string, navn: string, kriterier: Filtre,
+): Promise<OpretSvar> {
+  const adresse = mail.trim().toLowerCase()
+  if (!MAIL_MOENSTER.test(adresse) || adresse.length > 200) return { slags: 'ugyldig-mail' }
+
+  const [u] = await db.insert(users)
+    .values({ email: adresse })
+    .onConflictDoUpdate({ target: users.email, set: { email: adresse } })
+    .returning({ id: users.id })
+
+  const ubekraeftede = await db
+    .select({ id: savedSearches.id, oprettet: savedSearches.createdAt })
+    .from(savedSearches)
+    .where(and(eq(savedSearches.userId, u!.id), isNull(savedSearches.confirmedAt)))
+  if (ubekraeftede.length >= MAKS_UBEKRAEFTEDE) return { slags: 'for-mange' }
+
+  const nyeste = ubekraeftede.map((x) => +x.oprettet).sort((a, b) => b - a)[0]
+  if (nyeste) {
+    const gaaet = (Date.now() - nyeste) / 60_000
+    if (gaaet < MELLEM_BEKRAEFTELSER_MIN) {
+      return { slags: 'for-hurtigt', minutter: Math.ceil(MELLEM_BEKRAEFTELSER_MIN - gaaet) }
+    }
+  }
+
+  const [s] = await db.insert(savedSearches)
+    .values({ userId: u!.id, name: navn, criteria: kriterier as Record<string, unknown> })
+    .returning({ id: savedSearches.id, token: savedSearches.confirmToken })
+
+  const url = `${BASE}/bekraeft/${s!.token}`
+  const r = await sendMail({
+    til: adresse,
+    emne: 'Bekræft din boligbesked på Bofinda',
+    afmeldUrl: url,
+    tekst: [
+      `Du — eller nogen — har bedt om besked, når der kommer nye boliger, der matcher:`,
+      `  ${navn}`,
+      `  ${beskrivFiltre(kriterier as Record<string, unknown>)}`,
+      '',
+      'Bekræft her, så begynder vi at sende:',
+      `  ${url}`,
+      '',
+      'Var det ikke dig, skal du ikke gøre noget. Uden bekræftelse sender vi intet,',
+      'og søgningen bliver aldrig aktiv.',
+    ].join('\n'),
+    html: `<div style="font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;color:#14161a;max-width:560px">
+<p>Du — eller nogen — har bedt om besked, når der kommer nye boliger, der matcher:</p>
+<p style="margin:14px 0;padding:12px 14px;background:#f4f2ec;border-radius:8px">
+<strong>${navn.replace(/[<>&]/g, '')}</strong><br>
+<span style="color:#5f6672;font-size:13px">${beskrivFiltre(kriterier as Record<string, unknown>).replace(/[<>&]/g, '')}</span></p>
+<p><a href="${url}" style="display:inline-block;background:#14624f;color:#fff;text-decoration:none;padding:11px 20px;border-radius:7px;font-weight:600">Bekræft og få besked</a></p>
+<p style="color:#9aa1ac;font-size:12.5px;margin-top:20px">
+Var det ikke dig, skal du ikke gøre noget. Uden bekræftelse sender vi intet,
+og søgningen bliver aldrig aktiv.</p></div>`,
+  })
+
+  if (!r.sendt) return { slags: 'spaerret', grund: r.grund ?? 'ukendt' }
+  return { slags: 'sendt', mail: adresse }
+}
+
+export async function bekraeft(token: string): Promise<{ navn: string | null } | null> {
+  const [s] = await db.update(savedSearches)
+    .set({ confirmedAt: sql`now()` })
+    .where(and(eq(savedSearches.confirmToken, token), isNull(savedSearches.confirmedAt)))
+    .returning({ navn: savedSearches.name })
+  if (s) return s
+  // Allerede bekraeftet? Sig det pænt i stedet for at ligne en fejl.
+  const [fandtes] = await db
+    .select({ navn: savedSearches.name })
+    .from(savedSearches).where(eq(savedSearches.confirmToken, token)).limit(1)
+  return fandtes ?? null
+}
+
+export async function findPaaBekraeftToken(token: string) {
+  const [s] = await db
+    .select({ navn: savedSearches.name, bekraeftet: savedSearches.confirmedAt,
+      kriterier: savedSearches.criteria })
+    .from(savedSearches).where(eq(savedSearches.confirmToken, token)).limit(1)
+  return s ?? null
+}

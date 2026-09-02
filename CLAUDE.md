@@ -21,6 +21,12 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   bolig uden el-aconto, hvilket er en antagelse præsenteret som en oplysning.
   En check-constraint forhindrer, at en bolig både har el-aconto og "egen
   måler" — sker det, har vi læst kilden forkert.
+- **Søgesiden og gem-formularen skal læse URL-parametrene samme sted.**
+  `filtreFraParametre()` i `lib/soeg.ts` bruges af begge. Læste de to hver
+  sin vej, ville den gemte søgning matche noget andet, end brugeren havde
+  på skærmen, da hun trykkede — og det ville ingen opdage.
+- **En gemt søgning uden filtre gemmes ikke.** Det er "alle boliger i
+  landet" og giver modtageren hundredvis af mails. `harFiltre()` afgør det.
 - **Alarmen skal matche præcis som søgesiden filtrerer.** `hvor()` i
   `lib/soeg.ts` er eksporteret og bruges begge steder. To implementeringer
   ville betyde, at beskeden rammer noget andet, end brugeren så, da hun
@@ -30,6 +36,15 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   den er oprettet efter søgningen — eller, for kilder uden dato, når den
   dukkede op efter mindst et døgns overvågning af den kilde. Uden reglen gav
   en prøvekørsel 68 falske varsler ud af 87, med en medianalder på 37 dage.
+- **Dobbelt tilmelding er ikke valgfri.** En søgning oprettet på
+  søgesiden er `confirmed_at = null` og varsler intet, før adressens ejer
+  har trykket i bekræftelsesmailen. Uden det kunne enhver tilmelde en
+  fremmed til en strøm af post. `matchAlarmer` og `ventende` filtrerer
+  ubekræftede fra i selve forespørgslen.
+- **Bekræftelseslinket må heller aldrig bekræfte på et GET.** Samme grund
+  som afmeldingen: mailscannere henter hvert link, og et GET der aktiverer
+  ville betyde, at modtagerens egen mailserver bekræftede for hende. Så var
+  den dobbelte tilmelding ingenting værd. GET viser en knap, POST aktiverer.
 - **Afmeldingslinket må aldrig afmelde på et GET.** Mailscannere og
   forhåndsvisninger henter hvert link i en mail. `/afmeld/<token>` viser en
   knap; `POST /api/afmeld` afmelder. Mailklienternes ét-klik-afmelding

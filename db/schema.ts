@@ -319,9 +319,14 @@ export const savedSearches = pgTable('saved_searches', {
   unsubscribeToken: text('unsubscribe_token').notNull()
     .default(sql`gen_random_uuid()::text`),
   unsubscribedAt: timestamp('unsubscribed_at', { withTimezone: true }),
+  // Dobbelt tilmelding. Null = ikke bekraeftet, og saa varsles der IKKE.
+  // Uden det kunne enhver tilmelde en fremmed adresse til en stroem af mail.
+  confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+  confirmToken: text('confirm_token').notNull().default(sql`gen_random_uuid()::text`),
 }, (t) => ({
   userIdx: index('search_user_idx').on(t.userId),
   token: uniqueIndex('search_token_unik').on(t.unsubscribeToken),
+  bekraeft: uniqueIndex('search_confirm_unik').on(t.confirmToken),
 }))
 
 // ═══════════════════════════════════════════════════════════════════════════
