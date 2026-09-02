@@ -165,3 +165,62 @@ De 6 fejl hos Propstep er 404 på ejendommen Kochsgade 21B: gitteret viser
 dem, detaljesiderne er væk. Kilden er ude af trit med sig selv.
 
 Bagefter lokalt: `npm run puls` — kørslerne skal fortsætte i samme takt.
+
+---
+
+## Frontenden på Vercel
+
+Repoet er `ukutuku/Bofinda`. Vercel bygger `main` med **standard `next build`** —
+modsat Railway-servicen, hvor byggekommandoen bevidst er slået fra, fordi den
+kun kører importøren.
+
+### Miljøvariabler i Vercel-panelet
+
+| Variabel | Værdi | Hvorfor |
+|---|---|---|
+| `DATABASE_URL` | Supabase **transaction pooler**, port **6543** | `NEXT_RUNTIME` er sat på Vercel, så `db/client.ts` vælger serverless-profilen: pool på 1, `prepare: false`. |
+| `BILLED_HEMMELIGHED` | **nøjagtig samme værdi som lokalt** | Signerer `/api/billede`. En anden værdi gør hver eneste udsendt billed-URL ugyldig på én gang. |
+| `NEXT_PUBLIC_BASE_URL` | `https://<dit-domæne>` | Bruges i alarmmailens links og i `sitemap.xml`. Peger den forkert, virker afmeldingslinket ikke. |
+| `CRAWLER_USER_AGENT` | `BofindaBot/1.0 (+https://bofinda.dk/bot; kontakt@bofinda.dk)` | Billed-proxyen præsenterer sig over for kilderne. |
+| `NODE_EXTRA_CA_CERTS` | `./certs/rapidssl-tls-rsa-ca-g1.pem` | **Nem at glemme.** Se nedenfor. |
+
+**Sæt ikke `DATABASE_URL_DIRECT`.** Det er session-pooleren, som workeren og
+migrationerne bruger. Frontenden skal gennem transaction-pooleren, og en
+serverless-funktion med session-forbindelser æder Supabases 15 pladser.
+
+**Sæt ikke `RESEND_API_KEY` eller `ALARM_*`.** Mails sendes af importøren på
+Railway, ikke af frontenden.
+
+### Certifikatet — det der ellers ville bide
+
+findbolig.nu sender ikke sit mellemcertifikat. Lokalt løses det af
+`NODE_EXTRA_CA_CERTS` i npm-scripterne, men **Vercels serverless-funktioner
+kører ikke gennem npm**, så variablen skal sættes i panelet. Filen kommer med
+i bundtet via `outputFileTracingIncludes` i `next.config.ts`.
+
+Uden begge dele fejler 3.400 findbolig-billeder med
+`UNABLE_TO_VERIFY_LEAF_SIGNATURE` — og kun dem, så det ligner et problem med
+enkelte boliger frem for en manglende indstilling.
+
+### Klikvejen
+
+1. **Add New → Project → Import Git Repository → `ukutuku/Bofinda`**
+2. Framework: **Next.js** (registreres selv). Rør ikke Build Command,
+   Output Directory eller Install Command.
+3. **Environment Variables** → indsæt de fem ovenfor, for Production,
+   Preview og Development.
+4. **Deploy**.
+5. Sæt domænet under **Settings → Domains**, og ret derefter
+   `NEXT_PUBLIC_BASE_URL` til det, hvis du gættede forkert. Variablen
+   bruges ved byg — så **redeploy** efter ændringen.
+
+### Kontrol efter første deploy
+
+    /                     søgesiden, 48 kort
+    /lejeboliger/2300     områdeside med tal
+    /bolig/<id>           galleri, økonomi, kort
+    /api/billede?...      image/webp — prøv en findbolig- OG en dacas-bolig
+    /sitemap.xml          128 URLer
+
+Virker billederne på Propstep-boliger men ikke på findbolig-boliger, er det
+`NODE_EXTRA_CA_CERTS`, der mangler.

@@ -14,10 +14,17 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-/** Vaerter vi henter billeder fra. Skal foelge kilderne i adapters/. */
+/**
+ * Vaerter vi henter billeder fra. SKAL foelge kilderne i adapters/.
+ *
+ * Glemmes en vaert, returnerer billedUrl() null, og billederne forsvinder
+ * uden en fejl nogen steder — det skete for dacas.dk, hvor 177 billeder
+ * bare ikke blev vist. Tilfoej vaerten i SAMME aendring som adapteren.
+ */
 export const TILLADTE_VAERTER = new Set([
   'app.propstep.com',
   'findbolig.nu',
+  'dacas.dk',
 ])
 
 /** Bredder vi overhovedet udleverer. Frit valg ville lade en fremmed

@@ -91,6 +91,10 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   `NODE_EXTRA_CA_CERTS`.
 - **Kopiér aldrig kildens brødtekst.** `description` bygges af egne
   strukturerede felter. Fakta er frie, prosa er ikke.
+- **En ny kilde skal tilføjes til `TILLADTE_VAERTER` i `lib/billede.ts` i
+  SAMME ændring som adapteren.** Glemmes værten, returnerer `billedUrl()`
+  null, og billederne forsvinder uden en fejl nogen steder. Det skete for
+  dacas.dk: 177 billeder blev bare ikke vist.
 - **Kopiér aldrig kildens billeder.** Gem `external_url`, servér gennem
   `/api/billede`. Signaturen dækker `(url, bredde)`, så en fremmed hverken
   kan bruge proxyen til vilkårlige adresser eller bede om vilkårlige
