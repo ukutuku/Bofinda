@@ -92,6 +92,13 @@
       "when": 1788341603587,
       "tag": "0012_bekraeftelse",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1788341603588,
+      "tag": "0013_udlejer",
+      "breakpoints": true
     }
   ]
 }

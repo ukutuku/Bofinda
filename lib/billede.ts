@@ -21,11 +21,27 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
  * uden en fejl nogen steder — det skete for dacas.dk, hvor 177 billeder
  * bare ikke blev vist. Tilfoej vaerten i SAMME aendring som adapteren.
  */
+/**
+ * Vores egen Storage-vaert. Billeder udlejeren selv uploader, hotlinkes
+ * ikke — de er vores. De gaar alligevel gennem proxyen, saa de faar samme
+ * skalering og WebP som alt andet, og kortene ikke skal kende to veje.
+ *
+ * Udledt af projekt-URL'en i stedet for skrevet ind: skifter projektet,
+ * skal billederne ikke forsvinde uden en fejl nogen steder — det skete for
+ * dacas.dk, hvor 177 billeder bare ikke blev vist.
+ */
+const EGEN_LAGERVAERT = (() => {
+  const u = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!u) return null
+  try { return new URL(u).host } catch { return null }
+})()
+
 export const TILLADTE_VAERTER = new Set([
   'app.propstep.com',
   'findbolig.nu',
   'dacas.dk',
   'lokalbolig.io',
+  ...(EGEN_LAGERVAERT ? [EGEN_LAGERVAERT] : []),
 ])
 
 /** Bredder vi overhovedet udleverer. Frit valg ville lade en fremmed

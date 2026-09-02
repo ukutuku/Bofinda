@@ -55,6 +55,14 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   name: text('name'),
   role: userRoleEnum('role').notNull().default('tenant'),
+  /**
+   * Binder til Supabase Auth. NULLABLE med vilje: alarmens brugere
+   * oprettes paa mailadressen alene og har ingen konto — de skal ikke
+   * tvinges til at faa en for at kunne faa besked om nye boliger.
+   *
+   * Vi ejer ikke adgangskoder. Se BRIEF: "vi bygger ikke vores egen".
+   */
+  authUserId: uuid('auth_user_id').unique(),
   stripeCustomerId: text('stripe_customer_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
