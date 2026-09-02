@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { hentBolig, type BoligDetalje } from '../../../lib/soeg'
+import { hentBolig, kvadratmeterpris, type BoligDetalje } from '../../../lib/soeg'
 import { billedUrl } from '../../../lib/billede'
 import { Galleri } from './Galleri'
 
@@ -59,6 +59,18 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
     ? b.indflytning - b.leje - (acontoIalt ?? 0)
     : null
 
+  // ── Prissammenligning ────────────────────────────────────────
+  // Kun med kendt total OG areal: ellers sammenligner vi to forskellige
+  // slags tal. Og kun hvor der er nok boliger bag medianen — se
+  // MINDST_TIL_SAMMENLIGNING.
+  const kvm = b.total != null && b.areal != null && b.areal > 0 && b.postnr
+    ? await kvadratmeterpris(b.postnr)
+    : null
+  const egenKvm = kvm && b.total != null && b.areal ? b.total / b.areal : null
+  const afvigelse = kvm && egenKvm != null
+    ? Math.round((egenKvm / kvm.median - 1) * 100)
+    : null
+
   const noegletal = [
     b.areal != null ? { v: `${b.areal}`, e: 'm²' } : null,
     b.vaerelser != null ? { v: `${b.vaerelser}`, e: b.vaerelser === 1 ? 'værelse' : 'værelser' } : null,
@@ -79,25 +91,6 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
           <div className="ingen-billeder">Ingen billeder at vise for denne bolig.</div>
         )}
 
-      <header className="hoved">
-        <div className="hoved-tekst">
-          <h1>{adresselinje(b)}</h1>
-          <p className="sted">{b.postnr} {b.by}</p>
-          <ul className="noegletal">
-            {noegletal.map((n, i) => (
-              <li key={i}><strong>{n.v}</strong>{n.e && <span> {n.e}</span>}</li>
-            ))}
-          </ul>
-        </div>
-        <div className="maerkater">
-          {b.status === 'delisted' && <span className="maerkat m-vaek">ikke længere ledig</span>}
-          {b.ansoegning === 'waiting_list'
-            ? <span className="maerkat m-vent">Venteliste · efter anciennitet</span>
-            : b.ansoegning === 'regular'
-              ? <span className="maerkat m-ny">Først til mølle</span>
-              : null}
-        </div>
-      </header>
 
       <div className="spalter">
         {/* ── Økonomien. Sidens vigtigste element, og derfor det første
@@ -170,6 +163,63 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
         </aside>
 
         <div className="indhold">
+        <header className="hoved">
+          <div className="hoved-tekst">
+            <h1>{adresselinje(b)}</h1>
+            <p className="sted">{b.postnr} {b.by}</p>
+            <ul className="noegletal">
+              {noegletal.map((n, i) => (
+                <li key={i}><strong>{n.v}</strong>{n.e && <span> {n.e}</span>}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="maerkater">
+            {b.status === 'delisted' && <span className="maerkat m-vaek">ikke længere ledig</span>}
+            {b.ansoegning === 'waiting_list'
+              ? <span className="maerkat m-vent">Venteliste · efter anciennitet</span>
+              : b.ansoegning === 'regular'
+                ? <span className="maerkat m-ny">Først til mølle</span>
+                : null}
+          </div>
+        </header>
+
+          {/* ── Prissammenligning ──────────────────────────────
+              Ingen farveskala uden tal bag. Der staar hvad afvigelsen er,
+              hvad den maales mod, og hvor mange boliger medianen er regnet
+              af — saa laeseren selv kan afgoere, om tallet betyder noget. */}
+          {kvm && afvigelse != null && egenKvm != null && (
+            <section className="blok sammenligning">
+              <h2>Pris pr. kvadratmeter</h2>
+              <p className="sml-dom">
+                {Math.abs(afvigelse) < 3 ? (
+                  <>Boligen ligger <strong>på niveau med</strong> medianen for {b.postnr}</>
+                ) : (
+                  <>
+                    Boligen ligger <strong>{Math.abs(afvigelse)} % {afvigelse > 0 ? 'over' : 'under'}</strong>
+                    {' '}medianen for {b.postnr}
+                  </>
+                )}
+                {' '}<span className="sml-grundlag">(baseret på {kvm.antal} boliger)</span>
+              </p>
+              <dl className="sml-tal">
+                <div>
+                  <dt>Denne bolig</dt>
+                  <dd>{(egenKvm / 100).toLocaleString('da-DK', { maximumFractionDigits: 0 })} kr/m² pr. md.</dd>
+                </div>
+                <div>
+                  <dt>Median i {b.postnr}</dt>
+                  <dd>{(kvm.median / 100).toLocaleString('da-DK', { maximumFractionDigits: 0 })} kr/m² pr. md.</dd>
+                </div>
+              </dl>
+              <p className="note">
+                Regnet af den samlede månedlige udgift på de {kvm.antal} boliger i {b.postnr},
+                vi har hentet, og som oplyser både aconto og areal. Boliger, hvor kun huslejen
+                er kendt, indgår ikke — de ville trække medianen ned og sammenligne to
+                forskellige ting. Tallet er ikke et udtryk for hele markedet.
+              </p>
+            </section>
+          )}
+
           <section className="blok">
             <h2>Boligen</h2>
             <dl className="fakta2">

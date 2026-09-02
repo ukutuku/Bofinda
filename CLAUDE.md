@@ -9,6 +9,15 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   og vand." Vi kan ikke skelne "udlejer opkræver intet" fra "udlejer oplyser
   intet", så vi påstår ingen af delene — vi siger, hvad brugeren skal spørge
   om. Et gæt her ville love hende noget om hendes økonomi, som ikke holder.
+- **Prissammenligningen på boligsiden viser altid sit grundlag, og vises
+  slet ikke under 5 boliger i postnummeret.** En median af to boliger er
+  ikke en markedspris. Der står hvad afvigelsen er, hvad den måles mod, og
+  hvor mange boliger medianen er regnet af — "6 % under medianen for 2300
+  (baseret på 129 boliger)". **Ingen farveskala uden tal bag.** Kun boliger
+  med KENDT total og areal tæller med: en bolig hvor vi kun kender huslejen,
+  ville trække medianen ned og sammenligne to forskellige ting. Grundlaget
+  er dedupet, så den samme bolig hos to kilder ikke tæller dobbelt. Se
+  `MINDST_TIL_SAMMENLIGNING` i `lib/soeg.ts`.
 - **Områdesidernes tekst må kun indeholde tal, vi kan pege på rækkerne bag.**
   Ingen påstande om markedet, ingen "populært område". Kan et tal ikke
   regnes, udelades sætningen frem for at blive fyldt med noget, der lyder

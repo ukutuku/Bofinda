@@ -61,21 +61,23 @@ export function Galleri({ billeder }: { billeder: GalleriBillede[] }) {
     if (Math.abs(flyt) > 45) gaa(flyt < 0 ? 1 : -1)
   }
 
-  const vist = billeder.slice(0, 5)
+  // Tre ved siden af hinanden, ikke fem i et mosaikmoenster. Resten
+  // ligger i lysbordet, og taelleren siger hvor mange der er.
+  const vist = billeder.slice(0, 3)
   const rest = billeder.length - vist.length
 
   return (
     <>
-      <div className={`galleri g${Math.min(vist.length, 5)}`}>
+      <div className={`galleri g${Math.min(vist.length, 3)}`}>
         {vist.map((b, i) => (
           <button key={i} type="button" onClick={() => setAaben(i)} aria-label={`Åbn billede ${i + 1}`}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={b.lille} alt="" loading={i === 0 ? 'eager' : 'lazy'} />
           </button>
         ))}
-        {rest > 0 && (
-          <button type="button" className="flere" onClick={() => setAaben(5)}>
-            +{rest} billeder
+        {billeder.length > 1 && (
+          <button type="button" className="flere" onClick={() => setAaben(vist.length)}>
+            {rest > 0 ? `+${rest} billeder` : `${billeder.length} billeder`}
           </button>
         )}
       </div>

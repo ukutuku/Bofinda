@@ -186,21 +186,27 @@ footer.bund {
 
 /* ─── Galleri ───────────────────────────────────────────────── */
 .galleri {
-  display: grid; gap: 4px; border-radius: var(--r); overflow: hidden;
-  grid-template-columns: 2fr 1fr 1fr; grid-template-rows: 1fr 1fr; position: relative;
+  /* Tre ved siden af hinanden, i fuld bredde og uden kasse omkring.
+     De negative marginer aeder rammens polstring, saa billederne moeder
+     sidens kant. Ikke 100vw: det ville give vandret rul paa en skaerm med
+     klassisk rullebjaelke. */
+  display: grid; gap: 4px; overflow: hidden; position: relative;
+  grid-template-columns: 1fr 1fr 1fr;
+  margin: 0 -22px;
 }
-.galleri.g1 { grid-template-columns: 1fr; grid-template-rows: auto; }
-.galleri.g2 { grid-template-columns: 1fr 1fr; grid-template-rows: auto; }
+.galleri.g1 { grid-template-columns: 1fr; }
+.galleri.g2 { grid-template-columns: 1fr 1fr; }
 .galleri > button {
   padding: 0; border: 0; border-radius: 0; background: var(--linje-svag);
   overflow: hidden; cursor: zoom-in; display: block;
 }
-.galleri > button:first-child { grid-row: span 2; }
-.galleri.g1 > button:first-child, .galleri.g2 > button:first-child { grid-row: span 1; }
 .galleri img { width: 100%; height: 100%; object-fit: cover; display: block; aspect-ratio: 4/3; }
 .galleri.g1 img { aspect-ratio: 16/9; max-height: 460px; }
+.galleri.g2 img, .galleri.g3 img { max-height: 420px; }
 .galleri .flere {
-  position: absolute; right: 10px; bottom: 10px;
+  /* Venstre side: priskortet klaeber ind over galleriets hoejre hjoerne,
+     og taelleren maa ikke ende bagved det. */
+  position: absolute; left: 10px; bottom: 10px;
   background: rgba(20,22,26,.72); color: #fff; border: 0;
   font-size: 12px; font-weight: 550; padding: 6px 13px; border-radius: 20px;
 }
@@ -266,14 +272,22 @@ footer.bund {
 /* ─── Spalter: økonomien til højre, klæbende ────────────────── */
 .spalter {
   display: grid; grid-template-columns: 1fr 348px; gap: 20px;
-  align-items: start; margin-top: 20px;
+  align-items: start; margin-top: 0;
 }
-.oekonomi { position: sticky; top: 18px; order: 2; }
+/* Priskortet traekkes op OVER billederne, som hos dem — men kun saa
+   meget, at alle tre billeder stadig kan ses. Det klaeber derfra. */
+.oekonomi {
+  position: sticky; top: 18px; order: 2; z-index: 2;
+  margin-top: -104px;
+}
+.indhold > .hoved { margin-top: 22px; }
 .indhold { order: 1; min-width: 0; }
 @media (max-width: 880px) {
   .spalter { grid-template-columns: 1fr; }
-  .oekonomi { position: static; order: 0; margin-bottom: 14px; }
+  /* Ingen spalte at klaebe i. Kortet staar foerst, i normalt floew. */
+  .oekonomi { position: static; order: 0; margin: 16px 0 14px; }
   .indhold { order: 1; }
+  .indhold > .hoved { margin-top: 0; }
 }
 
 /* Sidens vigtigste kort. Kraftigere ramme og skygge end alt andet. */
@@ -675,3 +689,15 @@ form.filtre.soegt { margin-top: 20px; }
   .kortspalte { position: static; order: 2; }
   .kortboks { height: 60vh; max-height: 460px; }
 }
+
+/* ─── Prissammenligning ─────────────────────────────────────────
+   Ingen farveskala uden tal bag: dommen står som ord, og grundlaget
+   står ved siden af den. */
+.sammenligning .sml-dom { font-size: 16px; line-height: 1.5; margin: 0 0 14px; }
+.sammenligning .sml-dom strong { font-weight: 660; }
+.sml-grundlag { color: var(--svag); font-size: 14px; white-space: nowrap; }
+.sml-tal { display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 0 0 12px; }
+.sml-tal div { display: flex; flex-direction: column; gap: 1px; }
+.sml-tal dt { font-size: 11px; font-weight: 640; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--svag); }
+.sml-tal dd { margin: 0; font-size: 17px; font-weight: 640; font-variant-numeric: tabular-nums; }

@@ -826,3 +826,48 @@ export async function forsidetal() {
 
   return { ...a!, minutterP90: b?.minutterP90 ?? null }
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  Prissammenligning: kr/m² mod medianen i samme postnummer.
+//
+//  Kun boliger med KENDT total tæller med. En bolig hvor vi kun kender
+//  huslejen, ville trække medianen ned og sammenligne to forskellige
+//  ting — og både boligen selv og grundlaget skal være samme slags tal.
+//
+//  Grundlaget er dedupet: den samme bolig hos to kilder er én bolig, ikke
+//  to, og må ikke tælle dobbelt i en median.
+//
+//  MINDST er ikke til pynt. En median af to boliger er ikke en
+//  markedspris, og et tal, brugeren ikke kan stole på, er værre end
+//  ingenting. Under grænsen returneres null, og siden viser intet.
+// ═══════════════════════════════════════════════════════════════
+
+/** Færre end det, og medianen siger mere om tilfældet end om markedet. */
+export const MINDST_TIL_SAMMENLIGNING = 5
+
+export interface Kvadratmeterpris {
+  /** Median kr/m² pr. måned, i øre. */
+  median: number
+  /** Hvor mange boliger medianen er regnet af. Skal ALTID vises. */
+  antal: number
+}
+
+export async function kvadratmeterpris(postnr: string): Promise<Kvadratmeterpris | null> {
+  const [r] = await db
+    .select({
+      median: sql<number | null>`percentile_cont(0.5) within group (
+        order by ${listings.totalMonthly}::numeric / ${listings.sizeM2})::int`,
+      antal: sql<number>`count(*)::int`,
+    })
+    .from(listings)
+    .innerJoin(sources, eq(sources.id, listings.sourceId))
+    .where(udenDubletter(and(
+      eq(listings.status, 'active'),
+      ne(listings.addressMatchLevel, 'failed'),
+      eq(listings.postalCode, postnr),
+      isNotNull(listings.totalMonthly),
+      sql`${listings.sizeM2} > 0`,
+    )))
+  if (!r || r.median == null || r.antal < MINDST_TIL_SAMMENLIGNING) return null
+  return { median: r.median, antal: r.antal }
+}
