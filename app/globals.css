@@ -97,34 +97,49 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 .optaelling strong { color: var(--tekst); font-size: 15px; font-weight: 640; }
 
 /* ─── Søgekort ──────────────────────────────────────────────── */
-.liste { display: flex; flex-direction: column; gap: 11px; }
+.liste { display: flex; flex-direction: column; gap: 12px; }
+/* Billedet er et element i kortet, ikke en kant af det: egen radius og
+   egen afstand til teksten. */
 .kort {
-  background: var(--kort); border: 1px solid var(--linje); border-radius: var(--r);
-  text-decoration: none; overflow: hidden; display: grid;
-  grid-template-columns: 210px 1fr; transition: border-color .12s, box-shadow .12s;
+  background: var(--kort); border: 1px solid var(--linje); border-radius: 14px;
+  text-decoration: none; display: grid;
+  grid-template-columns: 216px 1fr; gap: 18px; padding: 12px;
+  box-shadow: 0 1px 2px rgba(20,22,26,.03), 0 2px 6px rgba(20,22,26,.03);
+  transition: border-color .14s, box-shadow .14s;
 }
-.kort:hover { border-color: #d5d0c4; box-shadow: var(--skygge); }
+.kort:hover {
+  border-color: #ddd7ca;
+  box-shadow: 0 2px 4px rgba(20,22,26,.04), 0 10px 26px rgba(20,22,26,.07);
+}
 .kort.uden-billede { grid-template-columns: 1fr; }
-.kort-billede { background: var(--linje-svag); position: relative; }
+.kort-billede {
+  background: var(--linje-svag); position: relative;
+  border-radius: 9px; overflow: hidden;
+}
 .kort-billede img { width: 100%; height: 100%; object-fit: cover; display: block; aspect-ratio: 4/3; }
 .kort-antal {
   position: absolute; left: 8px; bottom: 8px; background: rgba(20,22,26,.62); color: #fff;
   font-size: 11px; font-weight: 550; padding: 2px 8px; border-radius: 20px;
 }
-.kort-krop { padding: 14px 16px; min-width: 0; }
+.kort-krop { padding: 5px 6px 6px 0; min-width: 0; }
+/* Uden billede er der ingen billedkolonne at faa venstreluft fra. */
+.kort.uden-billede .kort-krop { padding: 5px 6px 6px 6px; }
 .raek1 { display: flex; justify-content: space-between; gap: 14px; align-items: baseline; }
-.adresse { font-size: 16.5px; font-weight: 620; }
-.sted { color: var(--daempet); font-size: 13px; margin-top: 1px; }
+.adresse { font-size: 18px; font-weight: 660; letter-spacing: -0.022em; line-height: 1.25; }
+.sted { color: var(--daempet); font-size: 13.5px; margin-top: 3px; }
 .afvig { font-size: 12px; color: var(--svag); margin-top: 3px; }
-.fakta { color: var(--daempet); font-size: 13.5px; margin-top: 7px; }
+.fakta { color: var(--daempet); font-size: 13.5px; margin-top: 9px; }
 .fakta b { color: var(--tekst); font-weight: 570; }
 
 .oekonomi-linje {
-  margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--linje-svag);
+  margin-top: 13px; padding-top: 13px; border-top: 1px solid var(--linje-svag);
   display: flex; flex-wrap: wrap; gap: 3px 20px; align-items: baseline;
 }
-.kort-pris { font-size: 19px; font-weight: 680; letter-spacing: -0.028em; color: var(--accent); }
-.kort-pris small { font-size: 12.5px; font-weight: 500; color: var(--daempet); letter-spacing: 0; }
+.kort-pris {
+  font-size: 24px; font-weight: 700; letter-spacing: -0.036em;
+  color: var(--accent); line-height: 1.1;
+}
+.kort-pris small { font-size: 12.5px; font-weight: 520; color: var(--daempet); letter-spacing: 0; }
 .poster {
   flex-basis: 100%; order: 9; font-size: 12px; color: var(--svag); margin-top: 1px;
 }
@@ -322,7 +337,9 @@ footer.bund {
 }
 .brodtekst { margin: 0; font-size: 15px; line-height: 1.68; max-width: 66ch; }
 .note { margin: 10px 0 0; font-size: 12px; color: var(--svag); line-height: 1.5; }
-iframe.kort { width: 100%; height: 290px; border: 0; border-radius: 8px; display: block; }
+/* Landkortet paa boligsiden. Hed foer .kort og arvede boligkortets stil —
+   samme ord, to ting. */
+.landkort { width: 100%; height: 290px; border: 0; border-radius: 8px; display: block; }
 .begraensning {
   font-size: 12.5px; color: var(--svag); margin: 0 0 12px; padding: 0 2px;
 }
@@ -437,65 +454,111 @@ iframe.kort { width: 100%; height: 290px; border: 0; border-radius: 8px; display
 .sidefod span { max-width: 70ch; }
 
 /* ─── Forside ───────────────────────────────────────────────── */
-.hero { padding: 42px 2px 26px; max-width: 62ch; }
+/* Hero'en er et baand med egen bund, saa der er en tydelig kant mellem
+   "hvad er det her" og "her er boligerne". Tonen er accentfarven i
+   meget lav styrke — ingen nye farver. */
+.forside-baand {
+  background:
+    radial-gradient(105% 95% at 6% -6%, rgba(20,98,79,.16) 0%, rgba(20,98,79,0) 62%),
+    linear-gradient(168deg, #e6efea 0%, #f1f2ec 48%, #fbfaf7 100%);
+  border: 1px solid var(--linje);
+  border-radius: 18px;
+  margin: 24px 0 34px;
+  padding: 62px 48px 48px;
+}
 .hero h1 {
-  font-size: 38px; font-weight: 680; letter-spacing: -0.035em;
-  line-height: 1.12; margin: 0 0 12px;
+  font-size: clamp(32px, 4.4vw, 50px);
+  font-weight: 690; letter-spacing: -0.042em; line-height: 1.06;
+  margin: 0 0 16px; max-width: 16ch;
 }
 .hero .manchet {
-  font-size: 17px; line-height: 1.55; color: var(--daempet); margin: 0 0 26px;
+  font-size: 18.5px; line-height: 1.55; color: var(--daempet);
+  margin: 0 0 30px; max-width: 52ch;
 }
-.punkter {
-  list-style: none; margin: 0; padding: 0;
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 20px;
-  max-width: 620px;
-}
-.punkter li { display: flex; flex-direction: column; gap: 2px; }
-.punkter strong {
-  font-size: 24px; font-weight: 690; letter-spacing: -0.03em; color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-.punkter span { font-size: 13.5px; color: var(--daempet); line-height: 1.45; }
 
-/* Det store søgefelt */
-.storsoeg { display: flex; gap: 9px; }
+/* Formularen laaner baandets baggrund — ingen kasse i kassen. */
+.hero form.filtre {
+  background: none; border: 0; box-shadow: none; padding: 0; margin: 0;
+}
+
+/* Det store soegefelt. Bredden er stram med vilje: et felt paa 1000 px
+   ser tomt ud, uanset hvad der staar i det. */
+.storsoeg { display: flex; gap: 10px; max-width: 552px; }
 .storsoeg input {
   flex: 1 1 auto; min-width: 0; font: inherit; font-size: 16px;
-  padding: 13px 16px; border: 1px solid var(--linje); border-radius: 9px;
-  background: #fff; color: inherit;
+  padding: 15px 18px; border: 1px solid #dcd8ce; border-radius: 11px;
+  background: #fff; color: inherit; box-shadow: 0 1px 2px rgba(20,22,26,.04);
 }
 .storsoeg input:focus {
   outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-lys);
 }
-.storsoeg button { flex: 0 0 auto; font-size: 15px; padding: 13px 24px; border-radius: 9px; }
+.storsoeg button {
+  flex: 0 0 auto; font-size: 15.5px; font-weight: 600;
+  padding: 15px 26px; border-radius: 11px;
+}
+.soegehint { margin: 11px 2px 0; font-size: 13px; color: var(--svag); }
 
-/* Filterboksen er nu en beholder om begge dele */
+/* De tre tal er sidens bevis. De skal se ud som noget, ikke som en
+   raekke loes tekst — derfor kort med egen flade. */
+.punkter {
+  list-style: none; margin: 40px 0 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(196px, 1fr));
+  gap: 12px; max-width: 760px;
+}
+.punkter li {
+  background: rgba(255,255,255,.8);
+  border: 1px solid rgba(232,229,222,.85);
+  border-radius: 12px; padding: 17px 19px 16px;
+  display: flex; flex-direction: column; gap: 4px;
+  box-shadow: 0 1px 2px rgba(20,22,26,.03);
+}
+.punkter strong {
+  font-size: 30px; font-weight: 700; letter-spacing: -0.038em;
+  line-height: 1.02; color: var(--accent); font-variant-numeric: tabular-nums;
+}
+/* Det tredje "tal" er et ord. Sat ned, saa de tre kort vejer ens. */
+.punkter strong.ord { font-size: 20px; letter-spacing: -0.022em; line-height: 1.15; }
+.punkter span { font-size: 13px; color: var(--daempet); line-height: 1.45; }
+
+/* Filterboksen er beholder om begge dele */
 form.filtre { display: block; padding: 16px; }
 form.filtre.soegt { margin-top: 20px; }
-.flere { margin-top: 13px; }
+.flere { margin-top: 14px; }
 .flere > summary {
   cursor: pointer; font-size: 13px; color: var(--daempet);
   list-style: none; display: inline-flex; align-items: center; gap: 6px;
   padding: 3px 0; user-select: none;
 }
 .flere > summary::-webkit-details-marker { display: none; }
-.flere > summary::before { content: '▸'; font-size: 10px; color: var(--svag); }
-.flere[open] > summary::before { content: '▾'; }
+.flere > summary::before { content: '\25B8'; font-size: 10px; color: var(--svag); }
+.flere[open] > summary::before { content: '\25BE'; }
 .flere > summary:hover { color: var(--accent); }
 .filtergitter {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
   gap: 11px 13px; align-items: end; margin-top: 12px;
   padding-top: 14px; border-top: 1px solid var(--linje-svag);
 }
-@media (max-width: 620px) {
-  .hero { padding-top: 30px; }
-  .hero h1 { font-size: 30px; }
-  .storsoeg { flex-direction: column; }
-}
+.hero .filtergitter { border-top-color: rgba(232,229,222,.9); }
+
 .listetitel {
-  font-size: 15px; font-weight: 640; margin: 26px 0 10px; padding: 0 2px;
-  letter-spacing: -0.012em;
+  font-size: 16px; font-weight: 650; margin: 4px 0 7px; padding: 0 2px;
+  letter-spacing: -0.016em;
 }
-.soegehint {
-  margin: 9px 2px 0; font-size: 13px; color: var(--daempet);
+
+@media (max-width: 680px) {
+  .forside-baand { padding: 40px 22px 34px; border-radius: 14px; margin: 16px 0 26px; }
+  .hero h1 { max-width: none; }
+  .hero .manchet { font-size: 17px; margin-bottom: 26px; }
+  .storsoeg { flex-direction: column; max-width: none; }
+  .punkter { margin-top: 30px; }
+}
+/* Maerkaterne under adressen, naar de ellers klemmer den i to linjer. */
+@media (max-width: 860px) {
+  .raek1 { flex-direction: column; align-items: flex-start; gap: 7px; }
+}
+/* Billede over tekst, naar der ikke er plads ved siden af. */
+@media (max-width: 560px) {
+  .kort { grid-template-columns: 1fr; gap: 12px; }
+  .kort-billede img { aspect-ratio: 16/9; }
+  .kort-krop { padding: 0 4px 4px; }
 }

@@ -26,36 +26,10 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   ])
   const sted = en(sp.sted) ?? f.postnr ?? f.by ?? ''
 
-  return (
-    <>
-      {!soegt && (
-        <section className="hero">
-          <h1>Se hvad boligen faktisk koster</h1>
-          <p className="manchet">
-            Vi samler ledige lejeboliger ét sted og viser den samlede månedlige
-            udgift og prisen ved indflytning — ikke bare huslejen.
-          </p>
-          <ul className="punkter">
-            <li>
-              <strong>{tal.boliger.toLocaleString('da-DK')}</strong>
-              <span>ledige boliger fra {tal.kilder} kilder</span>
-            </li>
-            <li>
-              <strong>{tal.fuldOekonomi.toLocaleString('da-DK')}</strong>
-              <span>med hele økonomien oplyst</span>
-            </li>
-            <li>
-              <strong>{tal.minutterP90 != null && tal.minutterP90 <= 60 ? 'Under en time' : 'Hver time'}</strong>
-              <span>
-                {tal.minutterP90 != null
-                  ? `fra en bolig annonceres, til den står her (9 ud af 10)`
-                  : 'henter vi nye boliger fra kilderne'}
-              </span>
-            </li>
-          </ul>
-        </section>
-      )}
-
+  // Samme formular i begge tilstande — kun pladsen skifter. Paa forsiden
+  // ligger den inde i hero-baandet, paa resultatsiden staar den alene
+  // over listen.
+  const formular = (
       <form className={soegt ? 'filtre soegt' : 'filtre'} method="get">
         <div className="storsoeg">
           <input
@@ -129,6 +103,46 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         </div>
         </details>
       </form>
+  )
+
+  return (
+    <>
+      {soegt ? formular : (
+        <section className="forside-baand">
+          <div className="hero">
+
+          <h1>Se hvad boligen faktisk koster</h1>
+          <p className="manchet">
+            Vi samler ledige lejeboliger ét sted og viser den samlede månedlige
+            udgift og prisen ved indflytning — ikke bare huslejen.
+          </p>
+
+            {formular}
+
+          <ul className="punkter">
+            <li>
+              <strong>{tal.boliger.toLocaleString('da-DK')}</strong>
+              <span>ledige boliger fra {tal.kilder} kilder</span>
+            </li>
+            <li>
+              <strong>{tal.fuldOekonomi.toLocaleString('da-DK')}</strong>
+              <span>med hele økonomien oplyst</span>
+            </li>
+            <li>
+              <strong className="ord">
+                {tal.minutterP90 != null && tal.minutterP90 <= 60 ? 'Under en time' : 'Hver time'}
+              </strong>
+              <span>
+                {tal.minutterP90 != null
+                  ? `fra en bolig annonceres, til den står her (9 ud af 10)`
+                  : 'henter vi nye boliger fra kilderne'}
+              </span>
+            </li>
+          </ul>
+          </div>
+        </section>
+      )}
+
 
       {/* Begge hoerer til paa resultatsiden. Paa forsiden er de stoej,
           foer brugeren har spurgt om noget. */}
@@ -155,14 +169,14 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         </div>
       )}
 
+      {!soegt && boliger.length > 0 && (
+        <h2 className="listetitel">Nyeste boliger</h2>
+      )}
+
       {sum.antal > boliger.length && (
         <p className="begraensning">
           Viser de {boliger.length} nyeste af {sum.antal}. Brug filtrene for at indsnævre.
         </p>
-      )}
-
-      {!soegt && boliger.length > 0 && (
-        <h2 className="listetitel">Nyeste boliger</h2>
       )}
 
       {boliger.length === 0 ? (

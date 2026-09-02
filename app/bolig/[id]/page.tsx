@@ -206,7 +206,7 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
             {b.lat && b.lng ? (
               <>
                 <iframe
-                  className="kort" loading="lazy" title="Kort"
+                  className="landkort" loading="lazy" title="Kort"
                   src={`https://www.openstreetmap.org/export/embed.html?bbox=${
                     Number(b.lng) - 0.006},${Number(b.lat) - 0.003},${
                     Number(b.lng) + 0.006},${Number(b.lat) + 0.003}&layer=mapnik&marker=${b.lat},${b.lng}`}
