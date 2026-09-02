@@ -701,3 +701,80 @@ form.filtre.soegt { margin-top: 20px; }
 .sml-tal dt { font-size: 11px; font-weight: 640; text-transform: uppercase;
   letter-spacing: .07em; color: var(--svag); }
 .sml-tal dd { margin: 0; font-size: 17px; font-weight: 640; font-variant-numeric: tabular-nums; }
+
+/* ─── Udlejersiden ──────────────────────────────────────────────
+   Samme sprog som resten: hvide blokke, samme skrift, samme accent. */
+.udlejer { max-width: 860px; margin: 26px auto 72px; }
+.udlejer h1 { font-size: 30px; font-weight: 660; letter-spacing: -0.028em; margin: 0 0 8px; }
+.udlejer .manchet { font-size: 16px; line-height: 1.6; color: var(--daempet); margin: 0 0 24px; max-width: 62ch; }
+.udlejerhoved { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.udlejerhoved h1 { margin-bottom: 2px; }
+.udlejerknapper { display: flex; gap: 8px; align-items: center; }
+.udlejerknapper form { margin: 0; }
+
+.kontogitter { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.kontoform h2 { font-size: 17px; font-weight: 640; margin: 0 0 12px; text-transform: none;
+  letter-spacing: -0.014em; color: var(--tekst); }
+.kontoform label { display: block; font-size: 11px; font-weight: 620; color: var(--svag);
+  text-transform: uppercase; letter-spacing: .06em; margin: 12px 0 5px; }
+.kontoform input, .annonce input, .annonce select, .annonce textarea {
+  font: inherit; font-size: 15px; padding: 9px 11px; width: 100%;
+  border: 1px solid var(--linje); border-radius: var(--r-s); background: #fff; color: inherit;
+}
+.kontoform input:focus, .annonce input:focus, .annonce select:focus, .annonce textarea:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-lys);
+}
+.kontoform button { margin-top: 16px; width: 100%; padding: 11px; }
+
+.formfejl { color: var(--vaek); background: var(--vaek-lys); border-radius: var(--r-s);
+  padding: 9px 12px; font-size: 13.5px; margin: 12px 0 0; line-height: 1.5; }
+.formok { color: var(--accent); background: var(--accent-lys); border-radius: var(--r-s);
+  padding: 9px 12px; font-size: 13.5px; margin: 12px 0 0; line-height: 1.5; }
+
+/* Trinbjælken. Trinnene kan klikkes frit — man skal kunne gå tilbage og
+   rette noget uden at miste det, man allerede har skrevet. */
+.trinbjaelke { list-style: none; display: flex; gap: 6px; margin: 0 0 16px; padding: 0; flex-wrap: wrap; }
+.trinbjaelke button {
+  background: var(--kort); color: var(--daempet); border: 1px solid var(--linje);
+  font-size: 13.5px; font-weight: 560; padding: 7px 14px; border-radius: 20px;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.trinbjaelke button:hover { background: var(--kort); border-color: var(--svag); color: var(--tekst); }
+.trinbjaelke button span {
+  display: grid; place-items: center; width: 19px; height: 19px; border-radius: 50%;
+  background: var(--linje-svag); color: var(--daempet); font-size: 11px; font-weight: 680;
+}
+.trinbjaelke .nu button { border-color: var(--accent); color: var(--accent); }
+.trinbjaelke .nu button span { background: var(--accent); color: #fff; }
+.trinbjaelke .gjort button span { background: var(--accent-lys); color: var(--accent); }
+
+.annonce .felter { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px 14px; }
+.annonce .felt.bred { grid-column: 1 / -1; }
+.annonce .felt label { display: block; font-size: 11px; font-weight: 620; color: var(--svag);
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: 5px; }
+.underoverskrift { font-size: 14px; font-weight: 640; margin: 22px 0 6px; letter-spacing: -0.01em; }
+.annonce textarea { resize: vertical; line-height: 1.6; }
+.annonce h2 { font-size: 17px; font-weight: 640; margin: 0 0 14px; text-transform: none;
+  letter-spacing: -0.014em; color: var(--tekst); }
+
+.billedliste { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.billedfelt { position: relative; width: 132px; }
+.billedfelt img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: var(--r-s);
+  display: block; background: var(--linje-svag); }
+.billedtom { display: grid; place-items: center; width: 100%; aspect-ratio: 4/3;
+  background: var(--linje-svag); border-radius: var(--r-s); color: var(--svag); font-size: 12px; }
+.billedfelt button { position: absolute; top: 5px; right: 5px; font-size: 11px; padding: 3px 9px;
+  background: rgba(20,22,26,.72); border-color: transparent; border-radius: 20px; }
+
+.trinknapper { display: flex; gap: 8px; margin-top: 16px; }
+.udlejerkort { grid-template-columns: 1fr; }
+.udlejerhandlinger { display: flex; gap: 14px; align-items: center; margin-top: 12px;
+  padding-top: 11px; border-top: 1px solid var(--linje-svag); font-size: 13.5px; }
+.udlejerhandlinger a { color: var(--accent); text-decoration: none; font-weight: 560; }
+.udlejerhandlinger a:hover { text-decoration: underline; }
+.udlejerhandlinger form { margin: 0; }
+.fjernknap { background: none; border: 0; color: var(--vaek); font-size: 13.5px;
+  font-weight: 560; padding: 0; cursor: pointer; }
+.fjernknap:hover { background: none; text-decoration: underline; }
+
+@media (max-width: 620px) { .kontogitter { grid-template-columns: 1fr; } }

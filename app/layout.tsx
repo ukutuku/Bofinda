@@ -29,6 +29,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="ramme">{children}</div>
         <footer className="sidefod">
           <div className="ramme">
+            <a href="/udlejer">Udlej din bolig</a>
             <a href="/privatliv">Privatlivspolitik</a>
             <span>Boliger hentet fra offentligt tilgængelige udlejningsportaler.
               Henvendelse om en bolig sker hos kilden.</span>
