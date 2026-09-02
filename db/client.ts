@@ -64,10 +64,19 @@ let _sql: Sql | null = null
 function klient(): Sql {
   if (_sql) return _sql
   _sql = postgres(forbindelse(), {
-    // Konservativt med vilje. Session-pooleren giver kun 15 pladser i alt,
-    // og workeren deler dem med migrationer og ad hoc-forespoergsler.
+    // Workeren: konservativt. Den gaar paa SESSION-pooleren, som kun har
+    // 15 pladser i alt og deles med migrationer og ad hoc-forespoergsler.
     // Se README, "Forbindelsesbudget".
-    max: iWebappen ? 1 : 5,
+    //
+    // Webappen: fem. Den gaar gennem Supavisor i TRANSACTION mode, hvor
+    // klientforbindelser multiplexes ned paa faerre serverforbindelser —
+    // det er ikke session-poolerens 15 pladser, den bruger.
+    //
+    // Den stod paa 1, og det var for lidt. Med én forbindelse serialiseres
+    // ALT i en lambda-instans: sidens egne forespoergsler, og de samtidige
+    // requests instansen betjener. Lokalt hang hver listeside i minutter,
+    // og i produktionen gav det 504 FUNCTION_INVOCATION_TIMEOUT.
+    max: 5,
 
     // Transaction mode kan ikke haandtere prepared statements: naeste
     // transaktion lander maaske paa en anden server-forbindelse, og den

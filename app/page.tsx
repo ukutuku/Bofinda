@@ -1,7 +1,8 @@
 import {
-  antalBoliger, facetter, filtreFraParametre, forsidetal, harFiltre,
+  antalBoliger, filtreFraParametre, harFiltre,
   opsummering, soegGrupperet, type Soegeparametre,
 } from '../lib/soeg'
+import { facetterCached, forsidetalCached } from './cache'
 import { GemSoegning } from './GemSoegning'
 import { Visningskort, kr } from './Boligkort'
 
@@ -37,10 +38,13 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // holdt lige akkurat, indtil facetter fik en forespørgsel mere — saa
   // hang hver eneste listeside i minutter. Samlet tager de otte
   // forespørgsler under et sekund i raekke.
+  //
+  // De to sidste er cachede (se app/cache.ts) og rammer sjældent basen.
+  // Tilbage er to forespørgsler pr. sidevisning mod otte før.
   const visninger = await soegGrupperet(f)
   const sum = await opsummering(f)
-  const fac = await facetter()
-  const tal = await forsidetal()
+  const fac = await facetterCached()
+  const tal = await forsidetalCached()
   const vist = antalBoliger(visninger)
   const sted = en(sp.sted) ?? f.postnr ?? f.by ?? ''
   // Over en time skifter vi ENHED, ikke paastand. Der maa aldrig staa
