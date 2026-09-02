@@ -261,8 +261,10 @@ export function Gruppekort({ g }: { g: Gruppe }) {
         </div>
 
         <div className="oekonomi-linje">
+          {/* "fra": prisen er ikke en noegledel, saa gruppen har et spaend.
+              Det laveste staar her, hele spaendet paa gruppesiden. */}
           <div className={n.total ? 'kort-pris' : 'kort-pris kun-leje'}>
-            fra {kr(n.pris)} <small>kr/md {n.total ? 'i alt' : 'i husleje'}</small>
+            fra {kr(g.prisMin)} <small>kr/md {n.total ? 'i alt' : 'i husleje'}</small>
           </div>
 
           {g.indflytningMin != null && (

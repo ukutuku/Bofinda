@@ -48,6 +48,12 @@ export default async function Side(
   const typer = new Set(boliger.map((b) => b.type))
   const ord = typer.size === 1 ? (TYPEORD[[...typer][0] ?? ''] ?? 'boliger') : 'boliger'
 
+  // Prisen er ikke en nøgledel, så gruppen har et spænd. Det regnes af
+  // de boliger, der faktisk står på siden — ikke af nøglen.
+  const priser = boliger.map((b) => b.total ?? b.leje).filter((p): p is number => p != null)
+  const prisMin = Math.min(...priser)
+  const prisMax = Math.max(...priser)
+
   return (
     <div className="omraade">
       <div className="krumme">
@@ -57,14 +63,18 @@ export default async function Side(
 
       <h1>{n.vej}</h1>
       <p className="gruppe-manchet">
-        <strong>{boliger.length} ledige {ord}</strong> med samme antal værelser og
-        samme pris, fra {boliger[0]!.kildeNavn}. Boligerne kan være forskellige i
-        areal og indflytningsdato — det står på hver enkelt nedenfor.
+        <strong>{boliger.length} ledige {ord}</strong> med {n.vaerelser}{' '}
+        {n.vaerelser === 1 ? 'værelse' : 'værelser'}, fra {boliger[0]!.kildeNavn}.
+        Boligerne kan være forskellige i pris, areal og indflytningsdato — det
+        står på hver enkelt nedenfor.
       </p>
 
       <div className="optaelling">
         <span><strong>{n.vaerelser}</strong> {n.vaerelser === 1 ? 'værelse' : 'værelser'}</span>
-        <span>{kr(n.pris)} kr/md {n.total ? 'i alt' : 'i husleje'}</span>
+        <span>
+          {prisMin === prisMax ? kr(prisMin) : `${kr(prisMin)}–${kr(prisMax)}`} kr/md{' '}
+          {n.total ? 'i alt' : 'i husleje'}
+        </span>
         <span>{n.postnr} {boliger[0]!.by}</span>
       </div>
 

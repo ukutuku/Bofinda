@@ -137,17 +137,23 @@ export type Bolig = Awaited<ReturnType<typeof soeg>>[number]
 //  folden, uden at brugeren har lært noget af det femtende.
 //
 //  Nøglen er: samme kilde, samme postnummer, samme vejnavn, samme antal
-//  værelser, samme pris. Afviger én af delene, er de separate kort.
+//  værelser. Afviger én af delene, er de separate kort.
+//
+//  Prisen er IKKE i nøglen. Var den det, delte Ammendrup Parks 21
+//  rækkehuse sig i ti kort, fordi priserne varierer med et par hundrede
+//  kroner. Uden den bliver de to — et med fire værelser, et med tre — og
+//  kortets "fra 15.750 kr/md" har et rigtigt spænd bag sig.
 //
 //  To ting ud over brugerens nøgle:
 //
 //    · Er en af delene ukendt, grupperes boligen IKKE. To boliger uden
 //      kendt værelsestal er ikke kendt ens — de er bare begge ukendte,
-//      og ukendt er ikke en værdi at slå sammen på.
-//    · Nøglen bærer også, OM totalen er kendt. Prisen er
-//      coalesce(total, husleje), så en bolig til 15.000 i alt og en til
-//      15.000 i husleje uden kendt aconto ville ellers lande i samme
-//      gruppe — og kortet ville sige "i alt" om dem begge.
+//      og ukendt er ikke en værdi at slå sammen på. Prisen tæller med
+//      her, selv om den ikke er en nøgledel: kortet siger "fra X kr/md"
+//      om hele gruppen, og det må det ikke om en bolig uden kendt pris.
+//    · Nøglen bærer OM totalen er kendt. Prisen er coalesce(total,
+//      husleje), så en gruppe med begge slags ville skrive "i alt" om
+//      boliger, hvor vi kun kender huslejen.
 //
 //  Grupperingen er KUN en visning. Alarmen matcher på de enkelte
 //  boliger gennem hvor(), som ikke ved, at det her findes.
@@ -158,8 +164,7 @@ export interface Gruppenoegle {
   postnr: string
   vej: string
   vaerelser: number
-  pris: number
-  /** Er prisen en kendt total, eller er det huslejen alene? */
+  /** Er priserne kendte totaler, eller er det huslejen alene? */
   total: boolean
 }
 
@@ -168,6 +173,9 @@ export interface Gruppe {
   antal: number
   /** Den nyeste i gruppen. Leverer billede, aconto-tekst og kildemærkat. */
   repraesentant: Bolig
+  /** Den laveste i gruppen — det er den, kortet siger "fra". */
+  prisMin: number
+  prisMax: number
   arealMin: number | null
   arealMax: number | null
   /** Kun sat, når alle i gruppen har samme type. Ellers ved vi det ikke. */
@@ -190,7 +198,7 @@ const KAN_GRUPPERES = sql`(
   ${listings.street} is not null and ${listings.postalCode} is not null
   and ${listings.rooms} is not null and ${PRIS} is not null)`
 
-/** Er en af nøgledelene ukendt, får boligen sit id som gruppe og står alene. */
+/** Mangler en af delene, får boligen sit id som gruppe og står alene. */
 const ALENE = sql<string | null>`case when ${KAN_GRUPPERES} then null else ${listings.id}::text end`
 
 const TOTALKENDT = sql<boolean>`(${listings.totalMonthly} is not null)`
@@ -227,7 +235,8 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
       postnr: listings.postalCode,
       vej: listings.street,
       vaerelser: listings.rooms,
-      pris: sql<number | null>`min(${PRIS})::int`,
+      prisMin: sql<number | null>`min(${PRIS})::int`,
+      prisMax: sql<number | null>`max(${PRIS})::int`,
       total: TOTALKENDT,
       antal: sql<number>`count(*)::int`,
       arealMin: sql<number | null>`min(${listings.sizeM2})::int`,
@@ -255,7 +264,7 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
     .where(hvor(f))
-    .groupBy(sources.slug, listings.postalCode, listings.street, listings.rooms, PRIS, TOTALKENDT, ALENE)
+    .groupBy(sources.slug, listings.postalCode, listings.street, listings.rooms, TOTALKENDT, ALENE)
     .orderBy(GRUPPEORDEN[f.sorter ?? 'nyeste'])
     .limit(graense)
 
@@ -266,7 +275,8 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
     const bolig = kort.get(r.repraesentant)
     if (!bolig) continue
     // En gruppe på én er ikke en gruppe.
-    if (r.antal < 2 || r.postnr == null || r.vej == null || r.vaerelser == null || r.pris == null) {
+    if (r.antal < 2 || r.postnr == null || r.vej == null || r.vaerelser == null
+      || r.prisMin == null || r.prisMax == null) {
       ud.push({ slags: 'bolig', bolig })
       continue
     }
@@ -275,10 +285,11 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
       gruppe: {
         noegle: {
           kilde: r.kilde, postnr: r.postnr, vej: r.vej,
-          vaerelser: r.vaerelser, pris: r.pris, total: r.total,
+          vaerelser: r.vaerelser, total: r.total,
         },
         antal: r.antal,
         repraesentant: bolig,
+        prisMin: r.prisMin, prisMax: r.prisMax,
         arealMin: r.arealMin, arealMax: r.arealMax,
         type: r.typer === 1 ? r.type : null,
         ledigMin: r.ledigMinMs == null ? null : new Date(r.ledigMinMs),
@@ -297,11 +308,11 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
 export const antalBoliger = (v: Visning[]) =>
   v.reduce((n, x) => n + (x.slags === 'gruppe' ? x.gruppe.antal : 1), 0)
 
-/** Nøglen som URL. Alle fem dele med, så siden kan slå gruppen op igen. */
+/** Nøglen som URL. Hele nøglen med, så siden kan slå gruppen op igen. */
 export function gruppeUrl(n: Gruppenoegle): string {
   const q = new URLSearchParams({
     kilde: n.kilde, postnr: n.postnr, vej: n.vej,
-    vaerelser: String(n.vaerelser), pris: String(n.pris), total: n.total ? '1' : '0',
+    vaerelser: String(n.vaerelser), total: n.total ? '1' : '0',
   })
   return `/gruppe?${q}`
 }
@@ -310,10 +321,10 @@ export function gruppeUrl(n: Gruppenoegle): string {
 export function gruppenoegleFra(sp: Soegeparametre): Gruppenoegle | null {
   const t = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?.trim()
   const kilde = t(sp.kilde), postnr = t(sp.postnr), vej = t(sp.vej)
-  const vaerelser = Number(t(sp.vaerelser)), pris = Number(t(sp.pris))
+  const vaerelser = Number(t(sp.vaerelser))
   if (!kilde || !postnr || !vej) return null
-  if (!Number.isInteger(vaerelser) || !Number.isInteger(pris)) return null
-  return { kilde, postnr, vej, vaerelser, pris, total: t(sp.total) === '1' }
+  if (!Number.isInteger(vaerelser)) return null
+  return { kilde, postnr, vej, vaerelser, total: t(sp.total) === '1' }
 }
 
 /**
@@ -335,8 +346,10 @@ export async function hentGruppe(n: Gruppenoegle) {
       eq(listings.postalCode, n.postnr),
       eq(listings.street, n.vej),
       eq(listings.rooms, n.vaerelser),
-      sql`${PRIS} = ${n.pris}`,
       n.total ? isNotNull(listings.totalMonthly) : isNull(listings.totalMonthly),
+      // Prisen er ikke en noegledel, men en bolig uden kendt pris hoerer
+      // ikke til i en gruppe, kortet saetter et "fra" paa.
+      sql`${PRIS} is not null`,
     ))
     // Husnummer er tekst: "333" og "20" sorteres som ord, hvis vi ikke
     // trækker tallet ud først. Så ville 100 komme før 20.

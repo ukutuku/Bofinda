@@ -32,19 +32,23 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   ville betyde, at beskeden rammer noget andet, end brugeren så, da hun
   oprettede søgningen — og det ville hverken kunne ses eller fejles på.
 - **Gruppering er en visning, aldrig et filter.** Ens boliger — samme kilde,
-  postnummer, vejnavn, værelsestal og pris — vises som ét kort med et link
-  til de enkelte adresser. Det sker i `soegGrupperet()`, som ligger UDEN OM
+  postnummer, vejnavn og værelsestal — vises som ét kort med et link til de
+  enkelte adresser. Det sker i `soegGrupperet()`, som ligger UDEN OM
   `hvor()`. Alarmen matcher stadig på de enkelte boliger, og en gruppe må
-  aldrig kunne skjule en bolig for et match. Tre ting følger med:
+  aldrig kunne skjule en bolig for et match. Fire ting følger med:
+  · **Prisen er ikke i nøglen.** Var den det, delte Ammendrup Parks 21
+  rækkehuse sig i ti kort på et par hundrede kroners forskel. Uden den er de
+  to, og kortets "fra" har et rigtigt spænd bag sig.
   · Er en nøgledel ukendt, grupperes boligen ikke — to ukendte værelsestal
-  er ikke "det samme".
-  · Nøglen bærer også, om totalen er kendt. `pris` er
-  `coalesce(total, husleje)`, så uden det ville en bolig til 15.000 i alt og
-  en til 15.000 i husleje lande i samme gruppe, og kortet ville sige "i alt"
-  om dem begge.
+  er ikke "det samme". Prisen tæller med her, selv om den ikke er en
+  nøgledel: kortet siger "fra X kr/md" om hele gruppen.
+  · Nøglen bærer, om totalen er kendt. Prisen er `coalesce(total, husleje)`,
+  så en gruppe med begge slags ville skrive "i alt" om boliger, hvor vi kun
+  kender huslejen.
   · Kortet påstår kun det, der gælder for hele gruppen. Forskellige arealer
   bliver et spænd, forskellige ledigdatoer bliver "flere ledigdatoer" — ikke
-  den tidligste, som om den var alles — og uens aconto-poster står slet ikke.
+  den tidligste, som om den var alles — uens aconto-poster står slet ikke, og
+  en blandet boligtype bliver til "boliger", ikke til repræsentantens type.
 - **Tællelinjen tæller boliger, ikke kort.** "Viser de 62 nyeste af 904" er
   boliger. Et gruppekort dækker flere, så kortenes antal ville være forkert.
 - **"Ny" er ikke "vi så den nu".** Ved første import af en kilde får hele
