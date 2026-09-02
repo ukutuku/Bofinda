@@ -35,12 +35,13 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   bolig annonceres flere steder — 19 grupper i dag, 18 af dem
   Propstep + LokalBolig. Adressevasken giver dem allerede samme unit-uuid,
   og `ikkeRepraesentant()` i `lib/soeg.ts` skjuler alle på nær én.
-  · **Access-niveauet er slået fra med vilje.** Reglen (opgang + areal +
-  værelser + husleje) ville på dagens data skjule 50 ÆGTE boliger for at
-  fjerne 2 dubletter: "Stenlængegårdens Kvarter 4, Bygning 4. 15" parses
-  uden etage og dør, så syv forskellige lejligheder får samme opgangsnøgle
-  og ellers ens tal. Det er en parsefejl, ikke et dedup-problem. Slå den
-  først til, når parseren kan læse `Bygning N. M`.
+  · **Access-niveauet er slået fra med vilje.** Efter at parseren lærte
+  `Bygning N. M` og `B1 Nr. M` er de 50 falske faldet til 26, og de sidste
+  kan ikke parses væk: Nordskovvej i 7184 Vandel er 30 boliger med den
+  SAMME adressestreng — "Nordskovvej, 7184 Vandel", uden husnummer. Kilden
+  oplyser ikke hvilken bolig der er hvilken. Skal access slås til, er det
+  billigste greb at kræve et husnummer: uden det er "opgangen" hele vejen,
+  og så er Nordskovvej ude og kun de ægte par tilbage.
   · **Rangeringen regnes på det FILTREREDE sæt.** Ellers taber en søgning
   på "kilde: LokalBolig" de boliger, hvor Propstep blev repræsentant —
   boligen ville forsvinde helt i stedet for at stå én gang.
@@ -426,6 +427,32 @@ ikke ISO. `Snarest` betyder ledig nu.
 
 Kilden oplyser **Indflytningspris direkte**, så den regnes ikke ud, og den er
 den eneste kilde, der skriver `El: Eget ansvar` — se reglen nedenfor.
+
+### Bygning + enhed
+
+Nogle kilder skriver blokken i stedet for etagen:
+
+    "Stenlængegårdens Kvarter 4, Bygning 4. 15, 4700 Næstved"   23 boliger
+    "Valdemarsgade 96, B1 Nr. 8, 4760 Vordingborg"              19 boliger
+
+**Bygning er ikke etage.** Bygning 4 er en blok, ikke fjerde sal, og kortet
+skriver `etage. dør` — så en bolig i stueetagen ville stå som "4. sal".
+Derfor bliver `floor` stående null, og hele betegnelsen gemmes som `door`,
+ordret som kilden skrev den. Nøglen kanoniserer den alligevel, så
+"Bygning 4. 15" og "bygning 4, 15" giver samme nøgle.
+
+Den korte form kræver "Nr." — uden det er `B1 8` for tvetydigt.
+
+**Enheden kræver derfor kun en dør, ikke etage OG dør.** "3. sal" alene er
+otte lejligheder; en dør alene peger på netop én. Manglende etage skrives
+som `-` i nøglen, så rækker der har begge dele beholder præcis den nøgle,
+de havde.
+
+Ændrer vasken sig, skal de gamle rækker genparses — ikke hentes hjem igen.
+Kildens streng er den samme; det er kun vores læsning, der er blevet bedre:
+
+    npm run genparse             viser hvad der ville ske
+    npm run genparse -- --skriv  skriver
 
 ### Kendt begrænsning: stednavne
 

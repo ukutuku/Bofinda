@@ -104,14 +104,37 @@ export function parsAdresse(raw: string): ParsetAdresse {
   let door: string | null = null
   // Baade det der stod efter husnummeret og det der stod efter et komma.
   for (const d of [restEfterHusnr, ...dele.slice(1)].filter((x): x is string => !!x)) {
+    // ── Bygning + enhed ────────────────────────────────────────
+    //   "Bygning 4. 15"   Stenlængegårdens Kvarter, Næstved
+    //   "B1 Nr. 8"        Valdemarsgade 96, Vordingborg
+    //
+    // Det er IKKE en etage. Bygning 4 er en blok, ikke fjerde sal, og
+    // kortet skriver `etage. doer` — saa en bolig i stueetagen ville staa
+    // som "4. sal". Derfor bliver `floor` staaende som null, og hele
+    // betegnelsen gemmes som doeren, ordret som kilden skrev den.
+    // Noeglen kanoniserer den alligevel (se normaliserDoer), saa
+    // "Bygning 4. 15" og "bygning 4, 15" giver samme nøgle.
+    // Den korte form KRAEVER "nr": uden det er "B1 8" for tvetydigt til at
+    // laese som bygning og enhed. Den lange staar med "Bygning" selv.
+    const byg = d.match(/^bygning\s*\d+[a-zæøå]?\s*[.,]?\s*(?:nr\.?\s*)?\d+[a-zæøå]?$/i)
+      ?? d.match(/^[a-zæøå]\d+\s*[.,]?\s*nr\.?\s*\d+[a-zæøå]?$/i)
+    if (byg) {
+      floor = null
+      door = d.toLowerCase().replace(/\s+/g, ' ').replace(/\.+$/, '').trim()
+      break
+    }
+
     // Etage, saa evt. "sal", saa evt. nøgleordet "lejl."/"dør", saa doeren,
     // og til sidst et evt. lejlighedsnummer vi ikke bruger.
     //   "0."          -> etage st, ingen doer
     //   "2. lejl. 1"  -> etage 2, doer 1
     //   "1. Dør 3"    -> etage 1, doer 3
     //   "4. tv 35"    -> etage 4, doer tv   (35 er lejlighedsnummeret)
+    //   "0."             -> etage st, ingen doer
+    //   "2. lejl. 1"     -> etage 2, doer 1
+    //   "2. sal - dør 3" -> etage 2, doer 3   (bindestreg mellem sal og doer)
     const m = d.match(
-      /^(st|stuen|kl|k(?:æ|ae)lder|\d{1,2})\.?\s*(?:sal)?\.?\s*(?:(?:lejl|lejlighed|d(?:ø|oe)r)\.?\s*)?([a-zæøå0-9.-]{1,6})?\.?(?:\s+\d{1,4})?$/i,
+      /^(st|stuen|kl|k(?:æ|ae)lder|\d{1,2})\.?\s*(?:sal)?\.?\s*(?:[-–—]\s*)?(?:(?:lejl|lejlighed|d(?:ø|oe)r)\.?\s*)?([a-zæøå0-9.-]{1,6})?\.?(?:\s+\d{1,4})?$/i,
     )
     if (m) {
       floor = normaliserEtage(m[1]!)
@@ -200,11 +223,17 @@ export class SimpelAdressevask implements Adressevask {
       p.houseNumber ? normaliserHusnr(p.houseNumber) : '-',
     ].join(':')
 
-    // Enheden kraever BEGGE dele. Etage uden doer peger paa flere boliger.
-    const harEnhed = p.floor != null && p.door != null
-    const enhed = harEnhed
-      ? `${adgang}:${normaliserEtage(p.floor!)}:${normaliserDoer(p.door!)}`
+    // Enheden kraever en DOER. Etage uden doer peger paa flere boliger —
+    // "3. sal" er otte lejligheder. Omvendt peger en doer alene paa netop
+    // én: "bygning 4 nr 15" og "tv" i en opgang med én bolig pr. side.
+    //
+    // Manglende etage skrives som '-' i noeglen. Raekker der har begge
+    // dele beholder derfor praecis den noegle, de havde — kun boliger der
+    // FOER stod uden enhed, faar en ny.
+    const enhed = p.door != null
+      ? `${adgang}:${p.floor != null ? normaliserEtage(p.floor) : '-'}:${normaliserDoer(p.door)}`
       : null
+    const harEnhed = enhed != null
 
     return {
       ...p,
