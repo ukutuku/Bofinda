@@ -49,6 +49,10 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   bliver et spænd, forskellige ledigdatoer bliver "flere ledigdatoer" — ikke
   den tidligste, som om den var alles — uens aconto-poster står slet ikke, og
   en blandet boligtype bliver til "boliger", ikke til repræsentantens type.
+  · **Er den dyreste mere end 25 % over den billigste, står hele spændet i
+  stedet for "fra".** "fra 17.700" er sandt om en gruppe, der går til 35.900,
+  og alligevel vildledende for en, der skimmer. Brugeren skal ikke kunne
+  blive overrasket af noget, vi vidste.
 - **Tællelinjen tæller boliger, ikke kort.** "Viser de 62 nyeste af 904" er
   boliger. Et gruppekort dækker flere, så kortenes antal ville være forkert.
 - **"Ny" er ikke "vi så den nu".** Ved første import af en kilde får hele

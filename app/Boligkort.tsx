@@ -230,6 +230,13 @@ export function Gruppekort({ g }: { g: Gruppe }) {
   const aconto = (r.poster ?? []).filter((p) => p !== 'rent').map((p) => POSTNAVN[p] ?? p)
   const forside = r.forside && billedUrl(r.forside, 400)
 
+  // Er den dyreste mere end en fjerdedel over den billigste, skjuler et
+  // "fra" for meget: 17 boliger "fra 17.500" med 27.900 i den anden ende
+  // er sandt og alligevel vildledende for en, der skimmer. Så står hele
+  // spændet. Brugeren skal ikke kunne blive overrasket af noget, vi vidste.
+  const SPREDT = 1.25
+  const spredt = g.prisMax > g.prisMin * SPREDT
+
   return (
     <a className={`kort gruppekort${forside ? '' : ' uden-billede'}`} href={gruppeUrl(n)}>
       {forside && (
@@ -261,10 +268,11 @@ export function Gruppekort({ g }: { g: Gruppe }) {
         </div>
 
         <div className="oekonomi-linje">
-          {/* "fra": prisen er ikke en noegledel, saa gruppen har et spaend.
-              Det laveste staar her, hele spaendet paa gruppesiden. */}
           <div className={n.total ? 'kort-pris' : 'kort-pris kun-leje'}>
-            fra {kr(g.prisMin)} <small>kr/md {n.total ? 'i alt' : 'i husleje'}</small>
+            {spredt
+              ? <>{kr(g.prisMin)}–{kr(g.prisMax)}</>
+              : <>fra {kr(g.prisMin)}</>}
+            {' '}<small>kr/md {n.total ? 'i alt' : 'i husleje'}</small>
           </div>
 
           {g.indflytningMin != null && (
