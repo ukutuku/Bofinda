@@ -9,6 +9,12 @@ const UA = process.env.CRAWLER_USER_AGENT
   ?? 'BofindaBot/1.0 (+https://bofinda.dk/bot; kontakt@bofinda.dk)'
 const RATE_MS = Number(process.env.CRAWLER_RATE_MS ?? 1000)
 
+/** Svar der betyder "kom igen", ikke "findes ikke". */
+const MIDLERTIDIGE = new Set([429, 502, 503, 504])
+
+/** Loft over ét enkelt ophold. Uden det bliver 2^n absurd ved mange forsoeg. */
+const MAX_BACKOFF_MS = 60_000
+
 /** Sidste kald per domaene. Koeen er per proces — én worker ad gangen. */
 const lastHit = new Map<string, number>()
 
@@ -43,11 +49,17 @@ export async function politeFetch(
       redirect: 'follow',
     })
 
-    if (res.status === 429 || res.status === 503) {
+    // 502/504 kom til, da lokalbolig.dk laa nede bag Varnish. En kilde,
+    // hvis backend blinker, skal ikke se ud som en kilde, der har droppet
+    // hele sit udbud — den skal proeves igen.
+    if (MIDLERTIDIGE.has(res.status)) {
       const retryAfter = Number(res.headers.get('retry-after'))
-      const backoff = Number.isFinite(retryAfter) && retryAfter > 0
-        ? retryAfter * 1000
-        : RATE_MS * 2 ** attempt
+      const backoff = Math.min(
+        Number.isFinite(retryAfter) && retryAfter > 0
+          ? retryAfter * 1000
+          : RATE_MS * 2 ** attempt,
+        MAX_BACKOFF_MS,
+      )
       if (attempt === tries) return res
       await new Promise((r) => setTimeout(r, backoff))
       continue

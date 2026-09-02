@@ -25,12 +25,44 @@ export const TILLADTE_VAERTER = new Set([
   'app.propstep.com',
   'findbolig.nu',
   'dacas.dk',
+  'lokalbolig.io',
 ])
 
 /** Bredder vi overhovedet udleverer. Frit valg ville lade en fremmed
  *  bede om tusind varianter og fylde cachen. */
 export const BREDDER = [400, 800, 1600] as const
 export type Bredde = (typeof BREDDER)[number]
+
+/**
+ * Vaerter der har bedt om mindre, end vi ellers udleverer.
+ *
+ * lokalbolig.io svarer med Cloudflares Content Signals:
+ *
+ *     Content-Signal: search=yes,ai-train=no,use=reference
+ *
+ * og filen definerer selv `search` som "returning hyperlinks and short
+ * excerpts". Et billede i 1600 px er ikke et kort uddrag. De har taget
+ * udtrykkeligt stilling, og saa retter vi os efter den, ogsaa hvor
+ * robots.txt teknisk set tillader os alt (`User-agent: *` er `Allow: /`,
+ * og BofindaBot staar ikke blandt de ni AI-crawlere, de afviser).
+ *
+ * Andre vaerter beholder alle tre bredder.
+ */
+const BREDDER_PR_VAERT: Record<string, readonly Bredde[]> = {
+  'lokalbolig.io': [400, 800],
+}
+
+const breddeListe = (host: string): readonly Bredde[] =>
+  BREDDER_PR_VAERT[host] ?? BREDDER
+
+/** Maa denne vaert levere netop denne bredde? Haandhaeves i ruten. */
+export function breddeTilladt(url: string, bredde: number): boolean {
+  try {
+    return breddeListe(new URL(url).host).includes(bredde as Bredde)
+  } catch {
+    return false
+  }
+}
 
 function hemmelighed(): string {
   const s = process.env.BILLED_HEMMELIGHED
@@ -60,13 +92,25 @@ export function vaertTilladt(url: string): boolean {
   }
 }
 
-/** Kildens billed-URL -> vores signerede rute. */
+/**
+ * Kildens billed-URL -> vores signerede rute.
+ *
+ * Beder kalderen om en bredde, vaerten ikke leverer, skaeres der NED til
+ * den stoerste, den leverer — der returneres ikke null. Lysbordet paa
+ * boligsiden beder om 1600; svarede vi null, ville billedet forsvinde
+ * helt, og en kilde der har bedt om mindre ville blive straffet med
+ * ingenting i stedet for lidt mindre.
+ */
 export function billedUrl(eksternUrl: string, bredde: Bredde = 800): string | null {
   if (!vaertTilladt(eksternUrl)) return null
+  const tilladte = breddeListe(new URL(eksternUrl).host)
+  const valgt = tilladte.includes(bredde)
+    ? bredde
+    : tilladte.reduce((a, b) => (b <= bredde && b > a ? b : a), tilladte[0]!)
   const p = new URLSearchParams({
     u: eksternUrl,
-    b: String(bredde),
-    s: signer(eksternUrl, bredde),
+    b: String(valgt),
+    s: signer(eksternUrl, valgt),
   })
   return `/api/billede?${p}`
 }

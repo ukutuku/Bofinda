@@ -71,7 +71,13 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
 
       {galleri.length > 0
         ? <Galleri billeder={galleri} />
-        : <div className="ingen-billeder">Kilden har ingen billeder af denne bolig.</div>}
+        : (
+          /* Ikke "kilden har ingen billeder": for nogle boliger HAR kilden
+             billeder, men skriver selv, at de kan vaere af en anden bolig,
+             og saa viser vi dem ikke. Sætningen skal vaere sand i begge
+             tilfaelde — se reglen om forbeholdet i CLAUDE.md. */
+          <div className="ingen-billeder">Ingen billeder at vise for denne bolig.</div>
+        )}
 
       <header className="hoved">
         <div className="hoved-tekst">

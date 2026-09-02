@@ -6,7 +6,7 @@
 //  aldrig kilden.
 // ═══════════════════════════════════════════════════════════════
 
-import { BREDDER, signaturOk, vaertTilladt, type Bredde } from '../../../lib/billede'
+import { BREDDER, breddeTilladt, signaturOk, vaertTilladt, type Bredde } from '../../../lib/billede'
 
 export const runtime = 'nodejs'
 
@@ -26,6 +26,10 @@ export async function GET(req: Request) {
   // Vaertslisten tjekkes FOER signaturen: slipper hemmeligheden ud, skal
   // proxyen stadig ikke kunne pege paa vilkaarlige adresser.
   if (!vaertTilladt(url)) return afvis('vært ikke tilladt', 403)
+  // Nogle vaerter leverer ikke alle bredder. Signaturen daekker (url|bredde),
+  // saa en gammel 1600-URL kan ikke genbruges, naar graensen strammes — men
+  // graensen skal haandhaeves her ogsaa, ikke kun i URL-byggeren.
+  if (!breddeTilladt(url, bredde)) return afvis('bredde ikke tilladt for denne vært', 403)
   if (!signaturOk(url, bredde, sig)) return afvis('ugyldig signatur', 403)
 
   let raa: ArrayBuffer

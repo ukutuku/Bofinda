@@ -55,6 +55,21 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   blive overrasket af noget, vi vidste.
 - **Tællelinjen tæller boliger, ikke kort.** "Viser de 62 nyeste af 904" er
   boliger. Et gruppekort dækker flere, så kortenes antal ville være forkert.
+- **Forsidens hastighedstal måler kun boliger, der dukkede op MENS vi
+  kiggede.** Grænsen går et døgn efter den enkelte KILDES første kørsel. Ved
+  første import får hele bagkataloget `first_seen_at = nu`, og en kilde med
+  årsgamle annoncer ville ellers se ud som en forsinkelse på vores side —
+  LokalBolig sendte p90 fra 57 min. til 2.209 timer. Samme fælde og samme
+  svar som alarmens "ny er ikke vi så den nu"; grænsen skal være pr. kilde,
+  ikke global.
+- **"Fuld økonomi" er ikke det samme som "total kendt".** Kravet er husleje
+  plus mindst én NAVNGIVEN aconto-post — varme, vand eller el. En kilde, der
+  kun skriver "Aconto pr. md.: 900 kr." uden at sige hvad den dækker (Dacas
+  og LokalBolig), giver os en rigtig total: den står på kortet som "i alt",
+  og prisfilteret regner med den. Men vi ved ikke, OM varme og vand er med,
+  og "hele økonomien oplyst" ville være en påstand om noget, vi ikke har
+  fået. Reglen står to steder og skal være ens begge: `erFuldOekonomi` i
+  `lib/normalize.ts` og `FULD` i `lib/soeg.ts`.
 - **"Ny" er ikke "vi så den nu".** Ved første import af en kilde får hele
   bagkataloget `first_seen_at = nu`. En bolig varsles kun, når kilden siger,
   den er oprettet efter søgningen — eller, for kilder uden dato, når den
@@ -139,6 +154,19 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   `NODE_EXTRA_CA_CERTS`.
 - **Kopiér aldrig kildens brødtekst.** `description` bygges af egne
   strukturerede felter. Fakta er frie, prosa er ikke.
+- **Har en vært bedt om mindre, får den mindre.** `lokalbolig.io` svarer med
+  `Content-Signal: search=yes,ai-train=no,use=reference`, og filen definerer
+  selv `search` som "hyperlinks and short excerpts". Et billede i 1600 px er
+  ikke et kort uddrag, så den vært får kun 400 og 800 — se `BREDDER_PR_VAERT`.
+  Deres robots.txt tillader os teknisk alt (`User-agent: *` er `Allow: /`, og
+  BofindaBot står ikke blandt de ni AI-crawlere, de afviser), men når nogen
+  har taget udtrykkeligt stilling, retter vi os efter den. Grænsen håndhæves
+  BÅDE i `billedUrl` (som skærer ned) og i ruten (som afviser).
+- **Siger kilden selv, at billedet kan være af en anden bolig, viser vi
+  ingen.** LokalBolig skriver det i brødteksten på nogle sager: "Bemærk
+  venligst, at billederne kan være fra en anden bolig." Et billede af noget
+  andet end den bolig, brugeren kigger på, er værre end intet billede — hun
+  tror, hun har set den.
 - **En ny kilde skal tilføjes til `TILLADTE_VAERTER` i `lib/billede.ts` i
   SAMME ændring som adapteren.** Glemmes værten, returnerer `billedUrl()`
   null, og billederne forsvinder uden en fejl nogen steder. Det skete for
@@ -364,10 +392,45 @@ kollidere, hvis samme vejnavn og husnummer findes i to stednavne inden for
 27–45, altså én vej gennem to stednavne og ingen kollision. Rigtig
 adressevask mod DAR løser det endeligt.
 
+## LokalBolig
+
+Mæglerkæde. 232 lejemål ved siden af et salgsudbud på ~2.200.
+
+`discover()` henter `/api/cases/map?caseType=rented` — hele udbuddet i ét
+kald, med `lastUpdated` på hver sag. Sitemap'et duer IKKE som indgang: dets
+2.186 URL'er er overvejende salg, og det skelner ikke leje fra salg.
+
+`extract()` læser boligsiden. Det er Next.js App Router, så hele sagen ligger
+som JSON i `self.__next_f`-brudstykkerne.
+
+**Grænsen `"relatedCases"`.** Alt før den hører til DENNE bolig. Payloaden
+bærer elleve andre sager i et "lignende boliger"-felt med de samme nøgler —
+`address`, `coordinates`, `roomCount`, `floorArea` — så uden grænsen ville et
+regex lige så gerne ramme naboens tal. Adapteren tjekker ved hver hentning, at
+hver læst nøgle findes præcis én gang i hoveddelen, og springer boligen over,
+hvis payloaden har ændret form.
+
+Aldrig: `caseAgent` (navngiven mægler), `shop` (butikkens adresse og telefon),
+`caseAnalytics` (deres visningstal), `project` (projektets billeder — ikke af
+denne bolig), `description` (kildens brødtekst; vi skriver vores egen).
+
+Acontoen findes kun som én uspecificeret klump, "Aconto pr. md.", og kun som
+tekst. Den lander i `utilities_other`. Se reglen om fuld økonomi ovenfor.
+
+Nøglen er sagsnummeret (`49-x0003644`), ikke URL'en: rettes adressen, skifter
+URL'en, og en URL-nøgle ville gøre boligen til en ny bolig.
+
+**Kilden er ustabil.** `www.lokalbolig.dk` svarede 503 "Backend is unhealthy"
+fra Varnish gennem hele undersøgelsen og den første import. Derfor fem forsøg
+i stedet for tre, og derfor tæller 502 og 504 nu som midlertidige i
+`lib/fetch.ts`. Deres eget indeks indeholder også sager, hvis side er væk.
+
 ### Ikke undersøgt endnu
 
-Cepheus (tom robots.txt, intet sitemap), Lokalbolig (robots tillader
-`User-agent: *` og `Content-Signal: search=yes`, men sitemap svarer 502).
+Cepheus: tom robots.txt (3 bytes, kun en BOM), sitemap 404, og hverken
+`/lejemaal/` eller `/ejendomme/` indeholder boliger — begge er samme skal som
+forsiden, hvis meta stadig er pladsholdertekst. Der er intet at hente. Det er
+desuden én udlejer i Randers, ikke et administrationssystem.
 
 ### BoligPortal — må ikke bruges
 

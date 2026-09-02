@@ -23,11 +23,19 @@ export interface Filtre {
 }
 
 /**
- * Fuld oekonomi: huslejen og alle aconto-poster udlejeren opkraever.
- * total_monthly saettes praecis naar det er tilfaeldet — se beregnTotal og
- * erFuldOekonomi i normalize.ts. El indgaar ikke i kravet.
+ * Fuld oekonomi: huslejen og mindst én NAVNGIVEN aconto-post.
+ *
+ * Ikke det samme som "total kendt". En kilde, der kun skriver
+ * "Aconto pr. md.: 900 kr.", giver os en rigtig total — den staar paa
+ * kortet som "i alt" — men ikke hvad acontoen daekker. At kalde det "hele
+ * oekonomien oplyst" ville vaere en paastand om noget, vi ikke har faaet.
+ *
+ * SKAL vaere samme regel som erFuldOekonomi i normalize.ts. To
+ * definitioner ville betyde, at filteret og importen var uenige om, hvad
+ * loeftet paa forsiden daekker.
  */
-const FULD = isNotNull(listings.totalMonthly)
+const FULD = sql`(${listings.totalMonthly} is not null
+  and ${listings.totalMonthlyComponents} && array['heat','water','electricity']::text[])`
 
 /**
  * Prisen der filtreres, sorteres og opsummeres på.
@@ -529,15 +537,25 @@ export async function forsidetal() {
   const [a] = await db
     .select({
       boliger: sql<number>`count(*)::int`,
-      fuldOekonomi: sql<number>`count(${listings.totalMonthly})::int`,
+      // Samme regel som FULD. Se noten der.
+      fuldOekonomi: sql<number>`count(*) filter (where
+        ${listings.totalMonthly} is not null
+        and ${listings.totalMonthlyComponents} && array['heat','water','electricity']::text[])::int`,
       kilder: sql<number>`count(distinct ${listings.sourceId})::int`,
     })
     .from(listings)
     .where(and(eq(listings.status, 'active'), ne(listings.addressMatchLevel, 'failed')))
 
-  // Hvor hurtigt vi ser en ny bolig, målt på de boliger vi har set siden
-  // den løbende import gik i gang. p90 og ikke median: løftet skal holde
+  // Hvor hurtigt vi ser en ny bolig. p90 og ikke median: løftet skal holde
   // for de fleste, ikke for halvdelen.
+  //
+  // Grænsen er PR. KILDE og går et døgn efter kildens første kørsel.
+  // Før var den global, og så ødelagde kilde nummer fire målingen: ved
+  // første import får hele bagkataloget `first_seen_at = nu`, og
+  // LokalBoligs ældste annonce er fra september 2025. p90 sprang til
+  // 2.209 timer — sandt om de tal, forkert om det, linjen påstår. Det er
+  // samme fælde som alarmens "ny er ikke vi så den nu", og samme svar:
+  // en bolig tæller først, når den dukkede op, MENS vi kiggede.
   const [b] = await db
     .select({
       minutterP90: sql<number | null>`
@@ -547,7 +565,10 @@ export async function forsidetal() {
     .from(listings)
     .where(and(
       isNotNull(listings.sourceCreatedAt),
-      sql`${listings.firstSeenAt} >= (select min(started_at) from crawl_runs where new_count is not null)`,
+      sql`${listings.firstSeenAt} >= (
+        select min(r.started_at) + interval '24 hours'
+        from crawl_runs r
+        where r.source_id = ${listings.sourceId} and r.new_count is not null)`,
     ))
 
   return { ...a!, minutterP90: b?.minutterP90 ?? null }

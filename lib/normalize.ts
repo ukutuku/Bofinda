@@ -78,12 +78,21 @@ export function beregnTotal(r: RawListing): Total {
  * indfri. Opkraever udlejeren alligevel el aconto, taeller den med som
  * enhver anden post.
  *
- * Kravet er derfor: husleje kendt, og mindst én aconto-post kendt. Vi kan
- * ikke skelne "ingen aconto" fra "aconto ikke oplyst", saa en bolig med
- * husleje alene regnes ikke som fuld.
+ * Kravet er derfor: husleje kendt, og mindst én NAVNGIVEN aconto-post kendt.
+ * Vi kan ikke skelne "ingen aconto" fra "aconto ikke oplyst", saa en bolig
+ * med husleje alene regnes ikke som fuld.
+ *
+ * `other` alene taeller IKKE. Nogle kilder — Dacas og Lokalbolig — oplyser
+ * kun "Aconto pr. md.: 900 kr." uden at sige hvad den daekker. Totalen bliver
+ * rigtig, og den staar paa kortet som "i alt"; men vi ved ikke, OM varme og
+ * vand er med, og "hele oekonomien oplyst" ville vaere en paastand om noget,
+ * vi ikke har faaet at vide. Prisen er kendt; sammensaetningen er det ikke.
  */
+const NAVNGIVNE_POSTER = ['heat', 'water', 'electricity'] as const
+
 export const erFuldOekonomi = (k: string[] | null): boolean =>
-  k != null && k.includes('rent') && k.some((n) => n !== 'rent')
+  k != null && k.includes('rent')
+  && k.some((n) => (NAVNGIVNE_POSTER as readonly string[]).includes(n))
 
 const MDR = ['januar','februar','marts','april','maj','juni',
              'juli','august','september','oktober','november','december']
