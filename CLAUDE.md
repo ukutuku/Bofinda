@@ -55,6 +55,21 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   blive overrasket af noget, vi vidste.
 - **Tællelinjen tæller boliger, ikke kort.** "Viser de 62 nyeste af 904" er
   boliger. Et gruppekort dækker flere, så kortenes antal ville være forkert.
+- **Et filter vises kun, hvis en kilde faktisk oplyser feltet.** Boligtyper
+  og faciliteter tælles i `facetter()`, og tælles de til nul, kommer valget
+  ikke på skærmen. Et filter, der aldrig kan give træf, er værre end intet
+  filter.
+- **Faciliteter er en POSITIV liste.** Står `elevator` ikke i `amenities`,
+  betyder det "ikke oplyst" — ikke "ingen elevator". Kun Propstep oplyser
+  dem overhovedet, så et facilitetsfilter skjuler 400+ boliger, fordi deres
+  kilde tier. Det SKAL stå på skærmen, når filteret er slået til; noten på
+  søgesiden navngiver kilderne og tallet.
+- **Sider med flere forespørgsler skal køre dem EFTER HINANDEN, ikke i
+  `Promise.all`.** Webappen har én forbindelse i puljen (transaction-
+  pooleren, `max: 1` i `db/client.ts`), og samtidige kæder bliver til
+  pipelinede sætninger på den ene forbindelse. Det holdt lige akkurat med
+  syv forespørgsler; den ottende fik hver eneste listeside til at hænge i
+  minutter uden en fejl nogen steder. I række tager de under et sekund.
 - **Forsidens hastighedstal måler kun boliger, der dukkede op MENS vi
   kiggede.** Grænsen går et døgn efter den enkelte KILDES første kørsel. Ved
   første import får hele bagkataloget `first_seen_at = nu`, og en kilde med

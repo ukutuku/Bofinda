@@ -19,8 +19,39 @@ export interface Filtre {
   arealMin?: number
   kilder?: string[]
   fuldOekonomi?: boolean
-  sorter?: 'nyeste' | 'pris_op' | 'pris_ned' | 'areal_ned'
+  /** Normaliserede boligtyper. Typen kommer fra enum'en i skemaet, så
+   *  filteret og kolonnen ikke kan komme fra hinanden. */
+  boligtyper?: Boligtype[]
+  kaeledyr?: boolean
+  elevator?: boolean
+  /** Altan ELLER terrasse. To ord for den samme slags plads udenfor. */
+  udeplads?: boolean
+  sorter?: Sortering
 }
+
+export type Boligtype = (typeof listings.propertyType.enumValues)[number]
+export const BOLIGTYPER = listings.propertyType.enumValues
+
+export const SORTERINGER = [
+  'nyeste', 'pris_op', 'pris_ned', 'areal_ned', 'indflytning_op', 'indflytning_ned',
+] as const
+export type Sortering = (typeof SORTERINGER)[number]
+
+/**
+ * Faciliteter er en POSITIV liste. Står 'elevator' ikke der, betyder det
+ * "ikke oplyst" — ikke "ingen elevator". Et filter på dem skjuler derfor
+ * boliger, hvis kilde bare ikke fortæller det, og det SKAL stå på skærmen,
+ * når filteret er slået til. Se noten på søgesiden.
+ */
+const FACILITET = {
+  kaeledyr: ['kæledyr tilladt'],
+  elevator: ['elevator'],
+  udeplads: ['altan', 'terrasse'],
+} as const
+
+const harFacilitet = (navne: readonly string[]) =>
+  sql`jsonb_exists_any(coalesce(${listings.amenities}, '[]'::jsonb),
+    array[${sql.join(navne.map((n) => sql`${n}`), sql`, `)}]::text[])`
 
 /**
  * Fuld oekonomi: huslejen og mindst én NAVNGIVEN aconto-post.
@@ -72,6 +103,10 @@ export function hvor(f: Filtre) {
   if (f.arealMin != null) d.push(gte(listings.sizeM2, f.arealMin))
   if (f.kilder?.length) d.push(inArray(sources.slug, f.kilder))
   if (f.fuldOekonomi) d.push(FULD)
+  if (f.boligtyper?.length) d.push(inArray(listings.propertyType, f.boligtyper))
+  if (f.kaeledyr) d.push(harFacilitet(FACILITET.kaeledyr))
+  if (f.elevator) d.push(harFacilitet(FACILITET.elevator))
+  if (f.udeplads) d.push(harFacilitet(FACILITET.udeplads))
   return and(...d)
 }
 
@@ -82,6 +117,12 @@ const ORDEN = {
   pris_op: sql`${PRIS} asc nulls last`,
   pris_ned: sql`${PRIS} desc nulls last`,
   areal_ned: desc(listings.sizeM2),
+  // `nulls last` skal skrives ud ved desc: Postgres sætter ellers null
+  // øverst, og en bolig uden oplyst indflytningspris ville stå som den
+  // dyreste. Ved asc er det allerede standard, men det står der, så de to
+  // linjer kan læses uden at kende reglen.
+  indflytning_op: sql`${listings.moveInCost} asc nulls last`,
+  indflytning_ned: sql`${listings.moveInCost} desc nulls last`,
 }
 
 /** Felterne et boligkort bruger. Delt, saa en gruppes repraesentant hentes
@@ -217,6 +258,8 @@ const GRUPPEORDEN = {
   pris_op: sql`min(${PRIS}) asc nulls last`,
   pris_ned: sql`max(${PRIS}) desc nulls last`,
   areal_ned: sql`max(${listings.sizeM2}) desc nulls last`,
+  indflytning_op: sql`min(${listings.moveInCost}) asc nulls last`,
+  indflytning_ned: sql`max(${listings.moveInCost}) desc nulls last`,
 }
 
 /** Boligkortets felter for en håndfuld id'er, i den rækkefølge de kom. */
@@ -394,14 +437,59 @@ export async function facetter() {
     .where(and(eq(listings.status, 'active'), ne(listings.addressMatchLevel, 'failed')))
     .groupBy(listings.city, listings.postalCode)
     .orderBy(desc(sql`count(*)`))
-  const kilder = await db
-    .select({ slug: sources.slug, navn: sources.name, antal: sql<number>`count(*)::int` })
+  // ÉN forespørgsel til kilder OG faciliteter. Fire adskilte kald gjorde
+  // forsiden til ti forespørgsler i træk gennem webappens ene forbindelse
+  // (transaction-pooleren, max 1), og så nåede Supabases statement timeout
+  // frem før svaret. Aggregaterne koster ingenting oveni gruppperingen.
+  const pr = await db
+    .select({
+      slug: sources.slug,
+      navn: sources.name,
+      antal: sql<number>`count(*)::int`,
+      kaeledyr: sql<number>`count(*) filter (where jsonb_exists(coalesce(${listings.amenities}, '[]'::jsonb), 'kæledyr tilladt'))::int`,
+      elevator: sql<number>`count(*) filter (where jsonb_exists(coalesce(${listings.amenities}, '[]'::jsonb), 'elevator'))::int`,
+      udeplads: sql<number>`count(*) filter (where jsonb_exists_any(coalesce(${listings.amenities}, '[]'::jsonb), array['altan','terrasse']::text[]))::int`,
+      medFaciliteter: sql<number>`count(*) filter (where jsonb_array_length(coalesce(${listings.amenities}, '[]'::jsonb)) > 0)::int`,
+    })
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
     .where(and(eq(listings.status, 'active'), ne(listings.addressMatchLevel, 'failed')))
     .groupBy(sources.slug, sources.name)
     .orderBy(desc(sql`count(*)`))
-  return { byer, kilder }
+
+  // Kun typer der faktisk findes. Skemaets enum har seks værdier; kilderne
+  // leverer tre. Et valg der aldrig giver træf, er værre end intet valg.
+  const typer = await db
+    .select({ type: listings.propertyType, antal: sql<number>`count(*)::int` })
+    .from(listings)
+    .where(and(
+      eq(listings.status, 'active'), ne(listings.addressMatchLevel, 'failed'),
+      isNotNull(listings.propertyType),
+    ))
+    .groupBy(listings.propertyType)
+    .orderBy(desc(sql`count(*)`))
+
+  const sum = (v: (r: (typeof pr)[number]) => number) => pr.reduce((a, r) => a + v(r), 0)
+
+  return {
+    byer,
+    kilder: pr.map((k) => ({ slug: k.slug, navn: k.navn, antal: k.antal })),
+    typer,
+    // Samme regel som for typerne: tælles en facilitet til nul, vises
+    // afkrydsningen ikke.
+    faciliteter: {
+      kaeledyr: sum((r) => r.kaeledyr),
+      elevator: sum((r) => r.elevator),
+      udeplads: sum((r) => r.udeplads),
+    },
+    /** Kilder der overhovedet oplyser faciliteter. */
+    facilitetskilder: pr.filter((k) => k.medFaciliteter > 0).map((k) => k.navn),
+    /** Aktive boliger fra kilder der ALDRIG oplyser faciliteter. Brugeren
+     *  skal kunne se, at et facilitetsfilter skjuler dem, fordi kilden tier
+     *  — ikke fordi boligen mangler det. */
+    udenFacilitetsoplysning: pr.filter((k) => k.medFaciliteter === 0)
+      .reduce((a, k) => a + k.antal, 0),
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -503,9 +591,21 @@ function stedet(sp: Soegeparametre): { by?: string; postnr?: string } {
   return { by: en(sp.by) || undefined, postnr: en(sp.postnr) || undefined }
 }
 
+/** Flere vaerdier af samme parameter — `?type=hus&type=raekkehus`. */
+const flere = (v: string | string[] | undefined): string[] | undefined => {
+  if (v == null) return undefined
+  const a = (Array.isArray(v) ? v : [v]).map((x) => x.trim()).filter(Boolean)
+  return a.length ? a : undefined
+}
+
 export function filtreFraParametre(sp: Soegeparametre): Filtre {
-  const kilder = sp.kilde ? (Array.isArray(sp.kilde) ? sp.kilde : [sp.kilde]) : undefined
+  const kilder = flere(sp.kilde)
   const sted = stedet(sp)
+  // Ukendte vaerdier kasseres. Uden det ville ?sorter=xyz slaa op i ORDEN
+  // med undefined og vaelte siden, og ?type=fis naa helt ud i SQL'en.
+  const sorter = SORTERINGER.find((x) => x === en(sp.sorter)) ?? 'nyeste'
+  const boligtyper = flere(sp.type)
+    ?.filter((t): t is Boligtype => (BOLIGTYPER as readonly string[]).includes(t))
   return {
     by: sted.by,
     postnr: sted.postnr,
@@ -515,7 +615,11 @@ export function filtreFraParametre(sp: Soegeparametre): Filtre {
     arealMin: heltal(en(sp.areal)),
     kilder,
     fuldOekonomi: en(sp.fuld) === '1',
-    sorter: (en(sp.sorter) as Filtre['sorter']) || 'nyeste',
+    boligtyper: boligtyper?.length ? boligtyper : undefined,
+    kaeledyr: en(sp.kaeledyr) === '1',
+    elevator: en(sp.elevator) === '1',
+    udeplads: en(sp.udeplads) === '1',
+    sorter,
   }
 }
 
@@ -523,7 +627,8 @@ export function filtreFraParametre(sp: Soegeparametre): Filtre {
  *  "alle boliger i landet" og giver hende hundredvis af mails. */
 export function harFiltre(f: Filtre): boolean {
   return Boolean(f.by || f.postnr || f.prisMin != null || f.prisMax != null
-    || f.vaerelserMin != null || f.arealMin != null || f.kilder?.length || f.fuldOekonomi)
+    || f.vaerelserMin != null || f.arealMin != null || f.kilder?.length || f.fuldOekonomi
+    || f.boligtyper?.length || f.kaeledyr || f.elevator || f.udeplads)
 }
 
 // ═══════════════════════════════════════════════════════════════

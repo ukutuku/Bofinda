@@ -155,6 +155,11 @@ export async function ventende() {
 }
 
 /** Kriterierne som en linje, så det kan ses hvad søgningen faktisk beder om. */
+const TYPENAVN: Record<string, string> = {
+  lejlighed: 'lejlighed', hus: 'hus', raekkehus: 'rækkehus',
+  vaerelse: 'værelse', studiebolig: 'studiebolig', andet: 'anden bolig',
+}
+
 export function beskrivFiltre(c: Record<string, unknown>): string {
   const f = somFiltre(c)
   const d: string[] = []
@@ -166,6 +171,13 @@ export function beskrivFiltre(c: Record<string, unknown>): string {
   if (f.arealMin != null) d.push(`mindst ${f.arealMin} m²`)
   if (f.kilder?.length) d.push(`kilder: ${f.kilder.join(', ')}`)
   if (f.fuldOekonomi) d.push('fuld økonomi kendt')
+  // De nye filtre SKAL med her. Beskrivelsen står på bekræftelsessiden og i
+  // gem-boksen, og en søgning, der filtrerer på mere, end den fortæller, er
+  // en søgning brugeren ikke kan gennemskue.
+  if (f.boligtyper?.length) d.push(f.boligtyper.map((t) => TYPENAVN[t] ?? t).join(' el. '))
+  if (f.kaeledyr) d.push('kæledyr tilladt')
+  if (f.elevator) d.push('elevator')
+  if (f.udeplads) d.push('altan el. terrasse')
   return d.length ? d.join(' · ') : 'ingen filtre — alle boliger'
 }
 

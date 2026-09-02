@@ -61,9 +61,10 @@ export default async function Side({ params }: { params: Promise<{ slug: string 
   // giver 404 og kommer heller ikke i sitemap'et.
   if (!o) notFound()
 
-  const [s, visninger, nabo] = await Promise.all([
-    statistik(o), soegGrupperet(filterFor(o), 48), naboer(o),
-  ])
+  // Efter hinanden, ikke i Promise.all — se noten i app/page.tsx.
+  const s = await statistik(o)
+  const visninger = await soegGrupperet(filterFor(o), 48)
+  const nabo = await naboer(o)
   // Kort er ikke boliger: ens boliger paa samme vej staar som ét kort.
   const vist = antalBoliger(visninger)
 

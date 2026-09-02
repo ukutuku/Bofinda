@@ -9,6 +9,12 @@ export const dynamic = 'force-dynamic'
 
 // ─── Siden ─────────────────────────────────────────────────────
 
+/** Kilderne gemmer typen uden danske bogstaver. */
+const TYPENAVN: Record<string, string> = {
+  lejlighed: 'Lejlighed', hus: 'Hus', raekkehus: 'Rækkehus',
+  vaerelse: 'Værelse', studiebolig: 'Studiebolig', andet: 'Anden bolig',
+}
+
 /** Første værdi af en URL-parameter — til formularens defaultValue. */
 const en = (v: string | string[] | undefined) => Array.isArray(v) ? v[0] : v
 
@@ -24,9 +30,17 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // Listen viser KORT, ikke boliger: ens boliger paa samme vej til samme
   // pris staar som ét. Grupperingen er kun en visning — alarmen matcher
   // stadig paa de enkelte boliger gennem hvor().
-  const [visninger, sum, fac, tal] = await Promise.all([
-    soegGrupperet(f), opsummering(f), facetter(), forsidetal(),
-  ])
+  //
+  // Efter hinanden, ikke i Promise.all. Webappen har ÉN forbindelse i
+  // puljen (transaction-pooleren, se db/client.ts), og fire samtidige
+  // kæder bliver til pipelinede sætninger paa den ene forbindelse. Det
+  // holdt lige akkurat, indtil facetter fik en forespørgsel mere — saa
+  // hang hver eneste listeside i minutter. Samlet tager de otte
+  // forespørgsler under et sekund i raekke.
+  const visninger = await soegGrupperet(f)
+  const sum = await opsummering(f)
+  const fac = await facetter()
+  const tal = await forsidetal()
   const vist = antalBoliger(visninger)
   const sted = en(sp.sted) ?? f.postnr ?? f.by ?? ''
   // Over en time skifter vi ENHED, ikke paastand. Der maa aldrig staa
@@ -95,15 +109,58 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           <label htmlFor="sorter">Sortér</label>
           <select id="sorter" name="sorter" defaultValue={f.sorter}>
             <option value="nyeste">nyeste først</option>
-            <option value="pris_op">pris, lav til høj</option>
-            <option value="pris_ned">pris, høj til lav</option>
+            <option value="pris_op">md. udgift, lav til høj</option>
+            <option value="pris_ned">md. udgift, høj til lav</option>
+            <option value="indflytning_op">indflytningspris, laveste først</option>
+            <option value="indflytning_ned">indflytningspris, højeste først</option>
             <option value="areal_ned">størst først</option>
           </select>
         </div>
+
+        {/* Kun typer kilderne faktisk leverer. Skemaets enum har seks
+            værdier; tre af dem findes i data. */}
+        {fac.typer.length > 1 && (
+          <div className="felt bred">
+            <label>Boligtype</label>
+            <div className="valgraekke">
+              {fac.typer.map((t) => (
+                <label key={t.type} className="valg">
+                  <input
+                    type="checkbox" name="type" value={t.type!}
+                    defaultChecked={f.boligtyper?.includes(t.type!) ?? false}
+                  />
+                  {TYPENAVN[t.type!] ?? t.type} <span>{t.antal}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="felt afkryds">
           <input type="checkbox" id="fuld" name="fuld" value="1" defaultChecked={f.fuldOekonomi} />
           <label htmlFor="fuld">Fuld økonomi kendt</label>
         </div>
+
+        {/* Vises kun, hvis nogen faktisk oplyser feltet. Et filter, der
+            aldrig giver træf, er værre end intet filter. */}
+        {fac.faciliteter.kaeledyr > 0 && (
+          <div className="felt afkryds">
+            <input type="checkbox" id="kaeledyr" name="kaeledyr" value="1" defaultChecked={f.kaeledyr} />
+            <label htmlFor="kaeledyr">Kæledyr tilladt</label>
+          </div>
+        )}
+        {fac.faciliteter.elevator > 0 && (
+          <div className="felt afkryds">
+            <input type="checkbox" id="elevator" name="elevator" value="1" defaultChecked={f.elevator} />
+            <label htmlFor="elevator">Elevator</label>
+          </div>
+        )}
+        {fac.faciliteter.udeplads > 0 && (
+          <div className="felt afkryds">
+            <input type="checkbox" id="udeplads" name="udeplads" value="1" defaultChecked={f.udeplads} />
+            <label htmlFor="udeplads">Altan eller terrasse</label>
+          </div>
+        )}
         <div className="knapper">
           <button type="submit">Søg</button>
           <a className="nulstil" href="/">Nulstil</a>
@@ -167,6 +224,18 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
       {/* Begge hoerer til paa resultatsiden. Paa forsiden er de stoej,
           foer brugeren har spurgt om noget. */}
       {soegt && <GemSoegning sp={sp} />}
+
+      {/* Faciliteter er en POSITIV liste. Filtrerer hun på elevator, ryger
+          alle boliger fra kilder, der bare ikke skriver det — og det ligner
+          "der er ingen". Det skal stå på skærmen, ikke kun i koden. */}
+      {soegt && (f.kaeledyr || f.elevator || f.udeplads)
+        && fac.udenFacilitetsoplysning > 0 && (
+        <p className="prisnote advarsel">
+          Kun <strong>{fac.facilitetskilder.join(' og ')}</strong> oplyser faciliteter.
+          {' '}De {fac.udenFacilitetsoplysning.toLocaleString('da-DK')} boliger fra de øvrige
+          kilder er ikke med her — fordi kilden tier om det, ikke fordi boligen mangler det.
+        </p>
+      )}
 
       {soegt && (
         <p className="prisnote">
