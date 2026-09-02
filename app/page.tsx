@@ -142,14 +142,18 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         </p>
       )}
 
-      <div className="optaelling">
-        <span><strong>{sum.antal}</strong> {sum.antal === 1 ? 'bolig' : 'boliger'}</span>
-        <span>{sum.fuld} med fuld økonomi</span>
-        <span>{sum.medIndflytning} med indflytningspris</span>
-        {sum.billigst != null && sum.dyrest != null && (
-          <span>{kr(sum.billigst)}–{kr(sum.dyrest)} kr/md</span>
-        )}
-      </div>
+      {/* Uden filtre staar de samme tal allerede i hero'en ovenfor.
+          Linjen hoerer til, hvor den siger noget nyt: om et udsnit. */}
+      {soegt && (
+        <div className="optaelling">
+          <span><strong>{sum.antal}</strong> {sum.antal === 1 ? 'bolig' : 'boliger'}</span>
+          <span>{sum.fuld} med fuld økonomi</span>
+          <span>{sum.medIndflytning} med indflytningspris</span>
+          {sum.billigst != null && sum.dyrest != null && (
+            <span>{kr(sum.billigst)}–{kr(sum.dyrest)} kr/md</span>
+          )}
+        </div>
+      )}
 
       {sum.antal > boliger.length && (
         <p className="begraensning">
