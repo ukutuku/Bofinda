@@ -31,17 +31,21 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   `lib/soeg.ts` er eksporteret og bruges begge steder. To implementeringer
   ville betyde, at beskeden rammer noget andet, end brugeren så, da hun
   oprettede søgningen — og det ville hverken kunne ses eller fejles på.
-- **Dedup mellem kilder kører KUN på enhedsadresse (`unit`).** Den samme
+- **Dedup mellem kilder kører på to niveauer.** Den samme
   bolig annonceres flere steder — 19 grupper i dag, 18 af dem
   Propstep + LokalBolig. Adressevasken giver dem allerede samme unit-uuid,
   og `ikkeRepraesentant()` i `lib/soeg.ts` skjuler alle på nær én.
-  · **Access-niveauet er slået fra med vilje.** Efter at parseren lærte
-  `Bygning N. M` og `B1 Nr. M` er de 50 falske faldet til 26, og de sidste
-  kan ikke parses væk: Nordskovvej i 7184 Vandel er 30 boliger med den
-  SAMME adressestreng — "Nordskovvej, 7184 Vandel", uden husnummer. Kilden
-  oplyser ikke hvilken bolig der er hvilken. Skal access slås til, er det
-  billigste greb at kræve et husnummer: uden det er "opgangen" hele vejen,
-  og så er Nordskovvej ude og kun de ægte par tilbage.
+  · **Access-niveauet KRÆVER et husnummer.** Nøglen er opgang + areal +
+  værelser + husleje, og uden husnummer er "opgangen" hele vejen:
+  Nordskovvej i 7184 Vandel er 30 boliger med den samme adressestreng,
+  "Nordskovvej, 7184 Vandel", og kilden siger ikke hvilken bolig der er
+  hvilken. Uden kravet skjuler reglen 26 af dem som dubletter af hinanden.
+  Med kravet skjuler den 2, og begge er den samme bolig annonceret to
+  steder. Fjern aldrig kravet uden at tælle efter igen.
+  · Nøglen står to steder: `DEDUPNOEGLE` i `lib/soeg.ts`, som kører, og
+  `dedupNoegle` i `lib/dedup.ts`, som beskriver den. De skal ændres sammen.
+  Det samme gælder `SAMME_BOLIG_ANDEN_KILDE`, som kortets kildemærkater
+  bygger på — den har sit eget alias og kan ikke genbruge nøglen.
   · **Rangeringen regnes på det FILTREREDE sæt.** Ellers taber en søgning
   på "kilde: LokalBolig" de boliger, hvor Propstep blev repræsentant —
   boligen ville forsvinde helt i stedet for at stå én gang.

@@ -118,12 +118,19 @@ export function hvor(f: Filtre) {
 //  vaerelsestal, samme husleje, samme total og samme koordinat.
 //  Adressevasken giver dem allerede det samme unit-uuid.
 //
-//  KUN 'unit'. Access-reglen (opgang + areal + vaerelser + husleje) ville
-//  paa dagens data skjule 50 ÆGTE boliger for at fjerne 2 dubletter:
-//  "Stenlængegårdens Kvarter 4, Bygning 4. 15" parses uden etage og doer,
-//  saa syv forskellige lejligheder i bebyggelsen faar samme opgangsnoegle
-//  og samme areal, vaerelsestal og husleje. Det er en parsefejl, ikke et
-//  dedup-problem, og access-boliger staar derfor alene indtil videre.
+//  To niveauer:
+//
+//    unit    Enhedsadressen alene. Samme uuid = samme bolig.
+//    access  Opgangen er ikke nok — der kan ligge otte lejligheder — saa
+//            noeglen er opgang + areal + vaerelser + husleje, og den
+//            KRAEVER et husnummer.
+//
+//  Husnummerkravet er ikke pynt. Uden husnummer er "opgangen" hele vejen:
+//  Nordskovvej i 7184 Vandel er 30 boliger med den samme adressestreng,
+//  "Nordskovvej, 7184 Vandel", og kilden siger ikke hvilken bolig der er
+//  hvilken. Uden kravet ville access-reglen skjule 26 af dem som dubletter
+//  af hinanden. Med kravet skjuler den 2, og begge er den samme bolig
+//  annonceret to steder.
 //
 //  Det her er en VISNING, ikke et filter. `hvor()` er urort, saa alarmen
 //  matcher stadig paa de enkelte raekker.
@@ -143,12 +150,54 @@ export function hvor(f: Filtre) {
  * total; er de stadig lige, den aeldste raekke, saa valget er stabilt
  * mellem koersler.
  */
+/**
+ * "l2 er den samme bolig som den ydre række, hos en anden kilde."
+ *
+ * Skrevet ud i stedet for at genbruge DEDUPNOEGLE, fordi den indre tabel
+ * har sit eget alias og udtrykket ville binde til den forkerte. Betingelsen
+ * SKAL matche nøglen nedenfor — samme to niveauer, samme husnummerkrav.
+ */
+const SAMME_BOLIG_ANDEN_KILDE = sql`(
+  l2.status = 'active'
+  and l2.source_id <> ${listings.sourceId}
+  and (
+    (${listings.addressMatchLevel} = 'unit' and l2.address_match_level = 'unit'
+      and l2.unit_address_uuid = ${listings.unitAddressUuid})
+    or
+    (${listings.addressMatchLevel} = 'access' and l2.address_match_level = 'access'
+      and ${listings.houseNumber} is not null and l2.house_number is not null
+      and l2.access_address_uuid = ${listings.accessAddressUuid}
+      and l2.size_m2 is not distinct from ${listings.sizeM2}
+      and l2.rooms is not distinct from ${listings.rooms}
+      and round(l2.rent_monthly / 10000.0)
+          is not distinct from round(${listings.rentMonthly} / 10000.0))
+  ))`
+
+/**
+ * Dedup-nøglen i SQL. SKAL svare til `dedupNoegle` i lib/dedup.ts — to
+ * definitioner ville betyde, at det, vi skjuler, og det, vi siger vi
+ * skjuler, kunne komme fra hinanden.
+ */
+const DEDUPNOEGLE = sql`case
+  when ${listings.addressMatchLevel} = 'unit' and ${listings.unitAddressUuid} is not null
+    then 'unit:' || ${listings.unitAddressUuid}
+  when ${listings.addressMatchLevel} = 'access' and ${listings.accessAddressUuid} is not null
+       and ${listings.houseNumber} is not null
+    then 'access:' || ${listings.accessAddressUuid}
+      || ':' || coalesce(${listings.sizeM2}::text, '?')
+      || ':' || coalesce(${listings.rooms}::text, '?')
+      -- Huslejen rundes til naermeste hundrede kroner, saa et gebyr til
+      -- forskel mellem to kilder ikke deler boligen i to.
+      || ':' || coalesce(round(${listings.rentMonthly} / 10000.0)::text, '?')
+  else null
+end`
+
 export function ikkeRepraesentant(grundlag: SQL | undefined) {
   return sql`${listings.id} in (
     select d.id from (
       select ${listings.id} as id,
         row_number() over (
-          partition by ${listings.unitAddressUuid}
+          partition by ${DEDUPNOEGLE}
           order by
             (select count(*) from listing_images i where i.listing_id = ${listings.id}) desc,
             (${listings.totalMonthly} is not null) desc,
@@ -157,8 +206,7 @@ export function ikkeRepraesentant(grundlag: SQL | undefined) {
       from ${listings}
       inner join ${sources} on ${sources.id} = ${listings.sourceId}
       where ${grundlag ?? sql`true`}
-        and ${listings.addressMatchLevel} = 'unit'
-        and ${listings.unitAddressUuid} is not null
+        and ${DEDUPNOEGLE} is not null
         -- Kun de adresser der OVERHOVEDET har mere end én raekke. Uden det
         -- rangeres alle 729 unit-boliger, og billedtaellingen i order by
         -- koeres 729 gange i stedet for 38. Det kostede over et sekund pr.
@@ -167,10 +215,9 @@ export function ikkeRepraesentant(grundlag: SQL | undefined) {
         -- Undersaettet er ufiltreret med vilje: det afgoer kun HVILKE
         -- adresser der er vaerd at rangere. Selve rangeringen — og dermed
         -- valget af repraesentant — sker stadig paa det filtrerede saet.
-        and ${listings.unitAddressUuid} in (
-          select unit_address_uuid from listings
-          where status = 'active' and address_match_level = 'unit'
-            and unit_address_uuid is not null
+        and ${DEDUPNOEGLE} in (
+          select ${DEDUPNOEGLE} from ${listings}
+          where ${listings.status} = 'active' and ${DEDUPNOEGLE} is not null
           group by 1 having count(*) > 1)
     ) d where d.rn > 1)`
 }
@@ -242,10 +289,7 @@ const KORTFELTER = {
   ogsaaHos: sql<string[]>`(
     select coalesce(array_agg(distinct s2.name order by s2.name), '{}'::text[])
     from listings l2 join sources s2 on s2.id = l2.source_id
-    where l2.status = 'active'
-      and l2.address_match_level = 'unit'
-      and l2.unit_address_uuid = ${listings.unitAddressUuid}
-      and l2.source_id <> ${listings.sourceId})`,
+    where ${SAMME_BOLIG_ANDEN_KILDE})`,
 } as const
 
 // 48 og ikke 200: hvert kort henter et billede gennem proxyen, og to hundrede
@@ -399,10 +443,7 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
       // kortet ville paastaa to kilder for femten boliger, hvor det
       // maaske kun gaelder den ene, vi tilfaeldigvis valgte.
       alleOgsaaAndetsteds: sql<boolean>`bool_and(exists (
-        select 1 from listings l2
-        where l2.status = 'active' and l2.address_match_level = 'unit'
-          and l2.unit_address_uuid = ${listings.unitAddressUuid}
-          and l2.source_id <> ${listings.sourceId}))`,
+        select 1 from listings l2 where ${SAMME_BOLIG_ANDEN_KILDE}))`,
       nyesteMarkedetMs: sql<number>`(extract(epoch from
         max(coalesce(${listings.sourceCreatedAt}, ${listings.firstSeenAt}))) * 1000)::float8`,
       // Den nyeste i gruppen. Dens billede er det, der er hentet sidst.

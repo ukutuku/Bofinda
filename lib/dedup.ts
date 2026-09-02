@@ -6,8 +6,13 @@
 //
 //    unit    Enhedsadressen er noeglen alene. Samme UUID = samme bolig.
 //    access  Opgangen alene er ikke nok; der kan ligge otte lejligheder.
-//            Noeglen er opgang + areal + vaerelser + husleje.
+//            Noeglen er opgang + areal + vaerelser + husleje, og den
+//            KRAEVER et husnummer — se noten ved houseNumber nedenfor.
 //    failed  Dedupes ikke og vises ikke. Vi ved ikke hvor boligen ligger.
+//
+//  SKAL svare til DEDUPNOEGLE i lib/soeg.ts, som er den, der faktisk
+//  koerer. To definitioner ville betyde, at det vi skjuler, og det vi
+//  siger vi skjuler, kunne komme fra hinanden.
 // ═══════════════════════════════════════════════════════════════
 
 export interface DedupInput {
@@ -17,6 +22,12 @@ export interface DedupInput {
   sizeM2: number | null
   rooms: number | null
   rentMonthly: number | null
+  /**
+   * Uden husnummer er "opgangen" hele vejen, og en vej er ikke en opgang.
+   * Nordskovvej i 7184 Vandel er 30 boliger med den samme adressestreng —
+   * uden kravet ville 26 af dem forsvinde som dubletter af hinanden.
+   */
+  houseNumber: string | null
 }
 
 /**
@@ -27,7 +38,7 @@ export function dedupNoegle(b: DedupInput): string | null {
   if (b.addressMatchLevel === 'unit' && b.unitAddressUuid) {
     return `unit:${b.unitAddressUuid}`
   }
-  if (b.addressMatchLevel === 'access' && b.accessAddressUuid) {
+  if (b.addressMatchLevel === 'access' && b.accessAddressUuid && b.houseNumber) {
     // Husleje rundes til naermeste 100 kr, saa et gebyr til forskel mellem to
     // kilder ikke deler boligen i to.
     const leje = b.rentMonthly == null ? '?' : String(Math.round(b.rentMonthly / 10000))
