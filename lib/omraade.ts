@@ -7,6 +7,7 @@
 
 import { and, eq, ne, sql } from 'drizzle-orm'
 import { db } from '../db/client'
+import { udenDubletter } from './soeg'
 import { listings } from '../db/schema'
 import { MINDST_BOLIGER, slug } from './slug'
 
@@ -20,7 +21,11 @@ export interface Omraade {
   antal: number
 }
 
-const synlig = and(eq(listings.status, 'active'), ne(listings.addressMatchLevel, 'failed'))
+// Dedupet, ligesom soegesiden. Tallene i broedteksten staar over listen
+// paa samme side — taller de to forskelligt, er den ene forkert.
+const synlig = udenDubletter(
+  and(eq(listings.status, 'active'), ne(listings.addressMatchLevel, 'failed')),
+)
 
 /**
  * Alle omraader med nok boliger til at fortjene en side.

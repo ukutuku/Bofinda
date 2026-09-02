@@ -6,7 +6,7 @@
 //  query'en — ikke i skabelonen.
 // ═══════════════════════════════════════════════════════════════
 
-import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, ne, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, ne, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/client'
 import { listingImages, listings, sources } from '../db/schema'
 
@@ -110,6 +110,68 @@ export function hvor(f: Filtre) {
   return and(...d)
 }
 
+// ═══════════════════════════════════════════════════════════════
+//  Dedup mellem kilder — KUN paa enhedsadresse.
+//
+//  Den samme bolig annonceres hos flere. Vilhelm Ehlerts Alle 15, 3. 3 i
+//  Viborg staar hos baade Propstep og LokalBolig med samme areal, samme
+//  vaerelsestal, samme husleje, samme total og samme koordinat.
+//  Adressevasken giver dem allerede det samme unit-uuid.
+//
+//  KUN 'unit'. Access-reglen (opgang + areal + vaerelser + husleje) ville
+//  paa dagens data skjule 50 ÆGTE boliger for at fjerne 2 dubletter:
+//  "Stenlængegårdens Kvarter 4, Bygning 4. 15" parses uden etage og doer,
+//  saa syv forskellige lejligheder i bebyggelsen faar samme opgangsnoegle
+//  og samme areal, vaerelsestal og husleje. Det er en parsefejl, ikke et
+//  dedup-problem, og access-boliger staar derfor alene indtil videre.
+//
+//  Det her er en VISNING, ikke et filter. `hvor()` er urort, saa alarmen
+//  matcher stadig paa de enkelte raekker.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Rækkerne der ikke blev repræsentant for deres bolig.
+ *
+ * Rangeringen regnes paa DET FILTREREDE saet, ikke paa hele basen. Ellers
+ * ville en soegning paa "kilde: LokalBolig" tabe de boliger, hvor Propstep
+ * blev valgt — boligen ville forsvinde helt i stedet for at staa én gang.
+ *
+ * Den indre `from listings` skygger for den ydre, saa `hvor(f)` binder til
+ * den indre tabel. Det er derfor filteret kan genbruges ordret.
+ *
+ * Repraesentanten er den med flest billeder; er de lige, den med kendt
+ * total; er de stadig lige, den aeldste raekke, saa valget er stabilt
+ * mellem koersler.
+ */
+export function ikkeRepraesentant(grundlag: SQL | undefined) {
+  return sql`${listings.id} in (
+    select d.id from (
+      select ${listings.id} as id,
+        row_number() over (
+          partition by ${listings.unitAddressUuid}
+          order by
+            (select count(*) from listing_images i where i.listing_id = ${listings.id}) desc,
+            (${listings.totalMonthly} is not null) desc,
+            ${listings.id}
+        ) as rn
+      from ${listings}
+      inner join ${sources} on ${sources.id} = ${listings.sourceId}
+      where ${grundlag ?? sql`true`}
+        and ${listings.addressMatchLevel} = 'unit'
+        and ${listings.unitAddressUuid} is not null
+    ) d where d.rn > 1)`
+}
+
+/**
+ * Grundlaget PLUS dedup. Alt der viser en liste — eller taeller den —
+ * skal gaa gennem den her. Eksporteret, fordi omraadesiderne har deres
+ * eget grundpraedikat og skal taelle det samme, som de viser.
+ */
+export const udenDubletter = (grundlag: SQL | undefined) =>
+  and(grundlag, sql`not ${ikkeRepraesentant(grundlag)}`)
+
+const hvorVist = (f: Filtre) => udenDubletter(hvor(f))
+
 const ORDEN = {
   nyeste: desc(listings.firstSeenAt),
   // Sorteres på samme tal som der filtreres på — ellers ville "billigst
@@ -162,6 +224,15 @@ const KORTFELTER = {
   forside: sql<string | null>`(
     select i.external_url from listing_images i
     where i.listing_id = ${listings.id} order by i.position limit 1)`,
+  // De ANDRE kilder der har den samme bolig. Boligen vises én gang, men
+  // kortet skal ikke lade som om, den kun findes ét sted.
+  ogsaaHos: sql<string[]>`(
+    select coalesce(array_agg(distinct s2.name order by s2.name), '{}'::text[])
+    from listings l2 join sources s2 on s2.id = l2.source_id
+    where l2.status = 'active'
+      and l2.address_match_level = 'unit'
+      and l2.unit_address_uuid = ${listings.unitAddressUuid}
+      and l2.source_id <> ${listings.sourceId})`,
 } as const
 
 // 48 og ikke 200: hvert kort henter et billede gennem proxyen, og to hundrede
@@ -171,7 +242,9 @@ export async function soeg(f: Filtre, graense = 48) {
     .select(KORTFELTER)
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
-    .where(hvor(f))
+    // hvorVist og ikke hvor: alt der viser en LISTE, skal vise boligen én
+    // gang. `hvor()` alene hoerer til alarmen, som matcher paa raekkerne.
+    .where(hvorVist(f))
     .orderBy(ORDEN[f.sorter ?? 'nyeste'])
     .limit(graense)
 }
@@ -236,6 +309,8 @@ export interface Gruppe {
   indflytningMax: number | null
   /** Har alle samme aconto-poster? Ellers står posterne ikke på kortet. */
   ensPoster: boolean
+  /** Har ALLE i gruppen den samme bolig hos en anden kilde? */
+  alleOgsaaAndetsteds: boolean
   nyesteMarkedet: Date
 }
 
@@ -306,6 +381,15 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
       // coalesce, fordi count(distinct) springer null over: ellers ville
       // "nogle med poster, nogle uden" tælle som ét sæt.
       postsaet: sql<number>`count(distinct coalesce(${listings.totalMonthlyComponents}::text, ''))::int`,
+      // Gaelder det ALLE i gruppen, at en anden kilde ogsaa har boligen?
+      // Repraesentantens egen `ogsaaHos` maa ikke tale for de andre —
+      // kortet ville paastaa to kilder for femten boliger, hvor det
+      // maaske kun gaelder den ene, vi tilfaeldigvis valgte.
+      alleOgsaaAndetsteds: sql<boolean>`bool_and(exists (
+        select 1 from listings l2
+        where l2.status = 'active' and l2.address_match_level = 'unit'
+          and l2.unit_address_uuid = ${listings.unitAddressUuid}
+          and l2.source_id <> ${listings.sourceId}))`,
       nyesteMarkedetMs: sql<number>`(extract(epoch from
         max(coalesce(${listings.sourceCreatedAt}, ${listings.firstSeenAt}))) * 1000)::float8`,
       // Den nyeste i gruppen. Dens billede er det, der er hentet sidst.
@@ -314,7 +398,7 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
     })
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
-    .where(hvor(f))
+    .where(hvorVist(f))
     .groupBy(sources.slug, listings.postalCode, listings.street, listings.rooms, TOTALKENDT, ALENE)
     .orderBy(GRUPPEORDEN[f.sorter ?? 'nyeste'])
     .limit(graense)
@@ -348,6 +432,7 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
         ledigUkendte: r.ledigUkendte,
         indflytningMin: r.indflytningMin, indflytningMax: r.indflytningMax,
         ensPoster: r.postsaet === 1,
+        alleOgsaaAndetsteds: r.alleOgsaaAndetsteds ?? false,
         nyesteMarkedet: new Date(r.nyesteMarkedetMs),
       },
     })
@@ -425,7 +510,9 @@ export async function opsummering(f: Filtre) {
     })
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
-    .where(hvor(f))
+    // Samme saet som listen. Ellers ville "Viser de 62 nyeste af 1.137"
+    // taelle dubletter, listen ikke viser.
+    .where(hvorVist(f))
   return r!
 }
 
@@ -649,7 +736,10 @@ export async function forsidetal() {
       kilder: sql<number>`count(distinct ${listings.sourceId})::int`,
     })
     .from(listings)
-    .where(and(eq(listings.status, 'active'), ne(listings.addressMatchLevel, 'failed')))
+    .innerJoin(sources, eq(sources.id, listings.sourceId))
+    // Dedupet: "1.137 ledige boliger" maa ikke taelle den samme bolig,
+    // fordi to kilder annoncerer den.
+    .where(hvorVist({}))
 
   // Hvor hurtigt vi ser en ny bolig. p90 og ikke median: løftet skal holde
   // for de fleste, ikke for halvdelen.

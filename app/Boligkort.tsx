@@ -86,6 +86,22 @@ function typeord(t: string | null, flertal = false): string | null {
 const areal = (min: number | null, max: number | null) =>
   min == null ? null : min === max ? <><b>{min}</b> m²</> : <><b>{min}–{max}</b> m²</>
 
+/**
+ * Kildemærkaterne. Én bolig kan annonceres flere steder; vi viser den én
+ * gang og navngiver dem alle. `ogsaaHos` er de ANDRE kilder med samme
+ * enhedsadresse — se dedup i lib/soeg.ts.
+ */
+function Kilder({ navn, ogsaa }: { navn: string; ogsaa: string[] }) {
+  if (!ogsaa?.length) return <span className="maerkat m-kilde">{navn}</span>
+  return (
+    <span className="kilder" title={`Samme bolig annonceret hos ${[navn, ...ogsaa].join(' og ')}`}>
+      {[navn, ...ogsaa].map((k) => (
+        <span key={k} className="maerkat m-kilde">{k}</span>
+      ))}
+    </span>
+  )
+}
+
 // ─── Kortet ────────────────────────────────────────────────────
 
 export function Kort({ b }: { b: Bolig }) {
@@ -136,7 +152,10 @@ export function Kort({ b }: { b: Bolig }) {
           <div className="hoejre">
             {b.ansoegning === 'waiting_list' && <span className="maerkat m-vent">venteliste</span>}
             {nyligt && <span className="maerkat m-ny">ny {siden(paaMarkedet)}</span>}
-            <span className="maerkat m-kilde">{b.kildeNavn}</span>
+            {/* Boligen vises én gang, selv om flere kilder annoncerer den.
+                Så skal kortet også sige, hvem der har den — ikke lade som
+                om den kun findes ét sted. */}
+            <Kilder navn={b.kildeNavn} ogsaa={b.ogsaaHos} />
           </div>
         </div>
 
@@ -259,7 +278,9 @@ export function Gruppekort({ g }: { g: Gruppe }) {
             {/* "ny bolig", ikke "ny": det er én i gruppen, der er kommet
                 til — ikke dem alle. */}
             {nyligt && <span className="maerkat m-ny">ny bolig {siden(g.nyesteMarkedet)}</span>}
-            <span className="maerkat m-kilde">{r.kildeNavn}</span>
+            {/* Kun naar det gaelder hele gruppen — ellers ville
+                repraesentanten tale for de andre. */}
+            <Kilder navn={r.kildeNavn} ogsaa={g.alleOgsaaAndetsteds ? r.ogsaaHos : []} />
           </div>
         </div>
 

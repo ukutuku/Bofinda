@@ -609,3 +609,9 @@ form.filtre.soegt { margin-top: 20px; }
 .prisnote.advarsel strong { color: var(--advarsel); font-weight: 640; }
 
 @media (max-width: 620px) { .felt.bred { grid-column: span 1; } }
+
+/* Flere kilder til den samme bolig. Mærkaterne står klods op ad hinanden,
+   så de læses som ét udsagn — "den findes begge steder" — og ikke som to
+   løsrevne mærkater. */
+.kilder { display: inline-flex; gap: 3px; align-items: center; }
+.kilder .m-kilde:not(:first-child) { background: var(--kort); box-shadow: inset 0 0 0 1px var(--linje); }

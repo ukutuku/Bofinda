@@ -31,6 +31,27 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   `lib/soeg.ts` er eksporteret og bruges begge steder. To implementeringer
   ville betyde, at beskeden rammer noget andet, end brugeren så, da hun
   oprettede søgningen — og det ville hverken kunne ses eller fejles på.
+- **Dedup mellem kilder kører KUN på enhedsadresse (`unit`).** Den samme
+  bolig annonceres flere steder — 19 grupper i dag, 18 af dem
+  Propstep + LokalBolig. Adressevasken giver dem allerede samme unit-uuid,
+  og `ikkeRepraesentant()` i `lib/soeg.ts` skjuler alle på nær én.
+  · **Access-niveauet er slået fra med vilje.** Reglen (opgang + areal +
+  værelser + husleje) ville på dagens data skjule 50 ÆGTE boliger for at
+  fjerne 2 dubletter: "Stenlængegårdens Kvarter 4, Bygning 4. 15" parses
+  uden etage og dør, så syv forskellige lejligheder får samme opgangsnøgle
+  og ellers ens tal. Det er en parsefejl, ikke et dedup-problem. Slå den
+  først til, når parseren kan læse `Bygning N. M`.
+  · **Rangeringen regnes på det FILTREREDE sæt.** Ellers taber en søgning
+  på "kilde: LokalBolig" de boliger, hvor Propstep blev repræsentant —
+  boligen ville forsvinde helt i stedet for at stå én gang.
+  · Repræsentanten er den med flest billeder, så den med kendt total, så
+  den ældste række. Sidste led er der, så valget er stabilt mellem kørsler.
+  · **Alt der viser eller TÆLLER en liste skal gennem `udenDubletter`** —
+  også områdesidernes statistik. Tæller brødteksten andet end listen under
+  den, er den ene forkert.
+  · Kortet navngiver alle kilderne. På et gruppekort kun når det gælder
+  HELE gruppen: repræsentanten må ikke tale for de andre.
+  · `hvor()` er urørt. Alarmen matcher stadig på de enkelte rækker.
 - **Gruppering er en visning, aldrig et filter.** Ens boliger — samme kilde,
   postnummer, vejnavn og værelsestal — vises som ét kort med et link til de
   enkelte adresser. Det sker i `soegGrupperet()`, som ligger UDEN OM
