@@ -1,5 +1,5 @@
 import {
-  facetter, filtreFraParametre, harFiltre, opsummering, soeg,
+  facetter, filtreFraParametre, forsidetal, harFiltre, opsummering, soeg,
   type Soegeparametre,
 } from '../lib/soeg'
 import { GemSoegning } from './GemSoegning'
@@ -18,11 +18,61 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   const f = filtreFraParametre(sp)
   const kilderValgt = f.kilder
 
-  const [boliger, sum, fac] = await Promise.all([soeg(f), opsummering(f), facetter()])
+  // Har hun soegt? Uden filtre er det forsiden, med filtre er det
+  // resultatsiden. Samme rute, to tilstande.
+  const soegt = harFiltre(f)
+  const [boliger, sum, fac, tal] = await Promise.all([
+    soeg(f), opsummering(f), facetter(), forsidetal(),
+  ])
+  const sted = en(sp.sted) ?? f.postnr ?? f.by ?? ''
 
   return (
     <>
-      <form className="filtre" method="get">
+      {!soegt && (
+        <section className="hero">
+          <h1>Se hvad boligen faktisk koster</h1>
+          <p className="manchet">
+            Vi samler ledige lejeboliger ét sted og viser den samlede månedlige
+            udgift og prisen ved indflytning — ikke bare huslejen.
+          </p>
+          <ul className="punkter">
+            <li>
+              <strong>{tal.boliger.toLocaleString('da-DK')}</strong>
+              <span>ledige boliger fra {tal.kilder} kilder</span>
+            </li>
+            <li>
+              <strong>{tal.fuldOekonomi.toLocaleString('da-DK')}</strong>
+              <span>med hele økonomien oplyst</span>
+            </li>
+            <li>
+              <strong>{tal.minutterP90 != null && tal.minutterP90 <= 60 ? 'Under en time' : 'Hver time'}</strong>
+              <span>
+                {tal.minutterP90 != null
+                  ? `fra en bolig annonceres, til den står her (9 ud af 10)`
+                  : 'henter vi nye boliger fra kilderne'}
+              </span>
+            </li>
+          </ul>
+        </section>
+      )}
+
+      <form className={soegt ? 'filtre soegt' : 'filtre'} method="get">
+        <div className="storsoeg">
+          <input
+            type="text" name="sted" defaultValue={sted}
+            placeholder="By eller postnummer"
+            aria-label="By eller postnummer" list="byer"
+          />
+          <button type="submit">Find bolig</button>
+        </div>
+
+        {!soegt && (
+          <p className="soegehint">Fx København S, Aarhus C eller 2300.</p>
+        )}
+
+        <details className="flere" open={soegt}>
+        <summary>Flere filtre</summary>
+        <div className="filtergitter">
         <div className="felt">
           <label htmlFor="by">By</label>
           <input id="by" name="by" defaultValue={f.by ?? ''} placeholder="fx København" list="byer" />
@@ -76,15 +126,21 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           <button type="submit">Søg</button>
           <a className="nulstil" href="/">Nulstil</a>
         </div>
+        </div>
+        </details>
       </form>
 
-      <GemSoegning sp={sp} />
+      {/* Begge hoerer til paa resultatsiden. Paa forsiden er de stoej,
+          foer brugeren har spurgt om noget. */}
+      {soegt && <GemSoegning sp={sp} />}
 
-      <p className="prisnote">
-        Prisfilteret gælder den <strong>samlede månedlige udgift</strong> — husleje
-        plus aconto. Kender vi ikke totalen, filtreres der på huslejen alene, og
-        boligen kan være dyrere end grænsen.
-      </p>
+      {soegt && (
+        <p className="prisnote">
+          Prisfilteret gælder den <strong>samlede månedlige udgift</strong> — husleje
+          plus aconto. Kender vi ikke totalen, filtreres der på huslejen alene, og
+          boligen kan være dyrere end grænsen.
+        </p>
+      )}
 
       <div className="optaelling">
         <span><strong>{sum.antal}</strong> {sum.antal === 1 ? 'bolig' : 'boliger'}</span>
@@ -99,6 +155,10 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         <p className="begraensning">
           Viser de {boliger.length} nyeste af {sum.antal}. Brug filtrene for at indsnævre.
         </p>
+      )}
+
+      {!soegt && boliger.length > 0 && (
+        <h2 className="listetitel">Nyeste boliger</h2>
       )}
 
       {boliger.length === 0 ? (

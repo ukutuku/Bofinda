@@ -435,3 +435,67 @@ iframe.kort { width: 100%; height: 290px; border: 0; border-radius: 8px; display
 }
 .sidefod a { color: var(--daempet); }
 .sidefod span { max-width: 70ch; }
+
+/* ─── Forside ───────────────────────────────────────────────── */
+.hero { padding: 42px 2px 26px; max-width: 62ch; }
+.hero h1 {
+  font-size: 38px; font-weight: 680; letter-spacing: -0.035em;
+  line-height: 1.12; margin: 0 0 12px;
+}
+.hero .manchet {
+  font-size: 17px; line-height: 1.55; color: var(--daempet); margin: 0 0 26px;
+}
+.punkter {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 20px;
+  max-width: 620px;
+}
+.punkter li { display: flex; flex-direction: column; gap: 2px; }
+.punkter strong {
+  font-size: 24px; font-weight: 690; letter-spacing: -0.03em; color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.punkter span { font-size: 13.5px; color: var(--daempet); line-height: 1.45; }
+
+/* Det store søgefelt */
+.storsoeg { display: flex; gap: 9px; }
+.storsoeg input {
+  flex: 1 1 auto; min-width: 0; font: inherit; font-size: 16px;
+  padding: 13px 16px; border: 1px solid var(--linje); border-radius: 9px;
+  background: #fff; color: inherit;
+}
+.storsoeg input:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-lys);
+}
+.storsoeg button { flex: 0 0 auto; font-size: 15px; padding: 13px 24px; border-radius: 9px; }
+
+/* Filterboksen er nu en beholder om begge dele */
+form.filtre { display: block; padding: 16px; }
+form.filtre.soegt { margin-top: 20px; }
+.flere { margin-top: 13px; }
+.flere > summary {
+  cursor: pointer; font-size: 13px; color: var(--daempet);
+  list-style: none; display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 0; user-select: none;
+}
+.flere > summary::-webkit-details-marker { display: none; }
+.flere > summary::before { content: '▸'; font-size: 10px; color: var(--svag); }
+.flere[open] > summary::before { content: '▾'; }
+.flere > summary:hover { color: var(--accent); }
+.filtergitter {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+  gap: 11px 13px; align-items: end; margin-top: 12px;
+  padding-top: 14px; border-top: 1px solid var(--linje-svag);
+}
+@media (max-width: 620px) {
+  .hero { padding-top: 30px; }
+  .hero h1 { font-size: 30px; }
+  .storsoeg { flex-direction: column; }
+}
+.listetitel {
+  font-size: 15px; font-weight: 640; margin: 26px 0 10px; padding: 0 2px;
+  letter-spacing: -0.012em;
+}
+.soegehint {
+  margin: 9px 2px 0; font-size: 13px; color: var(--daempet);
+}

@@ -245,11 +245,26 @@ const kroner = (v: string | undefined) => {
   return n == null ? undefined : n * 100
 }
 
+/**
+ * Det store søgefelt tager ét sted — by ELLER postnummer. Fire cifre er
+ * et postnummer, alt andet er et bynavn. Brugeren skal ikke vælge felt,
+ * før hun ved, hvad hun leder efter.
+ */
+function stedet(sp: Soegeparametre): { by?: string; postnr?: string } {
+  const s = en(sp.sted)?.trim()
+  if (s) {
+    const tal = s.match(/^(\d{4})/)
+    return tal ? { postnr: tal[1] } : { by: s }
+  }
+  return { by: en(sp.by) || undefined, postnr: en(sp.postnr) || undefined }
+}
+
 export function filtreFraParametre(sp: Soegeparametre): Filtre {
   const kilder = sp.kilde ? (Array.isArray(sp.kilde) ? sp.kilde : [sp.kilde]) : undefined
+  const sted = stedet(sp)
   return {
-    by: en(sp.by) || undefined,
-    postnr: en(sp.postnr) || undefined,
+    by: sted.by,
+    postnr: sted.postnr,
     prisMin: kroner(en(sp.prisMin)),
     prisMax: kroner(en(sp.prisMax)),
     vaerelserMin: heltal(en(sp.vaerelser)),
@@ -265,4 +280,39 @@ export function filtreFraParametre(sp: Soegeparametre): Filtre {
 export function harFiltre(f: Filtre): boolean {
   return Boolean(f.by || f.postnr || f.prisMin != null || f.prisMax != null
     || f.vaerelserMin != null || f.arealMin != null || f.kilder?.length || f.fuldOekonomi)
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Tallene på forsiden.
+//
+//  Regnes hver gang. Skrevet ind som tekst ville de være forkerte i
+//  morgen — og et tal, brugeren ikke kan stole på, er værre end intet.
+// ═══════════════════════════════════════════════════════════════
+
+export async function forsidetal() {
+  const [a] = await db
+    .select({
+      boliger: sql<number>`count(*)::int`,
+      fuldOekonomi: sql<number>`count(${listings.totalMonthly})::int`,
+      kilder: sql<number>`count(distinct ${listings.sourceId})::int`,
+    })
+    .from(listings)
+    .where(and(eq(listings.status, 'active'), ne(listings.addressMatchLevel, 'failed')))
+
+  // Hvor hurtigt vi ser en ny bolig, målt på de boliger vi har set siden
+  // den løbende import gik i gang. p90 og ikke median: løftet skal holde
+  // for de fleste, ikke for halvdelen.
+  const [b] = await db
+    .select({
+      minutterP90: sql<number | null>`
+        percentile_cont(0.9) within group (
+          order by extract(epoch from (${listings.firstSeenAt} - ${listings.sourceCreatedAt})) / 60)::int`,
+    })
+    .from(listings)
+    .where(and(
+      isNotNull(listings.sourceCreatedAt),
+      sql`${listings.firstSeenAt} >= (select min(started_at) from crawl_runs where new_count is not null)`,
+    ))
+
+  return { ...a!, minutterP90: b?.minutterP90 ?? null }
 }
