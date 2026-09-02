@@ -25,6 +25,10 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
     soeg(f), opsummering(f), facetter(), forsidetal(),
   ])
   const sted = en(sp.sted) ?? f.postnr ?? f.by ?? ''
+  // Over en time skifter vi ENHED, ikke paastand. Der maa aldrig staa
+  // noget kortere, end vi har maalt.
+  const timer = tal.minutterP90 == null ? null
+    : (tal.minutterP90 / 60).toLocaleString('da-DK', { maximumFractionDigits: 1 })
 
   // Samme formular i begge tilstande — kun pladsen skifter. Paa forsiden
   // ligger den inde i hero-baandet, paa resultatsiden staar den alene
@@ -110,35 +114,47 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
       {soegt ? formular : (
         <section className="forside-baand">
           <div className="hero">
+            <h1>Se hvad boligen faktisk koster</h1>
+            <p className="manchet">
+              Vi samler ledige lejeboliger ét sted og viser den samlede månedlige
+              udgift og prisen ved indflytning — ikke bare huslejen.
+            </p>
 
-          <h1>Se hvad boligen faktisk koster</h1>
-          <p className="manchet">
-            Vi samler ledige lejeboliger ét sted og viser den samlede månedlige
-            udgift og prisen ved indflytning — ikke bare huslejen.
-          </p>
+            {/* Paastand, bevis, handling — i den raekkefoelge. Beviset stod
+                foer under soegefeltet, hvor laeseren allerede var videre. */}
+            <ul className="punkter">
+              <li>
+                <strong>{tal.boliger.toLocaleString('da-DK')}</strong>
+                <span>ledige boliger fra {tal.kilder} kilder</span>
+              </li>
+              <li>
+                <strong>{tal.fuldOekonomi.toLocaleString('da-DK')}</strong>
+                <span>med hele økonomien oplyst</span>
+              </li>
+              {/* Det maalte tal, ikke en afrunding af det. "57 min." er saa
+                  praecist, at ingen ville opdigte det — "under en time" er et
+                  loefte. Stiger p90 over en time, skifter vi enhed, ikke
+                  paastand: der maa ikke staa noget kortere, end vi har maalt. */}
+              <li>
+                {tal.minutterP90 == null ? (
+                  <>
+                    <strong className="ord">Hver time</strong>
+                    <span>henter vi nye boliger fra kilderne</span>
+                  </>
+                ) : (
+                  <>
+                    <strong>
+                      {tal.minutterP90 <= 60
+                        ? <>{tal.minutterP90} <span className="enhed">min.</span></>
+                        : <>{timer} <span className="enhed">{timer === '1' ? 'time' : 'timer'}</span></>}
+                    </strong>
+                    <span>fra en bolig annonceres, til den står her (9 ud af 10)</span>
+                  </>
+                )}
+              </li>
+            </ul>
 
             {formular}
-
-          <ul className="punkter">
-            <li>
-              <strong>{tal.boliger.toLocaleString('da-DK')}</strong>
-              <span>ledige boliger fra {tal.kilder} kilder</span>
-            </li>
-            <li>
-              <strong>{tal.fuldOekonomi.toLocaleString('da-DK')}</strong>
-              <span>med hele økonomien oplyst</span>
-            </li>
-            <li>
-              <strong className="ord">
-                {tal.minutterP90 != null && tal.minutterP90 <= 60 ? 'Under en time' : 'Hver time'}
-              </strong>
-              <span>
-                {tal.minutterP90 != null
-                  ? `fra en bolig annonceres, til den står her (9 ud af 10)`
-                  : 'henter vi nye boliger fra kilderne'}
-              </span>
-            </li>
-          </ul>
           </div>
         </section>
       )}

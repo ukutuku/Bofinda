@@ -469,7 +469,10 @@ footer.bund {
 .hero h1 {
   font-size: clamp(32px, 4.4vw, 50px);
   font-weight: 690; letter-spacing: -0.042em; line-height: 1.06;
-  margin: 0 0 16px; max-width: 16ch;
+  margin: 0 0 16px; max-width: 21ch;
+  /* Uden den braekker linjen efter "faktisk" og efterlader "koster"
+     alene. Browsere uden balance faar den brede max-width. */
+  text-wrap: balance;
 }
 .hero .manchet {
   font-size: 18.5px; line-height: 1.55; color: var(--daempet);
@@ -501,7 +504,7 @@ footer.bund {
 /* De tre tal er sidens bevis. De skal se ud som noget, ikke som en
    raekke loes tekst — derfor kort med egen flade. */
 .punkter {
-  list-style: none; margin: 40px 0 0; padding: 0;
+  list-style: none; margin: 4px 0 34px; padding: 0;
   display: grid; grid-template-columns: repeat(auto-fit, minmax(196px, 1fr));
   gap: 12px; max-width: 760px;
 }
@@ -518,6 +521,9 @@ footer.bund {
 }
 /* Det tredje "tal" er et ord. Sat ned, saa de tre kort vejer ens. */
 .punkter strong.ord { font-size: 20px; letter-spacing: -0.022em; line-height: 1.15; }
+.punkter strong .enhed {
+  font-size: .5em; font-weight: 550; color: var(--daempet); letter-spacing: -0.01em;
+}
 .punkter span { font-size: 13px; color: var(--daempet); line-height: 1.45; }
 
 /* Filterboksen er beholder om begge dele */
@@ -550,7 +556,7 @@ form.filtre.soegt { margin-top: 20px; }
   .hero h1 { max-width: none; }
   .hero .manchet { font-size: 17px; margin-bottom: 26px; }
   .storsoeg { flex-direction: column; max-width: none; }
-  .punkter { margin-top: 30px; }
+  .punkter { margin-bottom: 30px; }
 }
 /* Maerkaterne under adressen, naar de ellers klemmer den i to linjer. */
 @media (max-width: 860px) {
