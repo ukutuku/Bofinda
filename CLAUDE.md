@@ -258,9 +258,26 @@ Discovery filtrerer på postnummer **i gitteret**, før nogen detaljeside
 hentes. Gitterobjektet har 19 felter, alle harmløse. Kun `extract()` rører
 detaljesiden, og kun `propertyOverview.property`.
 
-Aldrig: `note` · `owner` · `propertyGroup` · `application` ·
-`statusHistory` · `transactionStatusHistory` · `accountId` · `companyId` ·
-`ownerId` · `transactionId` · `settings`.
+Aldrig: `note` · `owner` · `application` · `statusHistory` ·
+`transactionStatusHistory` · `accountId` · `companyId` · `ownerId` ·
+`transactionId` · `settings`.
+
+Fra `propertyGroup` læses **aldrig andet end disse to navngivne stier**:
+
+    propertyGroup.images[].name
+    propertyGroup.imagesDefault[].name
+
+De er billedfilnavne. `contractBankAccount`, `paymentDetails` og
+`emailsWithDetails` ligger i samme objekt og forbliver utilgængelige — der
+læses aldrig objektet, aldrig et spread, aldrig andre felter. `laesBilleder`
+er det eneste sted, der rører `propertyGroup`.
+
+**Hvorfor undtagelsen findes:** når et lejemål ikke har egne billeder,
+falder Propstep tilbage på ejendommens fælles — det er hvad
+`useDefaultImages: true` betyder, og filerne har præfikset `pg-`. Uden
+fallbacket stod 370 af 736 Propstep-boliger uden billeder hos os, mens
+kildens egen side viste 6-30 stykker. Flaget kræves: er det ikke sat, har
+kilden fravalgt at vise ejendommens billeder, og så gætter vi ikke.
 
 Kun `propertyDetails.type = 1` er verificeret (renderer som "Lejlighed").
 Andre værdier giver `null` og logges — de gættes ikke, heller ikke ud fra

@@ -39,9 +39,16 @@ const GITTER = `${ORIGIN}/da-DK/lejebolig`
 //  brug for indholdet.
 //
 //  Derfor roerer vi aldrig:
-//      note · owner · propertyGroup · application
+//      note · owner · application
 //      statusHistory · transactionStatusHistory
 //      accountId · companyId · ownerId · transactionId · settings
+//
+//  Fra `propertyGroup` laeses ALDRIG andet end disse to navngivne stier:
+//      propertyGroup.images[].name
+//      propertyGroup.imagesDefault[].name
+//  De er billedfilnavne. contractBankAccount, paymentDetails og
+//  emailsWithDetails ligger i samme objekt og forbliver utilgaengelige —
+//  der laeses aldrig objektet, aldrig et spread, aldrig andre felter.
 //
 //  Udvid ALDRIG med spread (`...raw`) eller en loekke over Object.keys.
 //  Et nyt felt skal tilfoejes bevidst, af en der har set hvad der staar i det.
@@ -124,8 +131,44 @@ function laesGitterRaekke(raw: Ukendt): GitterRaekke | null {
 
 // ─── Detaljesiden ──────────────────────────────────────────────
 
-/** ALLOWLIST, led 2. Kun `property`, og kun felterne herunder. */
-function laesBolig(property: Ukendt, gitter: GitterRaekke): RawListing | null {
+/** Billednavne fra én navngiven liste. Kun feltet `name`. */
+function billednavne(v: unknown): string[] {
+  if (!Array.isArray(v)) return []
+  return (v as Ukendt[])
+    .map((b) => tekst(b?.['name']))
+    .filter((n): n is string => !!n)
+    .map((n) => `${BILLED_BASE}/${n}?resize=true&scaleFactor=1&width=1200`)
+}
+
+/**
+ * Billeder til boligen.
+ *
+ * Har lejemaalet egne, bruges de. Ellers falder Propstep tilbage paa
+ * ejendommens faelles billeder — det er praecis hvad `useDefaultImages`
+ * betyder, og filerne har praefikset `pg-` i stedet for `p-`.
+ *
+ * Uden dette fallback stod 370 af 736 Propstep-boliger uden billeder hos
+ * os, mens kildens egen side viste 6-23 stykker.
+ *
+ * Flaget kraeves. Er det ikke sat, har kilden fravalgt at vise
+ * ejendommens billeder paa lejemaalet, og saa gaetter vi ikke.
+ */
+function laesBilleder(property: Ukendt, gruppe: Ukendt | undefined): string[] {
+  const egne = billednavne(property['images'])
+  if (egne.length) return egne
+  if (property['useDefaultImages'] !== true || !gruppe) return []
+  // Foreningen af de to, ikke den ene ELLER den anden: `imagesDefault`
+  // baerer typisk hovedparten (22 mod 4 paa den efterseete bolig), mens
+  // `images` er de udvalgte. Raekkefoelgen bevares, dubletter fjernes.
+  return [...new Set([
+    ...billednavne(gruppe['images']),
+    ...billednavne(gruppe['imagesDefault']),
+  ])]
+}
+
+/** ALLOWLIST, led 2. Kun `property` — plus de to navngivne billedstier
+ *  fra `propertyGroup`, som `laesBilleder` henter og intet andet. */
+function laesBolig(property: Ukendt, gitter: GitterRaekke, gruppe?: Ukendt): RawListing | null {
   const id = tekst(property['id'])
   if (!id) return null
   // Laeste felter paa property: id, slug, name, location, transactionDetails,
@@ -178,12 +221,7 @@ function laesBolig(property: Ukendt, gitter: GitterRaekke): RawListing | null {
   if (tal(pd['balconies'])) amenities.push('altan')
   if (tal(pd['terraces'])) amenities.push('terrasse')
 
-  const billeder = Array.isArray(property['images'])
-    ? (property['images'] as Ukendt[])
-        .map((b) => tekst(b?.['name']))
-        .filter((n): n is string => !!n)
-        .map((n) => `${BILLED_BASE}/${n}?resize=true&scaleFactor=1&width=1200`)
-    : []
+  const billeder = laesBilleder(property, gruppe)
 
   return {
     externalKey: id,
@@ -276,7 +314,10 @@ export function propstepAdapter(opts: { postalCodes?: string[] } = {}): SourceAd
       // .application roeres ikke — se allowlisten oeverst.
       const property = po['property'] as Ukendt | undefined
       if (!property) throw new Error(`ingen property i __NEXT_DATA__: ${url}`)
-      const b = laesBolig(property, g)
+      // propertyGroup gives med UDELUKKENDE for de to billedstier.
+      // laesBilleder er det eneste, der roerer den.
+      const gruppe = po['propertyGroup'] as Ukendt | undefined
+      const b = laesBolig(property, g, gruppe)
       if (!b) throw new Error(`kunne ikke laese bolig: ${url}`)
       return b
     },

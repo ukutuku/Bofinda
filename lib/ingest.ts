@@ -52,7 +52,7 @@ export interface KoerselsResultat {
  * forfalder paa én gang og giver et bjerg af kald i én time.
  */
 const GENOPFRISK_EFTER_TIMER = 24
-const GENOPFRISK_PR_KOERSEL = 60
+const GENOPFRISK_PR_KOERSEL = Number(process.env.GENOPFRISK_PR_KOERSEL ?? 60)
 
 /**
  * Fejlprocenten maales af de hentninger, koerslen faktisk foretog — men den
