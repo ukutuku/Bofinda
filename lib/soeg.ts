@@ -159,6 +159,19 @@ export function ikkeRepraesentant(grundlag: SQL | undefined) {
       where ${grundlag ?? sql`true`}
         and ${listings.addressMatchLevel} = 'unit'
         and ${listings.unitAddressUuid} is not null
+        -- Kun de adresser der OVERHOVEDET har mere end én raekke. Uden det
+        -- rangeres alle 729 unit-boliger, og billedtaellingen i order by
+        -- koeres 729 gange i stedet for 38. Det kostede over et sekund pr.
+        -- sidevisning i produktion.
+        --
+        -- Undersaettet er ufiltreret med vilje: det afgoer kun HVILKE
+        -- adresser der er vaerd at rangere. Selve rangeringen — og dermed
+        -- valget af repraesentant — sker stadig paa det filtrerede saet.
+        and ${listings.unitAddressUuid} in (
+          select unit_address_uuid from listings
+          where status = 'active' and address_match_level = 'unit'
+            and unit_address_uuid is not null
+          group by 1 having count(*) > 1)
     ) d where d.rn > 1)`
 }
 
