@@ -407,3 +407,31 @@ iframe.kort { width: 100%; height: 290px; border: 0; border-radius: 8px; display
   background: var(--linje-svag); border-radius: var(--r-s);
   padding: 10px 13px; font-size: 13.5px; color: var(--daempet);
 }
+
+/* ─── Dokumentsider (privatliv, vilkår) ─────────────────────── */
+.dokument { max-width: 68ch; margin: 34px auto 72px; }
+.dokument h1 { font-size: 28px; font-weight: 660; margin: 0 0 6px; letter-spacing: -0.026em; }
+.dokument .dato { color: var(--svag); font-size: 13px; margin: 0 0 28px; }
+.dokument h2 {
+  font-size: 16px; font-weight: 640; margin: 30px 0 10px;
+  letter-spacing: -0.012em; color: var(--tekst);
+}
+.dokument p { font-size: 15px; line-height: 1.68; margin: 0 0 13px; }
+.dokument ul { margin: 0 0 13px; padding-left: 20px; }
+.dokument li { font-size: 15px; line-height: 1.68; margin-bottom: 4px; }
+.dokument a { color: var(--accent); }
+.dokument .note { font-size: 13px; color: var(--svag); margin-top: 32px; }
+
+/* Udfyldes før siden er offentlig. Markeret, så den ikke slipper igennem. */
+.udfyld {
+  background: var(--advarsel-lys); color: var(--advarsel);
+  padding: 1px 6px; border-radius: 4px; font-weight: 600;
+  border: 1px dashed #e0c78f;
+}
+.sidefod { border-top: 1px solid var(--linje); background: var(--kort); }
+.sidefod .ramme {
+  padding: 18px 22px; display: flex; gap: 16px; flex-wrap: wrap;
+  align-items: baseline; font-size: 12.5px; color: var(--svag);
+}
+.sidefod a { color: var(--daempet); }
+.sidefod span { max-width: 70ch; }
