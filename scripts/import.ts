@@ -4,7 +4,7 @@
 import { KILDER, findKilde, rigtigeKilder, tilladTestkilder } from '../adapters'
 import { koerAlle, formatResultat } from '../lib/scheduler'
 import { koerKilde, RUNNER } from '../lib/ingest'
-import { matchAlarmer, sendAlarmer } from '../lib/alarm'
+import { matchAlarmer, ryd, sendAlarmer } from '../lib/alarm'
 import { sql } from '../db/client'
 
 const ud = (s: string) => process.stdout.write(s + '\n')
@@ -39,6 +39,14 @@ if (slug) {
 
 // Alarmerne matches efter importen, saa nye boliger fanges i samme
 // koersel som de kom ind. Der SENDES ikke — koeen fyldes kun.
+// Ryd FOER matchning: en soegning der skal slettes, skal ikke foerst
+// samle traef op.
+const ryddet = await ryd()
+if (ryddet.ubekraeftede || ryddet.afmeldte || ryddet.forgamle || ryddet.foraeldreloese) {
+  ud(`[oprydning] ${ryddet.ubekraeftede} ubekræftede · ${ryddet.afmeldte} afmeldte `
+    + `· ${ryddet.forgamle} for gamle · ${ryddet.foraeldreloese} brugere uden søgning`)
+}
+
 const alarmer = await matchAlarmer()
 for (const a of alarmer) ud(`[alarm] ${a.soegning}: ${a.nyeTraef} nye træf`)
 

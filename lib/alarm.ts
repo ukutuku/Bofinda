@@ -6,7 +6,7 @@
 //  tilbage.
 // ═══════════════════════════════════════════════════════════════
 
-import { and, asc, desc, eq, gt, isNotNull, isNull, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, isNotNull, isNull, lt, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { alertMatches, crawlRuns, listings, savedSearches, sources, users } from '../db/schema'
 import { hvor, type Filtre } from './soeg'
@@ -431,4 +431,70 @@ export async function findPaaBekraeftToken(token: string) {
       kriterier: savedSearches.criteria })
     .from(savedSearches).where(eq(savedSearches.confirmToken, token)).limit(1)
   return s ?? null
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  Oprydning.
+//
+//  Findes for at privatlivspolitikken er sand. Står der, at vi sletter
+//  efter 30 dage, skal noget faktisk slette efter 30 dage — ellers er
+//  teksten en påstand, ikke en beskrivelse.
+//
+//  Kører i den faste importkørsel. Sletninger er uigenkaldelige, så hver
+//  regel er snæver og navngivet, og der logges kun når noget faktisk gik.
+// ═══════════════════════════════════════════════════════════════
+
+const UBEKRAEFTET_DAGE = 30
+const AFMELDT_DAGE = 90
+const ALDER_MAANEDER = 24
+
+export interface RydResultat {
+  ubekraeftede: number
+  afmeldte: number
+  forgamle: number
+  foraeldreloese: number
+}
+
+export async function ryd(): Promise<RydResultat> {
+  // 1. Aldrig bekræftet. Der er aldrig givet samtykke, så der er intet
+  //    grundlag for at beholde adressen.
+  const a = await db.delete(savedSearches)
+    .where(and(
+      isNull(savedSearches.confirmedAt),
+      lt(savedSearches.createdAt, sql`now() - interval '${sql.raw(String(UBEKRAEFTET_DAGE))} days'`),
+    ))
+    .returning({ id: savedSearches.id })
+
+  // 2. Afmeldt. Søgningen beholdes en periode, så den kan slås til igen,
+  //    og forsvinder derefter.
+  const b = await db.delete(savedSearches)
+    .where(and(
+      isNotNull(savedSearches.unsubscribedAt),
+      lt(savedSearches.unsubscribedAt, sql`now() - interval '${sql.raw(String(AFMELDT_DAGE))} days'`),
+    ))
+    .returning({ id: savedSearches.id })
+
+  // 3. For gammel. Undtagelsen er per BRUGER, ikke per søgning: har hun
+  //    oprettet en nyere søgning i mellemtiden, er hun stadig aktiv, og
+  //    så røres ingen af hendes søgninger.
+  const c = await db.delete(savedSearches)
+    .where(and(
+      lt(savedSearches.createdAt, sql`now() - interval '${sql.raw(String(ALDER_MAANEDER))} months'`),
+      sql`not exists (
+        select 1 from saved_searches nyere
+        where nyere.user_id = ${savedSearches.userId}
+          and nyere.created_at >= now() - interval '${sql.raw(String(ALDER_MAANEDER))} months')`,
+    ))
+    .returning({ id: savedSearches.id })
+
+  // 4. Brugere uden nogen søgning. En mailadresse uden en søgning bag er
+  //    en oplysning uden formål.
+  const d = await db.delete(users)
+    .where(sql`not exists (select 1 from saved_searches ss where ss.user_id = ${users.id})`)
+    .returning({ id: users.id })
+
+  return {
+    ubekraeftede: a.length, afmeldte: b.length,
+    forgamle: c.length, foraeldreloese: d.length,
+  }
 }

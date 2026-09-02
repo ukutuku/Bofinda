@@ -53,9 +53,12 @@ export default function Side() {
       <h2>Hvor længe vi gemmer dem</h2>
       <p>Vi sletter din alarm og de tilknyttede oplysninger:</p>
       <ul>
-        <li>når du afmelder dig</li>
-        <li>efter 12 måneder uden at du har åbnet eller klikket i en besked</li>
+        <li>90 dage efter du har afmeldt dig</li>
         <li>efter 30 dage, hvis du aldrig bekræftede tilmeldingen</li>
+        <li>
+          efter 24 måneder fra oprettelsen, medmindre du har oprettet en ny
+          søgning i mellemtiden
+        </li>
       </ul>
 
       <h2>Hvem oplysningerne deles med</h2>

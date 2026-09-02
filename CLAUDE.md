@@ -36,6 +36,15 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   den er oprettet efter søgningen — eller, for kilder uden dato, når den
   dukkede op efter mindst et døgns overvågning af den kilde. Uden reglen gav
   en prøvekørsel 68 falske varsler ud af 87, med en medianalder på 37 dage.
+- **Privatlivspolitikken skal beskrive det, koden gør — ikke omvendt.**
+  Sletningsfristerne i `/privatliv` og konstanterne i `ryd()` er ét og samme
+  løfte. Ændres den ene, skal den anden med i samme ændring:
+  30 dage ubekræftet · 90 dage efter afmelding · 24 måneder fra oprettelsen,
+  medmindre brugeren har en nyere søgning.
+- **Vi måler ikke åbninger eller klik i mails**, og skal ikke. Det ville
+  kræve sporingspixels og omdirigerede links — altså præcis det, cookie- og
+  sporingsafsnittet lover, vi ikke gør. Derfor er 24-måneders-reglen bundet
+  til oprettelsestidspunktet, ikke til aktivitet i indbakken.
 - **Dobbelt tilmelding er ikke valgfri.** En søgning oprettet på
   søgesiden er `confirmed_at = null` og varsler intet, før adressens ejer
   har trykket i bekræftelsesmailen. Uden det kunne enhver tilmelde en
