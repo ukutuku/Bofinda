@@ -366,9 +366,18 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         </div>
       )}
 
+      {/* Kilderne uden den native: "hentet fra ... og Bofinda" er ikke
+          rigtigt — de annoncer er ikke hentet nogen steder, de er
+          oprettet her. Og de aabner ikke hos en kilde. */}
       <footer className="bund">
-        Boliger hentet fra {fac.kilder.map((k) => k.navn).join(' og ')}.
-        Klik på en bolig for at åbne den hos kilden.
+        {`Boliger hentet fra ${fac.kilder
+          .filter((k) => k.slug !== 'native')
+          .map((k) => k.navn).join(' og ')}${
+          fac.kilder.some((k) => k.slug === 'native')
+            ? ', samt annoncer oprettet af udlejere selv.'
+            : '.'}`}
+        {' '}Klik på en bolig for at åbne den hos kilden eller for at se
+        udlejerens kontaktoplysninger.
         Tal vises som kilden oplyser dem; mangler en oplysning, står den tom.
       </footer>
     </>
