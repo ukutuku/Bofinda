@@ -16,21 +16,18 @@
 import { useActionState, useState } from 'react'
 import { gemBolig, registrerBillede, signerUpload, type Svar } from './handlinger'
 import { klargoer, MAKS_BILLEDER, MAKS_FIL } from './billedklient'
+import type { Boliginput } from '../../lib/udlejer'
 
 interface Billede { url: string; vis: string; navn: string }
 interface Igang { navn: string; vis: string }
 
-export interface Udgangspunkt {
+/**
+ * Formularens udgangspunkt. Bygges af `somFormular` i lib/udlejer.ts, saa
+ * testen af rundturen bruger praecis den samme afbildning som siden.
+ */
+export type Udgangspunkt = Partial<Omit<Boliginput, 'billeder'>> & {
   id?: string
-  vej?: string; husnr?: string; etage?: string | null; doer?: string | null
-  postnr?: string; by?: string | null; boligtype?: string
-  areal?: number | null; vaerelser?: number | null
-  husleje?: number | null; varme?: number | null; vand?: number | null
-  el?: number | null; oevrig?: number | null
-  depositum?: number | null; forudbetalt?: number | null
-  ledigFra?: string | null; beskrivelse?: string | null
-  kontaktMail?: string | null; kontaktTlf?: string | null
-  billeder?: string[]
+  billeder?: { url: string; vis: string }[]
 }
 
 const kr = (o: number | null | undefined) => (o == null ? '' : String(o / 100))
@@ -41,7 +38,7 @@ export function Annonceformular({ start = {} }: { start?: Udgangspunkt }) {
   const [svar, action, venter] = useActionState<Svar, FormData>(gemBolig, {})
   const [trin, setTrin] = useState(0)
   const [billeder, setBilleder] = useState<Billede[]>(
-    (start.billeder ?? []).map((url) => ({ url, vis: '', navn: 'Gemt billede' })),
+    (start.billeder ?? []).map((b, i) => ({ ...b, navn: `Billede ${i + 1}` })),
   )
   /** Hvad der uploades LIGE NU. Tom liste = ingen upload i gang. */
   const [igang, setIgang] = useState<Igang[]>([])

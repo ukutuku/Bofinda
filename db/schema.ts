@@ -144,6 +144,16 @@ export const listings = pgTable('listings', {
   // altid kan efterproeves. Null naar totalMonthly er null.
   totalMonthlyComponents: text('total_monthly_components').array().$type<string[]>(),
   moveInCost: integer('move_in_cost'),
+  /**
+   * Depositum og forudbetalt leje hver for sig, i oere.
+   *
+   * `move_in_cost` er summen. Den er nok for en scrapet bolig, hvor kilden
+   * tit kun oplyser totalen — men en udlejer skal kunne aabne sin annonce
+   * igen og se de tal, hun skrev. Uden kolonnerne var der intet at laese
+   * tilbage, og et gem skrev tomt hen over summen.
+   */
+  deposit: integer('deposit'),
+  prepaidRent: integer('prepaid_rent'),
 
   applicationType: applicationTypeEnum('application_type'),
   rentModel: text('rent_model'),

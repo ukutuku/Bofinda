@@ -266,6 +266,20 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 - **Kontaktfelterne må aldrig stå i en select-liste.** `hentBolig` og `soeg`
   henter dem ikke. Muren står i query-laget, ikke i skabelonen: et felt der
   aldrig forlader databasen, kan ikke lække ved en uopmærksom UI-ændring.
+- **En redigering må kun røre de kolonner, formularen selv styrer.** Listen
+  står eksplicit i `fraFormular` i `lib/udlejer.ts`. Før skrev opdateringen
+  hele normaliseringens output, og det er farligt to gange: felter
+  formularen ikke kender blev nulstillet, og felter den ikke kunne INDLÆSE
+  blev skrevet tomme hen over det gemte. Det kostede en udlejer hendes
+  indflytningspris, fordi depositum og forudbetalt leje kun fandtes som en
+  udregnet sum og ikke som kolonner.
+- **Kan et felt redigeres, skal det gemmes særskilt.** En sum er nok for en
+  scrapet bolig, hvor kilden kun oplyser totalen. Skal en udlejer kunne
+  åbne sin annonce igen, skal delene kunne læses tilbage.
+- **`npm test` kører rundturen:** gem en bolig uden at ændre noget, og
+  bekræft at rækken er identisk kolonne for kolonne. Den er billig og
+  fanger hele klassen — afprøvet ved at genindføre fejlen, som den fangede.
+  Kør den, når noget i udlejerformularen ændres.
 - **En fil må aldrig gå gennem en Server Action.** Grænsen er 1 MB, og et
   telefonbillede sprænger den — det gav `500 Body exceeded 1 MB limit` og en
   formular, der frøs. **Hæv den ikke.** Serveren udsteder en signeret

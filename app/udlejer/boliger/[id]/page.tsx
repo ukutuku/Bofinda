@@ -3,6 +3,8 @@ import { notFound, redirect } from 'next/navigation'
 import { db } from '../../../../db/client'
 import { listingImages, listings } from '../../../../db/schema'
 import { hentUdlejer } from '../../../../lib/auth'
+import { billedUrl } from '../../../../lib/billede'
+import { somFormular } from '../../../../lib/udlejer'
 import { Annonceformular } from '../../Annonceformular'
 
 export const dynamic = 'force-dynamic'
@@ -28,18 +30,11 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
       <a className="tilbage" href="/udlejer/boliger">← Mine annoncer</a>
       <h1>Redigér annonce</h1>
       <Annonceformular start={{
+        ...somFormular(b),
         id: b.id,
-        vej: b.street ?? '', husnr: b.houseNumber ?? '',
-        etage: b.floor, doer: b.door,
-        postnr: b.postalCode ?? '', by: b.city,
-        boligtype: b.propertyType ?? 'lejlighed',
-        areal: b.sizeM2, vaerelser: b.rooms,
-        husleje: b.rentMonthly, varme: b.utilitiesHeat, vand: b.utilitiesWater,
-        el: b.utilitiesElectricity, oevrig: b.utilitiesOther,
-        depositum: null, forudbetalt: null,
-        ledigFra: b.availableFrom ? b.availableFrom.toISOString().slice(0, 10) : null,
-        beskrivelse: b.description, kontaktMail: b.contactEmail, kontaktTlf: b.contactPhone,
-        billeder: billeder.map((x) => x.url),
+        // Med forhaandsvisning. Uden den stod de gemte billeder som graa
+        // "Gemt billede"-felter, og udlejeren kunne ikke se hvilke hun havde.
+        billeder: billeder.map((x) => ({ url: x.url, vis: billedUrl(x.url, 400) ?? '' })),
       }} />
     </div>
   )

@@ -17,7 +17,8 @@
     "puls": "node --env-file-if-exists=.env scripts/puls.mjs",
     "alarm": "tsx --env-file-if-exists=.env scripts/alarm.ts",
     "genparse": "tsx --env-file-if-exists=.env scripts/genparse-adresser.ts",
-    "db:status": "node --env-file-if-exists=.env scripts/migrationer.mjs"
+    "db:status": "node --env-file-if-exists=.env scripts/migrationer.mjs",
+    "test": "tsx --env-file-if-exists=.env scripts/test-redigering.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

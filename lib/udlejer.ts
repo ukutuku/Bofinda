@@ -50,6 +50,39 @@ export interface Boliginput {
   billeder: string[]
 }
 
+/**
+ * En gemt raekke tilbage til formularens felter.
+ *
+ * Ligger her og ikke i siden, saa testen kan bruge PRAECIS den samme
+ * afbildning som redigeringen. Var den kun i skabelonen, ville en test af
+ * rundturen teste noget andet end det, brugeren rammer.
+ */
+export function somFormular(b: typeof listings.$inferSelect): Boliginput {
+  return {
+    vej: b.street ?? '',
+    husnr: b.houseNumber ?? '',
+    etage: b.floor,
+    doer: b.door,
+    postnr: b.postalCode ?? '',
+    by: b.city,
+    boligtype: b.propertyType ?? 'lejlighed',
+    areal: b.sizeM2,
+    vaerelser: b.rooms,
+    husleje: b.rentMonthly ?? 0,
+    varme: b.utilitiesHeat,
+    vand: b.utilitiesWater,
+    el: b.utilitiesElectricity,
+    oevrig: b.utilitiesOther,
+    depositum: b.deposit,
+    forudbetalt: b.prepaidRent,
+    ledigFra: b.availableFrom ? b.availableFrom.toISOString().slice(0, 10) : null,
+    beskrivelse: b.description ?? '',
+    kontaktMail: b.contactEmail,
+    kontaktTlf: b.contactPhone,
+    billeder: [],
+  }
+}
+
 async function nativeKilde(): Promise<string> {
   const [k] = await db.select({ id: sources.id })
     .from(sources).where(eq(sources.slug, 'native')).limit(1)
@@ -114,6 +147,42 @@ function somRaa(i: Boliginput, id: string, url: string) {
 
 const base = () => process.env.NEXT_PUBLIC_BASE_URL ?? 'https://bofinda.dk'
 
+/**
+ * PRAECIS de kolonner, udlejerens formular styrer.
+ *
+ * Foer skrev opdateringen `...normaliser(...)` — hele objektet. Det er
+ * farligt paa to maader: felter formularen ikke kender (faciliteter,
+ * aabent hus, kildens datoer) blev nulstillet af en rettelse, og felter
+ * formularen ikke kunne INDLAESE blev skrevet tomme hen over det gemte.
+ * Det sidste kostede en udlejer sin indflytningspris.
+ *
+ * Listen her er derfor eksplicit. Staar en kolonne ikke i den, kan en
+ * redigering ikke roere den — uanset hvad normaliseringen returnerer.
+ */
+function fraFormular(n: Awaited<ReturnType<typeof normaliser>>, i: Boliginput) {
+  return {
+    addressRaw: n.addressRaw,
+    street: n.street, houseNumber: n.houseNumber, floor: n.floor, door: n.door,
+    postalCode: n.postalCode, city: n.city,
+    unitAddressUuid: n.unitAddressUuid, accessAddressUuid: n.accessAddressUuid,
+    addressMatchLevel: n.addressMatchLevel,
+    propertyType: n.propertyType,
+    sizeM2: n.sizeM2, rooms: n.rooms, availableFrom: n.availableFrom,
+    rentMonthly: n.rentMonthly,
+    utilitiesHeat: n.utilitiesHeat, utilitiesWater: n.utilitiesWater,
+    utilitiesElectricity: n.utilitiesElectricity, utilitiesOther: n.utilitiesOther,
+    totalMonthly: n.totalMonthly, totalMonthlyComponents: n.totalMonthlyComponents,
+    // Gemmes hver for sig OG som sum. Summen er det, siden viser; delene
+    // er det, formularen skal kunne laese tilbage.
+    deposit: i.depositum, prepaidRent: i.forudbetalt,
+    moveInCost: n.moveInCost,
+    // Udlejerens egen tekst, ikke vores genererede.
+    description: i.beskrivelse.trim() || n.description,
+    contactEmail: i.kontaktMail, contactPhone: i.kontaktTlf,
+    lastFetchedAt: new Date(),
+  }
+}
+
 export async function opretBolig(u: Udlejer, i: Boliginput): Promise<string> {
   // Id'et laves foerst, saa sourceUrl kan pege paa boligens egen side.
   // Kolonnen er NOT NULL, og en native bolig har ingen kilde at pege paa.
@@ -121,20 +190,17 @@ export async function opretBolig(u: Udlejer, i: Boliginput): Promise<string> {
   const n = await normaliser(somRaa(i, id, `${base()}/bolig/${id}`), await vasketAdresse(i))
 
   await db.insert(listings).values({
-    ...n,
+    ...fraFormular(n, i),
     id,
+    externalKey: n.externalKey,
+    sourceUrl: n.sourceUrl,
     sourceId: await nativeKilde(),
     sourceType: 'native',
     landlordId: u.id,
-    // Udlejerens egen tekst, ikke vores genererede.
-    description: i.beskrivelse.trim() || n.description,
-    contactEmail: i.kontaktMail,
-    contactPhone: i.kontaktTlf,
     // Muren staar ved kontakt. Feltet er sandt fra foerste sekund.
     isBlurred: true,
     status: 'active',
     lastSeenAt: new Date(),
-    lastFetchedAt: new Date(),
   })
   await skrivBilleder(id, i.billeder)
   return id
@@ -143,13 +209,9 @@ export async function opretBolig(u: Udlejer, i: Boliginput): Promise<string> {
 export async function opdaterBolig(u: Udlejer, id: string, i: Boliginput): Promise<void> {
   await minEllerKast(u, id)
   const n = await normaliser(somRaa(i, id, `${base()}/bolig/${id}`), await vasketAdresse(i))
-  await db.update(listings).set({
-    ...n,
-    description: i.beskrivelse.trim() || n.description,
-    contactEmail: i.kontaktMail,
-    contactPhone: i.kontaktTlf,
-    lastFetchedAt: new Date(),
-  }).where(eq(listings.id, id))
+  await db.update(listings)
+    .set(fraFormular(n, i))
+    .where(eq(listings.id, id))
   await db.delete(listingImages).where(eq(listingImages.listingId, id))
   await skrivBilleder(id, i.billeder)
 }
