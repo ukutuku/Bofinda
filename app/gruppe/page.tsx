@@ -73,7 +73,7 @@ export default async function Side(
         <span><strong>{n.vaerelser}</strong> {n.vaerelser === 1 ? 'værelse' : 'værelser'}</span>
         <span>
           {prisMin === prisMax ? kr(prisMin) : `${kr(prisMin)}–${kr(prisMax)}`} kr/md{' '}
-          {n.total ? 'i alt' : 'i husleje'}
+          {n.total ? 'til udlejer' : 'i husleje'}
         </span>
         <span>{n.postnr} {boliger[0]!.by}</span>
       </div>

@@ -170,13 +170,17 @@ export function Kort({ b }: { b: Bolig }) {
           {fakta.map((f, i) => <span key={i}>{i > 0 && ' · '}{f}</span>)}
         </div>
 
-        {/* Det store tal er den REELLE maanedlige udgift, ikke huslejen.
-            Kender vi den ikke, staar huslejen der i stedet — men uden
+        {/* Det store tal er alt, hvad der betales TIL UDLEJEREN — husleje
+            plus den aconto, kilden opkraever. Etiketten sagde foer "i alt",
+            og det var ikke sandt: el staar udenfor hos naesten alle kilder,
+            saa "i alt" lovede en fuldstaendighed, tallet ikke havde.
+            "Til udlejer" er sandt, uanset om el er oplyst.
+            Kender vi ikke totalen, staar huslejen der i stedet — men uden
             accentfarven, saa de to aldrig kan forveksles paa afstand. */}
         <div className="oekonomi-linje">
           {b.total != null ? (
             <div className="kort-pris">
-              {kr(b.total)} <small>kr/md i alt</small>
+              {kr(b.total)} <small>kr/md til udlejer</small>
             </div>
           ) : (
             <div className="kort-pris kun-leje">
@@ -197,15 +201,7 @@ export function Kort({ b }: { b: Bolig }) {
               Udlejer oplyser ikke aconto — spørg om varme og vand.
             </span>
           )}
-          {/* Kun naar KILDEN siger det. Foer stod der "El afregnes direkte
-              med elselskabet" paa alt uden el-aconto — en antagelse
-              praesenteret som en oplysning. Nu staar den kun, hvor den er
-              oplyst, og resten faar den ærlige formulering. */}
-          {b.total != null && b.el == null && (
-            b.elEgenMaaler
-              ? <div className="el">Udlejer oplyser: el afregnes direkte med elselskabet</div>
-              : <div className="el">El indgår ikke — udlejer oplyser ikke hvordan</div>
-          )}
+          <Ellinje vis={b.total != null && b.el == null} egenMaaler={!!b.elEgenMaaler} />
           {!nyligt && (
             <div className="total">
               {b.hosKilden ? `annonceret ${siden(b.hosKilden)}` : `set ${siden(b.foerstSet)}`}
@@ -305,7 +301,7 @@ export function Gruppekort({ g }: { g: Gruppe }) {
             {spredt
               ? <>{kr(g.prisMin)}–{kr(g.prisMax)}</>
               : <>fra {kr(g.prisMin)}</>}
-            {' '}<small>kr/md {n.total ? 'i alt' : 'i husleje'}</small>
+            {' '}<small>kr/md {n.total ? 'til udlejer' : 'i husleje'}</small>
           </div>
 
           {g.indflytningMin != null && (
@@ -324,6 +320,10 @@ export function Gruppekort({ g }: { g: Gruppe }) {
               Udlejer oplyser ikke aconto — spørg om varme og vand.
             </span>
           )}
+          {/* Gruppen taler for flere boliger. Mangler blot ÉN af dem el,
+              kan totalen ikke staa som hele udgiften for dem alle. */}
+          <Ellinje vis={n.total != null && g.nogenUdenEl}
+            egenMaaler={g.alleUdenElHarEgenMaaler} />
 
           <div className="gruppe-flere">Se de {g.antal} adresser →</div>
 
@@ -339,6 +339,26 @@ export function Gruppekort({ g }: { g: Gruppe }) {
 }
 
 /** Ét element i listen: enten en bolig eller en gruppe af ens boliger. */
+/**
+ * El-forbeholdet under en groen total.
+ *
+ * Ligger her og ikke i hvert kort, fordi de to korttyper ellers driver fra
+ * hinanden: gruppekortet manglede den her linje helt, mens enkeltkortet
+ * havde den. Resultatet var 171 gruppekort over 675 boliger, der viste et
+ * groent tal uden at naevne, at el ikke var med. Én komponent kan ikke
+ * mangle ét af stederne.
+ *
+ * `egenMaaler` bruges KUN naar kilden selv siger det. Foer stod der "El
+ * afregnes direkte med elselskabet" paa alt uden el-aconto — en antagelse
+ * praesenteret som en oplysning.
+ */
+function Ellinje({ vis, egenMaaler }: { vis: boolean; egenMaaler: boolean }) {
+  if (!vis) return null
+  return egenMaaler
+    ? <div className="el">Udlejer oplyser: el afregnes direkte med elselskabet</div>
+    : <div className="el">El indgår ikke — udlejer oplyser ikke hvordan</div>
+}
+
 export function Visningskort({ v }: { v: Visning }) {
   return v.slags === 'gruppe' ? <Gruppekort g={v.gruppe} /> : <Kort b={v.bolig} />
 }

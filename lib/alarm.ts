@@ -282,7 +282,7 @@ export async function sendAlarmer(): Promise<SendResultat[]> {
 
     const linjer = g.map((b) => {
       const pris = b.total != null
-        ? `${kr(b.total)} kr/md i alt`
+        ? `${kr(b.total)} kr/md til udlejer`
         : `${kr(b.leje)} kr/md i husleje — total ukendt, aconto ikke oplyst`
       const indf = b.indflytning != null ? ` · indflytning ${kr(b.indflytning)} kr.` : ''
       const maal = [b.areal && `${b.areal} m²`, b.vaerelser && `${b.vaerelser} vær.`]

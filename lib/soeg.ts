@@ -9,6 +9,7 @@
 import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, ne, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/client'
 import { listingImages, listings, sources } from '../db/schema'
+import { FACILITET } from './faciliteter'
 
 export interface Filtre {
   by?: string
@@ -43,11 +44,9 @@ export type Sortering = (typeof SORTERINGER)[number]
  * boliger, hvis kilde bare ikke fortæller det, og det SKAL stå på skærmen,
  * når filteret er slået til. Se noten på søgesiden.
  */
-const FACILITET = {
-  kaeledyr: ['kæledyr tilladt'],
-  elevator: ['elevator'],
-  udeplads: ['altan', 'terrasse'],
-} as const
+
+/** Boligen oplyser MINDST én facilitet. Tom liste = kilden tier. */
+const OPLYST = sql`jsonb_array_length(coalesce(${listings.amenities}, '[]'::jsonb)) > 0`
 
 const harFacilitet = (navne: readonly string[]) =>
   sql`jsonb_exists_any(coalesce(${listings.amenities}, '[]'::jsonb),
@@ -230,6 +229,78 @@ export function ikkeRepraesentant(grundlag: SQL | undefined) {
 export const udenDubletter = (grundlag: SQL | undefined) =>
   and(grundlag, sql`not ${ikkeRepraesentant(grundlag)}`)
 
+/** Den annonce vi viser i stedet for en, der tabte repraesentantvalget. */
+export interface Repraesentant {
+  id: string
+  adresse: string
+  postnr: string | null
+  by: string | null
+  kilde: string
+  billeder: number
+  harTotal: boolean
+}
+
+/**
+ * Hvem vises i stedet for de her boliger?
+ *
+ * Dedup er en visning, ikke et filter — men for den udlejer, der tabte
+ * valget, er forskellen ikke til at se: annoncen staar som udgivet og kan
+ * aabnes paa sit eget link, mens den ikke findes i soegningen. Det er den
+ * samme uaerlighed som en total, der lader som om aconto er kendt.
+ *
+ * Funktionen bygger ikke sin egen rangering. Den spoerger `ikkeRepraesentant`
+ * hvem der tabte, og `udenDubletter` hvem der vandt — praecis de to
+ * praedikater soegesiden selv bruger. To definitioner ville betyde, at det
+ * vi skjuler, og det vi siger vi skjuler, kunne komme fra hinanden.
+ *
+ * Grundlaget er den UFILTREREDE soegning: spoergsmaalet er, om boligen
+ * overhovedet kan findes, ikke om den slipper gennem et bestemt filter.
+ */
+export async function repraesentantFor(ids: string[]): Promise<Map<string, Repraesentant>> {
+  const svar = new Map<string, Repraesentant>()
+  if (!ids.length) return svar
+
+  const grundlag = hvor({})
+  const noegle = sql<string>`${DEDUPNOEGLE}`
+
+  // 1. Hvilke af dem tabte? En bolig, der slet ikke er med i grundlaget,
+  //    er skjult af noget andet og hoerer ikke til her.
+  const tabere = await db
+    .select({ id: listings.id, noegle })
+    .from(listings)
+    .innerJoin(sources, eq(sources.id, listings.sourceId))
+    .where(and(inArray(listings.id, ids), grundlag, ikkeRepraesentant(grundlag)))
+  if (!tabere.length) return svar
+
+  // 2. Hvem vandt paa de noegler?
+  const noegler = [...new Set(tabere.map((t) => t.noegle))]
+  const vindere = await db
+    .select({
+      id: listings.id,
+      adresse: listings.addressRaw,
+      postnr: listings.postalCode,
+      by: listings.city,
+      kilde: sources.name,
+      billeder: sql<number>`(select count(*)::int from ${listingImages} i
+        where i.listing_id = ${listings.id})`,
+      harTotal: sql<boolean>`(${listings.totalMonthly} is not null)`,
+      noegle,
+    })
+    .from(listings)
+    .innerJoin(sources, eq(sources.id, listings.sourceId))
+    .where(and(udenDubletter(grundlag), inArray(noegle, noegler)))
+
+  const efterNoegle = new Map(vindere.map((v) => [v.noegle, v]))
+  for (const t of tabere) {
+    const v = efterNoegle.get(t.noegle)
+    if (v) svar.set(t.id, {
+      id: v.id, adresse: v.adresse, postnr: v.postnr, by: v.by,
+      kilde: v.kilde, billeder: v.billeder, harTotal: v.harTotal,
+    })
+  }
+  return svar
+}
+
 const hvorVist = (f: Filtre) => udenDubletter(hvor(f))
 
 const ORDEN = {
@@ -370,6 +441,10 @@ export interface Gruppe {
   indflytningMax: number | null
   /** Har alle samme aconto-poster? Ellers står posterne ikke på kortet. */
   ensPoster: boolean
+  /** Mangler MINDST én i gruppen et el-beløb? Så skal kortet sige det. */
+  nogenUdenEl: boolean
+  /** Siger kilden om hver enkelt af dem, at lejeren har egen elmåler? */
+  alleUdenElHarEgenMaaler: boolean
   /** Har ALLE i gruppen den samme bolig hos en anden kilde? */
   alleOgsaaAndetsteds: boolean
   nyesteMarkedet: Date
@@ -442,6 +517,15 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
       // coalesce, fordi count(distinct) springer null over: ellers ville
       // "nogle med poster, nogle uden" tælle som ét sæt.
       postsaet: sql<number>`count(distinct coalesce(${listings.totalMonthlyComponents}::text, ''))::int`,
+      // El i gruppen. Ét kort taler for flere boliger, saa spoergsmaalet er
+      // ikke "har repraesentanten el?" men "er der NOGEN i gruppen, der
+      // mangler den?". Fravaer af oplysning er ikke et nej: mangler blot én,
+      // kan kortets total ikke staa som hele udgiften for dem alle.
+      nogenUdenEl: sql<boolean>`bool_or(${listings.utilitiesElectricity} is null)`,
+      // Og siger kilden selv om ALLE de manglende, at lejeren har egen
+      // maaler? Kun saa maa den staerkere formulering bruges.
+      alleUdenElHarEgenMaaler: sql<boolean>`bool_and(${listings.utilitiesElectricity} is not null
+        or ${listings.electricityOwnMeter} is true)`,
       // Gaelder det ALLE i gruppen, at en anden kilde ogsaa har boligen?
       // Repraesentantens egen `ogsaaHos` maa ikke tale for de andre —
       // kortet ville paastaa to kilder for femten boliger, hvor det
@@ -490,6 +574,8 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
         ledigUkendte: r.ledigUkendte,
         indflytningMin: r.indflytningMin, indflytningMax: r.indflytningMax,
         ensPoster: r.postsaet === 1,
+        nogenUdenEl: r.nogenUdenEl ?? false,
+        alleUdenElHarEgenMaaler: r.alleUdenElHarEgenMaaler ?? false,
         alleOgsaaAndetsteds: r.alleOgsaaAndetsteds ?? false,
         nyesteMarkedet: new Date(r.nyesteMarkedetMs),
       },
@@ -565,6 +651,16 @@ export async function opsummering(f: Filtre) {
       fuld: sql<number>`count(*) filter (where ${FULD})::int`,
       billigst: sql<number | null>`min(${PRIS})`,
       dyrest: sql<number | null>`max(${PRIS})`,
+      // Grundlaget under facilitetsfiltrene. Aggregaterne koster ingenting
+      // oveni den scanning, der alligevel sker — samme argument som for
+      // facetternes fire tal i én forespørgsel.
+      oplyser: sql<number>`count(*) filter (where ${OPLYST})::int`,
+      tier: sql<number>`count(*) filter (where not ${OPLYST})::int`,
+      // De samme prædikater som filtrene selv bruger. To definitioner ville
+      // betyde, at tallet og filteret kunne sige hver sit.
+      kaeledyr: sql<number>`count(*) filter (where ${harFacilitet(FACILITET.kaeledyr)})::int`,
+      elevator: sql<number>`count(*) filter (where ${harFacilitet(FACILITET.elevator)})::int`,
+      udeplads: sql<number>`count(*) filter (where ${harFacilitet(FACILITET.udeplads)})::int`,
     })
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
@@ -573,6 +669,34 @@ export async function opsummering(f: Filtre) {
     .where(hvorVist(f))
   return r!
 }
+
+/**
+ * Grundlaget under hver afkrydsning: hvor mange oplyser en facilitet, og
+ * hvor mange tier og forsvinder derfor, hvis man saetter kryds.
+ *
+ * Filteret bliver ved at udelukke de ukendte — det er det eneste aerlige,
+ * for vi ved ikke, om de har elevator. Men saa skal brugeren kunne se, hvad
+ * hun ikke faar. Samme princip som prissammenligningen, der altid skriver,
+ * hvor mange boliger medianen er regnet af.
+ *
+ * "Oplyser" maales paa BOLIGEN, ikke paa kilden. En findbolig-annonce med en
+ * tom facilitetsliste ved vi lige saa lidt om som en fra LokalBolig, der
+ * aldrig sender nogen.
+ *
+ * Det er `opsummering` paa den samme soegning UDEN de tre facilitetsfiltre —
+ * ikke en ny forespoergsel med sin egen definition. Med filtrene paa ville
+ * tallene beskrive et saet, der allerede var renset, og "0 tier" ville staa
+ * under et filter, der lige havde skjult 435 boliger.
+ *
+ * Er ingen af de tre sat, er `where` ORDRET den samme som `opsummering`s, og
+ * saa skal kalderen genbruge det svar i stedet for at spoerge igen. Se
+ * app/page.tsx. Forsiden koerer to forespoergsler pr. visning, og det tal
+ * har vaeret dyrt at faa ned.
+ */
+export const facilitetsgrundlag = (f: Filtre) =>
+  opsummering({ ...f, kaeledyr: false, elevator: false, udeplads: false })
+
+export type Facilitetsgrundlag = Awaited<ReturnType<typeof opsummering>>
 
 /** Byer og kilder til filterfelterne — kun dem der faktisk har boliger. */
 export async function facetter() {
@@ -629,11 +753,6 @@ export async function facetter() {
     },
     /** Kilder der overhovedet oplyser faciliteter. */
     facilitetskilder: pr.filter((k) => k.medFaciliteter > 0).map((k) => k.navn),
-    /** Aktive boliger fra kilder der ALDRIG oplyser faciliteter. Brugeren
-     *  skal kunne se, at et facilitetsfilter skjuler dem, fordi kilden tier
-     *  — ikke fordi boligen mangler det. */
-    udenFacilitetsoplysning: pr.filter((k) => k.medFaciliteter === 0)
-      .reduce((a, k) => a + k.antal, 0),
   }
 }
 

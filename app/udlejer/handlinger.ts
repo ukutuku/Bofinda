@@ -9,11 +9,14 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { revalidatePath } from 'next/cache'
+import { FACILITETER } from '../../lib/faciliteter'
+import { byForPostnr } from '../../lib/omraade'
 import { redirect } from 'next/navigation'
 import { adgangstoken, hentUdlejer, supabase } from '../../lib/auth'
 import { billedUrl } from '../../lib/billede'
 import {
-  fjernBolig, genudgivBolig, opdaterBolig, opretBolig, type Boliginput,
+  fjernBolig, genudgivBolig, opdaterBolig, opretBolig, renTekst,
+  tjekAdresse, type Boliginput,
 } from '../../lib/udlejer'
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -165,30 +168,42 @@ const heltal = (v: FormDataEntryValue | null): number | null => {
   return Number.isFinite(n) && n > 0 ? Math.round(n) : null
 }
 
-function laesInput(f: FormData): Boliginput | string {
+const GYLDIGE_FACILITETER = new Set<string>(FACILITETER.map((x) => x.vaerdi))
+
+async function laesInput(f: FormData): Promise<Boliginput | string> {
   // Adskilte felter. De samles ALDRIG til en streng, der parses igen —
   // "Nørrebrogade 30, 2200" blev laest som etage 22, doer 00.
-  const vej = String(f.get('vej') ?? '').trim()
-  const husnr = String(f.get('husnr') ?? '').trim()
-  const postnr = String(f.get('postnr') ?? '').trim()
+  const vej = renTekst(f.get('vej'))
+  const husnr = renTekst(f.get('husnr'))
+  const postnr = renTekst(f.get('postnr'))
   const husleje = oere(f.get('husleje'))
-  const mail = String(f.get('kontaktMail') ?? '').trim()
-  const tlf = String(f.get('kontaktTlf') ?? '').trim()
+  const mail = renTekst(f.get('kontaktMail'))
+  const tlf = renTekst(f.get('kontaktTlf'))
+  const doer = renTekst(f.get('doer')) || null
 
-  if (!vej) return 'Skriv vejnavnet.'
-  if (!husnr) return 'Skriv husnummeret.'
-  if (!/^\d{4}$/.test(postnr)) return 'Postnummeret skal være fire cifre.'
+  const galt = tjekAdresse({ vej, husnr, postnr, doer })
+  if (galt) return galt
   if (husleje == null || husleje === 0) return 'Skriv huslejen.'
   if (!mail && !tlf) return 'Skriv en mailadresse eller et telefonnummer — lejeren skal kunne nå dig.'
+
+  // Byen udledes, den indtastes ikke. `city` er praecis det, bysoegningen
+  // og omraadesiderne filtrerer paa — en udlejer, der skriver "Kbh N" i
+  // stedet for "København N", ville falde ud af hver eneste bysoegning
+  // uden at kunne se hvorfor. Kender vi ikke postnummeret, bruger vi det,
+  // hun har skrevet; er der heller ikke det, spoerger vi. Kolonnen maa
+  // aldrig blive null.
+  const udledtBy = await byForPostnr(postnr)
+  const by = udledtBy ?? (renTekst(f.get('by')) || null)
+  if (!by) return `Vi kender ikke byen for postnummer ${postnr}. Skriv den i feltet By.`
 
   return {
     vej,
     husnr,
-    etage: String(f.get('etage') ?? '').trim() || null,
-    doer: String(f.get('doer') ?? '').trim() || null,
-    by: String(f.get('by') ?? '').trim() || null,
+    etage: renTekst(f.get('etage')) || null,
+    doer,
+    by,
     postnr,
-    boligtype: String(f.get('boligtype') ?? 'lejlighed'),
+    boligtype: renTekst(f.get('boligtype')) || 'lejlighed',
     areal: heltal(f.get('areal')),
     vaerelser: heltal(f.get('vaerelser')),
     husleje,
@@ -198,10 +213,11 @@ function laesInput(f: FormData): Boliginput | string {
     oevrig: oere(f.get('oevrig')),
     depositum: oere(f.get('depositum')),
     forudbetalt: oere(f.get('forudbetalt')),
-    ledigFra: String(f.get('ledigFra') ?? '').trim() || null,
-    beskrivelse: String(f.get('beskrivelse') ?? '').trim(),
+    ledigFra: renTekst(f.get('ledigFra')) || null,
+    beskrivelse: renTekst(f.get('beskrivelse')),
     kontaktMail: mail || null,
     kontaktTlf: tlf || null,
+    faciliteter: f.getAll('faciliteter').map(String).filter((v) => GYLDIGE_FACILITETER.has(v)),
     billeder: f.getAll('billeder').map(String).filter(Boolean),
   }
 }
@@ -209,7 +225,7 @@ function laesInput(f: FormData): Boliginput | string {
 export async function gemBolig(_forrige: Svar, f: FormData): Promise<Svar> {
   const u = await hentUdlejer()
   if (!u) return { fejl: 'Du skal være logget ind.' }
-  const input = laesInput(f)
+  const input = await laesInput(f)
   if (typeof input === 'string') return { fejl: input }
 
   const id = String(f.get('id') ?? '')

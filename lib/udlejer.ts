@@ -15,12 +15,13 @@
 //  hentBolig i lib/soeg.ts, hvor felterne ikke engang står i select.
 // ═══════════════════════════════════════════════════════════════
 
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { listingImages, listings, sources } from '../db/schema'
-import { SimpelAdressevask } from './address'
+import { kanonisk, paenDoer, SimpelAdressevask } from './address'
 import { normaliser } from './normalize'
 import type { Udlejer } from './auth'
+import { repraesentantFor, type Repraesentant } from './soeg'
 
 export interface Boliginput {
   /** Adskilte felter. De samles KUN til visning, aldrig til parsning. */
@@ -46,9 +47,12 @@ export interface Boliginput {
   beskrivelse: string
   kontaktMail: string | null
   kontaktTlf: string | null
+  /** Kun værdier fra `FACILITETER`. Tom liste = udlejeren sagde nej. */
+  faciliteter: string[]
   /** Signerede lager-URL'er, i den rækkefølge de skal vises. */
   billeder: string[]
 }
+
 
 /**
  * En gemt raekke tilbage til formularens felter.
@@ -79,6 +83,7 @@ export function somFormular(b: typeof listings.$inferSelect): Boliginput {
     beskrivelse: b.description ?? '',
     kontaktMail: b.contactEmail,
     kontaktTlf: b.contactPhone,
+    faciliteter: Array.isArray(b.amenities) ? (b.amenities as string[]) : [],
     billeder: [],
   }
 }
@@ -106,6 +111,81 @@ function indflytning(i: Boliginput): number | undefined {
  * Adressen som ÉN linje — til visning og til `address_raw`. Nøglerne
  * bygges ikke af den; de bygges af de adskilte felter. Se `vasketAdresse`.
  */
+/**
+ * Usynlige tegn. `trim()` fjerner mellemrum — ogsaa NBSP — men IKKE tegn
+ * der er nul enheder brede. Et vejnavn paa ét zero-width space (U+200B)
+ * er derfor "ikke tomt" for valideringen, mens der ikke staar noget.
+ *
+ * Det er ikke en skoenhedsfejl. `kanonisk()` i adressevasken smider tegnet
+ * vaek, saa noeglen bliver `intern:v3:2200::30` — uden vejnavn. To saadanne
+ * annoncer i samme postnummer med samme husnummer faar den SAMME noegle og
+ * bliver slaaet sammen som den samme bolig.
+ *
+ * Med i listen: bloedt bindestreg, zero-width space/non-joiner/joiner,
+ * de usynlige retningsmarkoerer, linje- og afsnitsseparator, word joiner
+ * og BOM. Alle sammen tegn der ikke saetter blaek paa skaermen.
+ */
+const USYNLIGE = /[\u00ad\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g
+
+/** Formularvaerdi -> streng uden usynlige tegn og uden mellemrum i enderne. */
+export const renTekst = (v: unknown) =>
+  String(v ?? '').replace(USYNLIGE, '').trim()
+
+/**
+ * Doerbetegnelser vi kan staa inde for.
+ *
+ * En doer haever adressens niveau til 'unit', og en unit-noegle bestaar
+ * KUN af enhedsadressen — areal, vaerelser og leje falder ud. Et "-" i
+ * feltet ville derfor slaa to vidt forskellige boliger paa samme adresse
+ * sammen, og den ene ville forsvinde fra soegningen. Feltet maa ikke vaere
+ * fri tekst. Er der ingen doerbetegnelse, lades feltet tomt — saa bliver
+ * niveauet 'access', hvilket er sandt.
+ *
+ * Maalt mod basen daekker listen 758 af 783 gemte doere; resten er
+ * bygningsformer, kilderne selv leverer, og som ingen udlejer taster.
+ */
+const DOER_OK = /^(tv|th|mf|[0-9]{1,4}|[a-zæøå])$/
+
+/**
+ * Adressefelterne fra udlejerformularen. Returnerer en dansk fejl, eller
+ * null hvis de kan bruges.
+ *
+ * Ligger her og ikke i server action'en af to grunde: en `'use server'`-fil
+ * maa kun eksportere handlinger, og reglerne skal kunne proeves af testen
+ * uden at gaa gennem en formular.
+ */
+export function tjekAdresse(
+  i: { vej: string; husnr: string; postnr: string; doer: string | null },
+): string | null {
+  // Bogstav-kravet er \p{L}, ikke [a-z]: "Østerbrogade" og ethvert andet
+  // alfabet skal kunne staa. Men noeglen bygges af kanonisk(), som kun
+  // beholder a-z0-9 — saa der skal OGSAA vaere noget tilbage bagefter.
+  // Ellers faar vi noeglen `intern:v3:2200::30`, uden vej, og to saadanne
+  // annoncer bliver til den samme bolig i dedup.
+  if (!i.vej) return 'Skriv vejnavnet.'
+  if (!/\p{L}/u.test(i.vej)) return 'Vejnavnet skal indeholde mindst ét bogstav.'
+  if (!kanonisk(i.vej))
+    return 'Vejnavnet kan vi ikke læse. Skriv det med latinske bogstaver — æ, ø og å er fine.'
+
+  // Husnummeret er ikke pynt: uden det falder access-dedup tilbage til hele
+  // vejen. Nordskovvej i 7184 Vandel er 30 boliger med den samme
+  // adressestreng, og uden husnummerkravet skjulte reglen 26 af dem som
+  // dubletter af hinanden. Et husnummer paa "-" er kolonnen ikke-null, men
+  // bidrager intet til noeglen — praecis den samme fejl.
+  if (!i.husnr) return 'Skriv husnummeret.'
+  if (!/\p{Nd}/u.test(i.husnr)) return 'Husnummeret skal indeholde mindst ét tal.'
+  if (!kanonisk(i.husnr)) return 'Husnummeret kan vi ikke læse. Skriv det som 56 eller 56 B.'
+
+  if (!/^\d{4}$/.test(i.postnr)) return 'Postnummeret skal være fire cifre.'
+
+  if (i.doer && !DOER_OK.test(paenDoer(i.doer))) {
+    return 'Døren skal være tv, th, mf, et nummer eller et enkelt bogstav.'
+      + ' Lad feltet stå tomt, hvis boligen ikke har en dørbetegnelse.'
+  }
+
+  return null
+}
+
 export function adresselinje(i: Boliginput): string {
   const etageDoer = [i.etage ? `${i.etage}.` : null, i.doer].filter(Boolean).join(' ')
   return [
@@ -141,6 +221,7 @@ function somRaa(i: Boliginput, id: string, url: string) {
     utilitiesElectricity: i.el ?? undefined,
     utilitiesOther: i.oevrig ?? undefined,
     moveInCost: indflytning(i),
+    amenities: i.faciliteter,
     imageUrls: i.billeder,
   }
 }
@@ -179,6 +260,10 @@ function fraFormular(n: Awaited<ReturnType<typeof normaliser>>, i: Boliginput) {
     // Udlejerens egen tekst, ikke vores genererede.
     description: i.beskrivelse.trim() || n.description,
     contactEmail: i.kontaktMail, contactPhone: i.kontaktTlf,
+    // Uden den her kolonne var udlejerannoncer usynlige for elevator-,
+    // altan- og kaeledyrsfiltrene for altid — de filtrerer paa `amenities`,
+    // og den var tom, fordi ingen spurgte.
+    amenities: i.faciliteter,
     lastFetchedAt: new Date(),
   }
 }
@@ -250,20 +335,58 @@ async function skrivBilleder(id: string, urler: string[]) {
   )
 }
 
+/**
+ * Hvad udlejeren faar at vide om sin annonce.
+ *
+ *   udgivet       den kan findes i soegningen
+ *   fjernet       hun har taget den ned selv
+ *   dublet        den findes, men vi viser en anden annonce for samme
+ *                 bolig i stedet — se `af`
+ *   uden-adresse  adressen kunne ikke stedfaestes, saa vi ved ikke hvor
+ *                 boligen ligger og viser den ingen steder
+ *
+ * `status` alene kunne ikke skelne de tre sidste. Den sagde "udgivet" om
+ * alt, der var 'active' — ogsaa naar boligen ikke kunne findes nogen
+ * steder. En udlejer, der tror hun er synlig, mens hun ikke er, er samme
+ * fejl som en total, der lader som om aconto er kendt.
+ */
+export type Synlighed =
+  | { slags: 'udgivet' }
+  | { slags: 'fjernet' }
+  | { slags: 'dublet'; af: Repraesentant }
+  | { slags: 'uden-adresse' }
+
 export async function mineBoliger(u: Udlejer) {
-  return db.select({
+  const raekker = await db.select({
     id: listings.id,
     adresse: listings.addressRaw,
     postnr: listings.postalCode,
     by: listings.city,
     status: listings.status,
+    niveau: listings.addressMatchLevel,
     leje: listings.rentMonthly,
     total: listings.totalMonthly,
     areal: listings.sizeM2,
     vaerelser: listings.rooms,
     oprettet: listings.firstSeenAt,
+    billeder: sql<number>`(select count(*)::int from ${listingImages} i
+      where i.listing_id = ${listings.id})`,
   })
     .from(listings)
     .where(eq(listings.landlordId, u.id))
     .orderBy(desc(listings.firstSeenAt))
+
+  // Kun de udgivne kan tabe et repraesentantvalg — de oevrige er allerede
+  // ude af grundlaget, og saa er dedup ikke grunden til at de ikke ses.
+  const skjulte = await repraesentantFor(
+    raekker.filter((r) => r.status === 'active' && r.niveau !== 'failed').map((r) => r.id))
+
+  return raekker.map((r) => {
+    const synlighed: Synlighed =
+      r.status !== 'active' ? { slags: 'fjernet' }
+      : r.niveau === 'failed' ? { slags: 'uden-adresse' }
+      : skjulte.has(r.id) ? { slags: 'dublet', af: skjulte.get(r.id)! }
+      : { slags: 'udgivet' }
+    return { ...r, synlighed }
+  })
 }

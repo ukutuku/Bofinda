@@ -1,5 +1,5 @@
 import {
-  antalBoliger, filtreFraParametre, harFiltre,
+  antalBoliger, facilitetsgrundlag, filtreFraParametre, harFiltre,
   opsummering, soegGrupperet, type Soegeparametre,
 } from '../lib/soeg'
 import { facetterCached, forsidetalCached } from './cache'
@@ -62,6 +62,14 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // Tilbage er to forespørgsler pr. sidevisning mod otte før.
   const visninger = await soegGrupperet(f)
   const sum = await opsummering(f)
+  // Grundlaget under afkrydsningerne skal beskrive søgningen UDEN de tre
+  // facilitetsfiltre. Er ingen af dem sat, er det ordret samme forespørgsel
+  // som `sum` — og så koster tallene ingenting. Er en sat, er det én
+  // forespørgsel mere (~75 ms), og det er netop dér, hun har brug for at se,
+  // hvad filteret skjuler.
+  const grundlag = (f.kaeledyr || f.elevator || f.udeplads)
+    ? await facilitetsgrundlag(f)
+    : sum
   const fac = await facetterCached()
   const tal = await forsidetalCached()
   const vist = antalBoliger(visninger)
@@ -194,22 +202,57 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
 
         {/* Vises kun, hvis nogen faktisk oplyser feltet. Et filter, der
             aldrig giver træf, er værre end intet filter. */}
-        {fac.faciliteter.kaeledyr > 0 && (
-          <div className="felt afkryds">
-            <input type="checkbox" id="kaeledyr" name="kaeledyr" value="1" defaultChecked={f.kaeledyr} />
-            <label htmlFor="kaeledyr">Kæledyr tilladt</label>
-          </div>
-        )}
-        {fac.faciliteter.elevator > 0 && (
-          <div className="felt afkryds">
-            <input type="checkbox" id="elevator" name="elevator" value="1" defaultChecked={f.elevator} />
-            <label htmlFor="elevator">Elevator</label>
-          </div>
-        )}
-        {fac.faciliteter.udeplads > 0 && (
-          <div className="felt afkryds">
-            <input type="checkbox" id="udeplads" name="udeplads" value="1" defaultChecked={f.udeplads} />
-            <label htmlFor="udeplads">Altan eller terrasse</label>
+        {(fac.faciliteter.kaeledyr > 0 || fac.faciliteter.elevator > 0
+          || fac.faciliteter.udeplads > 0) && (
+          <div className="felt facilitetsfiltre">
+            {fac.faciliteter.kaeledyr > 0 && (
+              <div className="facilitetsfilter">
+                <span className="afkryds-linje">
+                  <input type="checkbox" id="kaeledyr" name="kaeledyr" value="1" defaultChecked={f.kaeledyr} />
+                  <label htmlFor="kaeledyr">Kæledyr tilladt</label>
+                </span>
+                {/* Filteret udelukker de ukendte — det er det eneste ærlige,
+                    for vi ved ikke om de har det. Men så skal hun kunne se,
+                    hvad hun ikke får. Tallene følger den aktuelle søgning. */}
+                <span className="filtergrundlag">
+                  {grundlag.kaeledyr.toLocaleString('da-DK')} boliger oplyser det.{' '}
+                  {grundlag.tier.toLocaleString('da-DK')} oplyser ikke faciliteter
+                  {' '}og vises ikke.
+                </span>
+              </div>
+            )}
+            {fac.faciliteter.elevator > 0 && (
+              <div className="facilitetsfilter">
+                <span className="afkryds-linje">
+                  <input type="checkbox" id="elevator" name="elevator" value="1" defaultChecked={f.elevator} />
+                  <label htmlFor="elevator">Elevator</label>
+                </span>
+                {/* Filteret udelukker de ukendte — det er det eneste ærlige,
+                    for vi ved ikke om de har det. Men så skal hun kunne se,
+                    hvad hun ikke får. Tallene følger den aktuelle søgning. */}
+                <span className="filtergrundlag">
+                  {grundlag.elevator.toLocaleString('da-DK')} boliger oplyser det.{' '}
+                  {grundlag.tier.toLocaleString('da-DK')} oplyser ikke faciliteter
+                  {' '}og vises ikke.
+                </span>
+              </div>
+            )}
+            {fac.faciliteter.udeplads > 0 && (
+              <div className="facilitetsfilter">
+                <span className="afkryds-linje">
+                  <input type="checkbox" id="udeplads" name="udeplads" value="1" defaultChecked={f.udeplads} />
+                  <label htmlFor="udeplads">Altan eller terrasse</label>
+                </span>
+                {/* Filteret udelukker de ukendte — det er det eneste ærlige,
+                    for vi ved ikke om de har det. Men så skal hun kunne se,
+                    hvad hun ikke får. Tallene følger den aktuelle søgning. */}
+                <span className="filtergrundlag">
+                  {grundlag.udeplads.toLocaleString('da-DK')} boliger oplyser det.{' '}
+                  {grundlag.tier.toLocaleString('da-DK')} oplyser ikke faciliteter
+                  {' '}og vises ikke.
+                </span>
+              </div>
+            )}
           </div>
         )}
         <div className="knapper">
@@ -280,11 +323,11 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           alle boliger fra kilder, der bare ikke skriver det — og det ligner
           "der er ingen". Det skal stå på skærmen, ikke kun i koden. */}
       {soegt && (f.kaeledyr || f.elevator || f.udeplads)
-        && fac.udenFacilitetsoplysning > 0 && (
+        && grundlag.tier > 0 && (
         <p className="prisnote advarsel">
           Kun <strong>{fac.facilitetskilder.join(' og ')}</strong> oplyser faciliteter.
-          {' '}De {fac.udenFacilitetsoplysning.toLocaleString('da-DK')} boliger fra de øvrige
-          kilder er ikke med her — fordi kilden tier om det, ikke fordi boligen mangler det.
+          {' '}De {grundlag.tier.toLocaleString('da-DK')} boliger, der ikke gør, er ikke
+          med her — fordi kilden tier om det, ikke fordi boligen mangler det.
         </p>
       )}
 

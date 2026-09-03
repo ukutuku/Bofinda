@@ -1,0 +1,5 @@
+{
+  "//": "Kun til npm test. Next.js saetter jsx: preserve, saa esbuild lader JSX staa og Node braekker paa den. Testen gengiver rigtige komponenter, saa den skal have en JSX-runtime.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "jsx": "react-jsx" }
+}

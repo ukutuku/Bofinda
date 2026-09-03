@@ -103,9 +103,104 @@ npm run db:push             # kører den — mod DATABASE_URL_DIRECT
 | `npm run db:generate` | Migration ud fra skemaet |
 | `npm run db:push` | Kører migrationer (direkte forbindelse) |
 | `npm run import` | Kører importen én gang |
+| `npm run db:backup` | Dumper hele databasen til `backup/` |
+| `npm run db:backup:proev` | Genskaber nyeste dump i en lokal base og tæller efter |
+| `npm run tjek:noegler` | Prøver kodeord og nøgler i `.env` — printer ingen værdier |
 
 Lokalt sættes `VERCEL` ikke, så klienten vælger worker-profilen og går på
 `DATABASE_URL_DIRECT`. Det er det rigtige til udvikling.
+
+---
+
+## Backup og genskabelse
+
+Free-planen hos Supabase tager **ingen** automatiske backups, og der er kun
+én database — udvikling og produktion er den samme. Går den tabt, er
+boligerne, alarmtilmeldingerne og udlejerkontiene væk.
+
+```bash
+npm run db:backup           # → backup/bofinda-<tidsstempel>.sql
+npm run db:backup:proev     # genskaber den nyeste og tæller efter
+```
+
+`backup/` er i `.gitignore`. **Filen indeholder adgangskode-hashes fra
+`auth.users`.** Den må ikke committes eller sendes nogen steder hen.
+
+### Hvad filen er, og hvad den ikke er
+
+Der er ingen `pg_dump` på maskinen — og ingen `brew` til at hente den — så
+dumpet skrives med databasens eget COPY-format gennem `postgres.js`. Det
+svarer til `pg_dump --data-only`:
+
+| | |
+|---|---|
+| **med** | alle rækker i `public`, og `auth.users` (udlejerkontiene) |
+| **ikke med** | tabeldefinitioner — dem laver `db/migrations`, som ligger i git |
+| **ikke med** | filerne i storage-bucket'en. Se nedenfor. |
+
+Hele dumpet tages i én transaktion (`repeatable read`), så alle tabeller
+ses i samme øjeblik. Uden det ville `listings` blive læst kl. 12.00.01 og
+`listing_images` kl. 12.00.31, og et billede oprettet derimellem ville
+pege på en bolig, filen ikke har.
+
+Filen indeholder **ingen** `truncate` og **ingen** `delete`. Køres den mod
+en base med data i, fejler den på en nøglekonflikt. Det er med vilje: en
+backupfil, man kommer til at køre, må ikke kunne slette noget.
+
+Til sidst i filen står et manifest med rækketal og en SHA-256 pr. tabel.
+Mangler halen `-- FÆRDIG`, blev dumpet afbrudt. Passer en kontrolsum ikke,
+har filen taget skade siden.
+
+### Sådan læses den tilbage
+
+Ind i en **tom** base — et nyt Supabase-projekt eller en lokal Postgres:
+
+```bash
+export DATABASE_URL_DIRECT="postgresql://…:5432/postgres"   # den nye base
+npm run db:migrate                                          # skemaet
+psql "$DATABASE_URL_DIRECT" -v ON_ERROR_STOP=1 -f db/toem-public.sql
+psql "$DATABASE_URL_DIRECT" -v ON_ERROR_STOP=1 -f backup/bofinda-<stempel>.sql
+npm run db:status                                           # kontrol
+```
+
+`db/toem-public.sql` er nødvendig, fordi `0013_udlejer.sql` selv indsætter
+kilden `native` i `sources`. En base bygget af migrationer er altså ikke
+tom, og dumpets egen `sources`-række ville støde ind i den.
+
+**`auth.users` er et forbehold.** Skemaet ejer Supabase, ikke os. Rækkerne
+er med i dumpet, fordi de er den eneste kopi af udlejerkontiene, men i et
+nyt projekt kan `auth`-skemaet have skiftet form, og vi har ikke rettigheder
+til at skrive i det som `postgres`-rollen. Regn med, at kontiene skal
+oprettes igen, og at udlejerne skal bede om ny adgangskode. `public.users`
+og annoncerne kommer tilbage uanset.
+
+### Beviset
+
+`npm run db:backup:proev` bygger en helt ny, tom Postgres i hukommelsen
+(PGlite — rigtig Postgres i WebAssembly, ingen installation), kører
+`db/migrations` på den, læser dumpet ind og sammenligner. Den rører aldrig
+produktionsdatabasen; den har ikke engang en forbindelse ud af maskinen.
+
+Den kontrollerer fire ting: at halen er der, at kontrolsummerne passer, at
+rækketallene stemmer med manifestet, og at hver linje kommer **uændret**
+tilbage, når tabellen skrives ud igen — ingen afkortet tekst, ingen tabt
+tidszone, ingen `jsonb`, der skiftede form.
+
+Afprøvet på tre skadede kopier af et rigtigt dump: en afbrudt fil, en med
+én række fjernet, og en med én værdi ændret. Alle tre afvises med exit 1.
+
+### Filerne i storage-bucket'en
+
+Et SQL-dump kan ikke tage dem med — de ligger hos Supabase, ikke i basen.
+`db:backup` skriver derfor en sidefil, `backup/…-filer.txt`, med hvad der
+lå der. Den er ikke en backup, men den siger præcis, hvad der manglede.
+
+I dag er det 35 filer på 4,4 MB: billeder fra én prøveannonce. Det er
+ikke værd at bygge noget for. Skal det gøres, er det en løkke over
+`storage.objects`, en signeret download-URL pr. fil og en `tar` ved siden af
+dumpet — en halv times arbejde, som med fordel kan vente, til der er
+annoncer fra fremmede udlejere i bucket'en. Fra det øjeblik er billederne
+noget, vi har lovet at passe på, og de findes kun ét sted.
 
 ---
 
@@ -136,6 +231,10 @@ cron-planen er det, der starter den igen.
 | `CRAWLER_RATE_MS` | `1000` | Ét request i sekundet per domæne. |
 | `TZ` | `Europe/Copenhagen` | Så logtidspunkter kan læses uden hovedregning. |
 | `RUNNER` | `railway` | Skrives i `crawl_runs.runner`. Uden den kan to importører ikke skelnes i basen. |
+| `BALDER_API_KEY` | Balders søgenøgle | Uden den springer Balder-kilden over med en klar fejl. Nøglen ligger i Balders eget frontend-bundt og bruges dér **efter Balders egen anvisning** — se `docs/kildetilladelser.md`. Kan skifte uden varsel; rettes her og i `.env`, aldrig i adapteren. |
+| `RESEND_API_KEY` | Resend-nøgle med **kun** sende-rettighed | Alarmmails sendes af importøren, ikke af frontenden. Stod ikke i denne tabel før — men den ER sat på Railway, og mails er gået ud derfra. |
+| `ALARM_AFSENDER` | `Bofinda <alarm@dit-domæne>` | Uden den sendes ingenting. |
+| `ALARM_TILLADTE_MODTAGERE` | Ejerens egen adresse, mens der indkøres | Indkøringsventilen. Er den sat, får kun de adresser mail; alle andre springes over og logges. Fjern den, når fremmede skal have alarmer. |
 
 **Sæt ikke** `DATABASE_URL` — det er poolerens URL til Vercel-frontenden, og
 workeren skal netop uden om transaction-pooleren.
@@ -190,6 +289,33 @@ serverless-funktion med session-forbindelser æder Supabases 15 pladser.
 
 **Sæt ikke `RESEND_API_KEY` eller `ALARM_*`.** Mails sendes af importøren på
 Railway, ikke af frontenden.
+
+### Rotation af legitimation
+
+Kodeord og nøgler ligger tre steder, og de skal opdateres i alle tre.
+`npm run tjek:noegler` prøver dem på DIN maskine bagefter — den printer
+aldrig en værdi, kun om den blev accepteret.
+
+**Databasekodeordet** (Supabase → Project Settings → Database → Reset).
+Det ligger inde i begge forbindelsesstrenge, så alle tre steder rammes:
+
+| Sted | Variabel |
+|---|---|
+| `.env` lokalt | `DATABASE_URL` **og** `DATABASE_URL_DIRECT` |
+| Railway | `DATABASE_URL_DIRECT` |
+| Vercel | `DATABASE_URL` |
+
+Kopiér de nye strenge fra Supabase-panelet — skriv dem ikke om i hånden.
+Vært og brugernavn er forskellige for de to poolere (`postgres` mod
+`postgres.<ref>`), og en håndrettet streng rammer let den forkerte.
+Vercel læser miljøvariabler ved kold start, så et **nyt deploy** skal
+udløses, før ændringen gælder. Rotér ikke midt i en Railway-kørsel; se
+`crawl_runs` eller cron-planen først.
+
+**`RESEND_API_KEY`** (Resend → API Keys → opret ny, brug den, slet den
+gamle). Kun to steder: `.env` lokalt og Railway. **Sæt den ikke på
+Vercel.** Giv den kun **sending access** — en nøgle med fuld adgang kan
+læse og slette domæner, og alarmen skal kun sende.
 
 ### Certifikatet — det der ellers ville bide
 

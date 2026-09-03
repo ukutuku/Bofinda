@@ -41,6 +41,10 @@ export const TILLADTE_VAERTER = new Set([
   'findbolig.nu',
   'dacas.dk',
   'lokalbolig.io',
+  // Balder serverer sine billeder fra Contentful, ikke fra balder.dk.
+  // Glemmes vaerten, returnerer billedUrl() null, og billederne forsvinder
+  // uden en fejl nogen steder — det skete for dacas.dk med 177 billeder.
+  'images.ctfassets.net',
   ...(EGEN_LAGERVAERT ? [EGEN_LAGERVAERT] : []),
 ])
 

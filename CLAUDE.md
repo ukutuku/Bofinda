@@ -4,11 +4,104 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 
 ## Må aldrig ske
 
+- **Udlejerens egne adressefelter er autoritative. `address_raw` må aldrig
+  genparses for `source_type = 'native'`.** Hun taster vej, husnummer, etage
+  og dør i hvert sit felt; `address_raw` er en streng, VI bygger af dem til
+  visning. At læse den tilbage er at smide oplysningerne væk og gætte dem
+  igen — og gættet går galt: "Vestergade 1, 8000" bliver til etage 80, dør
+  00. Det var netop den fejl, de adskilte felter blev indført for at fjerne.
+  `scripts/genparse-adresser.ts` har derfor `ne(sourceType, 'native')`.
+  For de scrapede er strengen kildens egen, og der er ikke andet — der giver
+  genparsning mening.
+- **`city` udledes af postnummeret på serveren og må aldrig være null.**
+  `city` er præcis det, bysøgningen og områdesiderne filtrerer på. En
+  udlejer, der skriver "Kbh N" i stedet for "København N", ville falde ud
+  af hver eneste bysøgning uden at kunne se hvorfor — og et tomt felt
+  falder ud af dem alle. `byForPostnr` i `lib/omraade.ts` slår op i de
+  boliger, vi allerede har, med samme `mode()`-forespørgsel som
+  områdesiderne bygger deres navne af. Feltet står i formularen, men vores
+  egen stavemåde vinder; kun for et postnummer vi ikke kender, bruges det,
+  hun skriver.
+- **Adressefelter, der ville ødelægge nøglen, afvises ved indtastning.**
+  Vejnavnet skal indeholde mindst ét bogstav (`\p{L}` — æøå og andre
+  alfabeter tæller) **og** efterlade noget i `kanonisk()`. Husnummeret skal
+  indeholde mindst ét ciffer. Døren skal være en kendt form: tv, th, mf, et
+  tal eller ét bogstav. Grundene, i rækkefølge: "🏠", "---" og "..." gav
+  alle nøglen `intern:v3:2200::30` uden vej; et husnummer på "-" ophæver
+  husnummerkravet i access-dedup og bringer Nordskovvej-fejlen tilbage; og
+  fri tekst i Dør hæver niveauet til `unit`, hvorved areal, værelser og
+  leje falder ud af nøglen, så to vidt forskellige boliger bliver til én.
+  Reglerne står i `tjekAdresse` i `lib/udlejer.ts` — ikke i server
+  action'en, så de kan prøves uden en formular.
+- **Faciliteterne har én definition, og den ligger i `lib/faciliteter.ts`.**
+  Filen må ikke importere databasen: udlejerformularen er en
+  klientkomponent, og et værdi-import derfra trak engang `postgres` med ind
+  i browserbundtet og væltede hele appen på `Can't resolve 'net'`.
+  `FACILITETER` er typebundet til `FACILITET`, så en tastefejl i et
+  facilitetsord ikke kan oversættes. Formularen spørger om dem, fordi
+  filtrene ellers skjuler hver eneste udlejerannonce for altid.
+- **Rækkefølgen i `billeder`-arrayet ER `listing_images.position`, og det
+  første billede er forsidebilledet.** Udlejeren bestemmer den ved at
+  trække miniaturerne eller bruge pilene; de skjulte felter sendes i
+  DOM-orden, og `opretBolig`/`opdaterBolig` skriver `position` ud fra
+  indekset. Boligsiden, redigér-siden og søgekortets `forside` sorterer
+  alle på `position` — falder ét af de fire led fra, vælger vi et
+  tilfældigt forsidebillede for hende. `npm test` prøver hele kæden.
+  Træk-og-slip er en genvej, aldrig den eneste vej: pileknapperne skal
+  blive, for HTML5-træk findes ikke på en telefon og virker ikke med
+  tastatur.
+- **En udgivet annonce, der ikke kan findes, må ikke stå som "udgivet".**
+  Mærkatet på Mine annoncer spørger om synlighed, ikke om `status`. Taber
+  annoncen repræsentantvalget til en dublet, står der hvad der sker, hvilken
+  annonce der vises i stedet, og hvorfor den vandt. Det er vores eget
+  princip vendt indad: en udlejer, der tror hun er synlig, mens hun ikke er,
+  er samme fejl som en total, der lader som om aconto er kendt.
+  Repræsentanten vælges stadig på billedantal — bureauannoncen med tyve
+  billeder er den bedre visning for den, der søger bolig. Løsningen er at
+  fortælle udlejeren det, ikke at lade hende vinde. Se `repraesentantFor`
+  i `lib/soeg.ts`; den bygger ikke sin egen rangering.
 - **En manglende oplysning skal være synlig, ikke fraværende.** Kender vi
   ikke totalen, skriver kortet "Udlejer oplyser ikke aconto — spørg om varme
   og vand." Vi kan ikke skelne "udlejer opkræver intet" fra "udlejer oplyser
   intet", så vi påstår ingen af delene — vi siger, hvad brugeren skal spørge
   om. Et gæt her ville love hende noget om hendes økonomi, som ikke holder.
+- **Et filter skal gøre rede for, hvad det udelader.** De tre
+  facilitetsfiltre udelukker boliger, hvor faciliteterne er ukendte — det
+  er det eneste ærlige, for vi ved ikke om de har elevator. Men så skal der
+  stå under afkrydsningen, hvor mange der oplyser det, og hvor mange der
+  tier og derfor forsvinder: "92 boliger oplyser det. 68 oplyser ikke
+  faciliteter og vises ikke." Kun Propstep oplyser faciliteter; 435 af
+  boligerne tier. Uden linjen ligner et facilitetsfilter en udtalelse om
+  markedet, og det er det ikke.
+  Tallene beregnes, aldrig hardkodes, og de følger den aktuelle søgning —
+  men **uden** de tre facilitetsfiltre selv, ellers ville der stå "0 tier"
+  under et filter, der lige havde skjult 435 boliger. `facilitetsgrundlag`
+  i `lib/soeg.ts` er `opsummering` på netop det grundlag; er ingen af de tre
+  sat, er forespørgslen ordret den samme, og forsiden genbruger svaret i
+  stedet for at spørge igen. Forsiden kører to forespørgsler pr. visning,
+  og det tal har været dyrt at få ned.
+- **Prisetiketten hedder "til udlejer", ikke "i alt".** Tallet er husleje
+  plus den aconto, kilden opkræver — alt hvad der betales til udlejeren.
+  Det er sandt, uanset om el er oplyst. "I alt" var det ikke: el står
+  udenfor hos næsten alle kilder (9 boliger ud af 1.200 har et el-beløb),
+  så etiketten lovede en fuldstændighed, tallet ikke havde. Står i
+  prisblokken på begge korttyper i `app/Boligkort.tsx`.
+- **En grøn total må aldrig stå uden at el er gjort rede for.** Prisblokken
+  bliver grøn (`.kort-pris` uden `.kun-leje`), så snart `total` er sat —
+  uanset hvad totalen dækker. Mangler el i den, skal kortet sige det.
+  Linjen bor ét sted, `Ellinje` i `app/Boligkort.tsx`, fordi de to
+  korttyper ellers driver fra hinanden: gruppekortet manglede den helt,
+  mens enkeltkortet havde den, og det stod på **171 gruppekort over 675
+  boliger**, før nogen så det. Balder gjorde det synligt — alle dens 59
+  boliger har varme og vand uden el — men fejlen var der i forvejen hos
+  Propstep, LokalBolig og findbolig.
+  For en gruppe er spørgsmålet ikke "har repræsentanten el?" men "mangler
+  NOGEN i gruppen den?" (`nogenUdenEl`). Ét kort taler for flere boliger,
+  og fravær af oplysning er ikke et nej. Den stærkere formulering "el
+  afregnes direkte med elselskabet" bruges kun, når kilden selv siger det
+  om hver enkelt (`alleUdenElHarEgenMaaler`). `npm test` gengiver begge
+  korttyper og fejler, hvis en grøn total kan stå uden forbeholdet — også
+  hvis nogen "løser" det ved at skrive linjen på alting.
 - **Prissammenligningen på boligsiden viser altid sit grundlag, og vises
   slet ikke under 5 boliger i postnummeret.** En median af to boliger er
   ikke en markedspris. Der står hvad afvigelsen er, hvad den måles mod, og
@@ -88,8 +181,8 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   er ikke "det samme". Prisen tæller med her, selv om den ikke er en
   nøgledel: kortet siger "fra X kr/md" om hele gruppen.
   · Nøglen bærer, om totalen er kendt. Prisen er `coalesce(total, husleje)`,
-  så en gruppe med begge slags ville skrive "i alt" om boliger, hvor vi kun
-  kender huslejen.
+  så en gruppe med begge slags ville skrive "til udlejer" om boliger, hvor
+  vi kun kender huslejen.
   · Kortet påstår kun det, der gælder for hele gruppen. Forskellige arealer
   bliver et spænd, forskellige ledigdatoer bliver "flere ledigdatoer" — ikke
   den tidligste, som om den var alles — uens aconto-poster står slet ikke, og
@@ -134,8 +227,8 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 - **"Fuld økonomi" er ikke det samme som "total kendt".** Kravet er husleje
   plus mindst én NAVNGIVEN aconto-post — varme, vand eller el. En kilde, der
   kun skriver "Aconto pr. md.: 900 kr." uden at sige hvad den dækker (Dacas
-  og LokalBolig), giver os en rigtig total: den står på kortet som "i alt",
-  og prisfilteret regner med den. Men vi ved ikke, OM varme og vand er med,
+  og LokalBolig), giver os en rigtig total: den står på kortet som
+  "til udlejer", og prisfilteret regner med den. Men vi ved ikke, OM varme og vand er med,
   og "hele økonomien oplyst" ville være en påstand om noget, vi ikke har
   fået. Reglen står to steder og skal være ens begge: `erFuldOekonomi` i
   `lib/normalize.ts` og `FULD` i `lib/soeg.ts`.
@@ -190,6 +283,26 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   Ingen eksempelbilleder, ingen estimerede arealer, ingen opdigtede tal.
   Rentola gør det modsatte — det er derfor deres udbudstal ikke kan
   sammenlignes med vores.
+- **Grundlaget for HVER kilde er en mundtlig tilladelse, givet pr. telefon
+  og optaget med samtykke — ikke robots.txt.** Robots.txt tjekkes ved
+  siden af, men den er et signal til fremmede, ikke en aftale. Hvem der
+  har givet lov til præcis hvad, står i `docs/kildetilladelser.md`, og
+  omfangs-kolonnen skal nævne værter, endpoints, nøgler og billedvært —
+  "vi må bruge deres API" er ikke præcist nok, som Balder-sagen viste.
+  **Optagelserne må ikke i git.** De indeholder personoplysninger om
+  navngivne mennesker — stemme, navn, stilling — og opbevares uden for
+  repoet. En optagelse i et git-repo kan ikke slettes igen.
+- **Balder er undtaget robots.txt-reglen — for `www.balder.dk`.**
+  `www.balder.dk/robots.txt` har `Disallow: /api/`. Rettighedshaveren har
+  selv givet os lov til at bruge deres API, og robots.txt er et signal til
+  fremmede, ikke en aftale: har ejeren sagt ja, gælder deres ja. Derfor
+  ignorerer vi den linje bevidst, og det er ikke en forglemmelse.
+  Se `docs/kildetilladelser.md` for hvem der gav lov og hvornår.
+  **Undtagelsen dækker også `api.balder.dk`**, som har `Disallow: /` til
+  alle. Balder har bekræftet, at tilladelsen gælder den vært, og at vi skal
+  bruge søgenøglen fra deres eget frontend-bundt. Nøglen ligger i
+  `BALDER_API_KEY` og aldrig i adapteren: den kan skifte uden varsel, og så
+  skal den kunne rettes ét sted.
 - **Ingen omgåelse af bot-beskyttelse.** Ingen CAPTCHA-løsning, ingen
   proxy-rotation for at skjule os, ingen fingerprint-spoofing, ingen
   falsk User-Agent. Crawleren præsenterer sig med kontakt-URL. Kilder der
@@ -433,6 +546,47 @@ giver 404 — grænsen håndhæves ét sted og gælder både ruten og sitemap'et
   Se README for topologi og forbindelsesbudget.
 - Al brugervendt tekst på dansk. Identifiers uden æøå.
 - Alle beløb i øre. Aldrig float.
+
+## Backup — hvornår den skal køre
+
+Supabases free-plan tager ingen backups. Udvikling og produktion er den
+samme base. Der er ingen anden kopi end den, nogen selv har taget.
+
+```bash
+npm run db:backup          # dumper til backup/
+npm run db:backup:proev    # genskaber nyeste dump lokalt og tæller efter
+```
+
+**Minimum: før hver migration.** En migration er det eneste, vi selv gør,
+som kan ødelægge data uigenkaldeligt — `0015_depositum.sql` blev til,
+fordi to kolonner manglede og tal gik tabt. Kør `db:backup`, se at den
+siger `FÆRDIG`, og kør så `db:migrate`.
+
+Derudover:
+
+- **før `db/toem-public.sql` eller nogen anden `truncate` eller `delete`**
+- **efter en udlejer har oprettet eller rettet en annonce.** Boliger fra
+  kilderne kan hentes igen; det en fremmed selv har skrevet, kan ikke.
+- **før en `genparse` eller anden masseopdatering** af eksisterende rækker
+
+Kør `db:backup:proev` mindst en gang imellem — helst på den nyeste fil, og
+altid efter en ændring i `db/migrations`. Prøven kører migrationerne på en
+tom base, så den fanger også en migration, der ikke kan køre fra bunden.
+En backup, ingen har genskabt fra, er ikke en backup.
+
+**Automatisering.** Der er ingen oplagt måde uden at bygge infrastruktur.
+Railway-workeren kunne køre det efter importen, men så skulle dumpet
+lægges et sted, og det indeholder adgangskode-hashes — det ville flytte
+problemet, ikke løse det. Det billigste rigtige skridt er ikke et script,
+men Supabases Pro-plan: den giver daglige backups med en uges historik.
+Indtil da er det manuelt, og listen ovenfor er hvornår.
+
+**`backup/` er i `.gitignore` og skal blive der.** Filen indeholder
+`auth.users` med adgangskode-hashes. Den må ikke committes, ikke lægges i
+en delt mappe og ikke sendes i en mail.
+
+Se README for hvad dumpet indeholder, hvordan det læses tilbage, og hvad
+der skal til for også at sikre filerne i storage-bucket'en.
 
 ## Noterede kilder
 

@@ -149,8 +149,16 @@ export function parsAdresse(raw: string): ParsetAdresse {
 // Kilder skriver den samme adresse paa mange maader. Noeglen skal vaere
 // den samme for dem alle, ellers dedup'er den ingenting.
 
-/** æ->ae, ø->oe, å->aa, alt smaat, kun bogstaver og tal. */
-function kanonisk(s: string): string {
+/**
+ * æ->ae, ø->oe, å->aa, alt smaat, kun bogstaver og tal.
+ *
+ * Eksporteret, saa udlejerformularen kan afvise input, der ikke efterlader
+ * NOGET i noeglen. "🏠", "---" og "..." som vejnavn gav alle det samme:
+ * `intern:v3:2200::30`, uden vej — og to saadanne annoncer blev til den
+ * samme bolig i dedup. Valideringen skal maale paa den samme regel som
+ * noeglen, ikke paa en der ligner.
+ */
+export function kanonisk(s: string): string {
   return s.toLowerCase()
     .replace(/æ/g, 'ae').replace(/ø/g, 'oe').replace(/å/g, 'aa')
     .normalize('NFD').replace(/[̀-ͯ]/g, '')

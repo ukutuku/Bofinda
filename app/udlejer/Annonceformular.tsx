@@ -13,9 +13,10 @@
 //  første ugyldige felt står, og lader browseren pege på det bagefter.
 // ═══════════════════════════════════════════════════════════════
 
-import { useActionState, useState } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
 import { gemBolig, registrerBillede, signerUpload, type Svar } from './handlinger'
 import { klargoer, MAKS_BILLEDER, MAKS_FIL } from './billedklient'
+import { FACILITETER } from '../../lib/faciliteter'
 import type { Boliginput } from '../../lib/udlejer'
 
 interface Billede { url: string; vis: string; navn: string }
@@ -44,6 +45,79 @@ export function Annonceformular({ start = {} }: { start?: Udgangspunkt }) {
   const [igang, setIgang] = useState<Igang[]>([])
   const [billedfejl, setBilledfejl] = useState<string | null>(null)
   const uploader = igang.length > 0
+
+  /** Traekker nogen filer hen over slipfeltet lige nu? */
+  const [overSlipfelt, setOverSlipfelt] = useState(false)
+  /** dragenter/dragleave fyrer ogsaa for BOERN. Uden en taeller blinker
+   *  rammen, hver gang markoeren passerer et element inde i feltet. */
+  const dybde = useRef(0)
+  /** Hvilken miniature traekkes, og hvor er den henne? */
+  const [traekker, setTraekker] = useState<number | null>(null)
+  const [over, setOver] = useState<number | null>(null)
+  /** Sagt hoejt til skaermlaesere efter et tastaturtryk. */
+  const [melding, setMelding] = useState('')
+  /** Knappen der skal have fokus, naar omrokeringen er tegnet. */
+  const [fokus, setFokus] = useState<string | null>(null)
+  const flytknapper = useRef(new Map<string, HTMLButtonElement>())
+
+  useEffect(() => {
+    if (!fokus) return
+    flytknapper.current.get(fokus)?.focus()
+    setFokus(null)
+  }, [fokus])
+
+  /**
+   * Rammer man ved siden af slipfeltet, AABNER browseren billedet i stedet
+   * — og saa er hele den halvt udfyldte formular vaek, uden varsel og uden
+   * vej tilbage. Vi tager imod overalt paa siden og goer ingenting.
+   */
+  useEffect(() => {
+    const stop = (e: DragEvent) => {
+      if (Array.from(e.dataTransfer?.types ?? []).includes('Files')) e.preventDefault()
+    }
+    window.addEventListener('dragover', stop)
+    window.addEventListener('drop', stop)
+    return () => {
+      window.removeEventListener('dragover', stop)
+      window.removeEventListener('drop', stop)
+    }
+  }, [])
+
+  /**
+   * Traekker musen FILER — eller en miniature?
+   *
+   * Slipfeltet og miniaturerne ligger i det samme omraade. Uden det her
+   * ville et forsoeg paa at omarrangere billeder blive laest som en upload.
+   */
+  const erFiler = (e: React.DragEvent) =>
+    Array.from(e.dataTransfer.types).includes('Files')
+
+  /**
+   * Flytter ét billede. Rækkefoelgen i listen ER rækkefoelgen i basen:
+   * de skjulte felter sendes i DOM-orden, og `opretBolig` skriver
+   * `position` ud fra array-indekset.
+   */
+  function flyt(fra: number, til: number) {
+    if (fra === til || til < 0 || til >= billeder.length) return
+    const flyttet = billeder[fra]!
+    setBilleder((b) => {
+      const n = [...b]
+      const [x] = n.splice(fra, 1)
+      n.splice(til, 0, x!)
+      return n
+    })
+    setMelding(
+      `${flyttet.navn} er nu nummer ${til + 1} af ${billeder.length}.`
+      + (til === 0 ? ' Det er forsidebilledet.' : ''),
+    )
+    // Efter omrokeringen kan den knap, der lige blev trykket paa, vaere
+    // blevet deaktiveret — foerste plads har ingen "frem". Saa skal fokus
+    // til den anden vej, ellers falder det til <body>, og tastaturbrugeren
+    // mister sin plads i listen.
+    const retning = til < fra ? 'frem' : 'tilbage'
+    const kanFortsaette = retning === 'frem' ? til > 0 : til < billeder.length - 1
+    setFokus(`${flyttet.url}:${kanFortsaette ? retning : (retning === 'frem' ? 'tilbage' : 'frem')}`)
+  }
 
   /**
    * Filen gaar direkte til bucket'en, ikke gennem os. Serveren udsteder
@@ -196,6 +270,9 @@ export function Annonceformular({ start = {} }: { start?: Udgangspunkt }) {
           <div className="felt">
             <label htmlFor="by">By</label>
             <input id="by" name="by" defaultValue={start.by ?? ''} placeholder="København N" />
+            <span className="felthjaelp">
+              Udfyldes ud fra postnummeret. Kender vi det ikke, bruger vi det, du skriver.
+            </span>
           </div>
           <div className="felt">
             <label htmlFor="boligtype">Boligtype</label>
@@ -218,6 +295,27 @@ export function Annonceformular({ start = {} }: { start?: Udgangspunkt }) {
             <label htmlFor="ledigFra">Ledig fra</label>
             <input id="ledigFra" name="ledigFra" type="date" defaultValue={start.ledigFra ?? ''} />
           </div>
+        </div>
+
+        <h3 className="underoverskrift">Faciliteter</h3>
+        {/* Der bliver spurgt, fordi soegesiden filtrerer paa netop de her tre.
+            Foer blev der ikke spurgt, og saa var feltet tomt — og et tomt felt
+            gjorde annoncen usynlig for hvert af filtrene, for altid. */}
+        <p className="note">
+          Sæt kryds ved det, boligen har. Folk filtrerer på dem, og et felt du
+          ikke sætter kryds i, betyder at boligen ikke har det.
+        </p>
+        <div className="felter">
+          {FACILITETER.map((fac) => {
+            const felt = `fac-${fac.vaerdi.replace(/\s+/g, '-')}`
+            return (
+              <div key={fac.vaerdi} className="felt afkryds">
+                <input type="checkbox" id={felt} name="faciliteter" value={fac.vaerdi}
+                  defaultChecked={start.faciliteter?.includes(fac.vaerdi) ?? false} />
+                <label htmlFor={felt}>{fac.navn}</label>
+              </div>
+            )
+          })}
         </div>
 
         <h3 className="underoverskrift">Økonomi</h3>
@@ -253,37 +351,130 @@ export function Annonceformular({ start = {} }: { start?: Udgangspunkt }) {
           fra kameraet fjernes undervejs — et telefonbillede bærer ofte GPS for,
           hvor det er taget. Filer over {MAKS_FIL / 1024 / 1024} MB afvises.
         </p>
-        <input type="file" accept="image/*" multiple
-          disabled={uploader || billeder.length >= MAKS_BILLEDER}
-          onChange={(e) => { void tilfoej(e.target.files); e.target.value = '' }} />
+        {/* Slipfelt. Filvaelgeren staar inde i det og er stadig en
+            almindelig <input type="file"> — traek-og-slip er en genvej,
+            ikke den eneste vej ind. */}
+        <div
+          className={`slipfelt${overSlipfelt ? ' over' : ''}${uploader ? ' travl' : ''}`}
+          onDragEnter={(e) => {
+            if (!erFiler(e)) return
+            e.preventDefault(); dybde.current++; setOverSlipfelt(true)
+          }}
+          onDragOver={(e) => {
+            if (!erFiler(e)) return
+            e.preventDefault(); e.dataTransfer.dropEffect = 'copy'
+          }}
+          onDragLeave={(e) => {
+            if (!erFiler(e)) return
+            dybde.current--
+            if (dybde.current <= 0) { dybde.current = 0; setOverSlipfelt(false) }
+          }}
+          onDrop={(e) => {
+            if (!erFiler(e)) return
+            e.preventDefault(); dybde.current = 0; setOverSlipfelt(false)
+            // Filvaelgeren er deaktiveret under en upload; slipfeltet skal
+            // vaere det samme. To forloeb i gang paa én gang ville dele
+            // `igang`-listen mellem sig.
+            if (uploader) {
+              setBilledfejl('Vent til den igangværende upload er færdig.')
+              return
+            }
+            void tilfoej(e.dataTransfer.files)
+          }}
+        >
+          <p className="sliptekst">
+            {uploader ? 'Uploader … vent med at tilføje flere.'
+              : 'Træk billeder herind — eller vælg dem:'}
+          </p>
+          <input type="file" accept="image/*" multiple
+            disabled={uploader || billeder.length >= MAKS_BILLEDER}
+            onChange={(e) => { void tilfoej(e.target.files); e.target.value = '' }} />
+        </div>
         <p className="billedtaeller">
           <strong>{billeder.length}</strong> af højst {MAKS_BILLEDER} billeder
           {billeder.length >= MAKS_BILLEDER && ' — fjern et for at tilføje flere'}
         </p>
         {billedfejl && <p className="formfejl">{billedfejl}</p>}
 
-        <div className="billedliste">
+        {billeder.length > 1 && (
+          <p className="note">
+            Det første billede er <strong>forsidebilledet</strong> — det er
+            det, folk ser i søgeresultatet. Træk miniaturerne for at bytte om,
+            eller brug pilene under hvert billede.
+          </p>
+        )}
+
+        {/* Skaermlaeseren faar besked, naar noget flytter sig. Uden den er
+            piletasterne en handling uden svar. */}
+        <p className="skjult-for-oejet" role="status" aria-live="polite">{melding}</p>
+
+        <ul className="billedliste">
           {billeder.map((b, i) => (
-            <div key={b.url} className="billedfelt">
+            <li
+              key={b.url}
+              className={`billedfelt${traekker === i ? ' traekkes' : ''}`
+                + `${over === i && traekker !== i ? ' slipher' : ''}`}
+              draggable
+              onDragStart={(e) => {
+                setTraekker(i)
+                e.dataTransfer.effectAllowed = 'move'
+                // Egen type, ikke "Files" — saa ved slipfeltet, at det her
+                // er en omrokering og ikke en upload.
+                e.dataTransfer.setData('application/x-bofinda-billede', String(i))
+              }}
+              onDragEnd={() => { setTraekker(null); setOver(null) }}
+              onDragOver={(e) => {
+                if (traekker == null) return
+                e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOver(i)
+              }}
+              onDrop={(e) => {
+                if (traekker == null) return
+                e.preventDefault(); flyt(traekker, i); setTraekker(null); setOver(null)
+              }}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {b.vis ? <img src={b.vis} alt="" /> : <span className="billedtom">Gemt</span>}
               <input type="hidden" name="billeder" value={b.url} />
-              <span className="billednavn" title={b.navn}>{b.navn}</span>
-              <button type="button" onClick={() => setBilleder((x) => x.filter((_, j) => j !== i))}>
+              {i === 0 && <span className="forsidemaerke">Forside</span>}
+              <button type="button" className="fjernbillede"
+                aria-label={`Fjern ${b.navn}`}
+                onClick={() => setBilleder((x) => x.filter((_, j) => j !== i))}>
                 Fjern
               </button>
-            </div>
+              <span className="billednavn" title={b.navn}>{b.navn}</span>
+              <div className="billedknapper">
+                <button
+                  type="button" className="flytknap" disabled={i === 0}
+                  ref={(el) => {
+                    if (el) flytknapper.current.set(`${b.url}:frem`, el)
+                    else flytknapper.current.delete(`${b.url}:frem`)
+                  }}
+                  aria-label={`Flyt ${b.navn} én plads frem`}
+                  onClick={() => flyt(i, i - 1)}
+                >←</button>
+                <span className="billednummer">{i + 1}</span>
+                <button
+                  type="button" className="flytknap" disabled={i === billeder.length - 1}
+                  ref={(el) => {
+                    if (el) flytknapper.current.set(`${b.url}:tilbage`, el)
+                    else flytknapper.current.delete(`${b.url}:tilbage`)
+                  }}
+                  aria-label={`Flyt ${b.navn} én plads tilbage`}
+                  onClick={() => flyt(i, i + 1)}
+                >→</button>
+              </div>
+            </li>
           ))}
           {/* Kun mens en upload faktisk koerer. */}
           {igang.map((g) => (
-            <div key={`igang-${g.navn}`} className="billedfelt venter">
+            <li key={`igang-${g.navn}`} className="billedfelt venter">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {g.vis ? <img src={g.vis} alt="" /> : <span className="billedtom">…</span>}
               <span className="billednavn" title={g.navn}>{g.navn}</span>
               <span className="billedstatus">Uploader …</span>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       </section>
 
       {/* ── 2. Kontakt ── */}

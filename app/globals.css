@@ -757,14 +757,16 @@ form.filtre.soegt { margin-top: 20px; }
 .annonce h2 { font-size: 17px; font-weight: 640; margin: 0 0 14px; text-transform: none;
   letter-spacing: -0.014em; color: var(--tekst); }
 
-.billedliste { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.billedliste { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px;
+  list-style: none; padding: 0; }
 .billedfelt { position: relative; width: 132px; }
 .billedfelt img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: var(--r-s);
   display: block; background: var(--linje-svag); }
 .billedtom { display: grid; place-items: center; width: 100%; aspect-ratio: 4/3;
   background: var(--linje-svag); border-radius: var(--r-s); color: var(--svag); font-size: 12px; }
-.billedfelt button { position: absolute; top: 5px; right: 5px; font-size: 11px; padding: 3px 9px;
-  background: rgba(20,22,26,.72); border-color: transparent; border-radius: 20px; }
+.billedfelt .fjernbillede { position: absolute; top: 5px; right: 5px; font-size: 11px;
+  padding: 3px 9px; background: rgba(20,22,26,.72); border-color: transparent;
+  border-radius: 20px; }
 
 .trinknapper { display: flex; gap: 8px; margin-top: 16px; }
 .udlejerkort { grid-template-columns: 1fr; }
@@ -812,3 +814,86 @@ form.filtre.soegt { margin-top: 20px; }
 .kontaktliste a { color: var(--accent); text-decoration: none; }
 .kontaktliste a:hover { text-decoration: underline; }
 .kontaktnote { color: var(--svag); font-size: 12px; margin-top: 4px; }
+
+/* Udlejerens egen annonce, naar den ikke kan findes i soegningen. Samme
+   farver som de oevrige advarsler — det er en oplysning, ikke en fejl. */
+.synlighed {
+  margin-top: 10px; padding: 10px 12px; border-radius: var(--r-s);
+  background: var(--advarsel-lys);
+}
+.synlighed p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--advarsel); }
+.synlighed p + p { margin-top: 5px; }
+.synlighed a { color: var(--advarsel); text-decoration: underline; }
+.synlighed .note { font-size: 12.5px; opacity: .85; }
+
+/* Lille forklaring under et felt, fx at byen udfyldes af postnummeret. */
+.felthjaelp { display: block; margin-top: 4px; font-size: 12px; color: var(--svag); line-height: 1.45; }
+
+/* Grundlaget under et facilitetsfilter: hvor mange oplyser det, og hvor
+   mange tier og forsvinder derfor, hvis man saetter kryds. Samme princip
+   som prissammenligningens "(baseret paa N boliger)" — et filter skal
+   kunne goere rede for, hvad det udelader.
+
+   Egen raekke og ikke en celle i .felter-gitteret: teksten skal have
+   bredde nok til to linjer, ellers braekker den over fire i en smal
+   kolonne. */
+.felt.facilitetsfiltre {
+  /* Hele raekken, aldrig en celle. Med `bred` (span 2) laa Soeg-knappen
+     oven i den tredje afkrydsnings tekst paa en telefon. */
+  grid-column: 1 / -1;
+  display: grid; gap: 10px 22px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.facilitetsfilter { display: flex; flex-direction: column; gap: 2px; }
+.afkryds-linje { display: flex; align-items: center; gap: 8px; }
+.afkryds-linje input { width: auto; accent-color: var(--accent); }
+.afkryds-linje label {
+  text-transform: none; letter-spacing: 0; font-size: 13.5px;
+  color: var(--tekst); font-weight: 500;
+}
+.filtergrundlag {
+  margin-left: 24px; font-size: 11.5px; line-height: 1.45; color: var(--svag);
+}
+
+/* ─── Billeder: slipfelt og omrokering ──────────────────────────
+   Traek-og-slip er en genvej, ikke vejen. Filvaelgeren staar inde i
+   feltet, og hvert billede har pileknapper — paa en telefon findes
+   HTML5-traek slet ikke, og med tastatur goer det heller ikke. */
+.slipfelt {
+  margin-top: 10px; padding: 18px 16px; text-align: center;
+  border: 1.5px dashed var(--linje); border-radius: var(--r);
+  background: var(--kort);
+  transition: border-color .12s ease, background-color .12s ease;
+}
+.slipfelt.over { border-color: var(--accent); background: var(--accent-lys); }
+.slipfelt.travl { opacity: .55; }
+.slipfelt input[type="file"] { display: inline-block; width: auto; }
+.sliptekst { margin: 0 0 10px; font-size: 13.5px; color: var(--daempet); }
+
+.billedfelt { cursor: grab; }
+.billedfelt:active { cursor: grabbing; }
+.billedfelt.traekkes { opacity: .35; }
+.billedfelt.slipher img, .billedfelt.slipher .billedtom {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.forsidemaerke {
+  position: absolute; top: 5px; left: 5px; font-size: 10px; font-weight: 640;
+  letter-spacing: .04em; text-transform: uppercase; padding: 3px 8px;
+  border-radius: 20px; background: var(--accent); color: #fff;
+}
+.billedknapper { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+.flytknap {
+  font-size: 13px; line-height: 1; padding: 4px 9px; border-radius: var(--r-s);
+  background: var(--kort); color: var(--tekst); border: 1px solid var(--linje);
+}
+.flytknap:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: var(--kort); }
+.flytknap:disabled { opacity: .35; cursor: default; }
+.billednummer { font-size: 11px; color: var(--svag); min-width: 14px; text-align: center; }
+
+/* Findes for skaermlaesere, ikke for oejet. Bruges til at sige hvor et
+   billede flyttede hen — en handling uden svar er ingen handling. */
+.skjult-for-oejet {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+  border: 0;
+}

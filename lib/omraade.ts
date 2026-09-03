@@ -5,7 +5,7 @@
 //  paastande om markedet, kun tal vi kan pege paa raekkerne bag.
 // ═══════════════════════════════════════════════════════════════
 
-import { and, eq, ne, sql } from 'drizzle-orm'
+import { and, eq, isNotNull, ne, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { udenDubletter } from './soeg'
 import { listings } from '../db/schema'
@@ -26,6 +26,29 @@ export interface Omraade {
 const synlig = udenDubletter(
   and(eq(listings.status, 'active'), ne(listings.addressMatchLevel, 'failed')),
 )
+
+/**
+ * Byen for et postnummer, udledt af de boliger vi allerede har.
+ *
+ * Samme opslag som omraadesiderne bygger deres navne af — `mode()` over
+ * `city` grupperet paa postnummer. Der er ingen tabel at vedligeholde, og
+ * de to kan ikke komme fra hinanden.
+ *
+ * Hvorfor udledt og ikke indtastet: `city` er praecis det, bysoegningen og
+ * omraadesiderne filtrerer paa. En udlejer, der skriver "Kbh N" i stedet
+ * for "København N", ville falde ud af hver eneste bysoegning uden at
+ * kunne se hvorfor. Vores egen stavemaade er den, der kan findes.
+ *
+ * Status er med vilje ikke filtreret fra: en afmeldt bolig er stadig et
+ * gyldigt vidne om, hvad postnummeret hedder.
+ */
+export async function byForPostnr(postnr: string): Promise<string | null> {
+  const [r] = await db
+    .select({ by: sql<string | null>`mode() within group (order by ${listings.city})` })
+    .from(listings)
+    .where(and(eq(listings.postalCode, postnr), isNotNull(listings.city)))
+  return r?.by ?? null
+}
 
 /**
  * Alle omraader med nok boliger til at fortjene en side.

@@ -18,7 +18,10 @@
     "alarm": "tsx --env-file-if-exists=.env scripts/alarm.ts",
     "genparse": "tsx --env-file-if-exists=.env scripts/genparse-adresser.ts",
     "db:status": "node --env-file-if-exists=.env scripts/migrationer.mjs",
-    "test": "tsx --env-file-if-exists=.env scripts/test-redigering.ts"
+    "test": "tsx --tsconfig tsconfig.scripts.json --env-file-if-exists=.env scripts/test-redigering.ts",
+    "db:backup": "node --env-file-if-exists=.env scripts/backup.mjs",
+    "db:backup:proev": "node --env-file-if-exists=.env scripts/proev-genskab.mjs",
+    "tjek:noegler": "node --env-file-if-exists=.env scripts/tjek-noegler.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
@@ -32,9 +35,11 @@
     "tsx": "^4.19.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.2.7",
     "dotenv": "^16.4.0",
     "drizzle-kit": "^0.30.0",
     "typescript": "^5.6.0"

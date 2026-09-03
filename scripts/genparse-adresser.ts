@@ -13,11 +13,13 @@
 //    npm run genparse           viser hvad der ville ske
 //    npm run genparse -- --skriv  skriver
 //
+//  UDLEJERANNONCER ROERES IKKE. Se `where` i main().
+//
 //  CLAUDE.md naevner det samme behov for skiftet til DAR: de gamle
 //  noegler kan findes praecist paa INTERN_PRAEFIKS.
 // ═══════════════════════════════════════════════════════════════
 
-import { eq } from 'drizzle-orm'
+import { eq, ne } from 'drizzle-orm'
 import { db, sql as raw } from '../db/client'
 import { listings } from '../db/schema'
 import { SimpelAdressevask } from '../lib/address'
@@ -43,6 +45,16 @@ async function main() {
       niveau: listings.addressMatchLevel,
     })
     .from(listings)
+    // Udlejeren har tastet vej, husnummer, etage og doer i hvert sit felt.
+    // De felter er sandheden. `address_raw` er en streng, VI har bygget af
+    // dem til visning — at parse den tilbage er at kaste oplysningerne vaek
+    // og gaette dem igen, og gaettet gaar galt: "Vestergade 1, 8000" bliver
+    // laest som etage 80, doer 00. Det var praecis den fejl, de adskilte
+    // felter blev indfoert for at fjerne.
+    //
+    // For de scrapede er strengen kildens egen, og der ER ikke andet. Der
+    // giver genparsning mening. Her goer den ikke.
+    .where(ne(listings.sourceType, 'native'))
 
   let uaendret = 0
   const aendringer: { id: string; raa: string; foer: string; efter: string; ny: typeof raekker[number] }[] = []
