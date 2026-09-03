@@ -144,6 +144,12 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   den er oprettet efter søgningen — eller, for kilder uden dato, når den
   dukkede op efter mindst et døgns overvågning af den kilde. Uden reglen gav
   en prøvekørsel 68 falske varsler ud af 87, med en medianalder på 37 dage.
+- **Politikken er først gyldig, når `info@bofinda.dk` modtager mail.**
+  Domænet er ikke købt — `bofinda.dk` slår op med NXDOMAIN. En
+  privatlivspolitik, der henviser til en adresse, ingen læser, giver ikke
+  den indsigtsret, den lover. **Det skal være på plads, før en fremmed
+  udlejer opretter en annonce** — indtil da er den eneste native annonce
+  ejerens egen, med hans egne oplysninger.
 - **Privatlivspolitikken skal beskrive det, koden gør — ikke omvendt.**
   Sletningsfristerne i `/privatliv` og konstanterne i `ryd()` er ét og samme
   løfte. Ændres den ene, skal den anden med i samme ændring:

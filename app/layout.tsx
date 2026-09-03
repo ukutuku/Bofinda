@@ -31,8 +31,9 @@ export default function Layout({ children }: { children: ReactNode }) {
           <div className="ramme">
             <a href="/udlejer">Udlej din bolig</a>
             <a href="/privatliv">Privatlivspolitik</a>
-            <span>Boliger hentet fra offentligt tilgængelige udlejningsportaler.
-              Henvendelse om en bolig sker hos kilden.</span>
+            <span>Boliger hentet fra offentligt tilgængelige udlejningsportaler
+              samt annoncer oprettet af udlejere selv. Henvendelse sker hos
+              kilden eller direkte hos udlejeren.</span>
           </div>
         </footer>
       </body>

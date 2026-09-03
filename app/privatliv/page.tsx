@@ -3,20 +3,26 @@ export const metadata = {
   description: 'Hvilke oplysninger Bofinda behandler, hvorfor, og hvor længe.',
 }
 
-// Almindelig side, ikke genereret indhold. Teksten rettes her.
-// Felterne i [kantede parenteser] skal udfyldes før siden er offentlig —
-// se `.udfyld` i globals.css, som gør dem synlige.
+// Almindelig side, ikke genereret indhold. Teksten rettes her, og den er
+// ejerens — ikke noget vi formulerer på hans vegne.
+//
+// BEMÆRK: info@bofinda.dk modtager ikke mail endnu; domænet er ikke købt.
+// Politikken er først gyldig, når adressen virker. Se CLAUDE.md.
 export default function Side() {
   return (
     <article className="dokument">
       <h1>Privatlivspolitik</h1>
-      <p className="dato">Sidst opdateret: 2. september 2026</p>
+      <p className="dato">Sidst opdateret: 3. september 2026</p>
 
       <h2>Dataansvarlig</h2>
       <p>
-        <span className="udfyld">[DIT NAVN / VIRKSOMHEDSNAVN]</span><br />
-        <span className="udfyld">[CVR-NR, hvis relevant]</span><br />
-        <span className="udfyld">[KONTAKTMAIL]</span>
+        Bofinda drives som et privat projekt. Spørgsmål om behandling af
+        personoplysninger, indsigt, rettelse eller sletning kan rettes til{' '}
+        <a href="mailto:info@bofinda.dk">info@bofinda.dk</a>.
+      </p>
+      <p>
+        Du har ret til at klage til Datatilsynet, Carl Jacobsens Vej 35,
+        2500 Valby, <a href="https://www.datatilsynet.dk">datatilsynet.dk</a>.
       </p>
 
       <h2>Hvilke oplysninger vi behandler</h2>
@@ -65,7 +71,11 @@ export default function Side() {
       <p>Vi sælger eller udlejer ikke oplysninger til nogen.</p>
       <p>Vi bruger disse databehandlere til at drive tjenesten:</p>
       <ul>
-        <li>Supabase Inc. — database, hostet i EU (Irland)</li>
+        <li>
+          Supabase (Irland) — database og fillager. Billeder, du uploader til
+          en annonce, gemmes i et privat lager hos Supabase og vises kun
+          gennem vores egen billedtjeneste.
+        </li>
         <li>Vercel Inc. — hosting af hjemmesiden, USA</li>
         <li>Railway Corp. — kørsel af boligimporten, USA</li>
         <li>Resend (Plus Five Five, Inc.) — udsendelse af mails, USA</li>
@@ -82,8 +92,29 @@ export default function Side() {
       <h2>Boligoplysninger</h2>
       <p>
         Boligerne på Bofinda er hentet fra offentligt tilgængelige
-        udlejningsportaler. Vi viser ikke udlejeres eller nuværende lejeres
-        kontaktoplysninger. Henvendelse om en bolig sker hos kilden.
+        udlejningsportaler.
+      </p>
+
+      <h2>Udlejeres kontaktoplysninger</h2>
+      <p>
+        Når du opretter en annonce som udlejer, oplyser du en mailadresse og
+        eventuelt et telefonnummer. Disse oplysninger vises på boligsiden,
+        når en besøgende trykker &laquo;Vis kontaktoplysninger&raquo;. De står
+        ikke i sidens kildekode, men de er offentligt tilgængelige for enhver,
+        der trykker.
+      </p>
+      <p>
+        Retsgrundlaget er artikel 6, stk. 1, litra b: behandlingen er
+        nødvendig for at levere den tjeneste, du har bedt om. En annonce uden
+        kontaktvej har ingen funktion.
+      </p>
+      <p>
+        Oplysningerne slettes, når du fjerner annoncen eller din konto. Du kan
+        til enhver tid rette dem under Mine annoncer.
+      </p>
+      <p>
+        For boliger, vi henter fra andre portaler, viser vi ikke
+        kontaktoplysninger. Henvendelse sker hos kilden.
       </p>
 
       <h2>Dine rettigheder</h2>
@@ -94,13 +125,8 @@ export default function Side() {
         format.
       </p>
       <p>
-        Skriv til <span className="udfyld">[KONTAKTMAIL]</span>, så vender vi
-        tilbage inden for en måned.
-      </p>
-      <p>
-        Er du utilfreds med vores behandling, kan du klage til Datatilsynet,
-        Carl Jacobsens Vej 35, 2500 Valby,{' '}
-        <a href="mailto:dt@datatilsynet.dk">dt@datatilsynet.dk</a>.
+        Skriv til <a href="mailto:info@bofinda.dk">info@bofinda.dk</a>, så
+        vender vi tilbage inden for en måned.
       </p>
 
       <h2>Ændringer</h2>
