@@ -273,6 +273,28 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   størrelser. Værtslisten i `lib/billede.ts` er andet lag og tjekkes **før**
   signaturen — slipper hemmeligheden ud, kan proxyen stadig kun pege på de
   kilder, vi allerede henter fra. Nye kilder skal tilføjes dér.
+- **Muren er ÅBEN for native boliger indtil videre.** `hentBolig` udleverer
+  `harKontaktMail` og `harKontaktTlf` — om der er oplyst noget, ikke hvad —
+  og `hentKontakt` i `app/bolig/[id]/kontakthandling.ts` giver selve
+  værdierne, når et menneske trykker. Betingelsen `sourceType = 'native'`
+  står i SQL'en begge steder, aldrig i skabelonen.
+
+  **Hvorfor åben:** en scrapet bolig har en kilde at henvise til, og der
+  linker vi. En udlejerannonce har ingen. Muren gjorde den til en annonce,
+  ingen kunne svare på, mens udlejeren troede hun var i gang.
+
+  **Når betalingsmodellen kommer:** muren skal lukkes igen for native — men
+  som en betalingsmur, ikke som i dag, hvor felterne bare ikke blev hentet.
+  Betingelsen i `kontakthandling.ts` skal da udvides med et abonnementstjek,
+  og `harKontaktMail`/`harKontaktTlf` skal blive stående, så siden fortsat
+  kan sige, at der ER en vej — ellers ser annoncen tom ud.
+- **Mailadresser står aldrig som rå tekst på en offentlig side.** Adresse-
+  høstere læser markup på minutter. Værdien hentes med en server action,
+  når nogen trykker, så den ikke er i svaret. Det rigtige på sigt er en
+  formular, der sender beskeden videre på serveren, så adressen aldrig
+  forlader os — den kan ikke bygges, før afsenderdomænet er ægte. I dag er
+  `ALARM_AFSENDER` Resends delte testdomæne, som kun leverer til kontoens
+  egen ejer, og en formular ville tie og tabe henvendelsen.
 - **Kontaktfelterne må aldrig stå i en select-liste.** `hentBolig` og `soeg`
   henter dem ikke. Muren står i query-laget, ikke i skabelonen: et felt der
   aldrig forlader databasen, kan ikke lække ved en uopmærksom UI-ændring.

@@ -682,12 +682,26 @@ export async function hentBolig(id: string) {
       url: listings.sourceUrl,
       kilde: sources.slug,
       kildeNavn: sources.name,
-      // contactEmail og contactPhone hentes ALDRIG her. Se noten ovenfor.
+      // Kontaktfelterne kommer KUN ud for native boliger, og betingelsen
+      // staar i SQL'en — ikke i skabelonen. En scrapet bolig kan derfor
+      // ikke faa dem ud, uanset hvad en senere UI-aendring beder om.
+      //
+      // Muren er aaben for native indtil videre: der er ingen kilde at
+      // henvise til, og en annonce ingen kan svare paa er ingen annonce.
+      // Se noten i CLAUDE.md om hvad der skal ske, naar betalingsmodellen
+      // kommer.
       skjult: listings.isBlurred,
       // Til visningen: en native bolig har ingen ekstern kilde at sende
       // laeseren hen til. Kontaktfelterne hentes stadig ALDRIG her — muren
       // staar i query'en, ikke i skabelonen.
       egenAnnonce: sql<boolean>`(${listings.sourceType} = 'native')`,
+      // OM der er oplyst noget — ikke HVAD. Vaerdien hentes foerst, naar
+      // et menneske trykker, saa den ikke ligger i sidens markup, hvor en
+      // adresse-hoester kan laese den.
+      harKontaktMail: sql<boolean>`(${listings.sourceType} = 'native'
+        and ${listings.contactEmail} is not null)`,
+      harKontaktTlf: sql<boolean>`(${listings.sourceType} = 'native'
+        and ${listings.contactPhone} is not null)`,
     })
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))

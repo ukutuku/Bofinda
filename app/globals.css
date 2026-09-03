@@ -794,3 +794,21 @@ form.filtre.soegt { margin-top: 20px; }
 .oek-mur span { color: var(--daempet); }
 .billedtaeller { font-size: 12.5px; color: var(--daempet); margin: 8px 0 0; }
 .billedtaeller strong { color: var(--tekst); font-weight: 640; }
+
+/* ─── Kontakt på en udlejerannonce ──────────────────────────────
+   Adressen ligger ikke i markup'en; den hentes, når nogen trykker. */
+.kontaktboks { background: var(--linje-svag); border-radius: var(--r-s);
+  padding: 13px 14px; margin-top: 18px; display: flex; flex-direction: column;
+  gap: 6px; font-size: 13.5px; line-height: 1.5; }
+.kontaktboks > strong { font-weight: 640; font-size: 14px; }
+.kontaktboks > span { color: var(--daempet); }
+.kontaktboks .knap { margin-top: 5px; text-align: center; padding: 9px 14px; }
+.kontaktfejl { color: var(--vaek); }
+.kontaktliste { margin: 4px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.kontaktliste div { display: flex; flex-direction: column; gap: 1px; }
+.kontaktliste dt { font-size: 11px; font-weight: 640; color: var(--svag);
+  text-transform: uppercase; letter-spacing: .06em; }
+.kontaktliste dd { margin: 0; font-size: 15px; font-weight: 560; }
+.kontaktliste a { color: var(--accent); text-decoration: none; }
+.kontaktliste a:hover { text-decoration: underline; }
+.kontaktnote { color: var(--svag); font-size: 12px; margin-top: 4px; }

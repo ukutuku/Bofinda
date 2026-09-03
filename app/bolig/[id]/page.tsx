@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { hentBolig, kvadratmeterpris, type BoligDetalje } from '../../../lib/soeg'
 import { billedUrl } from '../../../lib/billede'
 import { Galleri } from './Galleri'
+import { Kontakt } from './Kontakt'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,13 +40,6 @@ function adresselinje(b: BoligDetalje): string {
   else if (b.etage === 'kl') etage = 'kælder'
   else if (b.etage) etage = b.doer ? `${b.etage}.` : `${b.etage}. sal`
   return [vej, [etage, b.doer].filter(Boolean).join(' ')].filter(Boolean).join(', ') || b.adresse
-}
-
-/** Hvad udlejeren har oplyst — uden at afsloere selve vaerdien. */
-function kontaktord(b: BoligDetalje): string {
-  // Felterne hentes ikke i query'en, saa vi kan ikke se HVAD der staar.
-  // Vi siger derfor ikke, om det er det ene eller det andet.
-  return 'mailadresse eller telefonnummer'
 }
 
 // ─── Siden ─────────────────────────────────────────────────────
@@ -165,13 +159,20 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
                  Kontaktoplysningerne findes, men muren staar foran dem:
                  de hentes ikke i query'en, saa der er intet at vise endnu. */
               <>
-                <div className="oek-mur">
-                  <strong>Kontakt udlejeren</strong>
-                  <span>
-                    Udlejeren har oplyst {kontaktord(b)} — det bliver synligt her,
-                    når adgang til kontaktoplysninger åbner.
-                  </span>
-                </div>
+                {b.harKontaktMail || b.harKontaktTlf ? (
+                  <Kontakt
+                    id={b.id}
+                    harMail={b.harKontaktMail}
+                    harTelefon={b.harKontaktTlf}
+                  />
+                ) : (
+                  /* Kan ske, hvis udlejeren har ryddet begge felter. Saa
+                     siger vi det, i stedet for at lade som om der er en vej. */
+                  <div className="kontaktboks">
+                    <strong>Ingen kontaktoplysninger</strong>
+                    <span>Udlejeren har ikke oplyst, hvordan hun kan nås.</span>
+                  </div>
+                )}
                 <p className="oek-kilde">
                   Boligen er oprettet af udlejeren selv på Bofinda{' '}
                   {siden(b.foerstSet)}.
