@@ -15,14 +15,15 @@
 
 import { useActionState, useState } from 'react'
 import { gemBolig, registrerBillede, signerUpload, type Svar } from './handlinger'
-import { klargoer, MAKS_FIL } from './billedklient'
+import { klargoer, MAKS_BILLEDER, MAKS_FIL } from './billedklient'
 
 interface Billede { url: string; vis: string; navn: string }
 interface Igang { navn: string; vis: string }
 
 export interface Udgangspunkt {
   id?: string
-  adresse?: string; postnr?: string; boligtype?: string
+  vej?: string; husnr?: string; etage?: string | null; doer?: string | null
+  postnr?: string; by?: string | null; boligtype?: string
   areal?: number | null; vaerelser?: number | null
   husleje?: number | null; varme?: number | null; vand?: number | null
   el?: number | null; oevrig?: number | null
@@ -58,7 +59,25 @@ export function Annonceformular({ start = {} }: { start?: Udgangspunkt }) {
   async function tilfoej(filer: FileList | null) {
     if (!filer?.length) return
     setBilledfejl(null)
-    const valgte = Array.from(filer)
+
+    // Loft. Listen foejede foer bare til, uden at vise hvor mange der laa —
+    // en annonce endte med 31 billeder, hvor udlejeren troede der var fire.
+    const plads = MAKS_BILLEDER - billeder.length
+    if (plads <= 0) {
+      setBilledfejl(`Du kan have højst ${MAKS_BILLEDER} billeder. Fjern et først.`)
+      return
+    }
+    let valgte = Array.from(filer)
+    // Samme fil to gange er nesten altid en fortrydelse, ikke et oenske.
+    valgte = valgte.filter((f) => !billeder.some((b) => b.navn === f.name))
+    if (!valgte.length) {
+      setBilledfejl('De billeder er allerede tilføjet.')
+      return
+    }
+    if (valgte.length > plads) {
+      setBilledfejl(`Der er plads til ${plads} mere. De første ${plads} tilføjes.`)
+      valgte = valgte.slice(0, plads)
+    }
     setIgang(valgte.map((f) => ({ navn: f.name, vis: '' })))
 
     try {
@@ -152,15 +171,34 @@ export function Annonceformular({ start = {} }: { start?: Udgangspunkt }) {
       <section className="blok" data-trin="0" hidden={trin !== 0}>
         <h2>Boligoplysninger</h2>
         <div className="felter">
+          {/* Adskilte felter. Samlet til én streng og parset igen blev
+              "Nørrebrogade 30, 2200" til etage 22, dør 00. */}
           <div className="felt bred">
-            <label htmlFor="adresse">Adresse</label>
-            <input id="adresse" name="adresse" defaultValue={start.adresse ?? ''}
-              placeholder="Nørrebrogade 56 B, 3. tv" required />
+            <label htmlFor="vej">Vejnavn</label>
+            <input id="vej" name="vej" defaultValue={start.vej ?? ''}
+              placeholder="Nørrebrogade" required />
+          </div>
+          <div className="felt">
+            <label htmlFor="husnr">Husnummer</label>
+            <input id="husnr" name="husnr" defaultValue={start.husnr ?? ''}
+              placeholder="56 B" required />
+          </div>
+          <div className="felt">
+            <label htmlFor="etage">Etage</label>
+            <input id="etage" name="etage" defaultValue={start.etage ?? ''} placeholder="3 eller st" />
+          </div>
+          <div className="felt">
+            <label htmlFor="doer">Dør</label>
+            <input id="doer" name="doer" defaultValue={start.doer ?? ''} placeholder="tv, th, 4" />
           </div>
           <div className="felt">
             <label htmlFor="postnr">Postnummer</label>
             <input id="postnr" name="postnr" defaultValue={start.postnr ?? ''}
               inputMode="numeric" pattern="\d{4}" required />
+          </div>
+          <div className="felt">
+            <label htmlFor="by">By</label>
+            <input id="by" name="by" defaultValue={start.by ?? ''} placeholder="København N" />
           </div>
           <div className="felt">
             <label htmlFor="boligtype">Boligtype</label>
@@ -218,8 +256,13 @@ export function Annonceformular({ start = {} }: { start?: Udgangspunkt }) {
           fra kameraet fjernes undervejs — et telefonbillede bærer ofte GPS for,
           hvor det er taget. Filer over {MAKS_FIL / 1024 / 1024} MB afvises.
         </p>
-        <input type="file" accept="image/*" multiple disabled={uploader}
+        <input type="file" accept="image/*" multiple
+          disabled={uploader || billeder.length >= MAKS_BILLEDER}
           onChange={(e) => { void tilfoej(e.target.files); e.target.value = '' }} />
+        <p className="billedtaeller">
+          <strong>{billeder.length}</strong> af højst {MAKS_BILLEDER} billeder
+          {billeder.length >= MAKS_BILLEDER && ' — fjern et for at tilføje flere'}
+        </p>
         {billedfejl && <p className="formfejl">{billedfejl}</p>}
 
         <div className="billedliste">

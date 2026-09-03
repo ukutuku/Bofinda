@@ -684,6 +684,10 @@ export async function hentBolig(id: string) {
       kildeNavn: sources.name,
       // contactEmail og contactPhone hentes ALDRIG her. Se noten ovenfor.
       skjult: listings.isBlurred,
+      // Til visningen: en native bolig har ingen ekstern kilde at sende
+      // laeseren hen til. Kontaktfelterne hentes stadig ALDRIG her — muren
+      // staar i query'en, ikke i skabelonen.
+      egenAnnonce: sql<boolean>`(${listings.sourceType} = 'native')`,
     })
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))

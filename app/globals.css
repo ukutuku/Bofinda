@@ -785,3 +785,12 @@ form.filtre.soegt { margin-top: 20px; }
 .billednavn { display: block; font-size: 11px; color: var(--svag); margin-top: 4px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .billedstatus { display: block; font-size: 11px; color: var(--accent); font-weight: 560; }
+
+/* Muren på en udlejerannonce. Ikke en fejl — en oplysning om, at der ER
+   noget, og at det åbner senere. */
+.oek-mur { background: var(--linje-svag); border-radius: var(--r-s); padding: 12px 14px;
+  margin-top: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; line-height: 1.5; }
+.oek-mur strong { font-weight: 640; font-size: 14px; }
+.oek-mur span { color: var(--daempet); }
+.billedtaeller { font-size: 12.5px; color: var(--daempet); margin: 8px 0 0; }
+.billedtaeller strong { color: var(--tekst); font-weight: 640; }

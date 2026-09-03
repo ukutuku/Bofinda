@@ -41,6 +41,13 @@ function adresselinje(b: BoligDetalje): string {
   return [vej, [etage, b.doer].filter(Boolean).join(' ')].filter(Boolean).join(', ') || b.adresse
 }
 
+/** Hvad udlejeren har oplyst — uden at afsloere selve vaerdien. */
+function kontaktord(b: BoligDetalje): string {
+  // Felterne hentes ikke i query'en, saa vi kan ikke se HVAD der staar.
+  // Vi siger derfor ikke, om det er det ene eller det andet.
+  return 'mailadresse eller telefonnummer'
+}
+
 // ─── Siden ─────────────────────────────────────────────────────
 
 export default async function Side({ params }: { params: Promise<{ id: string }> }) {
@@ -152,13 +159,35 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
               </div>
             )}
 
-            <a className="knap" href={b.url} target="_blank" rel="noopener noreferrer">
-              Se annoncen hos {b.kildeNavn}
-            </a>
-            <p className="oek-kilde">
-              Kontaktoplysninger vises hos kilden. Annonceret{' '}
-              {b.hosKilden ? siden(b.hosKilden) : 'på ukendt tidspunkt'} · set af os {siden(b.foerstSet)}.
-            </p>
+            {b.egenAnnonce ? (
+              /* Udlejeren har oprettet annoncen her. Der er ingen ekstern
+                 kilde at sende laeseren til — knappen linkede i ring.
+                 Kontaktoplysningerne findes, men muren staar foran dem:
+                 de hentes ikke i query'en, saa der er intet at vise endnu. */
+              <>
+                <div className="oek-mur">
+                  <strong>Kontakt udlejeren</strong>
+                  <span>
+                    Udlejeren har oplyst {kontaktord(b)} — det bliver synligt her,
+                    når adgang til kontaktoplysninger åbner.
+                  </span>
+                </div>
+                <p className="oek-kilde">
+                  Boligen er oprettet af udlejeren selv på Bofinda{' '}
+                  {siden(b.foerstSet)}.
+                </p>
+              </>
+            ) : (
+              <>
+                <a className="knap" href={b.url} target="_blank" rel="noopener noreferrer">
+                  Se annoncen hos {b.kildeNavn}
+                </a>
+                <p className="oek-kilde">
+                  Kontaktoplysninger vises hos kilden. Annonceret{' '}
+                  {b.hosKilden ? siden(b.hosKilden) : 'på ukendt tidspunkt'} · set af os {siden(b.foerstSet)}.
+                </p>
+              </>
+            )}
           </div>
         </aside>
 
@@ -236,7 +265,8 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
                 ? (b.ledigFra.getTime() <= Date.now() ? 'Nu' : dato(b.ledigFra))
                 : <span className="mangler">ikke oplyst</span>}</dd>
               {b.aabentHus && <><dt>Åbent hus</dt><dd>{dato(b.aabentHus)}</dd></>}
-              <dt>Kilde</dt><dd>{b.kildeNavn}</dd>
+              <dt>Kilde</dt>
+              <dd>{b.egenAnnonce ? 'Udlejeren selv' : b.kildeNavn}</dd>
             </dl>
           </section>
 

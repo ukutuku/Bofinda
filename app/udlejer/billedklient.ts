@@ -20,6 +20,8 @@
 const MAKS_KANT = 1600
 /** Filer større end det er en fejltagelse, ikke et billede. */
 export const MAKS_FIL = 25 * 1024 * 1024
+/** Loft paa antal. Uden det hobede de sig op usynligt. */
+export const MAKS_BILLEDER = 20
 
 export interface Klargjort {
   blob: Blob

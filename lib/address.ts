@@ -202,8 +202,24 @@ export class SimpelAdressevask implements Adressevask {
   readonly officiel = false
 
   async vask(raw: string, hint?: { postalCode?: string | null }): Promise<VasketAdresse> {
-    const p = parsAdresse(raw)
-    const postalCode = p.postalCode ?? hint?.postalCode ?? null
+    return this.afDele(parsAdresse(raw), hint?.postalCode ?? null)
+  }
+
+  /**
+   * Samme vask, men paa dele der ALLEREDE er adskilte.
+   *
+   * En udlejer taster vej, husnummer, etage, doer og postnummer i hver sit
+   * felt. At samle dem til én streng og parse den igen er at kaste
+   * oplysninger vaek og gaette dem tilbage — og gaettet kan gaa galt:
+   * "Nørrebrogade 30, 2200" blev laest som etage 22, doer 00, fordi
+   * postnummer-regexet kraever en by efter tallet.
+   *
+   * Noeglen bygges af PRAECIS samme kanonisering som for de scrapede.
+   * Ellers ville den samme bolig fra en udlejer og fra en portal ikke
+   * kunne dedupes, og det er hele pointen med at have én noegleform.
+   */
+  async afDele(p: ParsetAdresse, postnrHint: string | null = null): Promise<VasketAdresse> {
+    const postalCode = p.postalCode ?? postnrHint ?? null
 
     // Uden vejnavn eller postnummer ved vi ikke hvor boligen ligger.
     // Saa er den ikke matchet, og saa vises den ikke.

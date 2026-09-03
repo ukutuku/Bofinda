@@ -166,19 +166,27 @@ const heltal = (v: FormDataEntryValue | null): number | null => {
 }
 
 function laesInput(f: FormData): Boliginput | string {
-  const adresse = String(f.get('adresse') ?? '').trim()
+  // Adskilte felter. De samles ALDRIG til en streng, der parses igen —
+  // "Nørrebrogade 30, 2200" blev laest som etage 22, doer 00.
+  const vej = String(f.get('vej') ?? '').trim()
+  const husnr = String(f.get('husnr') ?? '').trim()
   const postnr = String(f.get('postnr') ?? '').trim()
   const husleje = oere(f.get('husleje'))
   const mail = String(f.get('kontaktMail') ?? '').trim()
   const tlf = String(f.get('kontaktTlf') ?? '').trim()
 
-  if (!adresse) return 'Skriv adressen.'
+  if (!vej) return 'Skriv vejnavnet.'
+  if (!husnr) return 'Skriv husnummeret.'
   if (!/^\d{4}$/.test(postnr)) return 'Postnummeret skal være fire cifre.'
   if (husleje == null || husleje === 0) return 'Skriv huslejen.'
   if (!mail && !tlf) return 'Skriv en mailadresse eller et telefonnummer — lejeren skal kunne nå dig.'
 
   return {
-    adresse: adresse.includes(postnr) ? adresse : `${adresse}, ${postnr}`,
+    vej,
+    husnr,
+    etage: String(f.get('etage') ?? '').trim() || null,
+    doer: String(f.get('doer') ?? '').trim() || null,
+    by: String(f.get('by') ?? '').trim() || null,
     postnr,
     boligtype: String(f.get('boligtype') ?? 'lejlighed'),
     areal: heltal(f.get('areal')),

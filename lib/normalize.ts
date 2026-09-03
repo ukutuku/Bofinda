@@ -206,9 +206,18 @@ const dato = (s: string | undefined | null): Date | null => {
   return isNaN(+d) ? null : d
 }
 
-export async function normaliser(r: RawListing): Promise<NormaliseretBolig> {
+/**
+ * `vasket` gives, naar adressen ALLEREDE er adskilt i felter — en udlejer
+ * taster vej, husnummer, etage og doer hver for sig. At samle dem til én
+ * streng og parse den igen er at kaste oplysninger vaek og gaette dem
+ * tilbage. Se SimpelAdressevask.afDele.
+ */
+export async function normaliser(
+  r: RawListing,
+  vasket?: Awaited<ReturnType<typeof vaskAdresse>>,
+): Promise<NormaliseretBolig> {
   // Kildens eget postnummer bruges som fallback, hvis strengen ikke bar det.
-  const adr = await vaskAdresse(r.address, { postalCode: r.postalCode })
+  const adr = vasket ?? await vaskAdresse(r.address, { postalCode: r.postalCode })
   const postalCode = adr.postalCode ?? r.postalCode ?? null
 
   const propertyType = normaliserBoligtype(r.propertyType)

@@ -18,12 +18,18 @@
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../db/client'
 import { listingImages, listings, sources } from '../db/schema'
+import { SimpelAdressevask } from './address'
 import { normaliser } from './normalize'
 import type { Udlejer } from './auth'
 
 export interface Boliginput {
-  adresse: string
+  /** Adskilte felter. De samles KUN til visning, aldrig til parsning. */
+  vej: string
+  husnr: string
+  etage: string | null
+  doer: string | null
   postnr: string
+  by: string | null
   boligtype: string
   areal: number | null
   vaerelser: number | null
@@ -63,12 +69,34 @@ function indflytning(i: Boliginput): number | undefined {
   return i.husleje + aconto + i.depositum + i.forudbetalt
 }
 
+/**
+ * Adressen som ÉN linje — til visning og til `address_raw`. Nøglerne
+ * bygges ikke af den; de bygges af de adskilte felter. Se `vasketAdresse`.
+ */
+export function adresselinje(i: Boliginput): string {
+  const etageDoer = [i.etage ? `${i.etage}.` : null, i.doer].filter(Boolean).join(' ')
+  return [
+    [`${i.vej} ${i.husnr}`.trim(), etageDoer].filter(Boolean).join(', '),
+    [i.postnr, i.by].filter(Boolean).join(' '),
+  ].filter(Boolean).join(', ')
+}
+
+/** De adskilte felter gennem vasken, uden at gaa vejen om en streng. */
+const vasketAdresse = (i: Boliginput) => new SimpelAdressevask().afDele({
+  street: i.vej.trim() || null,
+  houseNumber: i.husnr.trim() || null,
+  floor: i.etage?.trim() || null,
+  door: i.doer?.trim() || null,
+  postalCode: i.postnr,
+  city: i.by?.trim() || null,
+})
+
 /** Boliginput -> den samme form som en adapter leverer. */
 function somRaa(i: Boliginput, id: string, url: string) {
   return {
     externalKey: id,
     sourceUrl: url,
-    address: i.adresse,
+    address: adresselinje(i),
     postalCode: i.postnr,
     sizeM2: i.areal ?? undefined,
     rooms: i.vaerelser ?? undefined,
@@ -90,7 +118,7 @@ export async function opretBolig(u: Udlejer, i: Boliginput): Promise<string> {
   // Id'et laves foerst, saa sourceUrl kan pege paa boligens egen side.
   // Kolonnen er NOT NULL, og en native bolig har ingen kilde at pege paa.
   const id = crypto.randomUUID()
-  const n = await normaliser(somRaa(i, id, `${base()}/bolig/${id}`))
+  const n = await normaliser(somRaa(i, id, `${base()}/bolig/${id}`), await vasketAdresse(i))
 
   await db.insert(listings).values({
     ...n,
@@ -114,7 +142,7 @@ export async function opretBolig(u: Udlejer, i: Boliginput): Promise<string> {
 
 export async function opdaterBolig(u: Udlejer, id: string, i: Boliginput): Promise<void> {
   await minEllerKast(u, id)
-  const n = await normaliser(somRaa(i, id, `${base()}/bolig/${id}`))
+  const n = await normaliser(somRaa(i, id, `${base()}/bolig/${id}`), await vasketAdresse(i))
   await db.update(listings).set({
     ...n,
     description: i.beskrivelse.trim() || n.description,

@@ -29,7 +29,9 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
       <h1>Redigér annonce</h1>
       <Annonceformular start={{
         id: b.id,
-        adresse: b.addressRaw, postnr: b.postalCode ?? '',
+        vej: b.street ?? '', husnr: b.houseNumber ?? '',
+        etage: b.floor, doer: b.door,
+        postnr: b.postalCode ?? '', by: b.city,
         boligtype: b.propertyType ?? 'lejlighed',
         areal: b.sizeM2, vaerelser: b.rooms,
         husleje: b.rentMonthly, varme: b.utilitiesHeat, vand: b.utilitiesWater,
