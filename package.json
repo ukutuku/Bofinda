@@ -16,7 +16,8 @@
     "worker": "NODE_EXTRA_CA_CERTS=./certs/rapidssl-tls-rsa-ca-g1.pem tsx --env-file-if-exists=.env scripts/worker.ts",
     "puls": "node --env-file-if-exists=.env scripts/puls.mjs",
     "alarm": "tsx --env-file-if-exists=.env scripts/alarm.ts",
-    "genparse": "tsx --env-file-if-exists=.env scripts/genparse-adresser.ts"
+    "genparse": "tsx --env-file-if-exists=.env scripts/genparse-adresser.ts",
+    "db:status": "node --env-file-if-exists=.env scripts/migrationer.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

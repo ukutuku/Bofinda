@@ -70,45 +70,80 @@ function oversaet(m: string): string {
 }
 
 // ─── Billeder ──────────────────────────────────────────────────
+//
+//  Filen gaar ALDRIG gennem vores server. Den skal ikke: en Server Action
+//  har en kropsgraense paa 1 MB, og et telefonbillede sprænger den — det
+//  gav 500 og en formular, der frøs. Graensen er heller ikke problemet,
+//  den er symptomet. Arkitekturen i migration 0014 er, at udlejeren
+//  uploader direkte til sin egen mappe i bucket'en.
+//
+//  Serveren gør to smaa ting, som klienten ikke kan:
+//    1. udsteder en signeret upload-URL (kraever hendes token)
+//    2. signerer en langtidsholdbar laese-URL bagefter
+//  Begge er JSON paa nogle faa hundrede bytes.
+// ─── ─────────────────────────────────────────────────────────
 
-/** Ti år. URL'en gemmes i basen og skal holde, så længe annoncen gør. */
+/** Ti aar. URL'en gemmes i basen og skal holde, saa laenge annoncen goer. */
 const SIGNATUR_SEKUNDER = 10 * 365 * 24 * 3600
 
-/**
- * Uploader ét billede til udlejerens egen mappe og returnerer en signeret
- * URL. Bucket'en er privat: hverken browseren eller en fremmed kan hente
- * filen uden signaturen, og signaturen når kun frem gennem vores proxy.
- */
-export async function uploadBillede(
-  f: FormData,
-): Promise<{ url?: string; forhaandsvisning?: string; fejl?: string }> {
+/** Filnavne fra en telefon kan indeholde hvad som helst. Stien er vores. */
+function rensEndelse(navn: string): string {
+  const e = (navn.split('.').pop() ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  return ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'].includes(e) ? e : 'jpg'
+}
+
+/** Udsteder en signeret upload-URL til udlejerens egen mappe. */
+export async function signerUpload(
+  filnavn: string,
+): Promise<{ sti?: string; url?: string; fejl?: string }> {
   const u = await hentUdlejer()
   const token = await adgangstoken()
   if (!u || !token || !URL_ || !NOEGLE) return { fejl: 'Du skal være logget ind.' }
 
-  const fil = f.get('fil')
-  if (!(fil instanceof File) || fil.size === 0) return { fejl: 'Ingen fil.' }
-  if (!fil.type.startsWith('image/')) return { fejl: 'Kun billeder.' }
-  if (fil.size > 8 * 1024 * 1024) return { fejl: 'Billedet må højst fylde 8 MB.' }
-
-  const endelse = (fil.name.split('.').pop() ?? 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
-  // Mappen er udlejerens auth-uid. Politikken i migration 0014 kraever det.
-  const sti = `${u.authUserId}/${crypto.randomUUID()}.${endelse || 'jpg'}`
-
-  const op = await fetch(`${URL_}/storage/v1/object/boliger/${sti}`, {
+  // Mappen ER udlejerens auth-uid. Politikken i 0014 haandhaever det, saa
+  // en signatur til en fremmed mappe bliver afvist af databasen.
+  const sti = `${u.authUserId}/${crypto.randomUUID()}.${rensEndelse(filnavn)}`
+  const r = await fetch(`${URL_}/storage/v1/object/upload/sign/boliger/${sti}`, {
     method: 'POST',
-    headers: { apikey: NOEGLE, Authorization: `Bearer ${token}`, 'content-type': fil.type },
-    body: await fil.arrayBuffer(),
+    headers: { apikey: NOEGLE, Authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: '{}',
   })
-  if (!op.ok) return { fejl: `Kunne ikke gemme billedet (${op.status}).` }
+  if (!r.ok) {
+    console.error(`[udlejer] signerUpload ${r.status}: ${(await r.text()).slice(0, 200)}`)
+    return { fejl: `Kunne ikke forberede uploaden (${r.status}).` }
+  }
+  const { url } = await r.json() as { url?: string }
+  if (!url) return { fejl: 'Lageret svarede uden en upload-adresse.' }
+  return { sti, url: `${URL_}/storage/v1${url.startsWith('/') ? '' : '/'}${url}` }
+}
 
-  const sig = await fetch(`${URL_}/storage/v1/object/sign/boliger/${sti}`, {
+/**
+ * Kaldes NAAR filen ligger i bucket'en. Signerer en laese-URL, som gemmes
+ * i listing_images, og en forhaandsvisning gennem vores egen proxy.
+ *
+ * Stien tjekkes mod den indloggede brugers mappe. Klienten sender den, og
+ * det klienten sender, er en anmodning — ikke et bevis.
+ */
+export async function registrerBillede(
+  sti: string,
+): Promise<{ url?: string; forhaandsvisning?: string; fejl?: string }> {
+  const u = await hentUdlejer()
+  const token = await adgangstoken()
+  if (!u || !token || !URL_ || !NOEGLE) return { fejl: 'Du skal være logget ind.' }
+  if (!sti.startsWith(`${u.authUserId}/`) || sti.includes('..')) {
+    return { fejl: 'Ugyldig sti.' }
+  }
+
+  const r = await fetch(`${URL_}/storage/v1/object/sign/boliger/${sti}`, {
     method: 'POST',
     headers: { apikey: NOEGLE, Authorization: `Bearer ${token}`, 'content-type': 'application/json' },
     body: JSON.stringify({ expiresIn: SIGNATUR_SEKUNDER }),
   })
-  if (!sig.ok) return { fejl: `Kunne ikke signere billedet (${sig.status}).` }
-  const { signedURL, signedUrl } = await sig.json() as { signedURL?: string; signedUrl?: string }
+  if (!r.ok) {
+    console.error(`[udlejer] registrerBillede ${r.status}: ${(await r.text()).slice(0, 200)}`)
+    return { fejl: `Billedet blev gemt, men kunne ikke gøres synligt (${r.status}).` }
+  }
+  const { signedURL, signedUrl } = await r.json() as { signedURL?: string; signedUrl?: string }
   const rel = signedUrl ?? signedURL
   if (!rel) return { fejl: 'Lageret svarede uden en signatur.' }
   const url = `${URL_}/storage/v1${rel.startsWith('/') ? '' : '/'}${rel}`

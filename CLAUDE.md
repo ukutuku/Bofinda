@@ -266,6 +266,24 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 - **Kontaktfelterne må aldrig stå i en select-liste.** `hentBolig` og `soeg`
   henter dem ikke. Muren står i query-laget, ikke i skabelonen: et felt der
   aldrig forlader databasen, kan ikke lække ved en uopmærksom UI-ændring.
+- **En fil må aldrig gå gennem en Server Action.** Grænsen er 1 MB, og et
+  telefonbillede sprænger den — det gav `500 Body exceeded 1 MB limit` og en
+  formular, der frøs. **Hæv den ikke.** Serveren udsteder en signeret
+  upload-URL, og browseren sender filen direkte til bucket'en. Serveren
+  rører kun JSON på nogle få hundrede bytes.
+- **Billeder skaleres og EXIF strippes i browseren, før de sendes.** Et
+  telefonbillede bærer GPS for, hvor det er taget — altså hvor boligen
+  ligger, ofte på meteren. Det er ikke vores at videregive, og udlejeren har
+  ikke tænkt over det. Omtegningen på et canvas gør begge dele på én gang.
+- **Migrationer køres IKKE af Vercel-bygget** — et byg skal kunne lykkes
+  uden en database. Derfor opdager ingenting en migration, der aldrig blev
+  kørt: 0014 lå uden for produktionen, indtil en upload fejlede. **Kør
+  `npm run db:status` efter hver deploy.** Den fejler med exit 1 og siger
+  hvad der mangler — også en håndskrevet .sql-fil uden post i
+  `meta/_journal.json`, som drizzle-kit ellers springer over i tavshed.
+- **Bucket-navne er versalfølsomme.** Bucket'en blev oprettet som `Boliger`
+  mens politikker og kode sagde `boliger`; ingen upload kunne ramme den.
+  Alt vores hedder små bogstaver.
 - **Slå aldrig Row Level Security fra.** Supabase eksponerer `public` gennem
   PostgREST; en tabel uden RLS kan læses med den offentlige nøgle, og så er
   betalingsmuren pynt. Ny tabel = `enable row level security` i samme

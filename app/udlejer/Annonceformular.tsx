@@ -14,7 +14,11 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { useActionState, useState } from 'react'
-import { gemBolig, uploadBillede, type Svar } from './handlinger'
+import { gemBolig, registrerBillede, signerUpload, type Svar } from './handlinger'
+import { klargoer, MAKS_FIL } from './billedklient'
+
+interface Billede { url: string; vis: string; navn: string }
+interface Igang { navn: string; vis: string }
 
 export interface Udgangspunkt {
   id?: string
@@ -35,29 +39,84 @@ const TRIN = ['Boligen', 'Kontakt', 'Udgiv'] as const
 export function Annonceformular({ start = {} }: { start?: Udgangspunkt }) {
   const [svar, action, venter] = useActionState<Svar, FormData>(gemBolig, {})
   const [trin, setTrin] = useState(0)
-  const [billeder, setBilleder] = useState<{ url: string; vis: string }[]>(
-    (start.billeder ?? []).map((url) => ({ url, vis: '' })),
+  const [billeder, setBilleder] = useState<Billede[]>(
+    (start.billeder ?? []).map((url) => ({ url, vis: '', navn: 'Gemt billede' })),
   )
-  const [uploader, setUploader] = useState(false)
+  /** Hvad der uploades LIGE NU. Tom liste = ingen upload i gang. */
+  const [igang, setIgang] = useState<Igang[]>([])
   const [billedfejl, setBilledfejl] = useState<string | null>(null)
+  const uploader = igang.length > 0
 
+  /**
+   * Filen gaar direkte til bucket'en, ikke gennem os. Serveren udsteder
+   * kun en signeret URL.
+   *
+   * Hele forloebet ligger i try/finally: fejler noget som helst — netvaerk,
+   * lager, signatur — skal tilstanden nulstilles og fejlen vises. En
+   * formular der fryser uden at sige hvorfor, er vaerre end en der fejler.
+   */
   async function tilfoej(filer: FileList | null) {
     if (!filer?.length) return
-    setUploader(true); setBilledfejl(null)
-    for (const fil of Array.from(filer)) {
-      const fd = new FormData()
-      fd.set('fil', fil)
-      const r = await uploadBillede(fd)
-      if (r.fejl) { setBilledfejl(r.fejl); break }
-      if (r.url) setBilleder((b) => [...b, { url: r.url!, vis: r.forhaandsvisning ?? '' }])
+    setBilledfejl(null)
+    const valgte = Array.from(filer)
+    setIgang(valgte.map((f) => ({ navn: f.name, vis: '' })))
+
+    try {
+      for (const fil of valgte) {
+        let k: Awaited<ReturnType<typeof klargoer>> | null = null
+        try {
+          k = await klargoer(fil)
+          setIgang((x) => x.map((y) => (y.navn === fil.name ? { ...y, vis: k!.visning } : y)))
+
+          const sig = await signerUpload(k.navn)
+          if (sig.fejl || !sig.url || !sig.sti) throw new Error(sig.fejl ?? 'Ingen upload-adresse.')
+
+          const svar = await fetch(sig.url, {
+            method: 'PUT',
+            headers: { 'content-type': k.type },
+            body: k.blob,
+          })
+          if (!svar.ok) throw new Error(`Lageret afviste billedet (${svar.status}).`)
+
+          const reg = await registrerBillede(sig.sti)
+          if (reg.fejl || !reg.url) throw new Error(reg.fejl ?? 'Billedet kunne ikke gøres synligt.')
+          setBilleder((b) => [...b, {
+            url: reg.url!, vis: reg.forhaandsvisning ?? '', navn: fil.name,
+          }])
+        } finally {
+          if (k) URL.revokeObjectURL(k.visning)
+        }
+      }
+    } catch (e) {
+      const m = e instanceof Error ? e.message : 'Uploaden gik galt.'
+      setBilledfejl(m)
+      console.error('[udlejer] upload:', e)
+    } finally {
+      // Uanset hvad. Det var her formularen froes.
+      setIgang([])
     }
-    setUploader(false)
   }
 
   /** Hvilket trin står feltet i? Bruges til at springe hen til en fejl. */
   function trinFor(el: Element): number {
     const sek = el.closest('section[data-trin]')
     return Number(sek?.getAttribute('data-trin') ?? 0)
+  }
+
+  /**
+   * Videre tjekker det trin, man staar paa. En knap der flytter én videre
+   * fra et halvt udfyldt trin, er en knap der udskyder fejlen — og saa
+   * dukker den op paa trin tre, langt fra feltet den handler om.
+   */
+  function videre(e: React.MouseEvent<HTMLButtonElement>) {
+    const form = e.currentTarget.form
+    const sek = form?.querySelector(`section[data-trin="${trin}"]`)
+    const felter = sek
+      ? [...sek.querySelectorAll<HTMLInputElement>('input, select, textarea')]
+      : []
+    const daarlig = felter.find((f) => !f.checkValidity())
+    if (daarlig) { daarlig.reportValidity(); daarlig.focus(); return }
+    setTrin(trin + 1)
   }
 
   function paaSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -154,19 +213,34 @@ export function Annonceformular({ start = {} }: { start?: Udgangspunkt }) {
           placeholder="Skriv om boligen. Din tekst står, som du skriver den." />
 
         <h3 className="underoverskrift">Billeder</h3>
+        <p className="note">
+          Billederne skaleres ned i din browser, før de sendes. Placeringsdata
+          fra kameraet fjernes undervejs — et telefonbillede bærer ofte GPS for,
+          hvor det er taget. Filer over {MAKS_FIL / 1024 / 1024} MB afvises.
+        </p>
         <input type="file" accept="image/*" multiple disabled={uploader}
           onChange={(e) => { void tilfoej(e.target.files); e.target.value = '' }} />
-        {uploader && <p className="note">Uploader …</p>}
         {billedfejl && <p className="formfejl">{billedfejl}</p>}
+
         <div className="billedliste">
           {billeder.map((b, i) => (
             <div key={b.url} className="billedfelt">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {b.vis ? <img src={b.vis} alt="" /> : <span className="billedtom">Gemt</span>}
               <input type="hidden" name="billeder" value={b.url} />
-              <button type="button" onClick={() => setBilleder((b) => b.filter((_, j) => j !== i))}>
+              <span className="billednavn" title={b.navn}>{b.navn}</span>
+              <button type="button" onClick={() => setBilleder((x) => x.filter((_, j) => j !== i))}>
                 Fjern
               </button>
+            </div>
+          ))}
+          {/* Kun mens en upload faktisk koerer. */}
+          {igang.map((g) => (
+            <div key={`igang-${g.navn}`} className="billedfelt venter">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {g.vis ? <img src={g.vis} alt="" /> : <span className="billedtom">…</span>}
+              <span className="billednavn" title={g.navn}>{g.navn}</span>
+              <span className="billedstatus">Uploader …</span>
             </div>
           ))}
         </div>
@@ -200,14 +274,18 @@ export function Annonceformular({ start = {} }: { start?: Udgangspunkt }) {
           rette og fjerne den igen, når du vil.
         </p>
         {svar?.fejl && <p className="formfejl">{svar.fejl}</p>}
+        {/* Deaktiveret uden begrundelse er en knap, der ikke virker. */}
+        {uploader && <p className="note">Vent til billederne er uploadet.</p>}
         <button type="submit" disabled={venter || uploader}>
           {venter ? 'Gemmer …' : start.id ? 'Gem ændringer' : 'Udgiv annoncen'}
         </button>
       </section>
 
       <div className="trinknapper">
-        {trin > 0 && <button type="button" className="nulstil" onClick={() => setTrin(trin - 1)}>Tilbage</button>}
-        {trin < 2 && <button type="button" onClick={() => setTrin(trin + 1)}>Videre</button>}
+        {trin > 0 && (
+          <button type="button" className="nulstil" onClick={() => setTrin(trin - 1)}>Tilbage</button>
+        )}
+        {trin < 2 && <button type="button" onClick={videre}>Videre</button>}
       </div>
     </form>
   )
