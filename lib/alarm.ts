@@ -6,7 +6,7 @@
 //  tilbage.
 // ═══════════════════════════════════════════════════════════════
 
-import { and, asc, desc, eq, gt, isNotNull, isNull, lt, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { alertMatches, crawlRuns, listings, savedSearches, sources, users } from '../db/schema'
 import { hvor, type Filtre } from './soeg'
@@ -83,6 +83,20 @@ export async function matchAlarmer(): Promise<MatchResultat[]> {
           gt(listings.sourceCreatedAt, s.oprettet),
           isNull(listings.sourceCreatedAt),
         ),
+        // ── Udlejerannoncer sendes IKKE ud ────────────────────────
+        //
+        // Umodereret brugerindhold, der lander i fremmedes indbakker, er
+        // en spamvej, der er svær at lukke bagefter. Indtil der er en form
+        // for moderation, bliver native boliger i soegningen — hvor
+        // brugeren selv opsoeger dem — og ude af mailen.
+        //
+        // Det stod ikke skrevet nogen steder foer. De faldt ud ved et
+        // TILFAELDE: filteret nedenfor slaar kildens foerste koersel op i
+        // crawl_runs, og `native` har ingen koersler, saa opslaget gav
+        // undefined. Den dag nogen saetter source_created_at paa en
+        // udlejerannonce — hvad "udgivet den" naturligt ville vaere —
+        // ville de begynde at gaa ud. Derfor staar det her, udtrykkeligt.
+        ne(listings.sourceType, 'native'),
       ))
 
     // Kilder uden egen dato kan SQL ikke afgøre. Her kræves i stedet, at

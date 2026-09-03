@@ -36,6 +36,16 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   på skærmen, da hun trykkede — og det ville ingen opdage.
 - **En gemt søgning uden filtre gemmes ikke.** Det er "alle boliger i
   landet" og giver modtageren hundredvis af mails. `harFiltre()` afgør det.
+- **Udlejerannoncer går ALDRIG ud i en alarmmail.** Umodereret
+  brugerindhold, der lander i fremmedes indbakker, er en spamvej, der er
+  svær at lukke bagefter. Native boliger bliver i søgningen, hvor brugeren
+  selv opsøger dem, og ude af mailen — `ne(listings.sourceType, 'native')`
+  i `matchAlarmer`. Spærringen står udtrykkeligt, fordi de FØR faldt ud ved
+  et tilfælde: filteret slår kildens første kørsel op i `crawl_runs`, og
+  `native` har ingen kørsler. Den dag nogen sætter `source_created_at` på
+  en udlejerannonce — hvad "udgivet den" naturligt ville være — ville de
+  begynde at gå ud. `npm test` prøver netop det tilfælde.
+  Ophæves spærringen, kræver det moderation først.
 - **Alarmen skal matche præcis som søgesiden filtrerer.** `hvor()` i
   `lib/soeg.ts` er eksporteret og bruges begge steder. To implementeringer
   ville betyde, at beskeden rammer noget andet, end brugeren så, da hun

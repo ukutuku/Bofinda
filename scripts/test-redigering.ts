@@ -1,5 +1,8 @@
 // ═══════════════════════════════════════════════════════════════
-//  Rundturen: gem uden at ændre noget, og se om rækken overlever.
+//  To ting, der er dyre at bryde uden at opdage det:
+//
+//    1. Rundturen — gem uden at ændre noget, og se om rækken overlever.
+//    2. At en udlejerannonce ALDRIG havner i en alarmmail.
 //
 //  Fejlen den fanger: redigér-formularen indlæste ikke alle felter, og et
 //  gem skrev tomme værdier hen over de gemte. En udlejer, der rettede en
@@ -14,7 +17,8 @@
 
 import { eq } from 'drizzle-orm'
 import { db, sql } from '../db/client'
-import { listingImages, listings, users } from '../db/schema'
+import { alertMatches, listingImages, listings, savedSearches, users } from '../db/schema'
+import { matchAlarmer } from '../lib/alarm'
 import { opdaterBolig, opretBolig, somFormular, type Boliginput } from '../lib/udlejer'
 
 let fejl = 0
@@ -98,6 +102,33 @@ async function main() {
     const bilEfter = await db.select().from(listingImages).where(eq(listingImages.listingId, id))
     tjek('billederne er der stadig', bilEfter.length === FULDT.billeder.length,
       `${bilEfter.length} af ${FULDT.billeder.length}`)
+    // ── Udlejerannoncer maa ikke gaa ud i alarmmails ────────────
+    // De faldt foer ud ved et tilfaelde, fordi `native` ikke har nogen
+    // koersel i crawl_runs. Nu staar det udtrykkeligt i matchAlarmer, og
+    // her staar proeven, saa det ikke kan glide tilbage.
+    console.log('\n══ en udlejerannonce må ikke i en alarmmail ══')
+    // Boligen faar en kilde-dato. Uden den ville proeven bestaa af den
+    // FORKERTE grund: matchAlarmer springer boliger over, hvis kilden
+    // ikke har nogen koersel i crawl_runs, og det har `native` ikke.
+    // Med datoen slipper den forbi det filter, og saa er det kun den
+    // udtrykkelige spaerring, der holder den ude — som er den, vi tester.
+    await db.update(listings)
+      .set({ sourceCreatedAt: new Date() })
+      .where(eq(listings.id, id))
+    const [soeg] = await db.insert(savedSearches).values({
+      userId: u!.id,
+      name: 'proeve: alt',
+      criteria: {},
+      confirmedAt: new Date(),
+      notifyEmail: true,
+    }).returning()
+    await matchAlarmer()
+    const [traf] = await db.select().from(alertMatches)
+      .where(eq(alertMatches.listingId, id)).limit(1)
+    tjek('native bolig er IKKE et alarmtræf', !traf)
+    await db.delete(alertMatches).where(eq(alertMatches.savedSearchId, soeg!.id))
+    await db.delete(savedSearches).where(eq(savedSearches.id, soeg!.id))
+
   } finally {
     if (id) {
       await db.delete(listingImages).where(eq(listingImages.listingId, id))
