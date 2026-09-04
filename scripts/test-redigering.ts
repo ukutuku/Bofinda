@@ -25,7 +25,7 @@
 //    npm test
 // ═══════════════════════════════════════════════════════════════
 
-import { eq } from 'drizzle-orm'
+import { and, eq, sql as dsql } from 'drizzle-orm'
 import { db, sql } from '../db/client'
 import { alertMatches, listingImages, listings, savedSearches, sources, users } from '../db/schema'
 import { matchAlarmer } from '../lib/alarm'
@@ -36,7 +36,10 @@ import { Gruppekort, Kort } from '../app/Boligkort'
 import { billedUrl, TILLADTE_VAERTER } from '../lib/billede'
 import { eltilstand } from '../lib/eloplysning'
 import type { Bolig, Gruppe } from '../lib/soeg'
-import { facilitetsgrundlag, opsummering, soeg, soegGrupperet } from '../lib/soeg'
+import {
+  facilitetsgrundlag, hvor, opsummering, soeg, soegGrupperet, tavseKilder, udenDubletter,
+} from '../lib/soeg'
+import { FACILITET } from '../lib/faciliteter'
 import {
   mineBoliger, opdaterBolig, opretBolig, renTekst, somFormular, tjekAdresse,
   type Boliginput,
@@ -360,6 +363,35 @@ async function main() {
     tjek('hendes elevator tælles med i grundlaget',
       (await facilitetsgrundlag({ postnr: FULDT.postnr })).elevator >= 1)
 
+    // Grundlagslinjen nævner TRE grupper, og de skal dække alle boliger:
+    // dem der har faciliteten, dem der oplyser faciliteter uden den, og
+    // dem der intet oplyser. Går de ikke op, mangler brugeren en gruppe
+    // uden at kunne se hvilken — det gjorde de før, hvor kun to blev nævnt.
+    // Tallene tælles UAFHÆNGIGT her. Regnede prøven mellemgruppen som
+    // `antal - tier - har`, ville summen gå op per definition, og prøven
+    // ville ikke kunne fejle. De tre grupper skal måles hver for sig og
+    // tilsammen dække alle boliger.
+    const OPLYST = dsql`jsonb_array_length(coalesce(${listings.amenities}, '[]'::jsonb)) > 0`
+    const harSql = (navne: readonly string[]) => dsql`jsonb_exists_any(
+      coalesce(${listings.amenities}, '[]'::jsonb),
+      array[${dsql.join(navne.map((n) => dsql`${n}`), dsql`, `)}]::text[])`
+    for (const nøgle of ['kaeledyr', 'elevator', 'udeplads'] as const) {
+      const [m] = await db.select({
+        har: dsql<number>`count(*) filter (where ${harSql(FACILITET[nøgle])})::int`,
+        uden: dsql<number>`count(*) filter (where ${OPLYST}
+          and not ${harSql(FACILITET[nøgle])})::int`,
+        tier: dsql<number>`count(*) filter (where not ${OPLYST})::int`,
+      }).from(listings).innerJoin(sources, eq(sources.id, listings.sourceId))
+        .where(udenDubletter(hvor({})))
+      const { har, uden, tier } = m!
+      tjek(`${nøgle}: de tre grupper dækker alle boliger`,
+        har + uden + tier === g.antal,
+        `${har} + ${uden} + ${tier} = ${har + uden + tier}, i alt ${g.antal}`)
+      tjek(`${nøgle}: linjens tal er det målte`, har === g[nøgle], `${g[nøgle]} mod ${har}`)
+      tjek(`${nøgle}: en tavs bolig tælles aldrig som havende`, tier === g.tier,
+        `${g.tier} mod ${tier}`)
+    }
+
     // ── Tællingen skal tælle VISBARE billeder ────────────────────
     // `b.billeder` var `count(*) from listing_images` — rækker, ikke
     // billeder vi kan vise. Et kort med tyve billeder på en vært uden
@@ -478,6 +510,38 @@ async function main() {
     rivalId = ''
     tjek('uden dublet: mærkatet siger udgivet igen', (await maerkat()).slags === 'udgivet')
     tjek('uden dublet: og hun er i søgningen igen', await iSoegningen())
+
+    // ── Linjen om tavse kilder ───────────────────────────────────
+    // Frafaldet i et facilitetsfilter er ikke jaevnt: nogle kilder oplyser
+    // ALDRIG faciliteter, saa et kryds fjerner dem helt. Navnene beregnes,
+    // saa linjen retter sig selv — men saa skal den ogsaa vaere sand.
+    console.log('\n══ tavse kilder ══')
+    const tk = await tavseKilder({})
+    tjek('der findes tavse kilder at nævne', tk.navne.length > 0, tk.navne.join(', '))
+    tjek('de dækker et positivt antal boliger', tk.antal > 0, String(tk.antal))
+    // Vores EGEN kilde maa ikke nævnes: formularen SPOERGER om faciliteter,
+    // saa "oplyser aldrig" ville vaere faktuelt forkert om den.
+    //
+    // Prøven skal måle det RIGTIGE: uden det her ville testens egen annonce
+    // (der HAR faciliteter) gøre vores kilde ikke-tavs, og så bestod prøven,
+    // selv om spærringen var fjernet. Vi tager faciliteterne af annoncen
+    // imens, så kilden faktisk ER tavs.
+    const facFoer = (await db.select({ a: listings.amenities })
+      .from(listings).where(eq(listings.id, id)))[0]!.a
+    await db.update(listings).set({ amenities: [] }).where(eq(listings.id, id))
+    const tkTavs = await tavseKilder({})
+    await db.update(listings).set({ amenities: facFoer }).where(eq(listings.id, id))
+    tjek('vores egen kilde nævnes ikke, heller ikke når den ER tavs',
+      !tkTavs.navne.includes('Bofinda'), tkTavs.navne.join(', '))
+    // En navngiven kilde skal FAKTISK vaere tavs — ikke bare have faa.
+    const oplysende = await db.select({ navn: sources.name })
+      .from(listings).innerJoin(sources, eq(sources.id, listings.sourceId))
+      .where(and(udenDubletter(hvor({})),
+        dsql`jsonb_array_length(coalesce(${listings.amenities}, '[]'::jsonb)) > 0`))
+      .groupBy(sources.name)
+    const forkert = tk.navne.filter((n) => oplysende.some((o) => o.navn === n))
+    tjek('ingen af de nævnte oplyser faciliteter nogen steder',
+      forkert.length === 0, forkert.join(', '))
 
     // ── Gruppering maa ikke slaa to udlejere sammen ──────────────
     // `sources.slug` er 'native' for ALLE udlejerannoncer. Uden ejeren i

@@ -796,6 +796,55 @@ export const facilitetsgrundlag = (f: Filtre) =>
 
 export type Facilitetsgrundlag = Awaited<ReturnType<typeof opsummering>>
 
+/** Kilder der aldrig oplyser faciliteter, og hvor mange boliger de har. */
+export interface Tavsekilder {
+  navne: string[]
+  antal: number
+}
+
+/**
+ * Hvilke kilder tier HELT om faciliteter i den aktuelle soegning?
+ *
+ * Frafaldet i et facilitetsfilter er ikke jaevnt fordelt. Tre kilder —
+ * LokalBolig, findbolig.nu og Dacas — oplyser aldrig faciliteter, saa et
+ * kryds i "Elevator" fjerner dem fuldstaendigt. Filtret bliver dermed ogsaa
+ * et KILDEfilter, og det skal brugeren kunne se: hun har ikke fravalgt en
+ * egenskab, hun har fravalgt tre kilder.
+ *
+ * Navnene beregnes, ikke skrives ind. Skifter en kilde praksis, eller
+ * kommer der en ny tavs kilde, retter linjen sig selv.
+ *
+ * Grundlaget er soegningen UDEN de tre facilitetsfiltre — med dem er de
+ * tavse kilder allerede vaek, og saa ville svaret altid vaere tomt.
+ * Koeres kun naar et facilitetsfilter er sat, hvilket er den eneste gang
+ * linjen vises.
+ */
+export async function tavseKilder(f: Filtre): Promise<Tavsekilder> {
+  const r = await db
+    .select({
+      navn: sources.name,
+      antal: sql<number>`count(*)::int`,
+      oplyser: sql<number>`count(*) filter (where ${OPLYST})::int`,
+    })
+    .from(listings)
+    .innerJoin(sources, eq(sources.id, listings.sourceId))
+    .where(and(
+      hvorVist({ ...f, kaeledyr: false, elevator: false, udeplads: false }),
+      // Vores EGEN kilde hoerer ikke til her. Saetningen paastaar, at en
+      // kilde aldrig oplyser faciliteter — og det er faktuelt forkert om
+      // udlejerannoncer: formularen SPOERGER om dem. At én annonce ikke
+      // har krydset noget af, er ikke en datapraksis hos en tredjepart.
+      // De taelles stadig med i "oplyser ingen" paa grundlagslinjen.
+      ne(listings.sourceType, 'native'),
+    ))
+    .groupBy(sources.name)
+  const tavse = r.filter((x) => x.oplyser === 0)
+  return {
+    navne: tavse.map((x) => x.navn).sort(),
+    antal: tavse.reduce((a, x) => a + x.antal, 0),
+  }
+}
+
 /** Byer og kilder til filterfelterne — kun dem der faktisk har boliger. */
 export async function facetter() {
   const byer = await db

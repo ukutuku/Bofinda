@@ -1,5 +1,5 @@
 import {
-  antalBoliger, facilitetsgrundlag, filtreFraParametre, harFiltre,
+  antalBoliger, facilitetsgrundlag, filtreFraParametre, harFiltre, tavseKilder,
   opsummering, soegGrupperet, type Soegeparametre,
 } from '../lib/soeg'
 import { facetterCached, forsidetalCached } from './cache'
@@ -8,6 +8,10 @@ import { Visningskort, kr } from './Boligkort'
 import { Landkort, type Maerke } from './Landkort'
 
 export const dynamic = 'force-dynamic'
+
+/** "A", "A og B", "A, B og C" — dansk opremsning, ikke join(', '). */
+const sammenskriv = (n: string[]): string =>
+  n.length <= 1 ? (n[0] ?? '') : `${n.slice(0, -1).join(', ')} og ${n[n.length - 1]}`
 
 // ─── Siden ─────────────────────────────────────────────────────
 
@@ -67,9 +71,11 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // som `sum` — og så koster tallene ingenting. Er en sat, er det én
   // forespørgsel mere (~75 ms), og det er netop dér, hun har brug for at se,
   // hvad filteret skjuler.
-  const grundlag = (f.kaeledyr || f.elevator || f.udeplads)
-    ? await facilitetsgrundlag(f)
-    : sum
+  const facFiltre = f.kaeledyr || f.elevator || f.udeplads
+  const grundlag = facFiltre ? await facilitetsgrundlag(f) : sum
+  // Kun naar hun faktisk har krydset af. Uden et filter er linjen en
+  // advarsel mod noget, hun ikke har gjort.
+  const tavse = facFiltre ? await tavseKilder(f) : { navne: [], antal: 0 }
   const fac = await facetterCached()
   const tal = await forsidetalCached()
   const vist = antalBoliger(visninger)
@@ -214,10 +220,15 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                 {/* Filteret udelukker de ukendte — det er det eneste ærlige,
                     for vi ved ikke om de har det. Men så skal hun kunne se,
                     hvad hun ikke får. Tallene følger den aktuelle søgning. */}
+                {/* Tre grupper, ikke to. Linjen sagde før kun "N oplyser det"
+                    og "M oplyser ingen faciliteter" — og så manglede der en
+                    tredjedel af boligerne uden forklaring: dem der oplyser
+                    faciliteter, bare ikke DENNE. Tallene går op med antallet. */}
                 <span className="filtergrundlag">
-                  {grundlag.kaeledyr.toLocaleString('da-DK')} boliger oplyser det.{' '}
-                  {grundlag.tier.toLocaleString('da-DK')} oplyser ikke faciliteter
-                  {' '}og vises ikke.
+                  {grundlag.kaeledyr.toLocaleString('da-DK')} oplyser det ·{' '}
+                  {(grundlag.antal - grundlag.tier - grundlag.kaeledyr).toLocaleString('da-DK')}
+                  {' '}oplyser faciliteter uden det ·{' '}
+                  {grundlag.tier.toLocaleString('da-DK')} oplyser ingen og vises ikke
                 </span>
               </div>
             )}
@@ -230,10 +241,15 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                 {/* Filteret udelukker de ukendte — det er det eneste ærlige,
                     for vi ved ikke om de har det. Men så skal hun kunne se,
                     hvad hun ikke får. Tallene følger den aktuelle søgning. */}
+                {/* Tre grupper, ikke to. Linjen sagde før kun "N oplyser det"
+                    og "M oplyser ingen faciliteter" — og så manglede der en
+                    tredjedel af boligerne uden forklaring: dem der oplyser
+                    faciliteter, bare ikke DENNE. Tallene går op med antallet. */}
                 <span className="filtergrundlag">
-                  {grundlag.elevator.toLocaleString('da-DK')} boliger oplyser det.{' '}
-                  {grundlag.tier.toLocaleString('da-DK')} oplyser ikke faciliteter
-                  {' '}og vises ikke.
+                  {grundlag.elevator.toLocaleString('da-DK')} oplyser det ·{' '}
+                  {(grundlag.antal - grundlag.tier - grundlag.elevator).toLocaleString('da-DK')}
+                  {' '}oplyser faciliteter uden det ·{' '}
+                  {grundlag.tier.toLocaleString('da-DK')} oplyser ingen og vises ikke
                 </span>
               </div>
             )}
@@ -246,10 +262,15 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                 {/* Filteret udelukker de ukendte — det er det eneste ærlige,
                     for vi ved ikke om de har det. Men så skal hun kunne se,
                     hvad hun ikke får. Tallene følger den aktuelle søgning. */}
+                {/* Tre grupper, ikke to. Linjen sagde før kun "N oplyser det"
+                    og "M oplyser ingen faciliteter" — og så manglede der en
+                    tredjedel af boligerne uden forklaring: dem der oplyser
+                    faciliteter, bare ikke DENNE. Tallene går op med antallet. */}
                 <span className="filtergrundlag">
-                  {grundlag.udeplads.toLocaleString('da-DK')} boliger oplyser det.{' '}
-                  {grundlag.tier.toLocaleString('da-DK')} oplyser ikke faciliteter
-                  {' '}og vises ikke.
+                  {grundlag.udeplads.toLocaleString('da-DK')} oplyser det ·{' '}
+                  {(grundlag.antal - grundlag.tier - grundlag.udeplads).toLocaleString('da-DK')}
+                  {' '}oplyser faciliteter uden det ·{' '}
+                  {grundlag.tier.toLocaleString('da-DK')} oplyser ingen og vises ikke
                 </span>
               </div>
             )}
@@ -323,11 +344,15 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           alle boliger fra kilder, der bare ikke skriver det — og det ligner
           "der er ingen". Det skal stå på skærmen, ikke kun i koden. */}
       {soegt && (f.kaeledyr || f.elevator || f.udeplads)
-        && grundlag.tier > 0 && (
+        && tavse.navne.length > 0 && (
+        /* Frafaldet er ikke jævnt fordelt. Tre kilder oplyser aldrig
+           faciliteter, så et kryds fjerner dem HELT — filteret er også et
+           kildefilter. Navnene beregnes, så linjen retter sig selv, hvis en
+           kilde skifter praksis. */
         <p className="prisnote advarsel">
-          Kun <strong>{fac.facilitetskilder.join(' og ')}</strong> oplyser faciliteter.
-          {' '}De {grundlag.tier.toLocaleString('da-DK')} boliger, der ikke gør, er ikke
-          med her — fordi kilden tier om det, ikke fordi boligen mangler det.
+          <strong>{sammenskriv(tavse.navne)}</strong> oplyser aldrig faciliteter.
+          {' '}Med et facilitetsfilter er alle {tavse.antal.toLocaleString('da-DK')}
+          {' '}boliger derfra ude — også dem der har det, du søger.
         </p>
       )}
 

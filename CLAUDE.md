@@ -65,6 +65,48 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   og vand." Vi kan ikke skelne "udlejer opkræver intet" fra "udlejer oplyser
   intet", så vi påstår ingen af delene — vi siger, hvad brugeren skal spørge
   om. Et gæt her ville love hende noget om hendes økonomi, som ikke holder.
+- **428 af 1.226 synlige boliger har ingen facilitetsdata overhovedet, og
+  frafaldet er ikke jævnt fordelt.** Målt 4. september 2026:
+
+  | Kilde | Synlige | Tavse | Andel |
+  |---|---|---|---|
+  | LokalBolig | 224 | 224 | 100 % |
+  | findbolig.nu | 158 | 158 | 100 % |
+  | Propstep | 764 | 27 | 4 % |
+  | Dacas | 17 | 17 | 100 % |
+  | Balder | 62 | 1 | 2 % |
+  | Bofinda (native) | 1 | 1 | 100 % |
+
+  **Tre af kilderne oplyser aldrig faciliteter** — LokalBolig, findbolig.nu
+  og Dacas, tilsammen 399 boliger. (Den fjerde 100 %-linje er vores egen
+  native-kilde med én annonce.) Et facilitetsfilter fjerner de tre kilder
+  fuldstændigt, og bliver dermed også et kildefilter, uden at nogen har
+  bedt om det.
+
+  **Rettelse til en tidligere opgørelse:** tallet 262 har stået som antallet
+  af boliger uden facilitetsdata. Det var forkert. Det kom af en gruppering
+  på `source_type`, hvor "spider: 0 af 261" så udtømmende ud — men den
+  skjulte, at findbolig.nu er en `feed`-kilde og lige så tavs som
+  spider-kilderne. Grupper på kilde, ikke på kildetype, når spørgsmålet er,
+  hvem der oplyser hvad.
+
+  Når et facilitetsfilter er sat, står der desuden, hvilke kilder der
+  forsvinder helt: *"Dacas, LokalBolig og findbolig.nu oplyser aldrig
+  faciliteter. Med et facilitetsfilter er alle 399 boliger derfra ude — også
+  dem der har det, du søger."* Navnene beregnes af `tavseKilder` i
+  `lib/soeg.ts`, ikke skrives ind, så linjen retter sig selv, hvis en kilde
+  skifter praksis. **Vores egen native-kilde tælles ikke med der:**
+  udlejerformularen spørger om faciliteter, så "oplyser aldrig" ville være
+  faktuelt forkert om den — at én annonce ikke har krydset noget af, er ikke
+  en datapraksis. De native tavse tælles stadig i "oplyser ingen".
+
+  Grundlagslinjen under hver afkrydsning nævner derfor **tre** grupper, ikke
+  to: hvor mange der oplyser faciliteten, hvor mange der oplyser faciliteter
+  uden den, og hvor mange der intet oplyser. Tallene skal gå op med det
+  samlede antal — gør de ikke det, mangler brugeren en gruppe uden at kunne
+  se hvilken. `npm test` tæller de tre uafhængigt og sammenligner; en prøve,
+  der udleder mellemgruppen som resten, ville gå op per definition og aldrig
+  kunne fejle.
 - **Et filter skal gøre rede for, hvad det udelader.** De tre
   facilitetsfiltre udelukker boliger, hvor faciliteterne er ukendte — det
   er det eneste ærlige, for vi ved ikke om de har elevator. Men så skal der
