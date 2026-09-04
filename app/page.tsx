@@ -1,5 +1,6 @@
 import {
-  antalBoliger, facilitetsgrundlag, filtreFraParametre, harFiltre, tavseKilder,
+  antalBoliger, facilitetsgrundlag, filtreFraParametre, harFiltre, oekonomigrundlag,
+  tavseKilder,
   opsummering, soegGrupperet, type Soegeparametre,
 } from '../lib/soeg'
 import { facetterCached, forsidetalCached } from './cache'
@@ -76,6 +77,9 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // Kun naar hun faktisk har krydset af. Uden et filter er linjen en
   // advarsel mod noget, hun ikke har gjort.
   const tavse = facFiltre ? await tavseKilder(f) : { navne: [], antal: 0 }
+  // Samme kneb: er filteret ikke sat, er det ordret samme forespørgsel som
+  // `sum`, og så koster grundlagslinjen ingenting.
+  const oek = f.fuldOekonomi ? await oekonomigrundlag(f) : sum
   const fac = await facetterCached()
   const tal = await forsidetalCached()
   const vist = antalBoliger(visninger)
@@ -201,9 +205,22 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           </div>
         )}
 
-        <div className="felt afkryds">
-          <input type="checkbox" id="fuld" name="fuld" value="1" defaultChecked={f.fuldOekonomi} />
-          <label htmlFor="fuld">Fuld økonomi kendt</label>
+        {/* Egen fuldbredde-række, ikke en celle i gitteret. `.felt.afkryds`
+            er én flex-række uden ombrydning, så grundlagslinjen ville sætte
+            sig ved siden af afkrydsningen og klemme den. Samme løsning som
+            facilitetsfiltrene. */}
+        <div className="felt oekonomifilter">
+          <span className="afkryds-linje">
+            <input type="checkbox" id="fuld" name="fuld" value="1" defaultChecked={f.fuldOekonomi} />
+            <label htmlFor="fuld">Fuld økonomi kendt</label>
+          </span>
+          {/* Tre grupper, og de går op med antallet. Filteret udelukker de
+              to sidste, og så skal det stå, hvor mange det er. */}
+          <span className="filtergrundlag">
+            {oek.fuld.toLocaleString('da-DK')} oplyser varme, vand eller el hver for sig ·{' '}
+            {(oek.medTotal - oek.fuld).toLocaleString('da-DK')} oplyser kun én samlet aconto ·{' '}
+            {(oek.antal - oek.medTotal).toLocaleString('da-DK')} oplyser ingen total
+          </span>
         </div>
 
         {/* Vises kun, hvis nogen faktisk oplyser feltet. Et filter, der

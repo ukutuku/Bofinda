@@ -892,6 +892,10 @@ Rangeret efter **boliger der kan nå fuld økonomi**, ikke efter volumen. En
 kilde med 400 mørke boliger flytter ikke det tal, vi sælger på; den
 fortynder det.
 
+> **Rangeringen er overhalet af en beslutning, 5. september 2026.**
+> home.dk, CEJ og Kereby er ikke længere fravalgt. Se afsnittet nedenfor om
+> hvorfor. Adapterne er ikke bygget endnu, og de bygges én ad gangen.
+
 **Jeudan — 4 boliger · fuld økonomi: JA**
 robots.txt: tom `Disallow` — alt tilladt.
 Teknisk den reneste efter Balder: **åbent JSON uden nøgle** på
@@ -923,21 +927,18 @@ Elementor-widgets med hashede id'er og uden semantiske klasser; en adapter
 skal ankre på etikettteksten ("Varme", "Depositum") og tage næste element.
 **Det holder, men brækker den dag skabelonen redigeres.**
 
-**home.dk — 229 boliger · fuld økonomi: NEJ**
+**home.dk — 229 boliger · kendt total, ukendt sammensætning · TAGET**
 robots.txt: `Allow: /`.
 Klart størst i volumen, og teknisk let: Nuxt 3 med hele datasættet i
 `__NUXT__`-payloaden, server-renderet på både liste og detaljeside.
 Sitemap findes, men kun via robots.txt — `/sitemap.xml` er en blød 404.
-**Fravalgt indtil videre, og grunden er ikke teknisk:** aconto er ét samlet
-tal. Detaljesiden skriver "Leje pr. måned 20.200 kr." og "Aconto forbrug
+**Aconto er ét samlet tal.** Detaljesiden skriver "Leje pr. måned 20.200 kr." og "Aconto forbrug
 pr. måned 1.100 kr." — intet om hvad de 1.100 dækker. Depositum og
 forudbetalt leje oplyses som beløb.
-229 mørke boliger ville flytte totalen fra 1.211 til 1.440 og andelen med
-fuld økonomi fra 55 % til 46 %. Det er den forkerte vej for det, vi lover.
-Skal den hentes, er det en beslutning om at prioritere udbud over
-oplysning — og så skal forsidens tal formuleres om.
+Boligerne er ikke mørke — totalen er kendt, og den fjerde el-tilstand
+siger ærligt, at sammensætningen ikke er det. Se beslutningen ovenfor.
 
-**CEJ — 35 ledige af 60 · fuld økonomi: NEJ**
+**CEJ — 35 ledige af 60 · kendt total, ukendt sammensætning · TAGET**
 robots.txt: **404** — der er ingen. En Next.js-fejlside, ikke en ren 404.
 Ingen robots.txt betyder ingen begrænsning.
 Teknisk pæn: Remix-app (white-label fra `bolig.io`), hele datasættet i
@@ -949,7 +950,7 @@ hele payloaden. De 32 træffere på "heating" er alle
 `heatSource: "districtHeating"` — altså varmekilden, ikke et beløb.
 Fravalgt af samme grund som home.dk, med færre boliger til at opveje det.
 
-**Kereby — 4 ledige af 18 · fuld økonomi: NEJ**
+**Kereby — 4 ledige af 18 · kendt total, ukendt sammensætning · TAGET**
 robots.txt: `Disallow: /files/*`.
 Teknisk: WordPress med en custom post type udstillet i WP REST API,
 `/wp-json/wp/v2/jorato-cases` (`x-wp-total: 79`). Sitemap findes, men
@@ -961,6 +962,32 @@ forudbetalt leje, depositum, samlet), og depositum svarer til 3 måneders
 leje, forudbetalt til 1.
 Fravalgt: fire ledige boliger uden specificeret aconto er ikke arbejdet
 værd. Bliver deres aconto en dag opdelt, ændrer regnestykket sig.
+
+#### Taget alligevel: home.dk, CEJ og Kereby
+
+Besluttet 5. september 2026. De tre stod som fravalgt, fordi deres aconto
+er ét samlet tal. **Det var den forkerte grund.**
+
+De tre kilder er **ikke mørke.** De har kendt total og ukendt
+sammensætning — nøjagtig som de 254 boliger fra LokalBolig, Propstep og
+Dacas, vi henter i forvejen. Og siden den fjerde el-tilstand kom til,
+behandles den slags ærligt: kortet skriver *"Aconto er ét samlet beløb —
+det fremgår ikke om el er med"* i stedet for at påstå, at el ikke er med.
+Boligerne kan altså vises redeligt. 268 boliger med kendt total.
+
+**Fravalget hvilede på et forsidetal, ikke på om boligerne kunne vises
+redeligt.** Forsiden lovede "N med hele økonomien oplyst", målt med
+`erFuldOekonomi`, og de tre kilder ville have trukket den andel ned fra
+54 % til 44 %. Men tallet målte sammensætningen, ikke hvad brugeren får:
+for 76 % af boligerne kan vi vise hele det beløb, der betales til
+udlejeren, og det er dét, løftet handler om. Da forsidens tal skiftede til
+kendt total, forsvandt indvendingen — og andelen STIGER med de tre kilder,
+fra 75 % til 79 %.
+
+Læren er værd at holde fast i: **et mål, der er sat op som et løfte, kan
+komme til at styre beslutninger, det ikke var beregnet til.** `erFuldOekonomi`
+er stadig rigtigt og måles stadig — det står nu ved sit eget filter, hvor
+det hører hjemme, i stedet for på forsiden.
 
 #### Fravalgt: samme beholdning set fra en anden side
 

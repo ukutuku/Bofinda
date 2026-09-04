@@ -37,7 +37,8 @@ import { billedUrl, TILLADTE_VAERTER } from '../lib/billede'
 import { eltilstand } from '../lib/eloplysning'
 import type { Bolig, Gruppe } from '../lib/soeg'
 import {
-  facilitetsgrundlag, hvor, opsummering, soeg, soegGrupperet, tavseKilder, udenDubletter,
+  facilitetsgrundlag, hvor, oekonomigrundlag, opsummering, soeg, soegGrupperet,
+  tavseKilder, udenDubletter,
 } from '../lib/soeg'
 import { FACILITET } from '../lib/faciliteter'
 import {
@@ -510,6 +511,31 @@ async function main() {
     rivalId = ''
     tjek('uden dublet: mærkatet siger udgivet igen', (await maerkat()).slags === 'udgivet')
     tjek('uden dublet: og hun er i søgningen igen', await iSoegningen())
+
+    // ── Grundlaget under "Fuld økonomi kendt" ────────────────────
+    // Tre grupper: fuld, kun samlet aconto, ingen total. De kommer alle
+    // fra ét `opsummering`-kald, saa "de gaar op" ville vaere sandt per
+    // definition. Det, der KAN gaa galt, er rangordenen — og den maales
+    // uafhaengigt her.
+    console.log('\n══ grundlaget under "Fuld økonomi kendt" ══')
+    const oek = await oekonomigrundlag({})
+    tjek('fuld ≤ kendt total', oek.fuld <= oek.medTotal, `${oek.fuld} af ${oek.medTotal}`)
+    tjek('kendt total ≤ alle', oek.medTotal <= oek.antal, `${oek.medTotal} af ${oek.antal}`)
+    const [uaf] = await db.select({
+      alle: dsql<number>`count(*)::int`,
+      medTotal: dsql<number>`count(*) filter (where ${listings.totalMonthly} is not null)::int`,
+      fuld: dsql<number>`count(*) filter (where ${listings.totalMonthly} is not null
+        and ${listings.totalMonthlyComponents}
+          && array['heat','water','electricity']::text[])::int`,
+    }).from(listings).innerJoin(sources, eq(sources.id, listings.sourceId))
+      .where(udenDubletter(hvor({})))
+    tjek('linjens tre tal er de målte',
+      uaf!.fuld === oek.fuld && uaf!.medTotal === oek.medTotal && uaf!.alle === oek.antal,
+      `${uaf!.fuld}/${uaf!.medTotal}/${uaf!.alle} mod ${oek.fuld}/${oek.medTotal}/${oek.antal}`)
+    // Filteret maa ikke paavirke sit eget grundlag.
+    tjek('grundlaget ændrer sig ikke af filteret',
+      (await oekonomigrundlag({ fuldOekonomi: true })).antal === oek.antal,
+      `${(await oekonomigrundlag({ fuldOekonomi: true })).antal} mod ${oek.antal}`)
 
     // ── Linjen om tavse kilder ───────────────────────────────────
     // Frafaldet i et facilitetsfilter er ikke jaevnt: nogle kilder oplyser

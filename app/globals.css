@@ -837,6 +837,10 @@ form.filtre.soegt { margin-top: 20px; }
    Egen raekke og ikke en celle i .felter-gitteret: teksten skal have
    bredde nok til to linjer, ellers braekker den over fire i en smal
    kolonne. */
+.felt.oekonomifilter {
+  grid-column: 1 / -1; display: flex; flex-direction: column; gap: 2px;
+}
+
 .felt.facilitetsfiltre {
   /* Hele raekken, aldrig en celle. Med `bred` (span 2) laa Soeg-knappen
      oven i den tredje afkrydsnings tekst paa en telefon. */

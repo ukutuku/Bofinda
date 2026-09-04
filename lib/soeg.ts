@@ -796,6 +796,25 @@ export const facilitetsgrundlag = (f: Filtre) =>
 
 export type Facilitetsgrundlag = Awaited<ReturnType<typeof opsummering>>
 
+/**
+ * Grundlaget under "Fuld økonomi kendt".
+ *
+ * Samme princip som `facilitetsgrundlag`: soegningen UDEN det filter, linjen
+ * beskriver. Med filteret paa ville tallene beskrive et saet, der allerede
+ * var renset, og "0 uden total" ville staa under et filter, der lige havde
+ * skjult 316 boliger.
+ *
+ * Tre grupper, og de skal daekke alle boliger:
+ *   fuld              husleje + mindst én NAVNGIVEN aconto-post
+ *   kun samlet aconto totalen er kendt, men ikke hvad den bestaar af
+ *   ingen total       vi kender kun huslejen
+ *
+ * Alle tre tal er allerede i `opsummering` — `antal`, `medTotal`, `fuld` —
+ * saa der er ingen ekstra forespoergsel, naar filteret ikke er sat.
+ */
+export const oekonomigrundlag = (f: Filtre) =>
+  opsummering({ ...f, fuldOekonomi: false })
+
 /** Kilder der aldrig oplyser faciliteter, og hvor mange boliger de har. */
 export interface Tavsekilder {
   navne: string[]
