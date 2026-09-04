@@ -10,6 +10,7 @@
 //    7. At facilitetsfiltrene oplyser deres eget grundlag rigtigt.
 //    8. At billedraekkefoelgen overlever hele vejen til soegeresultatet.
 //    9. At en groen total ALDRIG kan staa uden at el er gjort rede for.
+//   10. At et kort uden VISBART billede faar klassen uden-billede.
 //
 //  Fejlen den fanger: redigér-formularen indlæste ikke alle felter, og et
 //  gem skrev tomme værdier hen over de gemte. En udlejer, der rettede en
@@ -30,6 +31,7 @@ import { byForPostnr } from '../lib/omraade'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Gruppekort, Kort } from '../app/Boligkort'
+import { billedUrl, TILLADTE_VAERTER } from '../lib/billede'
 import type { Bolig, Gruppe } from '../lib/soeg'
 import { facilitetsgrundlag, opsummering, soeg } from '../lib/soeg'
 import {
@@ -190,6 +192,48 @@ async function main() {
     { g: gruppe({ nogenUdenEl: true, alleUdenElHarEgenMaaler: true }) }))
   tjek('gruppekort med egen elmåler: kildens egen formulering',
     /el afregnes direkte/.test(egen))
+
+  // ── Layoutet skal foelge det VISBARE billede ────────────────
+  // Kortets gitter har en 216px billedkolonne, og klassen `uden-billede`
+  // fjerner den. Foer afgjorde `b.forside` klassen og
+  // `b.forside && billedUrl(...)` billedet. Er URL'en der, men vaerten
+  // ikke i TILLADTE_VAERTER, giver billedUrl null — saa blev klassen ikke
+  // sat, kolonnen blev staaende tom, og adressen braekkede ét ord per
+  // linje i den klemte tekstkolonne.
+  //
+  // Det er Dacas-fejlen i visuel form: en manglende allowlist-post fejler
+  // ikke, den viser ingenting. Proeven gengiver kortene og maaler paa det,
+  // en bruger ser.
+  console.log('\n══ manglende allowlist-post må ikke ødelægge layoutet ══')
+  const FREMMED = 'https://ikke-i-allowlisten.invalid/a.jpg'
+  const TILLADT = 'https://app.propstep.com/api/image/find-public/a.jpg'
+  tjek('prøvens præmis: den fremmede vært er IKKE tilladt',
+    !TILLADTE_VAERTER.has('ikke-i-allowlisten.invalid') && billedUrl(FREMMED, 400) == null)
+  tjek('prøvens præmis: den tilladte vært ER tilladt', billedUrl(TILLADT, 400) != null)
+
+  for (const [navn, html] of [
+    ['enkeltkort, fremmed vært',
+      vis(createElement(Kort, { b: bolig({ forside: FREMMED, billeder: 20 }) }))],
+    ['gruppekort, fremmed vært',
+      vis(createElement(Gruppekort, { g: gruppe({}, { forside: FREMMED, billeder: 20 }) }))],
+  ] as const) {
+    tjek(`${navn}: klassen uden-billede sættes`, /uden-billede/.test(html),
+      /uden-billede/.test(html) ? '' : 'TOM BILLEDKOLONNE — teksten klemmes')
+    tjek(`${navn}: og der tegnes intet billede`, !/<img/.test(html))
+  }
+
+  // Modstykket: en tilladt vært skal STADIG give et billede og ingen
+  // uden-billede-klasse. Ellers kunne proeven bestaa ved bare at saette
+  // klassen paa alting.
+  for (const [navn, html] of [
+    ['enkeltkort, tilladt vært',
+      vis(createElement(Kort, { b: bolig({ forside: TILLADT, billeder: 3 }) }))],
+    ['gruppekort, tilladt vært',
+      vis(createElement(Gruppekort, { g: gruppe({}, { forside: TILLADT, billeder: 3 }) }))],
+  ] as const) {
+    tjek(`${navn}: INGEN uden-billede`, !/uden-billede/.test(html))
+    tjek(`${navn}: og billedet tegnes`, /<img[^>]+\/api\/billede/.test(html))
+  }
 
   try {
     id = await opretBolig(udlejer, FULDT)

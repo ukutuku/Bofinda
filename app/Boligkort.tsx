@@ -126,19 +126,28 @@ export function Kort({ b }: { b: Bolig }) {
     .replace(/,\s*$/, '').trim()
   const parsningTabteNoget = !nogenlunde(vist, raaUdenSted)
 
+  // ÉN beregning, brugt begge steder. Foer afgjorde `b.forside` klassen og
+  // `b.forside && billedUrl(...)` billedet. Er URL'en der, men vaerten ikke
+  // i TILLADTE_VAERTER, giver billedUrl null: klassen blev saa IKKE sat,
+  // gitteret beholdt sin 216px billedkolonne, og billedet blev ikke tegnet.
+  // Tilbage stod 216 px tomhed og en klemt tekstkolonne, hvor adressen
+  // braekker ét ord per linje. Det er Dacas-fejlen i visuel form — en
+  // manglende allowlist-post fejler ikke, den oedelaegger layoutet.
+  const forside = b.forside && billedUrl(b.forside, 400)
+
   return (
     <a
-      className={`kort${b.forside ? '' : ' uden-billede'}`}
+      className={`kort${forside ? '' : ' uden-billede'}`}
       href={`/bolig/${b.id}`}
       // Landkortet peger paa kortet med id'et og laeser data-bolig, naar
       // musen er over. De to skal vaere den samme noegle som maerket.
       id={`kort-${b.id}`}
       data-bolig={b.id}
     >
-      {b.forside && billedUrl(b.forside, 400) && (
+      {forside && (
         <div className="kort-billede">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={billedUrl(b.forside, 400)!} alt="" loading="lazy" />
+          <img src={forside} alt="" loading="lazy" />
           {b.billeder > 1 && <span className="kort-antal">{b.billeder} billeder</span>}
         </div>
       )}

@@ -385,7 +385,18 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 - **En ny kilde skal tilføjes til `TILLADTE_VAERTER` i `lib/billede.ts` i
   SAMME ændring som adapteren.** Glemmes værten, returnerer `billedUrl()`
   null, og billederne forsvinder uden en fejl nogen steder. Det skete for
-  dacas.dk: 177 billeder blev bare ikke vist.
+  dacas.dk: 177 billeder blev bare ikke vist. Bemærk at værten ofte IKKE er
+  kildens eget domæne — Balders billeder ligger på `images.ctfassets.net`,
+  Propsteps på `app.propstep.com`.
+  **En manglende post ødelægger også layoutet, ikke kun billedet.** Kortets
+  gitter har en 216 px billedkolonne, og klassen `uden-billede` fjerner den.
+  Afgøres klassen af den rå URL, mens billedet afgøres af `billedUrl()`,
+  bliver kolonnen stående tom, når værten mangler — og adressen brækker ét
+  ord per linje i den klemte tekstkolonne. Begge korttyper skal derfor
+  beregne `billedUrl()` ÉN gang og bruge samme værdi til klassen og til
+  billedet. `npm test` gengiver kortene med en vært uden for allowlisten og
+  fejler, hvis klassen udebliver — også hvis nogen "løser" det ved at sætte
+  `uden-billede` på alting.
 - **Kopiér aldrig kildens billeder.** Gem `external_url`, servér gennem
   `/api/billede`. Signaturen dækker `(url, bredde)`, så en fremmed hverken
   kan bruge proxyen til vilkårlige adresser eller bede om vilkårlige
