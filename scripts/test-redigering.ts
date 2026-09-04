@@ -11,6 +11,7 @@
 //    8. At billedraekkefoelgen overlever hele vejen til soegeresultatet.
 //    9. At en groen total ALDRIG kan staa uden at el er gjort rede for.
 //   10. At et kort uden VISBART billede faar klassen uden-billede.
+//   11. At en samlet aconto ALDRIG faar saetningen "El indgaar ikke".
 //
 //  Fejlen den fanger: redigér-formularen indlæste ikke alle felter, og et
 //  gem skrev tomme værdier hen over de gemte. En udlejer, der rettede en
@@ -32,6 +33,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Gruppekort, Kort } from '../app/Boligkort'
 import { billedUrl, TILLADTE_VAERTER } from '../lib/billede'
+import { eltilstand } from '../lib/eloplysning'
 import type { Bolig, Gruppe } from '../lib/soeg'
 import { facilitetsgrundlag, opsummering, soeg } from '../lib/soeg'
 import {
@@ -166,11 +168,41 @@ async function main() {
     arealMin: 70, arealMax: 90, type: 'lejlighed', ledigMin: null, ledigMax: null,
     ledigUkendte: 0, indflytningMin: null, indflytningMax: null,
     ensPoster: true, alleOgsaaAndetsteds: false, nyesteMarkedet: new Date(),
-    nogenUdenEl: true, alleUdenElHarEgenMaaler: false,
+    nogenUdenEl: true, alleUdenElHarEgenMaaler: false, nogenUkendtDaekning: false,
     ...o,
   } as unknown as Gruppe)
 
   const vis = (el: React.ReactElement) => renderToStaticMarkup(el)
+
+  // ── Den fjerde tilstand ──────────────────────────────────────
+  // "El er ikke med i tallet" og "vi ved ikke hvad der er i tallet" er to
+  // forskellige udsagn. Kun det foerste kan aflaeses af udspecificerede
+  // poster. Er acontoen ét samlet beloeb, KAN el ligge i klumpen — og saa
+  // er "El indgår ikke" en paastand, vi ikke har daekning for.
+  //
+  // Det er de 254 boliger fra LokalBolig, Propstep og Dacas.
+  const IKKE_MED = /El indgår ikke/
+  const UKENDT = /ét samlet beløb/
+  const KLUMP = { poster: ['rent', 'other'], el: null, elEgenMaaler: null }
+
+  tjek('udledningen: klump uden navngiven post → ukendt-daekning',
+    eltilstand({ total: 100, ...KLUMP }) === 'ukendt-daekning')
+  tjek('udledningen: udspecificeret uden el → ikke-med',
+    eltilstand({ total: 100, poster: ['rent', 'heat', 'water'], el: null, elEgenMaaler: null }) === 'ikke-med')
+  tjek('udledningen: egen måler slår klumpen',
+    eltilstand({ total: 100, ...KLUMP, elEgenMaaler: true }) === 'egen-maaler')
+  tjek('udledningen: el oplyst → ingen linje',
+    eltilstand({ total: 100, poster: ['rent', 'electricity'], el: 500, elEgenMaaler: null }) === 'med')
+
+  for (const [navn, html] of [
+    ['enkeltkort, samlet aconto', vis(createElement(Kort, { b: bolig(KLUMP) }))],
+    ['gruppekort, én med samlet aconto',
+      vis(createElement(Gruppekort, { g: gruppe({ nogenUkendtDaekning: true }, KLUMP) }))],
+  ] as const) {
+    tjek(`${navn}: siger IKKE "El indgår ikke"`, !IKKE_MED.test(html),
+      IKKE_MED.test(html) ? 'PÅSTÅR NOGET VI IKKE VED' : '')
+    tjek(`${navn}: siger at beløbet er samlet`, UKENDT.test(html))
+  }
 
   for (const [navn, html] of [
     ['enkeltkort, el ukendt', vis(createElement(Kort, { b: bolig({}) }))],
@@ -178,6 +210,7 @@ async function main() {
     ['gruppekort, alle uden el', vis(createElement(Gruppekort,
       { g: gruppe({ nogenUdenEl: true }) }))],
   ] as const) {
+    tjek(`${navn}: udspecificeret → "El indgår ikke"`, IKKE_MED.test(html))
     const groen = GROEN.test(html)
     tjek(`${navn}: grøn total`, groen)
     tjek(`${navn}: og el gjort rede for`, !groen || ELTEKST.test(html),

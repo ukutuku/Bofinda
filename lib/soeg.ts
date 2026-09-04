@@ -471,6 +471,8 @@ export interface Gruppe {
   nogenUdenEl: boolean
   /** Siger kilden om hver enkelt af dem, at lejeren har egen elmåler? */
   alleUdenElHarEgenMaaler: boolean
+  /** Har MINDST én af dem en aconto, vi ikke kender indholdet af? */
+  nogenUkendtDaekning: boolean
   /** Har ALLE i gruppen den samme bolig hos en anden kilde? */
   alleOgsaaAndetsteds: boolean
   nyesteMarkedet: Date
@@ -552,6 +554,15 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
       // maaler? Kun saa maa den staerkere formulering bruges.
       alleUdenElHarEgenMaaler: sql<boolean>`bool_and(${listings.utilitiesElectricity} is not null
         or ${listings.electricityOwnMeter} is true)`,
+      // Er der NOGEN i gruppen, hvis aconto er ét samlet beloeb uden
+      // specifikation? Saa kan kortet ikke sige "el indgaar ikke" om dem
+      // alle — for den ene ved vi det ikke. Samme regel som `samletKlump`
+      // i lib/eloplysning.ts, stillet i SQL.
+      nogenUkendtDaekning: sql<boolean>`bool_or(
+        ${listings.totalMonthly} is not null
+        and ${listings.totalMonthlyComponents} @> array['other']::text[]
+        and not (${listings.totalMonthlyComponents} && array['heat','water','electricity']::text[])
+        and ${listings.electricityOwnMeter} is not true)`,
       // Gaelder det ALLE i gruppen, at en anden kilde ogsaa har boligen?
       // Repraesentantens egen `ogsaaHos` maa ikke tale for de andre —
       // kortet ville paastaa to kilder for femten boliger, hvor det
@@ -602,6 +613,7 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
         ensPoster: r.postsaet === 1,
         nogenUdenEl: r.nogenUdenEl ?? false,
         alleUdenElHarEgenMaaler: r.alleUdenElHarEgenMaaler ?? false,
+        nogenUkendtDaekning: r.nogenUkendtDaekning ?? false,
         alleOgsaaAndetsteds: r.alleOgsaaAndetsteds ?? false,
         nyesteMarkedet: new Date(r.nyesteMarkedetMs),
       },

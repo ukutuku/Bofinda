@@ -86,6 +86,33 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   udenfor hos næsten alle kilder (9 boliger ud af 1.200 har et el-beløb),
   så etiketten lovede en fuldstændighed, tallet ikke havde. Står i
   prisblokken på begge korttyper i `app/Boligkort.tsx`.
+- **El-forbeholdet har FIRE tilstande, ikke tre.** De tre første handler om
+  det samme spørgsmål — er el med i tallet? Den fjerde handler om noget
+  andet: ved vi overhovedet, hvad tallet dækker?
+
+  | Tilstand | Hvornår | Hvad vi siger |
+  |---|---|---|
+  | `med` | el er en navngiven post | ingenting |
+  | `egen-maaler` | kilden siger det selv | "el afregnes direkte med elselskabet" |
+  | `ikke-med` | posterne er udspecificerede, el er ikke blandt dem | "El indgår ikke — udlejer oplyser ikke hvordan" |
+  | `ukendt-daekning` | aconto er ét samlet beløb uden specifikation | "Aconto er ét samlet beløb — det fremgår ikke om el er med" |
+
+  **"El er ikke med i tallet" og "vi ved ikke hvad der er i tallet" er to
+  forskellige udsagn, og kun det første kan aflæses af udspecificerede
+  poster.** Skriver LokalBolig "Aconto pr. md.: 1.783 kr." og intet andet,
+  kan el ligge i klumpen. Vi hentede tre af deres sider og søgte hele
+  brødteksten på varme, vand, el, forbrug, antenne, internet og inkl. — der
+  er ingen overskrift, ingen note og ingen specifikation. Kilden siger
+  beløbet og intet mere. At sige "El indgår ikke" om det ville være en
+  påstand, vi ikke har fået dækning for. Det stod på **254 boliger**
+  (LokalBolig 230, Propstep 23, Dacas 1), før tilstanden fandtes.
+
+  Skellet ligger i dataene og kræver ingen ny kolonne: `other` i
+  `total_monthly_components` uden en eneste navngiven post, og
+  `electricity_own_meter` ikke true. Udledningen er `eltilstand` i
+  `lib/eloplysning.ts` — ét sted, brugt af begge korttyper, boligsiden og
+  alarmmailen. Teksterne er forskellige de fire steder, fordi der er
+  forskellig plads; spørgsmålet besvares kun ét sted.
 - **En grøn total må aldrig stå uden at el er gjort rede for.** Prisblokken
   bliver grøn (`.kort-pris` uden `.kun-leje`), så snart `total` er sat —
   uanset hvad totalen dækker. Mangler el i den, skal kortet sige det.

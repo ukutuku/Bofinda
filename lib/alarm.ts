@@ -145,6 +145,11 @@ export async function ventende() {
       leje: listings.rentMonthly,
       total: listings.totalMonthly,
       indflytning: listings.moveInCost,
+      // Til el-forbeholdet. Mailen skal sige det samme som kortet — samme
+      // udledning, `eltilstand` i lib/eloplysning.ts.
+      el: listings.utilitiesElectricity,
+      elEgenMaaler: listings.electricityOwnMeter,
+      poster: listings.totalMonthlyComponents,
       boligId: listings.id,
       kilde: sources.name,
       foerstSet: listings.firstSeenAt,
@@ -231,6 +236,7 @@ export async function soegninger() {
 
 import { inArray } from 'drizzle-orm'
 import { maaSendeTil, sendMail } from './mail'
+import { eltilstand } from './eloplysning'
 
 /** Højst én mail i timen per søgning, uanset hvor tit importen kører. */
 const MINDST_MELLEM_MAILS_MIN = 60
@@ -285,10 +291,17 @@ export async function sendAlarmer(): Promise<SendResultat[]> {
         ? `${kr(b.total)} kr/md til udlejer`
         : `${kr(b.leje)} kr/md i husleje — total ukendt, aconto ikke oplyst`
       const indf = b.indflytning != null ? ` · indflytning ${kr(b.indflytning)} kr.` : ''
+      // Ét sted, ligesom paa kortene. Mailen maa ikke sige "el indgaar
+      // ikke" om et beloeb, vi ikke kender indholdet af.
+      const t = eltilstand(b)
+      const elnote = t == null || t === 'med' ? null
+        : t === 'egen-maaler' ? 'el afregnes direkte med elselskabet'
+          : t === 'ukendt-daekning' ? 'aconto er ét samlet beløb — det fremgår ikke om el er med'
+            : 'el indgår ikke — udlejer oplyser ikke hvordan'
       const maal = [b.areal && `${b.areal} m²`, b.vaerelser && `${b.vaerelser} vær.`]
         .filter(Boolean).join(' · ')
-      return { adresse: b.adresse, maal, pris, indf, url: `${BASE}/bolig/${b.boligId}`,
-        kilde: b.kilde, uvis: b.total == null }
+      return { adresse: b.adresse, maal, pris, indf, elnote,
+        url: `${BASE}/bolig/${b.boligId}`, kilde: b.kilde, uvis: b.total == null }
     })
 
     const tekst = [
@@ -297,6 +310,7 @@ export async function sendAlarmer(): Promise<SendResultat[]> {
       '',
       ...linjer.flatMap((l) => [
         l.adresse, `  ${l.maal}`, `  ${l.pris}${l.indf}`,
+        ...(l.elnote ? [`  ${l.elnote}`] : []),
         ...(l.uvis ? ['  OBS: kan være dyrere end din grænse — den er sat på huslejen alene.'] : []),
         `  ${l.url}`, '',
       ]),
@@ -311,6 +325,7 @@ ${linjer.map((l) => `<div style="border-top:1px solid #e8e5de;padding:14px 0">
 <div style="color:#5f6672;font-size:13px;margin-top:3px">${und(l.maal)}</div>
 <div style="margin-top:7px;font-weight:600;color:${l.uvis ? '#14161a' : '#14624f'}">${und(l.pris)}</div>
 ${l.indf ? `<div style="color:#5f6672;font-size:13px">${und(l.indf.replace(' · ', ''))}</div>` : ''}
+${l.elnote ? `<div style="color:#9aa1ac;font-size:12px;margin-top:4px">${und(l.elnote.charAt(0).toUpperCase() + l.elnote.slice(1))}</div>` : ''}
 ${l.uvis ? '<div style="color:#8a5300;font-size:12.5px;margin-top:5px">Kan være dyrere end din grænse — den er sat på huslejen alene.</div>' : ''}
 <div style="color:#9aa1ac;font-size:12px;margin-top:6px">${und(l.kilde)}</div>
 </div>`).join('')}

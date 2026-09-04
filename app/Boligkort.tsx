@@ -7,6 +7,7 @@
 import type { Bolig, Gruppe, Visning } from '../lib/soeg'
 import { gruppeUrl } from '../lib/soeg'
 import { billedUrl } from '../lib/billede'
+import { eltilstand, type Eltilstand } from '../lib/eloplysning'
 
 // ─── Formatering ───────────────────────────────────────────────
 
@@ -210,7 +211,7 @@ export function Kort({ b }: { b: Bolig }) {
               Udlejer oplyser ikke aconto — spørg om varme og vand.
             </span>
           )}
-          <Ellinje vis={b.total != null && b.el == null} egenMaaler={!!b.elEgenMaaler} />
+          <Ellinje tilstand={eltilstand(b)} />
           {!nyligt && (
             <div className="total">
               {b.hosKilden ? `annonceret ${siden(b.hosKilden)}` : `set ${siden(b.foerstSet)}`}
@@ -329,10 +330,14 @@ export function Gruppekort({ g }: { g: Gruppe }) {
               Udlejer oplyser ikke aconto — spørg om varme og vand.
             </span>
           )}
-          {/* Gruppen taler for flere boliger. Mangler blot ÉN af dem el,
-              kan totalen ikke staa som hele udgiften for dem alle. */}
-          <Ellinje vis={n.total != null && g.nogenUdenEl}
-            egenMaaler={g.alleUdenElHarEgenMaaler} />
+          {/* Gruppen taler for flere boliger, saa det SVAGESTE udsagn
+              vinder. Er der bare én, hvis aconto vi ikke kender indholdet
+              af, kan kortet ikke sige "el indgaar ikke" om dem alle. */}
+          <Ellinje tilstand={
+            n.total == null || !g.nogenUdenEl ? null
+              : g.nogenUkendtDaekning ? 'ukendt-daekning'
+                : g.alleUdenElHarEgenMaaler ? 'egen-maaler' : 'ikke-med'
+          } />
 
           <div className="gruppe-flere">Se de {g.antal} adresser →</div>
 
@@ -357,15 +362,26 @@ export function Gruppekort({ g }: { g: Gruppe }) {
  * groent tal uden at naevne, at el ikke var med. Én komponent kan ikke
  * mangle ét af stederne.
  *
- * `egenMaaler` bruges KUN naar kilden selv siger det. Foer stod der "El
- * afregnes direkte med elselskabet" paa alt uden el-aconto — en antagelse
- * praesenteret som en oplysning.
+ * Tilstanden UDLEDES ét sted, `eltilstand` i lib/eloplysning.ts, saa
+ * kortet, boligsiden og alarmmailen ikke kan svare forskelligt paa det
+ * samme spoergsmaal.
+ *
+ * Bemaerk forskellen paa de to sidste tilstande. "El indgaar ikke" kan vi
+ * kun sige, naar posterne er udspecificerede og el ikke er blandt dem. Er
+ * acontoen ét samlet beloeb, ved vi det ikke — el kan ligge i klumpen —
+ * og saa siger vi DET i stedet for at paastaa noget.
  */
-function Ellinje({ vis, egenMaaler }: { vis: boolean; egenMaaler: boolean }) {
-  if (!vis) return null
-  return egenMaaler
-    ? <div className="el">Udlejer oplyser: el afregnes direkte med elselskabet</div>
-    : <div className="el">El indgår ikke — udlejer oplyser ikke hvordan</div>
+function Ellinje({ tilstand }: { tilstand: Eltilstand | null }) {
+  if (tilstand == null || tilstand === 'med') return null
+  return (
+    <div className="el">
+      {tilstand === 'egen-maaler'
+        ? 'Udlejer oplyser: el afregnes direkte med elselskabet'
+        : tilstand === 'ukendt-daekning'
+          ? 'Aconto er ét samlet beløb — det fremgår ikke om el er med'
+          : 'El indgår ikke — udlejer oplyser ikke hvordan'}
+    </div>
+  )
 }
 
 export function Visningskort({ v }: { v: Visning }) {

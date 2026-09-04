@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { hentBolig, kvadratmeterpris, type BoligDetalje } from '../../../lib/soeg'
 import { billedUrl } from '../../../lib/billede'
+import { eltilstand } from '../../../lib/eloplysning'
 import { Galleri } from './Galleri'
 import { Kontakt } from './Kontakt'
 
@@ -109,14 +110,24 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
                   {b.el != null && <li><span>Aconto el</span><b>{kr(b.el)}</b></li>}
                   {b.oevrig != null && <li><span>Øvrig aconto</span><b>{kr(b.oevrig)}</b></li>}
                 </ul>
-                {b.el == null && (
-                  <p className="oek-note">
-                    {b.elEgenMaaler
-                      ? 'Udlejer oplyser, at el afregnes direkte med elselskabet. Det indgår ikke i beløbet.'
-                      : 'El indgår ikke i beløbet. Udlejer oplyser ikke, hvordan el afregnes — '
-                        + 'i dansk udlejning har lejeren som regel sin egen måler, men spørg for en sikkerheds skyld.'}
-                  </p>
-                )}
+                {/* Samme spoergsmaal som kortet stiller, besvaret ét sted.
+                    Teksten er laengere her, fordi der er plads — men
+                    tilstanden er den samme. */}
+                {(() => {
+                  const t = eltilstand(b)
+                  if (t == null || t === 'med') return null
+                  return (
+                    <p className="oek-note">
+                      {t === 'egen-maaler'
+                        ? 'Udlejer oplyser, at el afregnes direkte med elselskabet. Det indgår ikke i beløbet.'
+                        : t === 'ukendt-daekning'
+                          ? 'Udlejeren oplyser aconto som ét samlet beløb og skriver ikke, hvad det '
+                            + 'dækker. El kan være med i beløbet eller afregnes særskilt — spørg udlejeren.'
+                          : 'El indgår ikke i beløbet. Udlejer oplyser ikke, hvordan el afregnes — '
+                            + 'i dansk udlejning har lejeren som regel sin egen måler, men spørg for en sikkerheds skyld.'}
+                    </p>
+                  )
+                })()}
               </>
             ) : (
               <>
