@@ -836,20 +836,6 @@ Rangeret efter **boliger der kan nå fuld økonomi**, ikke efter volumen. En
 kilde med 400 mørke boliger flytter ikke det tal, vi sælger på; den
 fortynder det.
 
-**HomeConnector — 24 boliger, heraf ~10 nye · fuld økonomi: JA**
-robots.txt: Yoast, tom `Disallow` — alt tilladt.
-**Kører på Propstep.** Bolig-URL'erne ER Propsteps ejendoms-id'er
-(24-cifret hex), og billederne serveres fra `app.propstep.com`. 14 af de 24
-har vi allerede via vores Propstep-adapter. De øvrige 10 findes hos
-Propstep og svarer 200, men står ikke i Propsteps offentlige gitter — det
-melder 737 boliger, og vi har 736, så vores dækning dér er komplet.
-Økonomi: "Estimeret aconto vandforbrug" og "varmeforbrug" hver for sig, men
-tomme på den ene af to detaljesider vi åbnede. El: "Tilmeldes direkte",
-altså egen måler. Intet depositum- eller forudbetalingsfelt — kun en
-fritekstlinje om indflytningsprisen.
-Teknisk: intet JSON, ren HTML-skrabning. Én side, `data-max-pages="1"`,
-ingen paginering.
-
 **Jeudan — 4 boliger · fuld økonomi: JA**
 robots.txt: tom `Disallow` — alt tilladt.
 Teknisk den reneste efter Balder: **åbent JSON uden nøgle** på
@@ -920,7 +906,19 @@ leje, forudbetalt til 1.
 Fravalgt: fire ledige boliger uden specificeret aconto er ikke arbejdet
 værd. Bliver deres aconto en dag opdelt, ændrer regnestykket sig.
 
-**C.W. Obel — 0 nye boliger · fravalgt**
+#### Fravalgt: samme beholdning set fra en anden side
+
+To kilder ser ud som nye kilder og er det ikke. Begge viser en beholdning,
+vi allerede henter — bare gennem et andet vindue. **Nul nye boliger hver.**
+
+Det er en fejltype, der er værd at kunne genkende, næste gang en kilde
+ligner et fund: et white-label-CRM eller en samarbejdspartner præsenterer
+den samme bagvedliggende beholdning under sit eget domæne. Kendetegnene er
+de samme begge steder — fremmede bolig-id'er i URL'en, billeder fra en
+tredje vært, og et boligtal, der ligner nyt indtil man holder det op mod
+det, man har.
+
+**C.W. Obel — 0 nye · fravalgt**
 robots.txt: navngivne bots får frit lejde; `User-agent: *` får
 `Disallow: /portfolio-types/` og **`Disallow: */page/`** — altså er
 pagineringen lukket for os.
@@ -929,6 +927,35 @@ pagineringen lukket for os.
 (København K). Ingen af dem ligger i Storkøbenhavn, som URL'en ellers
 lover. Byg den ikke som selvstændig kilde — den ville give nul nye boliger
 og fire dubletter.
+
+**HomeConnector — 0 nye · fravalgt**
+robots.txt: Yoast, tom `Disallow` — alt tilladt. Kilden er teknisk fin;
+det er ikke derfor den er fravalgt.
+**Den kører på Propstep.** Bolig-URL'erne ER Propsteps ejendoms-id'er
+(24-cifret hex), og billederne serveres fra `app.propstep.com`.
+
+Forskellen på de to sites er, hvad de VISER, ikke hvad de har:
+**HomeConnector viser hele porteføljen inklusive udlejede boliger, som et
+udstillingsvindue. Propsteps gitter viser kun boliger, der er på markedet.**
+De 9 boliger, der findes hos HomeConnector men ikke i gitteret, står alle
+som **"Udlejet"** hos HomeConnector selv — nul af dem er ledige. I
+`__NEXT_DATA__` på Propsteps boligside har de `onMarketSince: null` og
+`transactionStatus: 3`, hvor boliger i gitteret har en dato og status 1
+eller 2.
+
+Alle **13 ledige** hos HomeConnector har vi i forvejen, alle `[active]`.
+Ledige boliger vi ikke har: **0**.
+
+*Hvordan fejlen opstod.* Kilden blev første gang vurderet til "~10 nye
+boliger" på, at Propstep-URL'erne for de manglende id'er svarede **200**.
+Det er ikke et svar på det spørgsmål, der blev stillet: **en 200 betyder,
+at siden findes, ikke at boligen kan lejes.** Statussen blev aldrig
+aflæst. Det rigtige tjek var at hente HELE gitteret (33 sider) og at læse
+kildens egen statusmarkering — ikke at slå enkelte id'er op og se, at de
+svarer.
+
+Skal HomeConnectors næste ledige boliger med, kommer de af sig selv
+gennem Propstep, den dag de sættes på markedet.
 
 ### Ikke undersøgt endnu
 
