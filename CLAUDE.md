@@ -824,6 +824,112 @@ fra Varnish gennem hele undersøgelsen og den første import. Derfor fem forsøg
 i stedet for tre, og derfor tæller 502 og 504 nu som midlertidige i
 `lib/fetch.ts`. Deres eget indeks indeholder også sager, hvis side er væk.
 
+### Undersøgt 3. september 2026, ikke bygget
+
+Syv kilder, undersøgt i én omgang med Balder som den ottende. Alle otte
+svarede 200 på vores ærlige `BofindaBot`-User-Agent. **Ingen af dem har
+LokalBoligs udtrykkelige AI-bot-forbud, og ingen har BoligPortals
+skriftlige forbud mod crawling.** Alle elleve kilder har givet mundtlig
+tilladelse pr. telefon — se `docs/kildetilladelser.md`.
+
+Rangeret efter **boliger der kan nå fuld økonomi**, ikke efter volumen. En
+kilde med 400 mørke boliger flytter ikke det tal, vi sælger på; den
+fortynder det.
+
+**HomeConnector — 24 boliger, heraf ~10 nye · fuld økonomi: JA**
+robots.txt: Yoast, tom `Disallow` — alt tilladt.
+**Kører på Propstep.** Bolig-URL'erne ER Propsteps ejendoms-id'er
+(24-cifret hex), og billederne serveres fra `app.propstep.com`. 14 af de 24
+har vi allerede via vores Propstep-adapter. De øvrige 10 findes hos
+Propstep og svarer 200, men står ikke i Propsteps offentlige gitter — det
+melder 737 boliger, og vi har 736, så vores dækning dér er komplet.
+Økonomi: "Estimeret aconto vandforbrug" og "varmeforbrug" hver for sig, men
+tomme på den ene af to detaljesider vi åbnede. El: "Tilmeldes direkte",
+altså egen måler. Intet depositum- eller forudbetalingsfelt — kun en
+fritekstlinje om indflytningsprisen.
+Teknisk: intet JSON, ren HTML-skrabning. Én side, `data-max-pages="1"`,
+ingen paginering.
+
+**Jeudan — 4 boliger · fuld økonomi: JA**
+robots.txt: tom `Disallow` — alt tilladt.
+Teknisk den reneste efter Balder: **åbent JSON uden nøgle** på
+`GET https://nova-api.jeudan.dk/api/leases/search?lease_type=bolig`,
+CORS-åbent. Bemærk at dataene ligger på `nova-api.jeudan.dk`, ikke på
+`www.jeudan.dk`.
+Økonomi: "Leje pr. md. (ex. drift og forbrug)", "Aconto energibidrag",
+"Aconto el" og undertiden "Aconto vand". **Aldrig "varme"** på nogen af de
+fire sider vi åbnede. El er navngivet, så kriteriet rammes. Depositum står
+som tekst ("Svarende til 3 måneders leje"), forudbetalt leje oplyses.
+Fire boliger er lidt, men de er billige at hente.
+
+**CityApartment — 4 boliger · fuld økonomi: JA**
+robots.txt: `Disallow: /wp-admin/`. Vilkårssiden handler udelukkende om
+LEJEvilkår; nul træffere på crawl, robot, scrap, automat, indsaml, mining.
+**Advarsel om tallet:** siden viser 27 "ledige lejemål", men **kun 4 er
+boliger**. Resten er erhverv, garager (1.375 kr./md.) og p-pladser
+(625–1.875 kr./md.), som en boligportal skal filtrere fra. Sitemap og
+REST-API rummer desuden udlejede lejemål (`x-wp-total: 56`). Det
+geografiske filter kan ikke stoles på: den "københavnske" side viser også
+en lejlighed i Odense.
+Økonomi: varme som selvstændigt månedligt beløb, vand står som ordet
+"Inkluderet" uden tal, el nævnes ikke. Depositum og forudbetalt = 3
+måneders leje hver.
+Teknisk: server-HTML. WP REST-API duer kun til discovery —
+`content.rendered` er tom på alle boliger, og `acf` er en tom liste, så
+økonomien skal hentes fra HTML'en. Felterne ligger i generiske
+Elementor-widgets med hashede id'er og uden semantiske klasser; en adapter
+skal ankre på etikettteksten ("Varme", "Depositum") og tage næste element.
+**Det holder, men brækker den dag skabelonen redigeres.**
+
+**home.dk — 229 boliger · fuld økonomi: NEJ**
+robots.txt: `Allow: /`.
+Klart størst i volumen, og teknisk let: Nuxt 3 med hele datasættet i
+`__NUXT__`-payloaden, server-renderet på både liste og detaljeside.
+Sitemap findes, men kun via robots.txt — `/sitemap.xml` er en blød 404.
+**Fravalgt indtil videre, og grunden er ikke teknisk:** aconto er ét samlet
+tal. Detaljesiden skriver "Leje pr. måned 20.200 kr." og "Aconto forbrug
+pr. måned 1.100 kr." — intet om hvad de 1.100 dækker. Depositum og
+forudbetalt leje oplyses som beløb.
+229 mørke boliger ville flytte totalen fra 1.211 til 1.440 og andelen med
+fuld økonomi fra 55 % til 46 %. Det er den forkerte vej for det, vi lover.
+Skal den hentes, er det en beslutning om at prioritere udbud over
+oplysning — og så skal forsidens tal formuleres om.
+
+**CEJ — 35 ledige af 60 · fuld økonomi: NEJ**
+robots.txt: **404** — der er ingen. En Next.js-fejlside, ikke en ren 404.
+Ingen robots.txt betyder ingen begrænsning.
+Teknisk pæn: Remix-app (white-label fra `bolig.io`), hele datasættet i
+`window.__remixContext`. Ingen sitemap.
+Data er komplette: pris, aconto, depositum og forudbetalt leje udfyldt på
+**60 af 60**. **Men `onAccountMonthly` har præcis ét felt, `amount`.** Nul
+forekomster af "water", "electricity" eller "utilities" som feltnavne i
+hele payloaden. De 32 træffere på "heating" er alle
+`heatSource: "districtHeating"` — altså varmekilden, ikke et beløb.
+Fravalgt af samme grund som home.dk, med færre boliger til at opveje det.
+
+**Kereby — 4 ledige af 18 · fuld økonomi: NEJ**
+robots.txt: `Disallow: /files/*`.
+Teknisk: WordPress med en custom post type udstillet i WP REST API,
+`/wp-json/wp/v2/jorato-cases` (`x-wp-total: 79`). Sitemap findes, men
+indeholder **ikke** de enkelte lejemål — kun statiske sider.
+Økonomi: "Leje 32.938 kr./md." og "Månedlig aconto 3.000 kr./md." — ét
+samlet tal. Nul træffere på "varme" i hele detaljesidens HTML. Bag et
+tooltip ligger indflytningsprisen pænt opdelt (første huslejebetaling,
+forudbetalt leje, depositum, samlet), og depositum svarer til 3 måneders
+leje, forudbetalt til 1.
+Fravalgt: fire ledige boliger uden specificeret aconto er ikke arbejdet
+værd. Bliver deres aconto en dag opdelt, ændrer regnestykket sig.
+
+**C.W. Obel — 0 nye boliger · fravalgt**
+robots.txt: navngivne bots får frit lejde; `User-agent: *` får
+`Disallow: /portfolio-types/` og **`Disallow: */page/`** — altså er
+pagineringen lukket for os.
+**Men det er ligegyldigt, for kilden er reelt Jeudan.** Samme API
+(`nova-api.jeudan.dk`), samme fire lejemål, alle med `city.area = "capitol"`
+(København K). Ingen af dem ligger i Storkøbenhavn, som URL'en ellers
+lover. Byg den ikke som selvstændig kilde — den ville give nul nye boliger
+og fire dubletter.
+
 ### Ikke undersøgt endnu
 
 Cepheus: tom robots.txt (3 bytes, kun en BOM), sitemap 404, og hverken
