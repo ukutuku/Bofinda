@@ -272,7 +272,7 @@ export function Gruppekort({ g }: { g: Gruppe }) {
   return (
     <a
       className={`kort gruppekort${forside ? '' : ' uden-billede'}`}
-      href={gruppeUrl(n)}
+      href={gruppeUrl(r.id)}
       id={`kort-${r.id}`}
       data-bolig={r.id}
     >

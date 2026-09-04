@@ -446,6 +446,19 @@ export interface Gruppenoegle {
   vaerelser: number
   /** Er priserne kendte totaler, eller er det huslejen alene? */
   total: boolean
+  /**
+   * Udlejerens konto — kun sat paa native annoncer.
+   *
+   * `sources.slug` er 'native' for ALLE udlejerannoncer, saa uden den her
+   * ville to forskellige udlejere med hver sin lejlighed paa samme vej med
+   * samme vaerelsestal blive ét kort, der paastod, at det var samme udbud.
+   *
+   * Kolonnen er NULL paa hver eneste scrapede bolig, og `group by` samler
+   * NULL i én gruppe — de eksisterende grupper er derfor uroerte. For dem
+   * er sammenlaegningen ogsaa rigtig: samme kilde, samme vej, samme
+   * vaerelsestal er som regel den samme ejendom.
+   */
+  ejer: string | null
 }
 
 export interface Gruppe {
@@ -525,6 +538,7 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
       postnr: listings.postalCode,
       vej: listings.street,
       vaerelser: listings.rooms,
+      ejer: listings.landlordId,
       prisMin: sql<number | null>`min(${PRIS})::int`,
       prisMax: sql<number | null>`max(${PRIS})::int`,
       total: TOTALKENDT,
@@ -578,7 +592,8 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
     .where(hvorVist(f))
-    .groupBy(sources.slug, listings.postalCode, listings.street, listings.rooms, TOTALKENDT, ALENE)
+    .groupBy(sources.slug, listings.postalCode, listings.street, listings.rooms,
+      listings.landlordId, TOTALKENDT, ALENE)
     .orderBy(GRUPPEORDEN[f.sorter ?? 'nyeste'])
     .limit(graense)
 
@@ -599,7 +614,7 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
       gruppe: {
         noegle: {
           kilde: r.kilde, postnr: r.postnr, vej: r.vej,
-          vaerelser: r.vaerelser, total: r.total,
+          vaerelser: r.vaerelser, total: r.total, ejer: r.ejer,
         },
         antal: r.antal,
         repraesentant: bolig,
@@ -627,22 +642,65 @@ export const antalBoliger = (v: Visning[]) =>
   v.reduce((n, x) => n + (x.slags === 'gruppe' ? x.gruppe.antal : 1), 0)
 
 /** Nøglen som URL. Hele nøglen med, så siden kan slå gruppen op igen. */
-export function gruppeUrl(n: Gruppenoegle): string {
-  const q = new URLSearchParams({
-    kilde: n.kilde, postnr: n.postnr, vej: n.vej,
-    vaerelser: String(n.vaerelser), total: n.total ? '1' : '0',
-  })
-  return `/gruppe?${q}`
-}
+/**
+ * Linket til gruppens egen side.
+ *
+ * Adressen baerer ÉN ting: repraesentantens bolig-id. Siden slaar den op og
+ * udleder noeglen derfra.
+ *
+ * Foer stod hele noeglen i adressen. Da ejeren kom med i noeglen, ville det
+ * have lagt en udlejers KONTO-id i en delbar URL. Bolig-id'et er derimod
+ * allerede offentligt — det staar i /bolig/{id} paa hvert eneste kort.
+ */
+export const gruppeUrl = (repraesentantId: string): string =>
+  `/gruppe?b=${encodeURIComponent(repraesentantId)}`
 
-/** Nøgle ud af URL-parametre. Er én del væk eller ugyldig, er der ingen gruppe. */
+/**
+ * Nøgle ud af de GAMLE URL-parametre. Er én del væk eller ugyldig, er der
+ * ingen gruppe.
+ *
+ * Formatet er afloest af `?b=<bolig-id>`, men links delt foer skiftet ligger
+ * stadig i folks browserhistorik og noter. De virker uaendret: `ejer` saettes
+ * til null, hvilket er praecis rigtigt, for kun scrapede boliger kunne
+ * danne grupper dengang, og deres `landlord_id` ER null.
+ */
 export function gruppenoegleFra(sp: Soegeparametre): Gruppenoegle | null {
   const t = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?.trim()
   const kilde = t(sp.kilde), postnr = t(sp.postnr), vej = t(sp.vej)
   const vaerelser = Number(t(sp.vaerelser))
   if (!kilde || !postnr || !vej) return null
   if (!Number.isInteger(vaerelser)) return null
-  return { kilde, postnr, vej, vaerelser, total: t(sp.total) === '1' }
+  return { kilde, postnr, vej, vaerelser, total: t(sp.total) === '1', ejer: null }
+}
+
+/**
+ * Noeglen udledt af én bolig — den vej `/gruppe?b=<id>` gaar.
+ *
+ * Boligen skal selv kunne grupperes; mangler den vej, postnummer,
+ * vaerelsestal eller pris, staar den alene i listen, og saa er der ingen
+ * gruppe at vise.
+ */
+export async function gruppenoegleFraBolig(id: string): Promise<Gruppenoegle | null> {
+  const [r] = await db
+    .select({
+      kilde: sources.slug, postnr: listings.postalCode, vej: listings.street,
+      vaerelser: listings.rooms, ejer: listings.landlordId,
+      total: sql<boolean>`(${listings.totalMonthly} is not null)`,
+      kanGrupperes: sql<boolean>`${KAN_GRUPPERES}`,
+    })
+    .from(listings)
+    .innerJoin(sources, eq(sources.id, listings.sourceId))
+    .where(and(
+      eq(listings.id, id),
+      eq(listings.status, 'active'),
+      ne(listings.addressMatchLevel, 'failed'),
+    ))
+    .limit(1)
+  if (!r || !r.kanGrupperes || !r.postnr || !r.vej || r.vaerelser == null) return null
+  return {
+    kilde: r.kilde, postnr: r.postnr, vej: r.vej,
+    vaerelser: r.vaerelser, total: r.total, ejer: r.ejer,
+  }
 }
 
 /**
@@ -664,6 +722,8 @@ export async function hentGruppe(n: Gruppenoegle) {
       eq(listings.postalCode, n.postnr),
       eq(listings.street, n.vej),
       eq(listings.rooms, n.vaerelser),
+      // Ejeren er NULL paa alle scrapede — `is null` rammer dem alle.
+      n.ejer == null ? isNull(listings.landlordId) : eq(listings.landlordId, n.ejer),
       n.total ? isNotNull(listings.totalMonthly) : isNull(listings.totalMonthly),
       // Prisen er ikke en noegledel, men en bolig uden kendt pris hoerer
       // ikke til i en gruppe, kortet saetter et "fra" paa.

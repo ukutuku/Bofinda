@@ -1,6 +1,6 @@
 import { Kort, kr } from '../Boligkort'
 import {
-  gruppenoegleFra, hentGruppe, type Soegeparametre,
+  gruppenoegleFra, gruppenoegleFraBolig, hentGruppe, type Soegeparametre,
 } from '../../lib/soeg'
 
 export const dynamic = 'force-dynamic'
@@ -8,9 +8,18 @@ export const dynamic = 'force-dynamic'
 // ═══════════════════════════════════════════════════════════════
 //  De enkelte boliger bag ét gruppekort.
 //
-//  Siden slås op på nøglen alene — kilde, postnummer, vej, værelser,
-//  pris — ikke på brugerens øvrige filtre. Så peger linket på det samme,
-//  uanset hvem der åbner det.
+//  Adressen bærer ét felt: `?b=<repræsentantens bolig-id>`. Nøglen udledes
+//  af den bolig — kilde, postnummer, vej, værelser, om totalen er kendt, og
+//  for udlejerannoncer ejeren. Ikke brugerens øvrige filtre, så linket peger
+//  på det samme, uanset hvem der åbner det.
+//
+//  Hvorfor ikke nøglen i adressen, som før: da ejeren kom med i nøglen,
+//  ville det have lagt en udlejers konto-id i en delbar URL. Bolig-id'et er
+//  allerede offentligt — det står i /bolig/{id} på hvert eneste kort.
+//
+//  De gamle parameter-links virker uændret. De kunne kun være dannet af
+//  scrapede boliger, hvis `landlord_id` er null, og `gruppenoegleFra`
+//  sætter derfor ejeren til null.
 //
 //  Ikke i sitemap og ikke indekseret: det er en udfoldning af listen, ikke
 //  en side i sig selv. Boligerne står hver for sig på /bolig/[id], og
@@ -28,7 +37,8 @@ export default async function Side(
   { searchParams }: { searchParams: Promise<Soegeparametre> },
 ) {
   const sp = await searchParams
-  const n = gruppenoegleFra(sp)
+  const b = Array.isArray(sp.b) ? sp.b[0] : sp.b
+  const n = b ? await gruppenoegleFraBolig(b.trim()) : gruppenoegleFra(sp)
   const boliger = n ? await hentGruppe(n) : []
 
   if (!n || boliger.length === 0) {

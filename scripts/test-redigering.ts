@@ -12,6 +12,7 @@
 //    9. At en groen total ALDRIG kan staa uden at el er gjort rede for.
 //   10. At et kort uden VISBART billede faar klassen uden-billede.
 //   11. At en samlet aconto ALDRIG faar saetningen "El indgaar ikke".
+//   12. At to udlejere paa samme vej bliver to kort, ikke ét.
 //
 //  Fejlen den fanger: redigér-formularen indlæste ikke alle felter, og et
 //  gem skrev tomme værdier hen over de gemte. En udlejer, der rettede en
@@ -35,7 +36,7 @@ import { Gruppekort, Kort } from '../app/Boligkort'
 import { billedUrl, TILLADTE_VAERTER } from '../lib/billede'
 import { eltilstand } from '../lib/eloplysning'
 import type { Bolig, Gruppe } from '../lib/soeg'
-import { facilitetsgrundlag, opsummering, soeg } from '../lib/soeg'
+import { facilitetsgrundlag, opsummering, soeg, soegGrupperet } from '../lib/soeg'
 import {
   mineBoliger, opdaterBolig, opretBolig, renTekst, somFormular, tjekAdresse,
   type Boliginput,
@@ -89,6 +90,7 @@ async function main() {
   const udlejer = { id: u!.id, authUserId: 'test', email: u!.email, navn: null }
   let id = ''
   let rivalId = ''
+  const ekstra: { boliger: string[]; brugere: string[] } = { boliger: [], brugere: [] }
 
   // ── Usynlige tegn ────────────────────────────────────────────
   // trim() fjerner mellemrum, ogsaa NBSP, men ikke tegn der er nul
@@ -477,6 +479,56 @@ async function main() {
     tjek('uden dublet: mærkatet siger udgivet igen', (await maerkat()).slags === 'udgivet')
     tjek('uden dublet: og hun er i søgningen igen', await iSoegningen())
 
+    // ── Gruppering maa ikke slaa to udlejere sammen ──────────────
+    // `sources.slug` er 'native' for ALLE udlejerannoncer. Uden ejeren i
+    // noeglen ville to forskellige udlejere med hver sin lejlighed paa
+    // samme vej, samme postnummer og samme vaerelsestal blive ét kort,
+    // der paastod, at det var samme udbud.
+    //
+    // Modproeven er lige saa vigtig: ÉN udlejer med fem ens lejligheder
+    // paa samme vej SKAL stadig blive ét kort. Det er den situation,
+    // gruppering findes for.
+    console.log('\n══ gruppering: ejeren skal skille udlejere ad ══')
+    const VEJ = 'Gruppeprøvevej'
+    const POSTNR = '2450'
+    const nyUdlejer = async (n: number) => {
+      const [x] = await db.insert(users)
+        .values({ email: `test-gruppe-${n}-${Date.now()}@example.com`, role: 'landlord' })
+        .returning()
+      ekstra.brugere.push(x!.id)
+      return { id: x!.id, authUserId: 'test', email: x!.email, navn: null }
+    }
+    const nyBolig = async (u: typeof udlejer, husnr: string) => {
+      const b = await opretBolig(u, { ...FULDT, vej: VEJ, husnr, postnr: POSTNR, by: 'København SV' })
+      ekstra.boliger.push(b)
+      return b
+    }
+    const kortPaaVejen = async () => {
+      const v = await soegGrupperet({ postnr: POSTNR }, 500)
+      return v.filter((x) => (x.slags === 'gruppe'
+        ? x.gruppe.noegle.vej : x.bolig.vej) === VEJ)
+    }
+
+    const a = await nyUdlejer(1)
+    const b2 = await nyUdlejer(2)
+    await nyBolig(a, '1')
+    await nyBolig(b2, '3')
+    const toEjere = await kortPaaVejen()
+    tjek('to udlejere på samme vej → to kort', toEjere.length === 2,
+      `${toEjere.length} kort` + (toEjere.length === 1 ? ' — SLÅET SAMMEN' : ''))
+    tjek('… og ingen af dem er en gruppe',
+      toEjere.every((x) => x.slags === 'bolig'), toEjere.map((x) => x.slags).join(','))
+
+    // Samme udlejer, fem ens lejligheder: ét kort.
+    for (const h of ['5', '7', '9', '11']) await nyBolig(a, h)
+    const femHosEn = (await kortPaaVejen()).filter(
+      (x) => x.slags === 'gruppe' && x.gruppe.antal === 5)
+    tjek('samme udlejer med fem → ét kort med fem adresser', femHosEn.length === 1,
+      `${femHosEn.length} gruppe(r) med fem`)
+    const alle = await kortPaaVejen()
+    tjek('… og den anden udlejer står stadig for sig', alle.length === 2,
+      `${alle.length} kort i alt`)
+
     // ── Udlejerannoncer maa ikke gaa ud i alarmmails ────────────
     // De faldt foer ud ved et tilfaelde, fordi `native` ikke har nogen
     // koersel i crawl_runs. Nu staar det udtrykkeligt i matchAlarmer, og
@@ -505,6 +557,11 @@ async function main() {
     await db.delete(savedSearches).where(eq(savedSearches.id, gemtSoegning!.id))
 
   } finally {
+    for (const b of ekstra.boliger) {
+      await db.delete(listingImages).where(eq(listingImages.listingId, b))
+      await db.delete(listings).where(eq(listings.id, b))
+    }
+    for (const u2 of ekstra.brugere) await db.delete(users).where(eq(users.id, u2))
     if (rivalId) {
       await db.delete(listingImages).where(eq(listingImages.listingId, rivalId))
       await db.delete(listings).where(eq(listings.id, rivalId))

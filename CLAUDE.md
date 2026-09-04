@@ -409,6 +409,20 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   venligst, at billederne kan være fra en anden bolig." Et billede af noget
   andet end den bolig, brugeren kigger på, er værre end intet billede — hun
   tror, hun har set den.
+- **`landlord_id` er en del af grupperingsnøglen, og den skal blive der.**
+  Den ser overflødig ud: kolonnen er NULL på hver eneste scrapede bolig, og
+  `group by` samler NULL i én gruppe, så de eksisterende grupper er
+  bit for bit uændrede (efterprøvet: samme SHA før og efter). Men
+  `sources.slug` er `'native'` for ALLE udlejerannoncer, så uden ejeren
+  ville to forskellige udlejere med hver sin lejlighed på samme vej, samme
+  postnummer og samme værelsestal blive ét kort, der påstod, at det var
+  samme udbud. Én udlejer med fem ens lejligheder skal stadig blive ét kort
+  — det er dét, gruppering findes for — og derfor er ejeren en nøgledel og
+  ikke en spærring. `npm test` prøver begge veje.
+  Nøglen bæres ikke længere i `/gruppe`-adressen; den udledes af
+  repræsentantens bolig-id (`?b=<id>`), så en udlejers konto-id aldrig
+  havner i en delbar URL. De gamle parameter-links virker uændret — de
+  kunne kun være dannet af scrapede boliger, hvis `landlord_id` er null.
 - **Svarer to udtryk på det samme spørgsmål, skal de beregnes ét sted.**
   Ikke "holdes ens" — beregnes ét sted og bruges derfra. Fem fejl i denne
   omgang havde nøjagtig den form, og i hver eneste var *begge* udtryk
