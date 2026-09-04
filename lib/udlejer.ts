@@ -21,7 +21,7 @@ import { listingImages, listings, sources } from '../db/schema'
 import { kanonisk, paenDoer, SimpelAdressevask } from './address'
 import { normaliser } from './normalize'
 import type { Udlejer } from './auth'
-import { repraesentantFor, type Repraesentant } from './soeg'
+import { repraesentantFor, VISBAR_VAERT, type Repraesentant } from './soeg'
 
 export interface Boliginput {
   /** Adskilte felter. De samles KUN til visning, aldrig til parsning. */
@@ -370,7 +370,7 @@ export async function mineBoliger(u: Udlejer) {
     vaerelser: listings.rooms,
     oprettet: listings.firstSeenAt,
     billeder: sql<number>`(select count(*)::int from ${listingImages} i
-      where i.listing_id = ${listings.id})`,
+      where i.listing_id = ${listings.id} and ${VISBAR_VAERT})`,
   })
     .from(listings)
     .where(eq(listings.landlordId, u.id))

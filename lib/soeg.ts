@@ -10,6 +10,7 @@ import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, ne, sql, ty
 import { db } from '../db/client'
 import { listingImages, listings, sources } from '../db/schema'
 import { FACILITET } from './faciliteter'
+import { TILLADTE_VAERTER } from './billede'
 
 export interface Filtre {
   by?: string
@@ -44,6 +45,27 @@ export type Sortering = (typeof SORTERINGER)[number]
  * boliger, hvis kilde bare ikke fortæller det, og det SKAL stå på skærmen,
  * når filteret er slået til. Se noten på søgesiden.
  */
+
+/**
+ * "Kan vi vise det billede?" — det samme spoergsmaal som `vaertTilladt()`
+ * i lib/billede.ts, stillet i SQL.
+ *
+ * Listen skrives IKKE af. Praedikatet bygges af `TILLADTE_VAERTER`, saa de
+ * to ikke kan komme fra hinanden: tilfoejer nogen en vaert ét sted, gaelder
+ * den begge steder med det samme.
+ *
+ * Vaerten trækkes ud med samme snit som `new URL(u).host` — alt mellem
+ * skemaet og den foerste skraastreg, spoergsmaalstegn eller havelaage.
+ * Ikke `like`, fordi `_` er et joker-tegn i LIKE og et lovligt tegn i et
+ * vaertsnavn.
+ *
+ * Hvorfor det skal i SQL og ikke i komponenten: taellingen ER svaret paa
+ * "hvor mange billeder har den". Blev den taalt raat og filtreret bagefter,
+ * ville tallet og billedet svare paa hver sit — og det er praecis den fejl,
+ * der har kostet os fem gennemgange i denne omgang.
+ */
+export const VISBAR_VAERT = sql`substring(i.external_url from '^https?://([^/?#]+)') = any(array[${
+  sql.join([...TILLADTE_VAERTER].map((v) => sql`${v}`), sql`, `)}]::text[])`
 
 /** Boligen oplyser MINDST én facilitet. Tom liste = kilden tier. */
 const OPLYST = sql`jsonb_array_length(coalesce(${listings.amenities}, '[]'::jsonb)) > 0`
@@ -198,7 +220,8 @@ export function ikkeRepraesentant(grundlag: SQL | undefined) {
         row_number() over (
           partition by ${DEDUPNOEGLE}
           order by
-            (select count(*) from listing_images i where i.listing_id = ${listings.id}) desc,
+            (select count(*) from listing_images i
+              where i.listing_id = ${listings.id} and ${VISBAR_VAERT}) desc,
             (${listings.totalMonthly} is not null) desc,
             ${listings.id}
         ) as rn
@@ -282,7 +305,7 @@ export async function repraesentantFor(ids: string[]): Promise<Map<string, Repra
       by: listings.city,
       kilde: sources.name,
       billeder: sql<number>`(select count(*)::int from ${listingImages} i
-        where i.listing_id = ${listings.id})`,
+        where i.listing_id = ${listings.id} and ${VISBAR_VAERT})`,
       harTotal: sql<boolean>`(${listings.totalMonthly} is not null)`,
       noegle,
     })
@@ -353,12 +376,15 @@ const KORTFELTER = {
   url: listings.sourceUrl,
   kilde: sources.slug,
   kildeNavn: sources.name,
-  billeder: sql<number>`(select count(*)::int from listing_images i where i.listing_id = ${listings.id})`,
+  // Kun billeder vi FAKTISK kan vise. Se VISBAR_VAERT.
+  billeder: sql<number>`(select count(*)::int from listing_images i
+    where i.listing_id = ${listings.id} and ${VISBAR_VAERT})`,
   // Foerste billede til kortet. Underforespoergsel frem for join, saa
   // en bolig med tyve billeder ikke bliver til tyve raekker.
   forside: sql<string | null>`(
     select i.external_url from listing_images i
-    where i.listing_id = ${listings.id} order by i.position limit 1)`,
+    where i.listing_id = ${listings.id} and ${VISBAR_VAERT}
+    order by i.position limit 1)`,
   // De ANDRE kilder der har den samme bolig. Boligen vises én gang, men
   // kortet skal ikke lade som om, den kun findes ét sted.
   ogsaaHos: sql<string[]>`(

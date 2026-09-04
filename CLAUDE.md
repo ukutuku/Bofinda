@@ -382,6 +382,31 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   venligst, at billederne kan være fra en anden bolig." Et billede af noget
   andet end den bolig, brugeren kigger på, er værre end intet billede — hun
   tror, hun har set den.
+- **Svarer to udtryk på det samme spørgsmål, skal de beregnes ét sted.**
+  Ikke "holdes ens" — beregnes ét sted og bruges derfra. Fem fejl i denne
+  omgang havde nøjagtig den form, og i hver eneste var *begge* udtryk
+  korrekte hver for sig. Det er derfor de er svære at få øje på i en
+  gennemlæsning: der er ingen forkert linje at pege på, kun to rigtige, der
+  driver fra hinanden.
+
+  | Spørgsmålet | Det ene udtryk | Det andet |
+  |---|---|---|
+  | Kan vi vise billedet? | `b.forside` (URL'en findes) | `billedUrl(...)` (værten er tilladt) |
+  | Hvor mange billeder? | `count(*)` i `listing_images` | det `billedUrl()` slap igennem |
+  | Er el med i totalen? | enkeltkortet spurgte | gruppekortet spurgte slet ikke |
+  | Hvad hedder facilitererne? | `FACILITETER` i formularen | `FACILITET` i filtrene |
+  | Er økonomien fuld? | `erFuldOekonomi` | `FULD` i søgelaget |
+
+  Rettelsen er den samme hver gang: én kilde, og de andre afledt af den.
+  `Ellinje` er én komponent, begge korttyper kalder den. `VISBAR_VAERT`
+  bygges af `TILLADTE_VAERTER`, så allowlisten ikke er skrevet af i SQL.
+  `FACILITETER` er typebundet til `FACILITET`. `billedUrl()` beregnes én
+  gang pr. kort og bruges til både klassen og billedet.
+
+  **Tegnet at holde øje med:** et prædikat, der findes både i JS og i SQL,
+  eller et tal, der tælles ét sted og filtreres et andet. Så snart de to
+  ikke kan afledes af hinanden, er det et spørgsmål om tid.
+
 - **En ny kilde skal tilføjes til `TILLADTE_VAERTER` i `lib/billede.ts` i
   SAMME ændring som adapteren.** Glemmes værten, returnerer `billedUrl()`
   null, og billederne forsvinder uden en fejl nogen steder. Det skete for

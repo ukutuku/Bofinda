@@ -45,6 +45,10 @@ const tjek = (navn: string, ok: boolean, note = '') => {
   if (!ok) fejl++
 }
 
+/** En vaert vi FAKTISK kan vise fra, og en vi ikke kan. */
+const VIST_VAERT = 'https://app.propstep.com/api/image/find-public'
+const SKJULT_VAERT = 'https://ikke-i-allowlisten.invalid'
+
 /** Alt udfyldt. Et felt der er tomt i proeven, tester ingenting. */
 const FULDT: Boliginput = {
   vej: 'Prøvevej', husnr: '12 B', etage: '3', doer: 'tv',
@@ -56,7 +60,9 @@ const FULDT: Boliginput = {
   beskrivelse: 'Udlejerens egen tekst, som ikke må blive skrevet om.',
   kontaktMail: 'udlejer@example.com', kontaktTlf: '12345678',
   faciliteter: ['elevator', 'altan'],
-  billeder: ['https://eksempel.invalid/1.jpg', 'https://eksempel.invalid/2.jpg'],
+  // Vaerten SKAL staa i TILLADTE_VAERTER. Ligger billederne et sted, vi
+  // ikke kan vise fra, taeller de nu nul — se VISBAR_VAERT i lib/soeg.ts.
+  billeder: [`${VIST_VAERT}/1.jpg`, `${VIST_VAERT}/2.jpg`],
 }
 
 /** Kolonner en redigering ikke må røre, og som derfor skal være ens. */
@@ -205,10 +211,10 @@ async function main() {
   // ikke, den viser ingenting. Proeven gengiver kortene og maaler paa det,
   // en bruger ser.
   console.log('\n══ manglende allowlist-post må ikke ødelægge layoutet ══')
-  const FREMMED = 'https://ikke-i-allowlisten.invalid/a.jpg'
-  const TILLADT = 'https://app.propstep.com/api/image/find-public/a.jpg'
+  const FREMMED = `${SKJULT_VAERT}/a.jpg`
+  const TILLADT = `${VIST_VAERT}/a.jpg`
   tjek('prøvens præmis: den fremmede vært er IKKE tilladt',
-    !TILLADTE_VAERTER.has('ikke-i-allowlisten.invalid') && billedUrl(FREMMED, 400) == null)
+    !TILLADTE_VAERTER.has(new URL(SKJULT_VAERT).host) && billedUrl(FREMMED, 400) == null)
   tjek('prøvens præmis: den tilladte vært ER tilladt', billedUrl(TILLADT, 400) != null)
 
   for (const [navn, html] of [
@@ -319,6 +325,43 @@ async function main() {
     tjek('hendes elevator tælles med i grundlaget',
       (await facilitetsgrundlag({ postnr: FULDT.postnr })).elevator >= 1)
 
+    // ── Tællingen skal tælle VISBARE billeder ────────────────────
+    // `b.billeder` var `count(*) from listing_images` — rækker, ikke
+    // billeder vi kan vise. Et kort med tyve billeder på en vært uden
+    // allowlist-post viste derfor intet billede OG tav om det: "ingen
+    // billeder"-linjen udløses af billeder === 0, og tallet var tyve.
+    // Nu filtreres der i selve underforespørgslen, fra samme konstant
+    // som billedUrl() bruger.
+    console.log('\n══ b.billeder skal tælle visbare billeder ══')
+    const kortet = async () =>
+      (await soeg({ postnr: FULDT.postnr }, 500)).find((x) => x.id === id)!
+    const saetBilleder = async (urler: string[]) => {
+      await db.delete(listingImages).where(eq(listingImages.listingId, id))
+      if (urler.length) await db.insert(listingImages).values(
+        urler.map((u, i) => ({ listingId: id, externalUrl: u, position: i })))
+    }
+
+    await saetBilleder(Array.from({ length: 20 }, (_, i) => `${SKJULT_VAERT}/${i}.jpg`))
+    const skjult = await kortet()
+    tjek('20 billeder på en ikke-tilladt vært → billeder = 0', skjult.billeder === 0,
+      String(skjult.billeder))
+    tjek('… og forsiden er null', skjult.forside == null, String(skjult.forside))
+    tjek('… og kortet SIGER "ingen billeder"',
+      /ingen billeder/.test(vis(createElement(Kort, { b: skjult }))))
+
+    await saetBilleder([...Array.from({ length: 3 }, (_, i) => `${VIST_VAERT}/ok${i}.jpg`),
+                        ...Array.from({ length: 2 }, (_, i) => `${SKJULT_VAERT}/nej${i}.jpg`)])
+    const blandet = await kortet()
+    tjek('blandede værter → kun de tilladte tælles', blandet.billeder === 3,
+      String(blandet.billeder))
+    tjek('… og forsiden er en tilladt URL',
+      blandet.forside != null && blandet.forside.startsWith(VIST_VAERT), String(blandet.forside))
+    tjek('… og kortet siger IKKE "ingen billeder"',
+      !/ingen billeder/.test(vis(createElement(Kort, { b: blandet }))))
+
+    // Tilbage til udgangspunktet, saa de foelgende proever ser det de forventer.
+    await saetBilleder(FULDT.billeder)
+
     // ── Billedrækkefølgen ────────────────────────────────────────
     // Udlejeren bestemmer forsidebilledet ved at trække det først i
     // formularen. Rækkefølgen i `billeder`-arrayet ER `position` i basen,
@@ -368,7 +411,7 @@ async function main() {
     rivalId = rival!.id
     await db.insert(listingImages).values(
       [0, 1, 2, 3].map((n) => ({
-        listingId: rivalId, externalUrl: `https://eksempel.invalid/r${n}.jpg`, position: n,
+        listingId: rivalId, externalUrl: `${VIST_VAERT}/r${n}.jpg`, position: n,
       })))
 
     const efterRival = await maerkat()
@@ -379,6 +422,20 @@ async function main() {
     tjek('med dublet: og begrundelsen passer — flere billeder',
       efterRival.slags === 'dublet' && efterRival.af.billeder === 4)
     tjek('med dublet: hun er FAKTISK ude af søgningen', !(await iSoegningen()))
+
+    // Rangeringen skal ogsaa taelle VISBARE billeder. Giver vi rivalen
+    // sine fire billeder paa en vaert, vi ikke kan vise fra, har den nul —
+    // og saa skal HUN vinde med sine to. Uden filtreringen i
+    // `ikkeRepraesentant` ville rivalens fire raa raekker slaa hendes to.
+    await db.delete(listingImages).where(eq(listingImages.listingId, rivalId))
+    await db.insert(listingImages).values(
+      [0, 1, 2, 3].map((n) => ({
+        listingId: rivalId, externalUrl: `${SKJULT_VAERT}/r${n}.jpg`, position: n,
+      })))
+    const usynligRival = await maerkat()
+    tjek('rival med billeder vi ikke kan vise taber valget',
+      usynligRival.slags === 'udgivet', usynligRival.slags)
+    tjek('… og så er HUN i søgningen', await iSoegningen())
 
     // Og tilbage igen, saa proeven ikke bare maaler at noget forsvandt.
     await db.delete(listingImages).where(eq(listingImages.listingId, rivalId))
