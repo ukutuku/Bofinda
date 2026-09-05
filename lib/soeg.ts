@@ -416,6 +416,10 @@ const KORTFELTER = {
   url: listings.sourceUrl,
   kilde: sources.slug,
   kildeNavn: sources.name,
+  // Kortet skal kunne skelne vores egne annoncer fra importerede. Bundet til
+  // TYPEN, ikke til slug'en: `sources.slug` er 'native' for alle
+  // udlejerannoncer i dag, men det er et navn, og typen er egenskaben.
+  kildetype: listings.sourceType,
   // Kun billeder vi FAKTISK kan vise. Se VISBAR_VAERT.
   billeder: sql<number>`(select count(*)::int from listing_images i
     where i.listing_id = ${listings.id} and ${VISBAR_VAERT})`,

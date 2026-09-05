@@ -125,7 +125,17 @@ export function Kort({ b }: { b: Bolig }) {
   const raaUdenSted = b.adresse
     .replace(new RegExp(`,?\\s*${b.postnr ?? ''}\\s*${b.by ?? ''}\\s*$`, 'i'), '')
     .replace(/,\s*$/, '').trim()
-  const parsningTabteNoget = !nogenlunde(vist, raaUdenSted)
+  // ALDRIG paa vores egne annoncer. Linjen betyder "kilden skrev noget
+  // andet, end vi kunne parse" — men for en udlejerannonce ER udlejeren
+  // kilden, og `address_raw` er ikke hendes tekst: VI bygger den af hendes
+  // fire felter (lib/udlejer.ts:210). Der findes altsaa ingen fremmed
+  // originaltekst at tilskrive.
+  //
+  // Den udloestes alligevel, og grunden er vores egen: raa-strengen er
+  // "Nørrebrogade 30, 2200", mens byen foerst blev sat bagefter. Regexen
+  // nedenfor skaerer ", postnr by" af enden — den finder ikke "2200" alene,
+  // saa postnummeret blev staaende og gjorde de to strenge forskellige.
+  const parsningTabteNoget = b.kildetype !== 'native' && !nogenlunde(vist, raaUdenSted)
 
   // ÉN beregning, brugt begge steder. Foer afgjorde `b.forside` klassen og
   // `b.forside && billedUrl(...)` billedet. Er URL'en der, men vaerten ikke

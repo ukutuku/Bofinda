@@ -254,7 +254,8 @@ async function main() {
     oevrig: null, total: 1300000, poster: ['rent', 'heat', 'water'],
     indflytning: null, ansoegning: null, match: 'unit', lat: null, lng: null,
     foerstSet: new Date(), hosKilden: null, url: 'https://eksempel.invalid/1',
-    kilde: 'proeve', kildeNavn: 'Prøve', ogsaaHos: [], billeder: 0, forside: null,
+    kilde: 'proeve', kildeNavn: 'Prøve', kildetype: 'feed',
+    ogsaaHos: [], billeder: 0, forside: null,
     ...o,
   } as unknown as Bolig)
 
@@ -269,6 +270,40 @@ async function main() {
   } as unknown as Gruppe)
 
   const vis = (el: React.ReactElement) => renderToStaticMarkup(el)
+
+  // ── «kilden skriver» maa aldrig staa paa en udlejerannonce ──
+  // Linjen betyder "kilden skrev noget andet, end vi kunne parse". For en
+  // udlejerannonce ER udlejeren kilden, og `address_raw` er ikke hendes
+  // tekst — VI bygger den af hendes fire felter. Der er ingen fremmed
+  // originaltekst at tilskrive.
+  //
+  // Fixturen har produktionens EGEN form: raa-strengen mangler byen, fordi
+  // den blev sat af os bagefter. Netop derfor udloestes linjen.
+  console.log('\n══ «kilden skriver» og native ══')
+  const KILDELINJE = 'kilden skriver'
+  const NATIV = {
+    kildetype: 'native' as const,
+    adresse: 'Nørrebrogade 30, 2200',
+    vej: 'Nørrebrogade', husnr: '30', etage: null, doer: null,
+    postnr: '2200', by: 'København N',
+  }
+  // En IMPORTERET bolig med en aegte afvigelse: kilden skriver et
+  // stednavn, vi ikke har et felt til. Uden den her ville proeven bestaa
+  // ved at fjerne linjen helt.
+  const IMPORTERET = { ...NATIV, kildetype: 'feed' as const,
+    adresse: 'Nørrebrogade 30, Kældercafeen, 2200 København N' }
+  for (const [navn, b2, skal] of [
+    ['native, samme form som i produktionen', NATIV, false],
+    ['importeret med reel afvigelse', IMPORTERET, true],
+    // Og en native, hvor raa-strengen ER identisk: den skal heller ikke
+    // vise linjen, saa proeven ikke bare maaler afvigelsen.
+    ['native uden afvigelse', { ...NATIV, adresse: 'Nørrebrogade 30, 2200 København N' }, false],
+  ] as const) {
+    const html = vis(createElement(Kort, { b: bolig(b2) }))
+    const har = html.includes(KILDELINJE)
+    tjek(`${navn}: ${skal ? 'linjen står' : 'ingen linje'}`, har === skal,
+      har ? 'linjen står' : 'ingen linje')
+  }
 
   // ── Billedforbeholdet ────────────────────────────────────────
   // Kilden skriver selv, at billederne kan vaere fra en anden bolig.
