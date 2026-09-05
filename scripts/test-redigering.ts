@@ -26,7 +26,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { and, eq, sql as dsql } from 'drizzle-orm'
-import { db, sql } from '../db/client'
+import { db, luk } from '../db/client'
 import { alertMatches, listingImages, listings, savedSearches, sources, users } from '../db/schema'
 import { matchAlarmer } from '../lib/alarm'
 import { byForPostnr } from '../lib/omraade'
@@ -50,6 +50,29 @@ let fejl = 0
 const tjek = (navn: string, ok: boolean, note = '') => {
   console.log(`  ${ok ? '✓' : '✗'} ${navn}${note ? '  — ' + note : ''}`)
   if (!ok) fejl++
+}
+
+/**
+ * Proever, der maaler forhold i det RIGTIGE udbud — at postnumre har
+ * bynavne, at der findes tavse kilder, at de ukendte falder ud af et
+ * filter. De forhold findes ikke paa en tom testbase.
+ *
+ * De SPRINGES OVER, de laves ikke om. En proeve, der bestaar paa en tom
+ * base, er ikke en proeve — den er et groent flueben uden daekning, og det
+ * er vaerre end ingenting, fordi nogen tror, den holder. Derfor skrives
+ * hver overspringning ud, og antallet staar i bunden.
+ */
+const MOD_PRODUKTION = process.env.BOFINDA_PROEV_PRODUKTION === '1'
+let sprunget = 0
+const tjekProd = async (
+  navn: string, kald: () => boolean | Promise<boolean>, note?: () => string | Promise<string>,
+) => {
+  if (!MOD_PRODUKTION) {
+    sprunget++
+    console.log(`  ⊘ ${navn}  — kræver rigtige data (npm run test:prod)`)
+    return
+  }
+  tjek(navn, await kald(), note ? await note() : '')
 }
 
 /** En vaert vi FAKTISK kan vise fra, og en vi ikke kan. */
@@ -140,8 +163,9 @@ async function main() {
 
   // ── Byen udledes af postnummeret ─────────────────────────────
   console.log('\n══ byen udledes af postnummeret ══')
-  tjek('2200 giver et bynavn', (await byForPostnr('2200')) !== null,
-    String(await byForPostnr('2200')))
+  await tjekProd('2200 giver et bynavn',
+    async () => (await byForPostnr('2200')) !== null,
+    async () => String(await byForPostnr('2200')))
   tjek('et ukendt postnummer giver null', (await byForPostnr('0001')) === null)
 
   // ── En grøn total må aldrig staa uden el-forbehold ───────────
@@ -366,8 +390,8 @@ async function main() {
     tjek('grundlaget ændrer sig IKKE af et facilitetsfilter',
       gFiltreret.tier === g.tier && gFiltreret.elevator === g.elevator,
       `tier ${gFiltreret.tier} vs ${g.tier}`)
-    tjek('men søgningen gør — filteret udelukker stadig de ukendte',
-      (await opsummering({ elevator: true })).antal < alt.antal)
+    await tjekProd('men søgningen gør — filteret udelukker stadig de ukendte',
+      async () => (await opsummering({ elevator: true })).antal < alt.antal)
     tjek('hendes elevator tælles med i grundlaget',
       (await facilitetsgrundlag({ postnr: FULDT.postnr })).elevator >= 1)
 
@@ -602,8 +626,10 @@ async function main() {
     // saa linjen retter sig selv — men saa skal den ogsaa vaere sand.
     console.log('\n══ tavse kilder ══')
     const tk = await tavseKilder({})
-    tjek('der findes tavse kilder at nævne', tk.navne.length > 0, tk.navne.join(', '))
-    tjek('de dækker et positivt antal boliger', tk.antal > 0, String(tk.antal))
+    await tjekProd('der findes tavse kilder at nævne',
+      () => tk.navne.length > 0, () => tk.navne.join(', '))
+    await tjekProd('de dækker et positivt antal boliger',
+      () => tk.antal > 0, () => String(tk.antal))
     // Vores EGEN kilde maa ikke nævnes: formularen SPOERGER om faciliteter,
     // saa "oplyser aldrig" ville vaere faktuelt forkert om den.
     //
@@ -772,8 +798,12 @@ async function main() {
     await db.delete(users).where(eq(users.id, u!.id))
   }
 
+  if (sprunget) {
+    console.log(`\n  ${sprunget} sprunget over — de måler det rigtige udbud`
+      + ' og kan kun køre mod produktion: npm run test:prod')
+  }
   console.log(fejl ? `\n  ${fejl} fejl.` : '\n  Alt bestod.')
-  await sql.end()
+  await luk()
   process.exit(fejl ? 1 : 0)
 }
 

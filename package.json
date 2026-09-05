@@ -18,10 +18,11 @@
     "alarm": "tsx --env-file-if-exists=.env scripts/alarm.ts",
     "genparse": "tsx --env-file-if-exists=.env scripts/genparse-adresser.ts",
     "db:status": "node --env-file-if-exists=.env scripts/migrationer.mjs",
-    "test": "tsx --tsconfig tsconfig.scripts.json --env-file-if-exists=.env scripts/test-redigering.ts",
+    "test": "BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/test-redigering.ts",
     "db:backup": "node --env-file-if-exists=.env scripts/backup.mjs",
     "db:backup:proev": "node --env-file-if-exists=.env scripts/proev-genskab.mjs",
-    "tjek:noegler": "node --env-file-if-exists=.env scripts/tjek-noegler.mjs"
+    "tjek:noegler": "node --env-file-if-exists=.env scripts/tjek-noegler.mjs",
+    "test:prod": "BOFINDA_PROEV_PRODUKTION=1 tsx --tsconfig tsconfig.scripts.json --env-file-if-exists=.env scripts/test-redigering.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
