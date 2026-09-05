@@ -354,8 +354,14 @@ async function main() {
     // under et filter, der lige havde skjult flere hundrede boliger.
     const g = await facilitetsgrundlag({})
     const alt = await opsummering({})
-    tjek('oplyser + tier er hele søgningen', g.oplyser + g.tier === alt.antal,
-      `${g.oplyser} + ${g.tier} = ${g.oplyser + g.tier}, listen har ${alt.antal}`)
+    // Her stod «oplyser + tier er hele søgningen». Den kunne ikke fejle:
+    // begge tal er `count(*) filter` over det SAMME praedikat i den samme
+    // raekke (lib/soeg.ts:755-756), og `OPLYST` kan aldrig vaere null, saa
+    // X og not X deler count(*) udtoemmende. Postgres' aritmetik blev
+    // proevet, ikke vores kode. Og `oplyser` laeses ingen steder: forsiden
+    // regner mellemgruppen som `antal - tier - facilitet`, saa linjen var
+    // det eneste kaldssted for feltet — og den sammenlignede det med sig
+    // selv. Det, kommentaren ovenfor lover, proeves paa de naeste linjer.
     const gFiltreret = await facilitetsgrundlag({ elevator: true })
     tjek('grundlaget ændrer sig IKKE af et facilitetsfilter',
       gFiltreret.tier === g.tier && gFiltreret.elevator === g.elevator,
@@ -379,18 +385,36 @@ async function main() {
       array[${dsql.join(navne.map((n) => dsql`${n}`), dsql`, `)}]::text[])`
     for (const nøgle of ['kaeledyr', 'elevator', 'udeplads'] as const) {
       const [m] = await db.select({
+        alle: dsql<number>`count(*)::int`,
         har: dsql<number>`count(*) filter (where ${harSql(FACILITET[nøgle])})::int`,
         uden: dsql<number>`count(*) filter (where ${OPLYST}
           and not ${harSql(FACILITET[nøgle])})::int`,
         tier: dsql<number>`count(*) filter (where not ${OPLYST})::int`,
       }).from(listings).innerJoin(sources, eq(sources.id, listings.sourceId))
         .where(udenDubletter(hvor({})))
-      const { har, uden, tier } = m!
+      const { alle, har, uden, tier } = m!
+      // To paastande, der foer stod i én linje og skjulte hinanden.
+      //
+      // DEN FOERSTE: at de tre praedikater deler saettet uden overlap og
+      // uden hul. Maales i SAMME forespoergsel, mod dens egen count(*).
+      // Ikke tautologisk: `uden` har sit eget praedikat (`OPLYST and not
+      // har`), ikke `alle - tier - har`. Overlapper to praedikater, eller
+      // opstaar der et hul, brister summen.
       tjek(`${nøgle}: de tre grupper dækker alle boliger`,
-        har + uden + tier === g.antal,
-        `${har} + ${uden} + ${tier} = ${har + uden + tier}, i alt ${g.antal}`)
+        har + uden + tier === alle,
+        `${har} + ${uden} + ${tier} = ${har + uden + tier}, i alt ${alle}`)
+      // DEN ANDEN: at grundlaget beskriver netop DET saet. Foer stod den
+      // gemt inde i summen ovenfor — mod `g.antal` fra en anden
+      // forespoergsel — og saa var det eneste, der kunne gaa galt, netop
+      // det her. Nu staar det for sig, med sin egen fejlbesked.
+      tjek(`${nøgle}: grundlaget beskriver samme sæt`, alle === g.antal,
+        `${g.antal} mod ${alle}`)
       tjek(`${nøgle}: linjens tal er det målte`, har === g[nøgle], `${g[nøgle]} mod ${har}`)
-      tjek(`${nøgle}: en tavs bolig tælles aldrig som havende`, tier === g.tier,
+      // Navnet lovede foer mere end det maaler: det er ikke boligerne, der
+      // proeves, men at grundlagets `tier` er det samme tal, proeven selv
+      // taeller. Den KAN fejle — den binder lib/soeg.ts' `OPLYST` til
+      // proevens egen kopi — og den bliver staaende.
+      tjek(`${nøgle}: grundlagets tavse er de målte tavse`, tier === g.tier,
         `${g.tier} mod ${tier}`)
     }
 
@@ -549,8 +573,13 @@ async function main() {
     // uafhaengigt her.
     console.log('\n══ grundlaget under "Fuld økonomi kendt" ══')
     const oek = await oekonomigrundlag({})
-    tjek('fuld ≤ kendt total', oek.fuld <= oek.medTotal, `${oek.fuld} af ${oek.medTotal}`)
-    tjek('kendt total ≤ alle', oek.medTotal <= oek.antal, `${oek.medTotal} af ${oek.antal}`)
+    // Her stod «fuld ≤ kendt total» og «kendt total ≤ alle». Ingen af dem
+    // kunne fejle: alle tre tal er aggregater i ÉN select over ÉT saet
+    // (lib/soeg.ts:746-749), og hvert praedikat indeholder det naeste
+    // ordret — `fuld` kraever `total is not null` PLUS sammensaetningen.
+    // `count(kolonne) <= count(*)` er sandt i Postgres uanset data.
+    // Rangordenen maales rigtigt tre linjer nede, mod en uafhaengig
+    // optaelling, og DEN kan fejle.
     const [uaf] = await db.select({
       alle: dsql<number>`count(*)::int`,
       medTotal: dsql<number>`count(*) filter (where ${listings.totalMonthly} is not null)::int`,
