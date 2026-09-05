@@ -45,9 +45,13 @@ export const TILLADTE_VAERTER = new Set([
   // Glemmes vaerten, returnerer billedUrl() null, og billederne forsvinder
   // uden en fejl nogen steder — det skete for dacas.dk med 177 billeder.
   'images.ctfassets.net',
-  // home.dk serverer fra BunnyCDN, ikke fra home.dk. Fundet i
-  // __NUXT_DATA__-payloaden, ikke gaettet paa kildens domaene.
+  // home.dk serverer fra TO vaerter, ikke én. BunnyCDN for de fleste, og
+  // deres sagsstyringssystem for resten. Gennemgangen fandt den foerste og
+  // stoppede — 25 boliger med 249 billeder stod uden billede, fordi den
+  // anden manglede her. TAEL distinkte vaerter i payloaden; find ikke den
+  // foerste. Se reglen i CLAUDE.md.
   'alvis.b-cdn.net',
+  'home.mindworking.eu',
   ...(EGEN_LAGERVAERT ? [EGEN_LAGERVAERT] : []),
 ])
 

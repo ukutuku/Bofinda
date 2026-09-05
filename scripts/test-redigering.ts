@@ -174,6 +174,40 @@ async function main() {
     aabne.length === 0,
     aabne.map((f) => `${f.slags} ${f.navn}: ${f.grund.split(' — ')[0]}`).join(' · '))
 
+  // ── En ukendt billedvaert forsvinder tavst ───────────────────
+  // Har en aktiv bolig billedraekker, men ingen af dem paa en vaert i
+  // TILLADTE_VAERTER, returnerer billedUrl() null, og billederne
+  // forsvinder uden en fejl nogen steder. Det er sket tre gange:
+  // dacas.dk (177 billeder), Balder (Contentful), og home.dk, hvor
+  // kilden brugte TO vaerter og gennemgangen fandt kun den ene —
+  // 25 boliger med 249 billeder stod uden.
+  //
+  // Kraever rigtige data: paa en tom testbase er der ingen boliger at
+  // maale paa, og proeven ville bestaa uden at have set noget.
+  console.log('\n══ ingen bolig må have billeder på en ukendt vært ══')
+  // Raa SQL med vores egne aliaser: forespoergslen skal naevne den samme
+  // tabel to gange — én gang for at faa vaertsnavnet frem, og én gang i
+  // `not exists` for at afgoere, om boligen har NOGEN visbar vaert.
+  let tabte: { vaert: string; boliger: number }[] = []
+  await tjekProd('ingen aktiv bolig har billeder på en ukendt vært',
+    async () => {
+      const r = await db.execute(dsql`
+        select substring(li.external_url from '^https?://([^/?#]+)') as vaert,
+               count(distinct l.id)::int as boliger
+        from listings l
+        join listing_images li on li.listing_id = l.id
+        where l.status = 'active'
+          and not exists (
+            select 1 from listing_images i2
+            where i2.listing_id = l.id
+              and substring(i2.external_url from '^https?://([^/?#]+)') = any(${
+                dsql`array[${dsql.join([...TILLADTE_VAERTER].map((v) => dsql`${v}`), dsql`, `)}]::text[]`}))
+        group by 1 order by 2 desc`)
+      tabte = ((r as unknown as { rows?: typeof tabte }).rows ?? (r as unknown as typeof tabte))
+      return tabte.length === 0
+    },
+    () => tabte.map((t) => `${t.vaert}: ${t.boliger} boliger`).join(' · '))
+
   console.log('\n══ byen udledes af postnummeret ══')
   await tjekProd('2200 giver et bynavn',
     async () => (await byForPostnr('2200')) !== null,

@@ -491,11 +491,31 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   ikke kan afledes af hinanden, er det et spørgsmål om tid.
 
 - **En ny kilde skal tilføjes til `TILLADTE_VAERTER` i `lib/billede.ts` i
-  SAMME ændring som adapteren.** Glemmes værten, returnerer `billedUrl()`
-  null, og billederne forsvinder uden en fejl nogen steder. Det skete for
-  dacas.dk: 177 billeder blev bare ikke vist. Bemærk at værten ofte IKKE er
-  kildens eget domæne — Balders billeder ligger på `images.ctfassets.net`,
-  Propsteps på `app.propstep.com`.
+  SAMME ændring som adapteren — og du skal TÆLLE distinkte værter i kildens
+  payload, ikke finde den første.** Glemmes en vært, returnerer
+  `billedUrl()` null, og billederne forsvinder uden en fejl nogen steder.
+
+  Det er sket tre gange. dacas.dk: 177 billeder blev bare ikke vist. Balder:
+  billederne ligger på `images.ctfassets.net`, ikke på balder.dk. Og
+  home.dk, hvor reglen om samme commit **blev overholdt** og fejlen skete
+  alligevel: kilden serverer fra **to** værter — `alvis.b-cdn.net` for de
+  fleste og `home.mindworking.eu` for resten — og gennemgangen fandt den
+  første og stoppede. 25 boliger med 249 billeder stod uden billede.
+
+  Derfor er «find værten» ikke godt nok. Kør en optælling over hele
+  payloaden, eller over rækkerne efter første import:
+
+  ```sql
+  select substring(external_url from '^https?://([^/?#]+)') as vaert,
+         count(*) as billeder, count(distinct listing_id) as boliger
+  from listing_images group by 1 order by 2 desc;
+  ```
+
+  Værten er ofte IKKE kildens eget domæne, og der er ikke nødvendigvis kun
+  én. `npm run test:prod` fejler nu, hvis en aktiv bolig har billedrækker
+  uden en eneste visbar vært, og navngiver værten — så fanger den sig selv
+  næste gang. Den kan kun køre mod produktion: på en tom testbase er der
+  ingen boliger at måle på.
   **En manglende post ødelægger også layoutet, ikke kun billedet.** Kortets
   gitter har en 216 px billedkolonne, og klassen `uden-billede` fjerner den.
   Afgøres klassen af den rå URL, mens billedet afgøres af `billedUrl()`,
