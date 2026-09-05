@@ -137,8 +137,9 @@ export async function medianFund(sourceId: string, n = 10): Promise<number | nul
   return tal.length % 2 ? tal[m]! : Math.round((tal[m - 1]! + tal[m]!) / 2)
 }
 
-/** Skriver én normaliseret bolig. Returnerer om den var ny. */
-async function skrivBolig(
+/** Skriver én normaliseret bolig. Returnerer om den var ny.
+ *  Eksporteret KUN til proeven: snapshot-semantikken skal kunne bevises. */
+export async function skrivBolig(
   sourceId: string,
   sourceType: 'feed' | 'spider' | 'native',
   b: Awaited<ReturnType<typeof normaliser>>,
@@ -169,6 +170,13 @@ async function skrivBolig(
       sourceCreatedAt: b.sourceCreatedAt, sourceUpdatedAt: b.sourceUpdatedAt,
       amenities: b.amenities, description: b.description,
       imagesMayDiffer: b.imagesMayDiffer,
+      // SNAPSHOT, aldrig merge: kolonnen ERSTATTES helt, saa et fact, der
+      // forsvinder fra kildens naeste svar, ogsaa forsvinder her.
+      // {} = behandlet, kilden gav ingen facts. NULL findes kun paa raekker,
+      // pipelinen aldrig har roert.
+      // Cast paa SKRIVNING er ok: det er vores egen typede vaerdi, der
+      // serialiseres. LAESNING gaar altid gennem laesAvailabilityFacts.
+      availabilityFacts: (b.availability ?? {}) as Record<string, unknown>,
       // Importerede boliger har aldrig kontakt i basen. Muren staar ved kilden.
       contactEmail: null, contactPhone: null, isBlurred: true,
       status: 'active', lastSeenAt: nu, lastFetchedAt: nu,
@@ -193,6 +201,9 @@ async function skrivBolig(
         sourceCreatedAt: b.sourceCreatedAt, sourceUpdatedAt: b.sourceUpdatedAt,
         amenities: b.amenities, description: b.description,
         imagesMayDiffer: b.imagesMayDiffer,
+        // Cast paa SKRIVNING er ok: det er vores egen typede vaerdi, der
+      // serialiseres. LAESNING gaar altid gennem laesAvailabilityFacts.
+      availabilityFacts: (b.availability ?? {}) as Record<string, unknown>,
         // Dukker en afmeldt bolig op igen, er den ledig igen.
         status: 'active', delistedAt: null,
         lastSeenAt: nu, lastFetchedAt: nu,

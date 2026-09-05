@@ -32,6 +32,12 @@ import { matchAlarmer } from '../lib/alarm'
 import { byForPostnr } from '../lib/omraade'
 import { laesBolig as dacasLaes } from '../adapters/dacas'
 import { laesSag as homeLaes } from '../adapters/home'
+import { laes as balderLaes } from '../adapters/balder'
+import { laesAvailabilityFacts } from '../lib/fakta'
+import { skrivBolig } from '../lib/ingest'
+import { normaliser } from '../lib/normalize'
+import type { VasketAdresse } from '../lib/address'
+import type { RawListing } from '../lib/adapter'
 import { KILDEKONTRAKTER } from '../lib/kildekontrakt'
 import { forklar, fortolkAvailability } from '../lib/availability'
 import { isoDato, kalenderdag } from '../lib/dato'
@@ -319,6 +325,66 @@ async function main() {
   ] as const) {
     tjek(`1. dec. (vintertid) @ ${ref.slice(11, 19)}Z: ${vent}`,
       timingVed('2026-12-01', ref) === vent, timingVed('2026-12-01', ref))
+  }
+
+  // ── Parseren: laesning gaar ALDRIG gennem en cast ────────────
+  console.log('\n══ availability_facts: parseren ══')
+  const rt = laesAvailabilityFacts({
+    rawStatus: 'Reserved', rentalAvailableNow: false,
+    sourceAvailabilityDate: '2026-10-01', takeoverText: null,
+  })
+  tjek('round-trip: false OVERLEVER', rt?.rentalAvailableNow === false,
+    String(rt?.rentalAvailableNow))
+  tjek('round-trip: eksplicit null bevares', rt !== null && 'takeoverText' in rt && rt.takeoverText === null)
+  tjek('round-trip: fravaerende nøgle forbliver fravaerende',
+    rt !== null && !('rawApplicationType' in rt))
+  tjek('round-trip: datoen er kalenderdag', rt?.sourceAvailabilityDate === '2026-10-01')
+  tjek('misdannet KENDT felt kasserer hele objektet (fail closed)',
+    laesAvailabilityFacts({ rawStatus: 'Ledig', sourceAvailabilityDate: '2026-02-31' }) === null)
+  tjek('misdannet boolean kasserer også', laesAvailabilityFacts({ rentalAvailableNow: 'ja' }) === null)
+  const medTypo = laesAvailabilityFacts({ rentalAvailbleNow: true, rawStatus: 'Ledig' })
+  tjek('ukendt nøgle (typo) vælter IKKE objektet',
+    medTypo !== null && medTypo.rawStatus === 'Ledig' && !('rentalAvailbleNow' in medTypo))
+  tjek('ikke-objekt giver null', laesAvailabilityFacts('Ledig') === null
+    && laesAvailabilityFacts([1]) === null && laesAvailabilityFacts(undefined) === null)
+
+  // ── Balder-fixturen: fem frosne hits gennem parsningen ───────
+  console.log('\n══ balder: acquisition_date som kalenderdag ══')
+  const hit = (acq: unknown) => ({
+    slug: 'proevevej-1-2300', id: 'a0TESTID', street: 'Prøvevej 1',
+    postal_code: '2300', city: 'København S', gross_area: 70,
+    number_of_rooms: 3, rent: 12000, status: 'Ledig', acquisition_date: acq,
+  })
+  const bAf = (acq: unknown) => balderLaes(hit(acq))?.availability
+  tjek('fortidig dato læses', bAf('2026-08-01')?.sourceAvailabilityDate === '2026-08-01')
+  tjek('dagens dato læses', bAf('2026-09-05')?.sourceAvailabilityDate === '2026-09-05')
+  tjek('fremtidig dato læses', bAf('2026-12-15')?.sourceAvailabilityDate === '2026-12-15')
+  tjek('eksplicit null bevares som null',
+    bAf(null) !== undefined && bAf(null)!.sourceAvailabilityDate === null)
+  const bMis = bAf('15. december 2026')
+  tjek('misdannet dato udelades — opfindes ikke',
+    bMis !== undefined && !('sourceAvailabilityDate' in bMis!))
+  tjek('rawStatus er kildens eget ord', bAf('2026-08-01')?.rawStatus === 'Ledig')
+
+  // ── Flip-punktet: dato ±1 dag × boolean ──────────────────────
+  // Den empiriske maaling havde et 29-dages hul omkring graensen. Her
+  // afgoeres den KONSTRUERET: enige signaler giver nu/senere, uenige
+  // giver conflict. Ingen «boolean vinder», ingen «dato vinder».
+  console.log('\n══ home: flip-punktet, konstrueret ══')
+  const REFDAG = kalenderdag(NU)  // 2026-09-05 i Europe/Copenhagen
+  const dagFoer = D('2026-09-04'), dagEfter = D('2026-09-06')
+  for (const [navn, dato, bool, vent] of [
+    ['dato i går   + true',  dagFoer, true, 'nu'],
+    ['dato i dag   + true',  REFDAG, true, 'nu'],
+    ['dato i morgen + true', dagEfter, true, 'conflict'],
+    ['dato i går   + false', dagFoer, false, 'conflict'],
+    ['dato i dag   + false', REFDAG, false, 'conflict'],
+    ['dato i morgen + false', dagEfter, false, 'senere'],
+  ] as const) {
+    const r = fortolkAvailability(
+      { rentalAvailableNow: bool, sourceAvailabilityDate: dato },
+      KILDEKONTRAKTER.home!, NU)
+    tjek(`flip: ${navn} → ${vent}`, r.timing.status === vent, r.timing.status)
   }
 
   // ── home.dk: ledigdatoen skal vaere SAGENS, ikke naboens ─────
@@ -1204,6 +1270,104 @@ async function main() {
     tjek('en udlejerannonce regnes IKKE som bagkatalog',
       plads(id) >= 0 && plads(id) < plads(fraNy[0]!) || plads(fraNy[0]!) === -1,
       `hun på ${plads(id)}, bagkatalog på ${plads(fraNy[0]!)}`)
+
+    // ── availability_facts: snapshot, aldrig merge ───────────────
+    console.log('\n══ availability_facts: snapshot og fuld pipeline ══')
+    const VASK: VasketAdresse = {
+      street: 'Snapshotvej', houseNumber: '1', floor: null, door: null,
+      postalCode: '2300', city: 'København S',
+      unitAddressUuid: crypto.randomUUID(), accessAddressUuid: null,
+      addressMatchLevel: 'unit', lat: null, lng: null,
+    }
+    const [snapKilde] = await db.insert(sources).values({
+      slug: `proeve-snap-${Date.now()}`, name: 'Prøve: snapshot',
+      sourceType: 'feed', baseUrl: 'https://proeve.invalid', enabled: false,
+    }).returning()
+    ekstra.kilder.push(snapKilde!.id)
+    const raaMed: RawListing = {
+      externalKey: 'snap-1', sourceUrl: 'https://proeve.invalid/s1',
+      address: 'Snapshotvej 1, 2300 København S', imageUrls: [],
+      availability: { rentalAvailableNow: true, rawStatus: 'Ledig' },
+    }
+    const { id: snapId } = await skrivBolig(snapKilde!.id, 'feed',
+      await normaliser(raaMed, VASK))
+    ekstra.boliger.push(snapId)
+    const hentFakta = async (bid: string) => {
+      const [r] = await db.select({ f: listings.availabilityFacts })
+        .from(listings).where(eq(listings.id, bid))
+      return { raa: r!.f, laest: laesAvailabilityFacts(r!.f) }
+    }
+    const efterA = await hentFakta(snapId)
+    tjek('import A: facten står der', efterA.laest?.rentalAvailableNow === true)
+
+    // Import B: SAMME bolig — kilden siger ikke laengere noget.
+    await skrivBolig(snapKilde!.id, 'feed',
+      await normaliser({ ...raaMed, availability: {} }, VASK))
+    const efterB = await hentFakta(snapId)
+    tjek('import B: facten er VÆK — snapshot, ikke merge',
+      efterB.laest !== null && !('rentalAvailableNow' in efterB.laest),
+      JSON.stringify(efterB.raa))
+    tjek('import B: {} og ikke NULL — behandlet, kilden gav intet',
+      efterB.raa !== null && Object.keys(efterB.raa as object).length === 0)
+
+    // NULL-tilstanden: en raekke, pipelinen aldrig har roert. Skabelon
+    // fra snap-raekken selv, saa alle CHECK-begraensninger er opfyldt.
+    const [snapRaekke] = await db.select().from(listings)
+      .where(eq(listings.id, snapId))
+    const { id: _sm, ...snapSkabelon } = snapRaekke!
+    const [uroert] = await db.insert(listings).values({
+      ...snapSkabelon,
+      externalKey: `snap-nul-${Date.now()}`,
+      sourceUrl: 'https://proeve.invalid/nul',
+      unitAddressUuid: crypto.randomUUID(),
+      availabilityFacts: null,
+    }).returning({ id: listings.id })
+    ekstra.boliger.push(uroert!.id)
+    tjek('NULL betyder «aldrig høstet» og kan skelnes fra {}',
+      (await hentFakta(uroert!.id)).raa === null)
+
+    // ── Fuld pipeline: adapter → normaliser → base → hydrering → domæne ──
+    const pipelinen = async (raa: RawListing, kilde: string) => {
+      const { id: bid } = await skrivBolig(snapKilde!.id, 'feed',
+        await normaliser(raa, VASK))
+      if (!ekstra.boliger.includes(bid)) ekstra.boliger.push(bid)
+      const { laest } = await hentFakta(bid)
+      return fortolkAvailability(laest ?? {}, KILDEKONTRAKTER[kilde]!, NU)
+    }
+    const bLedigSenere = balderLaes(hit('2026-12-15'))!
+    const rBalder = await pipelinen({ ...bLedigSenere, externalKey: 'pipe-balder' }, 'balder')
+    tjek('pipeline balder: Ledig + fremtidig dato → på markedet, senere',
+      rBalder.marked.status === 'paa_markedet' && rBalder.timing.status === 'senere',
+      `${rBalder.marked.status} · ${rBalder.timing.status}`)
+    const rFind = await pipelinen({
+      externalKey: 'pipe-find', sourceUrl: 'https://proeve.invalid/f',
+      address: 'Snapshotvej 1, 2300', imageUrls: [],
+      availability: { rawApplicationType: 'WaitingList' },
+    }, 'findbolig')
+    tjek('pipeline findbolig: WaitingList → venteliste',
+      rFind.ansoegning.status === 'venteliste', rFind.ansoegning.status)
+    const rProp = await pipelinen({
+      externalKey: 'pipe-prop', sourceUrl: 'https://proeve.invalid/p',
+      address: 'Snapshotvej 1, 2300', imageUrls: [],
+      availability: { rawStatus: 'Available', sourceAvailabilityDate: D('2002-08-31') },
+    }, 'propstep')
+    tjek('pipeline propstep: Available + 2002-dato → på markedet, timing UNKNOWN',
+      rProp.marked.status === 'paa_markedet' && rProp.timing.status === 'unknown',
+      `${rProp.marked.status} · ${rProp.timing.status}`)
+    const dacasRaa = dacasLaes(dacasSide('Snarest'), 'https://dacas.dk/bolig/pipe')!
+    const rDacas = await pipelinen({ ...dacasRaa, externalKey: 'pipe-dacas' }, 'dacas')
+    tjek('pipeline dacas: Snarest → timing nu, INGEN dato opstod',
+      rDacas.timing.status === 'nu'
+      && !rDacas.timing.evidens.some((e) => e.faktum === 'sourceAvailabilityDate'),
+      rDacas.timing.status)
+    // native: hendes egen annonce, skrevet af opretBolig tidligere.
+    const hendesF = await hentFakta(id)
+    const rNativ = fortolkAvailability(hendesF.laest ?? {}, KILDEKONTRAKTER.native!, NU)
+    tjek('pipeline native: udlejerens ledigFra er facten',
+      hendesF.laest?.sourceAvailabilityDate === FULDT.ledigFra,
+      String(hendesF.laest?.sourceAvailabilityDate))
+    tjek('pipeline native: → timing senere (ledig 1. dec.)',
+      rNativ.timing.status === 'senere', rNativ.timing.status)
 
     // ── Udlejerannoncer maa ikke gaa ud i alarmmails ────────────
     // De faldt foer ud ved et tilfaelde, fordi `native` ikke har nogen

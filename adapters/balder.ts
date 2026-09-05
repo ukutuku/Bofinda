@@ -38,6 +38,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { DiscoveredListing, RawListing, SourceAdapter } from '../lib/adapter'
+import { isoDato } from '../lib/dato'
 import { politeFetch } from '../lib/fetch'
 import { kronerTilOere } from '../lib/money'
 
@@ -71,7 +72,7 @@ const FACILITETER: Record<string, string> = {
   has_playground: 'legeplads',
 }
 
-type Ukendt = Record<string, unknown>
+export type Ukendt = Record<string, unknown>
 const tal = (v: unknown): number | undefined =>
   typeof v === 'number' && Number.isFinite(v) ? v : undefined
 const tekst = (v: unknown): string | undefined =>
@@ -82,7 +83,8 @@ const oere = (v: unknown): number | undefined => {
   return n == null ? undefined : kronerTilOere(n)
 }
 
-function laes(h: Ukendt): RawListing | null {
+/** Eksporteret KUN til proeven: et frossent hit gennem parsningen. */
+export function laes(h: Ukendt): RawListing | null {
   const slug = tekst(h['slug'])
   const id = tekst(h['id']) ?? tekst(h['salesforce_id'])
   const vej = tekst(h['street'])
@@ -121,6 +123,21 @@ function laes(h: Ukendt): RawListing | null {
     imageUrls: Array.isArray(h['images'])
       ? (h['images'] as unknown[]).filter((x): x is string => typeof x === 'string')
       : [],
+    // Hvad kilden SAGDE — fortolkningen bor i lib/kildekontrakt.ts.
+    // `status` er kildens eget ord ("Ledig" er det eneste, filteret slipper
+    // igennem, men det skrives ikke af: skulle filteret aendres, skal
+    // faktaet stadig vaere kildens). `acquisition_date` er date-only;
+    // eksplicit null bevares som null, en misdannet vaerdi udelades —
+    // den kan ikke repraesenteres som kalenderdag.
+    availability: {
+      rawStatus: tekst(h['status']) ?? null,
+      ...(h['acquisition_date'] === null
+        ? { sourceAvailabilityDate: null }
+        : (() => {
+            const d = isoDato(h['acquisition_date'])
+            return d ? { sourceAvailabilityDate: d } : {}
+          })()),
+    },
   }
 }
 

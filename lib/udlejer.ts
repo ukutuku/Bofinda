@@ -16,6 +16,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { and, desc, eq, sql } from 'drizzle-orm'
+import { isoDato } from './dato'
 import { db } from '../db/client'
 import { listingImages, listings, sources } from '../db/schema'
 import { kanonisk, paenDoer, SimpelAdressevask } from './address'
@@ -264,6 +265,14 @@ function fraFormular(n: Awaited<ReturnType<typeof normaliser>>, i: Boliginput) {
     // altan- og kaeledyrsfiltrene for altid — de filtrerer paa `amenities`,
     // og den var tom, fordi ingen spurgte.
     amenities: i.faciliteter,
+    // Udlejerens egen «ledig fra» er den eneste dato, hvis betydning ikke
+    // kan misforstaas — hun skriver den selv om sin egen bolig. Formularen
+    // spoerger IKKE om ansoegningsform, og fravaer er ikke «normal»: der
+    // saettes intet rawApplicationType.
+    availabilityFacts: (() => {
+      const d = isoDato(i.ledigFra)
+      return (d ? { sourceAvailabilityDate: d } : {}) as Record<string, unknown>
+    })(),
     lastFetchedAt: new Date(),
   }
 }

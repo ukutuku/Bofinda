@@ -16,6 +16,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { DiscoveredListing, RawListing, SourceAdapter } from '../lib/adapter'
+import { isoDato } from '../lib/dato'
 import { politeFetch } from '../lib/fetch'
 import { kronerTilOere, parseDanskBeloebTilOere } from '../lib/money'
 
@@ -260,6 +261,16 @@ function laesBolig(html: string, url: string): RawListing | null {
     sourceUpdatedAt: tekst(s, 'lastUpdated'),
     imageUrls: billeder,
     imagesMayDiffer: forbehold,
+    // Kilden HAR et statusobjekt (caseStatus), men det stod {null,null,""}
+    // paa alle maalte sider — et felt uden indhold giver intet rawStatus.
+    // Datoen gemmes raat; kontrakten har den som uafklaret.
+    availability: {
+      ...(() => {
+        const rd = tekst(s, 'acquisitionDate')
+        const d = isoDato(rd ? rd.slice(0, 10) : null)
+        return d ? { sourceAvailabilityDate: d } : {}
+      })(),
+    },
   }
 }
 

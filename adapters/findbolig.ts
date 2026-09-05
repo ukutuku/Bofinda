@@ -24,6 +24,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { DiscoveredListing, RawListing, SourceAdapter } from '../lib/adapter'
+import { isoDato } from '../lib/dato'
 import { politeFetch } from '../lib/fetch'
 import { kronerTilOere } from '../lib/money'
 
@@ -238,6 +239,17 @@ function laesResidence(raw: Ukendt): RawListing | null {
     openHouseAt,
     sourceCreatedAt: created,
     sourceUpdatedAt: updated,
+    // Kildens RAA ord. `applicationType` normaliseres ovenfor til legacy-
+    // kolonnen; her gemmes ordet selv, saa kontrakten kan slaa det op.
+    // Datoen gemmes ogsaa raat — kontrakten siger selv, at dens betydning
+    // er uafklaret, og saa giver den ingen tidsevidens. Lossless foerst.
+    availability: {
+      ...(applicationTypeRaw ? { rawApplicationType: applicationTypeRaw } : {}),
+      ...(() => {
+        const d = isoDato(availableFrom ? availableFrom.slice(0, 10) : null)
+        return d ? { sourceAvailabilityDate: d } : {}
+      })(),
+    },
     amenities: [],
     imageUrls,
   }

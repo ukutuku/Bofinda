@@ -47,6 +47,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { DiscoveredListing, RawListing, SourceAdapter } from '../lib/adapter'
+import { isoDato } from '../lib/dato'
 import { politeFetch } from '../lib/fetch'
 import { kronerTilOere } from '../lib/money'
 
@@ -185,6 +186,22 @@ export function laesSag(d: Flad, g: Gitterrække, url: string): RawListing {
     utilitiesOther: oere(tilbud['rentalUtilitiesPerMonth']),
     amenities: [],
     imageUrls: fraSagen.length ? fraSagen : g.billeder,
+    // Hvad kilden SAGDE, fra sagens EGET availability-objekt (samme
+    // id-binding som alt andet). Booleans kun naar de ER booleans —
+    // `false` er et rigtigt kildefaktum og maa ikke forsvinde i et
+    // truthy-tjek. Datoen som kalenderdag; tidsdelen varierer med
+    // sagstypen (Z paa almindelige sager, ingen zone paa projektsager)
+    // og er ikke kildens udsagn.
+    availability: {
+      ...(typeof avail['isRentalAvailableNow'] === 'boolean'
+        ? { rentalAvailableNow: avail['isRentalAvailableNow'] } : {}),
+      ...(() => {
+        const d = isoDato(ledig ? ledig.slice(0, 10) : null)
+        return d ? { sourceAvailabilityDate: d } : {}
+      })(),
+      ...(typeof sag['isResidenceRequired'] === 'boolean'
+        ? { residencyRequired: sag['isResidenceRequired'] } : {}),
+    },
   }
 }
 

@@ -180,6 +180,27 @@ export const listings = pgTable('listings', {
    * gemmes ikke, jf. noten ved `description` nedenfor.
    */
   imagesMayDiffer: boolean('images_may_differ').notNull().default(false),
+
+  /**
+   * SNAPSHOT af hvad kilden sagde om tilgaengelighed — AvailabilityFacts
+   * fra lib/adapter.ts, gemt lossless. Standardiserede NAVNE, kildens raa
+   * VAERDIER: rawStatus = "Reserved", ikke market = "reserveret".
+   * Fortolkningen bor i lib/kildekontrakt.ts + lib/availability.ts og
+   * INGEN andre steder.
+   *
+   * NULL  = raekken er endnu ikke behandlet gennem availability-pipelinen.
+   * {}    = behandlet, men kilden/adapteren gav ingen facts.
+   * Skellet baerer udrulningen: NULL kan taelles som "mangler hoestning".
+   *
+   * ERSTATTES HELT ved hver vellykket behandling — aldrig merge. Et fact,
+   * der forsvinder fra kildens naeste svar, skal forsvinde her.
+   *
+   * Typet som Record<string, unknown> MED VILJE: laesning SKAL gennem
+   * laesAvailabilityFacts() i lib/fakta.ts. En `as AvailabilityFacts`
+   * ville vaere praecis den ukontrollerede cast, lib/alarm.ts:15 allerede
+   * har én af for `criteria` — det moenster skal ikke ét lag dybere.
+   */
+  availabilityFacts: jsonb('availability_facts').$type<Record<string, unknown>>(),
   openHouseAt: timestamp('open_house_at', { withTimezone: true }),
 
   // Genereret af egne felter. Aldrig kildens braedtekst.

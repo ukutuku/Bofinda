@@ -14,6 +14,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { DiscoveredListing, RawListing, SourceAdapter } from '../lib/adapter'
+import { isoDato } from '../lib/dato'
 import { politeFetch } from '../lib/fetch'
 import { parseDanskBeloebTilOere } from '../lib/money'
 
@@ -220,7 +221,15 @@ export function laesBolig(html: string, url: string): RawListing | null {
     amenities: [...new Set(faciliteter)],
     imageUrls: billeder,
     // Hvad kilden SAGDE. Ingen fortolkning — se lib/kildekontrakt.ts.
-    availability: { takeoverText: overtagelse ?? null },
+    availability: {
+      takeoverText: overtagelse ?? null,
+      // En EKSPLICIT dansk tekstdato er kildens egen dato og gemmes som
+      // kalenderdag. «Snarest» giver ALDRIG en dato — kun teksten.
+      ...(() => {
+        const d = isoDato(ledigFra ? ledigFra.slice(0, 10) : null)
+        return d ? { sourceAvailabilityDate: d } : {}
+      })(),
+    },
   }
 }
 

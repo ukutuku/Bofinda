@@ -120,6 +120,13 @@
       "when": 1788599094219,
       "tag": "0016_billedforbehold",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788633474677,
+      "tag": "0017_availability_facts",
+      "breakpoints": true
     }
   ]
 }

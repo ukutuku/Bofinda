@@ -19,6 +19,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { DiscoveredListing, RawListing, SourceAdapter } from '../lib/adapter'
+import { isoDato } from '../lib/dato'
 import { politeFetch } from '../lib/fetch'
 
 const ORIGIN = 'https://propstep.com'
@@ -246,6 +247,20 @@ function laesBolig(property: Ukendt, gitter: GitterRaekke, gruppe?: Ukendt): Raw
     // Propstep har intet felt der svarer til findboligs rentModel. Feltet
     // forbliver tomt frem for at faa en opfundet vaerdi.
     sourceCreatedAt: tekst(property['onMarketSince']) ?? tekst(property['addedOn']),
+    // Kildens RAA statusord fra gitteret ("Available"/"Reserved" set;
+    // etiketkataloget kender ogsaa "Rented"/"Unknown"). INGEN
+    // rawApplicationType: Propstep oplyser ikke ansoegningsformen, og
+    // `onWaitingListSince === null` er fravaer af ventelistebevis — ikke
+    // bevis for normal ansoegning. Datoen gemmes raat; kontrakten har den
+    // som uafklaret og uden tidsevidens (aeldste vaerdi er fra 2002).
+    availability: {
+      ...(gitter.availabilityStatus ? { rawStatus: gitter.availabilityStatus } : {}),
+      ...(() => {
+        const rd = tekst(td['availableFrom'])
+        const d = isoDato(rd ? rd.slice(0, 10) : null)
+        return d ? { sourceAvailabilityDate: d } : {}
+      })(),
+    },
     sourceUpdatedAt: tekst(property['updatedOn']),
     amenities,
     imageUrls: billeder,

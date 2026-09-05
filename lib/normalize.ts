@@ -8,7 +8,7 @@
 //  null. Ikke nul, ikke et estimat, ikke et eksempelbillede.
 // ═══════════════════════════════════════════════════════════════
 
-import type { RawListing } from './adapter'
+import type { AvailabilityFacts, RawListing } from './adapter'
 import { vaskAdresse } from './address'
 import { oereTilKroner } from './money'
 
@@ -200,6 +200,8 @@ export interface NormaliseretBolig {
   imageUrls: string[]
   /** Kilden oplyser selv, at billederne kan vaere fra en anden bolig. */
   imagesMayDiffer: boolean
+  /** Ren gennemstilling — normalisering FORTOLKER ikke availability. */
+  availability: AvailabilityFacts | null
 }
 
 const dato = (s: string | undefined | null): Date | null => {
@@ -269,6 +271,7 @@ export async function normaliser(
     // Standard er false: de fleste kilder tager intet forbehold, og et
     // forbehold, ingen har oplyst, ville vaere vores egen paastand.
     imagesMayDiffer: r.imagesMayDiffer ?? false,
+    availability: r.availability ?? null,
     amenities: r.amenities ?? [],
     description: genererBeskrivelse({
       propertyType, rooms: r.rooms ?? null, sizeM2: r.sizeM2 ?? null,
