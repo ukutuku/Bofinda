@@ -583,6 +583,18 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   skjule et felt i klienten.
 - **BoligPortal er ikke en kilde.** Deres robots.txt forbyder crawling
   udtrykkeligt på skrift. Kræver skriftlig aftale først.
+- **Prøver må aldrig låne en rigtig kilde.** `test-redigering.ts` skal bruge
+  noget ikke-native for at prøve dedup og repræsentantvalg — men den lagde
+  rækken på findbolig.nu's kilde-id, og så arvede den kildens historik i
+  `crawl_runs`. Dermed passerede den alarmens indkøringsvagt: native-spærringen
+  i `lib/alarm.ts` rammer ikke `feed`, prisen lå under en rigtig brugers
+  bekræftede alarm, og `scripts/import.ts` matcher og **sender** i samme
+  kørsel. En mail om en bolig, der ikke findes, manglede kun, at kørslen blev
+  afbrudt i det rigtige sekund. Prøven opretter nu sin egen kilde med egen
+  slug pr. kørsel og sletter den igen; en kilde uden kørsler kasseres af
+  `foersteKoersel`. `source_created_at` sættes udtrykkeligt til null — er den
+  sat, springes vagten helt over. En lokal database løser det ikke:
+  `RESEND_API_KEY` ligger i samme `.env` som databasen.
 
 ## Slug-reglen — må aldrig ændres
 

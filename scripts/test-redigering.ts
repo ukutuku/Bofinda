@@ -94,6 +94,7 @@ async function main() {
   const udlejer = { id: u!.id, authUserId: 'test', email: u!.email, navn: null }
   let id = ''
   let rivalId = ''
+  let proevekildeId = ''
   const ekstra: { boliger: string[]; brugere: string[] } = { boliger: [], brugere: [] }
 
   // ── Usynlige tegn ────────────────────────────────────────────
@@ -465,13 +466,42 @@ async function main() {
 
     // En anden kilde annoncerer den samme bolig — samme enhedsnoegle — og
     // har flere billeder. Saa vinder den repraesentantvalget.
-    const [fremmed] = await db.select().from(sources).where(eq(sources.slug, 'findbolig')).limit(1)
+    // Rivalen SKAL vaere ikke-native — det er den vej dedup og
+    // repraesentantvalg gaar, og det er det, proeven maaler. Men den maa
+    // ikke laane en RIGTIG kilde.
+    //
+    // Laante den findbolig.nu's kilde-id, arvede raekken ogsaa kildens
+    // historik i crawl_runs, og saa passerede den alarmens indkoeringsvagt.
+    // Regnestykket gik op hele vejen: native-spaerringen paa lib/alarm.ts:99
+    // rammer ikke en 'feed'-raekke, prisen laa under en rigtig brugers
+    // bekraeftede alarm, og scripts/import.ts matcher og SENDER i samme
+    // koersel. En mail om en bolig, der ikke findes, var kun et spoergsmaal
+    // om, at koerslen blev afbrudt i det rigtige sekund. En lokal database
+    // havde ikke lukket det: RESEND_API_KEY ligger i samme .env.
+    //
+    // En kilde, proeven selv opretter, har ingen koersler. `foersteKoersel`
+    // i lib/alarm.ts giver undefined for den, og filteret kaster raekken
+    // vaek. Egen slug pr. koersel, som resten af filen goer det, saa en
+    // afbrudt koersel ikke spaerrer den naeste paa slug'ens unikke indeks.
+    const [fremmed] = await db.insert(sources).values({
+      slug: `proevekilde-${Date.now()}`,
+      name: 'Prøvekilde (kun til prøver)',
+      sourceType: 'feed',
+      baseUrl: 'https://proeve.invalid',
+      enabled: false,
+    }).returning()
+    proevekildeId = fremmed!.id
     const [hendes] = await db.select().from(listings).where(eq(listings.id, id))
     const { id: _glem, ...resten } = hendes!
     const [rival] = await db.insert(listings).values({
       ...resten,
       sourceId: fremmed!.id,
       sourceType: 'feed',
+      // Udtrykkeligt, ikke arvet. Er datoen sat, springer alarmen
+      // indkoeringsvagten helt over og ser kun paa alderen — praecis den
+      // faelde, kommentaren i lib/alarm.ts advarer om. At den er null i dag,
+      // fordi opretBolig ikke saetter den, er et tilfaelde. Her staar det.
+      sourceCreatedAt: null,
       externalKey: `proeve-dublet-${Date.now()}`,
       sourceUrl: 'https://eksempel.invalid/dublet',
       landlordId: null, contactEmail: null, contactPhone: null,
@@ -656,6 +686,8 @@ async function main() {
       await db.delete(listingImages).where(eq(listingImages.listingId, rivalId))
       await db.delete(listings).where(eq(listings.id, rivalId))
     }
+    // Efter rivalen: boligerne peger paa kilden.
+    if (proevekildeId) await db.delete(sources).where(eq(sources.id, proevekildeId))
     if (id) {
       await db.delete(listingImages).where(eq(listingImages.listingId, id))
       await db.delete(listings).where(eq(listings.id, id))
