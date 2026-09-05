@@ -51,7 +51,11 @@ export interface KoerselsResultat {
  * igennem over et doegn. Loftet pr. koersel forhindrer samtidig, at alt
  * forfalder paa én gang og giver et bjerg af kald i én time.
  */
-const GENOPFRISK_EFTER_TIMER = 24
+// Begge er miljoevariable, og af samme grund: retter man en adapter, skal
+// rettelsen kunne efterproeves uden at vente et doegn — og uden at skrive
+// falske last_fetched_at i basen for at snyde reglen. Standarden er den
+// samme som foer.
+const GENOPFRISK_EFTER_TIMER = Number(process.env.GENOPFRISK_EFTER_TIMER ?? 24)
 const GENOPFRISK_PR_KOERSEL = Number(process.env.GENOPFRISK_PR_KOERSEL ?? 60)
 
 /**

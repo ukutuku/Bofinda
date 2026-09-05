@@ -26,9 +26,24 @@
 //  lige saa sikkert ud som et oplyst.
 //
 //  ── Om billederne ────────────────────────────────────────────
-//  De ligger paa `alvis.b-cdn.net`, ikke paa home.dk. Vaerten skal i
-//  TILLADTE_VAERTER — ellers forsvinder billederne uden en fejl, og
-//  kortet mister sin billedkolonne.
+//  De ligger IKKE paa home.dk, og der er TO vaerter, ikke én. Hvilken
+//  foelger sagstypen, og det kan ses paa sagsnummeret:
+//
+//    177P009058   projektlejemaal (dataSource 'estatetool')
+//                 → alvis.b-cdn.net        ~201 boliger
+//    1770021465   almindelig sag
+//                 → home.mindworking.eu    ~26 boliger
+//
+//  Begge skal i TILLADTE_VAERTER — ellers forsvinder billederne uden en
+//  fejl, og kortet mister sin billedkolonne. Den her note sagde foer kun
+//  `alvis.b-cdn.net`, og saa stod 25 boliger med 249 billeder uden
+//  billede. TAEL vaerterne i payloaden; find ikke den foerste.
+//
+//  Billederne tages fra DETALJESIDEN, ikke fra gitteret. Listesidens
+//  raekker er skaaret af ved 10 — 193 af 228 boliger laa praecis paa det
+//  loft — mens sagens eget `presentationMedia` baerer hele saettet, op
+//  til 19 maalt. `floorPlanMedia` holdes udenfor: plantegninger er ikke
+//  boligbilleder.
 // ═══════════════════════════════════════════════════════════════
 
 import type { DiscoveredListing, RawListing, SourceAdapter } from '../lib/adapter'
@@ -162,6 +177,18 @@ export function homeAdapter(): SourceAdapter {
         .find((x) => tekst(x['id']) === g.id)
       if (!sag) throw new Error(`fandt ikke sag ${g.id} i payloaden paa ${url}`)
       const tilbud = (sag['offer'] ?? {}) as Ukendt
+
+      // Billederne fra SAGEN, ikke fra gitteret. `g.billeder` kommer fra
+      // listesiden, som er skaaret af ved 10; sagens eget
+      // `presentationMedia` har hele saettet. Samme objektform, samme
+      // felt (`url`), og samme id-binding som tilbuddet ovenfor — saa en
+      // nabosags billeder kan ikke lande her.
+      //
+      // Fald tilbage paa gitteret, hvis sagen ingen har: to boliger har
+      // aegte nul hos kilden, og for dem skal der ikke opfindes noget.
+      const fraSagen = (Array.isArray(sag['presentationMedia'])
+        ? sag['presentationMedia'] as Ukendt[]
+        : []).map((m) => tekst(m['url'])).filter((x): x is string => !!x)
       const leje = oere(tilbud['rentalPricePerMonth']) ?? g.leje
       const ledig = medFelt(d, 'rentalAvailableFrom')
         .map((x) => tekst((los(d, x) as Ukendt)['rentalAvailableFrom']))
@@ -180,7 +207,7 @@ export function homeAdapter(): SourceAdapter {
         // uspecificeret rest — ikke varme, ikke vand, ikke el.
         utilitiesOther: oere(tilbud['rentalUtilitiesPerMonth']),
         amenities: [],
-        imageUrls: g.billeder,
+        imageUrls: fraSagen.length ? fraSagen : g.billeder,
       }
     },
   }
