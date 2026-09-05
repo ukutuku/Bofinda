@@ -31,6 +31,9 @@ import { alertMatches, crawlRuns, listingImages, listings, savedSearches, source
 import { matchAlarmer } from '../lib/alarm'
 import { byForPostnr } from '../lib/omraade'
 import { laesBolig as dacasLaes } from '../adapters/dacas'
+import { KILDEKONTRAKTER } from '../lib/kildekontrakt'
+import { forklar, fortolkAvailability } from '../lib/availability'
+import type { AvailabilityFacts } from '../lib/adapter'
 import { tjekRettigheder } from './tjek-rettigheder'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -271,6 +274,112 @@ async function main() {
   } as unknown as Gruppe)
 
   const vis = (el: React.ReactElement) => renderToStaticMarkup(el)
+
+  // ── Availability: fakta, ikke stemmer ────────────────────────
+  // Fast referenceNow. Funktionen kalder aldrig systemuret — samme lære
+  // som Dacas-fejlen, hvor «Snarest» blev til vores eget ur.
+  console.log('\n══ availability: de syv kilder ══')
+  const NU = new Date('2026-09-05T12:00:00Z')
+  const D = (iso: string) => new Date(iso)
+  type Sag = {
+    navn: string; kilde: string; fakta: AvailabilityFacts
+    marked?: string; timing?: string; ansoegning?: string; adgang?: string[]
+  }
+  const SAGER: Sag[] = [
+    // ── Balder: «Ledig» alene betyder IKKE «nu» ──
+    { navn: 'A balder Ledig + dato i fortiden', kilde: 'balder',
+      fakta: { rawStatus: 'Ledig', sourceAvailabilityDate: D('2026-08-01') },
+      marked: 'paa_markedet', timing: 'nu' },
+    { navn: 'B balder Ledig + dato i fremtiden', kilde: 'balder',
+      fakta: { rawStatus: 'Ledig', sourceAvailabilityDate: D('2026-12-15') },
+      marked: 'paa_markedet', timing: 'senere' },
+    { navn: 'C balder Reserveret uden dato', kilde: 'balder',
+      fakta: { rawStatus: 'Reserveret' },
+      marked: 'reserveret', timing: 'unknown' },
+    // ── Propstep: den gamle dato maa ALDRIG paavirke timing ──
+    { navn: 'D propstep Available + dato fra 2002', kilde: 'propstep',
+      fakta: { rawStatus: 'Available', sourceAvailabilityDate: D('2002-08-31') },
+      marked: 'paa_markedet', timing: 'unknown' },
+    { navn: 'E propstep Reserved', kilde: 'propstep',
+      fakta: { rawStatus: 'Reserved' }, marked: 'reserveret', timing: 'unknown' },
+    { navn: 'F propstep Unknown', kilde: 'propstep',
+      fakta: { rawStatus: 'Unknown' },
+      marked: 'unknown', timing: 'unknown', ansoegning: 'unknown' },
+    { navn: 'G propstep uden ansøgningsform', kilde: 'propstep',
+      fakta: { rawStatus: 'Available' }, ansoegning: 'unknown' },
+    // ── home.dk: to enige signaler er ÉN konklusion ──
+    { navn: 'H home nu-boolean + dato passeret', kilde: 'home',
+      fakta: { rentalAvailableNow: true, sourceAvailabilityDate: D('2026-09-01') },
+      timing: 'nu' },
+    { navn: 'I home falsk boolean + dato i fremtiden', kilde: 'home',
+      fakta: { rentalAvailableNow: false, sourceAvailabilityDate: D('2026-10-01') },
+      timing: 'senere' },
+    // ── KERNEPRØVEN: uenige signaler bliver conflict, ikke et valg ──
+    { navn: 'J home KONFLIKT: boolean sand, dato i fremtiden', kilde: 'home',
+      fakta: { rentalAvailableNow: true, sourceAvailabilityDate: D('2026-12-01') },
+      timing: 'conflict' },
+    { navn: 'home bopælskrav', kilde: 'home',
+      fakta: { residencyRequired: true }, adgang: ['bopaelskrav'] },
+    // ── findbolig: den eneste kilde med ansoegningsform ──
+    { navn: 'K findbolig Regular', kilde: 'findbolig',
+      fakta: { rawApplicationType: 'Regular', sourceAvailabilityDate: D('2026-08-01') },
+      ansoegning: 'normal', timing: 'unknown' },
+    { navn: 'L findbolig WaitingList', kilde: 'findbolig',
+      fakta: { rawApplicationType: 'WaitingList', sourceAvailabilityDate: D('2026-08-01') },
+      ansoegning: 'venteliste', timing: 'unknown' },
+    // ── Dacas: teksten giver timing, ingen dato opstaar ──
+    { navn: 'M dacas Snarest', kilde: 'dacas',
+      fakta: { takeoverText: 'Snarest' }, timing: 'nu' },
+    // ── LokalBolig: tomt statusobjekt, uafklaret dato ──
+    { navn: 'N lokalbolig tomt + uafklaret dato', kilde: 'lokalbolig',
+      fakta: { rawStatus: '', sourceAvailabilityDate: D('2026-08-01') },
+      marked: 'unknown', timing: 'unknown', ansoegning: 'unknown' },
+    // ── Bofinda: udlejerens egen dato ──
+    { navn: 'O native dato passeret', kilde: 'native',
+      fakta: { sourceAvailabilityDate: D('2026-08-01') },
+      timing: 'nu', ansoegning: 'unknown' },
+    { navn: 'P native dato i fremtiden', kilde: 'native',
+      fakta: { sourceAvailabilityDate: D('2027-01-01') },
+      timing: 'senere', ansoegning: 'unknown' },
+  ]
+  for (const sag of SAGER) {
+    const r = fortolkAvailability(sag.fakta, KILDEKONTRAKTER[sag.kilde]!, NU)
+    const dele: string[] = []
+    if (sag.marked) dele.push(`marked ${r.marked.status}`)
+    if (sag.timing) dele.push(`timing ${r.timing.status}`)
+    if (sag.ansoegning) dele.push(`ansøgning ${r.ansoegning.status}`)
+    if (sag.adgang) dele.push(`adgang ${r.adgang.krav.join('+') || '—'}`)
+    const ok = (!sag.marked || r.marked.status === sag.marked)
+      && (!sag.timing || r.timing.status === sag.timing)
+      && (!sag.ansoegning || r.ansoegning.status === sag.ansoegning)
+      && (!sag.adgang || JSON.stringify([...r.adgang.krav].sort()) === JSON.stringify([...sag.adgang].sort()))
+    tjek(sag.navn, ok, dele.join(' · '))
+  }
+
+  // To ENIGE signaler er ÉN konklusion, ikke en staerkere.
+  const enige = fortolkAvailability(
+    { rentalAvailableNow: true, sourceAvailabilityDate: D('2026-09-01') },
+    KILDEKONTRAKTER.home!, NU)
+  tjek('to enige signaler → én konklusion, to spor',
+    enige.timing.status === 'nu' && enige.timing.evidens.length === 2,
+    `${enige.timing.status} · ${enige.timing.evidens.length} spor`)
+  tjek('… og ingen uenighed noteres', enige.timing.uenighed === undefined)
+
+  // Konflikten skal BEVARE begge sider.
+  const kon = fortolkAvailability(
+    { rentalAvailableNow: true, sourceAvailabilityDate: D('2026-12-01') },
+    KILDEKONTRAKTER.home!, NU)
+  const linjer = forklar(kon.timing)
+  tjek('konflikten viser begge modstridende signaler',
+    kon.timing.status === 'conflict'
+    && linjer.some((l) => l.includes('rentalAvailableNow = true') && l.includes('kan_overtages_nu'))
+    && linjer.some((l) => l.includes('sourceAvailabilityDate = 2026-12-01') && l.includes('kan_ikke_overtages_nu')),
+    linjer.join(' | '))
+  console.log('\n  evidensspor, konflikt:')
+  for (const l of linjer) console.log(`      ${l}`)
+  console.log('  evidensspor, normal (to enige signaler):')
+  for (const l of forklar(enige.timing)) console.log(`      ${l}`)
+  console.log('')
 
   // ── Dacas «Snarest» maa ikke blive til en dato ─────────────
   // Kilden skriver enten en dansk tekstdato eller ordet «Snarest».
