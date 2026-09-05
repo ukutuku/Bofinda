@@ -1,3 +1,4 @@
+import type { IsoDate } from './dato'
 // ═══════════════════════════════════════════════════════════════
 //  Adapter-kontrakten.
 //  En ny kilde skal vaere EN fil i adapters/ — ikke en ombygning.
@@ -73,8 +74,11 @@ export interface AvailabilityFacts {
    * Kildens datofelt, som det stod. NEUTRALT navngivet med vilje: en
    * Propstep-dato fra 2002 viser, at et datofelt ikke noedvendigvis
    * betyder "ledig fra". Kontrakten afgoer betydningen.
+   *
+   * DATE-ONLY. Kilden har sagt en dag, ikke et oejeblik — en Date her
+   * ville opfinde et klokkeslaet. Se lib/dato.ts.
    */
-  sourceAvailabilityDate?: Date | null
+  sourceAvailabilityDate?: IsoDate | null
   /** Kildens frie tekst om overtagelse. Dacas: "Snarest". Uoversat. */
   takeoverText?: string | null
   /** Kildens eget ja/nej. home.dk: availability.isRentalAvailableNow. */

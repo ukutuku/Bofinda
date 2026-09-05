@@ -34,6 +34,7 @@ import { laesBolig as dacasLaes } from '../adapters/dacas'
 import { laesSag as homeLaes } from '../adapters/home'
 import { KILDEKONTRAKTER } from '../lib/kildekontrakt'
 import { forklar, fortolkAvailability } from '../lib/availability'
+import { isoDato, kalenderdag } from '../lib/dato'
 import type { AvailabilityFacts } from '../lib/adapter'
 import { tjekRettigheder } from './tjek-rettigheder'
 import { createElement } from 'react'
@@ -276,6 +277,50 @@ async function main() {
 
   const vis = (el: React.ReactElement) => renderToStaticMarkup(el)
 
+  // ── Kalenderdatoer: en dag er ikke et oejeblik ───────────────
+  // «Kan overtages 5. september» skal gaelde HELE den 5. september i
+  // DANMARK. Kl. 00:30 dansk tid skriver UTC stadig den 4. — en
+  // UTC-baseret sammenligning ville sige «senere» en halv time inde i
+  // den rigtige dag. Instanterne her er valgt, saa UTC-dagen og den
+  // danske dag er FORSKELLIGE: bestaar proeven, kan implementeringen
+  // hverken bruge UTC eller serverens lokale zone.
+  const NU = new Date('2026-09-05T12:00:00Z')
+  const D = (iso: string) => {
+    const d = isoDato(iso)
+    if (!d) throw new Error(`fixtur-dato er ikke en kalenderdag: ${iso}`)
+    return d
+  }
+  console.log('\n══ kalenderdag: døgnskift i Europe/Copenhagen ══')
+  tjek('isoDato: rigtig dag accepteres', isoDato('2026-09-05') === '2026-09-05')
+  for (const daarlig of ['2026-02-31', '2026-13-01', '2026-09-05T00:00:00Z', 'i morgen', '05-09-2026']) {
+    tjek(`isoDato afviser «${daarlig}»`, isoDato(daarlig) === null)
+  }
+  tjek('kalenderdag: 22:30Z den 4. ER den 5. i Danmark (sommertid)',
+    kalenderdag(new Date('2026-09-04T22:30:00Z')) === '2026-09-05',
+    kalenderdag(new Date('2026-09-04T22:30:00Z')))
+
+  const timingVed = (dato: string, refIso: string) =>
+    fortolkAvailability({ sourceAvailabilityDate: D(dato) },
+      KILDEKONTRAKTER.native!, new Date(refIso)).timing.status
+  // Hele den danske 5. september giver samme konklusion.
+  for (const [ref, vent, note] of [
+    ['2026-09-04T21:59:59Z', 'senere', '23:59:59 dansk, stadig d. 4.'],
+    ['2026-09-04T22:00:01Z', 'nu', '00:00:01 dansk — dagen ER begyndt, UTC siger stadig d. 4.'],
+    ['2026-09-05T12:00:00Z', 'nu', 'midt paa dagen'],
+    ['2026-09-05T21:59:59Z', 'nu', '23:59:59 dansk, sidste sekund af d. 5.'],
+  ] as const) {
+    tjek(`5. sep. @ ${note}: ${vent}`, timingVed('2026-09-05', ref) === vent,
+      timingVed('2026-09-05', ref))
+  }
+  // Vintertid: DK er UTC+1, saa doegnet skifter kl. 23:00Z.
+  for (const [ref, vent] of [
+    ['2026-11-30T22:59:59Z', 'senere'],
+    ['2026-11-30T23:00:01Z', 'nu'],
+  ] as const) {
+    tjek(`1. dec. (vintertid) @ ${ref.slice(11, 19)}Z: ${vent}`,
+      timingVed('2026-12-01', ref) === vent, timingVed('2026-12-01', ref))
+  }
+
   // ── home.dk: ledigdatoen skal vaere SAGENS, ikke naboens ─────
   // Payloaden er flad: hvert felt er et INDEKS ind i én liste, og
   // detaljesiden baerer de beslaegtede annoncers availability-objekter
@@ -317,8 +362,6 @@ async function main() {
   // Fast referenceNow. Funktionen kalder aldrig systemuret — samme lære
   // som Dacas-fejlen, hvor «Snarest» blev til vores eget ur.
   console.log('\n══ availability: de syv kilder ══')
-  const NU = new Date('2026-09-05T12:00:00Z')
-  const D = (iso: string) => new Date(iso)
   type Sag = {
     navn: string; kilde: string; fakta: AvailabilityFacts
     marked?: string; timing?: string; ansoegning?: string; adgang?: string[]

@@ -27,6 +27,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { AvailabilityFacts } from './adapter'
+import { kalenderdag } from './dato'
 import type {
   Adgangsevidens, Ansoegningsevidens, Evidens, Kildekontrakt,
   Markedsevidens, Tidsevidens,
@@ -107,11 +108,16 @@ function samleSpor(
 
   // 2) Datofeltet — KUN hvis kontrakten siger, det må bruges til timing.
   //    Propsteps 2002-dato er netop grunden til, at det er et krav.
+  //
+  //    KALENDERDAG mod kalenderdag, i Bofindas zone — aldrig dato-som-
+  //    UTC-instant mod referenceNow. «Kan overtages 5. september» skal
+  //    gælde HELE den 5. september i Danmark, også kl. 00:30 dansk tid,
+  //    hvor UTC stadig skriver den 4. ISO-datoer sammenlignes leksikalsk.
   if (fakta.sourceAvailabilityDate != null && k.datofelt?.brugbarSomTiming) {
-    const nu = fakta.sourceAvailabilityDate.getTime() <= referenceNow.getTime()
+    const nu = fakta.sourceAvailabilityDate <= kalenderdag(referenceNow)
     ud.push({
       faktum: 'sourceAvailabilityDate',
-      vaerdi: fakta.sourceAvailabilityDate.toISOString().slice(0, 10),
+      vaerdi: fakta.sourceAvailabilityDate,
       regel: `${k.kilde}.datofelt (${k.datofelt.betydning})`,
       evidens: nu ? 'kan_overtages_nu' : 'kan_ikke_overtages_nu',
     })
