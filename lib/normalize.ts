@@ -198,6 +198,8 @@ export interface NormaliseretBolig {
   amenities: string[]
   description: string | null
   imageUrls: string[]
+  /** Kilden oplyser selv, at billederne kan vaere fra en anden bolig. */
+  imagesMayDiffer: boolean
 }
 
 const dato = (s: string | undefined | null): Date | null => {
@@ -264,6 +266,9 @@ export async function normaliser(
     sourceUpdatedAt: dato(r.sourceUpdatedAt),
     // Ingen pladsholder. Fandt adapteren ingen billeder, er listen tom.
     imageUrls: r.imageUrls ?? [],
+    // Standard er false: de fleste kilder tager intet forbehold, og et
+    // forbehold, ingen har oplyst, ville vaere vores egen paastand.
+    imagesMayDiffer: r.imagesMayDiffer ?? false,
     amenities: r.amenities ?? [],
     description: genererBeskrivelse({
       propertyType, rooms: r.rooms ?? null, sizeM2: r.sizeM2 ?? null,

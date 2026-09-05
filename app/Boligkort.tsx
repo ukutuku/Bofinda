@@ -152,6 +152,7 @@ export function Kort({ b }: { b: Bolig }) {
           {b.billeder > 1 && <span className="kort-antal">{b.billeder} billeder</span>}
         </div>
       )}
+      {forside && b.billedforbehold && <Billedforbehold />}
 
       <div className="kort-krop">
         <div className="raek1">
@@ -283,6 +284,8 @@ export function Gruppekort({ g }: { g: Gruppe }) {
           <span className="kort-antal">{g.antal} boliger</span>
         </div>
       )}
+      {/* Repraesentantens forbehold: det er HANS billede, kortet viser. */}
+      {forside && r.billedforbehold && <Billedforbehold />}
 
       <div className="kort-krop">
         <div className="raek1">
@@ -377,6 +380,25 @@ export function Gruppekort({ g }: { g: Gruppe }) {
  * acontoen ét samlet beloeb, ved vi det ikke — el kan ligge i klumpen —
  * og saa siger vi DET i stedet for at paastaa noget.
  */
+/**
+ * Kildens eget forbehold, givet videre.
+ *
+ * Teksten er VORES, skrevet ud fra kildens — vi gemmer ikke deres
+ * braedtekst, jf. noten ved `description` i db/schema.ts. Feltet i basen
+ * siger kun AT forbeholdet staar der.
+ *
+ * Den skal staa ved BILLEDET, ikke i oekonomiblokken: den handler om det,
+ * man kigger paa. Og den vises kun, naar der ER et billede — uden et
+ * billede er der intet at tage forbehold for.
+ */
+function Billedforbehold() {
+  return (
+    <div className="billedforbehold">
+      Udlejer oplyser: billederne kan være fra en anden bolig
+    </div>
+  )
+}
+
 function Ellinje({ tilstand }: { tilstand: Eltilstand | null }) {
   if (tilstand == null || tilstand === 'med') return null
   return (

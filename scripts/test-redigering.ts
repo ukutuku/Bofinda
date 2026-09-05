@@ -270,6 +270,38 @@ async function main() {
 
   const vis = (el: React.ReactElement) => renderToStaticMarkup(el)
 
+  // ── Billedforbeholdet ────────────────────────────────────────
+  // Kilden skriver selv, at billederne kan vaere fra en anden bolig.
+  // Foer kasserede vi billederne; nu vises de MED forbeholdet. Den ene
+  // kombination, der ville vaere vaerre end foer, er billeder UDEN linjen
+  // — saa paastaar kortet, at billedet er af boligen. Den anden fejl er
+  // lige saa gal den anden vej: en linje paa en bolig, kilden ikke har
+  // taget forbehold for, er vores egen paastand om deres billeder.
+  console.log('\n══ billedforbeholdet følger billederne ══')
+  const FORB_KORT = 'billederne kan være fra en anden bolig'
+  const medBillede = { forside: `${VIST_VAERT}/1.jpg`, billeder: 3 }
+  for (const [navn, html, skal] of [
+    ['enkeltkort, forbehold + billede',
+      vis(createElement(Kort, { b: bolig({ ...medBillede, billedforbehold: true }) })), true],
+    ['enkeltkort, intet forbehold',
+      vis(createElement(Kort, { b: bolig({ ...medBillede, billedforbehold: false }) })), false],
+    ['gruppekort, forbehold + billede',
+      vis(createElement(Gruppekort, {
+        g: gruppe({}, { ...medBillede, billedforbehold: true }),
+      })), true],
+    ['gruppekort, intet forbehold',
+      vis(createElement(Gruppekort, {
+        g: gruppe({}, { ...medBillede, billedforbehold: false }),
+      })), false],
+    // Uden et billede er der intet at tage forbehold for.
+    ['enkeltkort, forbehold men INTET billede',
+      vis(createElement(Kort, { b: bolig({ forside: null, billedforbehold: true }) })), false],
+  ] as const) {
+    const har = html.includes(FORB_KORT)
+    tjek(`${navn}: ${skal ? 'linjen står' : 'ingen linje'}`, har === skal,
+      har ? 'linjen står' : 'ingen linje')
+  }
+
   // ── Ukendt total: SLET ingen el-linje ────────────────────────
   // Kender vi ikke acontoen, kan vi ikke sige noget om, hvad den ikke
   // indeholder. De to udsagn modsagde hinanden paa 47 gruppekort.

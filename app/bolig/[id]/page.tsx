@@ -84,12 +84,28 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
       <a className="tilbage" href="/">← Alle boliger</a>
 
       {galleri.length > 0
-        ? <Galleri billeder={galleri} />
+        ? (
+          <>
+            <Galleri billeder={galleri} />
+            {/* Kildens eget forbehold, givet videre. Citatet er VORES tekst
+                her i koden, skrevet af efter kilden — vi gemmer ikke deres
+                brødtekst, jf. noten ved `description` i db/schema.ts.
+                Feltet i basen siger kun AT forbeholdet står der.
+
+                Før blev billederne kasseret, når forbeholdet stod der. Men
+                det er også en påstand: den siger implicit "der er ingen",
+                og det er usandt — der er 115 på de 20 boliger. */}
+            {b.billedforbehold && (
+              <p className="billedforbehold">
+                Udlejer oplyser: «Billederne kan være fra en anden bolig,
+                hvorfor indretning, beliggenhed og udsigt kan variere.»
+              </p>
+            )}
+          </>
+        )
         : (
-          /* Ikke "kilden har ingen billeder": for nogle boliger HAR kilden
-             billeder, men skriver selv, at de kan vaere af en anden bolig,
-             og saa viser vi dem ikke. Sætningen skal vaere sand i begge
-             tilfaelde — se reglen om forbeholdet i CLAUDE.md. */
+          /* Nu er sætningen ren: har kilden ingen billeder, står der
+             ingen. Forbeholdet fjerner dem ikke længere. */
           <div className="ingen-billeder">Ingen billeder at vise for denne bolig.</div>
         )}
 

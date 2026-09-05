@@ -398,6 +398,9 @@ const KORTFELTER = {
   vand: listings.utilitiesWater,
   el: listings.utilitiesElectricity,
   elEgenMaaler: listings.electricityOwnMeter,
+  // Kilden tager selv forbehold for, at billederne kan vaere fra en anden
+  // bolig. Kortet skal kunne SPOERGE om det — ikke gaette ud fra teksten.
+  billedforbehold: listings.imagesMayDiffer,
   oevrig: listings.utilitiesOther,
   total: listings.totalMonthly,
   poster: listings.totalMonthlyComponents,
@@ -991,6 +994,7 @@ export async function hentBolig(id: string) {
       vand: listings.utilitiesWater,
       el: listings.utilitiesElectricity,
       elEgenMaaler: listings.electricityOwnMeter,
+      billedforbehold: listings.imagesMayDiffer,
       oevrig: listings.utilitiesOther,
       total: listings.totalMonthly,
       poster: listings.totalMonthlyComponents,

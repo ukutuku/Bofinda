@@ -168,6 +168,7 @@ async function skrivBolig(
       rentModel: b.rentModel, openHouseAt: b.openHouseAt,
       sourceCreatedAt: b.sourceCreatedAt, sourceUpdatedAt: b.sourceUpdatedAt,
       amenities: b.amenities, description: b.description,
+      imagesMayDiffer: b.imagesMayDiffer,
       // Importerede boliger har aldrig kontakt i basen. Muren staar ved kilden.
       contactEmail: null, contactPhone: null, isBlurred: true,
       status: 'active', lastSeenAt: nu, lastFetchedAt: nu,
@@ -191,6 +192,7 @@ async function skrivBolig(
         rentModel: b.rentModel, openHouseAt: b.openHouseAt,
         sourceCreatedAt: b.sourceCreatedAt, sourceUpdatedAt: b.sourceUpdatedAt,
         amenities: b.amenities, description: b.description,
+        imagesMayDiffer: b.imagesMayDiffer,
         // Dukker en afmeldt bolig op igen, er den ledig igen.
         status: 'active', delistedAt: null,
         lastSeenAt: nu, lastFetchedAt: nu,

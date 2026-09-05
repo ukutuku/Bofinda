@@ -212,20 +212,33 @@ function laesBolig(html: string, url: string): RawListing | null {
   const lat = typeof koord?.latitude === 'number' ? koord.latitude : undefined
   const lng = typeof koord?.longitude === 'number' ? koord.longitude : undefined
 
-  // Forbeholdet står i `description`, som ligger EFTER grænsen — og der er
-  // MERE end én description i payloaden: hvert billede har også et felt af
-  // det navn. Første forsøg læste et billedes og fandt ingenting.
+  // Forbeholdet prøves på `s` — boligens EGEN del, før grænsen. Ikke på
+  // `hele`.
   //
-  // Derfor prøves hele payloaden. Den er stadig kun DENNE bolig: de lignende
-  // sager i relatedCases har ingen beskrivelse, kun tal og adresse.
-  const billeder = FORBEHOLD.test(hele)
-    ? []
-    : (jsonEfter<Billede[]>(s, '"pictures":[') ?? [])
-        .map((b) => (typeof b?.url === 'string' ? b.url : null))
-        .filter((u): u is string => {
-          if (!u) return false
-          try { return new URL(u).host === BILLEDVAERT } catch { return false }
-        })
+  // Kommentaren her sagde før, at delen efter grænsen "ingen beskrivelse
+  // har, kun tal og adresse". Det er målt forkert: der ligger to rigtige
+  // `description`-felter derefter, ejendommens fællestekst. Bar den engang
+  // forbeholdet, ville ALLE søskendeboliger i komplekset miste billederne
+  // på én gang — 86 lejemål på Østergade, 83 på Skt. Hans Gade. Det er
+  // ikke sket, men reglen var bredere end den skulle være.
+  //
+  // (Den oprindelige note havde ret i én ting: hvert BILLEDE har også et
+  // felt ved navn `description`, så et opslag på feltnavnet rammer forbi.
+  // Derfor prøves teksten, ikke feltet.)
+  const forbehold = FORBEHOLD.test(s)
+
+  // Billederne vises NU, også med forbeholdet — med kildens forbehold ved
+  // siden af. Før blev de kasseret, og det er også en påstand: den siger
+  // implicit "der er ingen", og det er usandt. Der er 115 på de 20
+  // boliger. Kilden skriver selv, at de kan være fra en anden bolig; vi
+  // giver det videre i stedet for at gætte på brugerens vegne. Samme
+  // princip som el-linjen.
+  const billeder = (jsonEfter<Billede[]>(s, '"pictures":[') ?? [])
+    .map((b) => (typeof b?.url === 'string' ? b.url : null))
+    .filter((u): u is string => {
+      if (!u) return false
+      try { return new URL(u).host === BILLEDVAERT } catch { return false }
+    })
 
   return {
     externalKey: noegleFraUrl(url) ?? url,
@@ -246,6 +259,7 @@ function laesBolig(html: string, url: string): RawListing | null {
     sourceCreatedAt: tekst(s, 'createdDate'),
     sourceUpdatedAt: tekst(s, 'lastUpdated'),
     imageUrls: billeder,
+    imagesMayDiffer: forbehold,
   }
 }
 

@@ -48,6 +48,12 @@ export interface RawListing {
   amenities?: string[]
   /** Kildens egne billed-URL'er. Hotlinkes, kopieres aldrig. */
   imageUrls: string[]
+  /**
+   * Kilden skriver SELV, at billederne kan vaere fra en anden bolig.
+   * Saettes kun, naar kilden udtrykkeligt tager forbeholdet — aldrig som
+   * vores egen vurdering af, om billederne ser rigtige ud.
+   */
+  imagesMayDiffer?: boolean
 }
 
 export interface DiscoveredListing {

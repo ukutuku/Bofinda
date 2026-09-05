@@ -612,6 +612,24 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   skjule et felt i klienten.
 - **BoligPortal er ikke en kilde.** Deres robots.txt forbyder crawling
   udtrykkeligt på skrift. Kræver skriftlig aftale først.
+- **Gør en ændring data synlige, skal det, der forklarer dem, med i samme
+  commit.** Ikke i næste — i samme. Railway importerer hver time, så vinduet
+  mellem to commits er i praksis minutter, og i det vindue står dataene uden
+  det, der gør dem sande.
+
+  Det er sket to gange, og det er den samme sag begge gange:
+
+  - **Balder.** Adapteren hentede billederne, men `TILLADTE_VAERTER` manglede
+    `images.ctfassets.net`. Dataene var der; de var bare usynlige. Derfor
+    reglen om adapter og allowlist-post i samme ændring.
+  - **LokalBolig.** Billederne vises nu, selv om kilden tager forbehold for,
+    at de kan være fra en anden bolig. Går adapteren ind alene, viser kortet
+    et billede og påstår dermed implicit, at det er af boligen. Feltet,
+    migrationen, adapteren, begge linjer og prøven hører derfor til én commit.
+
+  Prøv spørgsmålet: *hvis kun den ene halvdel lander, hvad siger siden så?*
+  Er svaret noget, der ikke er sandt, hører de to halvdele sammen.
+
 - **Prøver må aldrig låne en rigtig kilde.** `test-redigering.ts` skal bruge
   noget ikke-native for at prøve dedup og repræsentantvalg — men den lagde
   rækken på findbolig.nu's kilde-id, og så arvede den kildens historik i

@@ -165,6 +165,21 @@ export const listings = pgTable('listings', {
   sourceUpdatedAt: timestamp('source_updated_at', { withTimezone: true }),
 
   amenities: jsonb('amenities').$type<string[]>().default([]),
+
+  /**
+   * Kilden skriver SELV, at billederne kan vaere fra en anden bolig.
+   * LokalBolig goer det paa 20 af 244; teksten staar i deres beskrivelse.
+   *
+   * Foer blev billederne kasseret, naar forbeholdet stod der. Men at fjerne
+   * dem er ogsaa en paastand — den siger implicit "der er ingen", og det er
+   * usandt: der er 115. Nu vises de med forbeholdet ved siden af.
+   *
+   * BEMAERK: her staar KUN at forbeholdet findes. Selve saetningen, vi
+   * viser, er VORES egen tekst i app/Boligkort.tsx og app/bolig/[id],
+   * skrevet ud fra kildens — den er ikke hentet herfra. Kildens braedtekst
+   * gemmes ikke, jf. noten ved `description` nedenfor.
+   */
+  imagesMayDiffer: boolean('images_may_differ').notNull().default(false),
   openHouseAt: timestamp('open_house_at', { withTimezone: true }),
 
   // Genereret af egne felter. Aldrig kildens braedtekst.
