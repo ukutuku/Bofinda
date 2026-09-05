@@ -35,7 +35,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { Gruppekort, Kort } from '../app/Boligkort'
 import { billedUrl, TILLADTE_VAERTER } from '../lib/billede'
 import { eltilstand } from '../lib/eloplysning'
-import type { Bolig, Gruppe } from '../lib/soeg'
+import type { Bolig, Filtre, Gruppe } from '../lib/soeg'
 import {
   facilitetsgrundlag, hvor, oekonomigrundlag, opsummering, soeg, soegGrupperet,
   tavseKilder, udenDubletter,
@@ -662,17 +662,65 @@ async function main() {
     await db.update(listings)
       .set({ sourceCreatedAt: new Date() })
       .where(eq(listings.id, id))
+    const [boligNu] = await db.select({
+      set: listings.firstSeenAt, hosKilden: listings.sourceCreatedAt,
+    }).from(listings).where(eq(listings.id, id))
+
+    // Soegningen skal vaere AELDRE end boligen. `gt(firstSeenAt, s.oprettet)`
+    // i matchAlarmer betyder, at en gemt soegning aldrig ser boliger, der
+    // fandtes foer den — gulvet for hvad der er "nyt".
+    //
+    // Proeven oprettede foer sin soegning EFTER boligen, med `criteria: {}`
+    // og oprettelsestidspunktet nu. Den kunne derfor aldrig se hendes bolig,
+    // og `!traf` var sandt af den grund alene. Det eneste, der fik proeven
+    // til at bide, var en RIGTIG brugers aeldre soegning, der laa i
+    // produktionen — «alt nyt», oprettet 1. september. Proeven maalte altsaa
+    // noget, den hverken ejede eller kendte, og paa en ren base ville den
+    // bestaa, ogsaa hvis spaerringen blev slettet.
+    const foerBoligen = new Date(+boligNu!.set - 3600_000)
     const [gemtSoegning] = await db.insert(savedSearches).values({
       userId: u!.id,
-      name: 'proeve: alt',
-      criteria: {},
-      confirmedAt: new Date(),
+      name: 'proeve: udlejerannonce i alarm',
+      // Kriterier proeven selv kender, og saa snaevre som de kan vaere og
+      // stadig ramme hende. `{}` ville ramme hver eneste bolig i basen.
+      criteria: { postnr: FULDT.postnr, vaerelserMin: FULDT.vaerelser, arealMin: FULDT.areal },
+      createdAt: foerBoligen,
+      confirmedAt: foerBoligen,
       notifyEmail: true,
     }).returning()
-    await matchAlarmer()
+
+    // ── Praemisserne, foer selve proeven ─────────────────────────
+    // Uden dem er `!traf` intetsigende. Tre ting skal holde, for at
+    // native-spaerringen er den ENESTE tilbagevaerende grund til, at hendes
+    // bolig ikke bliver et traef. Holder de ikke, siger proeven ingenting.
+    tjek('præmis: søgningen er ældre end boligen',
+      +gemtSoegning!.createdAt < +boligNu!.set,
+      `${gemtSoegning!.createdAt.toISOString()} < ${boligNu!.set.toISOString()}`)
+    tjek('præmis: kilde-datoen er sat, så indkøringsvagten ikke afgør det',
+      boligNu!.hosKilden !== null)
+    const [rammer] = await db.select({ n: dsql<number>`count(*)::int` })
+      .from(listings).innerJoin(sources, eq(sources.id, listings.sourceId))
+      .where(and(hvor(gemtSoegning!.criteria as Filtre), eq(listings.id, id)))
+    tjek('præmis: kriterierne rammer faktisk hendes bolig', rammer!.n === 1)
+
+    // Afgraenset til proevens EGEN soegning. Uden `kun` skriver kaldet
+    // alert_matches for alle fem rigtige brugersoegninger — og det er ikke
+    // teoretisk vigtigt her: fjerner man spaerringen for at efterproeve
+    // proeven, ville hendes bolig blive et traef paa en FREMMED soegning
+    // med `sent_at = null`, og naeste import ville sende mailen.
+    await matchAlarmer([gemtSoegning!.id])
     const [traf] = await db.select().from(alertMatches)
       .where(eq(alertMatches.listingId, id)).limit(1)
     tjek('native bolig er IKKE et alarmtræf', !traf)
+
+    // Der staar bevidst INGEN positiv kontrol her — altsaa ingen
+    // ikke-native bolig, der beviser at soegningen ville have ramt. En
+    // saadan raekke skal passere indkoeringsvagten for at kunne rammes af
+    // proevens egen soegning, og saa kan den ogsaa rammes af Railways
+    // ualgraensede matchAlarmer i de sekunder, den findes. Praemisserne
+    // ovenfor daekker det samme uden at lave raekken. At proeven FAKTISK
+    // fejler uden spaerringen, er efterproevet i haanden ved at fjerne
+    // linjen i lib/alarm.ts og koere — se commit-beskeden.
     await db.delete(alertMatches).where(eq(alertMatches.savedSearchId, gemtSoegning!.id))
     await db.delete(savedSearches).where(eq(savedSearches.id, gemtSoegning!.id))
 

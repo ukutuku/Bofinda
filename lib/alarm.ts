@@ -41,7 +41,17 @@ const INDKOERING_TIMER = 24
  * Indsættelsen er `on conflict do nothing` på (søgning, bolig), så
  * matchningen kan køre igen og igen uden at varsle det samme to gange.
  */
-export async function matchAlarmer(): Promise<MatchResultat[]> {
+/**
+ * `kun` afgraenser matchningen til bestemte gemte soegninger. Produktionen
+ * kalder uden — den skal ramme dem alle. Proeven kalder MED sin egen, og det
+ * er ikke pynt: uden den skriver et proevekald alert_matches for hver eneste
+ * rigtige brugers soegning, med `sent_at = null`, saa naeste import sender
+ * dem. Raekkerne er i sig selv aegte — importen ville have skrevet dem en
+ * time senere — men en proeve skal ikke udfoere produktionsarbejde for
+ * fremmede, og slet ikke mens den proever, hvad der sker, naar en spaerring
+ * fjernes.
+ */
+export async function matchAlarmer(kun?: string[]): Promise<MatchResultat[]> {
   const soegninger = await db
     .select({
       id: savedSearches.id,
@@ -52,7 +62,9 @@ export async function matchAlarmer(): Promise<MatchResultat[]> {
     .from(savedSearches)
     // Ubekraeftede soegninger matches ikke. En adresse, der ikke har
     // bekraeftet, har ikke bedt om noget.
-    .where(isNotNull(savedSearches.confirmedAt))
+    .where(kun
+      ? and(isNotNull(savedSearches.confirmedAt), inArray(savedSearches.id, kun))
+      : isNotNull(savedSearches.confirmedAt))
 
   // Hvornaar begyndte vi at kigge paa hver kilde? Bruges til kilder uden
   // egen dato: en bolig der dukker op efter indkoeringen, er ny.
