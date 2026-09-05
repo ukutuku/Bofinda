@@ -774,6 +774,46 @@ Skabelonen i `db/skabelon-migration.sql` har `enable row level security` og
 `revoke all … from anon, authenticated` med. Kontrollen fanger fejlen;
 skabelonen forhindrer den.
 
+#### Trusselsbilledet skifter 30. oktober 2026
+
+Kontrollen skal blive stående, men **grunden til den vender**.
+
+**Frem til 30. oktober 2026.** Supabase giver `anon` og `authenticated` fulde
+rettigheder på nye tabeller i `public`, og `pgrst_ddl_watch` eksponerer dem
+uden forsinkelse. Faren er en **glemt `revoke`**: tabellen er offentligt læs-
+og skrivbar fra det sekund, den findes. Kontrollen fanger det.
+
+**Fra 30. oktober 2026.** Supabase anvender den nye standard på eksisterende
+projekter. Nye tabeller er da **ikke** eksponeret, og faren vendes: risikoen
+bliver, at nogen **giver `anon` en grant** for at «løse» en manglende adgang
+— og dermed åbner en tabel, der var lukket. Kontrollen fanger stadig det,
+fordi den måler rettigheder, ikke om nogen huskede at skrive `revoke`.
+
+Eksisterende tabeller berøres ikke af skiftet. Vores 12 forbliver dækket af
+`0002`, `0007` og `0010`.
+
+Kilde: `supabase.com/changelog`, 28. april 2026.
+
+#### Nøgletyper
+
+Supabase udfaser `anon`- og `service_role`-nøglerne inden udgangen af 2026 til
+fordel for `sb_publishable_` og `sb_secret_`. Målt i `.env`:
+
+| variabel | type |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | **ny** `sb_publishable_` — offentlig, må stå i browseren |
+
+Der er **ingen** secret-nøgle i projektet: hverken `sb_secret_` eller en gammel
+`service_role`-JWT. Ingen kode nævner de gamle nøglenavne. Vi er altså
+allerede på den nye type, og der er intet at migrere.
+
+At `service_role` alligevel har fulde rettigheder på alle 12 tabeller er et
+fossil, ikke en adgang: `ALTER DEFAULT PRIVILEGES` gav den dem ved
+oprettelsen, og vores `revoke` nævnte kun `anon` og `authenticated`. Uden en
+nøgle kan rollen ikke nås udefra. Det er samtidig beviset for, at standarden
+faktisk fyrede på vores egne tabeller — ingen migration har givet
+`service_role` noget.
+
 ### RLS er ikke dækket. Noget andet er værre
 
 **RLS på `storage.objects` er den eneste håndhævelse af mappegrænsen mellem

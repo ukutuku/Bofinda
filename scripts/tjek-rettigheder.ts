@@ -12,6 +12,13 @@
 //  0010 huskede at skrive revoke. 0007 og 0010 måtte gentage det per
 //  tabel — mønstret har allerede ramt to gange.
 //
+//  30. OKTOBER 2026 VENDER GRUNDEN, men kontrollen bliver stående. Fra da
+//  anvender Supabase den nye standard på eksisterende projekter: nye
+//  tabeller er IKKE eksponeret. Faren er så ikke længere en glemt revoke,
+//  men at nogen GIVER anon en grant for at «løse» en manglende adgang.
+//  Kontrollen fanger begge dele, fordi den måler rettigheder — ikke om
+//  nogen huskede noget. Kilde: supabase.com/changelog, 28. april 2026.
+//
 //  MÅLER BASEN, IKKE FILERNE. En migration kan se rigtig ud og alligevel
 //  ikke være kørt; en rettighed kan være sat i dashboardet. Derfor
 //  has_table_privilege mod den kørende base og intet andet.
