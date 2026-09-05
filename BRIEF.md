@@ -2,8 +2,9 @@
 
 Dansk lejeboligportal. Aggregerer ledige lejeboliger fra flere kilder,
 lader brugeren søge gratis, og tager betaling for at kontakte udlejeren.
-Differentiator: hastighed (nye boliger inden for minutter) og fuld økonomi
-(indflytningspris og reel månedlig udgift, ikke bare husleje).
+Differentiator: hastighed (nye boliger inden for minutter) og hele udgiften
+til udlejeren — husleje plus aconto, plus indflytningsprisen. Ikke bare
+huslejen.
 
 ## Stack
 

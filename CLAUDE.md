@@ -1080,8 +1080,15 @@ Bofinda samler ledige lejeboliger fra flere kilder, lader brugeren søge
 gratis og tager betaling for at kontakte udlejeren.
 
 To ting adskiller os fra Rentola og Bolivo: **hastighed** (nye boliger
-inden for minutter, drevet af `first_seen_at`) og **fuld økonomi**
-(indflytningspris og reel månedlig udgift, ikke bare husleje).
+inden for minutter, drevet af `first_seen_at`) og **hele udgiften til
+udlejeren** — husleje plus aconto, plus indflytningsprisen. Ikke bare
+huslejen.
+
+Bemærk formuleringen: **hele udgiften til udlejeren**, ikke "hele
+økonomien". Vi kender totalen for tre fjerdedele af boligerne, men
+sammensætningen — om acontoen er delt op i varme, vand og el — kun for
+godt halvdelen. Forsiden lover det første. Det andet måles stadig af
+`erFuldOekonomi` og står ved sit eget filter.
 
 **Fuld økonomi** betyder huslejen og samtlige aconto-poster, *udlejeren*
 opkræver. El indgår ikke i kravet: i dansk udlejning har lejeren normalt

@@ -321,8 +321,15 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                 <span>ledige boliger fra {tal.kilder} kilder</span>
               </li>
               <li>
-                <strong>{tal.fuldOekonomi.toLocaleString('da-DK')}</strong>
-                <span>med hele økonomien oplyst</span>
+                {/* Kendt total, ikke sammensætningen. "Hele økonomien
+                    oplyst" lovede, at vi vidste hvad acontoen bestod af —
+                    og det gør vi kun for godt halvdelen. Det, brugeren
+                    faktisk får, er hele beløbet til udlejeren, og det har
+                    vi for tre fjerdedele. Samme ord som prisen på hvert
+                    kort: "kr/md til udlejer". Sammensætningen måles stadig,
+                    men står ved sit eget filter. */}
+                <strong>{tal.kendtTotal.toLocaleString('da-DK')}</strong>
+                <span>med hele udgiften til udlejer oplyst</span>
               </li>
               {/* Det maalte tal, ikke en afrunding af det. "57 min." er saa
                   praecist, at ingen ville opdigte det — "under en time" er et
@@ -386,7 +393,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
       {soegt && (
         <div className="optaelling">
           <span><strong>{sum.antal}</strong> {sum.antal === 1 ? 'bolig' : 'boliger'}</span>
-          <span>{sum.fuld} med fuld økonomi</span>
+          <span>{sum.medTotal} med kendt total</span>
           <span>{sum.medIndflytning} med indflytningspris</span>
           {sum.billigst != null && sum.dyrest != null && (
             <span>{kr(sum.billigst)}–{kr(sum.dyrest)} kr/md</span>

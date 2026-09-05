@@ -7,6 +7,7 @@ import { propstepAdapter } from './propstep'
 import { dacasAdapter } from './dacas'
 import { lokalboligAdapter } from './lokalbolig'
 import { balderAdapter } from './balder'
+import { homeAdapter } from './home'
 
 export interface Registreret {
   adapter: SourceAdapter
@@ -53,6 +54,11 @@ export const KILDER: Registreret[] = [
     adapter: balderAdapter(),
     navn: 'Balder',
     baseUrl: 'https://www.balder.dk',
+  },
+  {
+    adapter: homeAdapter(),
+    navn: 'home.dk',
+    baseUrl: 'https://home.dk',
   },
   { adapter: dummyAdapter, navn: 'Dummy (testdata)', baseUrl: 'https://dummy.invalid', kunUdvikling: true },
   { adapter: dummy2Adapter, navn: 'Dummy 2 (testdata)', baseUrl: 'https://dummy2.invalid', kunUdvikling: true },

@@ -1090,6 +1090,11 @@ export async function forsidetal() {
   const [a] = await db
     .select({
       boliger: sql<number>`count(*)::int`,
+      // Forsidens tal. Kendt total — ikke sammensaetningen. Vi kan vise
+      // HELE det beloeb, der betales til udlejeren; om acontoen er delt op
+      // i varme, vand og el er et andet spoergsmaal, som `fuldOekonomi`
+      // maaler, og som staar ved sit eget filter.
+      kendtTotal: sql<number>`count(${listings.totalMonthly})::int`,
       // Samme regel som FULD. Se noten der.
       fuldOekonomi: sql<number>`count(*) filter (where
         ${listings.totalMonthly} is not null
