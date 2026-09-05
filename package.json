@@ -22,7 +22,8 @@
     "db:backup": "node --env-file-if-exists=.env scripts/backup.mjs",
     "db:backup:proev": "node --env-file-if-exists=.env scripts/proev-genskab.mjs",
     "tjek:noegler": "node --env-file-if-exists=.env scripts/tjek-noegler.mjs",
-    "test:prod": "BOFINDA_PROEV_PRODUKTION=1 tsx --tsconfig tsconfig.scripts.json --env-file-if-exists=.env scripts/test-redigering.ts"
+    "test:prod": "BOFINDA_PROEV_PRODUKTION=1 tsx --tsconfig tsconfig.scripts.json --env-file-if-exists=.env scripts/test-redigering.ts",
+    "tjek:rettigheder": "tsx --tsconfig tsconfig.scripts.json --env-file-if-exists=.env scripts/tjek-rettigheder.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

@@ -30,6 +30,7 @@ import { db, luk } from '../db/client'
 import { alertMatches, listingImages, listings, savedSearches, sources, users } from '../db/schema'
 import { matchAlarmer } from '../lib/alarm'
 import { byForPostnr } from '../lib/omraade'
+import { tjekRettigheder } from './tjek-rettigheder'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Gruppekort, Kort } from '../app/Boligkort'
@@ -162,6 +163,17 @@ async function main() {
   tjek('dør "for enden af gangen" afvises', !ok('', { doer: 'for enden af gangen' }))
 
   // ── Byen udledes af postnummeret ─────────────────────────────
+  // ── Ingen tabel maa staa aaben ───────────────────────────────
+  // Supabase giver anon og authenticated arwdDxtm paa FREMTIDIGE
+  // tabeller i public, og pgrst_ddl_watch eksponerer dem uden
+  // forsinkelse. De 12, der findes, er kun daekket, fordi tre
+  // migrationer huskede revoke. Her maales basen, ikke filerne.
+  console.log('\n══ rettigheder i public ══')
+  const aabne = await tjekRettigheder()
+  tjek('intet i public er åbent for anon eller authenticated',
+    aabne.length === 0,
+    aabne.map((f) => `${f.slags} ${f.navn}: ${f.grund.split(' — ')[0]}`).join(' · '))
+
   console.log('\n══ byen udledes af postnummeret ══')
   await tjekProd('2200 giver et bynavn',
     async () => (await byForPostnr('2200')) !== null,

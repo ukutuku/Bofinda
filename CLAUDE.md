@@ -741,6 +741,39 @@ Migration 0013 sår `native`, fordi den er den eneste kilde uden adapter. Får
 en prøve brug for det rigtige register, er svaret `sikreKilde()` over
 `KILDER` — ikke ny SQL.
 
+### Rettighedskontrollen — hvorfor den findes
+
+`npm run tjek:rettigheder` fejler, hvis noget i `public` mangler RLS eller
+stadig har rettigheder til `anon` eller `authenticated`. Den kører også som
+del af `npm test` mod testbasen.
+
+Den **måler basen, ikke filerne**. En migration kan se rigtig ud uden at være
+kørt, og en rettighed kan være sat i dashboardet. Derfor `has_table_privilege`
+mod den kørende base og intet andet.
+
+Grunden, målt og ikke formodet:
+
+- Supabase har `ALTER DEFAULT PRIVILEGES` i skema `public`, der giver `anon`,
+  `authenticated` og `service_role` **`arwdDxtm`** — læs, indsæt, opdatér,
+  slet — på **fremtidige** tabeller. Migrationerne køres som `postgres`, så
+  enhver ny tabel arver det i samme sekund, den oprettes. Efterprøvet i PGlite
+  med de samme default-privilegier: rollen `anon` kunne læse, skrive **og
+  slette** i en tabel uden revoke.
+- `pgrst_ddl_watch` er en event trigger på `ddl_command_end`, slået til.
+  Den genindlæser PostgREST' skemacache automatisk. Der er ingen forsinkelse
+  at nå at opdage noget i.
+- Der er ingen standardafvisning bagved. `GET /rest/v1/listings` med den
+  offentlige nøgle svarer `401 · 42501 permission denied for table` — altså
+  kender PostgREST tabellen og stopper **kun** ved rettighedstjekket. En
+  tabel, den ikke kender, svarer `404 · PGRST205`. Forskellen er beviset.
+- De 12 tabeller, der findes i dag, er kun dækket, fordi `0002`, `0007` og
+  `0010` huskede at skrive `revoke`. **`0007` og `0010` måtte gentage det per
+  tabel — mønstret har allerede ramt to gange.**
+
+Skabelonen i `db/skabelon-migration.sql` har `enable row level security` og
+`revoke all … from anon, authenticated` med. Kontrollen fanger fejlen;
+skabelonen forhindrer den.
+
 ### RLS er ikke dækket. Noget andet er værre
 
 **RLS på `storage.objects` er den eneste håndhævelse af mappegrænsen mellem
