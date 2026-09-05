@@ -387,6 +387,26 @@ async function main() {
     tjek(`flip: ${navn} → ${vent}`, r.timing.status === vent, r.timing.status)
   }
 
+  // ── Dacas' datofelt: kildens egen «Overtagelsesdato:» ────────
+  // Kontrakten giver nu datoen tidsevidens — belægget er kildens egen
+  // etiket, samme ordklasse som Balders. «Snarest» bærer stadig sin
+  // evidens gennem teksten, og en side har enten dato ELLER «Snarest»,
+  // så de to veje kan ikke mødes i en falsk konflikt.
+  console.log('\n══ dacas: datoen har tidsevidens ══')
+  const dacasT = (fakta: Record<string, unknown>) =>
+    fortolkAvailability(fakta, KILDEKONTRAKTER.dacas!, NU).timing.status
+  tjek('dacas fortidig dato → nu',
+    dacasT({ takeoverText: '15. august 2026', sourceAvailabilityDate: D('2026-08-15') }) === 'nu')
+  tjek('dacas dags dato → nu',
+    dacasT({ takeoverText: '5. september 2026', sourceAvailabilityDate: D('2026-09-05') }) === 'nu')
+  tjek('dacas fremtidig dato → senere',
+    dacasT({ takeoverText: '1. november 2026', sourceAvailabilityDate: D('2026-11-01') }) === 'senere')
+  tjek('dacas «Snarest» uden dato → stadig nu, gennem teksten',
+    dacasT({ takeoverText: 'Snarest' }) === 'nu')
+  tjek('dacas tekstdato giver IKKE evidens gennem overtagelsestekst',
+    fortolkAvailability({ takeoverText: '1. november 2026' },
+      KILDEKONTRAKTER.dacas!, NU).timing.status === 'unknown')
+
   // ── home.dk: ledigdatoen skal vaere SAGENS, ikke naboens ─────
   // Payloaden er flad: hvert felt er et INDEKS ind i én liste, og
   // detaljesiden baerer de beslaegtede annoncers availability-objekter

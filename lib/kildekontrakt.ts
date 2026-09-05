@@ -461,8 +461,24 @@ export const KILDEKONTRAKTER: Record<string, Kildekontrakt> = {
     // taksonomi, intet ordforråd om udlejet/reserveret/venteliste. Den de
     // facto status er binær: står boligen i sitemappet, er den i udbud.
     statusser: {},
-    // Kilden har INGEN maskinlæsbar dato. Overtagelse står som fritekst.
-    datofelt: null,
+    datofelt: {
+      betydning: 'overtagelse',
+      brugbarSomTiming: true,
+      belaeg: {
+        art: 'kildens-ui',
+        hvor: 'dacas.dk · feltet «Overtagelsesdato:» på boligsiderne',
+        naar: '2026-09-06',
+        note: 'Kilden binder SELV datoen til ordet: etiketten er ordret '
+            + '«Overtagelsesdato:», bekræftet på 9 af 17 sider — samme '
+            + 'ordklasse og samme belægsart, som gav Balder sit ja. Datoen '
+            + 'står som dansk FRITEKST («1. november 2026») og parses '
+            + 'deterministisk til en kalenderdag i adapteren; det er '
+            + 'kildens dato, ikke vores. «Snarest» giver ALDRIG en dato — '
+            + 'den bærer sin evidens gennem overtagelsestekst nedenfor, og '
+            + 'de to veje kan ikke dobbelt-tælle: en side har enten en '
+            + 'dato eller «Snarest» i feltet.',
+      },
+    },
     ansoegningsform: null,
     overtagelsestekst: {
       ord: {
