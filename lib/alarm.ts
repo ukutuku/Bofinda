@@ -10,6 +10,7 @@ import { and, asc, desc, eq, gt, isNotNull, isNull, lt, ne, or, sql } from 'driz
 import { db } from '../db/client'
 import { alertMatches, crawlRuns, listings, savedSearches, sources, users } from '../db/schema'
 import { hvor, type Filtre } from './soeg'
+import { INDKOERING_TIMER } from './indkoering'
 
 /** Kriterierne gemmes som `Filtre`. Læses tilbage med samme form. */
 const somFiltre = (c: Record<string, unknown>): Filtre => c as Filtre
@@ -19,9 +20,6 @@ export interface MatchResultat {
   nyeTraef: number
 }
 
-/** Hvor længe en kilde skal have været overvåget, før en bolig uden
- *  dato fra kilden kan regnes som ny. */
-const INDKOERING_TIMER = 24
 
 /**
  * Finder nye træf for hver gemt søgning og lægger dem i køen.

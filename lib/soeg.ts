@@ -11,6 +11,7 @@ import { db } from '../db/client'
 import { listingImages, listings, sources } from '../db/schema'
 import { FACILITET } from './faciliteter'
 import { TILLADTE_VAERTER } from './billede'
+import { INDKOERING_TIMER } from './indkoering'
 
 export interface Filtre {
   by?: string
@@ -326,8 +327,44 @@ export async function repraesentantFor(ids: string[]): Promise<Map<string, Repra
 
 const hvorVist = (f: Filtre) => udenDubletter(hvor(f))
 
+/**
+ * Bagkatalog: boligen dukkede op, FØR kilden havde været overvåget et
+ * døgn. Ved den første import får hele bestanden `first_seen_at = nu`, og
+ * uden det her tager en ny kilde hele forsiden den dag, den kobles på —
+ * home.dk tog 48 af 48 kort.
+ *
+ * Samme begreb som i lib/alarm.ts, og samme konstant — se lib/indkoering.ts.
+ *
+ * `native` er undtaget. En udlejerannonce har ingen importør og dermed
+ * ingen kørsler, så «senest set af os» ER publiceringstidspunktet. Uden
+ * undtagelsen ville hver udlejerannonce ligge permanent begravet.
+ */
+export const BAGKATALOG = sql`(
+  ${listings.sourceType} <> 'native'
+  and (
+    not exists (select 1 from crawl_runs c where c.source_id = ${listings.sourceId})
+    or ${listings.firstSeenAt} <= (
+      select min(c.started_at) from crawl_runs c
+      where c.source_id = ${listings.sourceId}) + make_interval(hours => ${INDKOERING_TIMER})
+  )
+)`
+
+/**
+ * Datoen «nyeste» sorterer på. Kildens egen dato, hvis den findes —
+ * ellers det tidspunkt VI så boligen, men kun hvis den ikke er bagkatalog.
+ * Bagkatalog får null og lander sidst.
+ *
+ * Kildedatoen alene ville ikke være nok: tre af syv adaptere sætter den
+ * ikke, og den næste kilde kan lige så vel mangle den. Indkøringsreglen
+ * virker uanset hvad kilden leverer.
+ */
+export const NYHEDSDATO = sql`coalesce(${listings.sourceCreatedAt},
+  case when ${BAGKATALOG} then null else ${listings.firstSeenAt} end)`
+
 const ORDEN = {
-  nyeste: desc(listings.firstSeenAt),
+  // `first_seen_at desc` til sidst, saa raekkefoelgen inde i bagkataloget
+  // stadig er forudsigelig — og ikke overladt til planlaeggeren.
+  nyeste: sql`${NYHEDSDATO} desc nulls last, ${listings.firstSeenAt} desc`,
   // Sorteres på samme tal som der filtreres på — ellers ville "billigst
   // først" og "under 18.000" pege på to forskellige priser.
   pris_op: sql`${PRIS} asc nulls last`,
@@ -506,7 +543,8 @@ const TOTALKENDT = sql<boolean>`(${listings.totalMonthly} is not null)`
 
 /** Gruppen står i listen dér, hvor dens stærkeste medlem ville have stået. */
 const GRUPPEORDEN = {
-  nyeste: sql`max(${listings.firstSeenAt}) desc`,
+  // Gruppen er saa ny som sin nyeste bolig — samme regel som for de enkelte.
+  nyeste: sql`max(${NYHEDSDATO}) desc nulls last, max(${listings.firstSeenAt}) desc`,
   pris_op: sql`min(${PRIS}) asc nulls last`,
   pris_ned: sql`max(${PRIS}) desc nulls last`,
   areal_ned: sql`max(${listings.sizeM2}) desc nulls last`,

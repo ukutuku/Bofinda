@@ -27,7 +27,7 @@
 
 import { and, eq, sql as dsql } from 'drizzle-orm'
 import { db, luk } from '../db/client'
-import { alertMatches, listingImages, listings, savedSearches, sources, users } from '../db/schema'
+import { alertMatches, crawlRuns, listingImages, listings, savedSearches, sources, users } from '../db/schema'
 import { matchAlarmer } from '../lib/alarm'
 import { byForPostnr } from '../lib/omraade'
 import { tjekRettigheder } from './tjek-rettigheder'
@@ -38,8 +38,8 @@ import { billedUrl, TILLADTE_VAERTER } from '../lib/billede'
 import { eltilstand } from '../lib/eloplysning'
 import type { Bolig, Filtre, Gruppe } from '../lib/soeg'
 import {
-  facilitetsgrundlag, hvor, oekonomigrundlag, opsummering, soeg, soegGrupperet,
-  tavseKilder, udenDubletter,
+  facilitetsgrundlag, hvor, NYHEDSDATO, oekonomigrundlag, opsummering, soeg,
+  soegGrupperet, tavseKilder, udenDubletter,
 } from '../lib/soeg'
 import { FACILITET } from '../lib/faciliteter'
 import {
@@ -119,7 +119,8 @@ async function main() {
   let id = ''
   let rivalId = ''
   let proevekildeId = ''
-  const ekstra: { boliger: string[]; brugere: string[] } = { boliger: [], brugere: [] }
+  const ekstra: { boliger: string[]; brugere: string[]; kilder: string[] } =
+    { boliger: [], brugere: [], kilder: [] }
 
   // ── Usynlige tegn ────────────────────────────────────────────
   // trim() fjerner mellemrum, ogsaa NBSP, men ikke tegn der er nul
@@ -207,6 +208,24 @@ async function main() {
       return tabte.length === 0
     },
     () => tabte.map((t) => `${t.vaert}: ${t.boliger} boliger`).join(' · '))
+
+  // Den bogstavelige udgave, som kun giver mening med et rigtigt udbud:
+  // ingen enkelt kilde maa tage hele forsiden. Det gjorde home.dk — 48 af
+  // 48 — den dag den blev koblet paa.
+  console.log('\n══ ingen enkelt kilde må tage hele forsiden ══')
+  let fordeling: [string, number][] = []
+  await tjekProd('ingen kilde har alle 48 kort på forsiden',
+    async () => {
+      const m = new Map<string, number>()
+      for (const v of await soegGrupperet({})) {
+        const bo = v.slags === 'gruppe' ? v.gruppe.repraesentant : v.bolig
+        const k = String((bo as Record<string, unknown>).kilde ?? '?')
+        m.set(k, (m.get(k) ?? 0) + 1)
+      }
+      fordeling = [...m].sort((x, y) => y[1] - x[1])
+      return fordeling.length > 1
+    },
+    () => fordeling.map(([k, n]) => `${k} ${n}`).join(' · '))
 
   console.log('\n══ byen udledes af postnummeret ══')
   await tjekProd('2200 giver et bynavn',
@@ -750,6 +769,87 @@ async function main() {
     tjek('… og den anden udlejer står stadig for sig', alle.length === 2,
       `${alle.length} kort i alt`)
 
+    // ── En ny kildes bagkatalog maa ikke tage forsiden ──────────
+    // Ved den FOERSTE import af en kilde faar hele bestanden
+    // `first_seen_at = nu`. Uden indkoeringsreglen sorterer «nyeste» dem
+    // alle oeverst, og kilden tager hele forsiden den dag, den kobles paa.
+    // home.dk tog 48 af 48 kort.
+    console.log('\n══ en ny kildes bagkatalog må ikke tage forsiden ══')
+    const nyKilde = async (navn: string, koerselFor: number) => {
+      const [k] = await db.insert(sources).values({
+        slug: `proeve-${navn}-${Date.now()}`, name: `Prøve: ${navn}`,
+        sourceType: 'feed', baseUrl: 'https://proeve.invalid', enabled: false,
+      }).returning()
+      ekstra.kilder.push(k!.id)
+      await db.insert(crawlRuns).values({
+        sourceId: k!.id, status: 'ok',
+        startedAt: new Date(Date.now() - koerselFor * 3600_000),
+      })
+      return k!.id
+    }
+    // Én kilde vi har set i to doegn, én der lige er koblet paa.
+    const indkoert = await nyKilde('indkoert', 48)
+    const netopKoblet = await nyKilde('netop-koblet', 0.02)
+
+    // Samme greb som rivalen: kopiér hendes raekke, saa alle CHECK-
+    // begraensninger er opfyldt uden at gaette paa felter.
+    const [skabelon] = await db.select().from(listings).where(eq(listings.id, id))
+    const { id: _udenId, ...skabelonen } = skabelon!
+    const nyBoligPaa = async (kildeId: string, vej: string) => {
+      const [b] = await db.insert(listings).values({
+        ...skabelonen,
+        sourceId: kildeId, sourceType: 'feed',
+        externalKey: `proeve-${vej}-${Date.now()}`,
+        sourceUrl: 'https://proeve.invalid/x',
+        addressRaw: `${vej} 1, 2200 København N`,
+        // Egen enhedsnoegle, ellers dedupliseres de mod hinanden.
+        unitAddressUuid: crypto.randomUUID(),
+        sourceCreatedAt: null,
+        landlordId: null, contactEmail: null, contactPhone: null,
+      }).returning()
+      ekstra.boliger.push(b!.id)
+      return b!.id
+    }
+    const fraIndkoert = await nyBoligPaa(indkoert, 'Indkørtvej')
+    const fraNy: string[] = []
+    for (const n of [1, 2, 3]) fraNy.push(await nyBoligPaa(netopKoblet, `Bagkatalogvej${n}`))
+
+    const raekkefoelge = (await soeg({}, 500)).map((b) => b.id)
+    const plads = (id: string) => raekkefoelge.indexOf(id)
+    tjek('den indkørte kildes bolig er med i søgningen', plads(fraIndkoert) >= 0)
+    tjek('… og den står FØR den nye kildes bagkatalog',
+      fraNy.every((id) => plads(id) === -1 || plads(id) > plads(fraIndkoert)),
+      `indkørt på ${plads(fraIndkoert)}, bagkatalog på ${fraNy.map(plads).join(', ')}`)
+    // Den EGENTLIGE invariant. Bemaerk at den IKKE er «bagkatalog sidst»:
+    // en bagkatalogbolig, hvis kilde selv oplyser en dato, beholder sin
+    // plads efter DEN dato — det er praecis forskellen paa at bruge
+    // kildedatoen og at lade vaere. Det, der skal ligge sidst, er de
+    // DATOLOESE: bagkatalog uden en dato fra kilden.
+    //
+    // Foerste udgave af den her proeve maalte «bagkatalog sidst» og bestod
+    // paa testbasen, hvor ingen fixtur har en kildedato. Mod produktionen
+    // faldt den straks — foerste bagkatalog paa 75, sidste ikke-bagkatalog
+    // paa 253 — fordi Propstep, LokalBolig og findbolig.nu ALLE oplyser
+    // datoer. Proeven var forkert, ikke sorteringen.
+    //
+    // Bundet til `NYHEDSDATO` fra lib/soeg.ts, ikke til en kopi: to
+    // definitioner af det samme driver fra hinanden.
+    const bagIder = new Set((await db.select({ id: listings.id })
+      .from(listings).innerJoin(sources, eq(sources.id, listings.sourceId))
+      .where(and(udenDubletter(hvor({})), dsql`${NYHEDSDATO} is null`))).map((r) => r.id))
+    const flag = raekkefoelge.map((x) => bagIder.has(x))
+    const foersteBag = flag.indexOf(true)
+    const sidsteIkkeBag = flag.lastIndexOf(false)
+    tjek('ingen datoløs bagkatalogbolig står før en med en dato',
+      foersteBag === -1 || foersteBag > sidsteIkkeBag,
+      `første datoløse på ${foersteBag}, sidste med dato på ${sidsteIkkeBag}`)
+    // Og undtagelsen: HENDES annonce er native og har ingen koersler i
+    // crawl_runs. Uden undtagelsen ville hun regnes som bagkatalog og
+    // ligge permanent begravet under enhver importkoersel.
+    tjek('en udlejerannonce regnes IKKE som bagkatalog',
+      plads(id) >= 0 && plads(id) < plads(fraNy[0]!) || plads(fraNy[0]!) === -1,
+      `hun på ${plads(id)}, bagkatalog på ${plads(fraNy[0]!)}`)
+
     // ── Udlejerannoncer maa ikke gaa ud i alarmmails ────────────
     // De faldt foer ud ved et tilfaelde, fordi `native` ikke har nogen
     // koersel i crawl_runs. Nu staar det udtrykkeligt i matchAlarmer, og
@@ -831,6 +931,10 @@ async function main() {
       await db.delete(listings).where(eq(listings.id, b))
     }
     for (const u2 of ekstra.brugere) await db.delete(users).where(eq(users.id, u2))
+    for (const k of ekstra.kilder) {
+      await db.delete(crawlRuns).where(eq(crawlRuns.sourceId, k))
+      await db.delete(sources).where(eq(sources.id, k))
+    }
     if (rivalId) {
       await db.delete(listingImages).where(eq(listingImages.listingId, rivalId))
       await db.delete(listings).where(eq(listings.id, rivalId))
