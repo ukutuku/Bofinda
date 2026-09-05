@@ -48,12 +48,45 @@ export interface RawListing {
   amenities?: string[]
   /** Kildens egne billed-URL'er. Hotlinkes, kopieres aldrig. */
   imageUrls: string[]
+  /** Hvad kilden sagde om tilgaengelighed. Se lib/kildekontrakt.ts. */
+  availability?: AvailabilityFacts
   /**
    * Kilden skriver SELV, at billederne kan vaere fra en anden bolig.
    * Saettes kun, naar kilden udtrykkeligt tager forbeholdet — aldrig som
    * vores egen vurdering af, om billederne ser rigtige ud.
    */
   imagesMayDiffer?: boolean
+}
+
+/**
+ * Hvad kilden sagde om tilgaengelighed. Adapterens HELE ansvar — ingen
+ * fortolkning. Saettet er LUKKET: et frit feltnavn ville vaere en skjult
+ * kontrakt mellem adapter og domaene, hvor en omdoebning kunne goere
+ * availability forkert uden en typefejl.
+ *
+ * Udeladt felt = kilden sagde intet. Det er IKKE det samme som `false`.
+ */
+export interface AvailabilityFacts {
+  /** Kildens eget statusord, uoversat. Balder: "Ledig". Propstep: "Reserved". */
+  rawStatus?: string | null
+  /**
+   * Kildens datofelt, som det stod. NEUTRALT navngivet med vilje: en
+   * Propstep-dato fra 2002 viser, at et datofelt ikke noedvendigvis
+   * betyder "ledig fra". Kontrakten afgoer betydningen.
+   */
+  sourceAvailabilityDate?: Date | null
+  /** Kildens frie tekst om overtagelse. Dacas: "Snarest". Uoversat. */
+  takeoverText?: string | null
+  /** Kildens eget ja/nej. home.dk: availability.isRentalAvailableNow. */
+  rentalAvailableNow?: boolean | null
+  /** Kildens eget ord for ansoegningsform. findbolig: "Regular"/"WaitingList". */
+  rawApplicationType?: string | null
+  /** Propsteps markoerer. Gemmes raat, fortolkes ikke i adapteren. */
+  upcomingProject?: boolean | null
+  interestListId?: string | null
+  deadlineDays?: number | null
+  /** Krav om bopael eller medlemskab. home.dk: isResidenceRequired. */
+  residencyRequired?: boolean | null
 }
 
 export interface DiscoveredListing {
