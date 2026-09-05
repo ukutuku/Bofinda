@@ -270,6 +270,47 @@ async function main() {
 
   const vis = (el: React.ReactElement) => renderToStaticMarkup(el)
 
+  // ── Ukendt total: SLET ingen el-linje ────────────────────────
+  // Kender vi ikke acontoen, kan vi ikke sige noget om, hvad den ikke
+  // indeholder. De to udsagn modsagde hinanden paa 47 gruppekort.
+  //
+  // Proeven daekker BEGGE korttyper. Enkeltkortet gjorde det rigtigt i
+  // forvejen — men intet holdt det fast, og det er praecis saadan de to
+  // korttyper drev fra hinanden sidst.
+  console.log('\n══ ukendt total → ingen el-linje ══')
+  const EL_TEKSTER = [
+    'El indgår ikke',
+    'Aconto er ét samlet beløb',
+    'el afregnes direkte',
+  ]
+  const harElLinje = (html: string) => EL_TEKSTER.some((t) => html.includes(t))
+  for (const [navn, html] of [
+    ['enkeltkort, ingen total',
+      vis(createElement(Kort, { b: bolig({ total: null, poster: null }) }))],
+    ['gruppekort, ingen total',
+      vis(createElement(Gruppekort, {
+        g: gruppe({
+          noegle: { kilde: 'proeve', postnr: '2200', vej: 'Prøvevej', vaerelser: 3, total: false },
+          nogenUdenEl: true,
+        } as Partial<Gruppe>, { total: null, poster: null }),
+      }))],
+    ['gruppekort, ingen total, samlet aconto',
+      vis(createElement(Gruppekort, {
+        g: gruppe({
+          noegle: { kilde: 'proeve', postnr: '2200', vej: 'Prøvevej', vaerelser: 3, total: false },
+          nogenUdenEl: true, nogenUkendtDaekning: true,
+        } as Partial<Gruppe>, { total: null, poster: null }),
+      }))],
+  ] as const) {
+    tjek(`${navn}: ingen el-linje`, !harElLinje(html),
+      EL_TEKSTER.filter((t) => html.includes(t)).join(' + '))
+    tjek(`${navn}: men manglen siges`, html.includes('Udlejer oplyser ikke aconto'))
+  }
+  // Praemissen: med en KENDT total skal el-linjen stadig komme. Ellers
+  // ville proeven ovenfor bestaa ved at fjerne linjen helt.
+  tjek('præmis: med kendt total kommer el-linjen stadig',
+    harElLinje(vis(createElement(Gruppekort, { g: gruppe({ nogenUdenEl: true }) }))))
+
   // ── Den fjerde tilstand ──────────────────────────────────────
   // "El er ikke med i tallet" og "vi ved ikke hvad der er i tallet" er to
   // forskellige udsagn. Kun det foerste kan aflaeses af udspecificerede

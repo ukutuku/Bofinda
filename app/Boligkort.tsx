@@ -333,8 +333,14 @@ export function Gruppekort({ g }: { g: Gruppe }) {
           {/* Gruppen taler for flere boliger, saa det SVAGESTE udsagn
               vinder. Er der bare én, hvis aconto vi ikke kender indholdet
               af, kan kortet ikke sige "el indgaar ikke" om dem alle. */}
+          {/* `!n.total`, ikke `n.total == null`. Gruppenoegle.total er en
+              BOOLEAN — «er priserne kendte totaler» — saa `== null` var
+              aldrig sand, og vagten fyrede aldrig. Enkeltkortet spoerger
+              paa `b.total`, som er et BELOEB og godt kan vaere null. Samme
+              spoergsmaal, to typer, to udtryk. 47 gruppekort viste baade
+              «udlejer oplyser ikke aconto» og en el-linje. */}
           <Ellinje tilstand={
-            n.total == null || !g.nogenUdenEl ? null
+            !n.total || !g.nogenUdenEl ? null
               : g.nogenUkendtDaekning ? 'ukendt-daekning'
                 : g.alleUdenElHarEgenMaaler ? 'egen-maaler' : 'ikke-med'
           } />

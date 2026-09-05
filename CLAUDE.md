@@ -476,9 +476,18 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   |---|---|---|
   | Kan vi vise billedet? | `b.forside` (URL'en findes) | `billedUrl(...)` (værten er tilladt) |
   | Hvor mange billeder? | `count(*)` i `listing_images` | det `billedUrl()` slap igennem |
+  | Skal el-linjen vises? | `b.total == null` — et **beløb**, der godt kan være null | `n.total == null` — en **boolean**, der aldrig er null |
   | Er el med i totalen? | enkeltkortet spurgte | gruppekortet spurgte slet ikke |
   | Hvad hedder facilitererne? | `FACILITETER` i formularen | `FACILITET` i filtrene |
   | Er økonomien fuld? | `erFuldOekonomi` | `FULD` i søgelaget |
+
+  Rækken om el-linjen er den grimmeste af dem, fordi de to udtryk er
+  skrevet ens. `b.total` på enkeltkortet er `total_monthly` — et beløb, og
+  `== null` er den rigtige prøve. `n.total` på gruppekortet er
+  `Gruppenoegle.total`, en boolean der siger «er priserne kendte totaler».
+  Den er aldrig null, så vagten fyrede aldrig, og 47 gruppekort viste både
+  «Udlejer oplyser ikke aconto» og en el-linje om den aconto, vi lige har
+  sagt, vi ikke kender. Samme ord, samme feltnavn, to typer.
 
   Rettelsen er den samme hver gang: én kilde, og de andre afledt af den.
   `Ellinje` er én komponent, begge korttyper kalder den. `VISBAR_VAERT`
