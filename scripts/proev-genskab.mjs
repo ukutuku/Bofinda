@@ -21,6 +21,7 @@
 //    npm run db:backup:proev backup/xxx.sql   en bestemt fil
 // ═══════════════════════════════════════════════════════════════
 import { PGlite } from '@electric-sql/pglite'
+import { koerMigrationer, stubSupabase } from './pglite-skema.mjs'
 import { readFileSync, readdirSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 
@@ -98,44 +99,21 @@ const db = await PGlite.create()
 const auth = blokke.find((b) => b.skema === 'auth' && b.tabel === 'users')
 if (!auth) { console.error('Dumpet har ingen auth.users. Er det den rigtige fil?'); process.exit(1) }
 const authKolonner = auth.kolonner.split(', ').map((k) => k.replace(/"/g, ''))
-await db.exec(`
-  create role anon;
-  create role authenticated;
-  create role service_role;
-  create schema auth;
-  create table auth.users (${authKolonner
-    .map((k) => (k === 'id' ? '"id" uuid primary key' : `"${k}" text`))
-    .join(', ')});
-  create function auth.uid() returns uuid language sql as $$ select null::uuid $$;
-  create schema storage;
-  create table storage.objects (
-    id uuid primary key default gen_random_uuid(), bucket_id text, name text);
-  create function storage.foldername(t text) returns text[]
-    language sql as $$ select string_to_array(t, '/') $$;
-  alter table storage.objects enable row level security;
-`)
+await stubSupabase(db, authKolonner)
 
 // ── vores eget skema, fra migrationerne ──────────────────────────────
 // Samme rækkefølge som drizzle bruger: journalen, ikke filnavnene på disk.
 // (Det er netop forskellen, npm run db:status findes for.)
-const journal = JSON.parse(readFileSync('db/migrations/meta/_journal.json', 'utf8')).entries
-const filer = readdirSync('db/migrations').filter((f) => f.endsWith('.sql'))
-for (const post of journal) {
-  const fil = filer.find((f) => f.startsWith(post.tag))
-  if (!fil) { console.error(`  ✗ journalen nævner ${post.tag}, men filen mangler`); process.exit(1) }
-  try {
-    await db.exec(readFileSync(`db/migrations/${fil}`, 'utf8'))
-  } catch (e) {
-    console.error(`  ✗ ${fil} kunne ikke køre på en tom base: ${e.message}`)
-    console.error('    Så kan basen heller ikke genskabes. Ret migrationen.')
-    process.exit(1)
-  }
+let antalMigrationer
+try {
+  antalMigrationer = await koerMigrationer(db)
+} catch (e) {
+  console.error(`  ✗ ${e.message}`)
+  console.error('    Så kan basen heller ikke genskabes. Ret migrationen.')
+  process.exit(1)
 }
-// Migrationerne sår selv en række (kilden 'native' i 0013), så basen er
-// ikke tom bagefter. Genskabelsen tømmer public først — præcis samme
-// skridt som README beder mennesket om, og samme fil.
 await db.exec(readFileSync('db/toem-public.sql', 'utf8'))
-console.log(`  skema  ${journal.length} migrationer kørt, public tømt`)
+console.log(`  skema  ${antalMigrationer} migrationer kørt, public tømt`)
 
 // ── læs dataene ind ──────────────────────────────────────────────────
 for (const b of blokke) {
