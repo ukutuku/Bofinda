@@ -31,6 +31,23 @@ type DrizzleDb = ReturnType<typeof drizzle<typeof schema>>
  */
 const iWebappen = Boolean(process.env.NEXT_RUNTIME || process.env.VERCEL)
 
+/**
+ * 'require' verificerer ikke certifikatkaeden — det er det, Supabase selv
+ * anbefaler til pooleren. Vi slaar den kun fra, hvor den ikke giver mening.
+ */
+export function tlsFor(url: string): 'require' | false {
+  const u = new URL(url)
+  // postgres' egen konvention. Skrevet i strengen er det et valg, ikke et uheld.
+  if (u.searchParams.get('sslmode') === 'disable') return false
+  // Loopback gaar ikke over nettet. En lokal base har sjaeldent TLS, og
+  // 'require' ville afvise den — det var praecis det, der spaerrede for at
+  // koere proever et andet sted end i produktionen.
+  if (['localhost', '127.0.0.1', '::1', '[::1]'].includes(u.hostname)) return false
+  // Alt andet gaar over nettet. Der er en fjern base uden TLS en fejl,
+  // ikke en konfiguration.
+  return 'require'
+}
+
 function forbindelse() {
   const url = iWebappen
     ? process.env.DATABASE_URL          // Supavisor transaction pooler, :6543
@@ -62,6 +79,15 @@ function forbindelse() {
  */
 let _sql: Sql | null = null
 function klient(): Sql {
+  // Hoejlydt, ikke stille. Naar en testbase er indsat, er en forbindelse til
+  // produktionen aldrig det, kalderen mente — og en stille forbindelse
+  // hertil ville vaere netop den fejl, testbasen findes for at fjerne.
+  if (_indsat) {
+    throw new Error(
+      'Rå postgres.js-forbindelse blev bedt om, mens testbasen er indsat. '
+      + 'PGlite har ingen socket. Brug `db` (drizzle) eller `luk()`.',
+    )
+  }
   if (_sql) return _sql
   _sql = postgres(forbindelse(), {
     // Workeren: konservativt. Den gaar paa SESSION-pooleren, som kun har
@@ -84,9 +110,14 @@ function klient(): Sql {
     // belastning. Session/direct beholder dem, de er hurtigere.
     prepare: !iWebappen,
 
-    // Supabase kraever TLS. 'require' verificerer ikke certifikatkaeden,
-    // hvilket er det Supabase selv anbefaler til pooleren.
-    ssl: 'require',
+    // TLS udledes af selve forbindelsen. Foer stod her 'require' fast, og
+    // saa kunne ingen anden base end Supabase bruges — heller ikke en lokal
+    // til proever. Reglen er streng i den rigtige retning: TLS fravaelges
+    // KUN, naar strengen udtrykkeligt siger det, eller naar basen er
+    // loopback og altsaa ikke gaar over nettet. Produktionens to URL'er er
+    // hverken loopback eller `sslmode=disable`, saa de faar 'require' som
+    // foer.
+    ssl: tlsFor(forbindelse()),
 
     idle_timeout: iWebappen ? 20 : 120,
     max_lifetime: 60 * 30,
@@ -97,10 +128,38 @@ function klient(): Sql {
   return _sql
 }
 
+/**
+ * En base UDEFRA — i praksis PGlite, rigtig Postgres i WASM, som proeverne
+ * rejser i hukommelsen.
+ *
+ * Den indsaettes, den bygges ikke her. db/client.ts maa ikke importere
+ * PGlite: modulet indlaeses af hver eneste side, og en WASM-motor i
+ * klientbundtet er baade tung og meningsloes. Indsprojtningen holder
+ * afhaengigheden hos den, der har brug for den — scripts/testbase.ts.
+ *
+ * Kun den kodevej, der udtrykkeligt kalder `indsaetBase`, kan taende den.
+ * Samme greb som `tilladTestkilder` i adapters/index.ts, og af samme grund:
+ * en spaerring, der hviler paa en miljoevariabel, nogen skal huske at
+ * saette, er ingen spaerring.
+ */
+let _indsat: DrizzleDb | null = null
+let _lukIndsat: (() => Promise<void>) | null = null
+export function indsaetBase(d: DrizzleDb, lukning: () => Promise<void>) {
+  _indsat = d
+  _lukIndsat = lukning
+}
+
 let _db: DrizzleDb | null = null
 function drizzleKlient(): DrizzleDb {
+  if (_indsat) return _indsat
   if (!_db) _db = drizzle(klient(), { schema })
   return _db
+}
+
+/** Lukker det, der er aktivt — produktionens pool eller den indsatte base. */
+export async function luk() {
+  if (_lukIndsat) { await _lukIndsat(); return }
+  if (_sql) await _sql.end()
 }
 
 /** Metoder skal bindes til den rigtige instans, ikke til stedfortraederen. */
