@@ -128,7 +128,9 @@ function parseDanskDato(s: string): string | undefined {
 
 // ─── Allowlisten ───────────────────────────────────────────────
 
-function laesBolig(html: string, url: string): RawListing | null {
+/** Eksporteret KUN til proeven: den skal kunne koere parsningen med et
+ *  fastfrosset ur uden at hente en side. */
+export function laesBolig(html: string, url: string): RawListing | null {
   // postid bruges som gyldighedstjek: er den der ikke, er siden ikke en
   // boligside. Den kan IKKE vaere noeglen — discovery kender kun URL'en,
   // og noeglen skal vaere den samme i begge led, ellers ser hver bolig ny
@@ -168,12 +170,20 @@ function laesBolig(html: string, url: string): RawListing | null {
   const areal = Number(t.match(/(\d{1,4})\s*m\s*2\b/)?.[1])
   const vaerelser = heltal(t, ETIKETTER.vaerelser)
 
-  // "Snarest" betyder ledig nu. Det er kildens egen oplysning, ikke et gaet.
-  // Ellers laeses den danske tekstdato.
+  // Kilden skriver enten en dansk tekstdato eller ordet "Snarest".
+  //
+  // "Snarest" gav FOER `new Date().toISOString()` — altsaa VORES ur. Det
+  // gjorde en tilstand om til en praecis dato, kilden aldrig har oplyst:
+  // seks raekker stod med klokkeslaet og millisekunder fra natkoerslen,
+  // datoen rykkede en dag frem hver nat, og kortet praesenterede den for
+  // brugeren som "Ledig fra 5. september 2026". Det er en opdigtet dato.
+  //
+  // Nu bliver den `undefined`. Ordet bevares raat i `takeoverText`, saa
+  // oplysningen ikke gaar tabt — hvad "Snarest" MAA betyde, afgoeres af
+  // kildekontrakten, ikke her.
   const overtagelse = tekstVaerdi(t, ETIKETTER.overtagelse)
-  const ledigFra = !overtagelse ? undefined
-    : /snarest|straks|omg/i.test(overtagelse) ? new Date().toISOString()
-    : parseDanskDato(overtagelse)
+  const snarest = !!overtagelse && /snarest|straks|omg/i.test(overtagelse)
+  const ledigFra = !overtagelse || snarest ? undefined : parseDanskDato(overtagelse)
 
   // Galleriet er scopet af sliderens egen klasse, saa hverken logo eller
   // sidefod kommer med.
@@ -209,6 +219,8 @@ function laesBolig(html: string, url: string): RawListing | null {
     moveInCost: indflytning,
     amenities: [...new Set(faciliteter)],
     imageUrls: billeder,
+    // Hvad kilden SAGDE. Ingen fortolkning — se lib/kildekontrakt.ts.
+    availability: { takeoverText: overtagelse ?? null },
   }
 }
 

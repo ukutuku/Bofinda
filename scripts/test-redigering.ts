@@ -30,6 +30,7 @@ import { db, luk } from '../db/client'
 import { alertMatches, crawlRuns, listingImages, listings, savedSearches, sources, users } from '../db/schema'
 import { matchAlarmer } from '../lib/alarm'
 import { byForPostnr } from '../lib/omraade'
+import { laesBolig as dacasLaes } from '../adapters/dacas'
 import { tjekRettigheder } from './tjek-rettigheder'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -270,6 +271,62 @@ async function main() {
   } as unknown as Gruppe)
 
   const vis = (el: React.ReactElement) => renderToStaticMarkup(el)
+
+  // ── Dacas «Snarest» maa ikke blive til en dato ─────────────
+  // Kilden skriver enten en dansk tekstdato eller ordet «Snarest».
+  // «Snarest» gav foer `new Date().toISOString()` — VORES ur — og seks
+  // raekker stod med klokkeslaet og millisekunder fra natkoerslen, mens
+  // datoen rykkede en dag frem hver nat.
+  //
+  // Proeven maaler ADFAERD, ikke kodeform: den samme raa side koeres med
+  // uret sat to steder. Er der en skjult afhaengighed af systemtiden,
+  // giver de to koersler forskellige svar.
+  console.log('\n══ Dacas: «Snarest» er ikke en dato ══')
+  // `postid-…` er kildens egen bodyklasse og parserens gyldighedstjek.
+  // Uden den returnerer laesBolig null — og den foerste udgave af den her
+  // fixtur gjorde netop det, saa proeven maalte ingenting. Praemis-linjen
+  // nedenfor fangede det; den staar derfor.
+  const dacasSide = (overtagelse: string) => `
+    <html><body class="postid-12345">
+      <h1 class="entry-title">Prøvevej 1, 8000 Aarhus C</h1>
+      <div class="et_pb_text_inner">Adresse: Prøvevej 1, 8000 Aarhus C</div>
+      <div class="et_pb_text_inner">Overtagelsesdato: ${overtagelse}</div>
+      <div class="et_pb_text_inner">Husleje: 7.500 kr.</div>
+      <div class="et_pb_text_inner">Værelser: 3</div>
+      <div class="et_pb_text_inner">54 m 2</div>
+    </body></html>`
+  const medUret = <T>(iso: string, f: () => T): T => {
+    const Rigtig = globalThis.Date
+    const fast = new Rigtig(iso).getTime()
+    class Frossen extends Rigtig {
+      constructor(...a: ConstructorParameters<typeof Rigtig>) {
+        super(...(a.length ? a : [fast]) as ConstructorParameters<typeof Rigtig>)
+      }
+      static override now() { return fast }
+    }
+    globalThis.Date = Frossen as unknown as DateConstructor
+    try { return f() } finally { globalThis.Date = Rigtig }
+  }
+  const koer = (overtagelse: string, iso: string) =>
+    medUret(iso, () => dacasLaes(dacasSide(overtagelse), 'https://dacas.dk/bolig/proeve'))
+
+  const URE = ['2026-03-01T09:00:00Z', '2027-11-20T22:15:00Z']
+  const snarest = URE.map((u) => koer('Snarest', u))
+  tjek('præmis: siden kunne overhovedet parses', snarest.every((b) => b !== null))
+  tjek('«Snarest» giver INGEN dato', snarest.every((b) => b?.availableFrom == null),
+    snarest.map((b) => String(b?.availableFrom)).join(' · '))
+  tjek('«Snarest» giver samme svar uanset systemtid',
+    snarest[0]?.availableFrom === snarest[1]?.availableFrom)
+  tjek('ordet bevares som takeoverText',
+    snarest.every((b) => b?.availability?.takeoverText === 'Snarest'),
+    String(snarest[0]?.availability?.takeoverText))
+
+  const rigtig = URE.map((u) => koer('1. november 2026', u))
+  tjek('en rigtig dato parses stadig',
+    rigtig.every((b) => b?.availableFrom?.startsWith('2026-11-01')),
+    String(rigtig[0]?.availableFrom))
+  tjek('… og den er den samme uanset systemtid',
+    rigtig[0]?.availableFrom === rigtig[1]?.availableFrom)
 
   // ── «kilden skriver» maa aldrig staa paa en udlejerannonce ──
   // Linjen betyder "kilden skrev noget andet, end vi kunne parse". For en
