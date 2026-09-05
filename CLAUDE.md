@@ -719,6 +719,51 @@ en delt mappe og ikke sendes i en mail.
 Se README for hvad dumpet indeholder, hvordan det læses tilbage, og hvad
 der skal til for også at sikre filerne i storage-bucket'en.
 
+## Testbasen
+
+`npm test` kører mod **PGlite** — rigtig PostgreSQL oversat til WASM, rejst i
+processen af `scripts/testbase.ts`. Skemaet er de rigtige migrationer i
+journalens rækkefølge, og Supabase-stubbene deles med `proev-genskab.mjs`
+gennem `scripts/pglite-skema.mjs`. Kommandoen loader **ikke** `.env`: uden
+`DATABASE_URL` i processen kan prøven ikke nå produktionen, uanset hvad koden
+gør. Det er spærringen — ikke en aftale om at lade være.
+
+Før dette skrev `npm test` i produktionsdatabasen: 3 brugere, 8 boliger, 55
+billedrækker, alle `active` og dermed synlige på forsiden, mens prøven kørte.
+
+`npm run test:prod` kører de fire prøver, der måler det rigtige udbud — byen
+fra et postnummer, at et filter udelukker de ukendte, og de to om tavse
+kilder. Den **skriver i produktionen**. Den skal skrives med vilje.
+
+Kilderne sås ikke i testbasen. `sources` er et register, hvis sandhed ligger i
+`KILDER` i `adapters/index.ts`; rækkerne materialiseres af `sikreKilde()`.
+Migration 0013 sår `native`, fordi den er den eneste kilde uden adapter. Får
+en prøve brug for det rigtige register, er svaret `sikreKilde()` over
+`KILDER` — ikke ny SQL.
+
+### RLS er ikke dækket. Noget andet er værre
+
+**RLS på `storage.objects` er den eneste håndhævelse af mappegrænsen mellem
+udlejere, og der findes ingen prøve for den nogen steder.**
+
+`signerUpload` i `app/udlejer/handlinger.ts` udsteder den signerede upload-URL
+med udlejerens **egen JWT** og den **offentlige** publishable-nøgle. Supabase
+vurderer altså kaldet som hende, med rollen `authenticated`. Politikken i
+`0014` — `with check ((storage.foldername(name))[1] = auth.uid()::text)` — er
+derfor ikke et ekstra lag bag en serverside-kontrol. Den er det eneste, der
+står i vejen, hvis nogen kalder Storage-API'et direkte med sin egen konto og
+den offentlige nøgle. Og nøglen er offentlig ved design.
+
+Testbasen kommer ikke til den: `auth.uid()` er en stub, der giver null,
+`storage.objects` er en attrap med tre kolonner, og der er hverken
+Storage-API eller JWT-vurdering. Politikkerne **oprettes** i testbasen og kan
+melde sig grønne uden at håndhæve noget. Skriv derfor aldrig en RLS-prøve
+mod PGlite: den ville måle, at politikken findes, ikke at den virker.
+
+Den prøve, der mangler, er en integrationsprøve mod den rigtige Supabase med
+to konti, hvor den ene forsøger at signere en upload til den andens mappe og
+bliver afvist — og som bevises ved at politikken midlertidigt svækkes.
+
 ## Noterede kilder
 
 Beslutninger om enkeltkilder. Skrevet ned, fordi begrundelsen er dyrere at
