@@ -31,6 +31,7 @@ import { alertMatches, crawlRuns, listingImages, listings, savedSearches, source
 import { matchAlarmer } from '../lib/alarm'
 import { byForPostnr } from '../lib/omraade'
 import { laesBolig as dacasLaes } from '../adapters/dacas'
+import { laesSag as homeLaes } from '../adapters/home'
 import { KILDEKONTRAKTER } from '../lib/kildekontrakt'
 import { forklar, fortolkAvailability } from '../lib/availability'
 import type { AvailabilityFacts } from '../lib/adapter'
@@ -274,6 +275,43 @@ async function main() {
   } as unknown as Gruppe)
 
   const vis = (el: React.ReactElement) => renderToStaticMarkup(el)
+
+  // ── home.dk: ledigdatoen skal vaere SAGENS, ikke naboens ─────
+  // Payloaden er flad: hvert felt er et INDEKS ind i én liste, og
+  // detaljesiden baerer de beslaegtede annoncers availability-objekter
+  // med. Fixturen laegger NABOENS objekt FOERST i listen, saa en global
+  // «foerste objekt med feltet»-laesning vaelger den forkerte dato —
+  // praecis den gamle adfaerd.
+  console.log('\n══ home.dk: ledigdato bundet til sagens id ══')
+  const HJEM_FLAD: unknown[] = [
+    'meta',                                              // 0
+    { id: 2, offer: 3, availability: 5 },                // 1  NABOEN — foerst
+    'NABO1',                                             // 2
+    { rentalPricePerMonth: 4 },                          // 3
+    { amount: 9000 },                                    // 4
+    { rentalAvailableFrom: 6, isRentalAvailableNow: 7 }, // 5  naboens dato
+    '2099-01-01T00:00:00',                               // 6
+    false,                                               // 7
+    { id: 9, offer: 10, availability: 12 },              // 8  SAGEN
+    'SAG1',                                              // 9
+    { rentalPricePerMonth: 11 },                         // 10
+    { amount: 12000 },                                   // 11
+    { rentalAvailableFrom: 13, isRentalAvailableNow: 14 }, // 12  sagens dato
+    '2026-10-01T00:00:00',                               // 13
+    false,                                               // 14
+  ]
+  const HJEM_G = {
+    id: 'SAG1', url: 'https://home.dk/x', adresse: 'Prøvevej 1, 2300 København S',
+    postnr: '2300', areal: 70, leje: undefined, type: 'lejlighed',
+    billeder: ['https://alvis.b-cdn.net/x/1.jpg'],
+  }
+  const hjemSag = homeLaes(HJEM_FLAD, HJEM_G, 'https://home.dk/x')
+  tjek('præmis: naboens dato står FØRST i den flade liste',
+    JSON.stringify(HJEM_FLAD).indexOf('2099-01-01') < JSON.stringify(HJEM_FLAD).indexOf('2026-10-01'))
+  tjek('ledigdatoen er sagens egen, ikke naboens',
+    hjemSag.availableFrom === '2026-10-01', String(hjemSag.availableFrom))
+  tjek('… og lejen er sagens egen', hjemSag.rentMonthly === 1200000,
+    String(hjemSag.rentMonthly))
 
   // ── Availability: fakta, ikke stemmer ────────────────────────
   // Fast referenceNow. Funktionen kalder aldrig systemuret — samme lære

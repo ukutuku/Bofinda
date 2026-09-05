@@ -130,6 +130,64 @@ function laesGitter(d: Flad, raa: Ukendt): Gitterrække | null {
   }
 }
 
+/**
+ * Parsningen af en detaljeside, uden netvaerk. Eksporteret KUN til
+ * proeven: den skal kunne koere mod en frossen payload, hvor en global
+ * laesning ville vaelge naboens dato.
+ */
+export function laesSag(d: Flad, g: Gitterrække, url: string): RawListing {
+
+  // Detaljesiden baerer OGSAA de beslaegtede annoncer, hver med sit
+  // eget tilbudsobjekt — fem paa den side vi maalte. Tilbuddet findes
+  // derfor paa sagens ID, ikke som "det foerste med rentalPricePerMonth".
+  // Ellers kan naboens oekonomi lande paa den her bolig, og tallet ser
+  // lige saa rigtigt ud som et rigtigt.
+  const sag = medFelt(d, 'offer')
+    .map((x) => los(d, x) as Ukendt)
+    .find((x) => tekst(x['id']) === g.id)
+  if (!sag) throw new Error(`fandt ikke sag ${g.id} i payloaden paa ${url}`)
+  const tilbud = (sag['offer'] ?? {}) as Ukendt
+
+  // Billederne fra SAGEN, ikke fra gitteret. `g.billeder` kommer fra
+  // listesiden, som er skaaret af ved 10; sagens eget
+  // `presentationMedia` har hele saettet. Samme objektform, samme
+  // felt (`url`), og samme id-binding som tilbuddet ovenfor — saa en
+  // nabosags billeder kan ikke lande her.
+  //
+  // Fald tilbage paa gitteret, hvis sagen ingen har: to boliger har
+  // aegte nul hos kilden, og for dem skal der ikke opfindes noget.
+  const fraSagen = (Array.isArray(sag['presentationMedia'])
+    ? sag['presentationMedia'] as Ukendt[]
+    : []).map((m) => tekst(m['url'])).filter((x): x is string => !!x)
+  const leje = oere(tilbud['rentalPricePerMonth']) ?? g.leje
+
+  // Ledigdatoen fra SAGENS EGET availability-objekt — samme id-binding
+  // som tilbuddet og billederne. Foer blev feltet laest globalt:
+  // foerste objekt i payloaden med en rentalAvailableFrom. Siden
+  // baerer de beslaegtede annoncers availability-objekter ogsaa, og
+  // saa kunne NABOENS dato lande paa den her bolig og se lige saa
+  // rigtig ud som den rigtige. Maalt paa 25 sider var der kun ét
+  // befolket objekt — men det er et tilfaelde, ikke en garanti.
+  const avail = (sag['availability'] ?? {}) as Ukendt
+  const ledig = tekst(avail['rentalAvailableFrom'])
+
+  return {
+    externalKey: g.id,
+    sourceUrl: url,
+    address: g.adresse,
+    postalCode: g.postnr,
+    sizeM2: g.areal,
+    propertyType: g.type,
+    availableFrom: ledig ? ledig.slice(0, 10) : undefined,
+    rentMonthly: leje,
+    // ÉT samlet beloeb. Kilden siger ikke hvad det daekker, saa det er
+    // uspecificeret rest — ikke varme, ikke vand, ikke el.
+    utilitiesOther: oere(tilbud['rentalUtilitiesPerMonth']),
+    amenities: [],
+    imageUrls: fraSagen.length ? fraSagen : g.billeder,
+  }
+}
+
 export function homeAdapter(): SourceAdapter {
   const gitter = new Map<string, Gitterrække>()
 
@@ -165,50 +223,7 @@ export function homeAdapter(): SourceAdapter {
     async extract(url: string): Promise<RawListing> {
       const g = gitter.get(url)
       if (!g) throw new Error(`ikke i gitteret: ${url} (koer discover foerst)`)
-      const d = await hentNuxt(url)
-
-      // Detaljesiden baerer OGSAA de beslaegtede annoncer, hver med sit
-      // eget tilbudsobjekt — fem paa den side vi maalte. Tilbuddet findes
-      // derfor paa sagens ID, ikke som "det foerste med rentalPricePerMonth".
-      // Ellers kan naboens oekonomi lande paa den her bolig, og tallet ser
-      // lige saa rigtigt ud som et rigtigt.
-      const sag = medFelt(d, 'offer')
-        .map((x) => los(d, x) as Ukendt)
-        .find((x) => tekst(x['id']) === g.id)
-      if (!sag) throw new Error(`fandt ikke sag ${g.id} i payloaden paa ${url}`)
-      const tilbud = (sag['offer'] ?? {}) as Ukendt
-
-      // Billederne fra SAGEN, ikke fra gitteret. `g.billeder` kommer fra
-      // listesiden, som er skaaret af ved 10; sagens eget
-      // `presentationMedia` har hele saettet. Samme objektform, samme
-      // felt (`url`), og samme id-binding som tilbuddet ovenfor — saa en
-      // nabosags billeder kan ikke lande her.
-      //
-      // Fald tilbage paa gitteret, hvis sagen ingen har: to boliger har
-      // aegte nul hos kilden, og for dem skal der ikke opfindes noget.
-      const fraSagen = (Array.isArray(sag['presentationMedia'])
-        ? sag['presentationMedia'] as Ukendt[]
-        : []).map((m) => tekst(m['url'])).filter((x): x is string => !!x)
-      const leje = oere(tilbud['rentalPricePerMonth']) ?? g.leje
-      const ledig = medFelt(d, 'rentalAvailableFrom')
-        .map((x) => tekst((los(d, x) as Ukendt)['rentalAvailableFrom']))
-        .find((x): x is string => !!x)
-
-      return {
-        externalKey: g.id,
-        sourceUrl: url,
-        address: g.adresse,
-        postalCode: g.postnr,
-        sizeM2: g.areal,
-        propertyType: g.type,
-        availableFrom: ledig ? ledig.slice(0, 10) : undefined,
-        rentMonthly: leje,
-        // ÉT samlet beloeb. Kilden siger ikke hvad det daekker, saa det er
-        // uspecificeret rest — ikke varme, ikke vand, ikke el.
-        utilitiesOther: oere(tilbud['rentalUtilitiesPerMonth']),
-        amenities: [],
-        imageUrls: fraSagen.length ? fraSagen : g.billeder,
-      }
+      return laesSag(await hentNuxt(url), g, url)
     },
   }
 }
