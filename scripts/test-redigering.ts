@@ -34,7 +34,7 @@ import { laesBolig as dacasLaes } from '../adapters/dacas'
 import { laesSag as homeLaes } from '../adapters/home'
 import { laes as balderLaes } from '../adapters/balder'
 import { findSearchResponse as cejFind, laes as cejLaes } from '../adapters/cej'
-import { laesDetalje as hsDetalje, laesListe as hsListe } from '../adapters/heimstaden'
+import { detaljesignatur as hsSignatur, laesDetalje as hsDetalje, laesListe as hsListe } from '../adapters/heimstaden'
 import { laesDetalje as birchDetalje, laesFeed as birchFeed } from '../adapters/birch'
 import { laesAvailabilityFacts } from '../lib/fakta'
 import { koerKilde, skrivBolig } from '../lib/ingest'
@@ -1713,6 +1713,20 @@ async function main() {
       && hd.deposit !== 9999900)
     tjek('heimstaden billeder: værten er allowlistet — proxyen serverer',
       billedUrl('https://boligspot.b-cdn.net/1001.jpg?quality=80') !== null)
+
+    // Signaturen afgør, hvornår detaljesiden hentes igen. Et felt, der
+    // mangler her, kan ændre sig uden at nogen opdager det — så prøven
+    // navngiver både det, der SKAL udløse hentning, og det der ikke må.
+    const sigBasis = hsSignatur(hb)
+    tjek('heimstaden signatur: ændret status udløser genhentning',
+      hsSignatur(hsListe(hsRental({ Status: 'Udlejet' }))!) !== sigBasis)
+    tjek('heimstaden signatur: ændret overtagelse udløser genhentning',
+      hsSignatur(hsListe(hsRental({ LedigPrDato: '01-12-2026' }))!) !== sigBasis
+      && hsSignatur(hbNu) !== sigBasis)
+    tjek('heimstaden signatur: ændret leje udløser genhentning',
+      hsSignatur(hsListe(hsRental({ Leje: 12500 }))!) !== sigBasis)
+    tjek('heimstaden signatur: uændret bolig giver samme signatur — ingen hentning',
+      hsSignatur(hsListe(hsRental())!) === sigBasis)
 
     // Fuld pipeline med kontrakten: status, dato-flip og «Ledig nu».
     const rHsSenere = await pipelinen({ ...hb, externalKey: 'pipe-hs-sen' }, 'heimstaden')
