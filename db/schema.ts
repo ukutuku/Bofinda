@@ -182,6 +182,25 @@ export const listings = pgTable('listings', {
   imagesMayDiffer: boolean('images_may_differ').notNull().default(false),
 
   /**
+   * Detaljevagten — kun for kilder, hvis adapter kan levere listens
+   * grundlag uden detaljehentning (SourceAdapter.listeGrundlag).
+   *
+   * `detail_signature` er adapterens fingeraftryk af de listefelter, der
+   * skal udloese en ny detaljehentning (status, dato, leje …). AEndrer
+   * signaturen sig, hentes detaljesiden igen.
+   *
+   * `detail_fetched_at` er hvornaar detaljesiden SIDST faktisk blev
+   * hentet. NULL betyder «detaljer mangler» — raekken er skrevet fra
+   * listen alene og samles op af en senere koersel. Staleness for
+   * vagt-kilder maales HER og ikke paa last_fetched_at, som ogsaa
+   * flyttes af grundlags-skrivninger.
+   *
+   * Begge er NULL for kilder uden vagt — vagten laeser dem aldrig dér.
+   */
+  detailSignature: text('detail_signature'),
+  detailFetchedAt: timestamp('detail_fetched_at', { withTimezone: true }),
+
+  /**
    * SNAPSHOT af hvad kilden sagde om tilgaengelighed — AvailabilityFacts
    * fra lib/adapter.ts, gemt lossless. Standardiserede NAVNE, kildens raa
    * VAERDIER: rawStatus = "Reserved", ikke market = "reserveret".

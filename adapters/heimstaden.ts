@@ -188,6 +188,18 @@ export function laesDetalje(html: string): Detalje {
   return ud
 }
 
+/** Fingeraftrykket af de listefelter, der skal udloese en ny
+ *  detaljehentning: status, overtagelse (dato eller «Ledig nu») og leje.
+ *  Areal/vaerelser/adresse aendrer sig ikke for et lejemaalsnummer uden
+ *  at noget af de tre ogsaa goer det. Eksporteret KUN til proeven. */
+export function detaljesignatur(b: RawListing): string {
+  return JSON.stringify([
+    b.availability?.rawStatus ?? null,
+    b.availability?.sourceAvailabilityDate ?? b.availability?.takeoverText ?? null,
+    b.rentMonthly ?? null,
+  ])
+}
+
 export function heimstadenAdapter(): SourceAdapter {
   const cache = new Map<string, RawListing>()
 
@@ -195,6 +207,16 @@ export function heimstadenAdapter(): SourceAdapter {
     id: 'heimstaden',
     sourceType: 'spider',
     host: 'www.heimstaden.dk',
+
+    // Detaljevagten: kildens CDN droevler vedvarende crawl (maalt
+    // 2026-09-06 — 503 paa alt efter ~17 min ved 1 kald/s). Listen alene
+    // baerer status, dato, leje, adresse og ét billede, saa langt de
+    // fleste koersler behoever slet ingen detaljehentninger.
+    detaljeBudgetPrKoersel: 25,
+    listeGrundlag(url: string) {
+      const grundlag = cache.get(url)
+      return grundlag ? { grundlag, detaljesignatur: detaljesignatur(grundlag) } : null
+    },
 
     async discover(): Promise<DiscoveredListing[]> {
       cache.clear()

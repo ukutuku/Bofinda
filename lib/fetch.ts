@@ -9,6 +9,40 @@ const UA = process.env.CRAWLER_USER_AGENT
   ?? 'BofindaBot/1.0 (+https://bofinda.dk/bot; kontakt@bofinda.dk)'
 const RATE_MS = Number(process.env.CRAWLER_RATE_MS ?? 1000)
 
+/**
+ * Vaerter der skal have mere luft end standardtakten. Heimstadens CDN
+ * droevler VEDVARENDE crawl: maalt 2026-09-06 blev alle kald fra denne
+ * IP moedt med 503 efter ~17 minutter ved ét kald i sekundet — uanset
+ * User-Agent. Ikke bot-beskyttelse af enkeltkald, men af moensteret.
+ */
+const VAERTSTAKT: Record<string, number> = {
+  'www.heimstaden.dk': 5000,
+}
+const takt = (host: string) => VAERTSTAKT[host] ?? RATE_MS
+
+// ── Vaertsspaerre ──────────────────────────────────────────────
+// 429 og 503 er vaertens besked om at stoppe — ikke en invitation til at
+// proeve igen med det samme. Efter ét hoefligt genforsoeg spaerres HELE
+// vaerten i SPAERRE_MS, og alle videre kald kaster VaertBlokeretFejl uden
+// at roere netvaerket. Spaerren er pr. VAERT, ikke pr. kilde: deler to
+// kilder samme CDN, rammes de samlet — det er meningen. Naeste koersel
+// efter udloeb proever forfra. Ingen omgaaelse, ingen aggressive genforsoeg.
+const SPAERRE_MS = Number(process.env.VAERTSSPAERRE_MS ?? 30 * 60_000)
+const spaerret = new Map<string, number>()
+
+export class VaertBlokeretFejl extends Error {
+  constructor(public host: string, public til: Date) {
+    super(`vaerten ${host} er spaerret til ${til.toISOString().slice(0, 16)} `
+      + 'efter 429/503 — proeves igen ved en senere koersel')
+  }
+}
+
+export const erVaertSpaerret = (host: string) =>
+  Date.now() < (spaerret.get(host) ?? 0)
+
+/** KUN til proeven — spaerretilstand maa ikke smitte mellem tests. */
+export const _nulstilVaertsspaerre = () => spaerret.clear()
+
 /** Svar der betyder "kom igen", ikke "findes ikke". */
 const MIDLERTIDIGE = new Set([429, 502, 503, 504])
 
@@ -20,7 +54,7 @@ const lastHit = new Map<string, number>()
 
 async function pace(host: string) {
   const prev = lastHit.get(host) ?? 0
-  const wait = prev + RATE_MS - Date.now()
+  const wait = prev + takt(host) - Date.now()
   if (wait > 0) await new Promise((r) => setTimeout(r, wait))
   lastHit.set(host, Date.now())
 }
@@ -31,6 +65,9 @@ export async function politeFetch(
   init: RequestInit = {},
 ): Promise<Response> {
   const host = new URL(url).host
+
+  const til = spaerret.get(host)
+  if (til && Date.now() < til) throw new VaertBlokeretFejl(host, new Date(til))
 
   for (let attempt = 1; attempt <= tries; attempt++) {
     await pace(host)
@@ -60,7 +97,17 @@ export async function politeFetch(
           : RATE_MS * 2 ** attempt,
         MAX_BACKOFF_MS,
       )
-      if (attempt === tries) return res
+      // 429/503 er "stop" — ét hoefligt genforsoeg, saa spaerres vaerten.
+      // 502/504 er "backend blinker" (lokalbolig bag Varnish) og beholder
+      // den fulde genforsoegsraekke uden spaerre.
+      if (res.status === 429 || res.status === 503) {
+        if (attempt >= Math.min(2, tries)) {
+          spaerret.set(host, Date.now() + SPAERRE_MS)
+          return res
+        }
+      } else if (attempt === tries) {
+        return res
+      }
       await new Promise((r) => setTimeout(r, backoff))
       continue
     }

@@ -116,6 +116,30 @@ export interface SourceAdapter {
 
   /** Hent én bolig. Kastes der, springes den bolig over — resten koerer videre. */
   extract(url: string): Promise<RawListing>
+
+  /**
+   * Detaljevagten — valgfri. Kan listen alene levere en brugbar (men
+   * ufuldstaendig) bolig, kan importlaget noejes med at hente detaljesiden,
+   * naar boligen er NY, naar `detaljesignatur` har AENDRET sig, eller naar
+   * detaljerne er blevet for gamle. Alt andet skrives fra listen eller
+   * bekraeftes uden netvaerkskald.
+   *
+   * `detaljesignatur` er et fingeraftryk af PRAECIS de listefelter, der
+   * skal udloese en ny detaljehentning (status, dato, leje …). Den gemmes
+   * i basen og sammenlignes ved naeste koersel — vaelg felterne bevidst:
+   * et felt der mangler her, kan aendre sig uden at nogen henter igen.
+   *
+   * Kaldes med URL'er fra samme discover()-koersel — laes fra cachen.
+   */
+  listeGrundlag?(url: string): { grundlag: RawListing; detaljesignatur: string } | null
+
+  /**
+   * Loft over detaljehentninger pr. koersel for denne kilde — nye,
+   * aendrede og forfaldne tilsammen, prioriteret i den raekkefoelge.
+   * Kun laest, naar `listeGrundlag` findes: uden den ville et loft
+   * efterlade nye boliger usynlige i stedet for som grundlags-raekker.
+   */
+  detaljeBudgetPrKoersel?: number
 }
 
 /** Kilde-URL ind, stabil noegle ud. Samme URL giver altid samme noegle. */

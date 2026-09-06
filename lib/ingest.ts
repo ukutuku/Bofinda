@@ -16,6 +16,7 @@ import { and, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { crawlRuns, fetchFailures, listingImages, listings, sources } from '../db/schema'
 import type { SourceAdapter } from './adapter'
+import { VaertBlokeretFejl } from './fetch'
 import { normaliser } from './normalize'
 
 /**
@@ -143,6 +144,13 @@ export async function skrivBolig(
   sourceId: string,
   sourceType: 'feed' | 'spider' | 'native',
   b: Awaited<ReturnType<typeof normaliser>>,
+  /**
+   * Detaljevagtens bogfoering — kun for kilder med listeGrundlag.
+   * `hentet: false` betyder «skrevet fra listen alene»: detail_fetched_at
+   * saettes til NULL, og en senere koersel samler boligen op. Udeladt
+   * argument roerer ikke kolonnerne (kilder uden vagt).
+   */
+  detalje?: { signatur: string; hentet: boolean },
 ): Promise<{ id: string; ny: boolean }> {
   // ALLE tidsstempler kommer fra databasens ur, aldrig fra maskinens.
   // first_seen_at saettes af default now() i Postgres; saetter vi last_seen_at
@@ -181,6 +189,10 @@ export async function skrivBolig(
       // Importerede boliger har aldrig kontakt i basen. Muren staar ved kilden.
       contactEmail: null, contactPhone: null, isBlurred: true,
       status: 'active', lastSeenAt: nu, lastFetchedAt: nu,
+      ...(detalje ? {
+        detailSignature: detalje.signatur,
+        detailFetchedAt: detalje.hentet ? nu : null,
+      } : {}),
     })
     .onConflictDoUpdate({
       target: [listings.sourceId, listings.externalKey],
@@ -209,6 +221,10 @@ export async function skrivBolig(
         // Dukker en afmeldt bolig op igen, er den ledig igen.
         status: 'active', delistedAt: null,
         lastSeenAt: nu, lastFetchedAt: nu,
+        ...(detalje ? {
+          detailSignature: detalje.signatur,
+          detailFetchedAt: detalje.hentet ? nu : null,
+        } : {}),
         // first_seen_at staar med vilje IKKE her.
       },
     })
@@ -246,6 +262,26 @@ export async function koerKilde(
 
   const strandede = await lukStrandede(kilde.id)
   if (strandede) noter.push(`${strandede} tidligere kørsel(er) stod som 'running' og er lukket som fejlet.`)
+
+  // ── Overlap-vaern ────────────────────────────────────────────────────
+  // To koersler mod samme kilde maa ikke crawle i munden paa hinanden —
+  // en lokal import og Railway-workeren ville kappes om afmeldningen og
+  // dobbeltbelaste kildens vaert. lukStrandede har netop lukket alt over
+  // 30 minutter, saa en tilbagevaerende 'running' er frisk og aegte.
+  // Der skrives ingen crawl_runs-raekke for det oversprungne: median og
+  // fejlrate skal ikke forurenes af et velopdragent nej.
+  const [iGang] = await db.select({ startet: crawlRuns.startedAt, runner: crawlRuns.runner })
+    .from(crawlRuns)
+    .where(and(eq(crawlRuns.sourceId, kilde.id), eq(crawlRuns.status, 'running')))
+    .limit(1)
+  if (iGang) {
+    return {
+      kilde: adapter.id, fundet: 0, nye: 0, opdaterede: 0, bekraeftede: 0,
+      iTilbagetraekning: 0, afmeldte: 0, fejl: 0, status: 'ok',
+      noter: [`sprunget over: en anden kørsel er i gang (${iGang.runner ?? 'ukendt'}, `
+        + `startet ${iGang.startet.toISOString().slice(0, 16).replace('T', ' ')})`],
+    }
+  }
 
   const [run] = await db.insert(crawlRuns)
     .values({ sourceId: kilde.id, status: 'running', runner: RUNNER })
@@ -286,6 +322,8 @@ export async function koerKilde(
       key: listings.externalKey,
       hentet: listings.lastFetchedAt,
       status: listings.status,
+      detaljeSignatur: listings.detailSignature,
+      detaljerHentet: listings.detailFetchedAt,
     }).from(listings).where(eq(listings.sourceId, kilde.id)))
       .map((r) => [r.key, r]),
   )
@@ -307,6 +345,22 @@ export async function koerKilde(
   const bekraeftes: string[] = []
   const forfaldne: { externalKey: string; url: string; hentet: Date }[] = []
 
+  // ── Detaljevagten ────────────────────────────────────────────────────
+  // Kilder med listeGrundlag faar detaljesiden hentet KUN naar boligen er
+  // ny, naar signaturen af de relevante listefelter har aendret sig (eller
+  // detaljer aldrig er hentet), eller naar detaljerne er forfaldne — under
+  // et budget pr. koersel, prioriteret i den raekkefoelge. Overloeb af nye
+  // og aendrede skrives FRA LISTEN med detail_fetched_at = NULL, som en
+  // senere koersel samler op; forfaldne uden budget bekraeftes blot.
+  // Staleness maales paa detail_fetched_at — last_fetched_at flyttes ogsaa
+  // af grundlags-skrivninger og ville skjule, at detaljerne mangler.
+  const opslag = adapter.listeGrundlag?.bind(adapter)
+  const budget = opslag ? (adapter.detaljeBudgetPrKoersel ?? Infinity) : Infinity
+  /** Vagt-kilder: skrives fra listen uden detaljehentning. */
+  const fraListen: { externalKey: string; url: string }[] = []
+  /** Noegler der er nye/aendrede — bruges naar vaertsspaerren afbryder. */
+  const nyeEllerAendrede = new Set<string>()
+
   let iTilbagetraekning = 0
   for (const f of fundne) {
     const k = kendte.get(f.externalKey)
@@ -316,6 +370,26 @@ export async function koerKilde(
       // Kender vi boligen i forvejen, skal den stadig bekraeftes — discovery
       // saa den, og saa maa afmeldningen ikke tage den.
       if (k) bekraeftes.push(f.externalKey)
+      continue
+    }
+
+    if (opslag) {
+      const o = opslag(f.url)
+      if (!k || k.status === 'delisted') {
+        nyeEllerAendrede.add(f.externalKey)
+        skalHentes.push(f)
+      } else if (!o) {
+        // Listen kunne ikke laeses for netop denne — bekraeft og lad den
+        // ligge; et gaet her ville overskrive gode data med ingenting.
+        bekraeftes.push(f.externalKey)
+      } else if (k.detaljerHentet == null || k.detaljeSignatur !== o.detaljesignatur) {
+        nyeEllerAendrede.add(f.externalKey)
+        skalHentes.push(f)
+      } else if (k.detaljerHentet < forfaldenFoer) {
+        forfaldne.push({ externalKey: f.externalKey, url: f.url, hentet: k.detaljerHentet })
+      } else {
+        bekraeftes.push(f.externalKey)
+      }
       continue
     }
 
@@ -331,11 +405,24 @@ export async function koerKilde(
 
   // AEldste foerst, saa alle kommer igennem over et doegn.
   forfaldne.sort((a, b) => +a.hentet - +b.hentet)
-  for (const f of forfaldne.slice(0, GENOPFRISK_PR_KOERSEL)) {
+  const forfaldnePlads = opslag
+    ? Math.max(0, Math.min(budget - skalHentes.length, GENOPFRISK_PR_KOERSEL))
+    : GENOPFRISK_PR_KOERSEL
+  for (const f of forfaldne.slice(0, forfaldnePlads)) {
     skalHentes.push({ externalKey: f.externalKey, url: f.url })
   }
-  for (const f of forfaldne.slice(GENOPFRISK_PR_KOERSEL)) {
+  for (const f of forfaldne.slice(forfaldnePlads)) {
     bekraeftes.push(fundne.find((x) => x.url === f.url)!.externalKey)
+  }
+
+  // Budgettet: nye foerst, saa aendrede, saa forfaldne — overloebet af
+  // nye og aendrede gaar til grundlags-skrivning.
+  if (opslag && skalHentes.length > budget) {
+    skalHentes.sort((a, b) =>
+      Number(kendte.has(a.externalKey)) - Number(kendte.has(b.externalKey)))
+    for (const f of skalHentes.splice(budget)) {
+      fraListen.push({ externalKey: f.externalKey, url: f.url })
+    }
   }
 
   if (skalHentes.length) {
@@ -344,12 +431,14 @@ export async function koerKilde(
   let nye = 0, opdaterede = 0, fejl = 0
   let i = 0
   const fejledeNoegler: string[] = []
-  for (const { url, externalKey } of skalHentes) {
+  for (const [idx, { url, externalKey }] of skalHentes.entries()) {
     if (++i % 20 === 0) log(`[${adapter.id}] ${i}/${skalHentes.length} hentet`)
     try {
       const raa = await adapter.extract(url)
       const b = await normaliser(raa)
-      const { ny } = await skrivBolig(kilde.id, adapter.sourceType, b)
+      const o = opslag?.(url)
+      const { ny } = await skrivBolig(kilde.id, adapter.sourceType, b,
+        o ? { signatur: o.detaljesignatur, hentet: true } : undefined)
       ny ? nye++ : opdaterede++
       // Foerste succes nulstiller: en midlertidig fejl maa ikke haenge ved.
       if (externalKey) {
@@ -359,6 +448,25 @@ export async function koerKilde(
         ))
       }
     } catch (e) {
+      // Vaertsspaerren er ikke boligens fejl: den maa hverken taelle som
+      // udtraeksfejl eller eskalere tilbagetraekning. Resten af koerslens
+      // detaljehentninger opgives — nye/aendrede skrives fra listen, kendte
+      // bekraeftes, og ingen afmeldes. Naeste koersel proever forfra.
+      if (e instanceof VaertBlokeretFejl) {
+        const rest = skalHentes.slice(idx)
+        noter.push(`værtsspærre: ${e.message} — ${rest.length} detaljehentning(er) udskudt`)
+        for (const r of rest) {
+          if (opslag && nyeEllerAendrede.has(r.externalKey)) {
+            fraListen.push({ externalKey: r.externalKey, url: r.url })
+          } else if (kendte.has(r.externalKey)) {
+            bekraeftes.push(r.externalKey)
+          }
+          // En ny bolig hos en kilde UDEN listeGrundlag kan intet skrives
+          // for — den findes foerst ved naeste koersel. Det er vagtens pris,
+          // og derfor er listeGrundlag en forudsaetning for budgettet.
+        }
+        break
+      }
       fejl++
       // Alle poster i skalHentes baerer nu deres noegle — baade nye og
       // forfaldne — saa den kan altid slaas op.
@@ -391,6 +499,24 @@ export async function koerKilde(
         }
       }
       if (fejl <= 5) noter.push(`${url}: ${(e as Error).message}`)
+    }
+  }
+
+  // Vagt-kilder: nye og aendrede uden detaljebudget skrives fra listen.
+  // detail_fetched_at saettes IKKE (NULL = «detaljer mangler»), saa en
+  // senere koersel samler dem op — og signaturen gemmes, saa en aendring
+  // imens stadig opdages.
+  for (const f of fraListen) {
+    try {
+      const o = opslag!(f.url)
+      if (!o) continue
+      const b = await normaliser(o.grundlag)
+      const { ny } = await skrivBolig(kilde.id, adapter.sourceType, b,
+        { signatur: o.detaljesignatur, hentet: false })
+      ny ? nye++ : opdaterede++
+    } catch (e) {
+      fejl++
+      if (fejl <= 5) noter.push(`${f.url} (fra listen): ${(e as Error).message}`)
     }
   }
 

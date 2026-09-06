@@ -27,7 +27,7 @@
 
 import { and, eq, sql as dsql } from 'drizzle-orm'
 import { db, luk } from '../db/client'
-import { alertMatches, crawlRuns, listingImages, listings, savedSearches, sources, users } from '../db/schema'
+import { alertMatches, crawlRuns, fetchFailures, listingImages, listings, savedSearches, sources, users } from '../db/schema'
 import { matchAlarmer } from '../lib/alarm'
 import { byForPostnr } from '../lib/omraade'
 import { laesBolig as dacasLaes } from '../adapters/dacas'
@@ -37,10 +37,11 @@ import { findSearchResponse as cejFind, laes as cejLaes } from '../adapters/cej'
 import { laesDetalje as hsDetalje, laesListe as hsListe } from '../adapters/heimstaden'
 import { laesDetalje as birchDetalje, laesFeed as birchFeed } from '../adapters/birch'
 import { laesAvailabilityFacts } from '../lib/fakta'
-import { skrivBolig } from '../lib/ingest'
+import { koerKilde, skrivBolig } from '../lib/ingest'
+import { _nulstilVaertsspaerre, politeFetch, VaertBlokeretFejl } from '../lib/fetch'
 import { normaliser } from '../lib/normalize'
 import type { VasketAdresse } from '../lib/address'
-import type { RawListing } from '../lib/adapter'
+import type { RawListing, SourceAdapter } from '../lib/adapter'
 import { KILDEKONTRAKTER } from '../lib/kildekontrakt'
 import { forklar, fortolkAvailability } from '../lib/availability'
 import { isoDato, kalenderdag } from '../lib/dato'
@@ -1772,6 +1773,165 @@ async function main() {
     tjek('pipeline birch: Ledig + fremtidig dato → på markedet, senere',
       rBirch.marked.status === 'paa_markedet' && rBirch.timing.status === 'senere',
       `${rBirch.marked.status} · ${rBirch.timing.status}`)
+
+    // ── Detaljevagten og værtsspærren ────────────────────────────
+    // Discovery skal kunne køre hyppigt uden at detaljesiderne hentes
+    // hver gang — det var mønsteret, der fik Heimstadens CDN til at
+    // spærre IP'en. Prøverne her driver koerKilde mod en kunstig
+    // vagt-kilde og beviser hver regel enkeltvis.
+    if (!MOD_PRODUKTION) {
+      console.log('\n══ værtsspærren i politeFetch ══')
+      const rigtigFetch = globalThis.fetch
+      const spaerreKald: string[] = []
+      globalThis.fetch = (async (url: unknown) => {
+        spaerreKald.push(String(url))
+        return new Response('optaget', { status: 503 })
+      }) as typeof fetch
+      try {
+        _nulstilVaertsspaerre()
+        const svar503 = await politeFetch('https://spaerre-a.invalid/x')
+        tjek('politeFetch: 503 får ét høfligt genforsøg — to kald, svaret returneres',
+          svar503.status === 503 && spaerreKald.length === 2, String(spaerreKald.length))
+        let kastet: unknown = null
+        try { await politeFetch('https://spaerre-a.invalid/y') } catch (e) { kastet = e }
+        tjek('politeFetch: værten er spærret — næste kald kaster uden netværk',
+          kastet instanceof VaertBlokeretFejl && spaerreKald.length === 2)
+        await politeFetch('https://spaerre-b.invalid/z').catch(() => {})
+        tjek('politeFetch: spærren rammer kun den ene vært',
+          spaerreKald.some((u) => u.includes('spaerre-b')))
+      } finally {
+        globalThis.fetch = rigtigFetch
+        _nulstilVaertsspaerre()
+      }
+
+      console.log('\n══ detaljevagten: hent kun nyt, ændret og forfaldent ══')
+      type VagtBolig = { leje: number; status: string }
+      const vagtListe = new Map<string, VagtBolig>()
+      const hentninger: string[] = []
+      let vagtBudget = 10
+      let blokerFra: number | null = null
+      const vagtUrl = (n: string) => `https://proeve-vagt.invalid/${n}`
+      const vagtGrundlag = (n: string, b: VagtBolig): RawListing => ({
+        externalKey: n, sourceUrl: vagtUrl(n),
+        address: 'Snapshotvej 1, 2300 København S', imageUrls: [],
+        rentMonthly: b.leje,
+        availability: { rawStatus: b.status },
+      })
+      const vagtAdapter: SourceAdapter = {
+        id: `proeve-vagt-${Date.now()}`, sourceType: 'spider', host: 'proeve-vagt.invalid',
+        get detaljeBudgetPrKoersel() { return vagtBudget },
+        async discover() {
+          return [...vagtListe.keys()].map((n) => ({ externalKey: n, url: vagtUrl(n) }))
+        },
+        listeGrundlag(url: string) {
+          const n = url.split('/').pop()!
+          const b = vagtListe.get(n)
+          return b
+            ? { grundlag: vagtGrundlag(n, b), detaljesignatur: JSON.stringify([b.status, b.leje]) }
+            : null
+        },
+        async extract(url: string) {
+          if (blokerFra != null && hentninger.length >= blokerFra) {
+            throw new VaertBlokeretFejl('proeve-vagt.invalid', new Date(Date.now() + 60_000))
+          }
+          hentninger.push(url)
+          const n = url.split('/').pop()!
+          // Detaljesiden lægger depositum til — beviset for at detaljer kom med.
+          return { ...vagtGrundlag(n, vagtListe.get(n)!), deposit: 999900 }
+        },
+      }
+      const koer = () => koerKilde(vagtAdapter, 'Prøve: detaljevagt')
+
+      vagtListe.set('v1', { leje: 100000, status: 'Ledig' })
+      vagtListe.set('v2', { leje: 110000, status: 'Ledig' })
+      vagtListe.set('v3', { leje: 120000, status: 'Ledig' })
+      const r1 = await koer()
+      const [vagtKilde] = await db.select().from(sources)
+        .where(eq(sources.slug, vagtAdapter.id))
+      ekstra.kilder.push(vagtKilde!.id)
+      tjek('vagt 1: første kørsel henter detaljer for alle nye',
+        hentninger.length === 3 && r1.nye === 3, `${hentninger.length} · ${JSON.stringify(r1)}`)
+      const vagtRk = async (n: string) => (await db.select().from(listings)
+        .where(and(eq(listings.sourceId, vagtKilde!.id), eq(listings.externalKey, n))))[0]!
+      tjek('vagt 1: detaljefelt og bogføring på plads',
+        (await vagtRk('v1')).deposit === 999900 && (await vagtRk('v1')).detailFetchedAt != null)
+
+      const r2 = await koer()
+      tjek('vagt 2: kørsel straks efter henter 0 detaljer — alt bekræftes',
+        hentninger.length === 3 && r2.bekraeftede === 3 && r2.nye === 0,
+        `${hentninger.length} · ${JSON.stringify(r2)}`)
+
+      vagtListe.set('v4', { leje: 130000, status: 'Ledig' })
+      const r3 = await koer()
+      tjek('vagt 3: ny bolig → præcis én hentning',
+        hentninger.length === 4 && r3.nye === 1 && r3.bekraeftede === 3)
+
+      vagtListe.set('v1', { leje: 105000, status: 'Ledig' })
+      const r4 = await koer()
+      tjek('vagt 4: ændret listefelt → præcis én hentning',
+        hentninger.length === 5 && r4.opdaterede === 1 && r4.bekraeftede === 3)
+
+      await db.update(listings)
+        .set({ detailFetchedAt: new Date(Date.now() - 25 * 3600_000) })
+        .where(and(eq(listings.sourceId, vagtKilde!.id), eq(listings.externalKey, 'v2')))
+      const r5 = await koer()
+      tjek('vagt 5: forfalden bolig → præcis én hentning',
+        hentninger.length === 6 && r5.opdaterede === 1)
+
+      vagtBudget = 2
+      for (const n of ['v5', 'v6', 'v7', 'v8', 'v9']) vagtListe.set(n, { leje: 90000, status: 'Ledig' })
+      const r6 = await koer()
+      tjek('vagt 6: budgettet håndhæves — 2 hentet, resten skrevet fra listen',
+        hentninger.length === 8 && r6.nye === 5, `${hentninger.length} · nye=${r6.nye}`)
+      const udenDetalje = await db.select({ k: listings.externalKey, d: listings.deposit })
+        .from(listings)
+        .where(and(eq(listings.sourceId, vagtKilde!.id), dsql`${listings.detailFetchedAt} is null`))
+      tjek('vagt 6: overløbet står med detail_fetched_at NULL og uden detaljefelter',
+        udenDetalje.length === 3 && udenDetalje.every((r) => r.d === null),
+        JSON.stringify(udenDetalje))
+      const r7 = await koer()
+      tjek('vagt 7: næste kørsel samler overløbet op inden for budgettet',
+        // 2 hentet via detaljebudgettet + 1 skrevet fra listen igen = 3 opdaterede.
+        hentninger.length === 10 && r7.opdaterede === 3, JSON.stringify(r7))
+      vagtBudget = 10
+      await koer()
+      tjek('vagt 7b: sidste efternøler hentet — ingen NULL tilbage',
+        hentninger.length === 11 && (await db.select().from(listings)
+          .where(and(eq(listings.sourceId, vagtKilde!.id), dsql`${listings.detailFetchedAt} is null`))).length === 0)
+
+      blokerFra = hentninger.length + 1
+      for (const n of ['w1', 'w2', 'w3']) vagtListe.set(n, { leje: 80000, status: 'Ledig' })
+      const r9 = await koer()
+      tjek('vagt 8: værtsspærre stopper resten — 1 hentet, resten fra listen, 0 fejl, 0 afmeldt',
+        hentninger.length === blokerFra && r9.fejl === 0 && r9.afmeldte === 0 && r9.nye === 3,
+        JSON.stringify(r9))
+      tjek('vagt 8: spærren efterlod en note og INGEN tilbagetrækning',
+        r9.noter.some((n) => n.includes('værtsspærre'))
+        && (await db.select().from(fetchFailures)
+          .where(eq(fetchFailures.sourceId, vagtKilde!.id))).length === 0)
+      blokerFra = null
+
+      vagtBudget = 0
+      vagtListe.set('x1', { leje: 70000, status: 'Ledig' })
+      const foerX = hentninger.length
+      const r10 = await koer()
+      tjek('vagt 9: budget 0 — ren discovery-kørsel skriver nyt fra listen, 0 hentninger',
+        hentninger.length === foerX && r10.nye === 1 && r10.fejl === 0,
+        JSON.stringify(r10))
+
+      const [kunstig] = await db.insert(crawlRuns)
+        .values({ sourceId: vagtKilde!.id, status: 'running', runner: 'anden-proces' })
+        .returning({ id: crawlRuns.id })
+      const r11 = await koer()
+      tjek('vagt 10: overlap-værn — kørslen springes over, når en anden er i gang',
+        r11.fundet === 0 && r11.noter.some((n) => n.includes('anden kørsel er i gang')),
+        JSON.stringify(r11.noter))
+      await db.update(crawlRuns).set({ status: 'failed', finishedAt: new Date() })
+        .where(eq(crawlRuns.id, kunstig!.id))
+
+      for (const r of await db.select({ id: listings.id }).from(listings)
+        .where(eq(listings.sourceId, vagtKilde!.id))) ekstra.boliger.push(r.id)
+    }
 
     // ── Alarmen følger availability-domænet ──────────────────────
     // Samme postfilter-regel som søgningen. Kildeslugs med RIGTIGE
