@@ -59,6 +59,9 @@ export const TILLADTE_VAERTER = new Set([
   // Heimstaden: baade listens hovedbillede og detaljesidens galleri —
   // eneste vaert i alle maalte URL'er (618 + 19), 2026-09-06.
   'boligspot.b-cdn.net',
+  // Birch: feedets galleri-URL'er er absolutte paa kildens eget domaene
+  // — 1.412 af 1.412 maalt 2026-09-06.
+  'birchejendomme.dk',
 
   ...(EGEN_LAGERVAERT ? [EGEN_LAGERVAERT] : []),
 ])

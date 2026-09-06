@@ -8,6 +8,7 @@ import { dacasAdapter } from './dacas'
 import { lokalboligAdapter } from './lokalbolig'
 import { balderAdapter } from './balder'
 import { cejAdapter } from './cej'
+import { birchAdapter } from './birch'
 import { heimstadenAdapter } from './heimstaden'
 import { homeAdapter } from './home'
 
@@ -71,6 +72,11 @@ export const KILDER: Registreret[] = [
     adapter: heimstadenAdapter(),
     navn: 'Heimstaden',
     baseUrl: 'https://www.heimstaden.dk',
+  },
+  {
+    adapter: birchAdapter(),
+    navn: 'Birch Ejendomme',
+    baseUrl: 'https://birchejendomme.dk',
   },
   { adapter: dummyAdapter, navn: 'Dummy (testdata)', baseUrl: 'https://dummy.invalid', kunUdvikling: true },
   { adapter: dummy2Adapter, navn: 'Dummy 2 (testdata)', baseUrl: 'https://dummy2.invalid', kunUdvikling: true },

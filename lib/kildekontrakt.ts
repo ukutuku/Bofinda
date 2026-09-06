@@ -602,6 +602,43 @@ export const KILDEKONTRAKTER: Record<string, Kildekontrakt> = {
     direkteSignaler: {},
   },
 
+  // ── Birch Ejendomme ──────────────────────────────────────────
+  birch: {
+    kilde: 'birch',
+    statusser: {
+      Ledig: {
+        ...INTET,
+        marked: ['paa_markedet'],
+        belaeg: {
+          art: 'kildens-api',
+          hvor: 'birchejendomme.dk/bolig-feed?onlyvacant=1 · Status/Vacancy/IsVacant (59 af 59)',
+          naar: '2026-09-06',
+          note: 'Feedet er sidens eget datagrundlag og filtreret til ledige '
+              + 'af kilden selv (onlyvacant). Betyder PÅ MARKEDET, ikke «kan '
+              + 'overtages nu»: alle 59 bar fremtidig ledig-fra-dato ved '
+              + 'maalingen (01.10.2026–01.02.2027 — nybyggeri under '
+              + 'indkoering). Uafhaengig modmaaling bekraeftede 59/59 og '
+              + '«Ledig <dato>» paa 5 detaljesider.',
+        },
+      },
+    },
+    datofelt: {
+      betydning: 'overtagelse',
+      brugbarSomTiming: true,
+      belaeg: {
+        art: 'kildens-ui',
+        hvor: 'detaljesidens faktaboks · «Ledig <dato>» = feedets StatusDateLabel',
+        naar: '2026-09-06',
+        note: 'Kilden viser selv datoen som ledig-fra i faktaboksen, '
+            + 'bekraeftet paa 5 sider af modmaalingen. DD.MM.YYYY i feedet; '
+            + 'parses deterministisk til kalenderdag i adapteren.',
+      },
+    },
+    ansoegningsform: null,
+    overtagelsestekst: null,
+    direkteSignaler: {},
+  },
+
   // ── Bofinda (udlejerens egne annoncer) ───────────────────────
   native: {
     kilde: 'native',

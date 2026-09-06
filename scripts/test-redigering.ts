@@ -35,6 +35,7 @@ import { laesSag as homeLaes } from '../adapters/home'
 import { laes as balderLaes } from '../adapters/balder'
 import { findSearchResponse as cejFind, laes as cejLaes } from '../adapters/cej'
 import { laesDetalje as hsDetalje, laesListe as hsListe } from '../adapters/heimstaden'
+import { laesDetalje as birchDetalje, laesFeed as birchFeed } from '../adapters/birch'
 import { laesAvailabilityFacts } from '../lib/fakta'
 import { skrivBolig } from '../lib/ingest'
 import { normaliser } from '../lib/normalize'
@@ -1722,6 +1723,55 @@ async function main() {
       rHsNu.timing.status === 'nu'
       && !rHsNu.timing.evidens.some((e) => e.faktum === 'sourceAvailabilityDate'),
       rHsNu.timing.status)
+
+    // ── Birch: feed + depositum fra faktatabellen ────────────────
+    console.log('\n══ birch: feed og faktatabel ══')
+    const birchRk = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
+      ContentId: '44108', Link: '/omrader/aarhus/risskov/e-45-1-3/arresovej-5-st-1',
+      Name: 'Arresøvej 5, st. 1', Street: 'Arresøvej', StreetNumber: '5, st., 1',
+      City: 'Aarhus', Zipcode: '8000', Type: 'Lejlighed',
+      Rent: '6800', AreaSize: '47', NoOfRooms: '1',
+      Status: 'Ledig', StatusLabel: 'Ledig', StatusDateLabel: '01.02.2027',
+      Vacancy: 'vacant', IsVacant: true,
+      DomesticAnimalsAllowed: false, BalconyTerrace: true,
+      PrivateParking: false, SharedParking: true,
+      ResidenceImages: [
+        { jpegCrop: 'https://birchejendomme.dk/media/a/1.jpg?w=625', jpegCropLarge: 'https://birchejendomme.dk/media/a/1.jpg?w=1600' },
+        { jpegCrop: 'https://fremmed.example/2.jpg', jpegCropLarge: 'https://fremmed.example/2.jpg' },
+      ],
+      ...over,
+    })
+    const bi = birchFeed(birchRk())!
+    tjek('birch feed: adresse, leje i øre (strengtal), m2, dato',
+      bi.address === 'Arresøvej 5, st. 1, 8000 Aarhus' && bi.rentMonthly === 680000
+      && bi.sizeM2 === 47
+      && bi.availability?.sourceAvailabilityDate === isoDato('2027-02-01'),
+      JSON.stringify([bi.address, bi.rentMonthly, bi.availability]))
+    tjek('birch feed: status er kildens ord, misdannet dato udelades',
+      bi.availability?.rawStatus === 'Ledig'
+      && !('sourceAvailabilityDate' in birchFeed(birchRk({ StatusDateLabel: 'snarest' }))!.availability!))
+    tjek('birch feed: kun egen vært overlever i galleriet',
+      JSON.stringify(bi.imageUrls) === JSON.stringify(['https://birchejendomme.dk/media/a/1.jpg?w=1600']),
+      JSON.stringify(bi.imageUrls))
+    tjek('birch feed: samlet udeplads-ord og parkering, ingen kæledyrspåstand',
+      JSON.stringify(bi.amenities) === JSON.stringify(['altan eller terrasse', 'parkering']))
+    const birchSide = `<table class="table table-checkered"><tbody>
+      <tr><th scope="col">Husleje</th> <td scope="col">6.800 DKK</td></tr>
+      <tr><th scope="col">Depositum</th> <td scope="col">20.400 DKK</td></tr>
+      <tr><th scope="col">A/C vand &amp; varme</th> <td scope="col">Afregnes med forsyningsselskab</td></tr>
+      </tbody></table>`
+    const bid2 = birchDetalje(birchSide)
+    tjek('birch detalje: depositum-beløbet høstes, A/C-tekst giver INTET tal',
+      bid2.deposit === 2040000 && Object.keys(bid2).length === 1,
+      JSON.stringify(bid2))
+    tjek('birch detalje: side uden tabel giver tomt — ingen gæt',
+      Object.keys(birchDetalje('<html>intet</html>')).length === 0)
+    tjek('birch billeder: værten er allowlistet — proxyen serverer',
+      billedUrl('https://birchejendomme.dk/media/a/1.jpg?w=1600') !== null)
+    const rBirch = await pipelinen({ ...bi, externalKey: 'pipe-birch' }, 'birch')
+    tjek('pipeline birch: Ledig + fremtidig dato → på markedet, senere',
+      rBirch.marked.status === 'paa_markedet' && rBirch.timing.status === 'senere',
+      `${rBirch.marked.status} · ${rBirch.timing.status}`)
 
     // ── Alarmen følger availability-domænet ──────────────────────
     // Samme postfilter-regel som søgningen. Kildeslugs med RIGTIGE
