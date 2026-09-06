@@ -1251,6 +1251,37 @@ Det er stadig midlertidigt. Produktionshjemmet er workeren på Railway: en
 Mac der sover, springer kørsler over — og det forfalsker præcis de tal, vi
 måler på.
 
+## Supply: detaljevagten og målekonventionen
+
+**Discovery og detaljehentning er to ting.** En kilde med `listeGrundlag()`
+på adapteren får kun hentet detaljesider, når boligen er ny, når signaturen
+af de relevante listefelter har ændret sig, eller når detaljerne er
+forfaldne — alt andet bekræftes uden netværkskald. `detaljeBudgetPrKoersel`
+lofter det pr. kørsel; overløbet skrives fra listen med
+`detail_fetched_at = NULL`, som en senere kørsel samler op.
+
+Grunden står i historikken: Heimstadens CDN spærrede vores IP efter ~17
+minutter ved ét kald i sekundet — det var **mønsteret**, ikke det enkelte
+kald. Hyppig discovery er billig; hyppig detaljecrawl er det ikke.
+
+**429 og 503 spærrer HELE værten**, ikke kun kilden. To kilder på samme CDN
+rammes samlet, og det er meningen. Ét høfligt genforsøg, så spærre i 30
+minutter, og resten af kørslens detaljehentninger udskydes — uden at det
+tæller som udtræksfejl, uden tilbagetrækning og uden afmeldinger.
+**Ingen omgåelse.** 502/504 er noget andet (backend blinker) og beholder
+den fulde genforsøgsrække.
+
+**To kørsler mod samme kilde overlapper ikke.** Er en anden kørsel i gang,
+springes den nye over uden at skrive en `crawl_runs`-række — median og
+fejlrate må ikke forurenes af et velopdragent nej.
+
+**Målekonventionen: «synlig» er ikke «på markedet».** Hver kildemåling skal
+oplyse begge tal. CEJ er eksemplet: 63 netto nye synlige boliger, men 34 på
+markedet og 29 reserverede. En kilde med 200 synlige, hvoraf 150 er
+reserverede, er et andet tilbud til brugeren end en med 200 ledige — og en
+supply-rapport, der kun tæller synlige, skjuler præcis den forskel.
+`scripts/supply-baseline.ts` skriver kolonnerne ud.
+
 ## Om projektet
 
 Bofinda samler ledige lejeboliger fra flere kilder, lader brugeren søge
