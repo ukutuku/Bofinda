@@ -1425,6 +1425,33 @@ async function main() {
     tjek('NULL betyder «aldrig høstet» og kan skelnes fra {}',
       (await hentFakta(uroert!.id)).raa === null)
 
+    // ── deposit/prepaidRent: kildens egne beløb stilles igennem ────────
+    // Kolonnerne fandtes kun for udlejerflowet; scrapede kilder skal kunne
+    // bære dem samme vej som resten af økonomien. Beløbene er kildens egne
+    // — de beregnes aldrig, og de følger kilden: forsvinder de i næste
+    // import, forsvinder de her.
+    const raaDep: RawListing = {
+      externalKey: 'dep-1', sourceUrl: 'https://proeve.invalid/dep1',
+      address: 'Snapshotvej 1, 2300 København S', imageUrls: [],
+      rentMonthly: 1650000, deposit: 4950000, prepaidRent: 1650000,
+    }
+    const { id: depId } = await skrivBolig(snapKilde!.id, 'feed',
+      await normaliser(raaDep, VASK))
+    ekstra.boliger.push(depId)
+    const hentDep = async (bid: string) => {
+      const [r] = await db.select({ d: listings.deposit, f: listings.prepaidRent })
+        .from(listings).where(eq(listings.id, bid))
+      return r!
+    }
+    const depA = await hentDep(depId)
+    tjek('deposit/prepaidRent: kildens beløb overlever pipeline → base',
+      depA.d === 4950000 && depA.f === 1650000, JSON.stringify(depA))
+    await skrivBolig(snapKilde!.id, 'feed',
+      await normaliser({ ...raaDep, deposit: undefined, prepaidRent: undefined }, VASK))
+    const depB = await hentDep(depId)
+    tjek('deposit/prepaidRent: felter kilden ikke længere giver, bliver null',
+      depB.d === null && depB.f === null, JSON.stringify(depB))
+
     // ── Fuld pipeline: adapter → normaliser → base → hydrering → domæne ──
     const pipelinen = async (raa: RawListing, kilde: string) => {
       const { id: bid } = await skrivBolig(snapKilde!.id, 'feed',

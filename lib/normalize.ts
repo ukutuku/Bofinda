@@ -190,6 +190,9 @@ export interface NormaliseretBolig {
   totalMonthly: number | null
   totalMonthlyComponents: string[] | null
   moveInCost: number | null
+  /** Kildens egne beloeb, hver for sig — se noten i RawListing. */
+  deposit: number | null
+  prepaidRent: number | null
   applicationType: 'regular' | 'waiting_list' | null
   rentModel: string | null
   openHouseAt: Date | null
@@ -261,6 +264,8 @@ export async function normaliser(
     totalMonthly,
     totalMonthlyComponents,
     moveInCost: r.moveInCost ?? null,
+    deposit: r.deposit ?? null,
+    prepaidRent: r.prepaidRent ?? null,
     applicationType: r.applicationType ?? null,
     rentModel: r.rentModel ?? null,
     openHouseAt: dato(r.openHouseAt),

@@ -33,6 +33,12 @@ export interface RawListing {
   /** Sat kun naar kilden UDTRYKKELIGT siger, at lejeren selv afregner el. */
   electricityOwnMeter?: boolean
   moveInCost?: number
+  /** Depositum og forudbetalt leje HVER FOR SIG, i oere — kildens EGNE
+   *  beloeb, aldrig regnet ud af maanedsantal. `moveInCost` er summen;
+   *  kilder oplyser den ene, delene eller begge, og de blandes ikke:
+   *  en sum vi selv lagde sammen, ville se lige saa sikker ud som kildens. */
+  deposit?: number
+  prepaidRent?: number
 
   /** Kildens egne koordinater. Er de der, geokoder vi ikke. */
   lat?: number
