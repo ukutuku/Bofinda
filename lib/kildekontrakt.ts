@@ -552,6 +552,56 @@ export const KILDEKONTRAKTER: Record<string, Kildekontrakt> = {
     direkteSignaler: {},
   },
 
+  // ── Heimstaden ───────────────────────────────────────────────
+  heimstaden: {
+    kilde: 'heimstaden',
+    statusser: {
+      'Klar til udlejning': {
+        ...INTET,
+        marked: ['paa_markedet'],
+        belaeg: {
+          art: 'kildens-api',
+          hvor: 'heimstaden.dk/ledige-lejeboliger · var _rentals · Status (202 af 202)',
+          naar: '2026-09-06',
+          note: 'Eneste statusord i payloaden — siden hedder selv «ledige '
+              + 'lejeboliger», og udlejede/reserverede optraeder slet ikke. '
+              + 'Betyder PÅ MARKEDET; tiden ligger i LedigPrDato. Efterproevet '
+              + 'paa 8 detaljesider og af uafhaengig modmaaling (6 sider): '
+              + 'ingen forekomster af reserveret/udlejet/venteliste.',
+        },
+      },
+    },
+    datofelt: {
+      betydning: 'overtagelse',
+      brugbarSomTiming: true,
+      belaeg: {
+        art: 'kildens-ui',
+        hvor: 'detaljesidens faktablok · label «Overtagelse» → «Ledig fra <dato>»',
+        naar: '2026-09-06',
+        note: 'Kilden binder SELV datoen til ordet: LedigPrDato («01-11-2026») '
+            + 'staar ordret som «Overtagelse: Ledig fra 01-11-2026» paa siden, '
+            + 'bekraeftet paa alle efterproevede sider. availableDate-tidsstemplet '
+            + 'bekraeftede visningsdatoen 138 af 138, og 0 af 138 laa i fortiden '
+            + 'ved kortlaegningen.',
+      },
+    },
+    ansoegningsform: null,
+    overtagelsestekst: {
+      ord: {
+        'Ledig nu': ['kan_overtages_nu'],
+      },
+      belaeg: {
+        art: 'kildens-ui',
+        hvor: 'detaljesidens faktablok · «Overtagelse: Ledig nu» (64 af 202)',
+        naar: '2026-09-06',
+        note: 'Feltet baerer ENTEN «Ledig nu» ELLER en dato — aldrig begge, '
+            + 'saa de to veje kan ikke dobbelt-taelle (Dacas-moensteret). '
+            + '«Ledig nu» er kildens eget udsagn om overtagelse i dag.',
+      },
+    },
+    direkteSignaler: {},
+  },
+
   // ── Bofinda (udlejerens egne annoncer) ───────────────────────
   native: {
     kilde: 'native',

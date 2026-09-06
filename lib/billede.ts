@@ -56,6 +56,9 @@ export const TILLADTE_VAERTER = new Set([
   // maalt 2026-09-06, baade photos og floorPlan. resize-tjenesten
   // images.bolig.io optraeder IKKE i payloaden og er derfor ikke med.
   'boligio-media-production.s3.eu-central-1.amazonaws.com',
+  // Heimstaden: baade listens hovedbillede og detaljesidens galleri —
+  // eneste vaert i alle maalte URL'er (618 + 19), 2026-09-06.
+  'boligspot.b-cdn.net',
 
   ...(EGEN_LAGERVAERT ? [EGEN_LAGERVAERT] : []),
 ])

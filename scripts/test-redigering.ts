@@ -34,6 +34,7 @@ import { laesBolig as dacasLaes } from '../adapters/dacas'
 import { laesSag as homeLaes } from '../adapters/home'
 import { laes as balderLaes } from '../adapters/balder'
 import { findSearchResponse as cejFind, laes as cejLaes } from '../adapters/cej'
+import { laesDetalje as hsDetalje, laesListe as hsListe } from '../adapters/heimstaden'
 import { laesAvailabilityFacts } from '../lib/fakta'
 import { skrivBolig } from '../lib/ingest'
 import { normaliser } from '../lib/normalize'
@@ -1623,6 +1624,104 @@ async function main() {
       Array.isArray(cejSvar?.['items']) && (cejSvar!['items'] as unknown[]).length === 1)
     tjek('cej parser: HTML uden chunken giver null — ingen gæt',
       cejFind('<html><body>intet her</body></html>') === null)
+
+    // ── Heimstaden: liste + detalje, naboimmunitet ───────────────
+    // Detaljesiden bærer kort for ANDRE boliger med egne priser og
+    // billeder — home.dk-fejlens mønster. Prøven beviser, at parseren
+    // er bundet: økonomi kun fra Økonomi-udsnittet, billeder kun fra
+    // galleriets slide-image, plantegning og naboer holdes ude.
+    console.log('\n══ heimstaden: liste + detalje — naboer må ikke smitte ══')
+    const hsRental = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
+      LejemaalNr: '9-000-01', slug: 'proevevej-1-2300-koebenhavn-s',
+      Adresse1: 'Prøvevej 1', PostNr: '2300', ByNavn: 'København S',
+      Areal: 107, Rum: 4, Leje: 12100, Status: 'Klar til udlejning',
+      LedigPrDato: '01-11-2026', availableDate: '2026-11-01T00:00:00.000Z',
+      UnikType: 'Bolig med aftalt leje',
+      coordinates: { latitude: 55.7, longitude: 9.4 },
+      facilities: { petsAllowed: true, studyHousing: false, seniorFriendly: false },
+      image: { id: 1, urls: { full: 'https://boligspot.b-cdn.net/140903.jpg?width=1200' } },
+      ...over,
+    })
+    const hb = hsListe(hsRental())!
+    tjek('heimstaden liste: adresse, leje i øre, m2, koordinater',
+      hb.address === 'Prøvevej 1, 2300 København S' && hb.rentMonthly === 1210000
+      && hb.sizeM2 === 107 && hb.lat === 55.7,
+      JSON.stringify([hb.address, hb.rentMonthly]))
+    tjek('heimstaden liste: DD-MM-YYYY → kalenderdag som fakta',
+      hb.availability?.rawStatus === 'Klar til udlejning'
+      && hb.availability?.sourceAvailabilityDate === isoDato('2026-11-01')
+      && !('takeoverText' in hb.availability!),
+      JSON.stringify(hb.availability))
+    const hbNu = hsListe(hsRental({ LedigPrDato: 'Ledig nu', availableDate: '0' }))!
+    tjek('heimstaden liste: «Ledig nu» → takeoverText, INGEN dato opstår',
+      hbNu.availability?.takeoverText === 'Ledig nu'
+      && !('sourceAvailabilityDate' in hbNu.availability!),
+      JSON.stringify(hbNu.availability))
+    tjek('heimstaden liste: misdannet dato udelades — hverken dato eller tekst',
+      (() => { const a = hsListe(hsRental({ LedigPrDato: '32-13-2026' }))!.availability!
+        return !('sourceAvailabilityDate' in a) && !('takeoverText' in a) })())
+    tjek('heimstaden liste: Studiebolig → studiebolig, ellers ingen type',
+      hsListe(hsRental({ UnikType: 'Studiebolig' }))!.propertyType === 'studiebolig'
+      && hb.propertyType === undefined)
+    tjek('heimstaden liste: kæledyr fra enheds-boolean, ejendomsliste røres ikke',
+      JSON.stringify(hb.amenities) === JSON.stringify(['kæledyr tilladt']))
+
+    const hsSide = `<div class="data"><label>Overtagelse</label><span>Ledig fra 01-11-2026</span></div>
+      <h3>Økonomi</h3>
+      <div style="display: flex;"><label style="flex-grow: 1;">Husleje (pr. md.)</label><span>12.100,00 kr.</span></div>
+      <div style="display: flex;"><label style="flex-grow: 1;">A/C vand (pr. md.)</label><span>260,00 kr.</span></div>
+      <div style="display: flex;"><label style="flex-grow: 1;">A/C varme (pr. md.)</label><span>800,00 kr.</span></div>
+      <div style="display: flex;"><label style="flex-grow: 1;">A/C fællesantenne (pr. md.)</label><span>50,00 kr.</span></div>
+      <div id="moveinToggle"><label><span>Indflytningspris</span></label><span>61.560,00 kr.</span></div>
+      <div id="moveinDetails">
+        <div><label>- Husleje (første måned)</label><span>12.100,00 kr.</span></div>
+        <div><label>- Aconto (første måned)</label><span>1.110,00 kr.</span></div>
+        <div><label>- Forudbetalt leje (1 md.)</label><span>12.100,00 kr.</span></div>
+        <div><label>- Depositum (3 mdr.)</label><span>36.300,00 kr.</span></div>
+      </div>
+      <div class="row"><div class="col-md-12"><div class="facilities">
+        <div><span><label>Byggeår:</label> 2005</span></div>
+      </div></div></div>
+      <div class="swiper-wrapper">
+        <div class="swiper-slide slide-image"> <img src="https://boligspot.b-cdn.net/1001.jpg?quality=80"></div>
+        <div class="swiper-slide slide-image"> <img src="https://boligspot.b-cdn.net/1002.jpg?quality=80"></div>
+        <div class="swiper-slide slide-plan contain"> <img src="https://boligspot.b-cdn.net/1003.jpg?quality=80"></div>
+      </div>
+      <a href="/lejebolig/nabovej-9/" title="Bolig på Nabovej 9, 4200 Slagelse">
+        <img loading="lazy" src="https://boligspot.b-cdn.net/2001.jpg?width=500&aspect_ratio=3:2">
+        <div class="info"><span class="rental-type">Rækkehus</span><h3>Nabovej 9</h3>
+        <div class="details"><div><strong>13.400 kr./md.</strong></div>
+        <div><label>- Depositum (3 mdr.)</label><span>99.999,00 kr.</span></div></div></div>
+      </a>`
+    const hd = hsDetalje(hsSide)
+    tjek('heimstaden detalje: A/C-poster på hver sin akse, ukendt → other',
+      hd.utilitiesWater === 26000 && hd.utilitiesHeat === 80000
+      && hd.utilitiesOther === 5000 && hd.utilitiesElectricity === undefined,
+      JSON.stringify(hd))
+    tjek('heimstaden detalje: depositum, forudbetalt og kildens indflytningspris',
+      hd.deposit === 3630000 && hd.prepaidRent === 1210000 && hd.moveInCost === 6156000,
+      JSON.stringify([hd.deposit, hd.prepaidRent, hd.moveInCost]))
+    tjek('heimstaden detalje: galleriet — kun slide-image, plantegning ude',
+      JSON.stringify(hd.imageUrls) === JSON.stringify([
+        'https://boligspot.b-cdn.net/1001.jpg?quality=80',
+        'https://boligspot.b-cdn.net/1002.jpg?quality=80',
+      ]), JSON.stringify(hd.imageUrls))
+    tjek('heimstaden NABOIMMUNITET: naboens billede og depositum smitter ikke',
+      !hd.imageUrls.some((u) => u.includes('2001'))
+      && hd.deposit !== 9999900)
+    tjek('heimstaden billeder: værten er allowlistet — proxyen serverer',
+      billedUrl('https://boligspot.b-cdn.net/1001.jpg?quality=80') !== null)
+
+    // Fuld pipeline med kontrakten: status, dato-flip og «Ledig nu».
+    const rHsSenere = await pipelinen({ ...hb, externalKey: 'pipe-hs-sen' }, 'heimstaden')
+    tjek('pipeline heimstaden: Klar til udlejning + fremtidig dato → på markedet, senere',
+      rHsSenere.marked.status === 'paa_markedet' && rHsSenere.timing.status === 'senere',
+      `${rHsSenere.marked.status} · ${rHsSenere.timing.status}`)
+    const rHsNu = await pipelinen({ ...hbNu, externalKey: 'pipe-hs-nu' }, 'heimstaden')
+    tjek('pipeline heimstaden: «Ledig nu» → timing nu, INGEN dato opstod',
+      rHsNu.timing.status === 'nu'
+      && !rHsNu.timing.evidens.some((e) => e.faktum === 'sourceAvailabilityDate'),
+      rHsNu.timing.status)
 
     // ── Alarmen følger availability-domænet ──────────────────────
     // Samme postfilter-regel som søgningen. Kildeslugs med RIGTIGE
