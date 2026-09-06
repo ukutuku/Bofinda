@@ -11,13 +11,14 @@
 //  "ny bolig", og en genudlejning er ikke en ny bolig.
 // ═══════════════════════════════════════════════════════════════
 
-import { hostname } from 'node:os'
 import { and, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { crawlRuns, fetchFailures, listingImages, listings, sources } from '../db/schema'
 import type { SourceAdapter } from './adapter'
 import { VaertBlokeretFejl } from './fetch'
 import { normaliser } from './normalize'
+import { RUNNER } from './runner'
+import { noterSkip, spaerretTil } from './vaertsspaerre'
 
 /**
  * Skriv straks. console.log til et roer bufres, og bliver processen draebt,
@@ -83,8 +84,10 @@ function naesteForsoeg(forsoeg: number): Date {
   return new Date(nu)                                          // naeste koersel
 }
 
-/** Hvem koerer. Uden det kan to importoerer ikke skelnes i basen. */
-export const RUNNER = process.env.RUNNER ?? hostname()
+/** Hvem koerer. Uden det kan to importoerer ikke skelnes i basen.
+ *  Bor i lib/runner.ts, fordi vaertsspaerren noegler paa samme identitet
+ *  og ikke skal importere hele importlaget for at faa fat i den. */
+export { RUNNER }
 
 /**
  * Koersler der aldrig blev afsluttet, staar som 'running' for evigt. Det
@@ -92,8 +95,15 @@ export const RUNNER = process.env.RUNNER ?? hostname()
  * De lukkes her, saa de ikke ligner noget der stadig arbejder, og saa man
  * kan se HVOR mange gange det er sket.
  */
-async function lukStrandede(sourceId: string, aeldreEndMin = 30) {
-  const graense = new Date(Date.now() - aeldreEndMin * 60_000)
+/**
+ * Hvor laenge en koersel maa holde sin laas, foer en anden proces maa gaa
+ * ud fra, at den er doed. Env-styret, fordi en foerstegangsimport af en
+ * stor kilde kan vare laengere end standarden — og fordi det ellers ville
+ * kraeve en kodeaendring at give den luft.
+ */
+const LEASE_MIN = Number(process.env.KOERSEL_LEASE_MIN ?? 30)
+
+async function lukStrandede(sourceId: string, aeldreEndMin = LEASE_MIN) {
   const r = await db.update(crawlRuns)
     .set({
       status: 'failed',
@@ -103,7 +113,9 @@ async function lukStrandede(sourceId: string, aeldreEndMin = 30) {
     .where(and(
       eq(crawlRuns.sourceId, sourceId),
       eq(crawlRuns.status, 'running'),
-      lt(crawlRuns.startedAt, graense),
+      // BASENS ur, ikke maskinens: leasens eneste haandhaevelse maa ikke
+      // hvile paa en skaev workerklokke. Samme regel som tidsstemplerne.
+      sql`${crawlRuns.startedAt} < now() - make_interval(mins => ${aeldreEndMin})`,
     ))
     .returning({ id: crawlRuns.id })
   return r.length
@@ -263,34 +275,87 @@ export async function koerKilde(
   const strandede = await lukStrandede(kilde.id)
   if (strandede) noter.push(`${strandede} tidligere kørsel(er) stod som 'running' og er lukket som fejlet.`)
 
-  // ── Overlap-vaern ────────────────────────────────────────────────────
-  // To koersler mod samme kilde maa ikke crawle i munden paa hinanden —
-  // en lokal import og Railway-workeren ville kappes om afmeldningen og
-  // dobbeltbelaste kildens vaert. lukStrandede har netop lukket alt over
-  // 30 minutter, saa en tilbagevaerende 'running' er frisk og aegte.
-  // Der skrives ingen crawl_runs-raekke for det oversprungne: median og
-  // fejlrate skal ikke forurenes af et velopdragent nej.
-  const [iGang] = await db.select({ startet: crawlRuns.startedAt, runner: crawlRuns.runner })
-    .from(crawlRuns)
-    .where(and(eq(crawlRuns.sourceId, kilde.id), eq(crawlRuns.status, 'running')))
-    .limit(1)
-  if (iGang) {
+  // ── Er vaerten spaerret? ─────────────────────────────────────────────
+  // Foer discovery, foer alt. Spoerges der ikke her, laver koerslen sit
+  // foerste kald og opdager foerst spaerren dér — hoefligt, men unoedigt.
+  // Der skrives med vilje INGEN crawl_runs-raekke for et skip: median og
+  // fejlrate maa ikke forurenes af en koersel, der aldrig loeb. Til
+  // gengaeld bogfoeres skippet paa selve blok-raekken, saa «blokeret» og
+  // «scheduleren er doed» kan skelnes i basen.
+  const spaerretIndtil = await spaerretTil(adapter.host)
+  if (spaerretIndtil) {
+    await noterSkip(adapter.host)
     return {
       kilde: adapter.id, fundet: 0, nye: 0, opdaterede: 0, bekraeftede: 0,
       iTilbagetraekning: 0, afmeldte: 0, fejl: 0, status: 'ok',
-      noter: [`sprunget over: en anden kørsel er i gang (${iGang.runner ?? 'ukendt'}, `
-        + `startet ${iGang.startet.toISOString().slice(0, 16).replace('T', ' ')})`],
+      noter: [`sprunget over: værten ${adapter.host} er spærret til `
+        + `${spaerretIndtil.toISOString().slice(0, 16).replace('T', ' ')}`],
     }
   }
 
+  // ── Run-laasen ───────────────────────────────────────────────────────
+  // Selve INSERT'en ER laasen. Det partielle unikke indeks
+  // crawl_runs_one_running (migration 0019) tillader kun én 'running'-
+  // raekke pr. kilde, saa to samtidige koersler kan ikke begge vinde —
+  // heller ikke fra to forskellige processer paa to forskellige maskiner.
+  //
+  // Foer stod her et SELECT efterfulgt af et INSERT. Mellem de to var der
+  // et vindue, og et vindue er ingen laas: begge koersler saa ingenting og
+  // kaldte begge ud til kilden.
+  //
+  // 0 raekker retur betyder, at en anden holder laasen.
   const [run] = await db.insert(crawlRuns)
     .values({ sourceId: kilde.id, status: 'running', runner: RUNNER })
+    .onConflictDoNothing({
+      target: crawlRuns.sourceId,
+      // Skal matche indeksets praedikat ORDRET, ellers afvises statementet
+      // hoejlydt ("no unique or exclusion constraint matching"). Literalen
+      // staar inline med vilje: en bunden parameter kan ikke bruges som
+      // arbiter-praedikat under prepared statements.
+      where: sql`${crawlRuns.status} = 'running'`,
+    })
     .returning({ id: crawlRuns.id, startedAt: crawlRuns.startedAt })
-  const runId = run!.id
-  const runStart = run!.startedAt
+
+  if (!run) {
+    // Konflikten fortaeller ikke HVEM der holder laasen, saa den slaas op
+    // bagefter. Er holderen naaet at blive faerdig imens, er raekken vaek
+    // — det er harmloest, noten bliver bare mindre praecis.
+    const [iGang] = await db.select({ startet: crawlRuns.startedAt, runner: crawlRuns.runner })
+      .from(crawlRuns)
+      .where(and(eq(crawlRuns.sourceId, kilde.id), eq(crawlRuns.status, 'running')))
+      .limit(1)
+    return {
+      kilde: adapter.id, fundet: 0, nye: 0, opdaterede: 0, bekraeftede: 0,
+      iTilbagetraekning: 0, afmeldte: 0, fejl: 0, status: 'ok',
+      noter: [`sprunget over: en anden kørsel er i gang (${iGang?.runner ?? 'ukendt'}`
+        + (iGang ? `, startet ${iGang.startet.toISOString().slice(0, 16).replace('T', ' ')}` : '')
+        + ')'],
+    }
+  }
+
+  const runId = run.id
+  const runStart = run.startedAt
+
+  /**
+   * Holder vi stadig laasen?
+   *
+   * En koersel, der loeber laengere end leasen, faar sin raekke lukket af
+   * en anden proces' lukStrandede — og saa er der en dublet i gang.
+   * Uden det her ville den gamle koersel fortsaette i blinde og til sidst
+   * skrive sin egen 'ok' hen over lukningen, saa baade sporet af
+   * strandingen og beviset for overlappet forsvandt.
+   */
+  const holderLaas = async () => {
+    const [r] = await db.select({ status: crawlRuns.status })
+      .from(crawlRuns).where(eq(crawlRuns.id, runId)).limit(1)
+    return r?.status === 'running'
+  }
 
   const afslut = async (r: Omit<KoerselsResultat, 'kilde'>) => {
-    await db.update(crawlRuns).set({
+    // `and(id, status='running')` er vagten: har en anden proces allerede
+    // lukket raekken som strandet, rammer opdateringen 0 raekker, og
+    // lukningen faar lov at staa. En tabt lease skal kunne ses bagefter.
+    const opdateret = await db.update(crawlRuns).set({
       finishedAt: sql`now()`,
       discoveredCount: r.fundet,
       extractedCount: r.nye + r.opdaterede,
@@ -302,7 +367,17 @@ export async function koerKilde(
       errorCount: r.fejl,
       status: r.status,
       notes: r.noter.length ? r.noter.join('\n') : null,
-    }).where(eq(crawlRuns.id, runId))
+    })
+      .where(and(eq(crawlRuns.id, runId), eq(crawlRuns.status, 'running')))
+      .returning({ id: crawlRuns.id })
+
+    if (!opdateret.length) {
+      const tabt = 'LEASE TABT: kørslen varede længere end '
+        + `${LEASE_MIN} minutter, og en anden proces lukkede den som strandet. `
+        + 'Resultatet er ikke bogført på kørslen.'
+      log(`[${adapter.id}] ${tabt}`)
+      return { kilde: adapter.id, ...r, status: 'failed' as const, noter: [...r.noter, tabt] }
+    }
     return { kilde: adapter.id, ...r }
   }
 
@@ -310,6 +385,15 @@ export async function koerKilde(
   try {
     fundne = await adapter.discover()
   } catch (e) {
+    // Udloeses spaerren UNDER discovery, er koerslen ikke fejlet — den
+    // stoppede hoefligt. Blokken er allerede skrevet af politeFetch, saa
+    // andre processer ser den ved deres naeste TTL-genindlaesning. Talt
+    // som fejl ville den forurene fejlraten og se ud som en knaekket
+    // parser; det er praecis de discovery-tunge kilder, det ville ramme.
+    if (e instanceof VaertBlokeretFejl) {
+      noter.push(`værtsspærre under discovery: ${e.message}`)
+      return afslut({ fundet: 0, nye: 0, opdaterede: 0, bekraeftede: 0, iTilbagetraekning: 0, afmeldte: 0, fejl: 0, status: 'ok', noter })
+    }
     noter.push(`discovery fejlede: ${(e as Error).message}`)
     return afslut({ fundet: 0, nye: 0, opdaterede: 0, bekraeftede: 0, iTilbagetraekning: 0, afmeldte: 0, fejl: 1, status: 'failed', noter })
   }
@@ -430,6 +514,8 @@ export async function koerKilde(
   }
   let nye = 0, opdaterede = 0, fejl = 0
   let i = 0
+  /** Blev vaerten spaerret undervejs? Saa er koerslen ufuldstaendig. */
+  let vaertSpaerret = false
   const fejledeNoegler: string[] = []
   for (const [idx, { url, externalKey }] of skalHentes.entries()) {
     if (++i % 20 === 0) log(`[${adapter.id}] ${i}/${skalHentes.length} hentet`)
@@ -453,6 +539,7 @@ export async function koerKilde(
       // detaljehentninger opgives — nye/aendrede skrives fra listen, kendte
       // bekraeftes, og ingen afmeldes. Naeste koersel proever forfra.
       if (e instanceof VaertBlokeretFejl) {
+        vaertSpaerret = true
         const rest = skalHentes.slice(idx)
         noter.push(`værtsspærre: ${e.message} — ${rest.length} detaljehentning(er) udskudt`)
         for (const r of rest) {
@@ -585,6 +672,33 @@ export async function koerKilde(
   let afmeldte = 0
   if (spring) {
     noter.push(`AFMELDNING SPRUNGET OVER — ${spring}. Ingen boliger afmeldt.`)
+    return afslut({ fundet: fundne.length, nye, opdaterede, bekraeftede, iTilbagetraekning, afmeldte: 0, fejl, status: 'failed', noter })
+  }
+
+  // Fjerde grund: vaerten spaerrede os midt i koerslen.
+  //
+  // Sikringerne ovenfor ville formentlig fange det alligevel (en spaerret
+  // koersel skriver typisk for lidt), men «formentlig» er ikke godt nok,
+  // naar handlingen er destruktiv. En 429 er kildens travlhed — ikke en
+  // besked om, at dens boliger er vaek.
+  if (vaertSpaerret) {
+    noter.push('AFMELDNING SPRUNGET OVER — værten spærrede midt i kørslen. '
+      + 'Ingen boliger afmeldt.')
+    return afslut({ fundet: fundne.length, nye, opdaterede, bekraeftede, iTilbagetraekning, afmeldte: 0, fejl, status: 'ok', noter })
+  }
+
+  // Femte grund til ikke at afmelde: vi holder ikke laengere laasen.
+  //
+  // Har koerslen varet laengere end leasen, har en anden proces lukket
+  // vores raekke som strandet og er formentlig i gang med samme kilde nu.
+  // To koersler, der afmelder mod hver sin last_seen_at, vil afmelde
+  // hinandens boliger. Afmeldning er den ENESTE destruktive handling her,
+  // saa den kraever en gyldig lease — resten af koerslens skrivninger er
+  // upserts og kan taale et overlap.
+  if (!await holderLaas()) {
+    noter.push('AFMELDNING SPRUNGET OVER — leasen er tabt: kørslen varede '
+      + `længere end ${LEASE_MIN} minutter, og en anden proces overtog kilden. `
+      + 'Ingen boliger afmeldt.')
     return afslut({ fundet: fundne.length, nye, opdaterede, bekraeftede, iTilbagetraekning, afmeldte: 0, fejl, status: 'failed', noter })
   }
 

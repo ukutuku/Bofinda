@@ -134,6 +134,13 @@
       "when": 1788724911592,
       "tag": "0018_detaljevagt",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788811311592,
+      "tag": "0019_vaertsspaerre_og_runlaas",
+      "breakpoints": true
     }
   ]
 }

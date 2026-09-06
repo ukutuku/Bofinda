@@ -5,6 +5,8 @@
 //  bot-beskyttelse her, og der skal ikke komme nogen.
 // ═══════════════════════════════════════════════════════════════
 
+import { laesRetryAfter, spaer, SPAERRE_MS, spaerretTil, VaertBlokeretFejl } from './vaertsspaerre'
+
 const UA = process.env.CRAWLER_USER_AGENT
   ?? 'BofindaBot/1.0 (+https://bofinda.dk/bot; kontakt@bofinda.dk)'
 const RATE_MS = Number(process.env.CRAWLER_RATE_MS ?? 1000)
@@ -23,25 +25,20 @@ const takt = (host: string) => VAERTSTAKT[host] ?? RATE_MS
 // ── Vaertsspaerre ──────────────────────────────────────────────
 // 429 og 503 er vaertens besked om at stoppe — ikke en invitation til at
 // proeve igen med det samme. Efter ét hoefligt genforsoeg spaerres HELE
-// vaerten i SPAERRE_MS, og alle videre kald kaster VaertBlokeretFejl uden
-// at roere netvaerket. Spaerren er pr. VAERT, ikke pr. kilde: deler to
-// kilder samme CDN, rammes de samlet — det er meningen. Naeste koersel
-// efter udloeb proever forfra. Ingen omgaaelse, ingen aggressive genforsoeg.
-const SPAERRE_MS = Number(process.env.VAERTSSPAERRE_MS ?? 30 * 60_000)
-const spaerret = new Map<string, number>()
-
-export class VaertBlokeretFejl extends Error {
-  constructor(public host: string, public til: Date) {
-    super(`vaerten ${host} er spaerret til ${til.toISOString().slice(0, 16)} `
-      + 'efter 429/503 — proeves igen ved en senere koersel')
-  }
-}
-
-export const erVaertSpaerret = (host: string) =>
-  Date.now() < (spaerret.get(host) ?? 0)
-
-/** KUN til proeven — spaerretilstand maa ikke smitte mellem tests. */
-export const _nulstilVaertsspaerre = () => spaerret.clear()
+// vaerten, og alle videre kald kaster VaertBlokeretFejl uden at roere
+// netvaerket. Spaerren er pr. VAERT (og pr. runner-egress), ikke pr.
+// kilde: deler to kilder samme CDN, rammes de samlet — det er meningen.
+//
+// SELVE tilstanden bor i lib/vaertsspaerre.ts, som holder den i basen med
+// en kort lokal cache foran. Denne fil kalder den; den ejer den ikke.
+// Uden det ville en Railway-proces og den lokale import ikke kunne se
+// hinandens spaerrer, og et redeploy ville glemme alt.
+//
+// Fejlen kastes paa SELVE UDLOESNINGSKALDET — ikke foerst ved det naeste.
+// Ellers ville udloesningen se ud som en almindelig sidefejl: boligen kom
+// i tilbagetraekning for noget, vaerten gjorde, og en spaerre udloest paa
+// koerslens sidste kald blev aldrig skrevet nogen steder.
+export { VaertBlokeretFejl } from './vaertsspaerre'
 
 /** Svar der betyder "kom igen", ikke "findes ikke". */
 const MIDLERTIDIGE = new Set([429, 502, 503, 504])
@@ -66,10 +63,14 @@ export async function politeFetch(
 ): Promise<Response> {
   const host = new URL(url).host
 
-  const til = spaerret.get(host)
-  if (til && Date.now() < til) throw new VaertBlokeretFejl(host, new Date(til))
-
   for (let attempt = 1; attempt <= tries; attempt++) {
+    // Tjekkes foer HVERT kald, ikke kun ved indgangen: en anden proces kan
+    // have spaerret vaerten imens, og cachen henter den ved sit naeste
+    // TTL-udloeb. Det er den eneste vej, tilstanden naar herind — der er
+    // hverken Redis eller notifikationer.
+    const til = await spaerretTil(host)
+    if (til) throw new VaertBlokeretFejl(host, til)
+
     await pace(host)
 
     const res = await fetch(url, {
@@ -102,8 +103,18 @@ export async function politeFetch(
       // den fulde genforsoegsraekke uden spaerre.
       if (res.status === 429 || res.status === 503) {
         if (attempt >= Math.min(2, tries)) {
-          spaerret.set(host, Date.now() + SPAERRE_MS)
-          return res
+          // Kildens eget Retry-After er et MINIMUM, ikke et loft: beder
+          // den om en time, venter vi en time. Ugyldig eller fortidig
+          // vaerdi giver null og forkorter derfor aldrig standarden.
+          // (Bemaerk: `backoff` ovenfor er soevnen mellem to forsoeg og
+          // clampes til 60 s. Det har intet med blokvarigheden at goere.)
+          const sek = Math.max(
+            Math.round(SPAERRE_MS / 1000),
+            laesRetryAfter(res.headers.get('retry-after')) ?? 0,
+          )
+          const til = await spaer(host, sek,
+            `HTTP ${res.status} paa ${url.slice(0, 200)}`)
+          throw new VaertBlokeretFejl(host, til)
         }
       } else if (attempt === tries) {
         return res

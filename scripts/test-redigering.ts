@@ -27,7 +27,7 @@
 
 import { and, eq, sql as dsql } from 'drizzle-orm'
 import { db, luk } from '../db/client'
-import { alertMatches, crawlRuns, fetchFailures, listingImages, listings, savedSearches, sources, users } from '../db/schema'
+import { alertMatches, crawlRuns, fetchFailures, hostBlocks, listingImages, listings, savedSearches, sources, users } from '../db/schema'
 import { matchAlarmer } from '../lib/alarm'
 import { byForPostnr } from '../lib/omraade'
 import { laesBolig as dacasLaes } from '../adapters/dacas'
@@ -38,7 +38,11 @@ import { detaljesignatur as hsSignatur, laesDetalje as hsDetalje, laesListe as h
 import { laesDetalje as birchDetalje, laesFeed as birchFeed } from '../adapters/birch'
 import { laesAvailabilityFacts } from '../lib/fakta'
 import { koerKilde, skrivBolig } from '../lib/ingest'
-import { _nulstilVaertsspaerre, politeFetch, VaertBlokeretFejl } from '../lib/fetch'
+import { politeFetch } from '../lib/fetch'
+import {
+  _aktivRunner, _cachetSvar, _goerCacheGammel, _nulstilCache, _saetRunner,
+  laesRetryAfter, noterSkip, spaer, spaerretTil, VaertBlokeretFejl,
+} from '../lib/vaertsspaerre'
 import { normaliser } from '../lib/normalize'
 import type { VasketAdresse } from '../lib/address'
 import type { RawListing, SourceAdapter } from '../lib/adapter'
@@ -190,6 +194,18 @@ async function main() {
   tjek('intet i public er åbent for anon eller authenticated',
     aabne.length === 0,
     aabne.map((f) => `${f.slags} ${f.navn}: ${f.grund.split(' — ')[0]}`).join(' · '))
+
+  // Navngivet med vilje oven i den generelle prøve. host_blocks styrer,
+  // om crawleren overhovedet kalder ud: kunne anon skrive i den, kunne
+  // enhver sætte blocked_until til år 2099 og standse hele importen.
+  // Den generelle prøve ville også fange det — men ikke fortælle hvorfor
+  // det er værre end for de andre tabeller.
+  const rlsSvar = await db.execute(dsql`
+    select relrowsecurity as rls from pg_class where relname = 'host_blocks'`)
+  const [rlsHostBlocks] = ((rlsSvar as { rows?: { rls: boolean }[] }).rows
+    ?? (rlsSvar as unknown as { rls: boolean }[]))
+  tjek('host_blocks har RLS — spærretabellen må ikke kunne skrives udefra',
+    rlsHostBlocks?.rls === true, JSON.stringify(rlsHostBlocks))
 
   // ── En ukendt billedvaert forsvinder tavst ───────────────────
   // Har en aktiv bolig billedraekker, men ingen af dem paa en vaert i
@@ -1794,29 +1810,158 @@ async function main() {
     // spærre IP'en. Prøverne her driver koerKilde mod en kunstig
     // vagt-kilde og beviser hver regel enkeltvis.
     if (!MOD_PRODUKTION) {
-      console.log('\n══ værtsspærren i politeFetch ══')
+      console.log('\n══ værtsspærren: Retry-After, GREATEST og TTL ══')
+      // PGlite svarer {rows: [...]}, postgres.js et array. Samme mønster
+      // som i backup-prøven ovenfor.
+      const raaRaekker = <T>(r: unknown): T[] =>
+        (r as { rows?: T[] }).rows ?? (r as T[])
+      const sekTil = async (runner: string, host: string): Promise<number | null> => {
+        const r = raaRaekker<{ sek: number }>(await db.execute(dsql`select
+          extract(epoch from (blocked_until - now()))::int as sek from host_blocks
+          where runner = ${runner} and host = ${host}`))
+        return r[0]?.sek ?? null
+      }
+      const HOST_A = 'spaerre-a.invalid'
+      const HOST_B = 'spaerre-b.invalid'
+      const oprindeligRunner = _aktivRunner()
+      const ryd = async () => {
+        _nulstilCache()
+        await db.delete(hostBlocks)
+      }
+
+      // ── Retry-After: begge standardformer, og aldrig en forkortelse ──
+      tjek('Retry-After: delta-sekunder læses', laesRetryAfter('3600') === 3600)
+      const nuMs = Date.parse('2026-09-06T12:00:00Z')
+      tjek('Retry-After: HTTP-dato læses som sekunder frem',
+        laesRetryAfter('Sun, 06 Sep 2026 13:00:00 GMT', nuMs) === 3600,
+        String(laesRetryAfter('Sun, 06 Sep 2026 13:00:00 GMT', nuMs)))
+      tjek('Retry-After: fortidig dato giver null — må ikke forkorte noget',
+        laesRetryAfter('Sun, 06 Sep 2026 11:00:00 GMT', nuMs) === null)
+      tjek('Retry-After: vrøvl, tom og 0 giver null',
+        laesRetryAfter('snarest') === null && laesRetryAfter('') === null
+        && laesRetryAfter(null) === null && laesRetryAfter('0') === null)
+
+      // ── GREATEST: blokken forlænges opad, aldrig nedad ──
+      await ryd()
+      await spaer(HOST_A, 7200, 'prøve: lang blok')
+      const efterLang = await db.select().from(hostBlocks)
+        .where(and(eq(hostBlocks.runner, oprindeligRunner), eq(hostBlocks.host, HOST_A)))
+      tjek('spær: rækken skrives på (runner, host) med blocked_until i fremtiden',
+        efterLang.length === 1 && efterLang[0]!.blockedUntil > new Date(),
+        JSON.stringify(efterLang.map((r) => [r.runner, r.host])))
+      const langtTal = { sek: (await sekTil(oprindeligRunner, HOST_A))! }
+      tjek('spær: varigheden regnes af DATABASENS ur — ca. 2 timer',
+        langtTal.sek > 7100 && langtTal.sek < 7300, String(langtTal.sek))
+      await spaer(HOST_A, 60, 'prøve: kort blok bagefter')
+      const efterKort = { sek: (await sekTil(oprindeligRunner, HOST_A))! }
+      tjek('GREATEST: en senere KORTERE blok forkorter ikke den lange',
+        efterKort.sek > 7100, String(efterKort.sek))
+      await spaer(HOST_A, 10800, 'prøve: længere blok')
+      const efterLaengere = { sek: (await sekTil(oprindeligRunner, HOST_A))! }
+      tjek('GREATEST: en LÆNGERE blok forlænger — begge veje målt',
+        efterLaengere.sek > 10700, String(efterLaengere.sek))
+
+      // ── Udløbet blok må ikke blokere ──
+      await ryd()
+      await db.insert(hostBlocks).values({
+        runner: oprindeligRunner, host: HOST_A,
+        blockedUntil: dsql`now() - interval '1 minute'`, reason: 'prøve: udløbet',
+      })
+      tjek('udløbet blok blokerer ikke', await spaerretTil(HOST_A) === null)
+
+      // ── politeFetch: kast på selve udløsningskaldet ──
+      await ryd()
       const rigtigFetch = globalThis.fetch
       const spaerreKald: string[] = []
       globalThis.fetch = (async (url: unknown) => {
         spaerreKald.push(String(url))
-        return new Response('optaget', { status: 503 })
+        return new Response('optaget', {
+          status: 503, headers: { 'retry-after': '3600' },
+        })
       }) as typeof fetch
       try {
-        _nulstilVaertsspaerre()
-        const svar503 = await politeFetch('https://spaerre-a.invalid/x')
-        tjek('politeFetch: 503 får ét høfligt genforsøg — to kald, svaret returneres',
-          svar503.status === 503 && spaerreKald.length === 2, String(spaerreKald.length))
-        let kastet: unknown = null
-        try { await politeFetch('https://spaerre-a.invalid/y') } catch (e) { kastet = e }
-        tjek('politeFetch: værten er spærret — næste kald kaster uden netværk',
-          kastet instanceof VaertBlokeretFejl && spaerreKald.length === 2)
-        await politeFetch('https://spaerre-b.invalid/z').catch(() => {})
+        let kastetVedUdloesning: unknown = null
+        try { await politeFetch(`https://${HOST_A}/x`) } catch (e) { kastetVedUdloesning = e }
+        tjek('politeFetch: 503 kaster på UDLØSNINGSKALDET efter ét høfligt genforsøg',
+          kastetVedUdloesning instanceof VaertBlokeretFejl && spaerreKald.length === 2,
+          `${(kastetVedUdloesning as Error)?.name} · ${spaerreKald.length} kald`)
+        const medRetry = { sek: (await sekTil(oprindeligRunner, HOST_A))! }
+        tjek('politeFetch: kildens Retry-After (1 t) slår 30-min-standarden',
+          medRetry.sek > 3400 && medRetry.sek < 3700, String(medRetry.sek))
+        const foerB = spaerreKald.length
+        await politeFetch(`https://${HOST_A}/y`).catch(() => {})
+        tjek('politeFetch: næste kald mod samme vært rører ikke netværket',
+          spaerreKald.length === foerB)
+        await politeFetch(`https://${HOST_B}/z`).catch(() => {})
         tjek('politeFetch: spærren rammer kun den ene vært',
-          spaerreKald.some((u) => u.includes('spaerre-b')))
+          spaerreKald.some((u) => u.includes(HOST_B)))
       } finally {
         globalThis.fetch = rigtigFetch
-        _nulstilVaertsspaerre()
       }
+
+      // ── Runner-isolation: Mac og Railway har hver sin egress ──
+      await ryd()
+      _saetRunner('railway')
+      await spaer(HOST_A, 1800, 'prøve: railway blev throttlet')
+      tjek('runner-isolation: railway ser sin egen blok',
+        (await spaerretTil(HOST_A)) !== null)
+      _saetRunner('lokal-mac')
+      _nulstilCache()
+      tjek('runner-isolation: lokal-mac er IKKE blokeret af railways blok',
+        (await spaerretTil(HOST_A)) === null)
+      _saetRunner('railway')
+      _nulstilCache()
+      tjek('runner-isolation: railway er stadig blokeret — præmissen holder',
+        (await spaerretTil(HOST_A)) !== null)
+      _saetRunner(oprindeligRunner)
+
+      // ── Mid-run propagation mellem to PROCESSER ──────────────────
+      // Proces A og B må ikke dele hukommelse. A efterlignes derfor som
+      // REN DB-TILSTAND — en række skrevet udefra, præcis som en anden
+      // Railway-container ville efterlade den. Så er databasen beviseligt
+      // den eneste kanal mellem de to, og prøven kan ikke snyde ved at
+      // lade dem dele modulets cache.
+      await ryd()
+      // B starter: læser DB (ingen blok) og cacher det negative svar.
+      const bFoer = await spaerretTil(HOST_A)
+      tjek('propagation: B har cachet «ikke blokeret»',
+        bFoer === null && _cachetSvar(HOST_A) !== undefined
+        && _cachetSvar(HOST_A)!.til === null)
+      // A (en anden proces) rammer 503 og persisterer sin blok.
+      await db.insert(hostBlocks).values({
+        runner: oprindeligRunner, host: HOST_A,
+        blockedUntil: dsql`now() + interval '30 minutes'`,
+        reason: 'prøve: proces A fik 503',
+      })
+      // B har stadig sin FRISKE negative cache og bruger den. Ærligt:
+      // propagationen tager op til ét TTL-vindue — det er prisen for at
+      // undgå en DB-forespørgsel pr. request.
+      tjek('propagation: B bruger sin friske cache indtil TTL udløber',
+        (await spaerretTil(HOST_A)) === null)
+      // B's cache gøres stale -> B genindlæser fra DB og ser A's blok.
+      _goerCacheGammel()
+      const bEfter = await spaerretTil(HOST_A)
+      tjek('propagation: B genindlæser fra DB og ser A’s blok',
+        bEfter !== null && bEfter > new Date(), String(bEfter))
+      // Og derefter: 0 HTTP-kald.
+      const bKald: string[] = []
+      globalThis.fetch = (async (url: unknown) => {
+        bKald.push(String(url)); return new Response('ok', { status: 200 })
+      }) as typeof fetch
+      try {
+        let bFejl: unknown = null
+        try { await politeFetch(`https://${HOST_A}/efter-propagation`) } catch (e) { bFejl = e }
+        tjek('propagation: B laver 0 HTTP-kald efter genindlæsningen',
+          bFejl instanceof VaertBlokeretFejl && bKald.length === 0, String(bKald.length))
+      } finally {
+        globalThis.fetch = rigtigFetch
+      }
+
+      // ── Genstart: en frisk proces uden hukommelse ser blokken ──
+      _nulstilCache()
+      tjek('genstart: frisk proces uden cache ser blokken i basen',
+        (await spaerretTil(HOST_A)) !== null)
+      await ryd()
 
       console.log('\n══ detaljevagten: hent kun nyt, ændret og forfaldent ══')
       type VagtBolig = { leje: number; status: string }
@@ -1933,15 +2078,155 @@ async function main() {
         hentninger.length === foerX && r10.nye === 1 && r10.fejl === 0,
         JSON.stringify(r10))
 
+      const antalKoersler = async () => (await db.select({ id: crawlRuns.id })
+        .from(crawlRuns).where(eq(crawlRuns.sourceId, vagtKilde!.id))).length
+      const foerLaas = await antalKoersler()
       const [kunstig] = await db.insert(crawlRuns)
         .values({ sourceId: vagtKilde!.id, status: 'running', runner: 'anden-proces' })
         .returning({ id: crawlRuns.id })
       const r11 = await koer()
-      tjek('vagt 10: overlap-værn — kørslen springes over, når en anden er i gang',
+      tjek('vagt 10: run-låsen — kørslen springes over, når en anden er i gang',
         r11.fundet === 0 && r11.noter.some((n) => n.includes('anden kørsel er i gang')),
         JSON.stringify(r11.noter))
+      tjek('vagt 10: taberen skriver INGEN crawl_runs-række (median urørt)',
+        await antalKoersler() === foerLaas + 1, `${await antalKoersler()} vs ${foerLaas + 1}`)
+
+      // Det partielle unikke indeks er selve låsen. Fejler den rå dublet
+      // ikke, findes indekset ikke — og så er alt herunder teater. Prøven
+      // er samtidig vagt for en glemt journalpost til migration 0019.
+      let dubletFejl: unknown = null
+      try {
+        await db.insert(crawlRuns)
+          .values({ sourceId: vagtKilde!.id, status: 'running', runner: 'tredje-proces' })
+      } catch (e) { dubletFejl = e }
+      tjek('vagt 10: rå dublet-INSERT afvises af det partielle unikke indeks (23505)',
+        !!dubletFejl && String((dubletFejl as { code?: string }).code ?? dubletFejl).includes('23505'),
+        String((dubletFejl as { code?: string })?.code ?? dubletFejl))
       await db.update(crawlRuns).set({ status: 'failed', finishedAt: new Date() })
         .where(eq(crawlRuns.id, kunstig!.id))
+
+      // ── Parløb: to kørsler startet samtidig ─────────────────────
+      // Beviser ATOMICITETEN, ikke bare at guarden læser basen: den gamle
+      // select-derefter-insert bestod prøven ovenfor, men ville her enten
+      // lade begge løbe eller kaste 23505 ud gennem Promise.all.
+      for (let runde = 0; runde < 5; runde++) {
+        const foer = await antalKoersler()
+        const [a, b] = await Promise.all([koer(), koer()])
+        const skips = [a, b].filter((r) => r.noter.some((n) => n.includes('anden kørsel er i gang')))
+        const nyeRaekker = await antalKoersler() - foer
+        tjek(`vagt 11.${runde + 1}: parløb — højst én vinder, ingen 23505 slipper ud`,
+          skips.length <= 1 && nyeRaekker <= 2 && nyeRaekker >= 1
+          && a.status !== 'failed' && b.status !== 'failed',
+          `skips=${skips.length} rækker=${nyeRaekker} ${a.status}/${b.status}`)
+      }
+
+      // ── Leasen: grænsen pindes fra BEGGE sider ──────────────────
+      // Kun «31 min → tilladt» ville også bestås af en implementation, der
+      // lukkede ALLE running-rækker uanset alder — altså ingen lås.
+      const setLease = async (min: number) => {
+        const [r] = await db.insert(crawlRuns).values({
+          sourceId: vagtKilde!.id, status: 'running', runner: 'strandet-proces',
+          startedAt: new Date(Date.now() - min * 60_000),
+        }).returning({ id: crawlRuns.id })
+        return r!.id
+      }
+      const ungId = await setLease(29)
+      const r12 = await koer()
+      const [ungEfter] = await db.select({ s: crawlRuns.status })
+        .from(crawlRuns).where(eq(crawlRuns.id, ungId))
+      tjek('vagt 12: lease 29 min — stadig afvist, og rækken står stadig running',
+        r12.fundet === 0 && ungEfter!.s === 'running', `${r12.fundet} · ${ungEfter!.s}`)
+      await db.update(crawlRuns).set({ status: 'failed', finishedAt: new Date() })
+        .where(eq(crawlRuns.id, ungId))
+
+      const gammelId = await setLease(31)
+      const r13 = await koer()
+      const [gammelEfter] = await db.select({ s: crawlRuns.status, n: crawlRuns.notes })
+        .from(crawlRuns).where(eq(crawlRuns.id, gammelId))
+      tjek('vagt 13: lease 31 min — tilladt, og den strandede lukkes som failed',
+        r13.fundet > 0 && gammelEfter!.s === 'failed'
+        && (gammelEfter!.n ?? '').includes('Aldrig afsluttet'),
+        `${r13.fundet} · ${gammelEfter!.s}`)
+
+      // ── Lease-tyveri midt i en kørsel ───────────────────────────
+      // En kørsel, der overskrider leasen, får sin række lukket af en
+      // anden proces. Den må hverken afmelde boliger (destruktivt) eller
+      // overskrive lukningen med sit eget «ok».
+      let tyveriKildeId = ''
+      const tyveriAdapter: SourceAdapter = {
+        ...vagtAdapter, id: `proeve-tyveri-${Date.now()}`,
+        async discover() {
+          const ud = await vagtAdapter.discover()
+          // Imens «vi» arbejder, stjæler en anden proces leasen.
+          await db.update(crawlRuns)
+            .set({ status: 'failed', finishedAt: new Date(), notes: 'stjålet af anden proces' })
+            .where(and(eq(crawlRuns.sourceId, tyveriKildeId), eq(crawlRuns.status, 'running')))
+          return ud
+        },
+      }
+      const r14foer = await koerKilde(tyveriAdapter, 'Prøve: lease-tyveri')
+      const [tyveriKilde] = await db.select().from(sources)
+        .where(eq(sources.slug, tyveriAdapter.id))
+      ekstra.kilder.push(tyveriKilde!.id)
+      tyveriKildeId = tyveriKilde!.id
+      void r14foer
+      // Kør igen, nu hvor tyveriKildeId er sat — og læg en bolig ind, som
+      // en fejlagtig afmelding ville kunne tage.
+      vagtListe.set('t1', { leje: 60000, status: 'Ledig' })
+      const r14 = await koerKilde(tyveriAdapter, 'Prøve: lease-tyveri')
+      tjek('vagt 14: lease-tyveri — afmelding sprunget over',
+        r14.afmeldte === 0 && r14.noter.some((n) => n.includes('leasen er tabt')),
+        JSON.stringify(r14.noter))
+      tjek('vagt 14: lease-tyveri — afslut overskriver ikke den lukkede række',
+        r14.status === 'failed' && r14.noter.some((n) => n.includes('LEASE TABT')),
+        `${r14.status}`)
+      const stjaalne = await db.select({ n: crawlRuns.notes }).from(crawlRuns)
+        .where(and(eq(crawlRuns.sourceId, tyveriKilde!.id), eq(crawlRuns.status, 'failed')))
+      tjek('vagt 14: tyvens note står stadig i basen — sporet er ikke slettet',
+        stjaalne.some((r) => (r.n ?? '').includes('stjålet af anden proces')),
+        JSON.stringify(stjaalne.map((r) => r.n?.slice(0, 40))))
+      for (const r of await db.select({ id: listings.id }).from(listings)
+        .where(eq(listings.sourceId, tyveriKilde!.id))) ekstra.boliger.push(r.id)
+
+      // ── Værtsspærre midt i en kørsel: ingen afmelding, ingen fejl ──
+      await db.delete(hostBlocks)
+      _nulstilCache()
+      const spaerreKildeSlug = `proeve-hostspaerre-${Date.now()}`
+      // Budgettet stod på 0 fra vagt 9; uden hentninger ville extract
+      // aldrig blive kaldt, og prøven ville måle ingenting.
+      vagtBudget = 10
+      const spaerreAdapter: SourceAdapter = {
+        ...vagtAdapter, id: spaerreKildeSlug, host: 'spaerret-vaert.invalid',
+        async extract(url: string) {
+          const til = await spaer('spaerret-vaert.invalid', 1800, 'prøve: 503 midt i kørslen')
+          throw new VaertBlokeretFejl('spaerret-vaert.invalid', til)
+        },
+      }
+      vagtListe.set('h1', { leje: 50000, status: 'Ledig' })
+      const r15 = await koerKilde(spaerreAdapter, 'Prøve: værtsspærre')
+      const [spaerreKilde] = await db.select().from(sources)
+        .where(eq(sources.slug, spaerreKildeSlug))
+      ekstra.kilder.push(spaerreKilde!.id)
+      tjek('vagt 15: værtsspærre midt i kørslen — 0 fejl, 0 afmeldt',
+        r15.fejl === 0 && r15.afmeldte === 0
+        && r15.noter.some((n) => n.includes('AFMELDNING SPRUNGET OVER — værten spærrede')),
+        JSON.stringify(r15))
+      tjek('vagt 15: udløsnings-boligen fik INGEN fetchFailure',
+        (await db.select().from(fetchFailures)
+          .where(eq(fetchFailures.sourceId, spaerreKilde!.id))).length === 0)
+      const r16 = await koerKilde(spaerreAdapter, 'Prøve: værtsspærre')
+      tjek('vagt 16: næste kørsel springes over, fordi værten er spærret i BASEN',
+        r16.fundet === 0 && r16.noter.some((n) => n.includes('er spærret til')),
+        JSON.stringify(r16.noter))
+      const [blokRk] = await db.select().from(hostBlocks)
+        .where(eq(hostBlocks.host, 'spaerret-vaert.invalid'))
+      tjek('vagt 16: skippet bogføres på blok-rækken — «blokeret» ≠ «død»',
+        blokRk!.skipCount >= 1 && blokRk!.lastSkippedAt != null,
+        `skip=${blokRk!.skipCount}`)
+      for (const r of await db.select({ id: listings.id }).from(listings)
+        .where(eq(listings.sourceId, spaerreKilde!.id))) ekstra.boliger.push(r.id)
+      await db.delete(hostBlocks)
+      _nulstilCache()
 
       for (const r of await db.select({ id: listings.id }).from(listings)
         .where(eq(listings.sourceId, vagtKilde!.id))) ekstra.boliger.push(r.id)
@@ -2108,9 +2393,19 @@ async function main() {
     }
     for (const u2 of ekstra.brugere) await db.delete(users).where(eq(users.id, u2))
     for (const k of ekstra.kilder) {
+      // Pr. KILDE, ikke kun de id'er prøven nåede at samle op: en kørsel
+      // kan skrive boliger, prøven aldrig så, og så vælter fremmednøglen
+      // oprydningen — og dermed hele suiten, længe efter den rigtige fejl.
+      for (const b of await db.select({ id: listings.id }).from(listings)
+        .where(eq(listings.sourceId, k))) {
+        await db.delete(listingImages).where(eq(listingImages.listingId, b.id))
+        await db.delete(listings).where(eq(listings.id, b.id))
+      }
+      await db.delete(fetchFailures).where(eq(fetchFailures.sourceId, k))
       await db.delete(crawlRuns).where(eq(crawlRuns.sourceId, k))
       await db.delete(sources).where(eq(sources.id, k))
     }
+    await db.delete(hostBlocks)
     if (rivalId) {
       await db.delete(listingImages).where(eq(listingImages.listingId, rivalId))
       await db.delete(listings).where(eq(listings.id, rivalId))

@@ -364,6 +364,34 @@ export const fetchFailures = pgTable('fetch_failures', {
   retryIdx: index('fetch_failure_retry_idx').on(t.sourceId, t.retryAfter),
 }))
 
+/**
+ * Vaertsspaerren — 429/503 er vaertens besked om at holde op, og den
+ * besked skal overleve processen.
+ *
+ * Noeglen er (runner, host), IKKE host alene: en blokering hoerer til den
+ * egress, der faktisk blev droevlet. Mac'ens launchd-import og Railway
+ * gaar ud ad hver sin IP, saa en blok det ene sted siger intet om det
+ * andet — mens to koersler med SAMME runner-identitet deler baade IP og
+ * blok, og det er praecis rigtigt.
+ *
+ * `blocked_until` forlaenges kun opad (GREATEST), aldrig nedad: en senere,
+ * kortere blok maa ikke ophaeve en laengere, kilden allerede har bedt om.
+ */
+export const hostBlocks = pgTable('host_blocks', {
+  runner: text('runner').notNull(),
+  host: text('host').notNull(),
+  /** Foer dette tidspunkt kaldes vaerten ikke. */
+  blockedUntil: timestamp('blocked_until', { withTimezone: true }).notNull(),
+  reason: text('reason'),
+  /** Hvor mange koersler spaerren har sprunget over. Uden det er
+   *  «blokeret» og «scheduleren er doed» ikke til at skelne i basen. */
+  skipCount: integer('skip_count').notNull().default(0),
+  lastSkippedAt: timestamp('last_skipped_at', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.runner, t.host] }),
+}))
+
 // Billeder hotlinkes. externalUrl gaar gennem signeret proxy ved visning.
 export const listingImages = pgTable('listing_images', {
   id: uuid('id').primaryKey().defaultRandom(),
