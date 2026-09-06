@@ -9,7 +9,7 @@
 import { and, asc, desc, eq, gt, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { alertMatches, crawlRuns, listings, savedSearches, sources, users } from '../db/schema'
-import { hvor, type Filtre } from './soeg'
+import { availabilityFor, harDomaenefilter, hvor, matcherDomaene, type Filtre } from './soeg'
 import { INDKOERING_TIMER } from './indkoering'
 
 /** Kriterierne gemmes som `Filtre`. Læses tilbage med samme form. */
@@ -83,6 +83,11 @@ export async function matchAlarmer(kun?: string[]): Promise<MatchResultat[]> {
         kilde: listings.sourceId,
         foerstSet: listings.firstSeenAt,
         hosKilden: listings.sourceCreatedAt,
+        // Til availability-postfilteret: SQL finder den brede kandidat-
+        // population; domaenet afgoer resten i JS. Ingen parallel
+        // SQL-fortolkning, ingen legacy-fallback.
+        kildeSlug: sources.slug,
+        availabilityFacts: listings.availabilityFacts,
       })
       .from(listings)
       .innerJoin(sources, eq(sources.id, listings.sourceId))
@@ -112,12 +117,26 @@ export async function matchAlarmer(kun?: string[]): Promise<MatchResultat[]> {
     // Kilder uden egen dato kan SQL ikke afgøre. Her kræves i stedet, at
     // boligen dukkede op, efter kilden havde været overvåget et døgn —
     // ellers er det bagkataloget fra første import.
-    const gyldige = traef.filter((t) => {
+    let gyldige = traef.filter((t) => {
       if (t.hosKilden) return true
       const foerst = foersteKoersel.get(t.kilde)
       if (!foerst) return false
       return +t.foerstSet > +new Date(foerst) + INDKOERING_TIMER * 3600_000
     })
+
+    // ── Availability-filtrene ────────────────────────────────────
+    // Samme domaeneregel som soegningen: hydrer facts, fortolk gennem
+    // kildekontrakten, og match paa RESULTATET. En alarm gemt med «kan
+    // overtages nu» maa ikke sende en bolig, domaenet kalder senere eller
+    // unknown — det var praecis den skaevhed, der stod som kendt
+    // afgraensning, og den er nu lukket.
+    const fs = somFiltre(s.kriterier)
+    if (harDomaenefilter(fs)) {
+      const referenceNow = new Date()
+      gyldige = gyldige.filter((t) =>
+        matcherDomaene(fs, availabilityFor(
+          { availabilityFacts: t.availabilityFacts, kilde: t.kildeSlug }, referenceNow)))
+    }
 
     let nye = 0
     for (let i = 0; i < gyldige.length; i += 500) {
@@ -204,6 +223,10 @@ export function beskrivFiltre(c: Record<string, unknown>): string {
   // gem-boksen, og en søgning, der filtrerer på mere, end den fortæller, er
   // en søgning brugeren ikke kan gennemskue.
   if (f.boligtyper?.length) d.push(f.boligtyper.map((t) => TYPENAVN[t] ?? t).join(' el. '))
+  if (f.overtagelse === 'nu') d.push('kan overtages nu')
+  if (f.overtagelse === 'senere') d.push('kan overtages senere')
+  if (f.ansoegningsform === 'venteliste') d.push('venteliste')
+  if (f.markedsstatus === 'reserveret') d.push('reserveret')
   if (f.kaeledyr) d.push('kæledyr tilladt')
   if (f.elevator) d.push('elevator')
   if (f.udeplads) d.push('altan el. terrasse')

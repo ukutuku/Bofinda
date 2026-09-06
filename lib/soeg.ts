@@ -472,12 +472,12 @@ export function availabilityFor(
   return fortolkAvailability(fakta, kontrakt, referenceNow)
 }
 
-const matcherDomaene = (f: Filtre, a: Availability): boolean =>
+export const matcherDomaene = (f: Filtre, a: Availability): boolean =>
   (f.overtagelse == null || a.timing.status === f.overtagelse)
   && (f.ansoegningsform == null || a.ansoegning.status === f.ansoegningsform)
   && (f.markedsstatus == null || a.marked.status === f.markedsstatus)
 
-const harDomaenefilter = (f: Filtre): boolean =>
+export const harDomaenefilter = (f: Filtre): boolean =>
   f.overtagelse != null || f.ansoegningsform != null || f.markedsstatus != null
 
 /** Loft naar domaenet skal filtrere: kandidaterne kan ikke begraenses i

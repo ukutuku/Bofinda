@@ -1468,6 +1468,85 @@ async function main() {
     tjek('pipeline native: → timing senere (ledig 1. dec.)',
       rNativ.timing.status === 'senere', rNativ.timing.status)
 
+    // ── Alarmen følger availability-domænet ──────────────────────
+    // Samme postfilter-regel som søgningen. Kildeslugs med RIGTIGE
+    // kontrakter (home/findbolig/propstep) kan kun oprettes frit i
+    // PGlite — mod produktionen ville de kollidere med de ægte kilder.
+    //
+    // Sikkerheden hviler IKKE alene paa guarden: glemmes den, rammer
+    // insert'en paa slug 'home' det UNIKKE indeks paa sources.slug i
+    // produktionen og kaster — hoejt og uden at skrive noget. Baeltet er
+    // indekset; guarden er selen.
+    if (!MOD_PRODUKTION) {
+      console.log('\n══ alarmen følger availability-domænet ══')
+      const alarmKilde = async (slug: string) => {
+        const [k] = await db.insert(sources).values({
+          slug, name: `Prøve: ${slug}`, sourceType: 'feed',
+          baseUrl: 'https://proeve.invalid', enabled: false,
+        }).returning()
+        ekstra.kilder.push(k!.id)
+        // Indkørt for to døgn siden, så indkøringsvagten ikke afgør noget.
+        await db.insert(crawlRuns).values({
+          sourceId: k!.id, status: 'ok',
+          startedAt: new Date(Date.now() - 48 * 3600_000),
+        })
+        return k!.id
+      }
+      const hjemK = await alarmKilde('home')
+      const findK = await alarmKilde('findbolig')
+      const propK = await alarmKilde('propstep')
+      const alarmBolig = async (kildeId: string, noegle: string, facts: Record<string, unknown>) => {
+        const { id: bid } = await skrivBolig(kildeId, 'feed', await normaliser({
+          externalKey: noegle, sourceUrl: `https://proeve.invalid/${noegle}`,
+          address: 'Snapshotvej 1, 2300 København S', rooms: 7, imageUrls: [],
+          availability: facts,
+        }, { ...VASK, unitAddressUuid: crypto.randomUUID() }))
+        ekstra.boliger.push(bid)
+        return bid
+      }
+      const bNu = await alarmBolig(hjemK, 'al-nu', { rentalAvailableNow: true, sourceAvailabilityDate: '2026-09-01' })
+      const bSenere = await alarmBolig(hjemK, 'al-sen', { rentalAvailableNow: false, sourceAvailabilityDate: '2026-12-01' })
+      const bUkendt = await alarmBolig(hjemK, 'al-uk', {})
+      const bVente = await alarmBolig(findK, 'al-vent', { rawApplicationType: 'WaitingList' })
+      const bNormal = await alarmBolig(findK, 'al-norm', { rawApplicationType: 'Regular' })
+      const bReserv = await alarmBolig(propK, 'al-res', { rawStatus: 'Reserved' })
+      const bLedigP = await alarmBolig(propK, 'al-avail', { rawStatus: 'Available' })
+
+      const soegMed = async (navn: string, kriterier: Record<string, unknown>) => {
+        const [gs] = await db.insert(savedSearches).values({
+          userId: u!.id, name: navn, criteria: kriterier,
+          createdAt: new Date(Date.now() - 3600_000),
+          confirmedAt: new Date(Date.now() - 3600_000), notifyEmail: true,
+        }).returning()
+        await matchAlarmer([gs!.id])
+        const traf = await db.select({ l: alertMatches.listingId })
+          .from(alertMatches).where(eq(alertMatches.savedSearchId, gs!.id))
+        await db.delete(alertMatches).where(eq(alertMatches.savedSearchId, gs!.id))
+        await db.delete(savedSearches).where(eq(savedSearches.id, gs!.id))
+        return new Set(traf.map((t) => t.l))
+      }
+      const BASIS = { postnr: '2300', vaerelserMin: 7 }
+      const uden = await soegMed('alarm uden availability', BASIS)
+      tjek('alarm UDEN availability-filter opfører sig som før — alle syv',
+        [bNu, bSenere, bUkendt, bVente, bNormal, bReserv, bLedigP].every((x) => uden.has(x)),
+        `${uden.size} træf`)
+      const nuT = await soegMed('alarm: kan overtages nu', { ...BASIS, overtagelse: 'nu' })
+      tjek('«kan overtages nu» matcher nu — ikke senere/unknown',
+        nuT.has(bNu) && !nuT.has(bSenere) && !nuT.has(bUkendt), `${nuT.size} træf`)
+      const senT = await soegMed('alarm: senere', { ...BASIS, overtagelse: 'senere' })
+      tjek('«kan overtages senere» matcher senere — ikke nu/unknown',
+        senT.has(bSenere) && !senT.has(bNu) && !senT.has(bUkendt), `${senT.size} træf`)
+      const venT = await soegMed('alarm: venteliste', { ...BASIS, ansoegningsform: 'venteliste' })
+      tjek('«venteliste» matcher venteliste — ikke normal, ikke unknown',
+        venT.has(bVente) && !venT.has(bNormal) && !venT.has(bUkendt) && venT.size === 1,
+        `${venT.size} træf`)
+      const resT = await soegMed('alarm: reserveret', { ...BASIS, markedsstatus: 'reserveret' })
+      tjek('«reserveret» følger søgningens semantik',
+        resT.has(bReserv) && !resT.has(bLedigP) && resT.size === 1, `${resT.size} træf`)
+    } else {
+      console.log('\n  ⊘ alarmens availability-prøver — kildeslugs kan kun oprettes i PGlite')
+    }
+
     // ── Udlejerannoncer maa ikke gaa ud i alarmmails ────────────
     // De faldt foer ud ved et tilfaelde, fordi `native` ikke har nogen
     // koersel i crawl_runs. Nu staar det udtrykkeligt i matchAlarmer, og
