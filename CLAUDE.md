@@ -4,6 +4,23 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 
 ## Må aldrig ske
 
+- **`sources.enabled` må ALDRIG bruges til at slå en kilde fra.** Kolonnen
+  findes i skemaet, `sikreKilde` returnerer den i sit resultat — og så
+  bruges den ikke. **Ingen runtime-kode læser feltet.** Sætter man den til
+  `false` i basen, kører kilden videre nøjagtig som før, mens den, der
+  satte den, tror, at noget er stoppet. Det er værre end ingen knap: en
+  knap, der ikke virker, bruges i en nødsituation.
+
+  Den mekanisme, der FAKTISK holder en kilde ude af automatiske kørsler,
+  er registreringslaget: `kunUdvikling: true` på posten i
+  `adapters/index.ts`. Den springes over i både `rigtigeKilder()` og
+  `koerAlle`, og kilden kan stadig køres ved navn
+  (`npm run import -- <slug>`). Det er sådan Heimstaden holdes tilbage nu.
+
+  Skal `enabled` en dag gøres autoritativ, er det en bevidst opgave med
+  egne prøver — ikke noget, man opdager midt i en nedbrudssituation.
+  Semantikken er UÆNDRET indtil da.
+
 - **Udlejerens egne adressefelter er autoritative. `address_raw` må aldrig
   genparses for `source_type = 'native'`.** Hun taster vej, husnummer, etage
   og dør i hvert sit felt; `address_raw` er en streng, VI bygger af dem til
