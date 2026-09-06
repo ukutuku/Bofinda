@@ -278,10 +278,19 @@ async function main() {
     ledigUkendte: 0, indflytningMin: null, indflytningMax: null,
     ensPoster: true, alleOgsaaAndetsteds: false, nyesteMarkedet: new Date(),
     nogenUdenEl: true, alleUdenElHarEgenMaaler: false, nogenUkendtDaekning: false,
+    availability: {
+      timing: { nu: 0, senere: 0, unknown: 3, conflict: 0 },
+      marked: { paa_markedet: 0, reserveret: 0, udlejet: 0, unknown: 3, conflict: 0 },
+      ansoegning: { normal: 0, venteliste: 0, unknown: 3, conflict: 0 },
+      adgang: { bopaelskrav: 0, medlemskrav: 0 },
+      tidligstSenere: null, ensSenereDato: false,
+    },
     ...o,
   } as unknown as Gruppe)
 
   const vis = (el: React.ReactElement) => renderToStaticMarkup(el)
+  /** Kortenes referenceNow i proeverne — fast, aldrig maskinens ur. */
+  const KORTNU = new Date('2026-09-05T12:00:00Z')
 
   // ── Kalenderdatoer: en dag er ikke et oejeblik ───────────────
   // «Kan overtages 5. september» skal gaelde HELE den 5. september i
@@ -443,6 +452,76 @@ async function main() {
     hjemSag.availableFrom === '2026-10-01', String(hjemSag.availableFrom))
   tjek('… og lejen er sagens egen', hjemSag.rentMonthly === 1200000,
     String(hjemSag.rentMonthly))
+
+  // ── UI læser DOMÆNET — aldrig legacy ─────────────────────────
+  // Fixturerne er bygget så legacy og domæne SIGER NOGET FORSKELLIGT.
+  // Læser kortet igen available_from/application_type til availability,
+  // vælger det den forkerte side, og prøven bliver rød.
+  console.log('\n══ kortet følger domænet, ikke legacy ══')
+  const legacySiger = bolig({
+    kilde: 'native', kildetype: 'native',
+    // LEGACY siger «ledig nu» (dato i fortiden) …
+    ledigFra: new Date('2026-08-01T00:00:00Z'),
+    // … men DOMÆNET siger senere (kildens dato er i fremtiden).
+    availabilityFacts: { sourceAvailabilityDate: '2026-12-01' },
+  })
+  const h1 = vis(createElement(Kort, { nu: KORTNU, b: legacySiger }))
+  tjek('timing fra domænet: «kan overtages fra», ikke legacy «ledig nu»',
+    h1.includes('kan overtages fra 1. december 2026') && !h1.includes('ledig nu'))
+  const h2 = vis(createElement(Kort, { nu: KORTNU, b: bolig({
+    kilde: 'native', kildetype: 'native',
+    ansoegning: 'waiting_list',      // legacy påstår venteliste
+    availabilityFacts: {},           // domænet: ingen evidens
+  }) }))
+  tjek('ventelistemærkat kun fra domænet — legacy application_type ignoreres',
+    !h2.includes('m-vent'))
+  tjek('unknown har ORD, ikke tomhed', h2.includes('overtagelse ikke afklaret'))
+  const h3 = vis(createElement(Kort, { nu: KORTNU, b: bolig({
+    kilde: 'dacas', kildetype: 'spider',
+    availabilityFacts: { takeoverText: 'Snarest' },
+  }) }))
+  tjek('Snarest vises evidensnært, ikke som klassifikationen',
+    h3.includes('overtagelse: snarest') && !h3.includes('kan overtages nu'))
+
+  // ── Gruppekortets sammenfatning: A–E ─────────────────────────
+  console.log('\n══ gruppekortet sammenfatter som tællinger ══')
+  const gAv = (o: Partial<ReturnType<typeof tomSammenfatning>>) =>
+    ({ ...tomSammenfatning(), ...o })
+  function tomSammenfatning() {
+    return {
+      timing: { nu: 0, senere: 0, unknown: 0, conflict: 0 },
+      marked: { paa_markedet: 0, reserveret: 0, udlejet: 0, unknown: 0, conflict: 0 },
+      ansoegning: { normal: 0, venteliste: 0, unknown: 0, conflict: 0 },
+      adgang: { bopaelskrav: 0, medlemskrav: 0 },
+      tidligstSenere: null as string | null, ensSenereDato: false,
+    }
+  }
+  const gruppeHtml = (av: ReturnType<typeof tomSammenfatning>) =>
+    vis(createElement(Gruppekort, { nu: KORTNU, g: gruppe({ availability: av }) }))
+  const gA = gruppeHtml(gAv({ timing: { nu: 1, senere: 2, unknown: 0, conflict: 0 } }))
+  tjek('A: 1 nu + 2 senere → tællinger, ikke én status',
+    gA.includes('1 kan overtages nu · 2 senere'))
+  const gB = gruppeHtml(gAv({ timing: { nu: 0, senere: 2, unknown: 1, conflict: 0 } }))
+  tjek('B: unknown forsvinder ikke ud af en blandet linje',
+    gB.includes('2 senere · 1 uden afklaret overtagelse'))
+  const gC = gruppeHtml(gAv({ timing: { nu: 3, senere: 0, unknown: 0, conflict: 0 },
+    marked: { paa_markedet: 2, reserveret: 1, udlejet: 0, unknown: 0, conflict: 0 } }))
+  tjek('C: delvis reserveret vises som «1 af 3 reserveret»',
+    gC.includes('1 af 3 reserveret'))
+  const gD = gruppeHtml(gAv({ timing: { nu: 3, senere: 0, unknown: 0, conflict: 0 },
+    ansoegning: { normal: 2, venteliste: 1, unknown: 0, conflict: 0 } }))
+  tjek('D: blandet ansøgning vises som tal',
+    gD.includes('1 venteliste · 2 almindelig'))
+  const gE = gruppeHtml(gAv({ timing: { nu: 0, senere: 3, unknown: 0, conflict: 0 },
+    tidligstSenere: '2026-10-01', ensSenereDato: false }))
+  tjek('E: forskellige datoer → «tidligst fra», aldrig som alles dato',
+    gE.includes('tidligst fra 1. oktober 2026') && !gE.includes('kan overtages fra'))
+  const gE2 = gruppeHtml(gAv({ timing: { nu: 0, senere: 3, unknown: 0, conflict: 0 },
+    tidligstSenere: '2026-11-01', ensSenereDato: true }))
+  tjek('… og ens datoer → «kan overtages fra»',
+    gE2.includes('kan overtages fra 1. november 2026'))
+  const ALLE_NU = gruppeHtml(gAv({ timing: { nu: 3, senere: 0, unknown: 0, conflict: 0 } }))
+  tjek('alle nu → én status er ærlig', ALLE_NU.includes('kan overtages nu'))
 
   // ── Availability: fakta, ikke stemmer ────────────────────────
   // Fast referenceNow. Funktionen kalder aldrig systemuret — samme lære
@@ -632,7 +711,7 @@ async function main() {
     // vise linjen, saa proeven ikke bare maaler afvigelsen.
     ['native uden afvigelse', { ...NATIV, adresse: 'Nørrebrogade 30, 2200 København N' }, false],
   ] as const) {
-    const html = vis(createElement(Kort, { b: bolig(b2) }))
+    const html = vis(createElement(Kort, { nu: KORTNU, b: bolig(b2) }))
     const har = html.includes(KILDELINJE)
     tjek(`${navn}: ${skal ? 'linjen står' : 'ingen linje'}`, har === skal,
       har ? 'linjen står' : 'ingen linje')
@@ -650,20 +729,20 @@ async function main() {
   const medBillede = { forside: `${VIST_VAERT}/1.jpg`, billeder: 3 }
   for (const [navn, html, skal] of [
     ['enkeltkort, forbehold + billede',
-      vis(createElement(Kort, { b: bolig({ ...medBillede, billedforbehold: true }) })), true],
+      vis(createElement(Kort, { nu: KORTNU, b: bolig({ ...medBillede, billedforbehold: true }) })), true],
     ['enkeltkort, intet forbehold',
-      vis(createElement(Kort, { b: bolig({ ...medBillede, billedforbehold: false }) })), false],
+      vis(createElement(Kort, { nu: KORTNU, b: bolig({ ...medBillede, billedforbehold: false }) })), false],
     ['gruppekort, forbehold + billede',
-      vis(createElement(Gruppekort, {
+      vis(createElement(Gruppekort, { nu: KORTNU,
         g: gruppe({}, { ...medBillede, billedforbehold: true }),
       })), true],
     ['gruppekort, intet forbehold',
-      vis(createElement(Gruppekort, {
+      vis(createElement(Gruppekort, { nu: KORTNU,
         g: gruppe({}, { ...medBillede, billedforbehold: false }),
       })), false],
     // Uden et billede er der intet at tage forbehold for.
     ['enkeltkort, forbehold men INTET billede',
-      vis(createElement(Kort, { b: bolig({ forside: null, billedforbehold: true }) })), false],
+      vis(createElement(Kort, { nu: KORTNU, b: bolig({ forside: null, billedforbehold: true }) })), false],
   ] as const) {
     const har = html.includes(FORB_KORT)
     tjek(`${navn}: ${skal ? 'linjen står' : 'ingen linje'}`, har === skal,
@@ -686,16 +765,16 @@ async function main() {
   const harElLinje = (html: string) => EL_TEKSTER.some((t) => html.includes(t))
   for (const [navn, html] of [
     ['enkeltkort, ingen total',
-      vis(createElement(Kort, { b: bolig({ total: null, poster: null }) }))],
+      vis(createElement(Kort, { nu: KORTNU, b: bolig({ total: null, poster: null }) }))],
     ['gruppekort, ingen total',
-      vis(createElement(Gruppekort, {
+      vis(createElement(Gruppekort, { nu: KORTNU,
         g: gruppe({
           noegle: { kilde: 'proeve', postnr: '2200', vej: 'Prøvevej', vaerelser: 3, total: false },
           nogenUdenEl: true,
         } as Partial<Gruppe>, { total: null, poster: null }),
       }))],
     ['gruppekort, ingen total, samlet aconto',
-      vis(createElement(Gruppekort, {
+      vis(createElement(Gruppekort, { nu: KORTNU,
         g: gruppe({
           noegle: { kilde: 'proeve', postnr: '2200', vej: 'Prøvevej', vaerelser: 3, total: false },
           nogenUdenEl: true, nogenUkendtDaekning: true,
@@ -709,7 +788,7 @@ async function main() {
   // Praemissen: med en KENDT total skal el-linjen stadig komme. Ellers
   // ville proeven ovenfor bestaa ved at fjerne linjen helt.
   tjek('præmis: med kendt total kommer el-linjen stadig',
-    harElLinje(vis(createElement(Gruppekort, { g: gruppe({ nogenUdenEl: true }) }))))
+    harElLinje(vis(createElement(Gruppekort, { nu: KORTNU, g: gruppe({ nogenUdenEl: true }) }))))
 
   // ── Den fjerde tilstand ──────────────────────────────────────
   // "El er ikke med i tallet" og "vi ved ikke hvad der er i tallet" er to
@@ -732,9 +811,9 @@ async function main() {
     eltilstand({ total: 100, poster: ['rent', 'electricity'], el: 500, elEgenMaaler: null }) === 'med')
 
   for (const [navn, html] of [
-    ['enkeltkort, samlet aconto', vis(createElement(Kort, { b: bolig(KLUMP) }))],
+    ['enkeltkort, samlet aconto', vis(createElement(Kort, { nu: KORTNU, b: bolig(KLUMP) }))],
     ['gruppekort, én med samlet aconto',
-      vis(createElement(Gruppekort, { g: gruppe({ nogenUkendtDaekning: true }, KLUMP) }))],
+      vis(createElement(Gruppekort, { nu: KORTNU, g: gruppe({ nogenUkendtDaekning: true }, KLUMP) }))],
   ] as const) {
     tjek(`${navn}: siger IKKE "El indgår ikke"`, !IKKE_MED.test(html),
       IKKE_MED.test(html) ? 'PÅSTÅR NOGET VI IKKE VED' : '')
@@ -742,10 +821,10 @@ async function main() {
   }
 
   for (const [navn, html] of [
-    ['enkeltkort, el ukendt', vis(createElement(Kort, { b: bolig({}) }))],
-    ['gruppekort, én uden el', vis(createElement(Gruppekort, { g: gruppe({}) }))],
+    ['enkeltkort, el ukendt', vis(createElement(Kort, { nu: KORTNU, b: bolig({}) }))],
+    ['gruppekort, én uden el', vis(createElement(Gruppekort, { nu: KORTNU, g: gruppe({}) }))],
     ['gruppekort, alle uden el', vis(createElement(Gruppekort,
-      { g: gruppe({ nogenUdenEl: true }) }))],
+      { nu: KORTNU, g: gruppe({ nogenUdenEl: true }) }))],
   ] as const) {
     tjek(`${navn}: udspecificeret → "El indgår ikke"`, IKKE_MED.test(html))
     const groen = GROEN.test(html)
@@ -756,16 +835,16 @@ async function main() {
 
   // Modstykket: er el faktisk oplyst, skal linjen IKKE staa — ellers ville
   // proeven kunne bestaa ved bare at skrive den paa alting.
-  const medEl = vis(createElement(Kort, {
+  const medEl = vis(createElement(Kort, { nu: KORTNU,
     b: bolig({ el: 30000, poster: ['rent', 'heat', 'water', 'electricity'], total: 1330000 }),
   }))
   tjek('enkeltkort med el: ingen el-linje', !ELTEKST.test(medEl))
-  const gruppeMedEl = vis(createElement(Gruppekort, { g: gruppe({ nogenUdenEl: false }) }))
+  const gruppeMedEl = vis(createElement(Gruppekort, { nu: KORTNU, g: gruppe({ nogenUdenEl: false }) }))
   tjek('gruppekort hvor alle har el: ingen el-linje', !ELTEKST.test(gruppeMedEl))
 
   // Og den staerkere formulering kun naar kilden selv siger det.
   const egen = vis(createElement(Gruppekort,
-    { g: gruppe({ nogenUdenEl: true, alleUdenElHarEgenMaaler: true }) }))
+    { nu: KORTNU, g: gruppe({ nogenUdenEl: true, alleUdenElHarEgenMaaler: true }) }))
   tjek('gruppekort med egen elmåler: kildens egen formulering',
     /el afregnes direkte/.test(egen))
 
@@ -789,9 +868,9 @@ async function main() {
 
   for (const [navn, html] of [
     ['enkeltkort, fremmed vært',
-      vis(createElement(Kort, { b: bolig({ forside: FREMMED, billeder: 20 }) }))],
+      vis(createElement(Kort, { nu: KORTNU, b: bolig({ forside: FREMMED, billeder: 20 }) }))],
     ['gruppekort, fremmed vært',
-      vis(createElement(Gruppekort, { g: gruppe({}, { forside: FREMMED, billeder: 20 }) }))],
+      vis(createElement(Gruppekort, { nu: KORTNU, g: gruppe({}, { forside: FREMMED, billeder: 20 }) }))],
   ] as const) {
     tjek(`${navn}: klassen uden-billede sættes`, /uden-billede/.test(html),
       /uden-billede/.test(html) ? '' : 'TOM BILLEDKOLONNE — teksten klemmes')
@@ -803,9 +882,9 @@ async function main() {
   // klassen paa alting.
   for (const [navn, html] of [
     ['enkeltkort, tilladt vært',
-      vis(createElement(Kort, { b: bolig({ forside: TILLADT, billeder: 3 }) }))],
+      vis(createElement(Kort, { nu: KORTNU, b: bolig({ forside: TILLADT, billeder: 3 }) }))],
     ['gruppekort, tilladt vært',
-      vis(createElement(Gruppekort, { g: gruppe({}, { forside: TILLADT, billeder: 3 }) }))],
+      vis(createElement(Gruppekort, { nu: KORTNU, g: gruppe({}, { forside: TILLADT, billeder: 3 }) }))],
   ] as const) {
     tjek(`${navn}: INGEN uden-billede`, !/uden-billede/.test(html))
     tjek(`${navn}: og billedet tegnes`, /<img[^>]+\/api\/billede/.test(html))
@@ -970,7 +1049,7 @@ async function main() {
       String(skjult.billeder))
     tjek('… og forsiden er null', skjult.forside == null, String(skjult.forside))
     tjek('… og kortet SIGER "ingen billeder"',
-      /ingen billeder/.test(vis(createElement(Kort, { b: skjult }))))
+      /ingen billeder/.test(vis(createElement(Kort, { nu: KORTNU, b: skjult }))))
 
     await saetBilleder([...Array.from({ length: 3 }, (_, i) => `${VIST_VAERT}/ok${i}.jpg`),
                         ...Array.from({ length: 2 }, (_, i) => `${SKJULT_VAERT}/nej${i}.jpg`)])
@@ -980,7 +1059,7 @@ async function main() {
     tjek('… og forsiden er en tilladt URL',
       blandet.forside != null && blandet.forside.startsWith(VIST_VAERT), String(blandet.forside))
     tjek('… og kortet siger IKKE "ingen billeder"',
-      !/ingen billeder/.test(vis(createElement(Kort, { b: blandet }))))
+      !/ingen billeder/.test(vis(createElement(Kort, { nu: KORTNU, b: blandet }))))
 
     // Tilbage til udgangspunktet, saa de foelgende proever ser det de forventer.
     await saetBilleder(FULDT.billeder)

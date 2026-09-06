@@ -12,6 +12,12 @@ import { listingImages, listings, sources } from '../db/schema'
 import { FACILITET } from './faciliteter'
 import { TILLADTE_VAERTER } from './billede'
 import { INDKOERING_TIMER } from './indkoering'
+import { KILDEKONTRAKTER } from './kildekontrakt'
+import { laesAvailabilityFacts } from './fakta'
+import {
+  fortolkAvailability, sammenfatGruppe,
+  type Availability, type Gruppesammenfatning,
+} from './availability'
 
 export interface Filtre {
   by?: string
@@ -30,6 +36,13 @@ export interface Filtre {
   /** Altan ELLER terrasse. To ord for den samme slags plads udenfor. */
   udeplads?: boolean
   sorter?: Sortering
+  // ── Availability-filtrene. De kan IKKE oversaettes til SQL: svaret
+  // afhaenger af kildekontrakten og referenceNow, saa soeg() henter
+  // kandidaterne og filtrerer gennem fortolkAvailability. Aldrig raa
+  // jsonb, aldrig legacy-kolonner.
+  overtagelse?: 'nu' | 'senere'
+  ansoegningsform?: 'venteliste'
+  markedsstatus?: 'reserveret'
 }
 
 export type Boligtype = (typeof listings.propertyType.enumValues)[number]
@@ -420,6 +433,9 @@ const KORTFELTER = {
   // TYPEN, ikke til slug'en: `sources.slug` er 'native' for alle
   // udlejerannoncer i dag, men det er et navn, og typen er egenskaben.
   kildetype: listings.sourceType,
+  // Raa availability-facts. Fortolkes ALDRIG her — kun gennem
+  // laesAvailabilityFacts + kildekontrakten + fortolkAvailability.
+  availabilityFacts: listings.availabilityFacts,
   // Kun billeder vi FAKTISK kan vise. Se VISBAR_VAERT.
   billeder: sql<number>`(select count(*)::int from listing_images i
     where i.listing_id = ${listings.id} and ${VISBAR_VAERT})`,
@@ -437,10 +453,41 @@ const KORTFELTER = {
     where ${SAMME_BOLIG_ANDEN_KILDE})`,
 } as const
 
+/**
+ * Availability for ÉN raekke — det ENESTE sted, sti fra kolonne til
+ * domaene ligger. En kilde uden kontrakt (proevekilder) giver alt-unknown
+ * frem for et kast.
+ */
+export function availabilityFor(
+  b: { availabilityFacts: unknown; kilde: string }, referenceNow: Date,
+): Availability {
+  const kontrakt = KILDEKONTRAKTER[b.kilde]
+  const fakta = laesAvailabilityFacts(b.availabilityFacts) ?? {}
+  if (!kontrakt) {
+    return fortolkAvailability({}, {
+      kilde: b.kilde, statusser: {}, datofelt: null,
+      ansoegningsform: null, overtagelsestekst: null, direkteSignaler: {},
+    }, referenceNow)
+  }
+  return fortolkAvailability(fakta, kontrakt, referenceNow)
+}
+
+const matcherDomaene = (f: Filtre, a: Availability): boolean =>
+  (f.overtagelse == null || a.timing.status === f.overtagelse)
+  && (f.ansoegningsform == null || a.ansoegning.status === f.ansoegningsform)
+  && (f.markedsstatus == null || a.marked.status === f.markedsstatus)
+
+const harDomaenefilter = (f: Filtre): boolean =>
+  f.overtagelse != null || f.ansoegningsform != null || f.markedsstatus != null
+
+/** Loft naar domaenet skal filtrere: kandidaterne kan ikke begraenses i
+ *  SQL, saa de hentes bredt og skaeres i JS. Hele bestanden er ~1.500. */
+const DOMAENEKANDIDATER = 3000
+
 // 48 og ikke 200: hvert kort henter et billede gennem proxyen, og to hundrede
 // paa én side er baade en langsom side og en unoedig belastning af kilderne.
-export async function soeg(f: Filtre, graense = 48) {
-  return db
+export async function soeg(f: Filtre, graense = 48, referenceNow: Date = new Date()) {
+  const q = db
     .select(KORTFELTER)
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
@@ -448,10 +495,41 @@ export async function soeg(f: Filtre, graense = 48) {
     // gang. `hvor()` alene hoerer til alarmen, som matcher paa raekkerne.
     .where(hvorVist(f))
     .orderBy(ORDEN[f.sorter ?? 'nyeste'])
-    .limit(graense)
+  if (!harDomaenefilter(f)) return q.limit(graense)
+  // Domaenefiltrering: SQL kan ikke afgoere det — kontrakt + referenceNow
+  // skal til. Kandidaterne hentes bredt, fortolkes, og skaeres bagefter.
+  const alle = await q.limit(DOMAENEKANDIDATER)
+  return alle.filter((r) => matcherDomaene(f, availabilityFor(r, referenceNow))).slice(0, graense)
 }
 
 export type Bolig = Awaited<ReturnType<typeof soeg>>[number]
+
+/**
+ * Grundlaget under availability-filtrene og forsidens linje — for DEN
+ * AKTUELLE soegning: soeger brugeren i 2300, gaelder tallene 2300.
+ *
+ * Domaenefiltrene selv holdes UDE af grundlaget (ellers beskrev linjen
+ * kun det, filteret allerede har beskaaret), praecis som
+ * facilitetsgrundlaget stripper facilitetsfiltrene.
+ */
+export async function availabilityGrundlag(f: Filtre, referenceNow: Date = new Date()) {
+  const basis: Filtre = { ...f, overtagelse: undefined, ansoegningsform: undefined, markedsstatus: undefined }
+  const raekker = await db
+    .select({ availabilityFacts: listings.availabilityFacts, kilde: sources.slug })
+    .from(listings)
+    .innerJoin(sources, eq(sources.id, listings.sourceId))
+    .where(hvorVist(basis))
+  const timing = { nu: 0, senere: 0, unknown: 0, conflict: 0 }
+  const ansoegning = { normal: 0, venteliste: 0, unknown: 0, conflict: 0 }
+  const marked = { paa_markedet: 0, reserveret: 0, udlejet: 0, unknown: 0, conflict: 0 }
+  for (const r of raekker) {
+    const a = availabilityFor(r, referenceNow)
+    timing[a.timing.status]++
+    ansoegning[a.ansoegning.status]++
+    marked[a.marked.status]++
+  }
+  return { ialt: raekker.length, timing, ansoegning, marked }
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  Gruppering af ens boliger.
@@ -520,6 +598,8 @@ export interface Gruppe {
   ledigMin: Date | null
   ledigMax: Date | null
   ledigUkendte: number
+  /** Medlemmernes availability, sammenfattet som TÆLLINGER pr. akse. */
+  availability: Gruppesammenfatning
   indflytningMin: number | null
   indflytningMax: number | null
   /** Har alle samme aconto-poster? Ellers står posterne ikke på kortet. */
@@ -576,7 +656,9 @@ async function korteneFor(ider: string[]): Promise<Map<string, Bolig>> {
  * `graense` tæller KORT, ikke boliger. Ellers ville én gruppe på femten
  * spise en tredjedel af siden og efterlade plads til 33 andre.
  */
-export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]> {
+export async function soegGrupperet(
+  f: Filtre, graense = 48, referenceNow: Date = new Date(),
+): Promise<Visning[]> {
   const raekker = await db
     .select({
       kilde: sources.slug,
@@ -599,6 +681,10 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
       ledigMinMs: sql<number | null>`(extract(epoch from min(${listings.availableFrom})) * 1000)::float8`,
       ledigMaxMs: sql<number | null>`(extract(epoch from max(${listings.availableFrom})) * 1000)::float8`,
       ledigUkendte: sql<number>`count(*) filter (where ${listings.availableFrom} is null)::int`,
+      // ALLE medlemmers facts, i samme raekkefoelge som intet — de
+      // fortolkes enkeltvis og sammenfattes som taellinger. Kilden er ens
+      // for hele gruppen (den staar i noeglen), saa én kontrakt daekker.
+      alleFactsJson: sql<unknown[]>`json_agg(${listings.availabilityFacts})`,
       indflytningMin: sql<number | null>`min(${listings.moveInCost})::int`,
       indflytningMax: sql<number | null>`max(${listings.moveInCost})::int`,
       // coalesce, fordi count(distinct) springer null over: ellers ville
@@ -648,11 +734,24 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
   for (const r of raekker) {
     const bolig = kort.get(r.repraesentant)
     if (!bolig) continue
+    // Medlemmernes availability — fortolket enkeltvis, sammenfattet som
+    // taellinger. Kilden staar i noeglen, saa én kontrakt daekker alle.
+    const medlemmer = (r.alleFactsJson ?? []).map((facts) =>
+      availabilityFor({ availabilityFacts: facts, kilde: r.kilde }, referenceNow))
+    const sammenfatning = sammenfatGruppe(medlemmer)
     // En gruppe på én er ikke en gruppe.
     if (r.antal < 2 || r.postnr == null || r.vej == null || r.vaerelser == null
       || r.prisMin == null || r.prisMax == null) {
+      if (harDomaenefilter(f)
+        && !matcherDomaene(f, availabilityFor(bolig, referenceNow))) continue
       ud.push({ slags: 'bolig', bolig })
       continue
+    }
+    // Et domaenefilter rammer gruppen, hvis MINDST ét medlem matcher —
+    // kortet viser taellingerne, saa brugeren ser hvor mange.
+    if (harDomaenefilter(f)) {
+      const nogen = medlemmer.some((m) => matcherDomaene(f, m))
+      if (!nogen) continue
     }
     ud.push({
       slags: 'gruppe',
@@ -669,6 +768,7 @@ export async function soegGrupperet(f: Filtre, graense = 48): Promise<Visning[]>
         ledigMin: r.ledigMinMs == null ? null : new Date(r.ledigMinMs),
         ledigMax: r.ledigMaxMs == null ? null : new Date(r.ledigMaxMs),
         ledigUkendte: r.ledigUkendte,
+        availability: sammenfatning,
         indflytningMin: r.indflytningMin, indflytningMax: r.indflytningMax,
         ensPoster: r.postsaet === 1,
         nogenUdenEl: r.nogenUdenEl ?? false,
@@ -999,6 +1099,7 @@ export async function hentBolig(id: string) {
       el: listings.utilitiesElectricity,
       elEgenMaaler: listings.electricityOwnMeter,
       billedforbehold: listings.imagesMayDiffer,
+      availabilityFacts: listings.availabilityFacts,
       oevrig: listings.utilitiesOther,
       total: listings.totalMonthly,
       poster: listings.totalMonthlyComponents,
@@ -1113,6 +1214,11 @@ export function filtreFraParametre(sp: Soegeparametre): Filtre {
     kaeledyr: en(sp.kaeledyr) === '1',
     elevator: en(sp.elevator) === '1',
     udeplads: en(sp.udeplads) === '1',
+    // Availability-filtrene. Ukendte vaerdier kasseres som alt andet.
+    overtagelse: en(sp.overtagelse) === 'nu' ? 'nu'
+      : en(sp.overtagelse) === 'senere' ? 'senere' : undefined,
+    ansoegningsform: en(sp.venteliste) === '1' ? 'venteliste' : undefined,
+    markedsstatus: en(sp.reserveret) === '1' ? 'reserveret' : undefined,
     sorter,
   }
 }
@@ -1122,7 +1228,8 @@ export function filtreFraParametre(sp: Soegeparametre): Filtre {
 export function harFiltre(f: Filtre): boolean {
   return Boolean(f.by || f.postnr || f.prisMin != null || f.prisMax != null
     || f.vaerelserMin != null || f.arealMin != null || f.kilder?.length || f.fuldOekonomi
-    || f.boligtyper?.length || f.kaeledyr || f.elevator || f.udeplads)
+    || f.boligtyper?.length || f.kaeledyr || f.elevator || f.udeplads
+    || f.overtagelse != null || f.ansoegningsform != null || f.markedsstatus != null)
 }
 
 // ═══════════════════════════════════════════════════════════════

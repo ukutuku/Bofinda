@@ -218,3 +218,52 @@ export function forklar(a: Akse<string>): string[] {
   return Object.entries(a.uenighed ?? {}).flatMap(([e, ss]) =>
     [`── ${e} ──`, ...ss.map(linje)])
 }
+
+// ─── Gruppesammenfatning ───────────────────────────────────────
+
+/**
+ * Availability for en GRUPPE af boliger — som tællinger, aldrig som én
+ * status. Et gruppekort må ikke fremstille hele gruppen som ét svar, når
+ * medlemmerne er forskellige, og unknown må aldrig forsvinde ud af en
+ * blandet linje.
+ *
+ * `tidligsteNu`-datoen er den TIDLIGSTE dokumenterede mulighed blandt
+ * medlemmer med timing-evidens — copy'en skal sige «tidligst», så den
+ * ikke lyder som om alle deler datoen.
+ */
+export interface Gruppesammenfatning {
+  timing: Readonly<Record<Timingstatus, number>>
+  marked: Readonly<Record<Markedsstatus, number>>
+  ansoegning: Readonly<Record<Ansoegningsstatus, number>>
+  adgang: Readonly<Record<Adgangskrav, number>>
+  /** Tidligste dokumenterede overtagelsesdato blandt `senere`-medlemmer. */
+  tidligstSenere: string | null
+  /** Er alle datoer blandt senere-medlemmerne ens? Styrer «fra» vs «tidligst». */
+  ensSenereDato: boolean
+}
+
+export function sammenfatGruppe(medlemmer: readonly Availability[]): Gruppesammenfatning {
+  const timing = { nu: 0, senere: 0, unknown: 0, conflict: 0 }
+  const marked = { paa_markedet: 0, reserveret: 0, udlejet: 0, unknown: 0, conflict: 0 }
+  const ansoegning = { normal: 0, venteliste: 0, unknown: 0, conflict: 0 }
+  const adgang: Record<Adgangskrav, number> = { bopaelskrav: 0, medlemskrav: 0 }
+  const senereDatoer: string[] = []
+  for (const m of medlemmer) {
+    timing[m.timing.status]++
+    marked[m.marked.status]++
+    ansoegning[m.ansoegning.status]++
+    for (const k of m.adgang.krav) adgang[k]++
+    if (m.timing.status === 'senere') {
+      const d = m.timing.evidens.find((e) => e.faktum === 'sourceAvailabilityDate')
+      if (d) senereDatoer.push(d.vaerdi)
+    }
+  }
+  senereDatoer.sort()
+  return {
+    timing, marked, ansoegning, adgang,
+    tidligstSenere: senereDatoer[0] ?? null,
+    ensSenereDato: senereDatoer.length > 1
+      ? senereDatoer.every((d) => d === senereDatoer[0])
+      : senereDatoer.length === 1,
+  }
+}

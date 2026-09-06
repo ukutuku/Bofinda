@@ -39,6 +39,7 @@ export default async function Side(
   const sp = await searchParams
   const b = Array.isArray(sp.b) ? sp.b[0] : sp.b
   const n = b ? await gruppenoegleFraBolig(b.trim()) : gruppenoegleFra(sp)
+  const nu = new Date()
   const boliger = n ? await hentGruppe(n) : []
 
   if (!n || boliger.length === 0) {
@@ -73,7 +74,7 @@ export default async function Side(
 
       <h1>{n.vej}</h1>
       <p className="gruppe-manchet">
-        <strong>{boliger.length} ledige {ord}</strong> med {n.vaerelser}{' '}
+        <strong>{boliger.length} {ord}</strong> med {n.vaerelser}{' '}
         {n.vaerelser === 1 ? 'værelse' : 'værelser'}, fra {boliger[0]!.kildeNavn}.
         Boligerne kan være forskellige i pris, areal og indflytningsdato — det
         står på hver enkelt nedenfor.
@@ -89,7 +90,7 @@ export default async function Side(
       </div>
 
       <div className="liste">
-        {boliger.map((b) => <Kort key={b.id} b={b} />)}
+        {boliger.map((b) => <Kort key={b.id} b={b} nu={nu} />)}
       </div>
     </div>
   )

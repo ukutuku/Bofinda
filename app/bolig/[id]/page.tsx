@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
-import { hentBolig, kvadratmeterpris, type BoligDetalje } from '../../../lib/soeg'
+import { availabilityFor, hentBolig, kvadratmeterpris, type BoligDetalje } from '../../../lib/soeg'
+import { forklar } from '../../../lib/availability'
 import { billedUrl } from '../../../lib/billede'
 import { eltilstand } from '../../../lib/eloplysning'
 import { Galleri } from './Galleri'
@@ -45,9 +46,20 @@ function adresselinje(b: BoligDetalje): string {
 
 // ─── Siden ─────────────────────────────────────────────────────
 
+const MDR_ISO = ['januar','februar','marts','april','maj','juni',
+  'juli','august','september','oktober','november','december']
+const datoIso = (iso: string) => {
+  const [aar, md, dag] = iso.split('-').map(Number)
+  return `${dag}. ${MDR_ISO[md! - 1]} ${aar}`
+}
+
 export default async function Side({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const b = await hentBolig(id)
+  // ReferenceNow: ét eksplicit nu pr. request. Availability kommer fra
+  // DOMÆNET — aldrig fra legacy ledigFra/ansoegning.
+  const nu = new Date()
+  const avail = b ? availabilityFor(b, nu) : null
   if (!b) notFound()
 
   const galleri = b.billeder
@@ -232,11 +244,14 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
           </div>
           <div className="maerkater">
             {b.status === 'delisted' && <span className="maerkat m-vaek">ikke længere ledig</span>}
-            {b.ansoegning === 'waiting_list'
-              ? <span className="maerkat m-vent">Venteliste · efter anciennitet</span>
-              : b.ansoegning === 'regular'
-                ? <span className="maerkat m-ny">Først til mølle</span>
-                : null}
+            {avail!.ansoegning.status === 'venteliste'
+              && <span className="maerkat m-vent">Venteliste · efter anciennitet</span>}
+            {avail!.ansoegning.status === 'normal'
+              && <span className="maerkat m-ny">Almindelig ansøgning</span>}
+            {avail!.marked.status === 'reserveret'
+              && <span className="maerkat m-vent">Reserveret</span>}
+            {avail!.adgang.krav.includes('bopaelskrav')
+              && <span className="maerkat m-kilde">Bopælspligt</span>}
           </div>
         </header>
 
@@ -288,14 +303,51 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
                   <dd>{b.etage === 'st' ? 'Stuen' : b.etage === 'kl' ? 'Kælder' : `${b.etage}.`}</dd></>
               )}
               {b.doer && <><dt>Dør</dt><dd>{b.doer}</dd></>}
-              <dt>Ledig fra</dt>
-              <dd>{b.ledigFra
-                ? (b.ledigFra.getTime() <= Date.now() ? 'Nu' : dato(b.ledigFra))
-                : <span className="mangler">ikke oplyst</span>}</dd>
+              {/* Domænet klassificerer; visningen må være MERE præcis, når
+                  den rå evidens tillader det: «Snarest» vises som kildens
+                  eget ord, ikke som klassifikationen. Og unknown får ORD —
+                  fravær af viden skal kunne ses. */}
+              <dt>Overtagelse</dt>
+              <dd>{(() => {
+                const t = avail!.timing
+                if (t.status === 'nu') {
+                  const kunTekst = t.evidens.length > 0
+                    && t.evidens.every((e) => e.faktum === 'takeoverText')
+                  return kunTekst ? 'Snarest' : 'Kan overtages nu'
+                }
+                if (t.status === 'senere') {
+                  const d = t.evidens.find((e) => e.faktum === 'sourceAvailabilityDate')?.vaerdi
+                  return d ? `Kan overtages fra ${datoIso(d)}` : 'Kan overtages senere'
+                }
+                if (t.status === 'conflict') return 'Modstridende oplysninger fra kilden'
+                return <span className="mangler">
+                  Bofinda kan ikke fastslå, hvornår boligen kan overtages ud fra
+                  de oplysninger, vi har fra kilden.
+                </span>
+              })()}</dd>
+              <dt>Ansøgning</dt>
+              <dd>{avail!.ansoegning.status === 'venteliste' ? 'Venteliste — efter anciennitet'
+                : avail!.ansoegning.status === 'normal' ? 'Almindelig ansøgning'
+                : <span className="mangler">Kilden oplyser ikke ansøgningsformen.</span>}</dd>
+              {avail!.marked.status !== 'paa_markedet' && (
+                <><dt>Status hos kilden</dt>
+                  <dd>{avail!.marked.status === 'reserveret'
+                    ? 'Reserveret — en anden har fået første ret'
+                    : avail!.marked.status === 'udlejet' ? 'Udlejet'
+                    : <span className="mangler">ikke oplyst</span>}</dd></>
+              )}
               {b.aabentHus && <><dt>Åbent hus</dt><dd>{dato(b.aabentHus)}</dd></>}
               <dt>Kilde</dt>
               <dd>{b.egenAnnonce ? 'Udlejeren selv' : b.kildeNavn}</dd>
             </dl>
+            {avail!.timing.status === 'conflict' && (
+              /* Konflikten er et datakvalitetsfund og skjules ikke: begge
+                 sider af uenigheden vises, som domænet så dem. */
+              <p className="note">
+                Kilden giver modstridende oplysninger om overtagelsen:{' '}
+                {forklar(avail!.timing).filter((l) => !l.startsWith('──')).join(' · ')}
+              </p>
+            )}
           </section>
 
           {b.faciliteter && b.faciliteter.length > 0 && (

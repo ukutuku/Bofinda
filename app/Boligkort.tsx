@@ -5,7 +5,8 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { Bolig, Gruppe, Visning } from '../lib/soeg'
-import { gruppeUrl } from '../lib/soeg'
+import { availabilityFor, gruppeUrl } from '../lib/soeg'
+import type { Availability, Gruppesammenfatning } from '../lib/availability'
 import { billedUrl } from '../lib/billede'
 import { eltilstand, type Eltilstand } from '../lib/eloplysning'
 
@@ -18,6 +19,55 @@ const MDR = ['januar','februar','marts','april','maj','juni',
              'juli','august','september','oktober','november','december']
 
 const dato = (d: Date | null) => d ? `${d.getDate()}. ${MDR[d.getMonth()]} ${d.getFullYear()}` : null
+/** «2026-11-01» → «1. november 2026». Kalenderdag, ingen tidszone-regning. */
+const datoIso = (iso: string) => {
+  const [aar, md, dag] = iso.split('-').map(Number)
+  return `${dag}. ${MDR[md! - 1]} ${aar}`
+}
+
+/**
+ * Overtagelseslinjen for ÉN bolig. Domænet klassificerer til filtrering;
+ * visningen må være MERE præcis, når den rå evidens tillader det —
+ * derfor viser Dacas' «Snarest» ordet frem for klassifikationen.
+ * `unknown` får ORD, aldrig tomhed: fravær af viden skal kunne ses.
+ */
+function overtagelsesTekst(a: Availability): string {
+  switch (a.timing.status) {
+    case 'nu': {
+      const kunTekst = a.timing.evidens.length > 0
+        && a.timing.evidens.every((e) => e.faktum === 'takeoverText')
+      return kunTekst ? 'overtagelse: snarest' : 'kan overtages nu'
+    }
+    case 'senere': {
+      const d = a.timing.evidens.find((e) => e.faktum === 'sourceAvailabilityDate')?.vaerdi
+      return d ? `kan overtages fra ${datoIso(d)}` : 'kan overtages senere'
+    }
+    case 'conflict': return 'modstridende oplysninger om overtagelse'
+    default: return 'overtagelse ikke afklaret'
+  }
+}
+
+/** Gruppens overtagelseslinje — tællinger, aldrig én status for alle. */
+function gruppeOvertagelse(g: Gruppesammenfatning): string {
+  const t = g.timing
+  const kun = (x: number) => x > 0 && t.nu + t.senere + t.unknown + t.conflict === x
+  if (kun(t.nu)) return 'kan overtages nu'
+  if (kun(t.unknown)) return 'overtagelse ikke afklaret'
+  if (kun(t.senere)) {
+    if (!g.tidligstSenere) return 'kan overtages senere'
+    // «tidligst» siger udtrykkeligt, at det er den TIDLIGSTE dokumenterede
+    // mulighed — ikke at alle deler datoen.
+    return g.ensSenereDato
+      ? `kan overtages fra ${datoIso(g.tidligstSenere)}`
+      : `tidligst fra ${datoIso(g.tidligstSenere)}`
+  }
+  const dele: string[] = []
+  if (t.nu) dele.push(`${t.nu} kan overtages nu`)
+  if (t.senere) dele.push(`${t.senere} senere`)
+  if (t.conflict) dele.push(`${t.conflict} med modstridende oplysninger`)
+  if (t.unknown) dele.push(`${t.unknown} uden afklaret overtagelse`)
+  return dele.join(' · ')
+}
 
 /** "for 3 timer siden". Bygget paa first_seen_at — hvornaar VI saa den. */
 function siden(d: Date): string {
@@ -105,7 +155,10 @@ function Kilder({ navn, ogsaa }: { navn: string; ogsaa: string[] }) {
 
 // ─── Kortet ────────────────────────────────────────────────────
 
-export function Kort({ b }: { b: Bolig }) {
+export function Kort({ b, nu }: { b: Bolig; nu: Date }) {
+  // Availability fra DOMÆNET — aldrig fra legacy ledigFra/ansoegning, og
+  // aldrig fra Date.now(): referenceNow kommer eksplicit fra siden.
+  const avail = availabilityFor(b, nu)
   // Hvor laenge boligen har vaeret til leje, ikke hvor laenge den har ligget
   // i vores base. Ved foerste import er alt "set for 9 min. siden", og et
   // maerkat der siger "ny" om en annonce fra juli er en loegn.
@@ -115,8 +168,7 @@ export function Kort({ b }: { b: Bolig }) {
     b.areal != null ? <><b>{b.areal}</b> m²</> : null,
     b.vaerelser != null ? <><b>{b.vaerelser}</b> {b.vaerelser === 1 ? 'værelse' : 'værelser'}</> : null,
     typeord(b.type),
-    // En dato i fortiden betyder ikke "ledig 15. juni" — den betyder ledig nu.
-    b.ledigFra ? (b.ledigFra.getTime() <= Date.now() ? 'ledig nu' : `ledig fra ${dato(b.ledigFra)}`) : null,
+    overtagelsesTekst(avail),
   ].filter(Boolean)
 
   const aconto = (b.poster ?? []).filter((p) => p !== 'rent').map((p) => POSTNAVN[p] ?? p)
@@ -178,7 +230,12 @@ export function Kort({ b }: { b: Bolig }) {
             )}
           </div>
           <div className="hoejre">
-            {b.ansoegning === 'waiting_list' && <span className="maerkat m-vent">venteliste</span>}
+            {avail.ansoegning.status === 'venteliste'
+              && <span className="maerkat m-vent">venteliste</span>}
+            {avail.marked.status === 'reserveret'
+              && <span className="maerkat m-vent">reserveret</span>}
+            {avail.adgang.krav.includes('bopaelskrav')
+              && <span className="maerkat m-kilde">bopælspligt</span>}
             {nyligt && <span className="maerkat m-ny">ny {siden(paaMarkedet)}</span>}
             {/* Boligen vises én gang, selv om flere kilder annoncerer den.
                 Så skal kortet også sige, hvem der har den — ikke lade som
@@ -251,16 +308,13 @@ export function Kort({ b }: { b: Bolig }) {
 //  Er aconto-posterne ikke ens, står de slet ikke.
 // ═══════════════════════════════════════════════════════════════
 
-export function Gruppekort({ g }: { g: Gruppe }) {
+export function Gruppekort({ g, nu }: { g: Gruppe; nu: Date }) {
   const { noegle: n, repraesentant: r } = g
-  const nyligt = Date.now() - g.nyesteMarkedet.getTime() < 1000 * 60 * 60 * 24 * 3
+  const nyligt = nu.getTime() - g.nyesteMarkedet.getTime() < 1000 * 60 * 60 * 24 * 3
 
-  const ensLedig = g.ledigUkendte === 0 && g.ledigMin != null && g.ledigMax != null
-    && g.ledigMin.getTime() === g.ledigMax.getTime()
-  const ledig = ensLedig
-    ? (g.ledigMin!.getTime() <= Date.now() ? 'ledig nu' : `ledig fra ${dato(g.ledigMin!)}`)
-    : g.ledigUkendte === g.antal ? null
-    : 'flere ledigdatoer'
+  // Overtagelsen sammenfattes af MEDLEMMERNES domæneresultater — som
+  // tællinger, aldrig som én status for alle. Aldrig legacy ledigMin/Max.
+  const ledig = gruppeOvertagelse(g.availability)
 
   // Typen staar allerede i underlinjen ("3 ledige raekkehuse") — den skal
   // ikke ogsaa staa her.
@@ -269,6 +323,18 @@ export function Gruppekort({ g }: { g: Gruppe }) {
     <><b>{n.vaerelser}</b> {n.vaerelser === 1 ? 'værelse' : 'værelser'}</>,
     ledig,
   ].filter(Boolean)
+  const av = g.availability
+  // Blandet ansøgningsform/marked vises som tal — unknown forsvinder
+  // aldrig ud af en blandet linje.
+  const alleVenteliste = av.ansoegning.venteliste === g.antal
+  const blandetAnsoegning = !alleVenteliste && av.ansoegning.venteliste > 0
+    ? `${av.ansoegning.venteliste} venteliste · ${av.ansoegning.normal} almindelig`
+      + (av.ansoegning.unknown ? ` · ${av.ansoegning.unknown} uoplyst` : '')
+    : null
+  const alleReserveret = av.marked.reserveret === g.antal
+  const delvisReserveret = !alleReserveret && av.marked.reserveret > 0
+    ? `${av.marked.reserveret} af ${g.antal} reserveret` : null
+  const alleBopael = av.adgang.bopaelskrav === g.antal
 
   const aconto = (r.poster ?? []).filter((p) => p !== 'rent').map((p) => POSTNAVN[p] ?? p)
   const forside = r.forside && billedUrl(r.forside, 400)
@@ -302,13 +368,16 @@ export function Gruppekort({ g }: { g: Gruppe }) {
           <div>
             <div className="adresse">{n.vej}</div>
             <div className="sted">
-              {n.postnr} {r.by} · {g.antal} ledige {typeord(g.type, true)}
+              {n.postnr} {r.by} · {g.antal} {typeord(g.type, true)}
             </div>
           </div>
           <div className="hoejre">
             {/* "ny bolig", ikke "ny": det er én i gruppen, der er kommet
                 til — ikke dem alle. */}
             {nyligt && <span className="maerkat m-ny">ny bolig {siden(g.nyesteMarkedet)}</span>}
+            {alleVenteliste && <span className="maerkat m-vent">venteliste</span>}
+            {alleReserveret && <span className="maerkat m-vent">reserveret</span>}
+            {alleBopael && <span className="maerkat m-kilde">bopælspligt</span>}
             {/* Kun naar det gaelder hele gruppen — ellers ville
                 repraesentanten tale for de andre. */}
             <Kilder navn={r.kildeNavn} ogsaa={g.alleOgsaaAndetsteds ? r.ogsaaHos : []} />
@@ -318,6 +387,11 @@ export function Gruppekort({ g }: { g: Gruppe }) {
         <div className="fakta">
           {fakta.map((f, i) => <span key={i}>{i > 0 && ' · '}{f}</span>)}
         </div>
+        {/* Blandet ansøgningsform/markedsstatus vises som TAL — kortet må
+            ikke lade en delmængdes status tale for hele gruppen, og
+            unknown forsvinder aldrig ud af en blandet linje. */}
+        {blandetAnsoegning && <div className="el">{blandetAnsoegning}</div>}
+        {delvisReserveret && <div className="el">{delvisReserveret}</div>}
 
         <div className="oekonomi-linje">
           <div className={n.total ? 'kort-pris' : 'kort-pris kun-leje'}>
@@ -422,6 +496,6 @@ function Ellinje({ tilstand }: { tilstand: Eltilstand | null }) {
   )
 }
 
-export function Visningskort({ v }: { v: Visning }) {
-  return v.slags === 'gruppe' ? <Gruppekort g={v.gruppe} /> : <Kort b={v.bolig} />
+export function Visningskort({ v, nu }: { v: Visning; nu: Date }) {
+  return v.slags === 'gruppe' ? <Gruppekort g={v.gruppe} nu={nu} /> : <Kort b={v.bolig} nu={nu} />
 }

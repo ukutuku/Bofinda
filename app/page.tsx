@@ -1,7 +1,7 @@
 import {
   antalBoliger, facilitetsgrundlag, filtreFraParametre, harFiltre, oekonomigrundlag,
   tavseKilder,
-  opsummering, soegGrupperet, type Soegeparametre,
+  availabilityGrundlag, opsummering, soegGrupperet, type Soegeparametre,
 } from '../lib/soeg'
 import { facetterCached, forsidetalCached } from './cache'
 import { GemSoegning } from './GemSoegning'
@@ -65,7 +65,11 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   //
   // De to sidste er cachede (se app/cache.ts) og rammer sjældent basen.
   // Tilbage er to forespørgsler pr. sidevisning mod otte før.
-  const visninger = await soegGrupperet(f)
+  // ReferenceNow: ét eksplicit nu pr. request, brugt af BAADE soegning,
+  // kort og grundlag — saa alle laeser samme klokke.
+  const nu = new Date()
+  const visninger = await soegGrupperet(f, 48, nu)
+  const avGrundlag = await availabilityGrundlag(f, nu)
   const sum = await opsummering(f)
   // Grundlaget under afkrydsningerne skal beskrive søgningen UDEN de tre
   // facilitetsfiltre. Er ingen af dem sat, er det ordret samme forespørgsel
@@ -223,6 +227,57 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           </span>
         </div>
 
+        {/* ── Availability-filtrene ─────────────────────────────
+            Drives af fortolkAvailability — aldrig af rå jsonb, legacy
+            available_from eller application_type. Grundlaget gælder DEN
+            AKTUELLE søgning, og de ukendte har ord: et filter viser kun
+            dokumenterede træf, og så skal det stå, hvor mange der ikke
+            kunne vurderes. */}
+        <div className="felt oekonomifilter">
+          <span className="afkryds-linje">
+            <label htmlFor="overtagelse">Overtagelse</label>
+            <select id="overtagelse" name="overtagelse" defaultValue={f.overtagelse ?? ''}>
+              <option value="">Alle</option>
+              <option value="nu">Kan overtages nu</option>
+              <option value="senere">Kan overtages senere</option>
+            </select>
+          </span>
+          <span className="filtergrundlag">
+            {avGrundlag.timing.nu.toLocaleString('da-DK')} har oplyst overtagelse nu ·{' '}
+            {avGrundlag.timing.senere.toLocaleString('da-DK')} senere ·{' '}
+            {(avGrundlag.timing.unknown + avGrundlag.timing.conflict).toLocaleString('da-DK')} uden
+            afklaret tidspunkt — de vises ikke med filteret slået til
+          </span>
+        </div>
+        <div className="felt oekonomifilter">
+          <span className="afkryds-linje">
+            <input type="checkbox" id="venteliste" name="venteliste" value="1"
+              defaultChecked={f.ansoegningsform === 'venteliste'} />
+            <label htmlFor="venteliste">Venteliste</label>
+          </span>
+          <span className="filtergrundlag">
+            {avGrundlag.ansoegning.venteliste.toLocaleString('da-DK')} venteliste ·{' '}
+            {avGrundlag.ansoegning.normal.toLocaleString('da-DK')} almindelig ansøgning ·{' '}
+            {avGrundlag.ansoegning.unknown.toLocaleString('da-DK')} uoplyst ansøgningsform
+          </span>
+        </div>
+        <div className="felt oekonomifilter">
+          <span className="afkryds-linje">
+            <input type="checkbox" id="reserveret" name="reserveret" value="1"
+              defaultChecked={f.markedsstatus === 'reserveret'} />
+            <label htmlFor="reserveret">Reserveret</label>
+          </span>
+          {/* Reserveret-grundlaget viser alle TRE grupper, så «vis
+              reserverede» ikke læses som «resten er dokumenteret ledige»:
+              de fleste har slet ingen markedsstatus fra kilden. */}
+          <span className="filtergrundlag">
+            {avGrundlag.marked.reserveret.toLocaleString('da-DK')} reserveret ·{' '}
+            {avGrundlag.marked.paa_markedet.toLocaleString('da-DK')} på markedet ·{' '}
+            {(avGrundlag.marked.unknown + avGrundlag.marked.udlejet + avGrundlag.marked.conflict).toLocaleString('da-DK')} uden
+            oplyst markedsstatus
+          </span>
+        </div>
+
         {/* Vises kun, hvis nogen faktisk oplyser feltet. Et filter, der
             aldrig giver træf, er værre end intet filter. */}
         {(fac.faciliteter.kaeledyr > 0 || fac.faciliteter.elevator > 0
@@ -309,7 +364,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           <div className="hero">
             <h1>Se hvad boligen faktisk koster</h1>
             <p className="manchet">
-              Vi samler ledige lejeboliger ét sted og viser den samlede månedlige
+              Vi samler lejeboliger ét sted og viser den samlede månedlige
               udgift og prisen ved indflytning — ikke bare huslejen.
             </p>
 
@@ -317,8 +372,12 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                 foer under soegefeltet, hvor laeseren allerede var videre. */}
             <ul className="punkter">
               <li>
+                {/* «lejeboliger», ikke «ledige boliger»: kun 1 af 5 har
+                    dokumenteret overtagelse nu, og et samlet tal må ikke
+                    kaldes ledigt, når timing ikke er dokumenteret for det
+                    hele. Grundlagslinjen nedenfor gør regnskabet op. */}
                 <strong>{tal.boliger.toLocaleString('da-DK')}</strong>
-                <span>ledige boliger fra {tal.kilder} kilder</span>
+                <span>lejeboliger fra {tal.kilder} kilder</span>
               </li>
               <li>
                 {/* Kendt total, ikke sammensætningen. "Hele økonomien
@@ -353,6 +412,13 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                 )}
               </li>
             </ul>
+            {/* Availability-grundlaget: går op i hovedtallet, og de
+                ukendte har ord. Beregnet dynamisk af domænet. */}
+            <p className="note">
+              {avGrundlag.timing.nu.toLocaleString('da-DK')} kan overtages nu ·{' '}
+              {avGrundlag.timing.senere.toLocaleString('da-DK')} kan overtages senere ·{' '}
+              {(avGrundlag.timing.unknown + avGrundlag.timing.conflict).toLocaleString('da-DK')} uden afklaret overtagelsestidspunkt
+            </p>
 
             {formular}
           </div>
@@ -430,6 +496,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           <div className="liste">
             {visninger.map((v) => (
               <Visningskort
+                nu={nu}
                 key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
                 v={v}
               />

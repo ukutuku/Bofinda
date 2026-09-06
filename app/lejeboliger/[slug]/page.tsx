@@ -37,7 +37,7 @@ export async function generateMetadata(
   // Beskrivelsen bygges af tal vi har. Er de der ikke, udelades saetningen
   // frem for at blive fyldt med noget, der lyder rigtigt.
   const dele = [
-    `${s.antal} ledige lejeboliger ${iOmraadet(o)}.`,
+    `${s.antal} lejeboliger ${iOmraadet(o)}.`,
     spaend ? `Husleje ${spaend} om måneden.` : null,
     s.medianIndflytning != null
       ? `Typisk indflytningspris ${kr(s.medianIndflytning)} kr.`
@@ -46,7 +46,7 @@ export async function generateMetadata(
   ].filter(Boolean)
 
   return {
-    title: `Lejeboliger ${iOmraadet(o)} — ${s.antal} ledige | Bofinda`,
+    title: `Lejeboliger ${iOmraadet(o)} — ${s.antal} til leje | Bofinda`,
     description: dele.join(' ').slice(0, 300),
     alternates: { canonical: `/lejeboliger/${o.slug}` },
   }
@@ -63,7 +63,8 @@ export default async function Side({ params }: { params: Promise<{ slug: string 
 
   // Efter hinanden, ikke i Promise.all — se noten i app/page.tsx.
   const s = await statistik(o)
-  const visninger = await soegGrupperet(filterFor(o), 48)
+  const nu = new Date()
+  const visninger = await soegGrupperet(filterFor(o), 48, nu)
   const nabo = await naboer(o)
   // Kort er ikke boliger: ens boliger paa samme vej staar som ét kort.
   const vist = antalBoliger(visninger)
@@ -86,7 +87,7 @@ export default async function Side({ params }: { params: Promise<{ slug: string 
           markedet, ingen "populaert omraade". */}
       <div className="fakta-blok">
         <p>
-          Vi har <strong>{s.antal} ledige lejeboliger</strong> {iOmraadet(o)} lige nu
+          Vi har <strong>{s.antal} lejeboliger</strong> {iOmraadet(o)} lige nu
           {typeListe.length > 0 && <> — {typeListe.join(', ')}</>}.
           {s.billigst != null && s.dyrest != null && (
             <> Huslejen går fra <strong>{kr(s.billigst)} kr.</strong> til{' '}
@@ -123,6 +124,7 @@ export default async function Side({ params }: { params: Promise<{ slug: string 
         <div className="liste">
           {visninger.map((v) => (
             <Visningskort
+              nu={nu}
               key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
               v={v}
             />

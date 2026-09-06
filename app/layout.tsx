@@ -10,9 +10,9 @@ const sans = Inter({
 })
 
 export const metadata = {
-  title: 'Bofinda — ledige lejeboliger',
+  title: 'Bofinda — lejeboliger, samlet ét sted',
   description:
-    'Ledige lejeboliger samlet ét sted, med den reelle månedlige udgift og '
+    'Lejeboliger samlet ét sted, med den reelle månedlige udgift og '
     + 'indflytningsprisen — ikke bare huslejen.',
 }
 
@@ -23,7 +23,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <header className="top">
           <div className="ramme">
             <a className="maerke" href="/">bo<span>finda</span></a>
-            <div className="undertitel">ledige lejeboliger, samlet ét sted</div>
+            <div className="undertitel">lejeboliger, samlet ét sted</div>
           </div>
         </header>
         <div className="ramme">{children}</div>
