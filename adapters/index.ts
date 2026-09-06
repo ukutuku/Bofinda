@@ -7,6 +7,7 @@ import { propstepAdapter } from './propstep'
 import { dacasAdapter } from './dacas'
 import { lokalboligAdapter } from './lokalbolig'
 import { balderAdapter } from './balder'
+import { cejAdapter } from './cej'
 import { homeAdapter } from './home'
 
 export interface Registreret {
@@ -59,6 +60,11 @@ export const KILDER: Registreret[] = [
     adapter: homeAdapter(),
     navn: 'home.dk',
     baseUrl: 'https://home.dk',
+  },
+  {
+    adapter: cejAdapter(),
+    navn: 'CEJ',
+    baseUrl: 'https://udlejning.cej.dk',
   },
   { adapter: dummyAdapter, navn: 'Dummy (testdata)', baseUrl: 'https://dummy.invalid', kunUdvikling: true },
   { adapter: dummy2Adapter, navn: 'Dummy 2 (testdata)', baseUrl: 'https://dummy2.invalid', kunUdvikling: true },

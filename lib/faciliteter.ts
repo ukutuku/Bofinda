@@ -17,7 +17,10 @@
 export const FACILITET = {
   kaeledyr: ['kæledyr tilladt'],
   elevator: ['elevator'],
-  udeplads: ['altan', 'terrasse'],
+  // CEJ skelner ikke mellem altan og terrasse — adapterens ord er derfor
+  // det samlede. Filteret betyder netop «altan ELLER terrasse», saa ordet
+  // hoerer hjemme her; at oversaette det til ét af de to ville vaere et gaet.
+  udeplads: ['altan', 'terrasse', 'altan eller terrasse'],
 } as const
 
 /** Ethvert ord et filter kan ramme. */

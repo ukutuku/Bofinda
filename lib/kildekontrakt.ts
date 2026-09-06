@@ -497,6 +497,61 @@ export const KILDEKONTRAKTER: Record<string, Kildekontrakt> = {
     direkteSignaler: {},
   },
 
+  // ── CEJ (bolig.io) ───────────────────────────────────────────
+  cej: {
+    kilde: 'cej',
+    statusser: {
+      available: {
+        ...INTET,
+        marked: ['paa_markedet'],
+        belaeg: {
+          art: 'kildens-api',
+          hvor: 'udlejning.cej.dk/find-bolig/overblik · searchResponse.items[].status (34 af 63)',
+          naar: '2026-09-06',
+          note: 'Betyder PÅ MARKEDET, ikke «kan overtages nu»: boliger med '
+              + 'fortidig OG med dato 3 mdr. ude bærer samme status. Tid '
+              + 'ligger i availableFrom — kildens eget overbliksfilter '
+              + 'hedder «Overtagelsesdato (senest)». Ledige kort bærer '
+              + 'ingen badge i UI\'et.',
+        },
+      },
+      reserved: {
+        ...INTET,
+        marked: ['reserveret'],
+        belaeg: {
+          art: 'kildens-ui',
+          hvor: 'udlejning.cej.dk/find-bolig/overblik · badge «Reserveret» på kortene (10 SSR-synlige; API: 29 af 63)',
+          naar: '2026-09-06',
+          note: 'Kildens eget ord og egen badge. Udlejede boliger vises slet '
+              + 'ikke offentligt — payloaden har intet tredje statusord.',
+        },
+      },
+    },
+    datofelt: {
+      betydning: 'overtagelse',
+      brugbarSomTiming: true,
+      belaeg: {
+        art: 'egen-efterproevning',
+        hvor: 'items[].availableFrom · overbliksfiltret «Overtagelsesdato (senest)» + 3 boligsider',
+        naar: '2026-09-06',
+        note: 'Kildens eget soegefilter binder feltet til ordet «Overtagelsesdato». '
+            + 'Detaljesiden viser derimod STATISK «Ledig: Snarest» uanset dato — '
+            + 'efterproevet paa sider med fortidig dato, +1 md. og +3 mdr. Det er '
+            + 'skabelontekst og hoestes derfor IKKE som takeoverText (Dacas-reglen: '
+            + '«Snarest» maa aldrig skabe en dato — her maa den heller ikke '
+            + 'OVERDOEVE en). Datoen er date-only i API\'et, ligger altid paa '
+            + 'eller efter vacatingAt, og 3 af 63 ligger i fortiden = kan '
+            + 'overtages nu, samme flip som Balder.',
+      },
+    },
+    // Gratis lead-formular direkte paa siden; ingen venteliste-ord i payload
+    // eller UI. Fravaer er ikke bevis for normal ansoegning.
+    ansoegningsform: null,
+    // «Snarest» paa detaljesiden er skabelontekst, ikke per-bolig data.
+    overtagelsestekst: null,
+    direkteSignaler: {},
+  },
+
   // ── Bofinda (udlejerens egne annoncer) ───────────────────────
   native: {
     kilde: 'native',

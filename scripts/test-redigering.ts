@@ -33,6 +33,7 @@ import { byForPostnr } from '../lib/omraade'
 import { laesBolig as dacasLaes } from '../adapters/dacas'
 import { laesSag as homeLaes } from '../adapters/home'
 import { laes as balderLaes } from '../adapters/balder'
+import { findSearchResponse as cejFind, laes as cejLaes } from '../adapters/cej'
 import { laesAvailabilityFacts } from '../lib/fakta'
 import { skrivBolig } from '../lib/ingest'
 import { normaliser } from '../lib/normalize'
@@ -1494,6 +1495,134 @@ async function main() {
       String(hendesF.laest?.sourceAvailabilityDate))
     tjek('pipeline native: → timing senere (ledig 1. dec.)',
       rNativ.timing.status === 'senere', rNativ.timing.status)
+
+    // ── CEJ: allowlist, persondata og billedværter ───────────────
+    // Kildens offentlige payload bærer persondata, der ikke vedkommer
+    // annoncen (nuværende lejers navn/mail, boligsøgendes lead-data,
+    // medarbejdere). Adapteren er derfor en eksplicit allowlist, og
+    // prøven her beviser, at et OPDIGTET navn, en mail og et nummer
+    // ikke overlever noget led: laes(), normaliseringen, databasen
+    // eller konsollen. Fixturen er fri fantasi — ingen rigtige data.
+    console.log('\n══ cej: allowlist — persondata må aldrig slippe igennem ══')
+    const CEJ_VAERT = 'boligio-media-production.s3.eu-central-1.amazonaws.com'
+    const PERSON = ['Test Person', 'test-person@example.invalid', '+45 00000000'] as const
+    const cejItem = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
+      id: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6',
+      name: 'Prøvebolig', type: 'apartment', status: 'available',
+      availableFrom: '2026-10-01', priceType: 'monthly',
+      price: { amount: 16500 }, onAccountMonthly: { amount: 910 },
+      securityDeposit: { amount: 49500 }, prepaidRent: { amount: 16500 },
+      floorSize: 83, numberOfRooms: 3,
+      location: {
+        formatted: 'Snapshotvej 1, 2300 København S', zipCode: '2300',
+        geo: { latitude: 55.65, longitude: 12.54 },
+        dawa: { vejnavn: 'Snapshotvej', husnr: '1', postnr: '2300' },
+      },
+      media: {
+        photos: [
+          { url: `https://${CEJ_VAERT}/x/1.jpg` },
+          { url: 'https://fremmed-vaert.example/x/2.jpg' },
+        ],
+        floorPlan: { url: `https://${CEJ_VAERT}/x/plan.jpg` },
+      },
+      amenities: ['elevator', 'petsAllowed', 'balconyOrTerrace'],
+      appliances: ['dishwasher'],
+      created: '2026-09-01T10:00:00.000Z', updated: '2026-09-05T22:00:00.000Z',
+      description: '<p>Fin bolig.</p>',
+      tenant: { id: '', name: PERSON[0], email: PERSON[1], phone: PERSON[2] },
+      reservation: { lead: { firstName: 'Test', lastName: 'Person', email: PERSON[1], phone: PERSON[2] } },
+      contacts: [{ type: 'caretaker', firstName: 'Test', lastName: 'Person', email: PERSON[1], phone: PERSON[2] }],
+      assignees: [{ id: 'a1' }],
+      vacatingAt: '2026-09-30', liableUntil: '2026-09-30', terminationNoticeDate: '2026-08-03',
+      ...over,
+    })
+
+    const cb = cejLaes(cejItem())!
+    tjek('cej laes: økonomi i øre — leje, aconto, depositum, forudbetalt',
+      cb.rentMonthly === 1650000 && cb.utilitiesOther === 91000
+      && cb.deposit === 4950000 && cb.prepaidRent === 1650000,
+      JSON.stringify([cb.rentMonthly, cb.utilitiesOther, cb.deposit, cb.prepaidRent]))
+    tjek('cej laes: kun egen vært overlever, plantegning holdes ude',
+      cb.imageUrls.length === 1 && cb.imageUrls[0]!.endsWith('/x/1.jpg'),
+      JSON.stringify(cb.imageUrls))
+    tjek('cej laes: status og date-only dato som fakta',
+      cb.availability?.rawStatus === 'available'
+      && cb.availability?.sourceAvailabilityDate === isoDato('2026-10-01'),
+      JSON.stringify(cb.availability))
+    tjek('cej laes: eksplicit null-dato bevares som null',
+      cejLaes(cejItem({ availableFrom: null }))!.availability!.sourceAvailabilityDate === null)
+    tjek('cej laes: misdannet dato udelades — kan ikke være en kalenderdag',
+      !('sourceAvailabilityDate' in cejLaes(cejItem({ availableFrom: 'snarest' }))!.availability!))
+    tjek('cej laes: rækkehus oversættes, så det ikke ender som «hus»',
+      cejLaes(cejItem({ type: 'terracedHouse' }))!.propertyType === 'rækkehus')
+    tjek('cej laes: facilitetsord på dansk, samlet udeplads-ord',
+      JSON.stringify(cb.amenities)
+      === JSON.stringify(['elevator', 'kæledyr tilladt', 'altan eller terrasse', 'opvaskemaskine']),
+      JSON.stringify(cb.amenities))
+
+    const forbeholdstekster = [
+      'OBS: Billederne i denne annonce er ikke nødvendigvis fra den pågældende bolig, men skal give et indtryk af stilen i boligen.',
+      'OBS! billederne er ikke fra det præcise lejemål.',
+      'Billederne er nødvendigvis ikke fra denne lejlighed, men en tilsvarende.',
+    ]
+    tjek('cej forbehold: alle tre målte varianter fanges',
+      forbeholdstekster.every((t) => cejLaes(cejItem({ description: `<p>${t}</p>` }))!.imagesMayDiffer))
+    tjek('cej forbehold: AI-sætningen alene er IKKE forbeholdet',
+      !cejLaes(cejItem({ description: '<p>Billederne i annoncen er AI-redigerede.</p>' }))!.imagesMayDiffer)
+    tjek('cej forbehold: almindelig beskrivelse udløser intet', cb.imagesMayDiffer === false)
+
+    const indeholderPerson = (x: unknown) => {
+      const tekst = JSON.stringify(x) ?? ''
+      return PERSON.some((v) => tekst.includes(v))
+    }
+    tjek('cej persondata: præmis — fixturen BÆRER faktisk persondataene',
+      indeholderPerson(cejItem()))
+    tjek('cej persondata: RawListing er rent', !indeholderPerson(cb))
+    const cbNorm = await normaliser({ ...cb, externalKey: 'cej-persontest' },
+      { ...VASK, unitAddressUuid: crypto.randomUUID() })
+    tjek('cej persondata: normaliseret bolig er ren', !indeholderPerson(cbNorm))
+    // Konsollen overvåges under skrivningen — debugoutput tæller med.
+    const skrevet: string[] = []
+    const rigtigLog = console.log, rigtigWarn = console.warn, rigtigFejl = console.error
+    console.log = (...a: unknown[]) => { skrevet.push(a.map(String).join(' ')) }
+    console.warn = (...a: unknown[]) => { skrevet.push(a.map(String).join(' ')) }
+    console.error = (...a: unknown[]) => { skrevet.push(a.map(String).join(' ')) }
+    let cejRaekkeId = ''
+    try {
+      const { id } = await skrivBolig(snapKilde!.id, 'feed', cbNorm)
+      cejRaekkeId = id
+    } finally {
+      console.log = rigtigLog; console.warn = rigtigWarn; console.error = rigtigFejl
+    }
+    ekstra.boliger.push(cejRaekkeId)
+    const [cejRaekke] = await db.select().from(listings).where(eq(listings.id, cejRaekkeId))
+    const cejBilleder = await db.select().from(listingImages)
+      .where(eq(listingImages.listingId, cejRaekkeId))
+    tjek('cej persondata: databaserækken er ren', !indeholderPerson(cejRaekke))
+    tjek('cej persondata: intet persondata i konsollen under skrivningen',
+      !indeholderPerson(skrevet))
+    tjek('cej billeder: listen overlever adapter → normaliser → ingest',
+      cejBilleder.length === 1 && cejBilleder[0]!.externalUrl === `https://${CEJ_VAERT}/x/1.jpg`,
+      JSON.stringify(cejBilleder.map((x) => x.externalUrl)))
+    tjek('cej billeder: værten er allowlistet — proxyen serverer',
+      billedUrl(`https://${CEJ_VAERT}/x/1.jpg`) !== null)
+    tjek('cej billeder: fremmed vært afvises af proxyen',
+      billedUrl('https://fremmed-vaert.example/x/2.jpg') === null)
+    tjek('cej økonomi: depositum og forudbetalt står i rækken',
+      cejRaekke!.deposit === 4950000 && cejRaekke!.prepaidRent === 1650000,
+      JSON.stringify([cejRaekke!.deposit, cejRaekke!.prepaidRent]))
+
+    // Parseren: chunken i realistisk script-indpakning, og ærligt null
+    // når den mangler — et gæt her ville blive til en tom import.
+    const remixHtml = '<script>window.__remixContext={};'
+      + "__remixContext.r('routes/search/layout','searchResponse',"
+      + JSON.stringify({ size: 1, isFiltered: false, pages: [''], items: [cejItem()] })
+      + ');</script>'
+    const cejSvar = cejFind(remixHtml)
+    tjek('cej parser: searchResponse findes og parses i script-indpakning',
+      Array.isArray(cejSvar?.['items']) && (cejSvar!['items'] as unknown[]).length === 1)
+    tjek('cej parser: HTML uden chunken giver null — ingen gæt',
+      cejFind('<html><body>intet her</body></html>') === null)
 
     // ── Alarmen følger availability-domænet ──────────────────────
     // Samme postfilter-regel som søgningen. Kildeslugs med RIGTIGE

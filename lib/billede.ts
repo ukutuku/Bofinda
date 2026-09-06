@@ -52,6 +52,11 @@ export const TILLADTE_VAERTER = new Set([
   // foerste. Se reglen i CLAUDE.md.
   'alvis.b-cdn.net',
   'home.mindworking.eu',
+  // CEJ (bolig.io): eneste vaert i payloaden — 618 af 618 billed-URL'er
+  // maalt 2026-09-06, baade photos og floorPlan. resize-tjenesten
+  // images.bolig.io optraeder IKKE i payloaden og er derfor ikke med.
+  'boligio-media-production.s3.eu-central-1.amazonaws.com',
+
   ...(EGEN_LAGERVAERT ? [EGEN_LAGERVAERT] : []),
 ])
 
