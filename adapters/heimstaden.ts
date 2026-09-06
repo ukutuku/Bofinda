@@ -188,6 +188,62 @@ export function laesDetalje(html: string): Detalje {
   return ud
 }
 
+/** Loftet over detaljehentninger pr. koersel, naar intet andet er sat. */
+export const STANDARD_DETALJEBUDGET = 25
+
+/**
+ * `HEIMSTADEN_DETALJEBUDGET` — env-overstyring til KONTROLLEREDE proever.
+ *
+ * Kun denne kilde. Variablen er navngivet efter kilden med vilje: et
+ * faelles `DETALJEBUDGET` ville skrue ned for alle kilder paa én gang,
+ * og det er aldrig det, nogen mener, naar de vil proeve én ting af.
+ *
+ * ALT, DER IKKE ER ET HELT IKKE-NEGATIVT TAL, AFVISES. Grunden er
+ * konkret: budgettet bruges som `skalHentes.splice(budget)`, og JavaScript
+ * laeser et negativt tal dér som «fra enden» — `splice(-1)` ville fjerne
+ * ÉN post fra koeen og hente alle de oevrige. En tastefejl som `-1` ville
+ * altsaa betyde naesten-fuld crawl mod en vaert, der droevler os. Derfor
+ * falder vi tilbage paa standarden og siger det hoejt.
+ *
+ * `0` er derimod en gyldig vaerdi: ingen detaljehentninger, ren discovery.
+ * Den er sikker — den kan kun goere koerslen mindre, aldrig stoerre.
+ */
+export function laesDetaljeBudget(raa: string | undefined): {
+  budget: number
+  /** Sat, naar vaerdien blev ignoreret. Teksten forklarer hvorfor. */
+  afvist?: string
+} {
+  if (raa == null || raa.trim() === '') return { budget: STANDARD_DETALJEBUDGET }
+  const t = raa.trim()
+  // Kun cifre: afviser «-1», «2.5», «1e9», «Infinity», «tre» og « ».
+  if (!/^\d+$/.test(t)) {
+    return {
+      budget: STANDARD_DETALJEBUDGET,
+      afvist: `«${t}» er ikke et helt, ikke-negativt tal`,
+    }
+  }
+  const n = Number(t)
+  if (!Number.isSafeInteger(n)) {
+    return { budget: STANDARD_DETALJEBUDGET, afvist: `«${t}» er for stort` }
+  }
+  return { budget: n }
+}
+
+/** Sagt én gang pr. proces. En advarsel pr. koersel ville drukne i loggen. */
+let budgetAdvaret = false
+/** KUN til proeven. */
+export const _nulstilBudgetAdvarsel = () => { budgetAdvaret = false }
+
+function detaljeBudget(): number {
+  const { budget, afvist } = laesDetaljeBudget(process.env.HEIMSTADEN_DETALJEBUDGET)
+  if (afvist && !budgetAdvaret) {
+    budgetAdvaret = true
+    console.warn(`[heimstaden] HEIMSTADEN_DETALJEBUDGET IGNORERET: ${afvist}. `
+      + `Bruger standarden ${STANDARD_DETALJEBUDGET}.`)
+  }
+  return budget
+}
+
 /** Fingeraftrykket af de listefelter, der skal udloese en ny
  *  detaljehentning: status, overtagelse (dato eller «Ledig nu») og leje.
  *  Areal/vaerelser/adresse aendrer sig ikke for et lejemaalsnummer uden
@@ -212,7 +268,9 @@ export function heimstadenAdapter(): SourceAdapter {
     // 2026-09-06 — 503 paa alt efter ~17 min ved 1 kald/s). Listen alene
     // baerer status, dato, leje, adresse og ét billede, saa langt de
     // fleste koersler behoever slet ingen detaljehentninger.
-    detaljeBudgetPrKoersel: 25,
+    // Laeses ved HVER koersel, ikke ved modulindlaesning: en kontrolleret
+    // proeve skal kunne saette den uden at bygge om.
+    get detaljeBudgetPrKoersel() { return detaljeBudget() },
     listeGrundlag(url: string) {
       const grundlag = cache.get(url)
       return grundlag ? { grundlag, detaljesignatur: detaljesignatur(grundlag) } : null

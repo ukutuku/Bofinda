@@ -439,7 +439,15 @@ export async function koerKilde(
   // Staleness maales paa detail_fetched_at — last_fetched_at flyttes ogsaa
   // af grundlags-skrivninger og ville skjule, at detaljerne mangler.
   const opslag = adapter.listeGrundlag?.bind(adapter)
-  const budget = opslag ? (adapter.detaljeBudgetPrKoersel ?? Infinity) : Infinity
+  // Math.max(0, …) er ikke pynt: budgettet bruges som
+  // `skalHentes.splice(budget)`, og JavaScript laeser et negativt tal dér
+  // som «fra enden» — `splice(-1)` ville fjerne ÉN post fra koeen og hente
+  // ALLE de oevrige. Et loft, der ved et uheld betyder det modsatte, er
+  // vaerre end intet loft. Adapteren validerer selv sin env-vaerdi; det
+  // her er selen, saa en fremtidig kilde ikke kan skrive -1 i haanden.
+  const budget = opslag
+    ? Math.max(0, adapter.detaljeBudgetPrKoersel ?? Infinity)
+    : Infinity
   /** Vagt-kilder: skrives fra listen uden detaljehentning. */
   const fraListen: { externalKey: string; url: string }[] = []
   /** Noegler der er nye/aendrede — bruges naar vaertsspaerren afbryder. */

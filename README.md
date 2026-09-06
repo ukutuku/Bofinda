@@ -242,6 +242,12 @@ workeren skal netop uden om transaction-pooleren.
 **Sæt ikke** `PROPSTEP_POSTNR` eller `FINDBOLIG_OMRAADE` — tomme betyder
 fuld dækning.
 
+**Sæt ikke** `HEIMSTADEN_DETALJEBUDGET` på Railway. Den findes til
+kontrollerede prøver og skruer loftet over detaljehentninger ned for netop
+den ene kilde. Uden den er loftet 25. Alt, der ikke er et helt ikke-negativt
+tal, ignoreres med en tydelig linje i loggen — et `-1` ville ellers betyde
+«hent alt på nær ét».
+
 `NODE_EXTRA_CA_CERTS` sættes ikke i panelet: den står i `npm run import` og
 peger på `certs/rapidssl-tls-rsa-ca-g1.pem`, som er committet og følger med
 deployet. findbolig.nu sender ikke sit mellemcertifikat — uden det fejler

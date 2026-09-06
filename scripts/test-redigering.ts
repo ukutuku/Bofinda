@@ -34,7 +34,13 @@ import { laesBolig as dacasLaes } from '../adapters/dacas'
 import { laesSag as homeLaes } from '../adapters/home'
 import { laes as balderLaes } from '../adapters/balder'
 import { findSearchResponse as cejFind, laes as cejLaes } from '../adapters/cej'
-import { detaljesignatur as hsSignatur, laesDetalje as hsDetalje, laesListe as hsListe } from '../adapters/heimstaden'
+import {
+  _nulstilBudgetAdvarsel, detaljesignatur as hsSignatur, heimstadenAdapter,
+  laesDetalje as hsDetalje, laesDetaljeBudget, laesListe as hsListe,
+  STANDARD_DETALJEBUDGET,
+} from '../adapters/heimstaden'
+import { cejAdapter } from '../adapters/cej'
+import { birchAdapter } from '../adapters/birch'
 import { laesDetalje as birchDetalje, laesFeed as birchFeed } from '../adapters/birch'
 import { laesAvailabilityFacts } from '../lib/fakta'
 import { koerKilde, skrivBolig } from '../lib/ingest'
@@ -1749,6 +1755,65 @@ async function main() {
     tjek('heimstaden billeder: værten er allowlistet — proxyen serverer',
       billedUrl('https://boligspot.b-cdn.net/1001.jpg?quality=80') !== null)
 
+    // ── Detaljebudgettet: env-overstyring til kontrollerede prøver ──
+    // Budgettet bruges som splice(budget). Et negativt tal ville dér
+    // betyde «fra enden» og hente ALT PÅ NÆR ét — altså det stik modsatte
+    // af et loft, mod en vært der i forvejen drøvler os. Derfor afvises
+    // alt, der ikke er et helt ikke-negativt tal.
+    console.log('\n══ heimstaden: detaljebudget fra env ══')
+    tjek('budget: ingen env → standarden 25',
+      laesDetaljeBudget(undefined).budget === STANDARD_DETALJEBUDGET
+      && laesDetaljeBudget('').budget === STANDARD_DETALJEBUDGET
+      && laesDetaljeBudget('   ').budget === STANDARD_DETALJEBUDGET
+      && STANDARD_DETALJEBUDGET === 25)
+    tjek('budget: env=3 → 3',
+      laesDetaljeBudget('3').budget === 3 && laesDetaljeBudget(' 3 ').budget === 3)
+    tjek('budget: env=0 → 0, og 0 betyder INGEN hentninger — ikke ubegrænset',
+      laesDetaljeBudget('0').budget === 0 && laesDetaljeBudget('0').afvist === undefined)
+    for (const [raa, hvorfor] of [
+      ['-1', 'negativ'], ['-25', 'negativ'], ['2.5', 'decimal'],
+      ['1e9', 'eksponent'], ['Infinity', 'uendelig'], ['tre', 'tekst'],
+      ['3 boliger', 'tekst efter tal'], ['0x10', 'hex'],
+    ] as const) {
+      const r = laesDetaljeBudget(raa)
+      tjek(`budget: «${raa}» (${hvorfor}) afvises → standarden 25`,
+        r.budget === STANDARD_DETALJEBUDGET && r.afvist !== undefined,
+        `${r.budget} · ${r.afvist ?? 'INGEN begrundelse'}`)
+    }
+    tjek('budget: absurd stort tal afvises',
+      laesDetaljeBudget('99999999999999999999').budget === STANDARD_DETALJEBUDGET)
+
+    // Adapteren læser env ved HVER kørsel — og siger højt, når den ignorerer.
+    const gemtBudgetEnv = process.env.HEIMSTADEN_DETALJEBUDGET
+    const hsAd = heimstadenAdapter()
+    try {
+      delete process.env.HEIMSTADEN_DETALJEBUDGET
+      tjek('budget: adapteren uden env giver 25', hsAd.detaljeBudgetPrKoersel === 25)
+      process.env.HEIMSTADEN_DETALJEBUDGET = '3'
+      tjek('budget: adapteren med env=3 giver 3', hsAd.detaljeBudgetPrKoersel === 3)
+      process.env.HEIMSTADEN_DETALJEBUDGET = '-1'
+      _nulstilBudgetAdvarsel()
+      const advarsler: string[] = []
+      const rigtigWarn = console.warn
+      console.warn = (...a: unknown[]) => { advarsler.push(a.map(String).join(' ')) }
+      let negativBudget: number | undefined
+      try { negativBudget = hsAd.detaljeBudgetPrKoersel } finally { console.warn = rigtigWarn }
+      tjek('budget: adapteren med env=-1 falder tilbage til 25',
+        negativBudget === 25, String(negativBudget))
+      tjek('budget: og den siger tydeligt, at værdien blev IGNORERET',
+        advarsler.some((a) => a.includes('IGNORERET') && a.includes('-1')),
+        JSON.stringify(advarsler))
+
+      // Andre kilder må ikke kunne rammes af Heimstadens variabel.
+      tjek('budget: env rører IKKE andre kilder',
+        cejAdapter().detaljeBudgetPrKoersel === undefined
+        && birchAdapter().detaljeBudgetPrKoersel === undefined)
+    } finally {
+      if (gemtBudgetEnv === undefined) delete process.env.HEIMSTADEN_DETALJEBUDGET
+      else process.env.HEIMSTADEN_DETALJEBUDGET = gemtBudgetEnv
+      _nulstilBudgetAdvarsel()
+    }
+
     // Signaturen afgør, hvornår detaljesiden hentes igen. Et felt, der
     // mangler her, kan ændre sig uden at nogen opdager det — så prøven
     // navngiver både det, der SKAL udløse hentning, og det der ikke må.
@@ -2096,6 +2161,20 @@ async function main() {
       tjek('vagt 9: budget 0 — ren discovery-kørsel skriver nyt fra listen, 0 hentninger',
         hentninger.length === foerX && r10.nye === 1 && r10.fejl === 0,
         JSON.stringify(r10))
+
+      // Selen i ingest: selv hvis en adapter skriver et negativt loft i
+      // hånden, må splice(budget) aldrig komme til at betyde «hent alt
+      // undtagen ét». Uden Math.max(0, …) ville netop det ske.
+      vagtBudget = -1
+      for (const n of ['neg1', 'neg2', 'neg3', 'neg4']) {
+        vagtListe.set(n, { leje: 40000, status: 'Ledig' })
+      }
+      const foerNeg = hentninger.length
+      const rNeg = await koer()
+      tjek('negativt budget henter INGENTING — ikke alt på nær ét',
+        hentninger.length === foerNeg && rNeg.nye === 4,
+        `${hentninger.length - foerNeg} hentninger · ${rNeg.nye} nye`)
+      vagtBudget = 10
 
       const antalKoersler = async () => (await db.select({ id: crawlRuns.id })
         .from(crawlRuns).where(eq(crawlRuns.sourceId, vagtKilde!.id))).length
