@@ -247,6 +247,23 @@ peger på `certs/rapidssl-tls-rsa-ca-g1.pem`, som er committet og følger med
 deployet. findbolig.nu sender ikke sit mellemcertifikat — uden det fejler
 kilden med `UNABLE_TO_VERIFY_LEAF_SIGNATURE`.
 
+### Kilder der holdes ude af cron'en
+
+`npm run import` uden argumenter kører `rigtigeKilder()`. En kilde med
+`kunUdvikling: true` i `adapters/index.ts` springes over dér **og** i
+`koerAlle`, og kan kun køres ved navn: `npm run import -- <slug>`.
+
+Det er den eneste virksomme spærre. **`sources.enabled` i databasen læses
+aldrig af nogen kodevej** — kolonnen findes, `sikreKilde` returnerer den,
+og så bruges den ikke. Sætter man den til `false`, kører kilden videre som
+før. Rør den ikke i den tro, at den slår noget fra.
+
+Holdt ude lige nu: **Heimstaden**. Kildens CDN drøvler vedvarende crawl
+(6. sep. 2026: 503 på alt fra vores IP efter ~17 min ved 1 kald/s),
+og første genkontakt skal være en bevidst, navngivet kørsel — ikke en
+cron-runde et kvarter efter et deploy. Værtsspærren forhindrer os i at
+*fortsætte* efter et 429/503; den bestemmer ikke, *om* kilden startes.
+
 ### Cron-planen
 
 Sættes på servicen i Railway: **Settings → Cron Schedule → `0 * * * *`**

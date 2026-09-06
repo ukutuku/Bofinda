@@ -16,7 +16,19 @@ export interface Registreret {
   adapter: SourceAdapter
   navn: string
   baseUrl?: string
-  /** Sat paa kilder der kun findes til udvikling. */
+  /**
+   * Holdes UDE af automatiske koersler. Kilden koerer kun, naar nogen
+   * navngiver den udtrykkeligt: `npm run import -- <slug>`.
+   *
+   * Bruges til to ting:
+   *   - testkilder, der aldrig maa blande sig med rigtige boliger
+   *   - rigtige kilder, der endnu ikke er sluppet loes paa cron'en
+   *
+   * Det sidste er ikke teoretisk: Railway koerer `npm run import` uden
+   * argumenter hver time, saa en nyregistreret kilde begynder at kalde ud
+   * i samme oejeblik, den er pushet. Flaget er den eksisterende — og
+   * eneste virksomme — maade at holde den tilbage paa.
+   */
   kunUdvikling?: boolean
 }
 
@@ -72,6 +84,19 @@ export const KILDER: Registreret[] = [
     adapter: heimstadenAdapter(),
     navn: 'Heimstaden',
     baseUrl: 'https://www.heimstaden.dk',
+    // HOLDT UDE AF CRON'EN MED VILJE.
+    //
+    // Kildens CDN droevler vedvarende crawl: 6. sep. 2026 blev alle kald
+    // fra vores IP moedt med 503 efter ~17 minutter ved ét kald i
+    // sekundet — uanset User-Agent. Vaertsspaerren forhindrer os i at
+    // FORTSAETTE efter et 429/503, men den bestemmer ikke, OM kilden
+    // startes; og host_blocks er tom for Railways runner, saa Railway
+    // ville ikke arve den lokale spaerre.
+    //
+    // Foerste genkontakt skal derfor vaere en bevidst, navngivet koersel
+    // — ikke en tilfaeldig cron-runde et kvarter efter et deploy.
+    // Fjernes linjen, naar den kontrollerede produktionstest er godkendt.
+    kunUdvikling: true,
   },
   {
     adapter: birchAdapter(),

@@ -38,6 +38,7 @@ import { detaljesignatur as hsSignatur, laesDetalje as hsDetalje, laesListe as h
 import { laesDetalje as birchDetalje, laesFeed as birchFeed } from '../adapters/birch'
 import { laesAvailabilityFacts } from '../lib/fakta'
 import { koerKilde, skrivBolig } from '../lib/ingest'
+import { findKilde, rigtigeKilder } from '../adapters'
 import { politeFetch } from '../lib/fetch'
 import {
   _aktivRunner, _cachetSvar, _goerCacheGammel, _nulstilCache, _saetRunner,
@@ -189,6 +190,24 @@ async function main() {
   // tabeller i public, og pgrst_ddl_watch eksponerer dem uden
   // forsinkelse. De 12, der findes, er kun daekket, fordi tre
   // migrationer huskede revoke. Her maales basen, ikke filerne.
+  // ── Hvad cron'en faktisk kalder ──────────────────────────────
+  // Railway koerer `npm run import` UDEN argumenter hver time, og den
+  // koerer rigtigeKilder(). En kilde, der registreres uden at blive holdt
+  // tilbage, begynder derfor at kalde ud i samme oejeblik, den er pushet.
+  // Heimstadens CDN droevler vedvarende crawl, saa foerste genkontakt
+  // skal vaere navngivet og bevidst — ikke en cron-runde efter et deploy.
+  console.log('\n══ hvilke kilder cron\'en kalder ══')
+  const automatiske = rigtigeKilder().map((k) => k.adapter.id)
+  tjek('heimstaden er IKKE med i automatiske kørsler',
+    !automatiske.includes('heimstaden'), automatiske.join(', '))
+  tjek('præmis: heimstaden ER registreret og kan køres ved navn',
+    findKilde('heimstaden') !== undefined)
+  tjek('de øvrige rigtige kilder er stadig med',
+    ['propstep', 'home', 'lokalbolig', 'findbolig', 'balder', 'dacas', 'cej', 'birch']
+      .every((k) => automatiske.includes(k)), automatiske.join(', '))
+  tjek('ingen testkilder i automatiske kørsler',
+    !automatiske.some((k) => k.startsWith('dummy')), automatiske.join(', '))
+
   console.log('\n══ rettigheder i public ══')
   const aabne = await tjekRettigheder()
   tjek('intet i public er åbent for anon eller authenticated',
