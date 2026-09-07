@@ -5,6 +5,7 @@ import { KILDER, findKilde, rigtigeKilder, tilladTestkilder } from '../adapters'
 import { koerAlle, formatResultat } from '../lib/scheduler'
 import { koerKilde, RUNNER } from '../lib/ingest'
 import { matchAlarmer, ryd, sendAlarmer } from '../lib/alarm'
+import { opdaterDagsaggregat, ryddHaendelser } from '../lib/maaling-server'
 import { sql } from '../db/client'
 
 const ud = (s: string) => process.stdout.write(s + '\n')
@@ -45,6 +46,21 @@ const ryddet = await ryd()
 if (ryddet.ubekraeftede || ryddet.afmeldte || ryddet.forgamle || ryddet.foraeldreloese) {
   ud(`[oprydning] ${ryddet.ubekraeftede} ubekræftede · ${ryddet.afmeldte} afmeldte `
     + `· ${ryddet.forgamle} for gamle · ${ryddet.foraeldreloese} brugere uden søgning`)
+}
+
+// Analytics-retention koerer med her, ikke i sin egen cron: timekoerslen
+// findes allerede, og et expires_at-felt uden en faktisk sletteproces er
+// ikke retention. Dagsaggregatet skrives foerst — ellers ville de raekker,
+// oprydningen lige har slettet, mangle i trenden for altid.
+try {
+  const opdateret = await opdaterDagsaggregat()
+  const slettet = await ryddHaendelser()
+  if (opdateret || slettet) {
+    ud(`[maaling] ${opdateret} dagstal opdateret · ${slettet} udløbne hændelser slettet`)
+  }
+} catch (e) {
+  // Maalingen maa ikke kunne vaelte importen.
+  ud(`[maaling] oprydning fejlede: ${(e as Error).message}`)
 }
 
 const alarmer = await matchAlarmer()

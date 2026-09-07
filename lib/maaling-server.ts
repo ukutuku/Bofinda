@@ -68,7 +68,18 @@ function noterAfvist(navn: string, f: Afvisning) {
  * — og dermed intet event. Det er skærpelsen: der findes ikke et lag
  * nedenunder, som gemmer individuelle events uden identifikator.
  */
+/**
+ * Sprøjtes ind af prøverne, aldrig af produktionskode.
+ *
+ * `next/headers` findes ikke i tsx, så uden den her ville hvert eneste
+ * serverside-event være uprøveligt — og en spærring, ingen har set fejle,
+ * er ingen spærring. Samme greb som `indsaetBase` i db/client.ts.
+ */
+let _testkontekst: Kontekst | null = null
+export function _saetKontekst(k: Kontekst | null) { _testkontekst = k }
+
 async function kontekst(rute: Rute, brugerId?: string | null): Promise<Kontekst | null> {
+  if (_testkontekst) return { ..._testkontekst, rute, userId: brugerId ?? _testkontekst.userId ?? null }
   if (!process.env.NEXT_RUNTIME) return null // worker/tsx: ingen browser, ingen cookies
   const { cookies } = await import('next/headers')
   const jar = await cookies()

@@ -23,6 +23,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { drizzle } from 'drizzle-orm/pglite'
 import * as schema from '../db/schema'
 import { indsaetBase } from '../db/client'
+import { saetMiljoe } from '../lib/maaling'
 import { koerMigrationer, stubSupabase } from './pglite-skema.mjs'
 
 export interface Testbase {
@@ -49,6 +50,11 @@ export async function rejsTestbase(): Promise<Testbase> {
   // Samme forespørgsels-API, anden driver. drizzle-orm/pglite og
   // drizzle-orm/postgres-js deler grænseflade, men ikke type.
   indsaetBase(drizzle(pg, { schema }) as never, () => pg.close())
+  // I samme aandedrag som basen: en proeve kan ikke GLEMME at saette
+  // miljoeet, og dermed kan den ikke skrive en raekke, der ligner
+  // produktionens. Maalingen er stadig SLUKKET — saetAktiv(true) er den
+  // enkelte proeves eget, bevidste valg.
+  saetMiljoe('proeve')
   return { luk: () => pg.close(), migrationer }
 }
 
