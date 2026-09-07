@@ -114,13 +114,15 @@ export default function Side() {
         <li>at der blev søgt, hvilke filtre der var sat, og om de blev ændret</li>
         <li>hvor mange resultater søgningen gav, og om den gav nul</li>
         <li>at en bolig blev åbnet, og hvilken kilde den kom fra</li>
+        <li>at flere ens boliger på samme vej blev foldet ud</li>
         <li>
           for en del af besøgene: hvilke boliger der nåede at blive vist i
           listen, og på hvilken plads
         </li>
         <li>
-          at nogen gik videre til kilden eller fik vist en udlejers
-          kontaktoplysninger
+          at nogen gik videre til kilden, fik vist en udlejers
+          kontaktoplysninger, eller trykkede på den viste mailadresse eller
+          det viste telefonnummer
         </li>
         <li>at en boligbesked blev påbegyndt, oprettet og bekræftet</li>
         <li>at nogen oprettede sig som udlejer eller loggede ind</li>
@@ -168,8 +170,9 @@ export default function Side() {
         fingeraftryk af din browser.
       </p>
       <p>
-        Er du logget ind som udlejer, kobles hændelserne desuden til dit
-        interne bruger-id — et tilfældigt nummer i vores egen database. Din
+        Når du opretter en udlejerkonto, kobles netop den hændelse til dit
+        interne bruger-id — et tilfældigt nummer i vores egen database. Dine
+        øvrige besøg kobles ikke til kontoen, kun til browsernummeret. Din
         mailadresse indgår aldrig i statistikken.
       </p>
 
@@ -209,11 +212,15 @@ export default function Side() {
       </p>
 
       <h2>Cookies</h2>
-      <p>Vi bruger cookies til tre ting og ikke andet:</p>
+      <p>Vi bruger cookies til fire ting og ikke andet:</p>
       <ul>
         <li>at holde dig logget ind, hvis du er udlejer</li>
         <li>at huske, om du har sagt ja eller nej til statistik</li>
         <li>statistik, hvis du har sagt ja — de to numre beskrevet ovenfor</li>
+        <li>
+          holdnummeret, hvis du deltager i en brugertest. Den udløber efter
+          fire timer
+        </li>
       </ul>
       <p>
         Ingen af dem bruges til markedsføring, og ingen af dem deles med
