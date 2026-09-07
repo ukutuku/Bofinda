@@ -397,19 +397,40 @@ _saetDedup(new Set())
   // Vores egen URL baerer brugerens raa sted- og by-fritekst. Kommer den
   // ud i et event, er vaernet det eneste tilbage — og det skal den ikke
   // vaere afhaengig af.
+  // Byen skal AENDRE SIG mellem de to URL'er. Ellers danner diffen intet
+  // by-event, og saa er der ingenting at laekke igennem — proeven ville
+  // vaere groen, uanset hvor galt det stod til. Det var praecis den fejl,
+  // det bevidste brud «referer-fritekst i filter_applied.fra» afsloerede.
   const HEMMELIGT = 'Anna Hansen, Vestergade 12'
-  const medFritekst = forrigeFiltre(
-    `${base}/?sted=${encodeURIComponent(HEMMELIGT)}&by=${encodeURIComponent(HEMMELIGT)}`, base, parse)
-  const events = filterDiff(medFritekst, parse({ by: HEMMELIGT, prisMax: '9000' }), kender)
+  const OGSAA_HEMMELIGT = 'Bo Jensen, Nørrebrogade 44'
+  // Fra INGEN by til en ukendt by. To forskellige ukendte byer ville
+  // begge blive til 'by_ukendt' og dermed ikke give en diff — og saa var
+  // der stadig ingenting at laekke igennem.
+  const medFritekst = forrigeFiltre(`${base}/?prisMax=9000`, base, parse)
+  const events = filterDiff(
+    medFritekst, parse({ sted: HEMMELIGT, prisMax: '9000' }), kender)
+  void OGSAA_HEMMELIGT
+  tjek('24 · diffen danner faktisk et by-event at prøve på',
+    events.some((e) => (e.props as { felt?: string }).felt === 'by'),
+    `${events.length} event(er)`)
+
   const tekst = JSON.stringify(events)
-  const laekker = ['Anna', 'Hansen', 'Vestergade', '12'].filter((x) => tekst.includes(x))
+  const ord = ['Anna', 'Hansen', 'Vestergade', 'Bo', 'Jensen', 'Nørrebrogade']
+  const laekker = ord.filter((x) => tekst.includes(x))
   tjek('24 · REFERER LÆKKER IKKE fritekst ind i et event',
     laekker.length === 0, laekker.length ? `fandt ${laekker.join(', ')} i ${tekst}` : '')
   tjek('24 · byen bliver til en kategori, ikke til teksten',
-    tekst.includes('by_ukendt') || !tekst.includes('by'))
+    tekst.includes('by_ukendt'))
+
   const u = uddrag(parse({ sted: HEMMELIGT }), kender)
   tjek('24 · uddrag() sender aldrig rå sted videre',
     !JSON.stringify(u).includes('Anna'))
+  // Og hele vejen igennem vaernet, ikke kun i diffen.
+  for (const e of events) {
+    const r = rens(e, K())
+    tjek(`24 · ${e.navn} med fritekst bag sig passerer værnet rent`,
+      r.ok && !JSON.stringify(r.renset.raekke.properties).match(/Anna|Hansen|Jensen/))
+  }
 }
 
 // ─── 25-26 · Retention og aggregat ─────────────────────────────
