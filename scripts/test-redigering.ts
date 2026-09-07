@@ -13,6 +13,7 @@
 //   10. At et kort uden VISBART billede faar klassen uden-billede.
 //   11. At en samlet aconto ALDRIG faar saetningen "El indgaar ikke".
 //   12. At to udlejere paa samme vej bliver to kort, ikke ét.
+//   13. At billedforbeholdet ikke skubber kortets tekst en raekke ned.
 //
 //  Fejlen den fanger: redigér-formularen indlæste ikke alle felter, og et
 //  gem skrev tomme værdier hen over de gemte. En udlejer, der rettede en
@@ -802,6 +803,72 @@ async function main() {
     const har = html.includes(FORB_KORT)
     tjek(`${navn}: ${skal ? 'linjen står' : 'ingen linje'}`, har === skal,
       har ? 'linjen står' : 'ingen linje')
+  }
+
+  // ── Forbeholdet maa ikke skubbe teksten en raekke ned ────────
+  // `.kort` er et gitter med to spalter, og felterne placeres af
+  // raekkeflowet. Var forbeholdet et gitterfelt FOR SIG, maatte det
+  // traekkes tilbage i spalte 1 med `grid-column: 1` — og spalte 1
+  // ligger BAGUD for indsaetningspunktet, som stod i raekke 1 spalte 2
+  // efter billedet. Flowet rykkede derfor en raekke ned for at faa plads
+  // og efterlod punktet i raekke 2, hvor `.kort-krop` saa landede.
+  // Raekke 1's hoejre felt stod tomt: maalt til krop-top 193 px mod 13 px
+  // uden forbehold — ~180 px hvidt hul oeverst til hoejre, paa BEGGE
+  // korttyper, og kun paa de kort der HAR et forbehold.
+  //
+  // Det var hverken align-items eller et row-span. Kroppen laa i den
+  // forkerte RAEKKE, og raekkeantallet afhang af, om forbeholdet var der.
+  // Derfor maaler proeven netop det: hvilke elementer der er DIREKTE
+  // boern af kortet. Er de de samme med og uden forbehold, har gitteret
+  // det samme antal raekker, og kroppen kan ikke skubbes ned.
+  //
+  // En proeve paa CSS-teksten ville ikke fange det. Begge regler var
+  // hver for sig rigtige; det var sammenstillingen, der var forkert.
+  console.log('\n══ forbeholdet må ikke skubbe teksten en række ned ══')
+
+  /** Klasserne paa kortets DIREKTE boern, i orden. Statisk markup, saa en
+   *  tag-taeller raekker — og den er uafhaengig af klassenavnene. */
+  const TOMME_TAGS = new Set(['img', 'br', 'input', 'hr', 'meta', 'link'])
+  const direkteBoern = (html: string): string[] => {
+    const boern: string[] = []
+    let dybde = 0
+    for (const m of html.matchAll(/<(\/?)([a-z][a-z0-9]*)([^>]*)>/g)) {
+      const attr = m[3] ?? ''
+      if (m[1] === '/') { dybde--; continue }
+      if (dybde === 1) boern.push(/class="([^"]*)"/.exec(attr)?.[1] ?? '')
+      if (!TOMME_TAGS.has(m[2]!) && !attr.trimEnd().endsWith('/')) dybde++
+    }
+    return boern
+  }
+  tjek('prøvens præmis: tag-tælleren finder kortets felter',
+    direkteBoern(vis(createElement(Kort,
+      { nu: KORTNU, b: bolig({ ...medBillede, billedforbehold: false }) })))
+      .join('|') === 'kort-billedblok|kort-krop',
+    direkteBoern(vis(createElement(Kort,
+      { nu: KORTNU, b: bolig({ ...medBillede, billedforbehold: false }) }))).join('|'))
+
+  for (const [navn, medHtml, udenHtml] of [
+    ['enkeltkort',
+      vis(createElement(Kort, { nu: KORTNU, b: bolig({ ...medBillede, billedforbehold: true }) })),
+      vis(createElement(Kort, { nu: KORTNU, b: bolig({ ...medBillede, billedforbehold: false }) }))],
+    ['gruppekort',
+      vis(createElement(Gruppekort, { nu: KORTNU,
+        g: gruppe({}, { ...medBillede, billedforbehold: true }) })),
+      vis(createElement(Gruppekort, { nu: KORTNU,
+        g: gruppe({}, { ...medBillede, billedforbehold: false }) }))],
+  ] as const) {
+    const med = direkteBoern(medHtml)
+    const uden = direkteBoern(udenHtml)
+    tjek(`${navn}: forbeholdet er ikke et gitterfelt for sig`,
+      !med.some((k) => k.includes('billedforbehold')),
+      med.join(' | '))
+    tjek(`${navn}: samme gitterfelter med og uden forbehold`,
+      med.join('|') === uden.join('|'),
+      med.join('|') === uden.join('|') ? '' : `${med.join('|')} ≠ ${uden.join('|')}`)
+    // Modstykket: proeven maa ikke kunne bestaas ved at fjerne linjen.
+    // Den SKAL staa — inde i billedfeltet, foer kroppen.
+    tjek(`${navn}: linjen står stadig, inde i billedfeltet`,
+      new RegExp(`kort-billedblok[\\s\\S]*${FORB_KORT}[\\s\\S]*kort-krop`).test(medHtml))
   }
 
   // ── Ukendt total: SLET ingen el-linje ────────────────────────

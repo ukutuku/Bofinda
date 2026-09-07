@@ -152,16 +152,32 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 .total b { color: var(--tekst); font-weight: 600; }
 .el { font-size: 12px; color: var(--svag); }
 
+/* Billedet og det, der hoerer til billedet, er ÉT gitterfelt.
+
+   Foer var forbeholdet et selvstaendigt felt, der blev trukket tilbage i
+   foerste spalte med `grid-column: 1`. Spalte 1 ligger BAGUD for
+   indsaetningspunktet, som stod i raekke 1 spalte 2 efter billedet, saa
+   raekkeflowet rykkede en raekke ned for at faa plads — og efterlod
+   punktet i raekke 2, hvor `.kort-krop` derefter landede. Raekke 1's
+   hoejre felt stod tomt: ~180 px hvidt hul oeverst til hoejre, og kun paa
+   de kort, der HAR et forbehold. Det var ikke align-items og ikke et
+   row-span; kroppen laa i den forkerte RAEKKE.
+
+   Med billedet og forbeholdet samlet i ét felt har gitteret én raekke
+   igen, uanset om forbeholdet er der, og kroppen top-flugter med
+   billedets top. Det gaelder ogsaa de to andre former: uden billede
+   (ingen venstre spalte) og stablet under 460 px. */
+.kort-billedblok { display: grid; grid-template-rows: 1fr auto; min-width: 0; }
 /* Kildens forbehold om billederne. Staar i BILLEDKOLONNEN under billedet —
    den handler om det, man kigger paa, ikke om oekonomien. Vises kun naar
    der ER et billede; uden et billede er der intet at tage forbehold for. */
 .billedforbehold {
-  grid-column: 1; font-size: 11px; line-height: 1.35;
-  color: var(--svag); margin-top: -10px;
+  font-size: 11px; line-height: 1.35;
+  color: var(--svag); margin-top: 8px;
 }
 /* Paa boligsiden er der plads til hele saetningen. */
 p.billedforbehold {
-  grid-column: auto; font-size: 13px; color: var(--daempet);
+  font-size: 13px; color: var(--daempet);
   margin: 10px 0 0; max-width: 62ch;
 }
 .ukendt {

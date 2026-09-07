@@ -207,14 +207,19 @@ export function Kort({ b, nu }: { b: Bolig; nu: Date }) {
       id={`kort-${b.id}`}
       data-bolig={b.id}
     >
+      {/* Billedet og forbeholdet er ÉT gitterfelt. Var forbeholdet et felt
+          for sig, skubbede det kroppen en raekke ned — se .kort-billedblok
+          i globals.css. */}
       {forside && (
-        <div className="kort-billede">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={forside} alt="" loading="lazy" />
-          {b.billeder > 1 && <span className="kort-antal">{b.billeder} billeder</span>}
+        <div className="kort-billedblok">
+          <div className="kort-billede">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={forside} alt="" loading="lazy" />
+            {b.billeder > 1 && <span className="kort-antal">{b.billeder} billeder</span>}
+          </div>
+          {b.billedforbehold && <Billedforbehold />}
         </div>
       )}
-      {forside && b.billedforbehold && <Billedforbehold />}
 
       <div className="kort-krop">
         <div className="raek1">
@@ -353,15 +358,20 @@ export function Gruppekort({ g, nu }: { g: Gruppe; nu: Date }) {
       id={`kort-${r.id}`}
       data-bolig={r.id}
     >
+      {/* Billedet og forbeholdet er ÉT gitterfelt. Var forbeholdet et felt
+          for sig, skubbede det kroppen en raekke ned — se .kort-billedblok
+          i globals.css. */}
       {forside && (
-        <div className="kort-billede">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={forside} alt="" loading="lazy" />
-          <span className="kort-antal">{g.antal} boliger</span>
+        <div className="kort-billedblok">
+          <div className="kort-billede">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={forside} alt="" loading="lazy" />
+            <span className="kort-antal">{g.antal} boliger</span>
+          </div>
+          {/* Repraesentantens forbehold: det er HANS billede, kortet viser. */}
+          {r.billedforbehold && <Billedforbehold />}
         </div>
       )}
-      {/* Repraesentantens forbehold: det er HANS billede, kortet viser. */}
-      {forside && r.billedforbehold && <Billedforbehold />}
 
       <div className="kort-krop">
         <div className="raek1">
