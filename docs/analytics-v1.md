@@ -1228,3 +1228,90 @@ bruddet fælder den.
 
 Det er hele argumentet for bevidste brud i én sætning: **fejlen lå i prøven,
 og kun et brud kunne finde den.**
+
+
+---
+
+## 23 · Smoke-test efter aktivering
+
+Køres **én gang**, umiddelbart efter `MAALING_AKTIV=1` er sat i Vercel, og
+før nogen stoler på et tal. Alt måles i basen, ikke i browserens netværksfane.
+
+**Opslaget, alle trin bruger:**
+
+```sql
+select occurred_at, event_name, route, source_slug, listing_id,
+       anonymous_id, session_id, user_id, research_session_id,
+       environment, properties
+from haendelser
+where environment = 'produktion'
+order by occurred_at desc limit 50;
+```
+
+### A · Afvist samtykke → nul events
+
+1. Nyt privat vindue. Åbn `https://bofinda.dk/`.
+2. Tryk **«Kun det nødvendige»**.
+3. Søg på et postnummer, åbn en bolig, tryk «Se annoncen hos …».
+
+| Skal gælde | Hvordan det ses |
+|---|---|
+| Ingen rækker overhovedet | `select count(*) from haendelser where environment='produktion'` er stadig 0 |
+| Ingen analytics-cookies | Kun `bofinda_samtykke=nej` i browserens cookieliste — hverken `bofinda_aid` eller `bofinda_sid` |
+| Kildelinket virker alligevel | Klikket lander hos kilden. **Målingen må aldrig kunne stoppe et redirect** |
+
+### B · Accepteret samtykke → de fem events
+
+Nyt privat vindue igen. Tryk **«Tillad statistik»**, og gør så, i rækkefølge:
+
+| # | Handling | Forventet event | Nøglefelter at se efter |
+|---|---|---|---|
+| 1 | Forsiden vises | `homepage_view` | `boliger_i_alt`, evt. `referrer_vaert` |
+| 2 | Søg på «2300» | `search` | `result_count`, `sted_slags='postnr'`, `postnr='2300'` |
+| 3 | Samme request | `search_results_view` | `viste_antal`, `viste_pr_kilde`, samme `result_view_id` som `search` |
+| 4 | Åbn en bolig | `listing_view` | `listing_id`, `source_slug`, `postnr` |
+| 5 | Tryk «Se annoncen hos …» | `source_click` | samme `listing_id`, `maal='kilde'` |
+
+### Kontrollerne
+
+| Kontrol | Forespørgsel | Krav |
+|---|---|---|
+| **Miljø** | `select distinct environment from haendelser` | Kun `produktion`. Én `udvikling`-række betyder, at nogen kørte lokalt med `MAALING_AKTIV=1` |
+| **Identiteterne hænger sammen** | `select count(distinct anonymous_id), count(distinct session_id) from haendelser where environment='produktion'` | **1 og 1.** Alle fem events fra samme besøg deler begge id'er |
+| **Ingen null-identitet** | `select count(*) from haendelser where anonymous_id is null or session_id is null` | 0. (Kolonnerne er `not null`, så et andet tal ville betyde, at skemaet er ændret) |
+| **Ingen dubletter** | `select event_name, count(*) from haendelser where environment='produktion' group by 1` | Præcis 1 af hver af de fem. To `homepage_view` fra ét besøg = dedup virker ikke |
+| **Invarianten** | `count(search) = count(search_results_view) + count(empty_results)` | Skal gå op. Gør den ikke, er instrumenteringen i stykker |
+| **Ingen PII** | Se forespørgslen nedenfor | Nul træf |
+| **user_id** | `select count(*) from haendelser where user_id is not null` | 0 — ingen af de fem events bærer det. Kun `signup_completed` gør |
+| **Redirect** | Browserens netværksfane på `/go/<id>` | 302 til kildens URL, `Referrer-Policy: no-referrer`. Kilden må ikke få en referrer |
+
+**PII-forespørgslen:**
+
+```sql
+select id, event_name, properties
+from haendelser
+where environment = 'produktion'
+  and (properties::text ~* '[[:alnum:]._%+-]+@[[:alnum:].-]+\.[a-z]{2,}'
+    or properties::text ~ '"[0-9 ()+.-]{8,}"'
+    or properties::text ~* '(bearer |eyJ|sb_secret|sb_publishable)'
+    or properties::text ~* 'https?://(?!([a-z0-9-]+\.)*bofinda\.dk)');
+-- Skal give NUL rækker. Bemærk at uuid'er i properties (result_view_id)
+-- IKKE må tælle som telefonnumre — det var netop den falske positiv, der
+-- kostede tre events, før værnet blev rettet. Mønsteret her kræver
+-- anførselstegn omkring, så en uuid med bindestreger ikke rammer.
+```
+
+### Hvis noget fejler
+
+**Sæt `MAALING_AKTIV` tom i Vercel igen.** Der er ingen grund til at fejlsøge
+med målingen tændt — tabellen kan tømmes med
+`delete from haendelser where environment = 'produktion'`, og der er ikke
+noget, produktet mangler imens.
+
+### Bagefter
+
+Tøm smoke-testens egne rækker, så de ikke tælles med i de første rigtige tal:
+
+```sql
+delete from haendelser where anonymous_id = '<dit anonymous_id fra testen>';
+```
