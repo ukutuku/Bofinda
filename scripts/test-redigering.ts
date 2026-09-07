@@ -1747,17 +1747,136 @@ async function main() {
       cejRaekke!.deposit === 4950000 && cejRaekke!.prepaidRent === 1650000,
       JSON.stringify([cejRaekke!.deposit, cejRaekke!.prepaidRent]))
 
-    // Parseren: chunken i realistisk script-indpakning, og ærligt null
-    // når den mangler — et gæt her ville blive til en tom import.
-    const remixHtml = '<script>window.__remixContext={};'
-      + "__remixContext.r('routes/search/layout','searchResponse',"
-      + JSON.stringify({ size: 1, isFiltered: false, pages: [''], items: [cejItem()] })
-      + ');</script>'
-    const cejSvar = cejFind(remixHtml)
-    tjek('cej parser: searchResponse findes og parses i script-indpakning',
-      Array.isArray(cejSvar?.['items']) && (cejSvar!['items'] as unknown[]).length === 1)
+    // ── Parseren: BEGGE Remix-former, og pladsholderen der ligner ──
+    // Kilden serverer den SAMME searchResponse i to former — streamet via
+    // __remixContext.r() og inlinet via __remixContext.p() — og skiftede
+    // mellem dem tre gange den 7. sep. 2026 midt i produktionen. HTTP var
+    // 200 hver gang, og payloaden var byte-identisk; kun indpakningen
+    // skiftede, og parseren kendte kun den ene form.
+    //
+    // Fixturerne bærer derfor OGSÅ den tomme pladsholder
+    // «"searchResponse":{}», som begge rigtige dokumenter har i
+    // basiskonteksten. Uden den ville prøven være lettere end
+    // virkeligheden — og netop den pladsholder er fælden for en parser,
+    // der leder efter ordet i stedet for mekanismen.
+    const CEJ_PLADSHOLDER = '"routes/search/layout":{"searchResponse":{},"pageSize":32}'
+    const cejBase = '<script>window.__remixContext={"state":{"loaderData":{'
+      + CEJ_PLADSHOLDER + '}},"errors":null};'
+    const cejStreamet = (p: unknown): string => cejBase
+      + 'Object.assign(__remixContext.state.loaderData["routes/search/layout"], '
+      + '{"searchResponse":__remixContext.n("routes/search/layout", "searchResponse")});'
+      + '__remixContext.a=1;</script>'
+      + '<!--$--><script async="">__remixContext.r("routes/search/layout", "searchResponse", '
+      + JSON.stringify(p) + ')</script><!--/$-->'
+    const cejInlinet = (p: unknown): string => cejBase
+      + 'Object.assign(__remixContext.state.loaderData["routes/search/layout"], '
+      + '{"searchResponse":__remixContext.p(' + JSON.stringify(p) + ')});</script>'
+    const cejNyttelast = {
+      size: 1, isFiltered: false, type: 'residences', pages: [''], items: [cejItem()],
+    }
+
+    const cejSvarR = cejFind(cejStreamet(cejNyttelast))
+    const cejSvarP = cejFind(cejInlinet(cejNyttelast))
+    tjek('cej parser: .r()-formen parses — den streamede chunk',
+      Array.isArray(cejSvarR?.['items']) && (cejSvarR!['items'] as unknown[]).length === 1)
+    tjek('cej parser: .p()-formen parses — den inlinede værdi, fejlen fra 7. sep.',
+      Array.isArray(cejSvarP?.['items']) && (cejSvarP!['items'] as unknown[]).length === 1)
+    tjek('cej parser: de to former giver PRÆCIS samme searchResponse',
+      cejSvarR !== null && JSON.stringify(cejSvarR) === JSON.stringify(cejSvarP))
+    tjek('cej parser: den tomme pladsholder "searchResponse":{} accepteres ALDRIG',
+      cejFind(cejBase + '</script>') === null)
+    tjek('cej parser: den ventende .n()-form alene er ikke data',
+      cejFind(cejBase + 'Object.assign(__remixContext.state.loaderData["routes/search/layout"], '
+        + '{"searchResponse":__remixContext.n("routes/search/layout", "searchResponse")});'
+        + '__remixContext.a=1;</script>') === null)
+    tjek('cej parser: .r()-fejlgrenen — værdipladsen er ikke et objekt — giver null',
+      cejFind(cejBase + '</script><script>__remixContext.r("routes/search/layout", '
+        + '"searchResponse", "Server timeout")</script>') === null)
+    tjek('cej parser: .p()-fejlgrenen giver null, og pladsholderen foran narrer den ikke',
+      cejFind(cejBase + '{"searchResponse":__remixContext.p("Server timeout")}</script>') === null)
+    tjek('cej parser: en FREMMED deferred nøgle i .p()-form tages ikke for vores',
+      cejFind(cejBase + 'Object.assign(x, {"andenNoegle":'
+        + '__remixContext.p({"items":[{"id":"nej"}]})});</script>') === null)
+    tjek('cej parser: enkelt-citattegn i kaldelisten læses også',
+      Array.isArray(cejFind("<script>__remixContext.r('routes/search/layout','searchResponse',"
+        + JSON.stringify(cejNyttelast) + ');</script>')?.['items']))
     tjek('cej parser: HTML uden chunken giver null — ingen gæt',
       cejFind('<html><body>intet her</body></html>') === null)
+
+    // ── Discovery: tre sider, pages-kontrakten, og fail-closed ────
+    // Sidste side leveres i .p()-formen — nøjagtig produktionsfejlen.
+    // Og en pages-liste, vi ikke kan validere, skal KASTE: faldt den
+    // tilbage til én side, ville 32 boliger blive taget for hele
+    // kataloget, og resten ville stå til afmeldning.
+    const CEJ_SIDER = ['', '?offset=32', '?offset=64']
+    const cejSide = (sti: string): Record<string, unknown> => {
+      const nr = CEJ_SIDER.indexOf(sti)
+      return {
+        size: 5, isFiltered: false, type: 'residences', pages: CEJ_SIDER,
+        items: nr === 2
+          ? [cejItem({ id: 'cej0000000000000000000000000s3a' })]
+          : [cejItem({ id: `cej0000000000000000000000000s${nr}a` }),
+             cejItem({ id: `cej0000000000000000000000000s${nr}b` })],
+      }
+    }
+    const cejKald: string[] = []
+    const rigtigFetchC = globalThis.fetch
+    const cejTakt = taktFor('udlejning.cej.dk')
+    const cejServer = (byg: (sti: string) => string): void => {
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        const url = String(input)
+        cejKald.push(url)
+        return new Response(byg(url.replace(`${'https://udlejning.cej.dk'}/find-bolig/overblik`, '')),
+          { status: 200, headers: { 'content-type': 'text/html' } })
+      }) as typeof fetch
+    }
+    const cejDiscoverFejl = async (nyttelast: Record<string, unknown>): Promise<string> => {
+      cejServer(() => cejStreamet(nyttelast))
+      try { await cejAdapter().discover(); return '' } catch (e) { return (e as Error).message }
+    }
+    _saetTakt('udlejning.cej.dk', 20)
+    try {
+      cejKald.length = 0
+      cejServer((sti) => sti === '?offset=64'
+        ? cejInlinet(cejSide(sti)) : cejStreamet(cejSide(sti)))
+      const cejA = cejAdapter()
+      const cejFundne = await cejA.discover()
+      tjek('cej discover: tre sider hentes, og sidste side i .p()-form taber ingen boliger',
+        cejFundne.length === 5 && cejKald.length === 3 && cejKald[2]!.endsWith('?offset=64'),
+        JSON.stringify([cejFundne.length, cejKald.length]))
+      const cejP3 = await cejA.extract(cejFundne.at(-1)!.url)
+      tjek('cej discover: økonomi, billeder og availability overlever .p()-formen uændret',
+        cejP3.rentMonthly === 1650000 && cejP3.utilitiesOther === 91000
+        && cejP3.deposit === 4950000 && cejP3.prepaidRent === 1650000
+        && cejP3.imageUrls?.length === 1 && cejP3.availability?.rawStatus === 'available'
+        && cejP3.sizeM2 === 83 && cejP3.rooms === 3,
+        JSON.stringify([cejP3.rentMonthly, cejP3.imageUrls?.length, cejP3.availability?.rawStatus]))
+
+      const udenPages = await cejDiscoverFejl({ size: 66, type: 'residences', items: [cejItem()] })
+      tjek('cej pages: en manglende sideliste KASTER — 32 er ikke et katalog',
+        udenPages.includes('pages-kontrakten kunne ikke valideres'), udenPages)
+      const pagesStreng = await cejDiscoverFejl({ size: 66, pages: '?offset=32', items: [cejItem()] })
+      tjek('cej pages: pages som streng i stedet for liste KASTER',
+        pagesStreng.includes('pages-kontrakten kunne ikke valideres'), pagesStreng)
+      const pagesTom = await cejDiscoverFejl({ size: 66, pages: [], items: [cejItem()] })
+      tjek('cej pages: en TOM sideliste KASTER — ingen sider er ikke «én side»',
+        pagesTom.includes('pages-kontrakten kunne ikke valideres'), pagesTom)
+      const pagesFremmed = await cejDiscoverFejl({ size: 66, pages: ['', 42], items: [cejItem()] })
+      tjek('cej pages: et ikke-streng-element KASTER i stedet for at blive filtreret væk',
+        pagesFremmed.includes('pages-kontrakten kunne ikke valideres'), pagesFremmed)
+      const pagesModsagt = await cejDiscoverFejl({ size: 66, pages: [''], items: [cejItem()] })
+      tjek('cej pages: 66 boliger på ÉN side modsiger sig selv og KASTER',
+        pagesModsagt.includes('pagineringskontrakten holder ikke'), pagesModsagt)
+      const pagesOverLoft = await cejDiscoverFejl({
+        size: 5, pages: Array.from({ length: 31 }, (_, i) => `?offset=${i * 32}`), items: [cejItem()],
+      })
+      tjek('cej pages: over sideloftet KASTER stadig', pagesOverLoft.includes('over loftet'), pagesOverLoft)
+      const énSide = await cejDiscoverFejl({ size: 1, pages: [''], type: 'residences', items: [cejItem()] })
+      tjek('cej pages: et ægte ét-sides katalog er stadig lovligt', énSide === '', énSide)
+    } finally {
+      globalThis.fetch = rigtigFetchC
+      _saetTakt('udlejning.cej.dk', cejTakt)
+    }
 
     // ── Heimstaden: liste + detalje, naboimmunitet ───────────────
     // Detaljesiden bærer kort for ANDRE boliger med egne priser og

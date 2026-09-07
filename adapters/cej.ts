@@ -116,44 +116,142 @@ const objekt = (v: unknown): Ukendt =>
   v && typeof v === 'object' && !Array.isArray(v) ? v as Ukendt : {}
 
 /**
- * Finder `searchResponse`-chunken i den streamede Remix-kontekst og
- * parser den. Brace-matcher frem for regex: payloaden indeholder selv
- * `}`-tegn i strenge. Chunk-NAVNENE i buildet roterer, men kaldeformen
- * `__remixContext.r('…','searchResponse',{…})` er platformens kontrakt.
+ * Kilden serverer den SAMME searchResponse i to Remix-former, og valget
+ * mellem dem er ikke vores. Maalt paa to svar fra samme URL med minutters
+ * mellemrum — samme build (43 identiske byggeaktiver), samme payload
+ * (byte-identisk JSON, samme sha256), 162 tegns forskel i indpakningen:
+ *
+ *   streamet   "searchResponse":__remixContext.n("…","searchResponse")
+ *              …senere: <script>__remixContext.r("…","searchResponse",{…})</script>
+ *   inlinet    "searchResponse":__remixContext.p({…})
+ *
+ * `.n()` er en ventende promise, `.r()` indfrier den, `.p()` er en
+ * allerede indfriet vaerdi skrevet direkte ind. Var promiset indfriet i
+ * Remix' egen bogfoering, da hydreringsscriptet blev skrevet, faar man
+ * `.p()`, og der kommer ALDRIG et `.r()`-kald. Den gren stod for tre
+ * fejlede koersler den 7. sep. 2026 (~23 % af kildens koersler), fordi
+ * denne funktion kun kendte `.r()`. HTTP var 200 hver gang, og payloaden
+ * var intakt — det var laesningen, der manglede en form.
+ *
+ * ── Hvorfor der ankres paa noeglen og ikke paa ordet ──────────
+ * BEGGE dokumenter baerer i basiskonteksten en TOM pladsholder:
+ *
+ *   "routes/search/layout":{"searchResponse":{},"pageSize":32}
+ *
+ * En parser, der leder efter `"searchResponse"` og brace-matcher naeste
+ * `{`, rammer den — i begge varianter — og faar `{}`. Saa er `items`
+ * undefined og `pages` undefined, og en tavs tom import har afloest en
+ * hoejlydt fejl. Derfor kraeves det, at noeglen er umiddelbart efterfulgt
+ * af selve mekanismen, og at vaerdipladsen ER et objekt: baade `.p()` og
+ * `.r()` har en fejlgren, hvor der staar noget andet end et objekt dér.
+ *
+ * Kan en gyldig searchResponse ikke udledes sikkert, returneres null, og
+ * `discover()` kaster. Det er med vilje: en kastende discovery naar
+ * aldrig afmeldningen, en tavst forkortet goer.
  *
  * Eksporteret KUN til proeven.
  */
-export function findSearchResponse(html: string): Ukendt | null {
-  let fra = 0
-  for (;;) {
-    const m = html.indexOf('__remixContext.r(', fra)
-    if (m < 0) return null
-    fra = m + 17
-    if (!html.slice(m, m + 220).includes('searchResponse')) continue
-    const i = html.indexOf('{', m)
-    if (i < 0) return null
-    let dybde = 0
-    let iStreng = false
-    let esc = false
-    for (let j = i; j < html.length; j++) {
-      const c = html[j]
-      if (iStreng) {
-        if (esc) esc = false
-        else if (c === '\\') esc = true
-        else if (c === '"') iStreng = false
-        continue
-      }
-      if (c === '"') iStreng = true
-      else if (c === '{') dybde++
-      else if (c === '}') {
-        dybde--
-        if (dybde === 0) {
-          try { return JSON.parse(html.slice(i, j + 1)) as Ukendt } catch { return null }
-        }
+const NOEGLE = 'searchResponse'
+
+/** Springer blanktegn over fra `fra`. */
+const spring = (html: string, fra: number): number => {
+  let k = fra
+  while (k < html.length && /\s/.test(html[k]!)) k++
+  return k
+}
+
+/** Én strengliteral fra en JS-kaldeliste. Kilden bruger begge citattegn. */
+function laesStrengArg(html: string, fra: number): { vaerdi: string; naeste: number } | null {
+  const k = spring(html, fra)
+  const q = html[k]
+  if (q !== '"' && q !== "'") return null
+  let ud = ''
+  for (let j = k + 1; j < html.length; j++) {
+    const c = html[j]!
+    if (c === '\\') { ud += html[j + 1] ?? ''; j++; continue }
+    if (c === q) return { vaerdi: ud, naeste: j + 1 }
+    ud += c
+  }
+  return null
+}
+
+/** Positionen efter et komma, eller null hvis der ikke staar et. */
+function efterKomma(html: string, fra: number): number | null {
+  const k = spring(html, fra)
+  return html[k] === ',' ? k + 1 : null
+}
+
+/**
+ * Et OBJEKT paa vaerdipladsen. Brace-matcher frem for regex: payloaden
+ * indeholder selv `}`-tegn i strenge. Staar der noget andet end `{`, er
+ * det fejlgrenen (`.p(v,e)` / `.r(i,k,v,e)`), og vi gaetter ikke.
+ */
+function laesObjektArg(html: string, fra: number): Ukendt | null {
+  const start = spring(html, fra)
+  if (html[start] !== '{') return null
+  let dybde = 0
+  let iStreng = false
+  let esc = false
+  for (let j = start; j < html.length; j++) {
+    const c = html[j]
+    if (iStreng) {
+      if (esc) esc = false
+      else if (c === '\\') esc = true
+      else if (c === '"') iStreng = false
+      continue
+    }
+    if (c === '"') iStreng = true
+    else if (c === '{') dybde++
+    else if (c === '}') {
+      dybde--
+      if (dybde === 0) {
+        try { return JSON.parse(html.slice(start, j + 1)) as Ukendt } catch { return null }
       }
     }
-    return null
   }
+  return null
+}
+
+/** Formen `__remixContext.r(<rute>, "searchResponse", {…})`. */
+function streametForm(html: string): Ukendt | null {
+  const KALD = '__remixContext.r('
+  let fra = 0
+  for (;;) {
+    const m = html.indexOf(KALD, fra)
+    if (m < 0) return null
+    fra = m + KALD.length
+    const rute = laesStrengArg(html, fra)
+    if (!rute) continue
+    const k1 = efterKomma(html, rute.naeste)
+    if (k1 == null) continue
+    const noegle = laesStrengArg(html, k1)
+    if (!noegle || noegle.vaerdi !== NOEGLE) continue
+    const k2 = efterKomma(html, noegle.naeste)
+    // Noeglen er vores. Baerer vaerdipladsen ikke et objekt, er det
+    // fejlgrenen — og saa er svaret null, ikke det naeste kald.
+    return k2 == null ? null : laesObjektArg(html, k2)
+  }
+}
+
+/** Formen `"searchResponse":__remixContext.p({…})`. */
+function inlinetForm(html: string): Ukendt | null {
+  const ANKER = `"${NOEGLE}":`
+  const KALD = '__remixContext.p('
+  let fra = 0
+  for (;;) {
+    const m = html.indexOf(ANKER, fra)
+    if (m < 0) return null
+    fra = m + ANKER.length
+    const k = spring(html, fra)
+    // Her sorteres baade den tomme pladsholder (`{}`) og den ventende
+    // `.n(`-form fra: kun `.p(` baerer en indfriet vaerdi.
+    if (!html.startsWith(KALD, k)) continue
+    return laesObjektArg(html, k + KALD.length)
+  }
+}
+
+export function findSearchResponse(html: string): Ukendt | null {
+  return streametForm(html) ?? inlinetForm(html)
 }
 
 /**
@@ -264,11 +362,34 @@ export function cejAdapter(): SourceAdapter {
       const foerste = await hentSide('')
       if (!foerste) throw new Error('cej: searchResponse ikke fundet — har bolig.io aendret buildformat?')
 
-      // Kildens egen sideliste: ['', '?offset=32', …]. Vi foelger den.
-      const sider = (Array.isArray(foerste['pages']) ? foerste['pages'] : [''])
-        .filter((p): p is string => typeof p === 'string')
+      // Kildens egen sideliste: ['', '?offset=32', …]. Vi foelger den —
+      // og vi VALIDERER den. Faldt vi tilbage til [''], naar listen
+      // mangler eller er misdannet, ville de 32 boliger paa side 1 blive
+      // behandlet som hele kataloget, og de oevrige ville staa til
+      // afmeldning. Forskellen paa de to udgange er hele sagen: en
+      // KASTENDE discovery naar aldrig afmeldningskoden (lib/ingest.ts
+      // vender om i discovery-catchen), mens en tavst forkortet liste gaar
+      // hele vejen igennem og kun stoppes af 50 %-sikringen — som ved 32
+      // af 63-66 boliger ligger paa vippen. Vi gaetter aldrig paa sider.
+      const raaSider: unknown = foerste['pages']
+      if (!Array.isArray(raaSider) || raaSider.length === 0
+        || !raaSider.every((p) => typeof p === 'string')) {
+        throw new Error('cej: pages-kontrakten kunne ikke valideres '
+          + `(${JSON.stringify(raaSider) ?? 'undefined'}) — gaetter ikke paa antal sider`)
+      }
+      const sider = raaSider as string[]
       if (sider.length > MAKS_SIDER) {
         throw new Error(`cej: ${sider.length} sider — over loftet paa ${MAKS_SIDER}, noget er galt`)
+      }
+      // Siger payloaden selv, at udbuddet er stoerre end den foerste side
+      // baerer, SKAL sidelisten have mere end én side. Ellers er
+      // pagineringskontrakten ukendt, og et komplet katalog er en paastand
+      // vi ikke har daekning for.
+      const ialt = tal(foerste['size'])
+      const paaFoerste = Array.isArray(foerste['items']) ? foerste['items'].length : 0
+      if (ialt != null && ialt > paaFoerste && sider.length < 2) {
+        throw new Error(`cej: payloaden siger ${ialt} boliger, men side 1 baerer ${paaFoerste}`
+          + ` og pages har ${sider.length} side — pagineringskontrakten holder ikke`)
       }
 
       const ud: DiscoveredListing[] = []
