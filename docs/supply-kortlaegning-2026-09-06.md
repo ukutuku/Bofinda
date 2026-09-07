@@ -8,6 +8,24 @@ MÅLT mod de 1.468 synlige Bofinda-boliger (adresse+postnr, id-mønstre, billedv
 platform-fingeraftryk). De to største målte fund (Heimstaden, Birch) er efterprøvet af
 uafhængige modbevisere, som begge bekræftede tallene.
 
+> **Revision 2026-09-07 — EDC Lejeindeks er nedjusteret og lukket.**
+> Rapportens oprindelige EDC-estimat (**~11.300 netto nye**, rangeret nr. 4) var forkert:
+> det talte syndikerede tredjepartsannoncer som EDC-eget inventar. Quality proben
+> 7. september (47 sager, stratificeret på seks buckets, uafhængigt modbevist) viser:
+> **~374 EDC-egne sager**; **~97 %** af portalens øvrige inventar er boligportal.dk-
+> syndikering via feed; **52 af 374** EDC-egne overlapper Bofinda (14 %); realistisk
+> net-new for EDC-egne sager **ca. 270–322**, primært København/Storkøbenhavn, meget
+> lille værdi for Aarhus (11) og Aalborg (1). EDC's vilkår har TDM-forbehold efter
+> ophavsretslovens § 11 b og kræver skriftlig aftale for enhver brug; sitet blokerer
+> vores selvidentificerende bot med CHEQ. **Anbefaling: IKKE NU / kun ved direkte
+> skriftlig aftale.** De gamle tal står bevaret i teksten nedenfor, mærket ⁵.
+>
+> *Metodisk caveat:* proben fik i fire af seks buckets adgang med en forkortet
+> User-Agent (`BofindaResearch/1.0` uden bot-URL og kontakt), efter at den normale
+> selvidentificerende bot var blokeret af CHEQ. Det må IKKE fortolkes som tilladelse
+> til yderligere automatiseret adgang og må ikke bruges som implementationsteknik.
+> Fuld probe: `edc-probe-2026-09-07.md` (leveret 7/9).
+
 **Korrektion i syntesen:** to agenter omtalte umøblerede helårslejemål som et "forbehold
 for segmentet". Det er omvendt: umøbleret helårsleje er Bofindas kernesegment. Møbleret
 korttidsudlejning (LifeX, HousingAnywhere, Hay4You) er delsegmentet, der kræver en
@@ -30,7 +48,7 @@ Mål: 2.500–3.000 gode, unikke aktuelle boliger uden at sænke datakvaliteten.
 | Heimstaden | 198 | 198 | ~198³ | lavt (0/198 målt) | målt + modbevist | lav |
 | Birch Ejendomme | 59 | 59 | 59 | lavt (0/59 målt) | målt + modbevist | lav |
 | CEJ (bolig.io) | 63 | 34 | 34 | lavt (0/63 målt) | målt | lav |
-| EDC Lejeindeks | 12.191 | 12.191⁴ | ~11.300⁴ | lavt (5/67 stikprøve) | delvist målt | lav |
+| EDC Lejeindeks | 12.191⁵ → **374 egne** | 374 (egne) | ~11.300⁵ → **270–322** | 14 % (52/374 målt) | probe 7/9 | høj (CHEQ) |
 | RealMæglerne | 36 | 34 | 34 | lavt (0 målt) | målt | lav |
 | Taurus Ejendomsforvaltning | 36 | 36 | 36 | lavt | delvist målt | lav |
 | danbolig | 44 | 44 | ~38 | lavt (4/30 = propstep) | målt | moderat |
@@ -64,6 +82,7 @@ minlejebolig/apbolig (certifikatfejl).
 
 ¹ efter kildens egen statussemantik. ² efter måling mod grundlaget. ³ heraf 12 studie-
 og 6 ungdomsboliger (modbeviserens nuance). ⁴ kildens egen tæller; ikke modbevist.
+⁵ oprindeligt estimat 6/9, tilbagevist af quality proben 7/9 — se revisionsblokken.
 
 ## 3. Teknisk adgang — de vigtigste
 
@@ -81,11 +100,14 @@ og 6 ungdomsboliger (modbeviserens nuance). ⁴ kildens egen tæller; ikke modbe
   DAWA-adresser. **KRITISK**: payloaden lækker persondata om boligsøgende
   (reservation.lead: navne, e-mails, telefonnumre). En adapter må ALDRIG gemme de felter,
   og CEJ/bolig.io bør orienteres om lækket.
-- **EDC Lejeindeks** (edc.dk/lejebolig): komplet struktureret JSON i hver SSR-side inkl.
-  fuld adresse, depositum (mdr. + kr.), forudbetalt, aconto, «Ledig fra»-dato og
-  isRented/isContractSigned-flag; GET-pagination verificeret; tilladende robots. MEN:
-  18 % af stikprøven er aggregerede boligportal.dk-annoncer (source-felt findes — skal
-  filtreres fra), og tallet 12.191 er kildens eget, ikke modbevist.
+- **EDC Lejeindeks** (edc.dk/lejebolig) — *revideret 7/9*: SSR-JSON'en er som beskrevet,
+  men kun for EDC-egne sager (374 i sitemap-cases.xml, 8-cifrede sagsnumre, relativ
+  `/leje/`-sti). De øvrige ~97 % af tælleren er boligportal.dk-kort (`source:
+  "boligportal.dk"`, `isEdcCase:false`, `ex`-præfiks, absolut boligportal-URL med
+  `utm_campaign=feed`) uden side på edc.dk. Den oprindelige «18 % tredjepart»⁵ var
+  målt på forsiden, som sorterer EDC-egne sager først. Robots er tilladende, men
+  **CHEQ-botbeskyttelse svarer 403 på alle HTML-sider** for en selvidentificerende bot;
+  «tilladende robots» var derfor ikke lig med adgang.
 - **RealMæglerne**: åbent GET-JSON-feed (`/boliglistfeed?Udbudsform=Leje`), StatusKode=A.
 - **Taurus**: fuld struktureret data pr. bolig (adresse, husnr, A/C, depositum, status,
   overtagelsesdato, møbleret-flag), robots tillader alt.
@@ -109,13 +131,15 @@ og 6 ungdomsboliger (modbeviserens nuance). ⁴ kildens egen tæller; ikke modbe
   ikke nye scrapes.
 - Aggregatorer krydsposter vores kilder: Boligzonen matcher 50 % i København (home,
   findbolig, lokalbolig, dacas krydsposter dér); Lejebolig.dk ~12 % målt.
-- EDC: 5/67 (7,5 %) i stikprøven, alle Odense/lokalbolig-porteføljer.
+- EDC⁵ 5/67 (7,5 %) → *revideret 7/9*: **52 af 374 EDC-egne = 14 %** på vej+husnr+postnr
+  med etage/dør, leje og m² bekræftet — 41 propstep (hele Søagerhusene, 2765 Smørum),
+  9 lokalbolig (Odense C), 2 cej (Nordre Teglkaj 40).
 
 ## 5. Availability-værdi
 
 Bedst dokumenterede signaler: Heimstaden (status + dato pr. bolig, dagligt opdateret),
 Birch (Ledig + dato), CEJ (available/reserved + availableFrom + reservation.dueOn),
-EDC (Ledig fra + isRented/isContractSigned), Taurus (status + overtagelsesdato),
+EDC (Ledig fra + isRented/isContractSigned — kun EDC-egne sager), Taurus (status + overtagelsesdato),
 RealMæglerne (StatusKode + FoersteAnnonceringsDato → målbar til-/afgang), Kereby
 (available/reserved/completed — førsteklasses semantik), CityApartment («Available
 from» + fuld økonomi). Svagest: Jeudan (ingen dato), danbolig (ingen lejestart i feed),
@@ -130,14 +154,17 @@ med struktureret belæg som de eksisterende syv.
 | + Sprint A: Heimstaden ~198 + Birch 59 + CEJ 34 | ~1.737 |
 | + Sprint B (målte små): RealMæglerne 34, Taurus 36, danbolig ~38, Barfoed 17 | ~1.862 |
 | + opportunistiske: Calum 15, LifeX 21, Postbyen 12, Civica 9, Jeudan 5, CityApartment 5, Kereby 4 | ~1.933 |
-| + EDC Lejeindeks (filtreret for boligportal-sager og dubletter) | **>3.000** |
+| + EDC Lejeindeks⁵ («filtreret for boligportal-sager») | ~~**>3.000**~~ |
+| + EDC-egne sager, *kun ved skriftlig aftale* (revideret 7/9) | ~2.200–2.255 |
 
-**Ærlig konklusion: målet 2.500–3.000 kan IKKE nås med rene udlejerkilder alene.**
-Alle målte udlejerkilder tilsammen giver ~1.900. Vejen til 2.500–3.000 går gennem én
-volumenbeslutning: EDC Lejeindeks (teknisk letteste kilde, tilladende robots, fulde
-økonomifelter — men kildens tal er ubekræftet og kræver en kvalitetsprobe +
-rettighedsdialog først) eller en AFTALE med en aggregator (Boligzonen/Lejebolig.dk
-forbyder scraping i vilkårene — kun aftalevejen findes dér).
+**Ærlig konklusion (revideret 7/9): målet 2.500–3.000 kan IKKE nås med de kortlagte
+kilder — heller ikke med EDC.** Alle målte udlejerkilder giver ~1.930; EDC-egne sager
+ville selv med aftale lægge højst ~270–322 til, næsten alle i København/Storkøbenhavn.
+Den oprindelige «volumenbeslutning» om EDC⁵ hvilede på et tal, der talte
+boligportal.dk-syndikering som EDC-inventar. Den eneste vej over 2.500 er nu en AFTALE
+med en aggregator (Boligzonen/Lejebolig.dk forbyder scraping i vilkårene — kun
+aftalevejen findes dér) eller flere udlejerkilder af Heimstaden-klassen. Målet bør
+derfor enten genforhandles eller knyttes til aftaler, ikke til crawling.
 
 ## 7. Geografi og vægtningsforslag
 
@@ -146,9 +173,11 @@ aalborg 1,2 · odense 1,1 · stor_kbh 1,0 · rest 0,6**. Begrundelse: Aarhus er 
 næststørste lejemarked, men baselinens tyndeste bucket (54); København har størst
 efterspørgsel; rest-provins er værdifuld, men mindre søgt.
 
-Hvem lukker hullerne: **Aarhus** ← Birch 24, CEJ 16, danbolig 16, Heimstaden 7, EDC 597⁴.
-**Aalborg** ← Calum 15, Heimstaden 12, EDC⁴. **Odense** ← Heimstaden 13, Barfoed 6,
-Civica 5, EDC 669⁴. **Kbh** ← Heimstaden 33, CEJ 21, LifeX 21, Postbyen 12.
+Hvem lukker hullerne: **Aarhus** ← Birch 24, CEJ 16, danbolig 16, Heimstaden 7,
+EDC-egne 11 (ikke 597⁵ — det var kommunetælleren inkl. boligportal-syndikering).
+**Aalborg** ← Calum 15, Heimstaden 12, EDC-egne 1. **Odense** ← Heimstaden 13,
+Barfoed 6, Civica 5, EDC-egne 26 (heraf 9 overlap). **Kbh** ← Heimstaden 33, CEJ 21,
+LifeX 21, Postbyen 12, EDC-egne 139 (kun ved aftale).
 
 ## 8. Rettigheds- og driftsrisiko
 
@@ -157,9 +186,12 @@ Civica 5, EDC 669⁴. **Kbh** ← Heimstaden 33, CEJ 21, LifeX 21, Postbyen 12.
   af, om platformejeren bolig.io skal give lov.
 - **Tilladende robots, eget site, ingen aftale**: Heimstaden (undlad /api/-stier;
   sitemap-stien under /api/feed/ er disallowed trods annoncering i sitemap-indekset —
-  brug listesiden), Birch, RealMæglerne, Taurus, Barfoed, Civica, Postbyen, LifeX, EDC.
+  brug listesiden), Birch, RealMæglerne, Taurus, Barfoed, Civica, Postbyen, LifeX.
 - **Kræver afklaring**: danbolig (POST-API), Danica (POST-API), Danmark Bolig (POST).
-- **Forbudt/blokeret uden aftale**: Boligzonen (vilkår forbyder bots + blokerer
+- **Forbudt/blokeret uden aftale**: EDC Lejeindeks (*flyttet hertil 7/9*: vilkårene har
+  TDM-forbehold efter ophavsretslovens § 11 b og kræver skriftlig aftale for enhver brug
+  af EDC's data; CHEQ blokerer selvidentificerende bots; de 97 % boligportal-annoncer
+  kan EDC slet ikke give videre), Boligzonen (vilkår forbyder bots + blokerer
   aggregator-bots ved navn), Lejebolig.dk (vilkår forbyder crawl til konkurrerende
   virksomhed + TDM-forbehold; dyb paginering robots-forbudt), Nybolig (robots forbyder
   søgesiden), Lejerbo (/api robots-forbudt), Housing Denmark (Disallow for ClaudeBot
@@ -179,13 +211,21 @@ tal (M), overlap (O), forbudt adgang (R) og login/venteliste (V/R).
 | 1 | Heimstaden | 5 | 5 | 5 | 2,8 | 5 | 4 | 5 | **64,7** |
 | 2 | Birch Ejendomme | 4 | 5 | 5 | 3,2 | 4,5 | 4 | 5 | **60,5** |
 | 3 | CEJ | 3 | 4 | 5 | 3,8 | 5 | 4,5 | 5 | **57,2** |
-| 4 | EDC Lejeindeks | 5 | 2 | 5 | 2,6 | 5 | 3 | 5 | **56,4** |
-| 5 | RealMæglerne | 3 | 4 | 5 | 2,6 | 3,5 | 4 | 5 | 52,1 |
-| 6 | Taurus | 3 | 2,5 | 5 | 2,8 | 5 | 4 | 5 | 51,7 |
-| 7 | LifeX | 2 | 4 | 5 | 4,3 | 2 | 4 | 5 | 48,5 |
+| 4 | RealMæglerne | 3 | 4 | 5 | 2,6 | 3,5 | 4 | 5 | 52,1 |
+| 5 | Taurus | 3 | 2,5 | 5 | 2,8 | 5 | 4 | 5 | 51,7 |
+| 6 | LifeX | 2 | 4 | 5 | 4,3 | 2 | 4 | 5 | 48,5 |
+| 7 | EDC Lejeindeks (revideret 7/9)⁶ | 5 | 3 | 4 | 3,6 | 5 | **0** | 1 | 47,9 |
 | 8 | Barfoed Group | 2 | 4 | 5 | 2,7 | 4,5 | 4 | 3 | 47,8 |
 | 9 | Calum | 2 | 4 | 5 | 4,0 | 5 | 1,5 | 5 | 47,5 |
 | 10 | Postbyen | 1 | 4 | 5 | 4,3 | 3,5 | 4 | 5 | 46,7 |
+
+⁶ Oprindelig placering nr. 4 med 56,4 (V 5 · M 2 · O 5 · G 2,6 · D 5 · R 3 · I 5)⁵.
+Revideret: V 5 er net-new 270–322 *for EDC-egne sager*; O 4 for 14 % overlap; G 3,6
+for den egne geografi (139/150/11/26/1/47); R **0** for TDM-forbehold + krav om
+skriftlig aftale + CHEQ; I 1 fordi adgangen er blokeret. Bemærk at formlen vægter R
+med kun 2, så en rettighedslukket kilde stadig scorer midt i feltet — placeringen i
+sprintplanen (IKKE NU) følger rettighederne, ikke scoren. Boligzonen (40,9) og
+Lejebolig.dk (38,0) har samme R = 0 af samme grund.
 
 Uden for top 10: Jeudan 46,5 · Housing Denmark 46,5 · danbolig 46,0 · Kereby 46,0 ·
 CityApartment 45,2 · HousingAnywhere 44,7 · Nordbjerg 44,5 · Civica 43,1 ·
@@ -204,9 +244,11 @@ Boligzonen 40,9 · Lejebolig.dk 38,0 · Akutbolig 35,4 · Danica 24,1 · Danmark
 Sprint A giver ~285–291 netto nye (~1.737 i alt) og lukker samtidig baseline-hullet
 på depositum/forudbetalt.
 
-**Sprint B**: EDC Lejeindeks — men FØRST en kvalitetsprobe (30–50 sager: er de aktuelle,
-er adresserne ægte, virker boligportal-filtreringen?) og en rettighedsdialog med EDC.
-Dernæst danbolig (efter POST-afklaring), RealMæglerne, Taurus, Barfoed.
+**Sprint B** (*revideret 7/9*): danbolig (efter POST-afklaring), RealMæglerne, Taurus,
+Barfoed. EDC Lejeindeks er **taget ud**: kvalitetsproben blev gennemført 7/9 og viste
+~374 egne sager, 14 % overlap, net-new 270–322 og rettigheder, der kræver skriftlig
+aftale — se revisionsblokken. EDC-sporet er lukket; det genåbnes kun, hvis EDC selv
+tilbyder en aftale om deres egne sager.
 
 **Opportunistisk**: Propstep-tenant-tjek (dækker vores harvest Ikano/Olav de Linde/PKA
 m.fl.? Udvid med accountId'er — billigste vej til nye boliger overhovedet); Jeudan +
@@ -215,7 +257,8 @@ nova-api); Civica; Postbyen + Nordbjergs data.xml (billigste genudbuds-feeds); L
 (hvis møbleret delsegment ønskes); Danica-kontakt; Danmark Bolig (ét skånsomt
 POST-testkald efter beslutning).
 
-**Ikke nu**: Boligzonen, Lejebolig.dk, Akutbolig, Boligdeal (vilkår/adgang), Nybolig,
+**Ikke nu**: EDC Lejeindeks (*7/9: kun ved direkte skriftlig aftale*), Boligzonen,
+Lejebolig.dk, Akutbolig, Boligdeal (vilkår/adgang), Nybolig,
 Lejerbo direkte, Housing Denmark, HousingAnywhere, Hay4You, Calum (indtil
 BoligPortal-rettigheder er afklaret), DEAS/ATP/PFA/Bellakvarter (allerede dækket —
 byg IKKE dubletkanaler).
@@ -224,5 +267,5 @@ byg IKKE dubletkanaler).
 
 1. Udfyld omfang i `docs/kildetilladelser.md` for CEJ, Kereby, Jeudan, CityApartment.
 2. Orientér CEJ/bolig.io om persondata-lækket i deres offentlige payload.
-3. Beslut EDC-sporet (kvalitetsprobe + evt. kontakt til EDC).
+3. ~~Beslut EDC-sporet (kvalitetsprobe + evt. kontakt til EDC).~~ *Lukket 7/9: IKKE NU.*
 4. Beslut om møbleret korttid (LifeX m.fl.) hører hjemme i Bofinda.
