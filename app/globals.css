@@ -123,11 +123,29 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
   box-shadow: 0 2px 4px rgba(20,22,26,.04), 0 10px 26px rgba(20,22,26,.07);
 }
 .kort.uden-billede { grid-template-columns: 1fr; }
+/* FORHOLDET BOR PAA RAMMEN, IKKE PAA BILLEDET.
+   Det stod foer paa `img`, og dér var det uden virkning i den sidestillede
+   form. IKKE fordi `width:100%` og `height:100%` i sig selv slaar
+   `aspect-ratio` ihjel — `height:100%` opløses kun mod en foraelder med en
+   BESTEMT hoejde. Den havde `.kort-billede`: blokken var et strakt
+   gitterfelt, saa rammen arvede raekkens hoejde, altsaa tekstspaltens.
+   Billedet fik den udleveret, og forholdet havde intet at afgoere.
+   Modsat i `.galleri img` nedenfor: dér er cellen indholdshoej, saa
+   `height:100%` falder tilbage til auto, og forholdet ER det, der gaelder.
+   Samme tre erklaeringer, to udfald — foraelderen afgoer hvilket. Skriv
+   derfor ikke reglen om til «aspect-ratio virker ikke paa et img med
+   height:100%»; galleriet er modeksemplet 115 linjer laengere nede.
+   Maalt paa forsidens 48 kort foer: otte billedhoejder (162-208 px), otte
+   forhold (1,04-1,33), og billedhoejden lig `.kort-krop`s paa hver eneste
+   raekke. Med kortvisningen ved siden af blev teksten hoejere endnu, og
+   forholdet faldt til 0,83 — staaende udsnit af liggende motiver.
+   Paa rammen har forholdet ingen arvet hoejde at blive overtrumfet af.
+   Billedet fylder den ud og beskaeres af `object-fit: cover`. */
 .kort-billede {
   background: var(--linje-svag); position: relative;
-  border-radius: 9px; overflow: hidden;
+  border-radius: 9px; overflow: hidden; aspect-ratio: 4/3;
 }
-.kort-billede img { width: 100%; height: 100%; object-fit: cover; display: block; aspect-ratio: 4/3; }
+.kort-billede img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .kort-antal {
   position: absolute; left: 8px; bottom: 8px; background: rgba(20,22,26,.62); color: #fff;
   font-size: 11px; font-weight: 550; padding: 2px 8px; border-radius: 20px;
@@ -175,7 +193,17 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
    igen, uanset om forbeholdet er der, og kroppen top-flugter med
    billedets top. Det gaelder ogsaa de to andre former: uden billede
    (ingen venstre spalte) og stablet under 460 px. */
-.kort-billedblok { display: grid; grid-template-rows: 1fr auto; min-width: 0; }
+/* `align-self: start` er IKKE det, der holder forholdet ovenfor. Rammen har
+   sit eget, og et gitterfelt med et forhold straekkes ikke i blokretningen —
+   efterprøvet ved at fjerne linjen: rammen bliver 216x162 alligevel.
+   Den holder BILLEDFORBEHOLDET fast under billedet. Uden den bliver blokken
+   raekkehoej, og forbeholdet — som er raekke to — glider ned i bunden af
+   kortet: maalt 46 og 67 px fra billedets underkant paa soegesiden med
+   kortvisning, hvor tekstspalten er hoejest. Med den er der 8 px, linjens
+   egen margin-top, i hvert eneste tilfaelde.
+   En linje, der siger «billederne kan vaere fra en anden bolig», skal staa
+   ved det billede, den handler om. */
+.kort-billedblok { display: grid; grid-template-rows: 1fr auto; min-width: 0; align-self: start; }
 /* Kildens forbehold om billederne. Staar i BILLEDKOLONNEN under billedet —
    den handler om det, man kigger paa, ikke om oekonomien. Vises kun naar
    der ER et billede; uden et billede er der intet at tage forbehold for. */
@@ -690,7 +718,13 @@ form.filtre.soegt .storsoeg button { padding: 11px 20px; font-size: 14.5px; bord
 /* Billede over tekst, naar der ikke er plads ved siden af. */
 @container (max-width: 460px) {
   .kort { grid-template-columns: 1fr; gap: 12px; }
-  .kort-billede img { aspect-ratio: 16/9; }
+  /* Stablet er billedet et baand over teksten, ikke en spalte ved siden af
+     — derfor 16/9 og ikke 4/3. Forholdet skal saettes paa RAMMEN som
+     ovenfor; blev det staaende paa `img`, ville rammens 4/3 vinde, og de
+     stablede kort ville skifte fra 320x180 til 320x240 uden at nogen har
+     bedt om det. Det var maalt til 1,778 paa alle 48 kort foer aendringen
+     og skal blive der. */
+  .kort-billede { aspect-ratio: 16/9; }
   .kort-krop { padding: 0 4px 4px; }
 }
 
