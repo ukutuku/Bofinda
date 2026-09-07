@@ -155,7 +155,7 @@ function Kilder({ navn, ogsaa }: { navn: string; ogsaa: string[] }) {
 
 // ─── Kortet ────────────────────────────────────────────────────
 
-export function Kort({ b, nu }: { b: Bolig; nu: Date }) {
+export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: number }) {
   // Availability fra DOMÆNET — aldrig fra legacy ledigFra/ansoegning, og
   // aldrig fra Date.now(): referenceNow kommer eksplicit fra siden.
   const avail = availabilityFor(b, nu)
@@ -206,6 +206,8 @@ export function Kort({ b, nu }: { b: Bolig; nu: Date }) {
       // musen er over. De to skal vaere den samme noegle som maerket.
       id={`kort-${b.id}`}
       data-bolig={b.id}
+      data-kilde={b.kilde}
+      data-position={position}
     >
       {/* Billedet og forbeholdet er ÉT gitterfelt. Var forbeholdet et felt
           for sig, skubbede det kroppen en raekke ned — se .kort-billedblok
@@ -313,7 +315,7 @@ export function Kort({ b, nu }: { b: Bolig; nu: Date }) {
 //  Er aconto-posterne ikke ens, står de slet ikke.
 // ═══════════════════════════════════════════════════════════════
 
-export function Gruppekort({ g, nu }: { g: Gruppe; nu: Date }) {
+export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?: number }) {
   const { noegle: n, repraesentant: r } = g
   const nyligt = nu.getTime() - g.nyesteMarkedet.getTime() < 1000 * 60 * 60 * 24 * 3
 
@@ -357,6 +359,10 @@ export function Gruppekort({ g, nu }: { g: Gruppe; nu: Date }) {
       href={gruppeUrl(r.id)}
       id={`kort-${r.id}`}
       data-bolig={r.id}
+      data-kilde={r.kilde}
+      data-position={position}
+      data-gruppe="1"
+      data-gruppe-antal={g.antal}
     >
       {/* Billedet og forbeholdet er ÉT gitterfelt. Var forbeholdet et felt
           for sig, skubbede det kroppen en raekke ned — se .kort-billedblok
@@ -506,6 +512,14 @@ function Ellinje({ tilstand }: { tilstand: Eltilstand | null }) {
   )
 }
 
-export function Visningskort({ v, nu }: { v: Visning; nu: Date }) {
-  return v.slags === 'gruppe' ? <Gruppekort g={v.gruppe} nu={nu} /> : <Kort b={v.bolig} nu={nu} />
+/**
+ * `position` er kortets plads i listen, 1-baseret. Den baeres videre som en
+ * data-attribut, saa klienttrackeren kan maale impressions uden at kende
+ * lib/soeg — og saa spoergsmaalet «bliver position 40 nogensinde set?»
+ * kan besvares. Uden den er en impression bare et tal uden sted.
+ */
+export function Visningskort({ v, nu, position }: { v: Visning; nu: Date; position?: number }) {
+  return v.slags === 'gruppe'
+    ? <Gruppekort g={v.gruppe} nu={nu} position={position} />
+    : <Kort b={v.bolig} nu={nu} position={position} />
 }

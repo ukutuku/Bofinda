@@ -5,6 +5,8 @@ import { billedUrl } from '../../../lib/billede'
 import { eltilstand } from '../../../lib/eloplysning'
 import { Galleri } from './Galleri'
 import { Kontakt } from './Kontakt'
+import { Maaling } from '../../Maaling'
+import { maalingstilstand, spor } from '../../../lib/maaling-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -85,6 +87,28 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
     ? Math.round((egenKvm / kvm.median - 1) * 100)
     : null
 
+  // ── Måling ───────────────────────────────────────────────────
+  // Én request, én visning: siden er force-dynamic, saa der er ingen
+  // cache, der kan skjule den, og ingen re-render at dobbelttaelle.
+  // Adressen, kontaktfelterne og kildens URL kommer ALDRIG med — kun
+  // id'et, som i forvejen staar i adressefeltet.
+  const mt = await maalingstilstand()
+  await spor({
+    navn: 'listing_view',
+    listingId: b.id,
+    sourceSlug: b.kilde,
+    props: {
+      ...(b.postnr ? { postnr: b.postnr } : {}),
+      ...(b.type ? { property_type: b.type } : {}),
+      timing_status: avail!.timing.status,
+      ansoegning_status: avail!.ansoegning.status,
+      marked_status: avail!.marked.status,
+      egen_annonce: b.egenAnnonce,
+      total_kendt: b.total != null,
+      antal_billeder: galleri.length,
+    },
+  }, '/bolig/[id]')
+
   const noegletal = [
     b.areal != null ? { v: `${b.areal}`, e: 'm²' } : null,
     b.vaerelser != null ? { v: `${b.vaerelser}`, e: b.vaerelser === 1 ? 'værelse' : 'værelser' } : null,
@@ -93,6 +117,7 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
 
   return (
     <article className="detalje">
+      <Maaling aktiv={mt.aktiv} impressions={false} visning={null} rute="/bolig/[id]" />
       <a className="tilbage" href="/">← Alle boliger</a>
 
       {galleri.length > 0
@@ -219,7 +244,13 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
               </>
             ) : (
               <>
-                <a className="knap" href={b.url} target="_blank" rel="noopener noreferrer">
+                {/* Gaar gennem vores egen /go/[id], saa klikket kan maales
+                    ogsaa uden JavaScript og uden at en adblocker kan tomme
+                    tallet. Ruten slaar destinationen op i basen — den tager
+                    ALDRIG en URL som parameter — og saetter
+                    Referrer-Policy: no-referrer, saa kilden faar noejagtig
+                    lige saa lidt at vide som foer. */}
+                <a className="knap" href={`/go/${b.id}`} target="_blank" rel="noopener noreferrer">
                   Se annoncen hos {b.kildeNavn}
                 </a>
                 <p className="oek-kilde">

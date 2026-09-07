@@ -258,3 +258,27 @@ export async function sletForAnonym(anonymId: string): Promise<number> {
   `)
   return antalAf(r)
 }
+
+/**
+ * Hvad siden skal fortælle klienttrackeren.
+ *
+ * `impressions` afgøres SERVERSIDE af stikprøven, ikke i browseren:
+ * sessions-id'et er HttpOnly, og valget skal være det samme ved hver
+ * request i sessionen. Ruten /api/maaling tjekker det igen, fordi en
+ * klient aldrig er et bevis.
+ */
+export async function maalingstilstand(): Promise<{ aktiv: boolean; impressions: boolean }> {
+  const fra = { aktiv: false, impressions: false }
+  try {
+    if (!aktiv() || !process.env.NEXT_RUNTIME) return fra
+    const { cookies } = await import('next/headers')
+    const jar = await cookies()
+    const faa: Laeser = (n) => jar.get(n)?.value
+    if (laesSamtykke(faa) !== 'ja') return fra
+    const sid = faa(C_SESSION)?.split('.')[0]
+    if (!sid || !faa(C_ANONYM) || !miljoe()) return fra
+    return { aktiv: true, impressions: iStikproeve(sid) }
+  } catch {
+    return fra
+  }
+}

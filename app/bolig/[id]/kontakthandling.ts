@@ -21,6 +21,7 @@
 import { and, eq } from 'drizzle-orm'
 import { db } from '../../../db/client'
 import { listings } from '../../../db/schema'
+import { spor } from '../../../lib/maaling-server'
 
 export interface Kontakt {
   mail: string | null
@@ -38,5 +39,12 @@ export async function hentKontakt(id: string): Promise<Kontakt> {
       eq(listings.status, 'active'),
     ))
     .limit(1)
+  // Handlingen RETURNERER kontaktoplysninger. Eventet registrerer kun, AT
+  // den skete — hverken mailen eller nummeret maa naa et event.
+  await spor({
+    navn: 'contact_reveal',
+    listingId: id,
+    props: { har_mail: Boolean(r?.mail), har_telefon: Boolean(r?.telefon) },
+  }, '/bolig/[id]')
   return { mail: r?.mail ?? null, telefon: r?.telefon ?? null }
 }

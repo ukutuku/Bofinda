@@ -26,6 +26,7 @@
 
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef, useState } from 'react'
+import { meld } from './Maaling'
 import type { Map as LeafletMap, LayerGroup } from 'leaflet'
 
 export interface Maerke {
@@ -96,6 +97,11 @@ export function Landkort({ maerker }: { maerker: Maerke[] }) {
       const m = L.map(boks.current, { scrollWheelZoom: false, attributionControl: true })
       L.tileLayer(FLISER, { attribution: KREDIT, maxZoom: 18 }).addTo(m)
       kort.current = m
+      // Kortinteraktion kan serveren ikke se. Strubet til ét event pr.
+      // slags pr. sidevisning: et pan er mange hændelser i traek, og et
+      // event pr. musebevaegelse ville drukne alt andet i tabellen.
+      m.on('zoomend', () => meld('map_interaction', { slags: 'zoom' }))
+      m.on('moveend', () => meld('map_interaction', { slags: 'pan' }))
       lag.current = L.layerGroup().addTo(m)
       tegn(L, m, lag.current)
     })()
@@ -127,7 +133,10 @@ export function Landkort({ maerker }: { maerker: Maerke[] }) {
         iconSize: [mk.antal > 1 ? 30 : 18, mk.antal > 1 ? 30 : 18],
       })
       L.marker([mk.lat, mk.lng], { icon: ikon, title: mk.etiket })
-        .on('click', () => vaelg(mk.id))
+        .on('click', () => {
+          meld('map_interaction', { slags: 'maerke_klik' })
+          vaelg(mk.id)
+        })
         .addTo(g)
     }
     const b = L.latLngBounds(maerker.map((x) => [x.lat, x.lng] as [number, number]))

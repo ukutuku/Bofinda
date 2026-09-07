@@ -18,6 +18,7 @@ import {
   fjernBolig, genudgivBolig, opdaterBolig, opretBolig, renTekst,
   tjekAdresse, type Boliginput,
 } from '../../lib/udlejer'
+import { spor } from '../../lib/maaling-server'
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL
 const NOEGLE = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
@@ -40,7 +41,19 @@ export async function tilmeld(_forrige: Svar, f: FormData): Promise<Svar> {
     password: kode,
     options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL ?? ''}/udlejer` },
   })
-  if (error) return { fejl: oversaet(error.message) }
+  if (error) {
+    // Kun fejlKLASSEN, aldrig Supabases egen tekst: den kan baere
+    // brugerinput og tekniske detaljer, vi ikke skal gemme.
+    await spor({
+      navn: 'server_action_failed',
+      props: { handling: 'tilmeld', fejlklasse: fejlklasse(error.message) },
+    }, '/udlejer')
+    return { fejl: oversaet(error.message) }
+  }
+  // «Startet», ikke «gennemfoert»: kontoen er ikke aktiv, foer linket i
+  // mailen er trykket. signup_completed fyrer i lib/auth.ts ved foerste
+  // binding af auth_user_id. Mailadressen naar aldrig et event.
+  await spor({ navn: 'signup_started', props: {} }, '/udlejer')
   return { besked: 'Tjek din mail. Vi har sendt et link, du skal trykke på, før kontoen er aktiv.' }
 }
 
@@ -50,7 +63,18 @@ export async function login(_forrige: Svar, f: FormData): Promise<Svar> {
     email: String(f.get('mail') ?? '').trim(),
     password: String(f.get('kode') ?? ''),
   })
-  if (error) return { fejl: oversaet(error.message) }
+  if (error) {
+    await spor({
+      navn: 'server_action_failed',
+      props: { handling: 'login', fejlklasse: fejlklasse(error.message) },
+    }, '/udlejer')
+    return { fejl: oversaet(error.message) }
+  }
+  // Raekken, der syr det anonyme forloeb sammen med det indloggede: den
+  // baerer BAADE anonymous_id og user_id. Brugerraekken hentes ikke her —
+  // hentUdlejer() koster et Supabase-kald, og id'et kommer med paa de
+  // efterfoelgende events fra udlejersiden.
+  await spor({ navn: 'login_completed', props: {} }, '/udlejer')
   redirect('/udlejer/boliger')
 }
 
@@ -58,6 +82,23 @@ export async function logUd() {
   const sb = await supabase()
   await sb.auth.signOut()
   redirect('/udlejer')
+}
+
+/**
+ * Fejlens KLASSE, aldrig dens tekst.
+ *
+ * Beskeden fra Supabase kan indeholde brugerinput, mailadresser og
+ * tekniske detaljer. Et lukket sæt kategorier siger det, en rapport har
+ * brug for, uden at gemme noget af det.
+ */
+function fejlklasse(m: string): string {
+  const t = m.toLowerCase()
+  if (t.includes('invalid login')) return 'forkert-login'
+  if (t.includes('already registered')) return 'findes-allerede'
+  if (t.includes('email address') && t.includes('invalid')) return 'ugyldig-mail'
+  if (t.includes('rate limit')) return 'for-mange-forsoeg'
+  if (t.includes('not confirmed')) return 'ikke-bekraeftet'
+  return 'andet'
 }
 
 /** Supabases fejltekster er engelske og tekniske. Brugeren skal vide,

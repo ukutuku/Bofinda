@@ -80,12 +80,37 @@ export async function hentUdlejer(): Promise<Udlejer | null> {
       .set({ authUserId: konto.id, role: 'landlord' })
       .where(eq(users.id, paaMail.id))
       .returning()
+    await sporOprettet(r!.id, true)
     return { id: r!.id, authUserId: konto.id, email: r!.email, navn: r!.name }
   }
   const [ny] = await db.insert(users)
     .values({ email: konto.email, authUserId: konto.id, role: 'landlord' })
     .returning()
+  await sporOprettet(ny!.id, false)
   return { id: ny!.id, authUserId: konto.id, email: ny!.email, navn: ny!.name }
+}
+
+/**
+ * `signup_completed` hoerer HER, ikke i `tilmeld()`.
+ *
+ * `signUp()` sender kun en mail og svarer «Tjek din mail … foer kontoen er
+ * aktiv» — kontoen findes ikke endnu. Et event dér ville taelle alle dem,
+ * der aldrig kom tilbage. Kontooprettelsen er dobbelt opt-in noejagtig som
+ * boligbeskeden, og den reelle overgang er FOERSTE binding af
+ * auth_user_id paa en brugerraekke. Grenen ovenfor er den eneste, der
+ * naas én gang pr. konto; ved senere login rammer `alt`-grenen.
+ *
+ * `bandt_eksisterende` er en rigtig produktoplysning: hvor mange udlejere
+ * kommer fra alarmsiden med en mailadresse, vi kendte i forvejen.
+ * Mailadressen selv naar aldrig et event — kun vores egen uuid.
+ */
+async function sporOprettet(brugerId: string, bandtEksisterende: boolean) {
+  const { spor } = await import('./maaling-server')
+  await spor(
+    { navn: 'signup_completed', props: { bandt_eksisterende: bandtEksisterende } },
+    '/udlejer',
+    { brugerId },
+  )
 }
 
 /** Adgangstoken til Storage. Uploaden sker som brugeren selv — se

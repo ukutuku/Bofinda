@@ -2,6 +2,7 @@ import { Kort, kr } from '../Boligkort'
 import {
   gruppenoegleFra, gruppenoegleFraBolig, hentGruppe, type Soegeparametre,
 } from '../../lib/soeg'
+import { spor } from '../../lib/maaling-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,6 +56,15 @@ export default async function Side(
       </div>
     )
   }
+
+  // Ét event pr. udfoldning. Repraesentantens id, ikke gruppens noegle:
+  // noeglen baerer udlejerens konto-id for native annoncer.
+  await spor({
+    navn: 'group_opened',
+    listingId: boliger[0]!.id,
+    sourceSlug: n.kilde,
+    props: { gruppe_antal: boliger.length, ...(n.postnr ? { postnr: n.postnr } : {}) },
+  }, '/gruppe')
 
   const typer = new Set(boliger.map((b) => b.type))
   const ord = typer.size === 1 ? (TYPEORD[[...typer][0] ?? ''] ?? 'boliger') : 'boliger'

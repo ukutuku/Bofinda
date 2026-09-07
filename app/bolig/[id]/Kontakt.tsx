@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { meld } from '../../Maaling'
 import { hentKontakt, type Kontakt as Oplysninger } from './kontakthandling'
 
 /**
@@ -50,13 +51,24 @@ export function Kontakt({ id, harMail, harTelefon }: {
         {vist.mail && (
           <div>
             <dt>Mail</dt>
-            <dd><a href={`mailto:${vist.mail}`}>{vist.mail}</a></dd>
+            {/* Kun AT der blev trykket. Aldrig adressen. */}
+            <dd>
+              <a
+                href={`mailto:${vist.mail}`}
+                onClick={() => meld('contact_click', { maal: 'mail' }, { listingId: id })}
+              >{vist.mail}</a>
+            </dd>
           </div>
         )}
         {vist.telefon && (
           <div>
             <dt>Telefon</dt>
-            <dd><a href={`tel:${vist.telefon.replace(/\s/g, '')}`}>{vist.telefon}</a></dd>
+            <dd>
+              <a
+                href={`tel:${vist.telefon.replace(/\s/g, '')}`}
+                onClick={() => meld('contact_click', { maal: 'telefon' }, { listingId: id })}
+              >{vist.telefon}</a>
+            </dd>
           </div>
         )}
       </dl>

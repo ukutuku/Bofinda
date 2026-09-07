@@ -490,8 +490,31 @@ export async function bekraeft(token: string): Promise<{ navn: string | null } |
   const [s] = await db.update(savedSearches)
     .set({ confirmedAt: sql`now()` })
     .where(and(eq(savedSearches.confirmToken, token), isNull(savedSearches.confirmedAt)))
-    .returning({ navn: savedSearches.name })
-  if (s) return s
+    .returning({ navn: savedSearches.name, kriterier: savedSearches.criteria })
+  if (s) {
+    // MAALINGEN LIGGER HER, i den gren hvor overgangen faktisk skete:
+    // confirmed_at NULL -> timestamp. UPDATE'ens `isNull(confirmedAt)`
+    // gør den atomisk, saa to samtidige requests ikke kan give to events.
+    //
+    // Fallback-grenen nedenfor — «allerede bekraeftet» — fyrer INTET.
+    // Mailscannere aabner hvert link i en mail, og et event dér ville
+    // taelle modtagerens egen mailserver som en bekraeftelse.
+    //
+    // Hverken mailadressen, navnet paa soegningen eller saved_search_id
+    // maa med. Det sidste er en direkte join-noegle til en raekke med en
+    // mailadresse.
+    const { spor } = await import('./maaling-server')
+    await spor({
+      navn: 'alert_confirmed',
+      props: {
+        filtertyper: Object.entries((s.kriterier ?? {}) as Record<string, unknown>)
+          .filter(([k, v]) => k !== 'sorter' && v != null && v !== false
+            && !(Array.isArray(v) && v.length === 0))
+          .map(([k]) => k).slice(0, 20),
+      },
+    }, '/bekraeft/[token]')
+    return { navn: s.navn }
+  }
   // Allerede bekraeftet? Sig det pænt i stedet for at ligne en fejl.
   const [fandtes] = await db
     .select({ navn: savedSearches.name })

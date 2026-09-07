@@ -3,10 +3,14 @@ import {
   tavseKilder,
   availabilityGrundlag, opsummering, soegGrupperet, type Soegeparametre,
 } from '../lib/soeg'
+import { headers } from 'next/headers'
 import { facetterCached, forsidetalCached } from './cache'
 import { GemSoegning } from './GemSoegning'
 import { Visningskort, kr } from './Boligkort'
 import { Landkort, type Maerke } from './Landkort'
+import { Maaling } from './Maaling'
+import { maalingstilstand, spor } from '../lib/maaling-server'
+import { antalFiltre, filterDiff, forrigeFiltre, uddrag } from '../lib/maalingsoeg'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +46,34 @@ function kortLink(sp: Soegeparametre, visesNu: boolean): string {
 
 /** Første værdi af en URL-parameter — til formularens defaultValue. */
 const en = (v: string | string[] | undefined) => Array.isArray(v) ? v[0] : v
+
+/**
+ * Kampagneparametre til målingen.
+ *
+ * KANONISERES, ikke bare afkortes. utm-felter er fri tekst i URL'en, og
+ * en kampagne med et navn i kunne ellers sende en mailadresse ind i et
+ * event. Kun små bogstaver, tal, bindestreg og underscore slipper
+ * igennem; alt andet droppes helt. Værnet i lib/maaling.ts ville afvise
+ * resten, men koden skal ikke læne sig på det.
+ */
+function kampagne(sp: Soegeparametre): Record<string, string> {
+  const ud: Record<string, string> = {}
+  for (const n of ['utm_source', 'utm_medium', 'utm_campaign'] as const) {
+    const v = en(sp[n])?.toLowerCase().slice(0, 40)
+    if (v && /^[a-z0-9][a-z0-9_-]*$/.test(v)) ud[n] = v
+  }
+  return ud
+}
+
+/** Kun VÆRTEN fra en referrer. Hele URL'en kan bære en søgestreng. */
+function referrerVaert(referer: string | null, egen: string | undefined): string | undefined {
+  if (!referer) return undefined
+  try {
+    const h = new URL(referer).hostname.toLowerCase()
+    if (egen && new URL(egen).hostname.toLowerCase() === h) return undefined
+    return /^[a-z0-9.-]{1,60}$/.test(h) ? h : undefined
+  } catch { return undefined }
+}
 
 export default async function Side({ searchParams }: { searchParams: Promise<Soegeparametre> }) {
   const sp = await searchParams
@@ -88,6 +120,87 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   const tal = await forsidetalCached()
   const vist = antalBoliger(visninger)
   const sted = en(sp.sted) ?? f.postnr ?? f.by ?? ''
+  // Slaas fra med ?kort=0. Tilstanden ligger i URL'en som alt andet paa
+  // siden. Kun naar der er filtreret: uden en soegning spaender maerkerne
+  // over hele landet, og udsnittet siger ingenting.
+  const kortVises = soegt && en(sp.kort) !== '0'
+
+  // ── Måling ───────────────────────────────────────────────────
+  // Skellet mellem forside og søgning er `harFiltre()`, ikke pathname:
+  // det er den SAMME rute. Og `search` deles i to gensidigt udelukkende
+  // udfald, saa count(search) = count(search_results_view) +
+  // count(empty_results) altid gaar op. Goer den ikke det, er
+  // instrumenteringen i stykker — ikke markedet.
+  //
+  // `spor()` kaster ikke og skriver i after(), altsaa efter svaret. Uden
+  // samtykke sker der ingenting overhovedet.
+  const mt = await maalingstilstand()
+  const visningId = crypto.randomUUID()
+  // Byen gemmes KUN, hvis vi selv kender den. `fac` er hentet i forvejen,
+  // saa opslaget koster ingen ekstra foresproergsel.
+  const kenderBy = (by: string) => fac.byer.some((x) => x.by === by)
+  const uddragKategorisk = uddrag(f, kenderBy)
+  const filtreSat = antalFiltre(f)
+  const hoveder = await headers()
+  // Filterdiffen mod den forrige URL. Se noten om referer-faelden i
+  // lib/maalingsoeg.ts: strengen forlader aldrig den funktion.
+  const forrige = forrigeFiltre(
+    hoveder.get('referer'), process.env.NEXT_PUBLIC_BASE_URL, filtreFraParametre,
+  )
+
+  if (soegt) {
+    const vistePrKilde: Record<string, number> = {}
+    for (const v of visninger) {
+      const b = v.slags === 'gruppe' ? v.gruppe.repraesentant : v.bolig
+      vistePrKilde[b.kilde] = (vistePrKilde[b.kilde] ?? 0) + 1
+    }
+    await spor({
+      navn: 'search',
+      props: {
+        ...uddragKategorisk,
+        result_count: sum.antal,
+        antal_filtre: filtreSat,
+        sorter: f.sorter ?? 'nyeste',
+        result_view_id: visningId,
+        kort_vist: kortVises,
+        ...kampagne(sp),
+      },
+    }, '/')
+    if (sum.antal === 0) {
+      await spor({
+        navn: 'empty_results',
+        props: { ...uddragKategorisk, antal_filtre: filtreSat },
+      }, '/')
+    } else {
+      await spor({
+        navn: 'search_results_view',
+        props: {
+          ...uddragKategorisk,
+          result_count: sum.antal,
+          viste_antal: visninger.length,
+          viste_pr_kilde: vistePrKilde,
+          result_view_id: visningId,
+        },
+      }, '/')
+    }
+  } else {
+    await spor({
+      navn: 'homepage_view',
+      props: {
+        boliger_i_alt: tal.boliger,
+        kilder_i_alt: tal.kilder,
+        ...kampagne(sp),
+        ...(() => {
+          const v = referrerVaert(hoveder.get('referer'), process.env.NEXT_PUBLIC_BASE_URL)
+          return v ? { referrer_vaert: v } : {}
+        })(),
+      },
+    }, '/')
+  }
+  // Ogsaa paa forsiden: «Nulstil» gaar til `/` fra en filtreret URL, og
+  // det ER en rydning. Uden linjen her ville nulstil-knappen aldrig kunne
+  // maales.
+  for (const e of filterDiff(forrige, f, kenderBy)) await spor(e, '/')
 
   // ── Kortet ───────────────────────────────────────────────────
   // Slaas fra med ?kort=0. Tilstanden ligger i URL'en som alt andet paa
@@ -97,7 +210,6 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // hele landet, og udsnittet siger ingenting. Samme regel som gem-boksen
   // og prisnoten: paa forsiden er det svar paa et spoergsmaal, brugeren
   // ikke har stillet.
-  const kortVises = soegt && en(sp.kort) !== '0'
   // Ét maerke pr. KORT, ikke pr. bolig: en gruppe er ét maerke med sit
   // antal. Hoejst 48, fordi listen hoejst viser 48.
   const maerker: Maerke[] = []
@@ -359,6 +471,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
 
   return (
     <>
+      <Maaling aktiv={mt.aktiv} impressions={mt.impressions} visning={visningId} rute="/" />
       {soegt ? formular : (
         <section className="forside-baand">
           <div className="hero">
@@ -494,11 +607,12 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
       ) : (
         <div className={kortVises ? 'medkort' : 'udenkort'}>
           <div className="liste">
-            {visninger.map((v) => (
+            {visninger.map((v, i) => (
               <Visningskort
                 nu={nu}
                 key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
                 v={v}
+                position={i + 1}
               />
             ))}
           </div>

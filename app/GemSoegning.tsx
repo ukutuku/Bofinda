@@ -1,4 +1,6 @@
 import { tilmeld, beskrivFiltre } from '../lib/alarm'
+import { spor } from '../lib/maaling-server'
+import { antalFiltre } from '../lib/maalingsoeg'
 import type { Filtre, Soegeparametre } from '../lib/soeg'
 import { filtreFraParametre, harFiltre } from '../lib/soeg'
 
@@ -44,6 +46,25 @@ export function GemSoegning({ sp }: { sp: Soegeparametre }) {
     const navn = String(formData.get('navn') ?? '').slice(0, 80) || navngiv(filtre)
 
     const r = await tilmeld(mail, navn, filtre)
+    // KUN 'sendt' er en oprettet alarm. 'ugyldig-mail', 'for-mange',
+    // 'for-hurtigt' og 'spaerret' er alle udfald, hvor der ikke blev
+    // oprettet noget — og hvor et event ville puste tallet op.
+    //
+    // Hverken mailadressen eller navnet paa soegningen maa med: navnet er
+    // fritekst, brugeren selv har skrevet. Kun HVILKE filtertyper der var
+    // sat, aldrig deres vaerdier.
+    if (r.slags === 'sendt') {
+      await spor({
+        navn: 'alert_created',
+        props: {
+          filtertyper: Object.entries(filtre)
+            .filter(([k, v]) => k !== 'sorter' && v != null && v !== false
+              && !(Array.isArray(v) && v.length === 0))
+            .map(([k]) => k).slice(0, 20),
+          antal_filtre: antalFiltre(filtre),
+        },
+      }, '/')
+    }
     const { redirect } = await import('next/navigation')
     const q = new URLSearchParams(
       Object.entries(sp).flatMap(([k, v]) =>
