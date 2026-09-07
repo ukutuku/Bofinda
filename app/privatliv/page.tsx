@@ -8,8 +8,10 @@ export const metadata = {
 // Almindelig side, ikke genereret indhold. Teksten rettes her, og den er
 // ejerens — ikke noget vi formulerer på hans vegne.
 //
-// BEMÆRK: info@bofinda.dk modtager ikke mail endnu; domænet er ikke købt.
-// Politikken er først gyldig, når adressen virker. Se CLAUDE.md.
+// info@bofinda.dk modtager mail siden 7. september 2026 — domænet er
+// registreret og flyttet til Simply, som leverer indgående mail. Politikken
+// er dermed gyldig. Se CLAUDE.md for hvad der skal overleve, hvis nogen
+// rører DNS igen.
 export default function Side() {
   return (
     <article className="dokument">

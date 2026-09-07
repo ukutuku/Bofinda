@@ -324,12 +324,33 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   den er oprettet efter søgningen — eller, for kilder uden dato, når den
   dukkede op efter mindst et døgns overvågning af den kilde. Uden reglen gav
   en prøvekørsel 68 falske varsler ud af 87, med en medianalder på 37 dage.
-- **Politikken er først gyldig, når `info@bofinda.dk` modtager mail.**
-  Domænet er ikke købt — `bofinda.dk` slår op med NXDOMAIN. En
+- **`info@bofinda.dk` skal modtage mail, ellers er politikken tom.** En
   privatlivspolitik, der henviser til en adresse, ingen læser, giver ikke
   den indsigtsret, den lover. **Det skal være på plads, før en fremmed
-  udlejer opretter en annonce** — indtil da er den eneste native annonce
-  ejerens egen, med hans egne oplysninger.
+  udlejer opretter en annonce.**
+
+  **Løst 7. september 2026.** Domænet blev registreret 5. september og er
+  siden flyttet til Simply, som nu er autoritativ (`ns1`–`ns3.simply.com`
+  i DK Hostmasters delegering) og leverer indgående mail på
+  `MX 10 mx.simply.com`.
+
+  Historikken er værd at kende, for fælden er lydløs: one.com's zone havde
+  `MX 0 .` på roden — en **null MX** (RFC 7505). Den er ikke en manglende
+  post, men en udtrykkelig erklæring om, at domænet **ikke** modtager mail,
+  og afsendende servere afviser derfor med det samme uden at forsøge. Det
+  lignede et udløbet domæne og var det ikke.
+
+  **Rører nogen DNS igen, skal fire ting overleve**, ellers holder
+  alarmmailene op med at virke: `resend._domainkey` (DKIM),
+  CNAME'en `send.bofinda.dk → send.forge.rmta.net` (SPF og bounce-MX
+  ligger hos Resend, ikke hos os), `_dmarc`, og A-posten til Vercel.
+  Efterprøv med `dig +short MX bofinda.dk` — står der `0 .`, er
+  modtagelsen slået fra igen.
+
+  Simply satte samtidig DMARC til **`p=reject`** (one.com havde `p=none`).
+  Det rammer først den dag, `ALARM_AFSENDER` skifter fra Resends delte
+  `onboarding@resend.dev` til en adresse på `bofinda.dk` — så skal DKIM
+  være i orden, og den er verificeret hos Resend (`status=verified`).
 - **Privatlivspolitikken skal beskrive det, koden gør — ikke omvendt.**
   Sletningsfristerne i `/privatliv` og konstanterne i `ryd()` er ét og samme
   løfte. Ændres den ene, skal den anden med i samme ændring:
