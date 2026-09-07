@@ -726,8 +726,12 @@ kan købes derover — slå den aktuelle pris op, før et scenarie planlægges.
 **Antagelse:** ca. **17 events pr. daglig bruger** uden impressions — 1
 forsidevisning, 3 søgninger med hver sin resultat- eller tom-hændelse, ca. 3
 filter- og sorteringsændringer, 4 boligvisninger, 0,5 kildeklik, resten fordelt på
-kort, gruppe, alarm og konto. Rækkestørrelse ca. **0,5 KB** inkl. de fire
-indekser. Impressions: 144 pr. bruger pr. dag × samtykkeandel (regnet med 50 %) ×
+kort, gruppe, alarm og konto.
+
+**Rækkestørrelsen er målt, ikke skønnet:** 20.000 repræsentative rækker i den
+rigtige tabel med de fire indekser fylder 7,4 MB — **388 bytes pr. række**, hvoraf
+1,3 MB er indekser. Skønnet i designet var 0,5 KB, altså 29 % for højt.
+Tallene nedenfor er regnet med det målte. Impressions: 144 pr. bruger pr. dag × samtykkeandel (regnet med 50 %) ×
 stikprøve.
 
 ### Rækker og vækst
@@ -744,9 +748,9 @@ Med 12 måneders rå retention, 60 dages impressions og 25 % stikprøve:
 
 | DAU | Basisevents (12 mdr.) | Impressions (60 dage) | **I alt** | Passer i 8 GB? |
 |---|---:|---:|---:|---|
-| 1.000 | 3,1 GB | 0,5 GB | **3,6 GB** | **Ja, med god margin** |
-| 10.000 | 31 GB | 5,4 GB | **36 GB** | Nej — køb disk, eller sæt rå retention til 90 dage (≈ 13 GB) |
-| 100.000 | 310 GB | 54 GB | **364 GB** | Nej. Her hører rå events ikke længere hjemme i produktionsbasen |
+| 1.000 | 2,2 GB | 0,4 GB | **2,6 GB** | **Ja — 33 % af pladsen** |
+| 10.000 | 22,4 GB | 3,7 GB | **26 GB** | Nej — køb disk, eller sæt rå retention til 90 dage (≈ 6,4 GB) |
+| 100.000 | 224 GB | 37 GB | **261 GB** | Nej. Her hører rå events ikke længere hjemme i produktionsbasen |
 
 ### Skrivelast
 
