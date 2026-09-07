@@ -964,3 +964,21 @@ form.filtre.soegt { margin-top: 20px; }
   .samtykke-knapper { width: 100%; }
   .samtykke-knapper button { flex: 1; }
 }
+
+/* ─── Valget på privatlivssiden ─────────────────────────────────
+   Teksten lover, at samtykket kan trækkes tilbage her. Så skal
+   knappen findes her. */
+.valgboks {
+  border: 1px solid var(--linje); border-radius: var(--r);
+  background: var(--kort); padding: 15px 17px; margin: 14px 0 22px;
+}
+.valgboks p { margin: 0 0 11px; }
+.valgknapper { display: flex; flex-wrap: wrap; gap: 9px; }
+.valgknapper button {
+  font-size: 13px; font-weight: 500; padding: 8px 14px;
+  border: 1px solid var(--accent); border-radius: var(--r-s);
+  background: var(--kort); color: var(--accent); cursor: pointer;
+}
+.valgknapper button:hover:not(:disabled) { background: var(--accent-lys); }
+.valgknapper button:disabled { opacity: .45; cursor: default; }
+.valgsvar { margin: 11px 0 0 !important; color: var(--accent); font-size: 13.5px; }

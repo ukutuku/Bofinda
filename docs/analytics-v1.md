@@ -5,9 +5,26 @@ skrevet før implementationen, fordi begrundelserne er dyrere at genfinde end at
 skrive ned — og fordi hver eneste af de beslutninger, der står her, er nem at
 lave om til noget, der ser rigtigt ud og tæller forkert.
 
-Status pr. 7. september 2026: **design godkendt til review, ikke implementeret.**
-Ingen migration kørt. Ingen tracking-kode. Privatlivspolitikken urørt. Intet
-cookie-banner bygget.
+**Status pr. 7. september 2026: bygget, men slukket.** Migration 0020 er kørt,
+koden er på plads, privatlivsteksten er opdateret, og banneret findes. Der
+skrives **ingenting**, fordi `MAALING_AKTIV` ikke er sat noget sted.
+
+> ### Skærpelse efter godkendelsen
+>
+> **Uden analytics-samtykke gemmes der ikke ét individuelt event.** Designet
+> havde oprindeligt et lag nedenunder, som skrev de samme server-events uden
+> identifikator, så aggregerede tal dækkede 100 % af trafikken. Det lag er
+> **fjernet**. Der er ingen «aggregeret før samtykke»-mekanik, og intet, der
+> først gemmer individuelle events og aggregerer dem bagefter.
+>
+> Konsekvensen er reel og skal stå tydeligt: **alle tal i systemet dækker kun
+> de brugere, der har sagt ja** — også de rent aggregerede spørgsmål som «hvor
+> mange søgninger» og «hvor ofte nul resultater». Andelen af ja'er bliver
+> dermed selv et tal, man skal kende, før nogen af de andre kan tolkes.
+>
+> Skærpelsen er håndhævet **i databasen**, ikke kun i koden: `anonymous_id` og
+> `session_id` er `not null`, så en række uden samtykke fysisk ikke kan
+> skrives.
 
 ---
 
@@ -450,17 +467,23 @@ hvad der derefter behandles. Derfor to lag:
 | | Uden samtykke | Med samtykke |
 |---|---|---|
 | Gemmer på enheden | Intet | `bofinda_aid` (180 d), `bofinda_sid` (30 min / 12 t) |
-| Skriver | De samme server-events, med `anonymous_id`, `session_id` og `user_id` = **null** | De samme events, nu med identifikatorer, plus klient-events |
-| Kan svare på | Volumen, søgemønstre, byer, prisintervaller, tomme søgninger, filterbrug, kildeperformance — **alt aggregeret, for 100 % af trafikken** | Alt. Funnels, tilbagevendende besøg, forløb før og efter login |
-| Kan ikke | Binde to events sammen | — |
+| Skriver | **Ingenting.** Ikke ét event, hverken med eller uden identifikator | Alle 22 events |
+| Kan svare på | Intet | Alt |
 
-> **Hvad der ikke kan loves:** at «serverside events uden identifikator ikke er
-> personoplysninger» er en **forsvarlig, men ikke afgjort** position. Det er
-> grundlaget under cookieløs analytics, og Datatilsynet har historisk været
-> streng. Designet holder risikoen så lav, den kan blive: ingen IP, ingen
-> user-agent, ingen identifikator, ingen fritekst. Men det er ikke en juridisk
-> vurdering, og hvis noget skal afklares med en jurist, er det dét lag — ikke
-> resten af arkitekturen.
+**Håndhævet i fire lag:**
+
+1. `middleware.ts` sætter ingen cookie uden `bofinda_samtykke=ja` — den ser
+   efter én cookie, finder den ikke, og sender requestet videre urørt.
+2. `kontekst()` i `lib/maaling-server.ts` returnerer `null` uden samtykke, og
+   `spor()` stopper dér.
+3. `/api/maaling` svarer 204 uden at røre kroppen.
+4. `anonymous_id` og `session_id` er `not null` i basen. Slap noget forbi de
+   tre første lag, ville insert'en fejle.
+
+Det fjerner samtidig den juridiske gråzone, designet havde: der er ikke
+længere et lag, hvis lovlighed hviler på, at identifikatorfrie serverside-log
+ikke er personoplysninger. Prisen er, at alle tal kun dækker dem, der sagde
+ja.
 
 ### Banneret
 
@@ -482,7 +505,7 @@ hvad der derefter behandles. Derfor to lag:
 | Hvor | Link i sidefoden og et afsnit på `/privatliv`. Ét klik |
 | Hvad der sker | `bofinda_aid` og `bofinda_sid` **slettes** (`Max-Age=0`). Nye events skrives uden identifikatorer. Nødvendige cookies røres ikke |
 | Nyt ja senere | Danner et **nyt** `anonymous_id`. Det gamle forløb kan ikke genoptages, og det er meningen |
-| Sletning bagud | Samme sted: «slet det, I har målt om mig» → én indekseret `delete … where anonymous_id = $1`. Vi kender ikke brugeren, men browseren bærer nøglen, så hun kan bede om det uden at identificere sig |
+| Sletning bagud | «Slet det, I har målt om mig» → `sletForAnonym()`, én `delete … where anonymous_id = $1`. Vi kender ikke brugeren, men browseren bærer nøglen, så hun kan bede om det uden at identificere sig. **Knappen findes** i `app/privatliv/Valg.tsx`: teksten lover den, så den skal være der |
 
 Brugertestdeltageren får det at vide mundtligt **og** på `/forsoeg/<kode>`-siden
 før noget starter og trykker selv. Samtykket er informeret og frivilligt i samme
@@ -1140,3 +1163,64 @@ Birch, EDC · Stripe · messaging · favorites.
    designet uden et sikkert svar.
 5. **`info@bofinda.dk` virker ikke endnu.** Forudsætning for at tænde målingen,
    ikke en detalje.
+
+
+---
+
+## 22 · Hvad implementationen ændrede
+
+Designet holdt, men fire ting kom til undervejs. De står her, fordi de er
+dyre at genopdage.
+
+### Tændknappen
+
+`MAALING_AKTIV=1` er den eneste vej til, at der bliver skrevet noget. Den er
+ikke sat i Vercel, ikke i `.env`, og ikke i `.env.example` som andet end en
+kommentar. **Målingen går ikke live, fordi koden er deployet** — aktiveringen
+er en bevidst handling i panelet, og den kan slukkes igen uden en deploy.
+
+`MAALING_IMPRESSION_PCT` styrer stikprøven, standard 25.
+
+### drizzle-kit kan ikke generere migrationer i dette repo
+
+Snapshots i `db/migrations/meta/` stopper ved 0012, så `db:generate` bygger
+sin diff på en forældet baseline: den genererede 0020 ville have genskabt
+`host_blocks` og syv `listings`-kolonner, der allerede findes. 0013–0019 er af
+samme grund håndskrevne med journalpost, og 0020 følger dem.
+
+Og en fælde mere, som kostede tid: drizzle-kit stemplede journalposten med
+`when` **elleve timer før** 0019's. Migratoren springer alt over, hvis
+`folderMillis` er mindre end den sidst kørte — så `db:migrate` meldte
+«applied successfully» uden at oprette noget, mens `db:status` sagde, at 0020
+manglede. **`when` skal være større end forrige post.**
+
+### Modulgrænserne, bevist
+
+`lib/alarm.ts` importeres af `scripts/import.ts`, som kører i tsx på Railway
+uden Next. `lib/maaling-server.ts` henter derfor `next/server` og
+`next/headers` **dynamisk** bag `process.env.NEXT_RUNTIME`. Efterprøvet: tsx
+kan importere begge moduler, og `spor()` returnerer dér uden at kaste og uden
+at skrive.
+
+`lib/maaling.ts` og `lib/samtykke.ts` importerer hverken databasen eller
+Next — den første fordi klienttrackeren bruger dens typer, den anden fordi
+middleware kører på Edge.
+
+### `_saetKontekst` findes af samme grund som `indsaetBase`
+
+`next/headers` findes ikke i tsx, så uden en indsprøjtet kontekst ville hvert
+eneste serverside-event være uprøveligt. En spærring, ingen har set fejle, er
+ingen spærring. Samme greb, samme begrundelse — og den bruges kun af
+`scripts/test-maaling.ts`.
+
+### Én prøve kunne ikke blive rød
+
+Det bevidste brud «læg referer-fritekst i `filter_applied.fra`» blev **ikke**
+fanget første gang. Prøven brugte samme by på begge sider af diffen, så der
+aldrig blev dannet et `by`-event at lække igennem — den var grøn, uanset hvor
+galt det stod til. To forskellige *ukendte* byer virkede heller ikke: begge
+bliver til `by_ukendt`. Prøven går nu fra ingen by til en ukendt by, og
+bruddet fælder den.
+
+Det er hele argumentet for bevidste brud i én sætning: **fejlen lå i prøven,
+og kun et brud kunne finde den.**
