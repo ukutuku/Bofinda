@@ -108,10 +108,11 @@ export const KILDER: Registreret[] = [
     adapter: larosAdapter(),
     navn: 'Laros',
     baseUrl: 'https://www.laros.dk',
-    // Holdt ude af cron'en, indtil den kontrollerede import er godkendt —
-    // samme greb som ved Heimstaden. Koeres ved navn: npm run import -- laros.
-    // Fjern linjen, naar maalingen er godkendt.
-    kunUdvikling: true,
+    // Med i cron'en fra 7. sep. 2026 efter godkendt kontrolleret import
+    // (31 netto nye, 18 i Aarhus, 0 overlap, 0 fejl). Detaljebudgettet er
+    // bevidst lavt (LAROS_DETALJEBUDGET, standard 5): hver detaljeside
+    // koster 20 sekunder hos Laros, og de 26 resterende ruller ind over
+    // de naeste koersler.
   },
   { adapter: dummyAdapter, navn: 'Dummy (testdata)', baseUrl: 'https://dummy.invalid', kunUdvikling: true },
   { adapter: dummy2Adapter, navn: 'Dummy 2 (testdata)', baseUrl: 'https://dummy2.invalid', kunUdvikling: true },

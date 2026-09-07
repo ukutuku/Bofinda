@@ -212,13 +212,13 @@ async function main() {
   const automatiske = rigtigeKilder().map((k) => k.adapter.id)
   const forventede = [
     'findbolig', 'propstep', 'dacas', 'lokalbolig',
-    'balder', 'home', 'cej', 'heimstaden', 'birch',
+    'balder', 'home', 'cej', 'heimstaden', 'birch', 'laros',
   ]
   // Listen skrives ORDRET ud, ikke bare tjekket for medlemskab: en kilde,
   // der lydløst forsvinder fra cron'en, holder op med at levere boliger
   // uden at noget fejler nogen steder. Og en kilde, der lydløst dukker OP,
   // begynder at kalde ud til en fremmed vært, uden nogen besluttede det.
-  tjek('cron kalder præcis de ni kilder, vi tror',
+  tjek('cron kalder præcis de ti kilder, vi tror',
     JSON.stringify(automatiske) === JSON.stringify(forventede), automatiske.join(', '))
   // Heimstaden kom med 7. sep. 2026 efter to kontrollerede prøver.
   // Detaljebudgettet er stadig skruet ned på Railway; se noten i
@@ -2595,8 +2595,8 @@ async function main() {
         if (gemtH === undefined) delete process.env.HEIMSTADEN_DETALJEBUDGET; else process.env.HEIMSTADEN_DETALJEBUDGET = gemtH
         larosNulstilAdvarsel()
       }
-      tjek('laros cron: registreret, men holdt ude af automatiske kørsler indtil målingen er godkendt',
-        findKilde('laros') !== undefined && !rigtigeKilder().some((k) => k.adapter.id === 'laros'))
+      tjek('laros cron: med i automatiske kørsler efter godkendt måling 7/9',
+        findKilde('laros') !== undefined && rigtigeKilder().some((k) => k.adapter.id === 'laros'))
     }
 
     // ── Alarmen følger availability-domænet ──────────────────────
