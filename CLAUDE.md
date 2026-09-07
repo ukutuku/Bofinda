@@ -15,7 +15,8 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   er registreringslaget: `kunUdvikling: true` på posten i
   `adapters/index.ts`. Den springes over i både `rigtigeKilder()` og
   `koerAlle`, og kilden kan stadig køres ved navn
-  (`npm run import -- <slug>`). Det er sådan Heimstaden holdes tilbage nu.
+  (`npm run import -- <slug>`). Sådan blev Heimstaden holdt tilbage, mens
+  de kontrollerede prøver kørte.
 
   Skal `enabled` en dag gøres autoritativ, er det en bevidst opgave med
   egne prøver — ikke noget, man opdager midt i en nedbrudssituation.

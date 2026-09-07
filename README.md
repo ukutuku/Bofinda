@@ -242,9 +242,9 @@ workeren skal netop uden om transaction-pooleren.
 **Sæt ikke** `PROPSTEP_POSTNR` eller `FINDBOLIG_OMRAADE` — tomme betyder
 fuld dækning.
 
-**Sæt ikke** `HEIMSTADEN_DETALJEBUDGET` på Railway. Den findes til
-kontrollerede prøver og skruer loftet over detaljehentninger ned for netop
-den ene kilde. Uden den er loftet 25. Alt, der ikke er et helt ikke-negativt
+`HEIMSTADEN_DETALJEBUDGET` **står på Railway med værdien `3`** og skal
+blive stående, indtil fuld detaljehøst er godkendt. Den skruer loftet over
+detaljehentninger ned for netop den ene kilde. Uden den er loftet 25. Alt, der ikke er et helt ikke-negativt
 tal, ignoreres med en tydelig linje i loggen — et `-1` ville ellers betyde
 «hent alt på nær ét».
 
@@ -264,11 +264,11 @@ aldrig af nogen kodevej** — kolonnen findes, `sikreKilde` returnerer den,
 og så bruges den ikke. Sætter man den til `false`, kører kilden videre som
 før. Rør den ikke i den tro, at den slår noget fra.
 
-Holdt ude lige nu: **Heimstaden**. Kildens CDN drøvler vedvarende crawl
-(6. sep. 2026: 503 på alt fra vores IP efter ~17 min ved 1 kald/s),
-og første genkontakt skal være en bevidst, navngivet kørsel — ikke en
-cron-runde et kvarter efter et deploy. Værtsspærren forhindrer os i at
-*fortsætte* efter et 429/503; den bestemmer ikke, *om* kilden startes.
+Holdt ude lige nu: **ingen**. Heimstaden kom med i cron'en 7. sep. 2026
+efter to kontrollerede prøver (Mac og Railway, 1 discovery + 3 detaljer
+hver, 0 fejl, 0 spærrer). Kilden kører dog stadig med
+`HEIMSTADEN_DETALJEBUDGET=3` på Railway — fuld detaljehøst er ikke
+godkendt endnu.
 
 ### Cron-planen
 

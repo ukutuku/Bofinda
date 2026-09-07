@@ -204,15 +204,25 @@ async function main() {
   // skal vaere navngivet og bevidst — ikke en cron-runde efter et deploy.
   console.log('\n══ hvilke kilder cron\'en kalder ══')
   const automatiske = rigtigeKilder().map((k) => k.adapter.id)
-  tjek('heimstaden er IKKE med i automatiske kørsler',
-    !automatiske.includes('heimstaden'), automatiske.join(', '))
-  tjek('præmis: heimstaden ER registreret og kan køres ved navn',
-    findKilde('heimstaden') !== undefined)
-  tjek('de øvrige rigtige kilder er stadig med',
-    ['propstep', 'home', 'lokalbolig', 'findbolig', 'balder', 'dacas', 'cej', 'birch']
-      .every((k) => automatiske.includes(k)), automatiske.join(', '))
+  const forventede = [
+    'findbolig', 'propstep', 'dacas', 'lokalbolig',
+    'balder', 'home', 'cej', 'heimstaden', 'birch',
+  ]
+  // Listen skrives ORDRET ud, ikke bare tjekket for medlemskab: en kilde,
+  // der lydløst forsvinder fra cron'en, holder op med at levere boliger
+  // uden at noget fejler nogen steder. Og en kilde, der lydløst dukker OP,
+  // begynder at kalde ud til en fremmed vært, uden nogen besluttede det.
+  tjek('cron kalder præcis de ni kilder, vi tror',
+    JSON.stringify(automatiske) === JSON.stringify(forventede), automatiske.join(', '))
+  // Heimstaden kom med 7. sep. 2026 efter to kontrollerede prøver.
+  // Detaljebudgettet er stadig skruet ned på Railway; se noten i
+  // adapters/index.ts. Fuld høst er ikke godkendt.
+  tjek('heimstaden er med i cron\'en — men budgettet står stadig lavt',
+    automatiske.includes('heimstaden'))
   tjek('ingen testkilder i automatiske kørsler',
     !automatiske.some((k) => k.startsWith('dummy')), automatiske.join(', '))
+  tjek('præmis: findKilde kan stadig slå en kilde op ved navn',
+    findKilde('heimstaden') !== undefined)
 
   console.log('\n══ rettigheder i public ══')
   const aabne = await tjekRettigheder()

@@ -84,19 +84,19 @@ export const KILDER: Registreret[] = [
     adapter: heimstadenAdapter(),
     navn: 'Heimstaden',
     baseUrl: 'https://www.heimstaden.dk',
-    // HOLDT UDE AF CRON'EN MED VILJE.
+    // Med i cron'en fra 7. sep. 2026, men STADIG med skruet ned for
+    // detaljerne: `HEIMSTADEN_DETALJEBUDGET=3` staar paa Railway, saa en
+    // runde henter hoejst tre detaljesider. Fuld hoest er ikke godkendt.
     //
-    // Kildens CDN droevler vedvarende crawl: 6. sep. 2026 blev alle kald
-    // fra vores IP moedt med 503 efter ~17 minutter ved ét kald i
-    // sekundet — uanset User-Agent. Vaertsspaerren forhindrer os i at
-    // FORTSAETTE efter et 429/503, men den bestemmer ikke, OM kilden
-    // startes; og host_blocks er tom for Railways runner, saa Railway
-    // ville ikke arve den lokale spaerre.
+    // Baggrunden: kildens CDN droevlede os 6. sep. — 503 paa alt fra
+    // Mac'ens IP efter ~17 min ved ét kald i sekundet. To kontrollerede
+    // proever siden da (Mac og Railway, 1 discovery + 3 detaljer hver)
+    // gav 0 fejl, 0 spaerrer og ingen 429/503, ogsaa fra Railways egress.
+    // Takten er 5 sekunder, se VAERTSTAKT i lib/fetch.ts.
     //
-    // Foerste genkontakt skal derfor vaere en bevidst, navngivet koersel
-    // — ikke en tilfaeldig cron-runde et kvarter efter et deploy.
-    // Fjernes linjen, naar den kontrollerede produktionstest er godkendt.
-    kunUdvikling: true,
+    // Skrues budgettet op, saa goer det i smaa skridt og se paa
+    // host_blocks bagefter. Vaertsspaerren stopper os efter et 429/503,
+    // men den er ingen undskyldning for at gaa haardt til den.
   },
   {
     adapter: birchAdapter(),
