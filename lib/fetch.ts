@@ -86,13 +86,18 @@ export async function politeFetch(
     const res = await fetch(url, {
       ...init,
       headers: {
-        ...(init.headers as Record<string, string> | undefined),
-        'User-Agent': UA,
         // Uden disse afviser flere danske hosts (Simply.com foran laros og
         // dacas) forespoergslen med 454. Det er ikke omgaaelse — det er at
         // tale HTTP ordentligt.
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'da-DK,da;q=0.9,en;q=0.8',
+        // Kaldets egne hoveder vinder over standarderne. Alabus Web API
+        // forhandler XML, naar Accept foretraekker application/xml (maalt
+        // 2026-09-07), saa en adapter SKAL kunne bede om JSON.
+        ...(init.headers as Record<string, string> | undefined),
+        // User-Agent staar SIDST og kan ikke overskrives af et kald: den er
+        // vores navn, ikke en indstilling. Se EDC-laeren i docs.
+        'User-Agent': UA,
       },
       redirect: 'follow',
     })

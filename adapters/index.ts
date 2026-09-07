@@ -10,6 +10,7 @@ import { balderAdapter } from './balder'
 import { cejAdapter } from './cej'
 import { birchAdapter } from './birch'
 import { larosAdapter } from './laros'
+import { alabuAdapter } from './alabu'
 import { heimstadenAdapter } from './heimstaden'
 import { homeAdapter } from './home'
 
@@ -113,6 +114,16 @@ export const KILDER: Registreret[] = [
     // bevidst lavt (LAROS_DETALJEBUDGET, standard 5): hver detaljeside
     // koster 20 sekunder hos Laros, og de 26 resterende ruller ind over
     // de naeste koersler.
+  },
+  {
+    adapter: alabuAdapter(),
+    navn: 'Alabu Bolig',
+    baseUrl: 'https://alabubolig.dk',
+    // Holdes UDE af cron'en, til den kontrollerede import 7. sep. 2026 er
+    // maalt og godkendt. Koeres kun navngivet: `npm run import -- alabu`.
+    // Flaget fjernes FOERST ved godkendelse — det er den eneste virksomme
+    // stopknap (sources.enabled er doed, se docs/kildetilladelser.md).
+    kunUdvikling: true,
   },
   { adapter: dummyAdapter, navn: 'Dummy (testdata)', baseUrl: 'https://dummy.invalid', kunUdvikling: true },
   { adapter: dummy2Adapter, navn: 'Dummy 2 (testdata)', baseUrl: 'https://dummy2.invalid', kunUdvikling: true },

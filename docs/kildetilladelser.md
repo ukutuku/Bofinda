@@ -39,7 +39,7 @@ Står der `[UDFYLDES]`, mangler oplysningen, og linjen kan ikke bæres.
 
 ---
 
-## De elleve kilder
+## Kilderne
 
 | Kilde | Navn | Rolle | Dato | Form | Hvad der konkret er givet lov til |
 |---|---|---|---|---|---|
@@ -55,6 +55,7 @@ Står der `[UDFYLDES]`, mangler oplysningen, og linjen kan ikke bæres.
 | **Kereby** | `[UDFYLDES]` | `[UDFYLDES]` | `[UDFYLDES]` | telefon, optaget med samtykke | `[UDFYLDES — værter: ? · endpoints: ? · nøgle: ? · billeder fra hvilken vært: ?]` — data via `kereby.dk/wp-json/wp/v2/jorato-cases` |
 | **CEJ** | `[UDFYLDES]` | `[UDFYLDES]` | `[UDFYLDES]` | telefon, optaget med samtykke | `[UDFYLDES — værter: ? · endpoints: ? · nøgle: ? · billeder fra hvilken vært: ?]` — white-label fra `bolig.io`; afklar hvem der ejer dataene |
 | **Laros A/S** | `[UDFYLDES]` | `[UDFYLDES]` | 2026-09-07 | telefon, optaget med samtykke | **Udfyldt, se nedenfor.** Bred tilladelse til at hente, behandle og vise deres offentlige boligannoncer og billeder på Bofinda — liste- og detaljesider, alle relevante offentlige boligfelter, brug og visning af billeder, relevante nuværende værter/endpoints, link tilbage til Laros og deres ansøgningsflow, løbende opdatering. Ingen begrænsninger eller forbehold stillet. |
+| **Alabu Bolig** | `[UDFYLDES]` | `[UDFYLDES]` | 2026-09-07 | telefon, optaget med samtykke | **Udfyldt, se nedenfor.** Fuld tilladelse til at hente, behandle og vise alle deres offentlige boligannoncer på Bofinda — liste- og detaljedata, alle relevante offentlige boligfelter, brug og visning af billeder, løbende crawling og opdatering, relevante nuværende værter/endpoints, link tilbage til Alabu Bolig og deres ansøgningsflow. Ingen begrænsninger eller forbehold stillet. |
 
 ---
 
@@ -106,6 +107,35 @@ Laros-medarbejderen nødvendigvis sagde:
 | **Takt** | `robots.txt` siger `Crawl-delay: 20`. Vi kalder aldrig hurtigere end ét kald pr. 20 sekunder (`VAERTSTAKT` i `lib/fetch.ts`), og detaljesider hentes kun for nye, ændrede og forældede boliger (detaljevagten). |
 | **Ansøgning** | Knappen «Ansøg via Boligportal» sender ansøgningen gennem BoligPortal. Vi linker til Laros' egen boligside; BoligPortal-linket hentes ikke. |
 | **Persondata** | Ingen set i payloaden. Adapteren plukker kun boligfelter. |
+
+## Alabu Bolig — fuld tilladelse, tekniske facts holdt adskilt
+
+Tilladelsen blev givet telefonisk 7. september 2026 og optaget med samtykke.
+Den er **ikke** begrænset til bestemte endpoints, felter eller billedværter:
+Alabu Bolig har givet lov til alt, vi har brug for i forbindelse med at
+hente, behandle og vise deres offentlige boligannoncer på Bofinda. Der blev
+ikke stillet særlige begrænsninger eller forbehold.
+
+| | |
+|---|---|
+| **Hvad er givet** | Crawling/hentning af alle offentlige boligannoncer · liste- og detaljedata · alle relevante offentlige boligfelter · brug og visning af billeder · løbende crawling og opdatering · relevante nuværende værter og endpoints · link tilbage til Alabu Bolig og deres ansøgningsflow |
+| **Begrænsninger** | Ingen stillet |
+| **Oplyst af** | `[UDFYLDES — navn]`, `[UDFYLDES — rolle]` |
+| **Dato** | 2026-09-07 |
+| **Form** | Telefon, optaget med samtykke |
+
+**Tekniske facts — fra research og robots.txt, ikke fra samtalen.** Det
+her er, hvad vi *bruger* under den fulde tilladelse; det er ikke ord,
+Alabu-medarbejderen nødvendigvis sagde:
+
+| | |
+|---|---|
+| **Værter** | `alabubolig.dk` — data, sider og billeder på én vært, ingen CDN. Boligbilleder ligger under `/Media/TempDepartmentImages/<selskab>_<afdeling>_<lejemål>/…`, plantegninger under `/media/…`. Afdelingsbilleder (`/Media/TempDepartmentImages/<selskab>_<afdeling>/…`) viser afdelingen, ikke lejemålet, og hentes ikke. |
+| **Endpoints** | Liste: `GET /umbraco/api/AvailableTenanciesPage/GetAllAvailableTenancies` — ét kald, hele udbuddet som JSON; det er det kald, listesiden selv laver. Detalje: `GET /umbraco/api/AvailableTenanciesPage/GetInfoForTenancy?companyId=&departmentId=&tenancyId=` (aconto varme/vand, boligart, faciliteter, plantegning; ~600 bytes). Boligens side for mennesker: `/se-og-soeg-bolig/soeg-ledig-lejebolig/?ten=<selskab>_<afdeling>_<lejemål>` — den linker vi til. |
+| **Nøgle** | Ingen — alt er offentligt og kræver ikke login (sidens eget svar: `RequiresAuthentication: false`). Værten svarer 406 på en snæver `Accept`-header; vi sender den, browseren sender. |
+| **Takt** | `robots.txt` har kun en `Sitemap:`-linje — ingen `Disallow`, ingen `Crawl-delay`. Standardtakten (højst ét kald pr. sekund pr. vært) gælder. Detaljekald kun for nye, ændrede og forældede boliger (detaljevagten), under `ALABU_DETALJEBUDGET`. |
+| **Ansøgning** | Knappen «Jeg vil gerne kontaktes» ved hver bolig åbner en kontaktformular (navn, telefon, e-mail, besked), som sendes til Alabu. Vi linker til boligens egen side; formularen hentes ikke og udfyldes ikke. Om en ansøger skal være opskrevet på deres venteliste, siger siderne ikke — se `lib/kildekontrakt.ts`. |
+| **Persondata** | Ingen i liste- eller detaljepayloadet ud over Alabus egne kontaktoplysninger i fritekstfeltet `Description`, som ikke gemmes. Adapteren plukker kun boligfelter ved navn; billedernes `Name`/`Description`/`Photographer` læses ikke. |
 
 ## BoligPortal — ikke en kilde
 

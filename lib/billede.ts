@@ -67,6 +67,12 @@ export const TILLADTE_VAERTER = new Set([
   // Birch: feedets galleri-URL'er er absolutte paa kildens eget domaene
   // — 1.412 af 1.412 maalt 2026-09-06.
   'birchejendomme.dk',
+  // Alabu Bolig: boligbilleder og plantegninger ligger paa kildens eget
+  // domaene — 240 af 240 billed-URL'er i listepayloadet og plantegningen i
+  // detaljekaldet, maalt 2026-09-07. Ingen CDN. Afdelingsbillederne ligger
+  // paa samme vaert, men dem sorterer ADAPTEREN fra — allowlisten kan ikke
+  // se forskel paa en facade og et lejemaal.
+  'alabubolig.dk',
 
   ...(EGEN_LAGERVAERT ? [EGEN_LAGERVAERT] : []),
 ])

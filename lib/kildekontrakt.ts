@@ -676,6 +676,53 @@ export const KILDEKONTRAKTER: Record<string, Kildekontrakt> = {
     direkteSignaler: {},
   },
 
+  // ── Alabu Bolig ──────────────────────────────────────────────
+  // Almen boligorganisation i Aalborg. Platformen (Umbraco + Incom) deles
+  // med andre selskaber, men kontrakten er Alabus egen: hvert felt her er
+  // efterprøvet mod DERES payload og DERES skabeloner 2026-09-07. Samme
+  // platform er ikke samme kontrakt.
+  alabu: {
+    kilde: 'alabu',
+    // UNDERSØGT OG KONSTATERET: intet statusord. Hverken listepayloadet
+    // (AvailableTenanciesPage/GetAllAvailableTenancies), boligkortet eller
+    // nogen af sidens 373 skabeloner bærer «ledig», «reserveret» eller
+    // «udlejet» pr. bolig. At boligen står på siden «Søg ledig lejebolig»
+    // er listemedlemskab, ikke et statusord — samme regel som Dacas'
+    // sitemap. Markedsstatus er derfor UNKNOWN; en bolig, der forsvinder
+    // fra listen, afmeldes.
+    statusser: {},
+    datofelt: {
+      betydning: 'overtagelse',
+      brugbarSomTiming: true,
+      belaeg: {
+        art: 'kildens-ui',
+        hvor: 'alabubolig.dk · MoveInDate vises i vinduet «Jeg vil gerne kontaktes» under overskriften «Indflytningsdato» (skabelon requestavailabletenancy.modal.html); listesiden /se-og-soeg-bolig/soeg-ledig-lejebolig/ kalder boligerne «klar til indflytning»',
+        naar: '2026-09-07',
+        note: 'Kilden binder selv datoen til ordet indflytning: etiketten er '
+            + '«Indflytningsdato», og listesidens tekst kalder boligerne «klar til '
+            + 'indflytning». Datoen står som ISO uden klokkeslæt (T00:00:00) og '
+            + 'gemmes som kalenderdag. 6 af 22 datoer lå i fortiden (ældste '
+            + '2026-01-01) — ikke Propsteps 2002-tilfælde, men boliger, der stadig '
+            + 'står på listen efter deres dato: kan overtages nu.',
+      },
+    },
+    // Hver bolig har knappen «Jeg vil gerne kontaktes» (navn, telefon,
+    // e-mail, besked), og listesiden siger «Udfyld kontaktformularen ved
+    // boligen eller ring». Der står INTET venteliste-ord ved boligerne —
+    // men Alabu driver en venteliste (/om-ventelisten/, «Bliv medlem»), og
+    // om kontakt-ansøgere rangeres efter anciennitet, står ingen steder. En
+    // kontaktformular er ikke en dokumenteret tildelingsregel. Aksen
+    // forbliver UNKNOWN. Skabelonen har et felt «Forventet ventetid»
+    // (MinWaitTimeInMonths / WaitTimeTypeText) — tomt for den efterprøvede
+    // bolig; adapteren siger højt, hvis det dukker op.
+    ansoegningsform: null,
+    overtagelsestekst: null,
+    // Adgang: listen kræver ikke login (RequiresAuthentication: false i
+    // sidens eget svar), men om man skal være medlem eller opskrevet for at
+    // FÅ boligen, siger kilden ikke. Fravær er ikke bevis. Ingen signaler.
+    direkteSignaler: {},
+  },
+
   // ── Bofinda (udlejerens egne annoncer) ───────────────────────
   native: {
     kilde: 'native',

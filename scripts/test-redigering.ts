@@ -53,6 +53,11 @@ import {
   STANDARD_DETALJEBUDGET_LAROS,
 } from '../adapters/laros'
 import {
+  _nulstilAdvarsler as alabuNulstilAdvarsler, _nulstilBudgetAdvarsel as alabuNulstilBudgetAdvarsel,
+  alabuAdapter, detaljesignatur as alabuSignatur, laesDetalje as alabuDetalje, laesListe as alabuListe,
+  STANDARD_DETALJEBUDGET_ALABU,
+} from '../adapters/alabu'
+import {
   _aktivRunner, _cachetSvar, _goerCacheGammel, _nulstilCache, _saetRunner,
   laesRetryAfter, noterSkip, spaer, spaerretTil, VaertBlokeretFejl,
 } from '../lib/vaertsspaerre'
@@ -229,6 +234,10 @@ async function main() {
     !automatiske.some((k) => k.startsWith('dummy')), automatiske.join(', '))
   tjek('præmis: findKilde kan stadig slå en kilde op ved navn',
     findKilde('heimstaden') !== undefined)
+  // Alabu er registreret 7. sep. 2026, men holdes ude af cron'en, til den
+  // kontrollerede import er maalt og godkendt. Kun `npm run import -- alabu`.
+  tjek('alabu er registreret, men holdt UDE af cron\'en til målingen er godkendt',
+    findKilde('alabu') !== undefined && !automatiske.includes('alabu'))
 
   console.log('\n══ rettigheder i public ══')
   const aabne = await tjekRettigheder()
@@ -2597,6 +2606,258 @@ async function main() {
       }
       tjek('laros cron: med i automatiske kørsler efter godkendt måling 7/9',
         findKilde('laros') !== undefined && rigtigeKilder().some((k) => k.adapter.id === 'laros'))
+    }
+
+    // ── Alabu Bolig: liste + detalje, nøgle, billeder og økonomi ──
+    // Fixture er fri fantasi i Alabus egen payload-form. Bolig 2 deler
+    // TenancyId med bolig 1 men ligger i en anden afdeling og SKAL blive
+    // sin egen bolig; bolig 3 mangler postnummer og SKAL falde fra.
+    // Afdelingsbilleder ligger på SAMME vært som boligbilleder og SKAL
+    // falde fra på mappen — allowlisten kan ikke redde det.
+    if (!MOD_PRODUKTION) {
+      console.log('\n══ alabu: liste, detalje, nøgle, billeder og økonomi ══')
+      const aBillede = (mappe: string, id: number, orden: number) => ({
+        Id: id, Name: `Billede af prøvebolig ${id}`, Description: null,
+        Url: `/Media/TempDepartmentImages/${mappe}/${id}.jpg`, SortOrder: orden, Photographer: null,
+      })
+      const aBolig = (dept: number, ten: number, sted: string, postnr: string, by: string,
+        leje: number, indskud: number, dato: string, billeder: unknown[]) => ({
+        CompanyId: 99, DepartmentId: dept, TenancyId: ten,
+        Address: { Street: 'Prøvegade', Location: sted, ZipCode: postnr, City: by, LocalTown: null,
+          Country: null, CoAddress: null, Coordinates: { Lat: 57.04, Lng: 9.93 } },
+        Rooms: 3, Sqm: 84.6, RentNet: leje, Deposit: indskud,
+        DepartmentUrl: '/selskabs-og-afdelingshjemmesider/alabu-bolig/afdelinger/proeve/?StepBack=true',
+        DepartmentImages: [aBillede(`99_${dept}`, 900 + dept, 0)],
+        TenancyImages: billeder, VideoUrl: null, MoveInDate: dato, TenancyType: 'Familieboliger',
+        Description: '<p>Ring på 96 331 331 eller skriv til ledigelejeboliger@alabubolig.dk</p>',
+      })
+      const LISTE_JSON = { Data: { Tenancies: [
+        aBolig(7, 501, '12, 3. tv', '9000', 'Aalborg', 6250.5, 24000, '2026-12-01T00:00:00',
+          [aBillede('99_7_501', 11, 1), aBillede('99_7_501', 10, 0), aBillede('99_7', 12, 2)]),
+        aBolig(9, 501, '28B', '9575', 'Terndrup', 4472, 18000, '2026-01-01T00:00:00', []),
+        aBolig(9, 502, '30', '', 'Terndrup', 5000, 20000, '2026-10-01T00:00:00', []),
+      ] }, PreventReload: false, FeedbackList: [], RedirectUrl: null }
+      const DETALJE_JSON = { Data: {
+        CompanyId: 99, DepartmentId: 7, TenancyId: 501,
+        Rents: [{ Name: 'Husleje', Amount: 6250.5 }, { Name: 'Aconto varme', Amount: 565 }, { Name: 'Aconto vand', Amount: 285 }],
+        RentTotal: 7100.5, Premises: ['Altan', 'Fællesvaskeri'], PetAllowedText: '1 lille hund',
+        FloorPlanUrls: ['https://alabubolig.dk/media/1274/3-4.jpg'], ApartmentType: 'Etagebyggeri', TenancyType: 'Familieboliger',
+      } }
+      const DETALJE_UKENDT = { Data: {
+        ...DETALJE_JSON.Data,
+        Rents: [{ Name: 'Husleje', Amount: 6250.5 }, { Name: 'Aconto varme', Amount: 565 }, { Name: 'Antennebidrag', Amount: 45 }],
+        RentTotal: 6860.5, ApartmentType: 'Tæt-lav', MinWaitTimeInMonths: 6, WaitTimeTypeText: 'ca. 6 måneder',
+        FloorPlanUrls: ['https://cdn.fremmed.invalid/plan.jpg'],
+      } }
+      // Set i produktionen 7/9: rækkehusene i Terndrup og en bolig med el-aconto.
+      const DETALJE_TERNDRUP = { Data: {
+        ...DETALJE_JSON.Data, CompanyId: 99, DepartmentId: 9, TenancyId: 501, ApartmentType: 'Rækkehuse - 1 plan',
+        Rents: [{ Name: 'Husleje', Amount: 4472 }, { Name: 'Aconto varme', Amount: 400 }, { Name: 'Aconto vand', Amount: 200 }, { Name: 'Aconto el', Amount: 150 }],
+        RentTotal: 5222, FloorPlanUrls: [],
+      } }
+
+      alabuNulstilAdvarsler()
+      const aListe = alabuListe(LISTE_JSON)
+      tjek('alabu liste: 2 boliger af 3 — den uden postnummer falder fra',
+        aListe.length === 2, aListe.map((b) => b.externalKey).join(','))
+      const a1 = aListe[0]!, a2 = aListe[1]!
+      tjek('alabu nøgle: selskab-afdeling-lejemål — samme TenancyId i to afdelinger er to boliger',
+        a1.externalKey === '99-7-501' && a2.externalKey === '99-9-501')
+      tjek('alabu liste: boligsiden linkes som ?ten=C_D_T',
+        a1.sourceUrl === 'https://alabubolig.dk/se-og-soeg-bolig/soeg-ledig-lejebolig/?ten=99_7_501')
+      tjek('alabu liste: adresse af Street + Location + postnr + by',
+        a1.address === 'Prøvegade 12, 3. tv, 9000 Aalborg' && a1.postalCode === '9000'
+        && a2.address === 'Prøvegade 28B, 9575 Terndrup', `${a1.address} · ${a2.address}`)
+      tjek('alabu liste: kildens tal i øre — netto husleje med ører, indskud som depositum',
+        a1.rentMonthly === 625050 && a1.deposit === 2400000 && a2.rentMonthly === 447200,
+        JSON.stringify([a1.rentMonthly, a1.deposit]))
+      tjek('alabu liste: m2 rundes til heltal (84,6 → 85); værelser og koordinater følger med',
+        a1.sizeM2 === 85 && a1.rooms === 3 && a1.lat === 57.04 && a1.lng === 9.93)
+      tjek('alabu liste: etage/dør i Location → lejlighed; «28B» alene → ingen type',
+        a1.propertyType === 'lejlighed' && a2.propertyType === undefined)
+      tjek('alabu liste: MoveInDate som date-only faktum; intet statusord opfindes',
+        a1.availability?.sourceAvailabilityDate === isoDato('2026-12-01') && a1.availableFrom === '2026-12-01'
+        && !('rawStatus' in (a1.availability ?? {})), JSON.stringify(a1.availability))
+      tjek('alabu billeder: kun boligens egen mappe, sorteret efter SortOrder — afdelingsmappen falder fra på samme vært',
+        JSON.stringify(a1.imageUrls) === JSON.stringify([
+          'https://alabubolig.dk/Media/TempDepartmentImages/99_7_501/10.jpg',
+          'https://alabubolig.dk/Media/TempDepartmentImages/99_7_501/11.jpg']), JSON.stringify(a1.imageUrls))
+      tjek('alabu billeder: bolig uden TenancyImages får INGEN billeder — afdelingsbilledet træder ikke i stedet',
+        a2.imageUrls.length === 0)
+      tjek('alabu persondata/støj: Description, telefon, mail, afdelings-URL og billednavne kommer ikke med',
+        !/96 331 331|ledigelejeboliger|Description|afdelinger\/proeve|Billede af/.test(JSON.stringify(aListe)))
+
+      const ad1 = alabuDetalje(DETALJE_JSON, a1)
+      tjek('alabu detalje: aconto varme/vand ved navn; husleje og indskud fra listen bevares',
+        ad1.utilitiesHeat === 56500 && ad1.utilitiesWater === 28500 && ad1.rentMonthly === 625050
+        && ad1.deposit === 2400000 && ad1.utilitiesOther === undefined,
+        JSON.stringify([ad1.utilitiesHeat, ad1.utilitiesWater, ad1.utilitiesOther]))
+      tjek('alabu detalje: Boligart «Etagebyggeri» → lejlighed; faciliteter som kildens egne ord',
+        ad1.propertyType === 'lejlighed' && JSON.stringify(ad1.amenities) === JSON.stringify(['altan', 'fællesvaskeri']))
+      tjek('alabu detalje: plantegningen kommer sidst efter boligbillederne',
+        ad1.imageUrls.length === 3 && ad1.imageUrls[2] === 'https://alabubolig.dk/media/1274/3-4.jpg')
+      tjek('alabu detalje: forudbetalt, indflytningspris og husdyrtekst opfindes/gemmes ikke',
+        ad1.prepaidRent === undefined && ad1.moveInCost === undefined && !JSON.stringify(ad1).includes('hund'))
+      const ad2 = alabuDetalje(DETALJE_TERNDRUP, a2)
+      tjek('alabu detalje: «Rækkehuse - 1 plan» → rækkehus, og «Aconto el» er el — ikke uspecificeret',
+        ad2.propertyType === 'rækkehus' && ad2.utilitiesElectricity === 15000 && ad2.utilitiesOther === undefined
+        && ad2.utilitiesHeat === 40000 && ad2.utilitiesWater === 20000, JSON.stringify([ad2.propertyType, ad2.utilitiesElectricity, ad2.utilitiesOther]))
+
+      // Det, kilden kan finde på, som vi ikke har plads til: siges højt, gemmes ikke.
+      const advA: string[] = []; const wA = console.warn
+      console.warn = (...a: unknown[]) => { advA.push(a.map(String).join(' ')) }
+      let adU: RawListing
+      try { adU = alabuDetalje(DETALJE_UKENDT, a1) } finally { console.warn = wA }
+      tjek('alabu detalje: ukendt post → uspecificeret aconto (beløbet er kildens), og det siges højt',
+        adU.utilitiesOther === 4500 && adU.utilitiesHeat === 56500 && adU.utilitiesWater === undefined
+        && advA.some((a) => a.includes('Antennebidrag')), JSON.stringify(advA))
+      tjek('alabu detalje: ukendt Boligart → typen fra listen står, og det siges højt',
+        adU.propertyType === 'lejlighed' && advA.some((a) => a.includes('Tæt-lav')))
+      tjek('alabu detalje: «Forventet ventetid» gemmes ikke, men siges højt',
+        !/ventetid|WaitTime|måneder/i.test(JSON.stringify(adU)) && advA.some((a) => a.includes('Forventet ventetid')))
+      tjek('alabu detalje: plantegning på fremmed vært falder fra', adU.imageUrls.length === 2)
+      const advA2: string[] = []
+      console.warn = (...a: unknown[]) => { advA2.push(a.map(String).join(' ')) }
+      try { alabuDetalje(DETALJE_UKENDT, a1) } finally { console.warn = wA }
+      tjek('alabu detalje: advarsler siges én gang pr. nøgle, ikke ved hvert kald',
+        advA.length >= 3 && advA2.length === 0, `${advA.length} første gang, ${advA2.length} anden gang`)
+
+      // Availability gennem hele pipelinen — kontrakten afgør betydningen.
+      const rA1 = await pipelinen({ ...ad1, externalKey: 'alabu-pipe-1' }, 'alabu')
+      tjek('pipeline alabu: fremtidig indflytningsdato → senere; markedsstatus forbliver unknown (intet statusord)',
+        rA1.timing.status === 'senere' && rA1.marked.status === 'unknown', `${rA1.marked.status} · ${rA1.timing.status}`)
+      const rA2 = await pipelinen({ ...a2, externalKey: 'alabu-pipe-2' }, 'alabu')
+      tjek('pipeline alabu: fortidig indflytningsdato → kan overtages nu', rA2.timing.status === 'nu', rA2.timing.status)
+      tjek('pipeline alabu: ansøgning unknown (kontaktformular er ikke en tildelingsregel), ingen adgangskrav dokumenteret',
+        rA1.ansoegning.status === 'unknown' && rA1.adgang.krav.length === 0)
+
+      // Økonomien i basen: totalen tæller husleje + de aconto-poster, kilden opgiver.
+      const { id: alabuId } = await skrivBolig(snapKilde!.id, 'feed',
+        await normaliser({ ...ad1, externalKey: 'alabu-db-1' }, { ...VASK, unitAddressUuid: crypto.randomUUID() }))
+      ekstra.boliger.push(alabuId)
+      const [alabuRk] = await db.select().from(listings).where(eq(listings.id, alabuId))
+      tjek('alabu i basen: total = husleje + varme + vand = 7.100,50 kr med komponenter; depositum står, forudbetalt og indflytningspris er null',
+        alabuRk!.totalMonthly === 710050
+        && JSON.stringify(alabuRk!.totalMonthlyComponents) === JSON.stringify(['rent', 'heat', 'water'])
+        && alabuRk!.deposit === 2400000 && alabuRk!.prepaidRent === null && alabuRk!.moveInCost === null,
+        `${alabuRk!.totalMonthly} ${JSON.stringify(alabuRk!.totalMonthlyComponents)}`)
+      tjek('alabu i basen: koordinater fra kilden, m2 som heltal',
+        alabuRk!.lat != null && Number(alabuRk!.lat) === 57.04 && alabuRk!.sizeM2 === 85, `${alabuRk!.lat} ${alabuRk!.sizeM2}`)
+      const { id: alabuListeId } = await skrivBolig(snapKilde!.id, 'feed',
+        await normaliser({ ...a1, externalKey: 'alabu-db-2' }, { ...VASK, unitAddressUuid: crypto.randomUUID() }))
+      ekstra.boliger.push(alabuListeId)
+      const [alabuListeRk] = await db.select().from(listings).where(eq(listings.id, alabuListeId))
+      tjek('alabu i basen: fra listen alene (ingen aconto endnu) er totalen null — ikke lig huslejen',
+        alabuListeRk!.totalMonthly === null && alabuListeRk!.rentMonthly === 625050)
+      const alabuBilleder = await db.select().from(listingImages).where(eq(listingImages.listingId, alabuId))
+      tjek('alabu billeder: to boligbilleder + plantegning overlever til listing_images', alabuBilleder.length === 3)
+      tjek('alabu billeder: alabubolig.dk er allowlistet — proxyen serverer',
+        TILLADTE_VAERTER.has('alabubolig.dk')
+        && billedUrl('https://alabubolig.dk/Media/TempDepartmentImages/99_7_501/10.jpg') !== null)
+
+      // Dedup: samme adresse fra en anden kilde → kun én repræsentant i søgningen.
+      const [alabuRival] = await db.insert(sources).values({
+        slug: `proeve-alabu-rival-${Date.now()}`, name: 'Prøve: rival', sourceType: 'feed',
+        baseUrl: 'https://rival.invalid', enabled: false,
+      }).returning()
+      ekstra.kilder.push(alabuRival!.id)
+      const alabuDubUuid = crypto.randomUUID()
+      const { id: aDA } = await skrivBolig(snapKilde!.id, 'feed',
+        await normaliser({ ...ad1, externalKey: 'alabu-dub-a' }, { ...VASK, unitAddressUuid: alabuDubUuid }))
+      const { id: aDB } = await skrivBolig(alabuRival!.id, 'feed',
+        await normaliser({ ...a1, externalKey: 'rival-dub-b', sourceUrl: 'https://rival.invalid/b', imageUrls: [] },
+          { ...VASK, unitAddressUuid: alabuDubUuid }))
+      ekstra.boliger.push(aDA, aDB)
+      const aSynlige = await db.select({ id: listings.id }).from(listings)
+        .where(and(udenDubletter(hvor({})), dsql`${listings.id} in (${aDA}, ${aDB})`))
+      tjek('alabu dedup: to kilder, samme enhed → én synlig repræsentant, og det er den med billeder og total',
+        aSynlige.length === 1 && aSynlige[0]?.id === aDA, `${aSynlige.length} synlige af 2`)
+
+      // Detaljevagten: signaturen følger dato, leje og indskud — ikke m2 eller billeder.
+      const aSig = alabuSignatur(a1)
+      tjek('alabu vagt: signatur ændres ved ny indflytningsdato, leje eller indskud',
+        alabuSignatur({ ...a1, availability: { sourceAvailabilityDate: isoDato('2027-01-01')! } }) !== aSig
+        && alabuSignatur({ ...a1, rentMonthly: 1 }) !== aSig && alabuSignatur({ ...a1, deposit: 1 }) !== aSig)
+      tjek('alabu vagt: stabil for uændret bolig; m2 og billeder er ikke med',
+        alabuSignatur({ ...a1 }) === aSig && alabuSignatur({ ...a1, sizeM2: 1, imageUrls: [] }) === aSig)
+      const aa = alabuAdapter()
+      tjek('alabu vagt: adapteren erklærer listeGrundlag, budget, vært og feed-type',
+        typeof aa.listeGrundlag === 'function' && aa.listeGrundlag('https://alabubolig.dk/x') === null
+        && aa.host === 'alabubolig.dk' && aa.sourceType === 'feed')
+
+      // Takten: ingen crawl-delay hos Alabu → standarden, og ikke hurtigere.
+      tjek('alabu takt: standardtakten 1 s pr. kald (robots har ingen crawl-delay)',
+        taktFor('alabubolig.dk') === 1000, String(taktFor('alabubolig.dk')))
+
+      // discover/extract mod en attrap: ét listekald, detaljekald med de tre id'er, JSON bedt om.
+      const aKald: { url: string; accept: string | undefined }[] = []
+      const rigtigFetchA = globalThis.fetch
+      globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        const h = (init?.headers ?? {}) as Record<string, string>
+        aKald.push({ url, accept: h['Accept'] ?? h['accept'] })
+        const json = (o: unknown) => new Response(JSON.stringify(o), { status: 200, headers: { 'content-type': 'application/json' } })
+        if (url.includes('GetAllAvailableTenancies')) return json(LISTE_JSON)
+        if (url.includes('GetInfoForTenancy')) return json(DETALJE_JSON)
+        return new Response('nej', { status: 404 })
+      }) as typeof fetch
+      _saetTakt('alabubolig.dk', 20)
+      try {
+        const fundne = await aa.discover()
+        tjek('alabu discover: ét listekald, 2 boliger med nøgle og boligside',
+          fundne.length === 2 && aKald.length === 1 && fundne[0]!.externalKey === '99-7-501'
+          && fundne[0]!.url.endsWith('?ten=99_7_501'), JSON.stringify(fundne))
+        tjek('alabu discover: listekaldet beder om JSON — værten forhandler ellers XML',
+          aKald[0]!.accept === 'application/json', String(aKald[0]!.accept))
+        const g = aa.listeGrundlag!(fundne[0]!.url)
+        tjek('alabu vagt: listeGrundlag giver grundlaget fra cachen med signatur',
+          g !== null && g.grundlag.externalKey === '99-7-501' && g.detaljesignatur === aSig)
+        const hentet = await aa.extract(fundne[0]!.url)
+        tjek('alabu extract: detaljekaldet går til GetInfoForTenancy med de tre id\'er og bærer aconto hjem',
+          aKald[1]!.url === 'https://alabubolig.dk/umbraco/api/AvailableTenanciesPage/GetInfoForTenancy?companyId=99&departmentId=7&tenancyId=501'
+          && aKald[1]!.accept === 'application/json' && hentet.utilitiesHeat === 56500, aKald[1]!.url)
+        let aFejl = ''
+        try { await aa.extract('https://alabubolig.dk/ukendt') } catch (e) { aFejl = (e as Error).message }
+        tjek('alabu extract: en URL uden discover kaster i stedet for at gætte', aFejl.includes('ikke i cachen'), aFejl)
+        // Header-reglen generelt: standard-Accept uden egen, og User-Agent kan aldrig overskrives.
+        await politeFetch('https://alabubolig.dk/uden-egen-accept').catch(() => {})
+        tjek('politeFetch: uden egen Accept sendes standardhovedet stadig (Simply.com-reglen)',
+          aKald.at(-1)!.accept?.startsWith('text/html') === true, String(aKald.at(-1)!.accept))
+        const uaKald: string[] = []
+        globalThis.fetch = (async (_i: RequestInfo | URL, init?: RequestInit) => {
+          uaKald.push(((init?.headers ?? {}) as Record<string, string>)['User-Agent'] ?? '')
+          return new Response('ok', { status: 200 })
+        }) as typeof fetch
+        await politeFetch('https://alabubolig.dk/ua', 1, { headers: { 'User-Agent': 'Mozilla/5.0 forklædt' } })
+        tjek('politeFetch: et kald kan IKKE skifte User-Agent — vores navn er ikke en indstilling',
+          uaKald[0]!.startsWith('BofindaBot/') && !uaKald[0]!.includes('forklædt'), uaKald[0])
+      } finally {
+        globalThis.fetch = rigtigFetchA
+        _saetTakt('alabubolig.dk', 1000)
+      }
+
+      // Budgettet: eget env-navn, egen standard (30 = hele udbuddet), rører ikke de andre.
+      const gemtAB = process.env.ALABU_DETALJEBUDGET
+      try {
+        delete process.env.ALABU_DETALJEBUDGET
+        tjek('alabu budget: standard 30 uden env — hele udbuddet (22) i én kørsel',
+          aa.detaljeBudgetPrKoersel === 30 && STANDARD_DETALJEBUDGET_ALABU === 30)
+        process.env.ALABU_DETALJEBUDGET = '4'
+        tjek('alabu budget: env=4 → 4, og Laros er upåvirket',
+          aa.detaljeBudgetPrKoersel === 4 && larosAdapter().detaljeBudgetPrKoersel === STANDARD_DETALJEBUDGET_LAROS)
+        process.env.ALABU_DETALJEBUDGET = 'abc'; alabuNulstilBudgetAdvarsel()
+        const advB: string[] = []; const wB = console.warn
+        console.warn = (...a: unknown[]) => { advB.push(a.map(String).join(' ')) }
+        let ugyldigt: number | undefined
+        try { ugyldigt = aa.detaljeBudgetPrKoersel } finally { console.warn = wB }
+        tjek('alabu budget: «abc» afvises → 30, og det siges højt',
+          ugyldigt === 30 && advB.some((a) => a.includes('ALABU_DETALJEBUDGET IGNORERET')), JSON.stringify(advB))
+      } finally {
+        if (gemtAB === undefined) delete process.env.ALABU_DETALJEBUDGET; else process.env.ALABU_DETALJEBUDGET = gemtAB
+        alabuNulstilBudgetAdvarsel()
+      }
+      tjek('alabu cron: registreret, men holdt UDE af automatiske kørsler til målingen er godkendt',
+        findKilde('alabu') !== undefined && !rigtigeKilder().some((k) => k.adapter.id === 'alabu'))
     }
 
     // ── Alarmen følger availability-domænet ──────────────────────
