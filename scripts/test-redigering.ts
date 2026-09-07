@@ -217,13 +217,13 @@ async function main() {
   const automatiske = rigtigeKilder().map((k) => k.adapter.id)
   const forventede = [
     'findbolig', 'propstep', 'dacas', 'lokalbolig',
-    'balder', 'home', 'cej', 'heimstaden', 'birch', 'laros',
+    'balder', 'home', 'cej', 'heimstaden', 'birch', 'laros', 'alabu',
   ]
   // Listen skrives ORDRET ud, ikke bare tjekket for medlemskab: en kilde,
   // der lydløst forsvinder fra cron'en, holder op med at levere boliger
   // uden at noget fejler nogen steder. Og en kilde, der lydløst dukker OP,
   // begynder at kalde ud til en fremmed vært, uden nogen besluttede det.
-  tjek('cron kalder præcis de ti kilder, vi tror',
+  tjek('cron kalder præcis de elleve kilder, vi tror',
     JSON.stringify(automatiske) === JSON.stringify(forventede), automatiske.join(', '))
   // Heimstaden kom med 7. sep. 2026 efter to kontrollerede prøver.
   // Detaljebudgettet er stadig skruet ned på Railway; se noten i
@@ -234,10 +234,10 @@ async function main() {
     !automatiske.some((k) => k.startsWith('dummy')), automatiske.join(', '))
   tjek('præmis: findKilde kan stadig slå en kilde op ved navn',
     findKilde('heimstaden') !== undefined)
-  // Alabu er registreret 7. sep. 2026, men holdes ude af cron'en, til den
-  // kontrollerede import er maalt og godkendt. Kun `npm run import -- alabu`.
-  tjek('alabu er registreret, men holdt UDE af cron\'en til målingen er godkendt',
-    findKilde('alabu') !== undefined && !automatiske.includes('alabu'))
+  // Alabu kom med 7. sep. 2026 efter godkendt kontrolleret import (22 netto
+  // nye, 18 i Aalborg, 0 overlap, 0 fejl). Standardtakt, budget 30.
+  tjek('alabu er med i cron\'en efter godkendt måling 7/9',
+    findKilde('alabu') !== undefined && automatiske.includes('alabu'))
 
   console.log('\n══ rettigheder i public ══')
   const aabne = await tjekRettigheder()
@@ -2856,8 +2856,8 @@ async function main() {
         if (gemtAB === undefined) delete process.env.ALABU_DETALJEBUDGET; else process.env.ALABU_DETALJEBUDGET = gemtAB
         alabuNulstilBudgetAdvarsel()
       }
-      tjek('alabu cron: registreret, men holdt UDE af automatiske kørsler til målingen er godkendt',
-        findKilde('alabu') !== undefined && !rigtigeKilder().some((k) => k.adapter.id === 'alabu'))
+      tjek('alabu cron: med i automatiske kørsler efter godkendt måling 7/9',
+        findKilde('alabu') !== undefined && rigtigeKilder().some((k) => k.adapter.id === 'alabu'))
     }
 
     // ── Alarmen følger availability-domænet ──────────────────────

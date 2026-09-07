@@ -119,11 +119,11 @@ export const KILDER: Registreret[] = [
     adapter: alabuAdapter(),
     navn: 'Alabu Bolig',
     baseUrl: 'https://alabubolig.dk',
-    // Holdes UDE af cron'en, til den kontrollerede import 7. sep. 2026 er
-    // maalt og godkendt. Koeres kun navngivet: `npm run import -- alabu`.
-    // Flaget fjernes FOERST ved godkendelse — det er den eneste virksomme
-    // stopknap (sources.enabled er doed, se docs/kildetilladelser.md).
-    kunUdvikling: true,
+    // Med i cron'en fra 7. sep. 2026 efter godkendt kontrolleret import
+    // (22 netto nye, 18 i Aalborg, 0 overlap, 0 fejl). Ét listekald pr.
+    // koersel; detaljer kun for nye, aendrede og forfaldne boliger under
+    // ALABU_DETALJEBUDGET (standard 30, ~600 bytes og ét sekund pr. kald).
+    // Standardtakten 1 s gaelder — kildens robots har ingen crawl-delay.
   },
   { adapter: dummyAdapter, navn: 'Dummy (testdata)', baseUrl: 'https://dummy.invalid', kunUdvikling: true },
   { adapter: dummy2Adapter, navn: 'Dummy 2 (testdata)', baseUrl: 'https://dummy2.invalid', kunUdvikling: true },
