@@ -161,6 +161,9 @@ export type Tom = Record<string, never>
 
 /** Filteruddraget. Delt af search, search_results_view og empty_results. */
 export interface Filteruddrag {
+  /** Hvilken slags sted der blev søgt på. Følger uddraget overalt, så
+   *  `empty_results` kan besvare «hvor giver søgningen aldrig noget». */
+  sted_slags?: StedSlags
   /** KUN fra facetter().byer. Matcher input ikke en kendt by, udelades den. */
   canonical_city?: string
   postnr?: string
@@ -258,10 +261,14 @@ export interface FejlProps { handling: string; fejlklasse: string }
 
 // ─── Allowlisten ───────────────────────────────────────────────
 
-type Slags = 'tal' | 'bool' | 'tekst' | 'liste' | 'kort'
+type Slags = 'tal' | 'bool' | 'tekst' | 'liste' | 'kort' | 'skalar'
 interface Spec { slags: Slags; kraevet?: true; af?: readonly string[] }
 
 const FILTERUDDRAG: Record<string, Spec> = {
+  // sted_slags hoerer til uddraget, ikke kun til `search`: uden det kan
+  // «hvilke soegninger giver aldrig noget» ikke besvares paa
+  // empty_results alene, og det er praecis dét, eventet findes for.
+  sted_slags: { slags: 'tekst', af: ['postnr', 'by_kendt', 'by_ukendt', 'ingen'] },
   canonical_city: { slags: 'tekst' },
   postnr: { slags: 'tekst' },
   price_min: { slags: 'tal' },
@@ -302,9 +309,9 @@ export const ALLOWLIST: Record<Eventnavn, Record<string, Spec>> = {
     result_count: { slags: 'tal', kraevet: true },
     antal_filtre: { slags: 'tal', kraevet: true },
     sorter: { slags: 'tekst', kraevet: true },
-    sted_slags: { slags: 'tekst', kraevet: true, af: ['postnr', 'by_kendt', 'by_ukendt', 'ingen'] },
     result_view_id: { slags: 'tekst' },
     ...FILTERUDDRAG,
+    sted_slags: { slags: 'tekst', kraevet: true, af: ['postnr', 'by_kendt', 'by_ukendt', 'ingen'] },
     ...UTM,
   },
   search_results_view: {
@@ -320,13 +327,15 @@ export const ALLOWLIST: Record<Eventnavn, Record<string, Spec>> = {
   },
   filter_applied: {
     felt: { slags: 'tekst', kraevet: true, af: FILTERFELTER },
-    til: { slags: 'tekst' },
-    fra: { slags: 'tekst' },
+    // Tal bliver som TAL. Et beloeb i oere stringificeret til '12000000'
+    // er otte cifre i traek og ville blive laest som et telefonnummer.
+    til: { slags: 'skalar' },
+    fra: { slags: 'skalar' },
     antal_filtre_efter: { slags: 'tal' },
   },
   filter_cleared: {
     felt: { slags: 'tekst', kraevet: true, af: FILTERFELTER },
-    fra: { slags: 'tekst' },
+    fra: { slags: 'skalar' },
     antal_ryddet: { slags: 'tal' },
   },
   sort_changed: {
@@ -400,7 +409,6 @@ export const KLIENTEVENTS: readonly Eventnavn[] = [
 // ─── Værdiværnet ───────────────────────────────────────────────
 
 const MAIL = /[^\s@]+@[^\s@]+\.[a-z]{2,}/i
-const TELEFON = /(?:\+?\d[\s\-.]?){8,}/
 const TOKEN = /(?:^|\s)(?:Bearer\s|eyJ|sb_secret|sb_publishable|sbp_)/i
 const ABSOLUT_URL = /^[a-z][a-z0-9+.-]*:\/\//i
 const MAKS_TEGN = 120
@@ -423,11 +431,28 @@ export type Afvisning =
  */
 function farligTekst(v: string): boolean {
   if (v.length > MAKS_TEGN) return true
+  // En uuid er en identifikator, ikke en oplysning om et menneske — og
+  // dens cifferloeb ('…-8000-000000000003') ville ellers blive laest som
+  // et telefonnummer. Det kostede result_view_id paa BAADE search,
+  // search_results_view og listing_impression, foer det blev opdaget.
+  if (UUID.test(v)) return false
   if (MAIL.test(v)) return true
-  if (TELEFON.test(v)) return true
+  if (telefonagtig(v)) return true
   if (TOKEN.test(v)) return true
   if (ABSOLUT_URL.test(v) && !/^https?:\/\/(?:[a-z0-9-]+\.)*bofinda\.dk(?:[/:?#]|$)/i.test(v)) return true
   return false
+}
+
+/**
+ * 8-15 cifre, naar adskillere er strippet.
+ *
+ * Praecist frem for graadigt: det gamle moenster taalte vilkaarlige tegn
+ * mellem cifrene og fangede derfor baade uuid'er og ISO-datoer. Ingen
+ * legitim vaerdi i taxonomien er en ren cifferstreng paa otte eller flere
+ * — postnumre er fire, og beloeb er TAL, ikke tekst.
+ */
+function telefonagtig(v: string): boolean {
+  return /^\d{8,15}$/.test(v.replace(/[\s\-.()+]/g, ''))
 }
 
 export interface Kontekst {
@@ -562,6 +587,12 @@ function tjekVaerdi(s: Spec, v: unknown): 'ok' | 'pii' | 'type' {
       if (farligTekst(v)) return 'pii'
       if (s.af && !s.af.includes(v)) return 'type'
       return 'ok'
+    }
+    case 'skalar': {
+      if (typeof v === 'number') return Number.isFinite(v) ? 'ok' : 'type'
+      if (typeof v === 'boolean') return 'ok'
+      if (typeof v !== 'string') return 'type'
+      return farligTekst(v) ? 'pii' : 'ok'
     }
     case 'liste': {
       if (!Array.isArray(v) || v.length > 20) return 'type'

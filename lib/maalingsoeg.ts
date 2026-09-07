@@ -135,7 +135,7 @@ export function filterDiff(
     })
   } else {
     for (const k of ryddede) {
-      ud.push({ navn: 'filter_cleared', props: { felt: k, fra: String(a[k]) } })
+      ud.push({ navn: 'filter_cleared', props: { felt: k, fra: a[k] } })
     }
   }
 
@@ -145,8 +145,10 @@ export function filterDiff(
       navn: 'filter_applied',
       props: {
         felt: k,
-        til: String(b[k]),
-        ...(a[k] !== undefined ? { fra: String(a[k]) } : {}),
+        // Tal bliver som TAL. Stringificeret ville et beloeb i oere vaere
+        // otte cifre i traek og blive laest som et telefonnummer.
+        til: b[k],
+        ...(a[k] !== undefined ? { fra: a[k] } : {}),
         antal_filtre_efter: efter,
       },
     })

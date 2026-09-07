@@ -238,6 +238,43 @@ _saetDedup(new Set())
   const egen = rens({ navn: 'homepage_view', props: { referrer_vaert: 'https://bofinda.dk/x' } } as unknown as Haendelse, K())
   tjek('10 · vores eget domæne er ikke en fremmed URL', egen.ok)
 
+  // ── De to falske positiver, en rigtig koersel afsloerede ──────
+  // Uden uuid-undtagelsen blev result_view_id laest som et telefonnummer,
+  // og saa faldt search, search_results_view OG listing_impression alle
+  // tre — hver eneste gang. Vaernet var saa strengt, at det slog hele
+  // maalingen ihjel uden en fejl nogen steder.
+  const medVisning = rens({
+    navn: 'search',
+    props: {
+      result_count: 3, antal_filtre: 1, sorter: 'nyeste', sted_slags: 'postnr',
+      result_view_id: 'f00dcafe-0000-4000-8000-000000000003',
+    },
+  }, K())
+  tjek('10 · en uuid er ikke et telefonnummer', medVisning.ok,
+    medVisning.ok ? '' : `${medVisning.fejl.grund}: ${medVisning.fejl.detalje}`)
+
+  // Og et beloeb i oere maa heller ikke laeses som et nummer — derfor er
+  // til/fra 'skalar' og baerer TAL, ikke strenge.
+  const beloeb = rens({
+    navn: 'filter_applied', props: { felt: 'prisMax', til: 12000000, fra: 20000000 },
+  }, K())
+  tjek('10 · et beløb i øre er ikke et telefonnummer', beloeb.ok)
+
+  // Men et rigtigt nummer skal stadig fanges, ogsaa med adskillere.
+  for (const nr of ['+45 20 12 34 56', '20123456', '(+45) 20-12-34-56']) {
+    const r = rens({ navn: 'filter_applied', props: { felt: 'by', til: nr } }, K())
+    tjek(`10 · «${nr}» fanges stadig`, !r.ok && r.fejl.grund === 'pii')
+  }
+  // Et postnummer er fire cifre og skal slippe igennem.
+  tjek('10 · et postnummer er ikke et telefonnummer',
+    rens({ navn: 'listing_view', props: { postnr: '2300' } }, K()).ok)
+
+  // sted_slags skal med paa ALLE tre soegeevents — ellers kan
+  // «hvor giver soegningen aldrig noget» ikke besvares paa empty_results.
+  const tom = rens({ navn: 'empty_results', props: { antal_filtre: 2, sted_slags: 'by_ukendt' } }, K())
+  tjek('10 · empty_results bærer sted_slags',
+    tom.ok && tom.renset.raekke.properties.sted_slags === 'by_ukendt')
+
   const ukendt = rens(
     { navn: 'homepage_view', props: { boliger_i_alt: 5, hemmelighed: 'noget' } } as unknown as Haendelse, K())
   tjek('11 · ukendt property droppes, eventet skrives',
