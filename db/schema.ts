@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm'
 import {
-  pgTable, uuid, text, integer, numeric, boolean,
+  pgTable, uuid, text, integer, smallint, numeric, boolean,
   timestamp, jsonb, index, uniqueIndex, check, primaryKey, pgEnum,
 } from 'drizzle-orm/pg-core'
 
@@ -501,3 +501,89 @@ export const messages = pgTable('messages', {
 //  DAR-tabellen ligger her, naar den bygges — sammen med opslaget, der saetter
 //  unitAddressUuid / accessAddressUuid / addressMatchLevel.
 // ═══════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+//  Produktanalytics. Se docs/analytics-v1.md for hele designet.
+//
+//  INGEN FREMMEDNOEGLER, med vilje. Loggen er append-only, ikke
+//  relationel tilstand, og den maa aldrig kunne laase eller fejle en
+//  produktskrivning. Joins hoerer til i forespoergslerne, og sletteretten
+//  loeses eksplicit: `update haendelser set user_id = null where ...`
+//  af-identificerer, saa aggregatet overlever, mens personen forsvinder.
+// ═══════════════════════════════════════════════════════════════
+
+export const haendelser = pgTable('haendelser', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+  eventName: text('event_name').notNull(),
+  schemaVersion: smallint('schema_version').notNull().default(1),
+  environment: text('environment').notNull(),
+
+  /**
+   * NOT NULL er skaerpelsen udtrykt som en spaerring, ikke som en aftale.
+   *
+   * Uden analytics-samtykke maa der ikke gemmes ÉT individuelt event. Med
+   * kolonnerne nullable ville en fejl i samtykkelaesningen skrive rækker
+   * med null-identifikatorer, og ingen ville opdage det. Med NOT NULL kan
+   * raekken fysisk ikke skrives. Se lib/maaling-server.ts, som alligevel
+   * stopper foer — men en spaerring, der kun findes ét sted, er ingen
+   * spaerring.
+   */
+  anonymousId: uuid('anonymous_id').notNull(),
+  sessionId: uuid('session_id').notNull(),
+
+  /** Vores egen brugerraekke. ALDRIG mailadressen. Nulstilles ved sletteret. */
+  userId: uuid('user_id'),
+  /** Ekstra tag under modererede brugertests. Et loebenummer, aldrig initialer. */
+  researchSessionId: text('research_session_id'),
+
+  /** MOENSTERET, /bolig/[id] — aldrig den faktiske URL. Den baerer fritekst. */
+  route: text('route').notNull(),
+
+  /** Forfremmet ud af properties: hvert bolig- og kildejoin gaar gennem dem. */
+  listingId: uuid('listing_id'),
+  sourceSlug: text('source_slug'),
+
+  properties: jsonb('properties').notNull().default(sql`'{}'::jsonb`),
+  /** Retention pr. raekke. Sat ved insert ud fra eventets klasse. */
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+}, (t) => ({
+  miljoe: check('haendelser_miljoe',
+    sql`${t.environment} in ('produktion','preview','udvikling','proeve')`),
+  navnLaengde: check('haendelser_navn_laengde',
+    sql`char_length(${t.eventName}) between 1 and 40`),
+  forsoegLaengde: check('haendelser_forsoeg_laengde',
+    sql`${t.researchSessionId} is null or char_length(${t.researchSessionId}) between 1 and 40`),
+
+  // Alle tidsserier og taellinger. Den ledende kolonne goer ogsaa, at et
+  // vindue for ét miljoe kan scannes uden event_name.
+  navnTid: index('haendelser_navn_tid').on(t.environment, t.eventName, t.occurredAt.desc()),
+  // Funnel-rekonstruktion.
+  session: index('haendelser_session').on(t.sessionId, t.occurredAt),
+  // Kildeperformance. I basen er den PARTIEL (`where source_slug is not
+  // null`) — de fleste events har ingen kilde. DDL'en er haandskrevet i
+  // 0020, som for alle migrationer efter 0012; definitionen her er til
+  // forespoergselslaget, ikke til skemaet.
+  kilde: index('haendelser_kilde').on(t.sourceSlug, t.eventName, t.occurredAt.desc()),
+  // Oprydningen. Uden den scanner hver time hele tabellen.
+  udloeb: index('haendelser_udloeb').on(t.expiresAt),
+}))
+
+/**
+ * Dagsaggregat. Ingen identifikatorer overhovedet, derfor ingen udloebsdato.
+ * Uden den mister vi trenden, naar de raa events slettes.
+ *
+ * `sample_andel` er IKKE pynt: listing_impression er stikproevet, og et
+ * aggregat, der gemmer 25 % af sandheden som om det var 100 %, er en loegn,
+ * ingen opdager. For alle andre events er den 1.
+ */
+export const haendelserDaglig = pgTable('haendelser_daglig', {
+  dato: text('dato').notNull(),
+  environment: text('environment').notNull(),
+  eventName: text('event_name').notNull(),
+  sourceSlug: text('source_slug').notNull().default(''),
+  antal: integer('antal').notNull(),
+  sampleAndel: numeric('sample_andel', { precision: 5, scale: 4 }).notNull().default('1'),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.dato, t.environment, t.eventName, t.sourceSlug] }),
+}))
