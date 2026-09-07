@@ -208,23 +208,23 @@ export const STANDARD_DETALJEBUDGET = 25
  * `0` er derimod en gyldig vaerdi: ingen detaljehentninger, ren discovery.
  * Den er sikker — den kan kun goere koerslen mindre, aldrig stoerre.
  */
-export function laesDetaljeBudget(raa: string | undefined): {
+export function laesDetaljeBudget(raa: string | undefined, standard = STANDARD_DETALJEBUDGET): {
   budget: number
   /** Sat, naar vaerdien blev ignoreret. Teksten forklarer hvorfor. */
   afvist?: string
 } {
-  if (raa == null || raa.trim() === '') return { budget: STANDARD_DETALJEBUDGET }
+  if (raa == null || raa.trim() === '') return { budget: standard }
   const t = raa.trim()
   // Kun cifre: afviser «-1», «2.5», «1e9», «Infinity», «tre» og « ».
   if (!/^\d+$/.test(t)) {
     return {
-      budget: STANDARD_DETALJEBUDGET,
+      budget: standard,
       afvist: `«${t}» er ikke et helt, ikke-negativt tal`,
     }
   }
   const n = Number(t)
   if (!Number.isSafeInteger(n)) {
-    return { budget: STANDARD_DETALJEBUDGET, afvist: `«${t}» er for stort` }
+    return { budget: standard, afvist: `«${t}» er for stort` }
   }
   return { budget: n }
 }

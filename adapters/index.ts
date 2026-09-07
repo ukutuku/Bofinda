@@ -9,6 +9,7 @@ import { lokalboligAdapter } from './lokalbolig'
 import { balderAdapter } from './balder'
 import { cejAdapter } from './cej'
 import { birchAdapter } from './birch'
+import { larosAdapter } from './laros'
 import { heimstadenAdapter } from './heimstaden'
 import { homeAdapter } from './home'
 
@@ -102,6 +103,15 @@ export const KILDER: Registreret[] = [
     adapter: birchAdapter(),
     navn: 'Birch Ejendomme',
     baseUrl: 'https://birchejendomme.dk',
+  },
+  {
+    adapter: larosAdapter(),
+    navn: 'Laros',
+    baseUrl: 'https://www.laros.dk',
+    // Holdt ude af cron'en, indtil den kontrollerede import er godkendt —
+    // samme greb som ved Heimstaden. Koeres ved navn: npm run import -- laros.
+    // Fjern linjen, naar maalingen er godkendt.
+    kunUdvikling: true,
   },
   { adapter: dummyAdapter, navn: 'Dummy (testdata)', baseUrl: 'https://dummy.invalid', kunUdvikling: true },
   { adapter: dummy2Adapter, navn: 'Dummy 2 (testdata)', baseUrl: 'https://dummy2.invalid', kunUdvikling: true },

@@ -19,8 +19,18 @@ const RATE_MS = Number(process.env.CRAWLER_RATE_MS ?? 1000)
  */
 const VAERTSTAKT: Record<string, number> = {
   'www.heimstaden.dk': 5000,
+  'www.laros.dk': 20000,
+  // Laros' robots.txt siger Crawl-delay: 20. Det er deres tal, ikke vores,
+  // og tilladelsen (docs/kildetilladelser.md) aendrer det ikke: en bred
+  // tilladelse til at hente er ikke en tilladelse til at hente hurtigt.
 }
 const takt = (host: string) => VAERTSTAKT[host] ?? RATE_MS
+/** Takten for en vaert — eksporteret, saa proeven kan se, at Laros' 20 s
+ *  faktisk staar her og ikke kun i et kommentarfelt. */
+export const taktFor = (host: string) => takt(host)
+/** KUN til proeven: en kunstig vaert med kort takt, saa pacingen kan
+ *  maales paa faa hundrede millisekunder i stedet for 20 sekunder. */
+export const _saetTakt = (host: string, ms: number) => { VAERTSTAKT[host] = ms }
 
 // ── Vaertsspaerre ──────────────────────────────────────────────
 // 429 og 503 er vaertens besked om at stoppe — ikke en invitation til at

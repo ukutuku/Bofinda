@@ -46,7 +46,12 @@ import { laesDetalje as birchDetalje, laesFeed as birchFeed } from '../adapters/
 import { laesAvailabilityFacts } from '../lib/fakta'
 import { koerKilde, skrivBolig } from '../lib/ingest'
 import { findKilde, rigtigeKilder } from '../adapters'
-import { politeFetch } from '../lib/fetch'
+import { _saetTakt, politeFetch, taktFor } from '../lib/fetch'
+import {
+  _nulstilBudgetAdvarsel as larosNulstilAdvarsel, detaljesignatur as larosSignatur,
+  laesDetalje as larosDetalje, laesListe as larosListe, larosAdapter,
+  STANDARD_DETALJEBUDGET_LAROS,
+} from '../adapters/laros'
 import {
   _aktivRunner, _cachetSvar, _goerCacheGammel, _nulstilCache, _saetRunner,
   laesRetryAfter, noterSkip, spaer, spaerretTil, VaertBlokeretFejl,
@@ -2405,6 +2410,193 @@ async function main() {
 
       for (const r of await db.select({ id: listings.id }).from(listings)
         .where(eq(listings.sourceId, vagtKilde!.id))) ekstra.boliger.push(r.id)
+    }
+
+    // ── Laros: liste + detalje, takt og økonomi ──────────────────
+    // Fixture er fri fantasi i Laros' egen opmærkning. Kortene 3 og 4 er
+    // parkering og erhverv og SKAL falde fra; banneret på www.laros.dk er
+    // ikke et boligbillede og SKAL falde fra.
+    if (!MOD_PRODUKTION) {
+      console.log('\n══ laros: liste, detalje, billeder og takt ══')
+      const LK = (adr: string, id: string, type: string, leje: string, ledig: string, dep: string, m2 = '75', rum = '3') => `
+        <li><div class="inner"><div class="address "><a class="link" href="https://www.laros.dk/ledige-detaljer/proeve-${id}/${id}"></a><span class="text">${adr}</span></div>
+        <div id="myCarousel_${id}" class="carousel slide"><div class="carousel-inner">
+          <div class="item image active" style="background-image:url('https://hos.laros.dk/lejere/billeder/resize.php?ejd=60001&lm=${id}&img=a&ext=jpg')"></div>
+          <div class="item image " style="background-image:url('https://hos.laros.dk/lejere/billeder/resize.php?ejd=60001&lm=${id}&img=b&ext=jpg')"></div>
+          <div class="item image " style="background-image:url('https://www.laros.dk/wp-content/uploads/2021/11/Banner-1.png')"></div>
+        </div><a class="link" href="https://www.laros.dk/ledige-detaljer/proeve-${id}/${id}"></a></div>
+        <div class="information"><ul>
+          <li><label>TYPE</label><div class="value">${type}</div></li>
+          <li><label>STØRRELSE</label><div class="value">${m2} m<sup>2</sup></div></li>
+          <li class="hidemob"><label>VÆRELSER</label><div class="value">${rum}</div></li>
+          <li><label>LEJE</label><div class="value">${leje}</div></li>
+          <li><label>LEDIG</label><div class="value">${ledig}</div></li>
+          <li class="hidemob"><label>DEPOSITUM</label><div class="value">${dep}</div></li>
+        </ul></div></div></li>`
+      const LISTE_HTML = '<html><body><ul class="list">'
+        + LK('Prøvevej 12, 3. tv. , 8000 Aarhus C', '9001', 'Bolig', '9.500', '01-11-2026', '28.500 Kr.')
+        + LK('Prøvevej 14 , 8381 Tilst', '9002', 'Rækkehus', '12.000', '01-01-2026', '36.000 Kr.', '110', '4')
+        + LK('Prøvevej 16 , 8000 Aarhus C', '9003', 'Parkering', '600', '01-10-2026', '0 Kr.', '12', '0')
+        + LK('Prøvevej 18 , 8000 Aarhus C', '9004', 'Erhverv', '25.000', '01-10-2026', '75.000 Kr.', '200', '0')
+        + '</ul></body></html>'
+      const DETALJE_HTML = `<html><head><title>Prøvevej 12, 3. tv  8000 Aarhus C - Laros</title></head><body>
+        <div class="main-container"><div id="myCarousel_1" class="carousel slide"><div class="carousel-inner">
+          <div class="item image active" style="background-image:url(https://hos.laros.dk/lejere/billeder/60001/9001/a.jpg)"><a href="https://hos.laros.dk/lejere/billeder/60001/9001/a.jpg" class="fancybox"></a></div>
+          <div class="item image " style="background-image:url(https://hos.laros.dk/lejere/billeder/60001/9001/b.jpg)"><a href="https://hos.laros.dk/lejere/billeder/60001/9001/b.jpg" class="fancybox"></a></div>
+          <div class="item image " style="background-image:url(https://hos.laros.dk/lejere/billeder/60001/9001/c.jpg)"><a href="https://hos.laros.dk/lejere/billeder/60001/9001/c.jpg" class="fancybox"></a></div>
+        </div></div>
+        <img src="https://www.laros.dk/wp-content/uploads/2021/11/Banner-1.png"><img src="https://hos.laros.dk/wp-content/uploads/2022/09/LB-partner-badge.png">
+        <div class="address "><div class="text">Prøvevej 12, 3. tv 8000 Aarhus C</div>
+          <div class="inquirybtn"><a href="https://www.boligportal.dk/lejligheder/aarhus/75m2-3-vaer-id-0000000" class="greenbutton">Ansøg via Boligportal</a></div></div>
+        <ul>
+          <li><label>TYPE</label><div class="value">Bolig</div></li>
+          <li><label>STØRRELSE</label><div class="value">75 m2</div></li>
+          <li><label>VÆRELSER</label><div class="value">3</div></li>
+          <li><label>LEDIG PR.</label><div class="value">01-11-2026</div></li>
+          <li><label>LEJE</label><div class="value">9.500 kr/pr. måned</div></li>
+          <li><label>DEPOSITUM</label><div class="value">28.500 kr.</div></li>
+          <li><label>FORUDBETALT</label><div class="value">9.500 kr.</div></li>
+          <li><label>INDFLYTNINGSPRIS</label><div class="value">48.300 kr.</div></li>
+          <li><label>VARME</label><div class="value">500 kr.</div></li>
+          <li><label>VAND</label><div class="value">300 kr.</div></li>
+          <li><label>DELEVENLIG</label><div class="value">Delevenlig for 3</div></li>
+        </ul></div></body></html>`
+
+      const liste = larosListe(LISTE_HTML)
+      tjek('laros liste: parkering og erhverv falder fra — 2 boliger af 4 kort',
+        liste.length === 2 && liste.map((b) => b.externalKey).join(',') === '9001,9002',
+        liste.map((b) => `${b.externalKey}:${b.propertyType}`).join(' '))
+      const l1 = liste[0]!, l2 = liste[1]!
+      tjek('laros liste: adressen normaliseres til vaskeform',
+        l1.address === 'Prøvevej 12, 3. tv., 8000 Aarhus C' && l1.postalCode === '8000', l1.address)
+      tjek('laros liste: kortets tal i øre, m2 og værelser',
+        l1.rentMonthly === 950000 && l1.deposit === 2850000 && l1.sizeM2 === 75 && l1.rooms === 3,
+        JSON.stringify([l1.rentMonthly, l1.deposit, l1.sizeM2, l1.rooms]))
+      tjek('laros liste: «Bolig» med etage → lejlighed; «Rækkehus» → rækkehus',
+        l1.propertyType === 'lejlighed' && l2.propertyType === 'rækkehus', `${l1.propertyType} · ${l2.propertyType}`)
+      tjek('laros liste: LEDIG-dato som date-only faktum + rawStatus LEDIG',
+        l1.availability?.rawStatus === 'LEDIG' && l1.availability?.sourceAvailabilityDate === isoDato('2026-11-01')
+        && l1.availableFrom === '2026-11-01', JSON.stringify(l1.availability))
+      tjek('laros liste: kun boligbilleder fra hos.laros.dk — banneret på www.laros.dk falder fra',
+        l1.imageUrls.length === 2 && l1.imageUrls.every((u) => u.startsWith('https://hos.laros.dk/lejere/billeder/')),
+        JSON.stringify(l1.imageUrls))
+      tjek('laros liste: sourceUrl ender med skråstreg (kilden omdirigerer dertil)',
+        l1.sourceUrl === 'https://www.laros.dk/ledige-detaljer/proeve-9001/9001/')
+
+      const d1 = larosDetalje(DETALJE_HTML, l1)
+      tjek('laros detalje: aconto varme/vand, forudbetalt og kildens egen indflytningspris',
+        d1.utilitiesHeat === 50000 && d1.utilitiesWater === 30000 && d1.prepaidRent === 950000 && d1.moveInCost === 4830000,
+        JSON.stringify([d1.utilitiesHeat, d1.utilitiesWater, d1.prepaidRent, d1.moveInCost]))
+      tjek('laros detalje: galleriet erstatter kortbillederne — kun /lejere/billeder/, ikke bannere eller badges',
+        d1.imageUrls.length === 3 && d1.imageUrls.every((u) => /^https:\/\/hos\.laros\.dk\/lejere\/billeder\/60001\/9001\/[abc]\.jpg$/.test(u)),
+        JSON.stringify(d1.imageUrls))
+      tjek('laros detalje: BoligPortal-linket hentes ikke, delevenlig bliver et facilitetsord',
+        !JSON.stringify(d1).includes('boligportal') && (d1.amenities ?? []).includes('delevenlig for 3'))
+      tjek('laros detalje: grundlagets felter overlever (leje, depositum, adresse, dato)',
+        d1.rentMonthly === 950000 && d1.deposit === 2850000 && d1.address === l1.address
+        && d1.availability?.sourceAvailabilityDate === isoDato('2026-11-01'))
+
+      // Availability gennem hele pipelinen — kontrakten afgør betydningen.
+      const rL1 = await pipelinen({ ...d1, externalKey: 'laros-pipe-1' }, 'laros')
+      tjek('pipeline laros: LEDIG + fremtidig dato → på markedet, senere',
+        rL1.marked.status === 'paa_markedet' && rL1.timing.status === 'senere',
+        `${rL1.marked.status} · ${rL1.timing.status}`)
+      const rL2 = await pipelinen({ ...l2, externalKey: 'laros-pipe-2' }, 'laros')
+      tjek('pipeline laros: LEDIG + fortidig dato → kan overtages nu',
+        rL2.marked.status === 'paa_markedet' && rL2.timing.status === 'nu', `${rL2.marked.status} · ${rL2.timing.status}`)
+      tjek('pipeline laros: ansøgning forbliver unknown, og der dokumenteres ingen adgangskrav',
+        rL1.ansoegning.status === 'unknown' && rL1.adgang.krav.length === 0)
+
+      // Økonomien i basen: totalen tæller husleje + de aconto-poster, kilden opgiver.
+      const { id: larosId } = await skrivBolig(snapKilde!.id, 'spider',
+        await normaliser({ ...d1, externalKey: 'laros-db-1' }, { ...VASK, unitAddressUuid: crypto.randomUUID() }))
+      ekstra.boliger.push(larosId)
+      const [larosRk] = await db.select().from(listings).where(eq(listings.id, larosId))
+      tjek('laros i basen: depositum, forudbetalt og indflytningspris står i rækken',
+        larosRk!.deposit === 2850000 && larosRk!.prepaidRent === 950000 && larosRk!.moveInCost === 4830000)
+      tjek('laros i basen: total = husleje + varme + vand, komponenterne gemt',
+        larosRk!.totalMonthly === 1030000
+        && JSON.stringify(larosRk!.totalMonthlyComponents) === JSON.stringify(['rent', 'heat', 'water']),
+        `${larosRk!.totalMonthly} ${JSON.stringify(larosRk!.totalMonthlyComponents)}`)
+      const larosBilleder = await db.select().from(listingImages).where(eq(listingImages.listingId, larosId))
+      tjek('laros billeder: tre galleribilleder overlever til listing_images',
+        larosBilleder.length === 3)
+      tjek('laros billeder: hos.laros.dk er allowlistet — proxyen serverer',
+        TILLADTE_VAERTER.has('hos.laros.dk') && billedUrl('https://hos.laros.dk/lejere/billeder/60001/9001/a.jpg') !== null)
+      tjek('laros billeder: www.laros.dk er med vilje IKKE allowlistet (bannere, ikke boliger)',
+        billedUrl('https://www.laros.dk/wp-content/uploads/2021/11/Banner-1.png') === null)
+
+      // Dedup: samme adresse fra en anden kilde → kun én repræsentant i søgningen.
+      const [rivalKilde] = await db.insert(sources).values({
+        slug: `proeve-laros-rival-${Date.now()}`, name: 'Prøve: rival', sourceType: 'feed',
+        baseUrl: 'https://rival.invalid', enabled: false,
+      }).returning()
+      ekstra.kilder.push(rivalKilde!.id)
+      const dubletUuid = crypto.randomUUID()
+      const { id: dA } = await skrivBolig(snapKilde!.id, 'spider',
+        await normaliser({ ...d1, externalKey: 'laros-dub-a' }, { ...VASK, unitAddressUuid: dubletUuid }))
+      const { id: dB } = await skrivBolig(rivalKilde!.id, 'feed',
+        await normaliser({ ...l1, externalKey: 'rival-dub-b', sourceUrl: 'https://rival.invalid/b', imageUrls: [] },
+          { ...VASK, unitAddressUuid: dubletUuid }))
+      ekstra.boliger.push(dA, dB)
+      const synlige = await db.select({ id: listings.id }).from(listings)
+        .where(and(udenDubletter(hvor({})), dsql`${listings.id} in (${dA}, ${dB})`))
+      tjek('laros dedup: to kilder, samme enhed → én synlig repræsentant',
+        synlige.length === 1, `${synlige.length} synlige af 2`)
+      tjek('laros dedup: repræsentanten er den med billeder og total (Laros)',
+        synlige[0]?.id === dA)
+
+      // Detaljevagten: signaturen følger dato, leje og depositum — ikke m2.
+      const sig = larosSignatur(l1)
+      tjek('laros vagt: signatur ændres ved ny LEDIG-dato',
+        larosSignatur({ ...l1, availability: { ...l1.availability, sourceAvailabilityDate: isoDato('2026-12-01')! } }) !== sig)
+      tjek('laros vagt: signatur ændres ved ny leje eller nyt depositum',
+        larosSignatur({ ...l1, rentMonthly: 960000 }) !== sig && larosSignatur({ ...l1, deposit: 1 }) !== sig)
+      tjek('laros vagt: signatur er stabil for uændret bolig, og m2 er ikke med',
+        larosSignatur({ ...l1 }) === sig && larosSignatur({ ...l1, sizeM2: 76 }) === sig)
+      const la = larosAdapter()
+      tjek('laros vagt: adapteren erklærer listeGrundlag, budget og host',
+        typeof la.listeGrundlag === 'function' && la.listeGrundlag('https://www.laros.dk/x/') === null
+        && la.host === 'www.laros.dk' && la.sourceType === 'spider')
+
+      // Takten: Laros' egne 20 sekunder står i tabellen, og pacingen virker.
+      tjek('laros takt: www.laros.dk har mindst 20 sekunder mellem kald',
+        taktFor('www.laros.dk') >= 20000, String(taktFor('www.laros.dk')))
+      tjek('laros takt: andre værter er upåvirkede (standard 1 s)',
+        taktFor('proeve-anden-vaert.invalid') === 1000, String(taktFor('proeve-anden-vaert.invalid')))
+      _saetTakt('proeve-takt.invalid', 400)
+      const rigtigFetchT = globalThis.fetch
+      globalThis.fetch = (async () => new Response('ok', { status: 200 })) as typeof fetch
+      try {
+        const t0 = Date.now()
+        await politeFetch('https://proeve-takt.invalid/a')
+        await politeFetch('https://proeve-takt.invalid/b')
+        const brugt = Date.now() - t0
+        tjek('laros takt: to kald mod samme vært holder takten (≥ 400 ms målt)', brugt >= 400, `${brugt} ms`)
+      } finally { globalThis.fetch = rigtigFetchT }
+
+      // Budgettet: eget env-navn, egen konservativ standard, rører ikke Heimstaden.
+      const gemtL = process.env.LAROS_DETALJEBUDGET, gemtH = process.env.HEIMSTADEN_DETALJEBUDGET
+      try {
+        delete process.env.LAROS_DETALJEBUDGET; delete process.env.HEIMSTADEN_DETALJEBUDGET
+        tjek('laros budget: standard 5 uden env', la.detaljeBudgetPrKoersel === 5 && STANDARD_DETALJEBUDGET_LAROS === 5)
+        process.env.LAROS_DETALJEBUDGET = '3'
+        tjek('laros budget: env=3 → 3, og Heimstaden er upåvirket (25)',
+          la.detaljeBudgetPrKoersel === 3 && heimstadenAdapter().detaljeBudgetPrKoersel === 25)
+        process.env.LAROS_DETALJEBUDGET = '-1'; larosNulstilAdvarsel()
+        const adv: string[] = []; const w = console.warn
+        console.warn = (...a: unknown[]) => { adv.push(a.map(String).join(' ')) }
+        let neg: number | undefined
+        try { neg = la.detaljeBudgetPrKoersel } finally { console.warn = w }
+        tjek('laros budget: -1 afvises → 5, og det siges højt',
+          neg === 5 && adv.some((a) => a.includes('LAROS_DETALJEBUDGET IGNORERET')), JSON.stringify(adv))
+      } finally {
+        if (gemtL === undefined) delete process.env.LAROS_DETALJEBUDGET; else process.env.LAROS_DETALJEBUDGET = gemtL
+        if (gemtH === undefined) delete process.env.HEIMSTADEN_DETALJEBUDGET; else process.env.HEIMSTADEN_DETALJEBUDGET = gemtH
+        larosNulstilAdvarsel()
+      }
+      tjek('laros cron: registreret, men holdt ude af automatiske kørsler indtil målingen er godkendt',
+        findKilde('laros') !== undefined && !rigtigeKilder().some((k) => k.adapter.id === 'laros'))
     }
 
     // ── Alarmen følger availability-domænet ──────────────────────

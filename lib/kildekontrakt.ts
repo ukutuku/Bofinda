@@ -639,6 +639,43 @@ export const KILDEKONTRAKTER: Record<string, Kildekontrakt> = {
     direkteSignaler: {},
   },
 
+  // ── Laros A/S ────────────────────────────────────────────────
+  laros: {
+    kilde: 'laros',
+    statusser: {
+      LEDIG: {
+        ...INTET,
+        marked: ['paa_markedet'],
+        belaeg: {
+          art: 'kildens-ui',
+          hvor: 'www.laros.dk/ledige-lejemal/ · listen hedder «Ledige lejemål», hvert kort bærer etiketten «LEDIG» med dato (30 af 30 boliger)',
+          naar: '2026-09-07',
+          note: 'Betyder PÅ MARKEDET, ikke «kan overtages nu» — datoen ved siden af '
+              + 'afgør tiden. Kilden publicerer intet reserveret-/udlejet-ord: '
+              + 'en bolig, der forsvinder fra listen, er ude af udbud (afmelding), '
+              + 'ikke en statusændring. Reserveret/udlejet er derfor UNKNOWN.',
+        },
+      },
+    },
+    datofelt: {
+      betydning: 'overtagelse',
+      brugbarSomTiming: true,
+      belaeg: {
+        art: 'kildens-ui',
+        hvor: 'kortets «LEDIG dd-mm-yyyy», detaljesidens «LEDIG PR.» og listens filter «Overtagelsesdato / Ledig pr.»',
+        naar: '2026-09-07',
+        note: 'Kilden binder selv datoen til ordet overtagelse i sit filter — samme '
+            + 'belægsart som Dacas og Balder. Fortidig dato = kan overtages nu.',
+      },
+    },
+    // Knappen «Ansøg via Boligportal» sender ansøgningen gennem BoligPortal.
+    // Der findes intet venteliste-ord. Fravær er ikke bevis for normal
+    // ansøgning — aksen forbliver unknown.
+    ansoegningsform: null,
+    overtagelsestekst: null,
+    direkteSignaler: {},
+  },
+
   // ── Bofinda (udlejerens egne annoncer) ───────────────────────
   native: {
     kilde: 'native',

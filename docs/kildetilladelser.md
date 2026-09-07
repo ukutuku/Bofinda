@@ -54,6 +54,7 @@ Står der `[UDFYLDES]`, mangler oplysningen, og linjen kan ikke bæres.
 | **C.W. Obel** | `[UDFYLDES]` | `[UDFYLDES]` | `[UDFYLDES]` | telefon, optaget med samtykke | `[UDFYLDES — værter: ? · endpoints: ? · nøgle: ? · billeder fra hvilken vært: ?]` — **samme API som Jeudan** (`nova-api.jeudan.dk`); afklar om det er to tilladelser eller én |
 | **Kereby** | `[UDFYLDES]` | `[UDFYLDES]` | `[UDFYLDES]` | telefon, optaget med samtykke | `[UDFYLDES — værter: ? · endpoints: ? · nøgle: ? · billeder fra hvilken vært: ?]` — data via `kereby.dk/wp-json/wp/v2/jorato-cases` |
 | **CEJ** | `[UDFYLDES]` | `[UDFYLDES]` | `[UDFYLDES]` | telefon, optaget med samtykke | `[UDFYLDES — værter: ? · endpoints: ? · nøgle: ? · billeder fra hvilken vært: ?]` — white-label fra `bolig.io`; afklar hvem der ejer dataene |
+| **Laros A/S** | `[UDFYLDES]` | `[UDFYLDES]` | 2026-09-07 | telefon, optaget med samtykke | **Udfyldt, se nedenfor.** Bred tilladelse til at hente, behandle og vise deres offentlige boligannoncer og billeder på Bofinda — liste- og detaljesider, alle relevante offentlige boligfelter, brug og visning af billeder, relevante nuværende værter/endpoints, link tilbage til Laros og deres ansøgningsflow, løbende opdatering. Ingen begrænsninger eller forbehold stillet. |
 
 ---
 
@@ -76,6 +77,35 @@ rettighedshaveren selv har givet lov. Det er en bevidst undtagelse, ikke
 en forglemmelse — se `CLAUDE.md`.
 
 ---
+
+## Laros A/S — bred tilladelse, tekniske facts holdt adskilt
+
+Tilladelsen blev givet telefonisk 7. september 2026 og optaget med samtykke.
+Den er **ikke** begrænset til bestemte endpoints, felter eller billedværter:
+Laros har givet lov til alt, vi har brug for i forbindelse med at hente,
+behandle og vise deres offentlige boligannoncer på Bofinda. Der blev ikke
+stillet særlige begrænsninger eller forbehold.
+
+| | |
+|---|---|
+| **Hvad er givet** | Crawling/hentning af offentlige boligannoncer (liste- og detaljesider) · alle relevante offentlige boligfelter · brug og visning af billeder · relevante nuværende værter og endpoints · link tilbage til Laros og deres ansøgningsflow · løbende opdatering af data |
+| **Begrænsninger** | Ingen stillet |
+| **Oplyst af** | `[UDFYLDES — navn]`, `[UDFYLDES — rolle]` |
+| **Dato** | 2026-09-07 |
+| **Form** | Telefon, optaget med samtykke |
+
+**Tekniske facts — fra research og robots.txt, ikke fra samtalen.** Det
+her er, hvad vi *bruger* under den brede tilladelse; det er ikke ord,
+Laros-medarbejderen nødvendigvis sagde:
+
+| | |
+|---|---|
+| **Værter** | `www.laros.dk` (liste og detaljesider). Boligbilleder ligger på `hos.laros.dk` under `/lejere/billeder/…`; billederne på `www.laros.dk` er temaets bannere og partner-badges, ikke boliger — derfor allowlistes kun `hos.laros.dk` til hotlinking. |
+| **Endpoints** | `/ledige-lejemal/?pg=N` (9 kort pr. side) og `/ledige-detaljer/<slug>/<id>/` |
+| **Nøgle** | Ingen — alt er offentlig HTML |
+| **Takt** | `robots.txt` siger `Crawl-delay: 20`. Vi kalder aldrig hurtigere end ét kald pr. 20 sekunder (`VAERTSTAKT` i `lib/fetch.ts`), og detaljesider hentes kun for nye, ændrede og forældede boliger (detaljevagten). |
+| **Ansøgning** | Knappen «Ansøg via Boligportal» sender ansøgningen gennem BoligPortal. Vi linker til Laros' egen boligside; BoligPortal-linket hentes ikke. |
+| **Persondata** | Ingen set i payloaden. Adapteren plukker kun boligfelter. |
 
 ## BoligPortal — ikke en kilde
 

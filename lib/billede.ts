@@ -56,6 +56,11 @@ export const TILLADTE_VAERTER = new Set([
   // maalt 2026-09-06, baade photos og floorPlan. resize-tjenesten
   // images.bolig.io optraeder IKKE i payloaden og er derfor ikke med.
   'boligio-media-production.s3.eu-central-1.amazonaws.com',
+  // Laros: boligbillederne ligger paa hos.laros.dk (/lejere/billeder/…).
+  // www.laros.dk serverer ogsaa billeder, men det er temaets bannere og
+  // partner-badges — ikke boliger. TAEL distinkte vaerter, og forstaa hvad
+  // de baerer: to vaerter er ikke automatisk to billedvaerter.
+  'hos.laros.dk',
   // Heimstaden: baade listens hovedbillede og detaljesidens galleri —
   // eneste vaert i alle maalte URL'er (618 + 19), 2026-09-06.
   'boligspot.b-cdn.net',
