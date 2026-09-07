@@ -243,3 +243,18 @@ function antalAf(r: unknown): number {
   const x = r as { count?: number; rowCount?: number; affectedRows?: number }
   return x?.count ?? x?.rowCount ?? x?.affectedRows ?? 0
 }
+
+/**
+ * Sletteretten, udøvet af browseren selv.
+ *
+ * Vi kender ikke personen bag `anonymous_id`, og det er netop pointen:
+ * hun kan bede om sletning uden først at identificere sig. Indekset på
+ * (session_id, occurred_at) hjælper ikke her, men mængden pr. browser er
+ * lille nok til at en scanning er ligegyldig.
+ */
+export async function sletForAnonym(anonymId: string): Promise<number> {
+  const r = await db.execute(dsql`
+    delete from haendelser where anonymous_id = ${anonymId}::uuid
+  `)
+  return antalAf(r)
+}

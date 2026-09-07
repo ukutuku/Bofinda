@@ -1,6 +1,7 @@
 import './globals.css'
 import type { ReactNode } from 'react'
 import { Inter } from 'next/font/google'
+import { Samtykke } from './Samtykke'
 
 // Hentes ved byg og selvhostes — ingen kald til Google fra brugerens browser.
 const sans = Inter({
@@ -31,11 +32,14 @@ export default function Layout({ children }: { children: ReactNode }) {
           <div className="ramme">
             <a href="/udlejer">Udlej din bolig</a>
             <a href="/privatliv">Privatlivspolitik</a>
+            {/* Tilbagetrækning skal være lige så let som at sige ja. */}
+            <a href="/privatliv#statistik">Skift dit valg om statistik</a>
             <span>Boliger hentet fra offentligt tilgængelige udlejningsportaler
               samt annoncer oprettet af udlejere selv. Henvendelse sker hos
               kilden eller direkte hos udlejeren.</span>
           </div>
         </footer>
+        <Samtykke />
       </body>
     </html>
   )

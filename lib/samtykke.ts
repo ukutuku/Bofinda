@@ -108,6 +108,23 @@ export const BASISCOOKIE = {
 } as const
 
 /**
+ * Samtykkecookien er IKKE HttpOnly, og det er med vilje.
+ *
+ * Den bærer brugerens eget valg og intet andet — der er intet at
+ * beskytte. Til gengæld skal banneret kunne afgøre, om det skal vises,
+ * uden at layoutet læser cookies på serveren; gjorde det det, ville hver
+ * eneste områdeside blive dynamisk og falde ud af den statiske
+ * gengivelse, SEO-ruterne lever af.
+ *
+ * `bofinda_aid`, `bofinda_sid` og `bofinda_forsoeg` er og bliver HttpOnly.
+ */
+export const VALGCOOKIE = {
+  httpOnly: false,
+  sameSite: 'lax',
+  path: '/',
+} as const
+
+/**
  * Hvad der skal sættes for et samtykkende besøg.
  *
  * Sessionen fornyes ved HVER request — det er dét, der gør de 30 minutter
