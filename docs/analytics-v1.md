@@ -330,6 +330,12 @@ stikprøve — men **pr. session, aldrig pr. event**.
   længere til at læse. En halv session er værre end ingen.
 - Standard **25 %** nu, hvor Pro er aktiv. Skru ned ved 10.000+ daglige brugere.
   `MAALING_IMPRESSION_PCT=0` slukker helt uden en deploy.
+- **Serveren stempler feltet, ikke browseren.** `spor()` sætter det lige efter
+  stikprøveporten, ud fra den SAMME `pct` som porten selv brugte, og overskriver
+  en værdi, klienten måtte have sendt. En andel, browseren kan vælge, er en
+  andel, enhver kan sætte til `1` — og så skalerer en fjerdedel af sandheden sig
+  selv bort i regnereglen nedenfor. Værdien er en **brøkdel**: 25 % er `0.25`,
+  og kolonnen er `numeric(5,4)`, som `25` slet ikke kan rummes i.
 
 > **Regnereglen, og hvorfor feltet er påkrævet:** hver række bærer den andel, den
 > blev optaget under. **Enhver optælling skal skaleres med `1 / sample_andel`.**

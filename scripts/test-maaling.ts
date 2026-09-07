@@ -6,7 +6,7 @@
 //    3.  Ét event pr. request — dedup
 //    4.  Impression-dedup pr. (session, listing, result_view)
 //    5.  Impression-stikprøven er deterministisk pr. session
-//    6.  sample_andel følger med hver impression
+//    6.  sample_andel STEMPLES serverside — klienten sender den aldrig
 //    7.  alert_created kun ved slags === 'sendt'
 //    8.  alert_confirmed KUN ved den reelle DB-transition
 //    9.  canonical city kun fra facetter()-allowlisten
@@ -175,6 +175,122 @@ _saetDedup(new Set())
   )
   tjek('6 · impression uden sample_andel afvises',
     !uden.ok && uden.fejl.grund === 'manglende-property')
+}
+
+// ─── 6 · sample_andel stemples SERVERSIDE ──────────────────────
+//
+// Fejlen, der holdt Analytics v1 aaben: app/Maaling.tsx bygger KUN
+// result_view_id, position, er_gruppe og gruppe_antal. sample_andel er
+// `kraevet` i allowlisten, saa hver eneste impression fra en rigtig
+// browser blev afvist med «manglende-property» — 0 raekker i produktionen
+// i tre uger, mens `npm test` var groen.
+//
+// Groen, fordi proeven ovenfor SELV leverer feltet. Blokken her bruger
+// derfor ordret klientens payload og tilfoejer ingenting. Det er hele
+// forskellen mellem en proeve, der maaler koden, og en der maaler sig selv.
+{
+  const BOLIG = '33333333-3333-4333-8333-333333333333'
+  const pctFoer = process.env.MAALING_IMPRESSION_PCT
+
+  /** Ordret det, app/Maaling.tsx laegger i koeen. Ingen sample_andel. */
+  const somKlienten = (visning: string, ekstra: Record<string, unknown> = {}) => ({
+    navn: 'listing_impression', listingId: BOLIG, sourceSlug: 'propstep',
+    props: { result_view_id: visning, position: 3, er_gruppe: false, ...ekstra },
+  } as unknown as Haendelse)
+
+  // Sessionerne udpeges af stikproeven selv. Haandplukkede id'er ville
+  // goere proeven afhaengig af, at netop SID tilfaeldigvis rammer under 25.
+  const findSession = (med: boolean) => {
+    for (let i = 0; i < 5000; i++) {
+      const id = `55555555-5555-4555-8555-${String(i).padStart(12, '0')}`
+      if (iStikproeve(id, 25) === med) return id
+    }
+    throw new Error('ingen session fundet')
+  }
+  const SID_MED = findSession(true)
+  const SID_UDEN = findSession(false)
+  const andel = async () => {
+    const r = await raekker()
+    return (r[0]?.properties as Record<string, unknown> | undefined)?.sample_andel
+  }
+
+  // ── A + C · sampled session, klientens payload UDEN sample_andel ──
+  await ryd()
+  process.env.MAALING_IMPRESSION_PCT = '25'
+  await spor(somKlienten('va'), '/', { kontekst: K({ sessionId: SID_MED }) })
+  const a = await raekker()
+  tjek('6A · klientens payload uden sample_andel skrives nu',
+    a.length === 1, `${a.length} raekke(r)`)
+  const a0 = await andel()
+  tjek('6A · serveren stempler den faktiske andel som BROEKDEL', a0 === 0.25, String(a0))
+  tjek('6C · og klienten sendte den beviseligt ikke selv',
+    !('sample_andel' in (somKlienten('x') as unknown as { props: object }).props))
+
+  // Andelen foelger pct — den er ikke en konstant, der tilfaeldigvis er 0.25.
+  await ryd()
+  process.env.MAALING_IMPRESSION_PCT = '100'
+  await spor(somKlienten('vb'), '/', { kontekst: K({ sessionId: SID_UDEN }) })
+  const a1 = await andel()
+  tjek('6A · andelen foelger pct — ved 100 % er den 1', a1 === 1, String(a1))
+
+  // ── B · uden for stikproeven skrives der intet ──
+  await ryd()
+  process.env.MAALING_IMPRESSION_PCT = '25'
+  await spor(somKlienten('vc'), '/', { kontekst: K({ sessionId: SID_UDEN }) })
+  tjek('6B · session uden for stikprøven skriver ingen impression',
+    (await raekker()).length === 0)
+
+  await ryd()
+  await spor(somKlienten('vd', { sample_andel: 1 }), '/', { kontekst: K({ sessionId: SID_UDEN }) })
+  tjek('6B · porten kan ikke omgaas ved selv at sende feltet med',
+    (await raekker()).length === 0)
+
+  // ── D · klientens egen andel er ikke autoritativ ──
+  await ryd()
+  await spor(somKlienten('ve', { sample_andel: 1 }), '/', { kontekst: K({ sessionId: SID_MED }) })
+  const d0 = await andel()
+  tjek('6D · en paastaaet 1 overskrives med den sande 0.25', d0 === 0.25, String(d0))
+
+  await ryd()
+  await spor(somKlienten('vf', { sample_andel: 0.0001 }), '/', { kontekst: K({ sessionId: SID_MED }) })
+  const d1 = await andel()
+  tjek('6D · ogsaa en andel, der ville puste tallet 2500× op, overskrives',
+    d1 === 0.25, String(d1))
+
+  // ── F · stemplet tilfoejer ÉN kendt noegle og intet andet ──
+  await ryd()
+  await spor(somKlienten('vg'), '/', { kontekst: K({ sessionId: SID_MED }) })
+  const [imp] = await raekker()
+  const noegler = Object.keys((imp?.properties ?? {}) as object).sort()
+  tjek('6F · properties er praecis de forventede noegler — intet er laekket ind',
+    JSON.stringify(noegler)
+      === JSON.stringify(['er_gruppe', 'position', 'result_view_id', 'sample_andel']),
+    noegler.join(','))
+  const f0 = (imp?.properties as Record<string, unknown>)?.sample_andel
+  tjek('6F · andelen er et TAL i (0,1] — den kan rummes i numeric(5,4)',
+    typeof f0 === 'number' && f0 > 0 && f0 <= 1, String(f0))
+
+  // ── E · de oevrige klient-events er uroerte ──
+  await ryd()
+  for (const h of [
+    { navn: 'filter_opened', props: {} },
+    { navn: 'map_interaction', props: { slags: 'zoom' } },
+    { navn: 'alert_started', props: {} },
+    { navn: 'contact_click', listingId: BOLIG, props: { maal: 'mail' } },
+  ] as Haendelse[]) {
+    _saetDedup(new Set())
+    // SID_UDEN med vilje: stikproeven maa kun raamme impressions.
+    await spor(h, '/', { kontekst: K({ sessionId: SID_UDEN }) })
+  }
+  const oevrige = await raekker()
+  tjek('6E · de fire oevrige klient-events skrives uaendret',
+    oevrige.length === 4, `${oevrige.length}/4`)
+  tjek('6E · og ingen af dem har faaet et sample_andel',
+    oevrige.every((r) => !('sample_andel' in (r.properties as object))))
+
+  if (pctFoer === undefined) delete process.env.MAALING_IMPRESSION_PCT
+  else process.env.MAALING_IMPRESSION_PCT = pctFoer
+  await ryd()
 }
 
 // ─── 7-8 · Alarmen ─────────────────────────────────────────────

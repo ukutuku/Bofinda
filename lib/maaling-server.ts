@@ -19,7 +19,7 @@ import { sql as dsql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { haendelser } from '../db/schema'
 import {
-  RENDEREVENTS, aktiv, erGenrendering, iStikproeve, miljoe, rens,
+  RENDEREVENTS, aktiv, erGenrendering, impressionPct, iStikproeve, miljoe, rens,
   type Afvisning, type Haendelse, type Hovedlaeser, type Kontekst, type Raekke, type Rute,
 } from './maaling'
 import { C_ANONYM, C_FORSOEG, C_SESSION, laesForsoeg, laesSamtykke, type Laeser } from './samtykke'
@@ -173,13 +173,37 @@ export async function spor(
     // ogsaa her, ikke kun i browseren: klienten kan ikke stoles paa, og
     // sample_andel skal svare til den andel, raekken faktisk blev
     // optaget under.
-    if (h.navn === 'listing_impression' && !iStikproeve(k.sessionId)) return
+    //
+    // DERFOR STEMPLES DEN HER, og ikke i browseren. Klienten sendte den
+    // aldrig — app/Maaling.tsx bygger kun result_view_id, position,
+    // er_gruppe og gruppe_antal — og feltet er `kraevet` i allowlisten.
+    // Hver eneste impression fra en rigtig browser blev derfor afvist med
+    // «manglende-property (sample_andel)»: 0 raekker i produktionen, mens
+    // proeverne var groenne, fordi de selv leverede feltet.
+    //
+    // Andelen er en BROEKDEL, ikke en procent: kolonnen er numeric(5,4),
+    // saa 25 kan ikke rummes, og hele optaellingen skaleres med
+    // 1/sample_andel. 25 % er 0.25.
+    //
+    // Porten og stemplet regner paa SAMME pct. To kald til impressionPct()
+    // ville vaere to udtryk for ét spoergsmaal — se reglen i CLAUDE.md — og
+    // en raekke kunne blive optaget under én andel og stemplet med en anden.
+    //
+    // Klientens egen vaerdi OVERSKRIVES. Den er et tal, enhver kan sende i
+    // en beacon, og en paastaaet 1 ved en faktisk andel paa 0.25 ville
+    // firedoble sig selv bort i regnereglen.
+    let ev = h
+    if (h.navn === 'listing_impression') {
+      const pct = impressionPct()
+      if (!iStikproeve(k.sessionId, pct)) return
+      ev = { ...h, props: { ...h.props, sample_andel: pct / 100 } }
+    }
 
     const nu = o.nu ?? new Date()
-    const r = rens(h, k, nu)
-    if (!r.ok) { noterAfvist(h.navn, r.fejl); return }
+    const r = rens(ev, k, nu)
+    if (!r.ok) { noterAfvist(ev.navn, r.fejl); return }
     for (const n of r.renset.droppedeNoegler) {
-      noterAfvist(h.navn, { grund: 'ukendt-property', detalje: n })
+      noterAfvist(ev.navn, { grund: 'ukendt-property', detalje: n })
     }
 
     const noegle = dedupnoegle(r.renset.raekke)
