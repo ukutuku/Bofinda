@@ -55,19 +55,27 @@ header.top .ramme { padding: 15px 22px; display: flex; align-items: baseline; ga
 .undertitel { color: var(--svag); font-size: 13px; }
 
 /* ─── Filtre ────────────────────────────────────────────────── */
+/* Panelet er et arbejdsredskab, ikke sidens hovedperson. Derfor én
+   let ramme og en skygge, der kun loefter kanten — ikke `--skygge`,
+   som er listens egen dybde og gjorde filtrene lige saa tunge som
+   resultaterne. */
 form.filtre {
   background: var(--kort); border: 1px solid var(--linje); border-radius: var(--r);
-  padding: 15px 16px; margin: 20px 0 16px; box-shadow: var(--skygge);
+  padding: 13px 15px; margin: 16px 0 13px;
+  box-shadow: 0 1px 2px rgba(20,22,26,.04);
   display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr)); gap: 11px 13px;
   align-items: end;
 }
-.felt { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.felt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+/* Versaler med sperring paa fjorten etiketter er admin-panelets
+   grammatik. Almindelig skrift i lav vaegt siger det samme og fylder
+   mindre — baade i px og i opmaerksomhed. */
 .felt label {
-  font-size: 10.5px; font-weight: 620; color: var(--svag);
-  text-transform: uppercase; letter-spacing: .06em;
+  font-size: 11.5px; font-weight: 560; color: var(--daempet);
+  text-transform: none; letter-spacing: 0; line-height: 1.3;
 }
 .felt input, .felt select {
-  font: inherit; font-size: 14px; padding: 7px 9px; width: 100%;
+  font: inherit; font-size: 13.5px; padding: 6px 9px; width: 100%;
   border: 1px solid var(--linje); border-radius: var(--r-s);
   background: #fff; color: inherit;
 }
@@ -441,15 +449,37 @@ footer.bund {
 .afmeld .note { font-size: 13px; color: var(--svag); }
 .afmeld .note a { color: var(--accent); text-decoration: none; }
 
-/* ─── Gem søgning ───────────────────────────────────────────── */
+/* ─── Gem søgning ─────────────────────────────────────────────
+   Alarmen er en sekundaer handling, der staar foer det, brugeren kom
+   efter. Som hvid kasse paa 214 px med overskrift, to felter, knap og
+   fire linjers vilkaar vejede den lige saa meget som et boligkort.
+
+   Nu én vandret stribe: hvad den goer til venstre, felterne og knappen
+   til hoejre, vilkaarene som én lav linje under. Ingen hvid flade — den
+   laaner sidens egen baggrund, saa den ikke laeses som endnu et kort i
+   listen. Alt indhold er uaendret. */
 .gem, .gem-tom, .gem-svar {
   background: var(--kort); border: 1px solid var(--linje);
   border-radius: var(--r); padding: 15px 17px; margin: 0 0 14px;
 }
-.gem-tom { color: var(--svag); font-size: 13.5px; border-style: dashed; }
-.gem-hoved strong { font-size: 15px; font-weight: 620; }
-.gem-filtre { color: var(--daempet); font-size: 13px; margin-top: 2px; }
-.gem-raek { display: flex; gap: 8px; margin: 12px 0 0; flex-wrap: wrap; }
+.gem {
+  background: none; padding: 11px 14px; margin: 0 0 12px;
+  display: grid; grid-template-columns: minmax(0, auto) minmax(320px, 1fr);
+  align-items: center; gap: 7px 20px;
+}
+.gem-tom {
+  color: var(--svag); font-size: 12.5px; border-style: dashed;
+  padding: 10px 14px; margin: 0 0 12px;
+}
+.gem-hoved strong { font-size: 13.5px; font-weight: 620; }
+.gem-filtre { color: var(--daempet); font-size: 12px; margin-top: 1px; }
+.gem-raek { display: flex; gap: 8px; margin: 0; flex-wrap: wrap; }
+.gem .gem-vilkaar {
+  grid-column: 1 / -1; margin: 2px 0 0; font-size: 11px; max-width: none;
+}
+@media (max-width: 760px) {
+  .gem { grid-template-columns: 1fr; gap: 9px; }
+}
 .gem-raek input {
   font: inherit; font-size: 14px; padding: 8px 11px; flex: 1 1 190px; min-width: 0;
   border: 1px solid var(--linje); border-radius: var(--r-s); background: #fff;
@@ -573,27 +603,72 @@ footer.bund {
 .punkter span { font-size: 13px; color: var(--daempet); line-height: 1.45; }
 
 /* Filterboksen er beholder om begge dele */
-form.filtre { display: block; padding: 16px; }
-form.filtre.soegt { margin-top: 20px; }
-.flere { margin-top: 14px; }
+form.filtre { display: block; padding: 13px 15px; }
+form.filtre.soegt { margin-top: 16px; }
+/* Paa resultatsiden er soegefeltet ikke laengere sidens hovedgreb — det
+   er listen. Feltet beholder sin form, men ikke hero-stoerrelsen. */
+form.filtre.soegt .storsoeg input { padding: 11px 14px; font-size: 15px; border-radius: 9px; }
+form.filtre.soegt .storsoeg button { padding: 11px 20px; font-size: 14.5px; border-radius: 9px; }
+.flere { margin-top: 10px; }
 .flere > summary {
-  cursor: pointer; font-size: 13px; color: var(--daempet);
+  cursor: pointer; font-size: 12.5px; color: var(--daempet);
   list-style: none; display: inline-flex; align-items: center; gap: 6px;
-  padding: 3px 0; user-select: none;
+  padding: 2px 0; user-select: none;
 }
 .flere > summary::-webkit-details-marker { display: none; }
 .flere > summary::before { content: '\25B8'; font-size: 10px; color: var(--svag); }
 .flere[open] > summary::before { content: '\25BE'; }
 .flere > summary:hover { color: var(--accent); }
 .filtergitter {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
-  gap: 11px 13px; align-items: end; margin-top: 12px;
-  padding-top: 14px; border-top: 1px solid var(--linje-svag);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 9px 12px; align-items: end; margin-top: 9px;
+  padding-top: 11px; border-top: 1px solid var(--linje-svag);
 }
 .hero .filtergitter { border-top-color: rgba(232,229,222,.9); }
 
+/* ─── Ét filtersystem ───────────────────────────────────────────
+   OEkonomi, availability og faciliteter stillede de samme slags
+   spoergsmaal i tre forskellige former: `.oekonomifilter` som
+   fuldbredde-raekker, faciliteterne som en raekke i en raekke, og
+   resten som almindelige felter. Fem fuldbredde-raekker til syv
+   kontroller.
+
+   Nu er de ét gitter med samme grammatik i hver celle: kontrollen
+   oeverst, grundlaget under. Kolonnen er bred nok til, at grundlaget
+   staar paa to linjer og stadig kan laeses — teksten er UAENDRET.
+   Den er sat ned i vaegt, ikke skaaret ned: tallene er projektets
+   ryg, og en afkortning med ellipse ville skjule netop det, reglen
+   om filtrenes grundlag kraever staar paa skaermen. */
+.filtersystem {
+  /* Hele raekken, aldrig en celle: `.filtergitter` er et auto-fit-gitter,
+     og uden det her satte systemet sig i én 132px-kolonne. */
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
+  gap: 10px 20px; margin-top: 11px; padding-top: 11px;
+  border-top: 1px solid var(--linje-svag);
+}
+/* Knapperne staar for sig under systemet, ikke som en celle i gitteret —
+   ellers sad «Søg» i en tilfaeldig kolonne ved siden af et filter. */
+.filtergitter > .knapper { grid-column: 1 / -1; margin-top: 2px; }
+.hero .filtersystem { border-top-color: rgba(232,229,222,.9); }
+.filterpost { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.filterpost .afkryds-linje { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.filterpost .afkryds-linje input[type=checkbox] { accent-color: var(--accent); margin: 0; flex: 0 0 auto; }
+.filterpost .afkryds-linje label {
+  font-size: 13.5px; font-weight: 520; color: var(--tekst);
+  text-transform: none; letter-spacing: 0; white-space: nowrap;
+}
+/* Selecten skal ikke sluge raekken, som den gjorde i fuld bredde. */
+.filterpost .afkryds-linje select {
+  font: inherit; font-size: 13px; padding: 4px 7px; min-width: 0; flex: 1 1 auto;
+  border: 1px solid var(--linje); border-radius: var(--r-s); background: #fff; color: inherit;
+}
+.filterpost .afkryds-linje select:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-lys);
+}
+
 .listetitel {
-  font-size: 16px; font-weight: 650; margin: 4px 0 7px; padding: 0 2px;
+  font-size: 16px; font-weight: 650; margin: 0; padding: 0;
   letter-spacing: -0.016em;
 }
 
@@ -641,7 +716,12 @@ form.filtre.soegt { margin-top: 20px; }
 /* ─── Flervalgsfelter i filtrene ────────────────────────────────
    Boligtype fylder mere end et enkelt felt, fordi valgene står ved
    siden af hinanden med deres antal. */
-.felt.bred { grid-column: span 2; }
+/* Boligtype fik foer to kolonner og braekkede sine fem valg over to
+   linjer, mens resten af raekken stod tom. Seks kolonner lader den dele
+   raekke med «Sortér» og faar alle fem typer paa én linje — hele raekken
+   (`1 / -1`) ville tvinge Sortér ned for sig selv og koste en linje mere,
+   ikke spare en. Spandet klippes af sig selv, naar gitteret er smallere. */
+.felt.bred { grid-column: span 6; }
 .valgraekke { display: flex; flex-wrap: wrap; gap: 6px 14px; padding-top: 3px; }
 .valg {
   display: inline-flex; align-items: center; gap: 6px;
@@ -669,6 +749,38 @@ form.filtre.soegt { margin-top: 20px; }
 /* ─── Kortvisning ───────────────────────────────────────────────
    Kortet står ved siden af listen og følger med ned. Slås det fra,
    fylder listen hele bredden — se .udenkort. */
+/* ─── Resultatheaderen ──────────────────────────────────────────
+   Fire blokke sagde fire ting om det samme udsnit — prisnote,
+   optaelling, listehoved og begraensning — som fire vandrette
+   striber uden indbyrdes rang. Nu ét hoved med én ordning:
+   antallet og stedet oeverst som sidens svar, resten under som
+   grundlag i lav vaegt. Klasserne bliver paa elementerne, saa
+   gruppe- og omraadesiderne, der ogsaa bruger `.optaelling` og
+   `.begraensning`, er uroerte. */
+.resultathoved {
+  display: flex; flex-direction: column; gap: 4px;
+  margin: 2px 0 11px; padding: 0 2px;
+}
+.resultathoved .listehoved,
+.resultathoved .optaelling,
+.resultathoved .begraensning,
+.resultathoved .prisnote { margin: 0; padding: 0; }
+/* Sidens ene stoerre overskrift. Alt andet i hovedet er sat under. */
+.resultat-tal {
+  font-size: 21px; font-weight: 660; letter-spacing: -0.026em; line-height: 1.2;
+}
+.resultat-tal strong { font-weight: 720; font-variant-numeric: tabular-nums; }
+.resultat-tal .sted-navn { color: var(--daempet); font-weight: 560; }
+.resultathoved .optaelling { font-size: 12.5px; gap: 3px 14px; }
+.resultathoved .optaelling strong { font-size: 12.5px; font-weight: 620; }
+.resultathoved .prisnote { font-size: 12px; color: var(--svag); max-width: 88ch; }
+.resultathoved .prisnote strong { color: var(--daempet); font-weight: 600; }
+/* Advarslen om, hvad et facilitetsfilter fjerner, beholder sin vaegt.
+   Den er ikke baggrundsstof: den siger, at hele kilder er ude. */
+.resultathoved .prisnote.advarsel {
+  font-size: 12.5px; padding: 7px 11px; margin-top: 1px;
+}
+
 .listehoved {
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 14px; margin: 4px 0 7px; padding: 0 2px;
@@ -858,26 +970,17 @@ form.filtre.soegt { margin-top: 20px; }
 /* Lille forklaring under et felt, fx at byen udfyldes af postnummeret. */
 .felthjaelp { display: block; margin-top: 4px; font-size: 12px; color: var(--svag); line-height: 1.45; }
 
-/* Grundlaget under et facilitetsfilter: hvor mange oplyser det, og hvor
-   mange tier og forsvinder derfor, hvis man saetter kryds. Samme princip
-   som prissammenligningens "(baseret paa N boliger)" — et filter skal
-   kunne goere rede for, hvad det udelader.
+/* Grundlaget under et filter: hvor mange oplyser det, og hvor mange tier
+   og forsvinder derfor, hvis man saetter kryds. Samme princip som
+   prissammenligningens "(baseret paa N boliger)" — et filter skal kunne
+   goere rede for, hvad det udelader.
 
-   Egen raekke og ikke en celle i .felter-gitteret: teksten skal have
-   bredde nok til to linjer, ellers braekker den over fire i en smal
-   kolonne. */
-.felt.oekonomifilter {
-  grid-column: 1 / -1; display: flex; flex-direction: column; gap: 2px;
-}
-
-.felt.facilitetsfiltre {
-  /* Hele raekken, aldrig en celle. Med `bred` (span 2) laa Soeg-knappen
-     oven i den tredje afkrydsnings tekst paa en telefon. */
-  grid-column: 1 / -1;
-  display: grid; gap: 10px 22px;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-}
-.facilitetsfilter { display: flex; flex-direction: column; gap: 2px; }
+   Teksten er UAENDRET og staar stadig fuldt ud. Kun rangen er skiftet:
+   11px i den svageste farve, taettere linjer. Den skal kunne laeses, naar
+   man leder efter den, og ellers ikke stjaele blikket fra kontrollen. En
+   afkortning med ellipse ville skjule netop de tal, reglen om filtrenes
+   grundlag kraever staar paa skaermen — derfor kun typografi, aldrig
+   afkortning. */
 .afkryds-linje { display: flex; align-items: center; gap: 8px; }
 .afkryds-linje input { width: auto; accent-color: var(--accent); }
 .afkryds-linje label {
@@ -885,7 +988,8 @@ form.filtre.soegt { margin-top: 20px; }
   color: var(--tekst); font-weight: 500;
 }
 .filtergrundlag {
-  margin-left: 24px; font-size: 11.5px; line-height: 1.45; color: var(--svag);
+  margin-left: 25px; font-size: 11px; line-height: 1.38; color: var(--svag);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ─── Billeder: slipfelt og omrokering ──────────────────────────

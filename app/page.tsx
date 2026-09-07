@@ -321,11 +321,19 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           </div>
         )}
 
-        {/* Egen fuldbredde-række, ikke en celle i gitteret. `.felt.afkryds`
-            er én flex-række uden ombrydning, så grundlagslinjen ville sætte
-            sig ved siden af afkrydsningen og klemme den. Samme løsning som
-            facilitetsfiltrene. */}
-        <div className="felt oekonomifilter">
+        {/* ── Ét filtersystem ───────────────────────────────────
+            Økonomi, availability og faciliteter stiller den samme slags
+            spørgsmål — «vis kun dem, hvor vi VED det» — og gjorde det i
+            tre forskellige former: fuldbredde-rækker, en række i en
+            række, og almindelige felter. Fem fulde rækker til syv
+            kontroller.
+
+            Nu ét gitter med samme grammatik i hver celle: kontrollen
+            øverst, grundlaget under. Grundlagsteksterne er UÆNDREDE —
+            de er sat ned i vægt, ikke skåret ned. Se `.filtersystem`
+            i globals.css. */}
+        <div className="filtersystem">
+        <div className="filterpost">
           <span className="afkryds-linje">
             <input type="checkbox" id="fuld" name="fuld" value="1" defaultChecked={f.fuldOekonomi} />
             <label htmlFor="fuld">Fuld økonomi kendt</label>
@@ -345,7 +353,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             AKTUELLE søgning, og de ukendte har ord: et filter viser kun
             dokumenterede træf, og så skal det stå, hvor mange der ikke
             kunne vurderes. */}
-        <div className="felt oekonomifilter">
+        <div className="filterpost">
           <span className="afkryds-linje">
             <label htmlFor="overtagelse">Overtagelse</label>
             <select id="overtagelse" name="overtagelse" defaultValue={f.overtagelse ?? ''}>
@@ -361,7 +369,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             afklaret tidspunkt — de vises ikke med filteret slået til
           </span>
         </div>
-        <div className="felt oekonomifilter">
+        <div className="filterpost">
           <span className="afkryds-linje">
             <input type="checkbox" id="venteliste" name="venteliste" value="1"
               defaultChecked={f.ansoegningsform === 'venteliste'} />
@@ -373,7 +381,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             {avGrundlag.ansoegning.unknown.toLocaleString('da-DK')} uoplyst ansøgningsform
           </span>
         </div>
-        <div className="felt oekonomifilter">
+        <div className="filterpost">
           <span className="afkryds-linje">
             <input type="checkbox" id="reserveret" name="reserveret" value="1"
               defaultChecked={f.markedsstatus === 'reserveret'} />
@@ -394,9 +402,9 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             aldrig giver træf, er værre end intet filter. */}
         {(fac.faciliteter.kaeledyr > 0 || fac.faciliteter.elevator > 0
           || fac.faciliteter.udeplads > 0) && (
-          <div className="felt facilitetsfiltre">
+          <>
             {fac.faciliteter.kaeledyr > 0 && (
-              <div className="facilitetsfilter">
+              <div className="filterpost">
                 <span className="afkryds-linje">
                   <input type="checkbox" id="kaeledyr" name="kaeledyr" value="1" defaultChecked={f.kaeledyr} />
                   <label htmlFor="kaeledyr">Kæledyr tilladt</label>
@@ -417,7 +425,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
               </div>
             )}
             {fac.faciliteter.elevator > 0 && (
-              <div className="facilitetsfilter">
+              <div className="filterpost">
                 <span className="afkryds-linje">
                   <input type="checkbox" id="elevator" name="elevator" value="1" defaultChecked={f.elevator} />
                   <label htmlFor="elevator">Elevator</label>
@@ -438,7 +446,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
               </div>
             )}
             {fac.faciliteter.udeplads > 0 && (
-              <div className="facilitetsfilter">
+              <div className="filterpost">
                 <span className="afkryds-linje">
                   <input type="checkbox" id="udeplads" name="udeplads" value="1" defaultChecked={f.udeplads} />
                   <label htmlFor="udeplads">Altan eller terrasse</label>
@@ -458,8 +466,9 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                 </span>
               </div>
             )}
-          </div>
+          </>
         )}
+        </div>
         <div className="knapper">
           <button type="submit">Søg</button>
           <a className="nulstil" href="/">Nulstil</a>
@@ -543,61 +552,82 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           foer brugeren har spurgt om noget. */}
       {soegt && <GemSoegning sp={sp} />}
 
-      {/* Faciliteter er en POSITIV liste. Filtrerer hun på elevator, ryger
-          alle boliger fra kilder, der bare ikke skriver det — og det ligner
-          "der er ingen". Det skal stå på skærmen, ikke kun i koden. */}
-      {soegt && (f.kaeledyr || f.elevator || f.udeplads)
-        && tavse.navne.length > 0 && (
-        /* Frafaldet er ikke jævnt fordelt. Tre kilder oplyser aldrig
-           faciliteter, så et kryds fjerner dem HELT — filteret er også et
-           kildefilter. Navnene beregnes, så linjen retter sig selv, hvis en
-           kilde skifter praksis. */
-        <p className="prisnote advarsel">
-          <strong>{sammenskriv(tavse.navne)}</strong> oplyser aldrig faciliteter.
-          {' '}Med et facilitetsfilter er alle {tavse.antal.toLocaleString('da-DK')}
-          {' '}boliger derfra ude — også dem der har det, du søger.
-        </p>
-      )}
+      {/* ── Resultatheaderen ──────────────────────────────────────
+          De samme fem oplysninger som før, i ét hoved i stedet for fem
+          løsrevne striber. Rækkefølgen ER hierarkiet: antallet og stedet
+          er sidens svar og står øverst; grundlaget, udsnittet og de to
+          forbehold står under som baggrund.
 
-      {soegt && (
-        <p className="prisnote">
-          Prisfilteret gælder den <strong>samlede månedlige udgift</strong> — husleje
-          plus aconto. Kender vi ikke totalen, filtreres der på huslejen alene, og
-          boligen kan være dyrere end grænsen.
-        </p>
-      )}
-
-      {/* Uden filtre staar de samme tal allerede i hero'en ovenfor.
-          Linjen hoerer til, hvor den siger noget nyt: om et udsnit. */}
-      {soegt && (
-        <div className="optaelling">
-          <span><strong>{sum.antal}</strong> {sum.antal === 1 ? 'bolig' : 'boliger'}</span>
-          <span>{sum.medTotal} med kendt total</span>
-          <span>{sum.medIndflytning} med indflytningspris</span>
-          {sum.billigst != null && sum.dyrest != null && (
-            <span>{kr(sum.billigst)}–{kr(sum.dyrest)} kr/md</span>
+          Antallet er flyttet fra `.optaelling` op i overskriften — samme
+          tal, samme kilde, ny rang. Klasserne bliver på elementerne:
+          `.optaelling` og `.begraensning` bruges også af gruppe- og
+          områdesiderne, og de er urørte. */}
+      <div className="resultathoved">
+        <div className="listehoved">
+          {soegt && (
+            <h2 className="listetitel resultat-tal">
+              <strong>{sum.antal.toLocaleString('da-DK')}</strong>{' '}
+              {sum.antal === 1 ? 'bolig' : 'boliger'}
+              {/* Stedet står i søgefeltet, men headeren skal kunne læses
+                  alene, når man er scrollet forbi filtrene. Kun når der ER
+                  et sted — et prisfilter uden by har intet at sætte her. */}
+              {sted && <span className="sted-navn"> i {sted}</span>}
+            </h2>
+          )}
+          {!soegt && visninger.length > 0 && (
+            <h2 className="listetitel">Nyeste boliger</h2>
+          )}
+          {soegt && visninger.length > 0 && (
+            <a className="kortknap" href={kortLink(sp, kortVises)}>
+              {kortVises ? 'Skjul kort' : 'Vis kort'}
+            </a>
           )}
         </div>
-      )}
 
-      <div className="listehoved">
-        {!soegt && visninger.length > 0 && (
-          <h2 className="listetitel">Nyeste boliger</h2>
+        {/* Uden filtre staar de samme tal allerede i hero'en ovenfor.
+            Linjen hoerer til, hvor den siger noget nyt: om et udsnit. */}
+        {soegt && (
+          <div className="optaelling">
+            <span>{sum.medTotal} med kendt total</span>
+            <span>{sum.medIndflytning} med indflytningspris</span>
+            {sum.billigst != null && sum.dyrest != null && (
+              <span>{kr(sum.billigst)}–{kr(sum.dyrest)} kr/md</span>
+            )}
+          </div>
         )}
-        {soegt && visninger.length > 0 && (
-          <a className="kortknap" href={kortLink(sp, kortVises)}>
-            {kortVises ? 'Skjul kort' : 'Vis kort'}
-          </a>
+
+        {/* Tallet er BOLIGER, ikke kort. Et gruppekort daekker flere, og
+            "viser 48 af 904" ville vaere forkert paa begge maader. */}
+        {sum.antal > vist && (
+          <p className="begraensning">
+            Viser de {vist} nyeste af {sum.antal}. Brug filtrene for at indsnævre.
+          </p>
+        )}
+
+        {soegt && (
+          <p className="prisnote">
+            Prisfilteret gælder den <strong>samlede månedlige udgift</strong> — husleje
+            plus aconto. Kender vi ikke totalen, filtreres der på huslejen alene, og
+            boligen kan være dyrere end grænsen.
+          </p>
+        )}
+
+        {/* Faciliteter er en POSITIV liste. Filtrerer hun på elevator, ryger
+            alle boliger fra kilder, der bare ikke skriver det — og det ligner
+            "der er ingen". Det skal stå på skærmen, ikke kun i koden. */}
+        {soegt && (f.kaeledyr || f.elevator || f.udeplads)
+          && tavse.navne.length > 0 && (
+          /* Frafaldet er ikke jævnt fordelt. Tre kilder oplyser aldrig
+             faciliteter, så et kryds fjerner dem HELT — filteret er også et
+             kildefilter. Navnene beregnes, så linjen retter sig selv, hvis en
+             kilde skifter praksis. */
+          <p className="prisnote advarsel">
+            <strong>{sammenskriv(tavse.navne)}</strong> oplyser aldrig faciliteter.
+            {' '}Med et facilitetsfilter er alle {tavse.antal.toLocaleString('da-DK')}
+            {' '}boliger derfra ude — også dem der har det, du søger.
+          </p>
         )}
       </div>
-
-      {/* Tallet er BOLIGER, ikke kort. Et gruppekort daekker flere, og
-          "viser 48 af 904" ville vaere forkert paa begge maader. */}
-      {sum.antal > vist && (
-        <p className="begraensning">
-          Viser de {vist} nyeste af {sum.antal}. Brug filtrene for at indsnævre.
-        </p>
-      )}
 
       {visninger.length === 0 ? (
         <div className="tom">
