@@ -28,6 +28,7 @@
 //   25.  Retention: udløbne rækker slettes, fremtidige bliver
 //   26.  Dagsaggregatet
 //   27.  MAALING_AKTIV=0 → ingenting
+//   28.  Server Action-revalidering tæller ikke som en sidevisning
 //
 //  Deliberate break-tests: se docs/analytics-v1.md. Hver af dem laves
 //  midlertidigt i koden, køres, ses rød og rulles tilbage. En prøve, der
@@ -41,11 +42,11 @@ import { db } from '../db/client'
 import { haendelser, haendelserDaglig, savedSearches, users } from '../db/schema'
 import { bekraeft, tilmeld } from '../lib/alarm'
 import {
-  ALLOWLIST, MILJOEER, RUTER, iStikproeve, miljoe, rens, saetAktiv, saetMiljoe,
-  udloeb, type Haendelse, type Kontekst,
+  ALLOWLIST, MILJOEER, RENDEREVENTS, RUTER, erGenrendering, iStikproeve, miljoe,
+  rens, saetAktiv, saetMiljoe, udloeb, type Haendelse, type Kontekst,
 } from '../lib/maaling'
 import {
-  _saetDedup, _saetKontekst, opdaterDagsaggregat, ryddHaendelser, spor,
+  _saetDedup, _saetHoveder, _saetKontekst, opdaterDagsaggregat, ryddHaendelser, spor,
 } from '../lib/maaling-server'
 import {
   C_ANONYM, C_SAMTYKKE, C_SESSION, SESSION_MAKS_MS,
@@ -519,8 +520,88 @@ _saetDedup(new Set())
   tjek('27 · slået til → der skrives igen', (await raekker()).length === 1)
 }
 
+// ─── 28 · Server Action-revalidering maa ikke tælle som visning ─
+//
+//  Fejlen, den fanger, er maalt i produktion 7. september 2026: ét besoeg
+//  paa en native bolig plus ét klik paa «Vis kontaktoplysninger» gav TO
+//  listing_view. Next koerer sidekomponenten igen som del af svaret paa
+//  en Server Action, og den rendering er ikke en sidevisning.
+//
+//  Headerne er maalt med en sonde mod en rigtig Next-server:
+//    navigation                 GET,  next-action: null
+//    Server Action-revalidering POST, next-action: 4042a2540e1ee29a68…
+{
+  const INGEN: Record<string, string> = {}
+  const ACTION = { 'next-action': '4042a2540e1ee29a68e80f9d41c0' }
+  const PREFETCH = { 'next-router-prefetch': '1' }
+  const RSC = { rsc: '1' }
+  const laeser = (m: Record<string, string>) => (n: string) => m[n]
+
+  tjek('28 · en almindelig navigation er en visning',
+    erGenrendering(laeser(INGEN)) === false)
+  tjek('28 · Server Action-revalidering er det IKKE',
+    erGenrendering(laeser(ACTION)) === true)
+  tjek('28 · prefetch er det heller ikke',
+    erGenrendering(laeser(PREFETCH)) === true)
+  tjek('28 · en klientside-navigation (rsc) ER en visning',
+    erGenrendering(laeser(RSC)) === false,
+    'ellers ville next/link en dag tie hele listing_view ihjel')
+
+  // ── REGRESSIONEN ──────────────────────────────────────────────
+  // Hele forloebet: brugeren navigerer til boligsiden, og trykker saa
+  // paa knappen. Handlingen fyrer contact_reveal OG faar siden renderet
+  // igen — den anden rendering maa ikke give et listing_view mere.
+  const BOLIG = '55555555-5555-4555-8555-555555555555'
+  const visning = (): Haendelse => ({
+    navn: 'listing_view', listingId: BOLIG, sourceSlug: 'native',
+    props: { postnr: '2200', egen_annonce: true },
+  })
+
+  await ryd()
+  _saetHoveder(laeser(INGEN))            // 1. rigtig navigation
+  await spor(visning(), '/bolig/[id]')
+
+  _saetDedup(new Set())
+  _saetHoveder(laeser(ACTION))           // 2. klik paa knappen
+  await spor(visning(), '/bolig/[id]')                    // sidens genrendering
+  await spor({ navn: 'contact_reveal', listingId: BOLIG,
+    props: { har_mail: true, har_telefon: false } }, '/bolig/[id]')
+
+  const efter = await raekker()
+  const antal = (n: string) => efter.filter((x) => x.eventName === n).length
+  tjek('28 · ét besøg + ét kontaktklik = ÉN listing_view',
+    antal('listing_view') === 1, antal('listing_view') + ' listing_view')
+  tjek('28 · contact_reveal fyrer stadig fra handlingen',
+    antal('contact_reveal') === 1, antal('contact_reveal') + ' contact_reveal')
+
+  // Et reload er en rigtig visning og skal stadig taelle.
+  _saetDedup(new Set())
+  _saetHoveder(laeser(INGEN))
+  await spor(visning(), '/bolig/[id]')
+  tjek('28 · reload tæller stadig som en visning',
+    (await raekker()).filter((x) => x.eventName === 'listing_view').length === 2)
+
+  // Handlingsevents maa ALDRIG staa paa render-listen.
+  const handlinger = ['contact_reveal', 'contact_click', 'alert_created',
+    'alert_confirmed', 'signup_started', 'signup_completed', 'login_completed',
+    'server_action_failed'] as const
+  tjek('28 · ingen handlingsevents på render-listen',
+    !handlinger.some((n) => (RENDEREVENTS as readonly string[]).includes(n)))
+
+  // Og source_click er uroert: den er sin egen rute, ikke en rendering.
+  await ryd()
+  _saetHoveder(laeser(ACTION))
+  await spor({ navn: 'source_click', listingId: BOLIG, sourceSlug: 'home',
+    props: { maal: 'kilde' } }, '/go/[id]')
+  tjek('28 · source_click rammes ikke af vagten',
+    (await raekker()).length === 1)
+
+  _saetHoveder(null)
+}
+
 // ─── Oprydning ─────────────────────────────────────────────────
 await ryd()
+_saetHoveder(null)
 _saetKontekst(null)
 saetAktiv(null)
 saetMiljoe(null)

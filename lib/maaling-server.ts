@@ -19,8 +19,8 @@ import { sql as dsql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { haendelser } from '../db/schema'
 import {
-  aktiv, iStikproeve, miljoe, rens,
-  type Afvisning, type Haendelse, type Kontekst, type Raekke, type Rute,
+  RENDEREVENTS, aktiv, erGenrendering, iStikproeve, miljoe, rens,
+  type Afvisning, type Haendelse, type Hovedlaeser, type Kontekst, type Raekke, type Rute,
 } from './maaling'
 import { C_ANONYM, C_FORSOEG, C_SESSION, laesForsoeg, laesSamtykke, type Laeser } from './samtykke'
 
@@ -100,6 +100,31 @@ async function kontekst(rute: Rute, brugerId?: string | null): Promise<Kontekst 
   }
 }
 
+/**
+ * Sprøjtes ind af prøverne. Samme grund som `_saetKontekst`: `next/headers`
+ * findes ikke i tsx, og en spærring, ingen har set fejle, er ingen spærring.
+ */
+let _testhoveder: Hovedlaeser | null = null
+export function _saetHoveder(f: Hovedlaeser | null) { _testhoveder = f }
+
+/**
+ * Kører sidekomponenten som led i en Server Action eller en prefetch?
+ *
+ * Så er der ingen ny sidevisning at tælle. Se `erGenrendering` i
+ * lib/maaling.ts for de målte headers.
+ */
+async function genrendering(): Promise<boolean> {
+  if (_testhoveder) return erGenrendering(_testhoveder)
+  if (!process.env.NEXT_RUNTIME) return false
+  try {
+    const { headers } = await import('next/headers')
+    const h = await headers()
+    return erGenrendering((n) => h.get(n))
+  } catch {
+    return false
+  }
+}
+
 /** `after()` findes kun i Next. I workeren skrives der direkte. */
 async function efter(fn: () => Promise<void>): Promise<void> {
   if (process.env.NEXT_RUNTIME) {
@@ -133,6 +158,14 @@ export async function spor(
 ): Promise<void> {
   try {
     if (!aktiv()) return
+
+    // Et render-event maa ikke fyre, naar renderingen ikke er en
+    // sidevisning. Next koerer sidekomponenten igen som del af svaret paa
+    // en Server Action — det gav to listing_view for ét besoeg, hver gang
+    // nogen trykkede «Vis kontaktoplysninger». Handlingsevents som
+    // contact_reveal fyrer netop DÉR og skal ikke rammes.
+    if (RENDEREVENTS.includes(h.navn) && await genrendering()) return
+
     const k = o.kontekst ?? await kontekst(rute, o.brugerId)
     if (!k) return
 

@@ -400,6 +400,49 @@ export const ALLOWLIST: Record<Eventnavn, Record<string, Spec>> = {
   },
 }
 
+/**
+ * Events, der udledes af AT EN SIDE RENDERES.
+ *
+ * De må ikke fyre, når renderingen ikke svarer til en sidevisning. Next
+ * kører sidekomponenten igen som en del af svaret på en Server Action —
+ * så ét klik på «Vis kontaktoplysninger» gav to `listing_view`, selv om
+ * brugeren kun havde set siden én gang. Se `erGenrendering`.
+ *
+ * Events, der udledes af en HANDLING — `contact_reveal`, `alert_created`,
+ * `alert_confirmed`, `signup_*`, `login_completed`, `server_action_failed`
+ * — står med vilje IKKE her: de fyrer netop inde i en Server Action og
+ * skal blive ved med det.
+ */
+export const RENDEREVENTS: readonly Eventnavn[] = [
+  'homepage_view', 'search', 'search_results_view', 'empty_results',
+  'filter_applied', 'filter_cleared', 'sort_changed',
+  'listing_view', 'group_opened',
+]
+
+export type Hovedlaeser = (navn: string) => string | null | undefined
+
+/**
+ * Er denne rendering noget ANDET end en sidevisning?
+ *
+ * Målt, ikke antaget. Sonde i `app/bolig/[id]/page.tsx` mod en rigtig
+ * Next-server, 7. september 2026:
+ *
+ *   rigtig navigation          GET   next-action: null
+ *                                    accept: text/html,application/xhtml+…
+ *   Server Action-revalidering POST  next-action: 4042a2540e1ee29a68e80f9d41c0
+ *                                    accept: text/x-component
+ *
+ * `next-router-prefetch` er med af samme grund: en side, der er hentet på
+ * forhånd, er aldrig blevet set. Appen bruger ingen `next/link` i dag, så
+ * den gren er forebyggende — men den koster ingenting.
+ *
+ * `rsc` tjekkes IKKE. En klientside-navigation ER en sidevisning; den dag
+ * appen får `next/link`, skal den stadig tælle.
+ */
+export function erGenrendering(faa: Hovedlaeser): boolean {
+  return Boolean(faa('next-action') || faa('next-router-prefetch'))
+}
+
 /** Kun disse fyres fra browseren. Alt andet fra /api/maaling er en fejl. */
 export const KLIENTEVENTS: readonly Eventnavn[] = [
   'filter_opened', 'map_interaction', 'alert_started',
