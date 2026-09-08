@@ -205,6 +205,13 @@ export async function spor(
     for (const n of r.renset.droppedeNoegler) {
       noterAfvist(ev.navn, { grund: 'ukendt-property', detalje: n })
     }
+    // Egen grund, ikke 'ukendt-property': noeglen ER kendt og lovlig, den
+    // blev droppet af krydsfeltsreglen om komplethed. Skjules de to under
+    // samme etiket, kan «afsenderen sender noget forkert» ikke skelnes fra
+    // «afsenderen sender et sideantal, vi ikke tror paa».
+    for (const n of r.renset.ufuldstaendigeNoegler) {
+      noterAfvist(ev.navn, { grund: 'ufuldstaendigt-sideantal', detalje: n })
+    }
 
     const noegle = dedupnoegle(r.renset.raekke)
     const set = husket()

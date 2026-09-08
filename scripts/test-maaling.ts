@@ -29,6 +29,8 @@
 //   26.  Dagsaggregatet
 //   27.  MAALING_AKTIV=0 → ingenting
 //   28.  Server Action-revalidering tæller ikke som en sidevisning
+//   29.  Paginering: valgfri metadata, heltalsværn, komplethedsreglen
+//   30.  search_submitted: en observeret indsendelse, ikke en rendering
 //
 //  Deliberate break-tests: se docs/analytics-v1.md. Hver af dem laves
 //  midlertidigt i koden, køres, ses rød og rulles tilbage. En prøve, der
@@ -42,7 +44,7 @@ import { db } from '../db/client'
 import { haendelser, haendelserDaglig, savedSearches, users } from '../db/schema'
 import { bekraeft, tilmeld } from '../lib/alarm'
 import {
-  ALLOWLIST, MILJOEER, RENDEREVENTS, RUTER, erGenrendering, iStikproeve, miljoe,
+  ALLOWLIST, KLIENTEVENTS, MILJOEER, RENDEREVENTS, RUTER, erGenrendering, iStikproeve, miljoe,
   rens, saetAktiv, saetMiljoe, udloeb, type Haendelse, type Kontekst,
 } from '../lib/maaling'
 import {
@@ -799,6 +801,157 @@ _saetDedup(new Set())
     (await raekker()).length === 1)
 
   _saetHoveder(null)
+}
+
+// ─── 29 · Pagineringens valgfri metadata ───────────────────────
+//
+// Felterne er VALGFRI, og det er kontrakten, ikke sjusk: et `kraevet`-felt,
+// som en afsender ikke sender, draeber eventet lydloest. Det kostede hver
+// eneste listing_impression i tre uger, og en halvt udrullet frontend ville
+// koste det samme igen.
+{
+  const RVI = '1f6e6c5a-38d4-4e6e-b807-ec0ed55f140a'
+  const P = (ekstra: Record<string, unknown>): Haendelse => ({
+    navn: 'search_results_view',
+    props: {
+      result_count: 412, viste_antal: 48, viste_pr_kilde: { propstep: 30 },
+      result_view_id: RVI, sted_slags: 'ingen', ...ekstra,
+    },
+  } as unknown as Haendelse)
+
+  const gammel = rens(P({}), K())
+  tjek('29 · en payload UDEN de nye felter accepteres uændret',
+    gammel.ok && gammel.renset.raekke.properties.side === undefined
+    && gammel.renset.ufuldstaendigeNoegler.length === 0)
+
+  const god = rens(P({ side: 2, sider_i_alt: 9, komplet: true }), K())
+  tjek('29 · gyldige pagineringsfelter accepteres',
+    god.ok && god.renset.raekke.properties.side === 2
+    && god.renset.raekke.properties.sider_i_alt === 9
+    && god.renset.raekke.properties.komplet === true)
+
+  // En `Number('abc')` er NaN, en `Number('')` er 0, og begge ville slippe
+  // igennem et blot `typeof === 'number'`. Derfor heltal og nedre graense.
+  const ugyldige: Record<string, unknown>[] = [
+    { side: 0 }, { side: -1 }, { side: 1.5 }, { side: Number.NaN },
+    { side: Number.POSITIVE_INFINITY }, { side: '2' }, { side: true },
+    { sider_i_alt: -1, komplet: true }, { sider_i_alt: 2.5, komplet: true },
+    { sider_i_alt: '9', komplet: true },
+    { komplet: 'true' }, { komplet: 1 },
+  ]
+  let afvist = 0
+  for (const props of ugyldige) {
+    const r = rens(P(props), K())
+    if (!r.ok && r.fejl.grund === 'forkert-type') afvist++
+  }
+  tjek('29 · alle tolv ugyldige værdier afvises som forkert-type',
+    afvist === ugyldige.length, `${afvist}/${ugyldige.length}`)
+
+  // Komplethedsreglen. Et afkortet kortantal giver ikke et eksakt sideantal.
+  for (const [navn, ekstra] of [
+    ['komplet er false', { side: 2, sider_i_alt: 9, komplet: false }],
+    ['komplet er slet ikke oplyst', { side: 2, sider_i_alt: 9 }],
+  ] as [string, Record<string, unknown>][]) {
+    const r = rens(P(ekstra), K())
+    tjek(`29 · sider_i_alt droppes, når ${navn}`,
+      r.ok && r.renset.raekke.properties.sider_i_alt === undefined
+      && r.renset.raekke.properties.side === 2
+      && r.renset.ufuldstaendigeNoegler.includes('sider_i_alt')
+      && r.renset.droppedeNoegler.length === 0)
+  }
+
+  // En side uden kort er ikke en søgning uden boliger. Formen SKAL forblive
+  // lovlig, ellers «retter» nogen den ved at kræve viste_antal > 0.
+  const udenfor = rens(P({
+    side: 99, sider_i_alt: 9, komplet: true, viste_antal: 0, viste_pr_kilde: {},
+  }), K())
+  tjek('29 · side uden for rækkevidde er en LOVLIG resultatvisning',
+    udenfor.ok && udenfor.renset.raekke.properties.viste_antal === 0
+    && udenfor.renset.raekke.properties.result_count === 412
+    && udenfor.renset.raekke.properties.side === 99)
+
+  // Alle tre søgeevents skal kunne bære dem — ellers ville side 2 med nul
+  // resultater tabe sit sidetal.
+  const treEvents: Haendelse[] = [
+    { navn: 'search', props: { result_count: 0, antal_filtre: 1, sorter: 'nyeste',
+      sted_slags: 'ingen', side: 3, sider_i_alt: 0, komplet: true } },
+    { navn: 'search_results_view', props: { result_count: 412, viste_antal: 48,
+      viste_pr_kilde: { propstep: 30 }, result_view_id: RVI, side: 3,
+      sider_i_alt: 9, komplet: true } },
+    { navn: 'empty_results', props: { antal_filtre: 1, side: 3, sider_i_alt: 0,
+      komplet: true } },
+  ] as unknown as Haendelse[]
+  tjek('29 · search, search_results_view og empty_results bærer alle tre felter',
+    treEvents.every((h) => {
+      const r = rens(h, K())
+      return r.ok && r.renset.raekke.properties.side === 3
+        && r.renset.raekke.properties.komplet === true
+    }))
+}
+
+// ─── 30 · search_submitted ─────────────────────────────────────
+//
+// En OBSERVERET indsendelse af søgeformularen. Serveren kan ikke se forskel
+// på en formularindsendelse og et klik på «Næste» — begge er en
+// GET-navigation med de samme headere — så den observeres i browseren
+// eller slet ikke.
+{
+  await ryd()
+  _saetDedup(new Set())
+  await spor({ navn: 'search_submitted', props: {} }, '/')
+  const [ss] = await raekker()
+  tjek('30 · search_submitted skrives', ss?.eventName === 'search_submitted')
+  tjek('30 · og bærer INGEN properties — heller ikke et filterantal',
+    JSON.stringify(ss?.properties) === '{}')
+
+  tjek('30 · den er et KLIENTevent, så /api/maaling lukker den ind',
+    (KLIENTEVENTS as readonly string[]).includes('search_submitted'))
+  tjek('30 · den er IKKE et renderevent — vagten mod genrendering rammer den ikke',
+    !(RENDEREVENTS as readonly string[]).includes('search_submitted'))
+
+  // Fremmed indhold fra en beacon naar aldrig raekken.
+  const stray = rens({ navn: 'search_submitted',
+    props: { sted: 'Anna Hansen, Vestergade 12' } } as unknown as Haendelse, K())
+  tjek('30 · en fritekst-property droppes, og teksten når ikke rækken',
+    stray.ok && JSON.stringify(stray.renset.raekke.properties) === '{}'
+    && stray.renset.droppedeNoegler.includes('sted'))
+
+  // Stikproeven er impressionernes, ikke handlingernes.
+  const pctFoer = process.env.MAALING_IMPRESSION_PCT
+  process.env.MAALING_IMPRESSION_PCT = '0'
+  await ryd()
+  _saetDedup(new Set())
+  await spor({ navn: 'search_submitted', props: {} }, '/')
+  tjek('30 · en stikprøve på 0 % rammer IKKE search_submitted',
+    (await raekker()).length === 1)
+  if (pctFoer === undefined) delete process.env.MAALING_IMPRESSION_PCT
+  else process.env.MAALING_IMPRESSION_PCT = pctFoer
+
+  // Uden kontekst — intet samtykke, ingen identifikatorer — skrives intet.
+  await ryd()
+  _saetKontekst(null)
+  _saetDedup(new Set())
+  await spor({ navn: 'search_submitted', props: {} }, '/')
+  tjek('30 · uden samtykke/kontekst skrives der ingenting',
+    (await raekker()).length === 0)
+  _saetKontekst(K())
+
+  // Dagsaggregatet skal kunne baere den UDEN en schemaaendring.
+  await ryd()
+  _saetDedup(new Set())
+  await spor({ navn: 'search_submitted', props: {} }, '/')
+  await opdaterDagsaggregat()
+  const agg = (await db.select().from(haendelserDaglig))
+    .find((r) => r.eventName === 'search_submitted')
+  tjek('30 · dagsaggregatet dækker det nye event uden skemaændring',
+    Boolean(agg) && agg?.antal === 1 && Number(agg?.sampleAndel) === 1,
+    agg ? `antal=${agg.antal} andel=${agg.sampleAndel}` : 'ingen række')
+  await db.delete(haendelserDaglig)
+
+  // Retention: en handling, ikke en impression. 365 dage, ikke 60.
+  tjek('30 · udløbsklassen er produktets, ikke impressionernes',
+    Math.round((udloeb('search_submitted', null, new Date()).getTime() - Date.now())
+      / 86400000) === 365)
 }
 
 // ─── Oprydning ─────────────────────────────────────────────────

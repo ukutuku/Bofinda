@@ -134,6 +134,7 @@ export interface Envelope {
 export type Haendelse = Envelope & (
   | { navn: 'homepage_view'; props: ForsideProps }
   | { navn: 'search'; props: SoegeProps }
+  | { navn: 'search_submitted'; props: Tom }
   | { navn: 'search_results_view'; props: ResultatProps }
   | { navn: 'empty_results'; props: TomProps }
   | { navn: 'filter_applied'; props: FilterProps }
@@ -190,7 +191,24 @@ export interface ForsideProps {
   utm_campaign?: string
 }
 
-export interface SoegeProps extends Filteruddrag {
+/**
+ * Pagineringens metadata. VALGFRI paa alle tre soegeevents.
+ *
+ * Valgfri er ikke sjusk, det er kontrakten: et `kraevet: true`-felt, som en
+ * afsender ikke sender, draeber eventet lydloest — det kostede hver eneste
+ * listing_impression i tre uger. Gamle raekker og en halvt udrullet frontend
+ * skal passere `rens()` uaendret.
+ */
+export interface Sidevisning {
+  /** 1-baseret. Fravaerende betyder «foer pagineringen fandtes», ikke side 1. */
+  side?: number
+  /** KUN naar `komplet` er true. Se krydsfeltsreglen i `rens`. */
+  sider_i_alt?: number
+  /** Naaede vi hele udbuddet igennem, eller ramte vi kandidatloftet? */
+  komplet?: boolean
+}
+
+export interface SoegeProps extends Filteruddrag, Sidevisning {
   result_count: number
   antal_filtre: number
   sorter: string
@@ -201,7 +219,7 @@ export interface SoegeProps extends Filteruddrag {
   utm_campaign?: string
 }
 
-export interface ResultatProps extends Filteruddrag {
+export interface ResultatProps extends Filteruddrag, Sidevisning {
   result_count: number
   /** Kort på skærmen, højst 48. Ikke det samme som result_count. */
   viste_antal: number
@@ -210,7 +228,7 @@ export interface ResultatProps extends Filteruddrag {
   result_view_id: string
 }
 
-export interface TomProps extends Filteruddrag {
+export interface TomProps extends Filteruddrag, Sidevisning {
   antal_filtre: number
 }
 
@@ -262,7 +280,15 @@ export interface FejlProps { handling: string; fejlklasse: string }
 // ─── Allowlisten ───────────────────────────────────────────────
 
 type Slags = 'tal' | 'bool' | 'tekst' | 'liste' | 'kort' | 'skalar'
-interface Spec { slags: Slags; kraevet?: true; af?: readonly string[] }
+interface Spec {
+  slags: Slags
+  kraevet?: true
+  af?: readonly string[]
+  /** Kun for 'tal': vaerdien skal vaere et heltal. */
+  heltal?: true
+  /** Kun for 'tal': nedre graense, inklusiv. */
+  mindst?: number
+}
 
 const FILTERUDDRAG: Record<string, Spec> = {
   // sted_slags hoerer til uddraget, ikke kun til `search`: uden det kan
@@ -283,6 +309,19 @@ const FILTERUDDRAG: Record<string, Spec> = {
   full_economy: { slags: 'bool' },
   facilities: { slags: 'liste' },
   kort_vist: { slags: 'bool' },
+}
+
+/**
+ * Pagineringens tre felter, delt af de tre soegeevents.
+ *
+ * `Number.isFinite` afviser baade NaN og Infinity, `heltal` afviser 1,5, og
+ * `mindst` afviser 0 og negative sider. En `Number()` af vilkaarlig URL-tekst
+ * ville give NaN for «?side=abc» og slippe igennem et blot `typeof === number`.
+ */
+const SIDEVISNING: Record<string, Spec> = {
+  side: { slags: 'tal', heltal: true, mindst: 1 },
+  sider_i_alt: { slags: 'tal', heltal: true, mindst: 0 },
+  komplet: { slags: 'bool' },
 }
 
 const UTM: Record<string, Spec> = {
@@ -312,18 +351,31 @@ export const ALLOWLIST: Record<Eventnavn, Record<string, Spec>> = {
     result_view_id: { slags: 'tekst' },
     ...FILTERUDDRAG,
     sted_slags: { slags: 'tekst', kraevet: true, af: ['postnr', 'by_kendt', 'by_ukendt', 'ingen'] },
+    ...SIDEVISNING,
     ...UTM,
   },
+  /**
+   * En OBSERVERET indsendelse af soegeformularen. Ikke en rendering.
+   *
+   * Ingen properties overhovedet — og det er et valg, ikke en mangel.
+   * Filterkonteksten staar allerede paa det `search`, der foelger i samme
+   * session; et klientberegnet `antal_filtre` ville vaere et ANDET udtryk for
+   * det samme spoergsmaal end serverens, og de to ville drive fra hinanden.
+   * Se reglen om to udtryk i CLAUDE.md.
+   */
+  search_submitted: {},
   search_results_view: {
     result_count: { slags: 'tal', kraevet: true },
     viste_antal: { slags: 'tal', kraevet: true },
     viste_pr_kilde: { slags: 'kort', kraevet: true },
     result_view_id: { slags: 'tekst', kraevet: true },
     ...FILTERUDDRAG,
+    ...SIDEVISNING,
   },
   empty_results: {
     antal_filtre: { slags: 'tal', kraevet: true },
     ...FILTERUDDRAG,
+    ...SIDEVISNING,
   },
   filter_applied: {
     felt: { slags: 'tekst', kraevet: true, af: FILTERFELTER },
@@ -446,8 +498,19 @@ export function erGenrendering(faa: Hovedlaeser): boolean {
 /** Kun disse fyres fra browseren. Alt andet fra /api/maaling er en fejl. */
 export const KLIENTEVENTS: readonly Eventnavn[] = [
   'filter_opened', 'map_interaction', 'alert_started',
-  'contact_click', 'listing_impression',
+  'contact_click', 'listing_impression', 'search_submitted',
 ]
+
+/**
+ * `search_submitted` staar med vilje IKKE i RENDEREVENTS.
+ *
+ * Den udledes af en HANDLING, ikke af at en side blev renderet — samme
+ * klasse som contact_reveal og alert_created. Vagten mod
+ * Server Action-genrendering maa ikke ramme den, og serveren kan i
+ * oevrigt ikke se forskel paa en formularindsendelse og et klik paa et
+ * pagineringslink: begge er en GET-navigation med de samme headere.
+ * Derfor observeres den i browseren eller slet ikke.
+ */
 
 // ─── Værdiværnet ───────────────────────────────────────────────
 
@@ -463,6 +526,7 @@ export type Afvisning =
   | { grund: 'pii'; detalje: string }
   | { grund: 'forkert-type'; detalje: string }
   | { grund: 'ugyldig-kontekst'; detalje: string }
+  | { grund: 'ufuldstaendigt-sideantal'; detalje: string }
 
 /**
  * Er strengen kategorisk, eller er den noget, et menneske har skrevet?
@@ -521,7 +585,13 @@ export interface Raekke {
   expiresAt: Date
 }
 
-export interface Renset { raekke: Raekke; droppedeNoegler: string[] }
+export interface Renset {
+  raekke: Raekke
+  /** Noegler uden for allowlisten. Droppet, eventet skrevet. */
+  droppedeNoegler: string[]
+  /** Noegler droppet af en KRYDSFELTSREGEL, ikke fordi de er ukendte. */
+  ufuldstaendigeNoegler: string[]
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const SLUG = /^[a-z0-9][a-z0-9_-]{0,39}$/
@@ -591,6 +661,23 @@ export function rens(
     ud[noegle] = vaerdi
   }
 
+  // ── Krydsfeltsregel: et sideantal uden komplethed er ikke et sideantal.
+  //
+  // `kortIAlt` afkortes ved kandidatloftet, og saa er «5 sider» ikke 5 sider
+  // — det er «mindst 5». Et tal, der ligner en eksakt total og ikke er det,
+  // er praecis den slags loegn, ingen opdager: siden siger allerede «mindst
+  // N kort», mens maalingen ville sige N.
+  //
+  // NOEGLEN droppes, eventet skrives. At kassere en hel resultatvisning paa
+  // grund af ét metadatafelt ville tabe selve maalingen — men droppet
+  // logges med sin egen grund, saa afsenderens fejl er synlig frem for
+  // stille. Samme afvejning som for ukendte noegler ovenfor.
+  const ufuldstaendige: string[] = []
+  if (ud.sider_i_alt !== undefined && ud.komplet !== true) {
+    delete ud.sider_i_alt
+    ufuldstaendige.push('sider_i_alt')
+  }
+
   for (const [noegle, s] of Object.entries(spec)) {
     if (s.kraevet && ud[noegle] === undefined) {
       return { ok: false, fejl: { grund: 'manglende-property', detalje: noegle } }
@@ -602,6 +689,7 @@ export function rens(
     ok: true,
     renset: {
       droppedeNoegler: droppede,
+      ufuldstaendigeNoegler: ufuldstaendige,
       raekke: {
         eventName: h.navn,
         environment: k.miljoe,
@@ -621,8 +709,12 @@ export function rens(
 
 function tjekVaerdi(s: Spec, v: unknown): 'ok' | 'pii' | 'type' {
   switch (s.slags) {
-    case 'tal':
-      return typeof v === 'number' && Number.isFinite(v) ? 'ok' : 'type'
+    case 'tal': {
+      if (typeof v !== 'number' || !Number.isFinite(v)) return 'type'
+      if (s.heltal && !Number.isInteger(v)) return 'type'
+      if (s.mindst != null && v < s.mindst) return 'type'
+      return 'ok'
+    }
     case 'bool':
       return typeof v === 'boolean' ? 'ok' : 'type'
     case 'tekst': {

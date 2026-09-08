@@ -104,7 +104,7 @@ udelukkende:
 | `login_completed` | `app/udlejer/handlinger.ts`, `error === null` | `user_id` | — | Samme, plus tokens | Lav | Høj |
 | `server_action_failed` | Catch-grenene | `handling`, `fejlklasse` | — | **Fejlbeskeden** | Lav | Middel |
 
-### Klientside (5)
+### Klientside (6)
 
 | Event | Hvorfor ikke serverside | Påkrævet | Note |
 |---|---|---|---|
@@ -113,6 +113,7 @@ udelukkende:
 | `alert_started` | Et tastetryk før indsendelse | — | **Aldrig feltets indhold.** Taxonomiens eneste hensigt — se advarslen nedenfor |
 | `contact_click` | `mailto:`/`tel:` forlader siden uden at ramme os | `listing_id`, `maal` | **Aldrig adressen eller nummeret** |
 | `listing_impression` | Kræver viewport | `listing_id`, `source_slug`, `result_view_id`, `position`, `sample_andel` | Stikprøvet, kræver samtykke |
+| `search_submitted` | Serveren kan ikke se forskel på en indsendelse og et pagineringsklik | — | **Ingen properties.** Se afsnit 7b |
 
 > **`alert_started` er det eneste bløde tal i taxonomien.** Alle andre events
 > måler et udfald, serveren har set. Dette måler, at nogen begyndte at skrive.
@@ -346,6 +347,191 @@ stikprøve — men **pr. session, aldrig pr. event**.
 `search_results_view`, i kortenes links og videre til `listing_view` — er det led,
 der binder «hvad blev vist» til «hvad blev åbnet» for præcis det resultatsæt.
 Uden den kan impressions ikke dedupes.
+
+---
+
+## 7b · Paginering: to måltal, ét nyt event
+
+Nummereret paginering (48 kort pr. side, `?side=N`) betyder, at den samme
+søgning leverer resultater flere gange. Uden en ændring ville
+«søgehandlinger» vokse med antallet af sideskift.
+
+### De to måltal
+
+> **Søgehandlinger** `= count(search_submitted)` — observerede indsendelser
+> af søgeformularen.
+>
+> **Resultatvisninger** `= count(search_results_view)` — registrerede
+> resultatleveringer, uændret afgrænsning.
+
+`search` **beholder sin nuværende betydning**: én pr. render af en filtreret
+side, inklusive sideskift, reload og direkte ankomst. Den er ikke omdefineret
+og skal ikke bruges som antal søgehandlinger — hverken før eller efter
+pagineringen.
+
+### Hvorfor et nyt event og ikke en udledning
+
+En klassifikation af `search` ud fra `Referer`, filterdiffen og sidetallet
+kan beskrive **forskellen mellem to forespørgsler**. Den beviser ikke en
+formularindsendelse. To indsendelser med de samme filtre er ikke til at
+skelne fra et reload på den vej, og en indsendelse fra et bogmærke uden
+`Referer` er ikke til at skelne fra noget som helst. Derfor observeres
+handlingen dér, hvor den faktisk sker — på formularens `submit` — eller
+slet ikke.
+
+**Gentagen indsendelse med de samme filtre er stadig en indsendelse** og
+skal give et event hver gang.
+
+### search_submitted bærer ingen properties
+
+Filterkonteksten står allerede på det `search`, der følger i samme session.
+Et klientberegnet `antal_filtre` ville være et *andet* udtryk for det samme
+spørgsmål end serverens — og to udtryk for ét spørgsmål driver fra hinanden.
+Eventet er derfor tomt, som `alert_started` og `signup_started`.
+
+Det er **ikke** stikprøvet: porten i `spor()` spørger kun på
+`listing_impression`, så handlingsevents går forbi den urørt.
+
+### Valgfri metadata på de tre søgeevents
+
+| Felt | Type | Betydning |
+|---|---|---|
+| `side` | heltal ≥ 1 | Renderet sidetal. **Fraværende betyder «før pagineringen fandtes», ikke side 1** |
+| `sider_i_alt` | heltal ≥ 0 | Antal sider. **Kun når `komplet` er true** |
+| `komplet` | boolean | Nåede vi hele udbuddet igennem, eller ramte vi kandidatloftet? |
+
+**Ingen af dem er `kraevet`.** Det er kontrakten, ikke sjusk: et påkrævet
+felt, som en afsender ikke sender, dræber eventet lydløst — det kostede hver
+eneste `listing_impression` i tre uger. Gamle rækker og en halvt udrullet
+frontend skal passere `rens()` uændret.
+
+**Krydsfeltsreglen:** er `komplet` ikke udtrykkeligt `true`, droppes
+`sider_i_alt`, og eventet skrives uden det. `kortIAlt` afkortes ved
+kandidatloftet på 5.000, og så er «9 sider» ikke ni sider — det er «mindst
+ni». Siden siger allerede «mindst N kort»; målingen må ikke sige N. Droppet
+logges med sin egen grund, `ufuldstaendigt-sideantal`, så en afsenderfejl er
+synlig frem for stille.
+
+### Invarianten
+
+`count(search) = count(search_results_view) + count(empty_results)` gælder
+uændret, i sit eksisterende scope (`route = '/'`). **`search_submitted`
+indgår ikke i den** — den tæller en handling, ikke en levering.
+
+`empty_results` styres fortsat af den **eksakte** optælling fra
+`opsummering()`, som er uden loft. Aldrig af antallet af kort på den aktuelle
+side: et sidetal uden for rækkevidde giver en resultatvisning med
+`viste_antal: 0` og `result_count > 0`, og det er ikke et nulresultat.
+
+> **Rapportér ikke `empty_results / search_submitted` som andelen af tomme
+> indsendelser.** De to events har ingen dokumenteret kobling: et
+> `empty_results` kan stamme fra et bogmærke, og et `search_submitted` kan
+> ende i en cache-genvisning uden ny levering. Andelen kræver først en
+> kobling, der er målt.
+
+### position bliver global
+
+`position` er kortets plads i **hele** resultatsættet:
+`(side − 1) × 48 + lokalPosition`. Side 2 begynder derfor på 49. Historikken
+er upåvirket, fordi alt før pagineringen er side 1, hvor global og lokal er
+det samme tal. Sidelokal position kan altid genskabes som
+`position − (side − 1) × 48`.
+
+### bfcache — den eksisterende begrænsning
+
+En tilbage/frem-navigation, browseren serverer fra bfcache, sender **intet
+request**. Der kommer hverken `search`, `search_results_view` eller
+`search_submitted`, og det er rigtigt: der var ingen indsendelse.
+Resultatvisninger underrapporterer derfor tilbage/frem, og det er det
+ærlige alternativ til et gæt.
+
+Klientens `sendte`-Set overlever en bfcache-genvisning i samme JS-kontekst,
+så allerede sendte impressions gentages ikke. **Det er ikke det samme som
+«ingen flere impressions»:** kort, brugeren ikke havde set før, kan blive
+synlige efter genvisningen og give helt normale impressions under det
+`result_view_id`, siden blev renderet med.
+
+Der tilføjes **ingen** `pageshow`-baseret visningsmåling her.
+
+### Afleveringskontrakt til Frontend
+
+Analytics-siden er komplet og additiv: intet `search_submitted` fyrer, før
+Frontend kobler formularen på. Indtil da er eventet defineret, valideret og
+prøvet, men uden afsender.
+
+**Hvor lytteren hører hjemme.** `app/Maaling.tsx` har allerede
+document-lyttere for `toggle` (`filter_opened`) og `input` (`alert_started`).
+`submit` hører samme sted — ikke i formularens markup:
+
+```
+document.addEventListener('submit', (e) => {
+  const f = e.target as HTMLElement | null
+  if (f?.matches?.('form.filtre')) {
+    laeg({ navn: 'search_submitted', props: {}, rute }, `sub:${++n}`)
+  }
+}, true)
+```
+
+Syv krav, og hvorfor:
+
+1. **Lyt på formularens `submit`, ikke på knappens `click`.** `submit` dækker
+   både «Søg» og Enter i et tekstfelt, og den fyrer **én** gang for begge.
+   En `click`-lytter ville misse Enter og skulle dedupe mod `submit`.
+2. **Nøglen skal være unik pr. indsendelse.** `laeg()` dedupliker på et
+   modulglobalt `Set`; en fast nøgle ville lade den *anden* indsendelse med
+   de samme filtre forsvinde. En tæller er nok — se `sub:${++n}` ovenfor.
+   **Gentagen indsendelse med samme filtre er stadig en indsendelse.**
+3. **En afvist eller annulleret indsendelse tæller ikke.** `submit` fyrer
+   ikke, når HTML-validering fejler. Kalder en anden handler
+   `preventDefault()`, skal lytteren respektere det — læs `e.defaultPrevented`
+   sidst i rækken, eller lyt uden `capture`.
+4. **Paginering, reload og tilbage/frem rører ikke lytteren.** «Næste» og
+   «Forrige» er almindelige `<a>`-links; de udløser ingen `submit`. Der skal
+   ikke skrives kode for at undgå dem — kun ikke skrives kode, der fanger dem.
+5. **Afsendelsen må ikke forsinke søgningen.** `laeg()` lægger i en kø og
+   returnerer; køen tømmes med `sendBeacon` på `pagehide`, som overlever, at
+   siden lukkes. Kald **aldrig** `preventDefault()` for at nå at sende, og
+   `await` ingenting i lytteren.
+6. **Uden samtykke sendes intet.** Effekten i `Maaling` kobler kun lytterne
+   på, når `aktiv` er sand, og `aktiv` er allerede afledt af samtykke og
+   identitet. Der skal ingen ny kontrol til — og ingen ny cookie.
+7. **Ingen properties.** Send `{}`. Ikke feltantal, ikke søgetekst, ikke
+   sorteringen.
+
+**Udestående, som Frontend skal måle — ikke gætte.** Den første indsendelse
+umiddelbart efter «Tillad statistik» er uafklaret. `saetSamtykke` sætter
+**kun** samtykkecookien; `bofinda_aid` og `bofinda_sid` sættes af middleware
+ved næste request. Om server action'ens egen genrendering allerede giver
+`aktiv: true` — middleware kører på den vej og skriver identifikatorerne ind
+i requestet — er **ikke efterprøvet**.
+
+- Gør den det, måles første indsendelse normalt.
+- Gør den det ikke, tabes netop den ene indsendelse, indtil siden er
+  renderet én gang mere.
+
+**Det andet udfald er acceptabelt og skal ikke omgås.** En ny cookie, en
+klientside-identitet eller en afsendelse uden identifikator ville alle bryde
+samtykkemodellen for at redde ét event. Måles det og viser sig at være et
+problem, er svaret en ændring i `Maaling`s afhængighed af `aktiv` — beskrevet
+og godkendt, ikke skjult.
+
+**Den virkelige browsertilkobling er ikke bevist, før Frontend har
+implementeret og testet den.** Analytics' prøver dækker kontrakten —
+validering, allowlist, pipeline, samtykkegrænse, aggregat — ikke at en
+`submit`-lytter faktisk fyrer i en browser.
+
+**Frontends øvrige forpligtelser** ved samme lejlighed: `?side=N` må
+**aldrig** ind i `Filtre` eller `harFiltre` — så ville `/?side=2` alene gøre
+forsiden til en søgning; `side` nulstilles til 1, når filtre eller sortering
+ændres; `position` sendes som `(side − 1) × 48 + i + 1`; og `sider_i_alt`
+sendes **kun** sammen med `komplet: true`.
+
+### Introduktionen af måltallet
+
+`search_submitted` findes fra den release, hvor Frontend kobler formularen
+på. **Historiske rækker må aldrig efterrationaliseres som observerede
+indsendelser**, og datoen skrives ind her, når releasen faktisk sker — ikke
+før.
 
 ---
 
