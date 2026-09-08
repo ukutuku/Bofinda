@@ -746,6 +746,15 @@ form.filtre.soegt .storsoeg button { padding: 11px 20px; font-size: 14.5px; bord
   color: var(--accent); margin-top: 2px;
 }
 .gruppekort:hover .gruppe-flere { text-decoration: underline; }
+/* Det blandede gruppekort. Ikke en advarsel — en praecisering af, hvad
+   tallene ved siden af daekker. Derfor sidens daempede farve og ikke
+   ravgul: der mangler ingen oplysning, den gaelder bare flere boliger,
+   end soegningen spurgte om. Tallet selv staar i fuld kontrast, saa det
+   kan ses uden at linjen raaber. */
+.gruppe-match {
+  font-size: 12.5px; color: var(--daempet); line-height: 1.45; margin-top: 3px;
+}
+.gruppe-match strong { color: var(--tekst); font-weight: 640; }
 
 /* Gruppesiden */
 .gruppe-manchet {

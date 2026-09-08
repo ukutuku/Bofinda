@@ -712,11 +712,15 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
 
       {visninger.length === 0 ? (
         <div className="tom">
-          <p>Ingen boliger matcher.</p>
+          {/* «Ingen boliger matcher» er en PAASTAND om hele saettet. Den maa
+              kun staa, naar vi har set hele saettet. Rammer kandidatloftet,
+              har vi holdt op med at lede — og saa er nul ikke et svar, det
+              er et sted vi stoppede. */}
+          <p>{komplet ? 'Ingen boliger matcher.' : 'Vi fandt ingen match i den del af udbuddet, vi nåede at gennemgå.'}</p>
           {/* «Nulstil» bor inde i panelet, og panelet er lukket. Uden det
               her peger vejledningen paa en knap, der ikke er paa skaermen. */}
           <p>
-            Prøv at fjerne et filter
+            {komplet ? 'Prøv at fjerne et filter' : 'Indsnævr søgningen, så vi kan nå hele vejen igennem'}
             {soegt && <> — eller <a href="/">nulstil søgningen</a></>}.
           </p>
         </div>

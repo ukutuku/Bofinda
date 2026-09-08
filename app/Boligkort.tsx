@@ -409,6 +409,30 @@ export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?
         {blandetAnsoegning && <div className="el">{blandetAnsoegning}</div>}
         {delvisReserveret && <div className="el">{delvisReserveret}</div>}
 
+        {/* ── Det blandede kort ─────────────────────────────────
+            Kortet staar i listen, fordi MINDST ét medlem matcher — det er
+            gruppens regel, og den er uaendret. Men saa maa kortet ikke
+            lade de oevrige tal tale som om de ogsaa gjorde det:
+            `antal`, prisspaendet og arealspaendet gaelder hele gruppen.
+
+            Maalt paa syntetiske data: fire boliger, hvor kun den dyreste
+            kunne overtages nu. Kortet skrev «4 boliger» og
+            «9.000–21.000 kr/md» — og de 9.000 hoerte til en bolig, der
+            ikke matchede. Linjen her er svaret paa det.
+
+            Vises kun, naar der ER filtreret paa domaenet OG gruppen er
+            blandet. Er alle medlemmer med, er der intet at tage forbehold
+            for, og en linje ville vaere stoej. Linjerne ovenfor bliver
+            staaende: de navngiver AKSEN («1 af 2 reserveret»), mens den
+            her svarer paa hele soegningen — ogsaa naar to filtre er sat,
+            hvor ingen enkelt akse kan svare. */}
+        {g.matchende != null && g.matchende < g.antal && (
+          <div className="gruppe-match">
+            <strong>{g.matchende} af {g.antal}</strong> boliger matcher din
+            søgning. Pris og areal dækker alle {g.antal}.
+          </div>
+        )}
+
         <div className="oekonomi-linje">
           <div className={n.total ? 'kort-pris' : 'kort-pris kun-leje'}>
             {spredt
@@ -448,7 +472,13 @@ export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?
                 : g.alleUdenElHarEgenMaaler ? 'egen-maaler' : 'ikke-med'
           } />
 
-          <div className="gruppe-flere">Se de {g.antal} adresser →</div>
+          {/* «alle», naar kortet er blandet: linket foerer til hele
+              gruppen, ikke til de matchende. Det skal staa foer klikket,
+              ikke opdages efter. */}
+          <div className="gruppe-flere">
+            Se {g.matchende != null && g.matchende < g.antal ? 'alle ' : 'de '}
+            {g.antal} adresser →
+          </div>
 
           {/* Kun naar posterne er ens i hele gruppen. Ellers ville
               repraesentantens saet staa som om det var alles. */}

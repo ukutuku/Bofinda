@@ -610,6 +610,23 @@ export interface Gruppe {
   alleUdenElHarEgenMaaler: boolean
   /** Har MINDST én af dem en aconto, vi ikke kender indholdet af? */
   nogenUkendtDaekning: boolean
+  /**
+   * Hvor mange af gruppens boliger opfylder soegningens DOMAENEFILTRE?
+   *
+   * `null`, naar der ikke er filtreret paa dem — saa er spoergsmaalet
+   * ikke stillet, og kortet skal ikke svare paa det.
+   *
+   * Er tallet mindre end `antal`, er kortet et BLANDET kort: det staar i
+   * listen, fordi mindst ét medlem matcher, men `antal`, prisspaendet og
+   * arealspaendet gaelder stadig hele gruppen. Uden tallet ville et kort
+   * under «kan overtages nu» kunne skrive «fra 9.000 kr» om en bolig, der
+   * ikke kan overtages nu — maalt paa syntetiske data: 4 boliger, én
+   * matchede, og den billigste af de tre andre foerte prisen.
+   *
+   * Medlemsskabet er UROERT. Det her er et tal om gruppen, ikke en ny
+   * gruppe.
+   */
+  matchende: number | null
   /** Har ALLE i gruppen den samme bolig hos en anden kilde? */
   alleOgsaaAndetsteds: boolean
   nyesteMarkedet: Date
@@ -667,6 +684,18 @@ async function korteneFor(ider: string[]): Promise<Map<string, Bolig>> {
  * findes for at rette.
  */
 const GRUPPEKANDIDATER = 5000
+
+/**
+ * Loftet kan saenkes AF PROEVER — aldrig af konfiguration.
+ *
+ * Et loft, ingen har set fyre, er ikke et loft. At saa 5.000 grupper for
+ * at naa det ville tage minutter og prøve noget andet end reglen. Samme
+ * greb som `indsaetBase` og `_saetKontekst`: en seam, produktionen aldrig
+ * roerer, saa produktionens tal staar urørt i `GRUPPEKANDIDATER`.
+ */
+let _proeveloft: number | null = null
+export function _saetGruppeloft(n: number | null) { _proeveloft = n }
+const gruppeloft = () => _proeveloft ?? GRUPPEKANDIDATER
 
 /** Listen som den vises, og de tal der beskriver den. */
 export interface Grupperet {
@@ -795,10 +824,10 @@ export async function soegGrupperet(
     // Uden domaenefilter kan SQL afgoere alt, og top-N i basen er baade
     // rigtigt og billigst — uaendret fra foer. MED domaenefilter kan den
     // ikke, og saa skal hele kandidatsaettet med op, foer der skaeres.
-    .limit(domaene ? GRUPPEKANDIDATER : graense)
+    .limit(domaene ? gruppeloft() : graense)
 
   // Kandidatloftet ramt? Saa er alt herunder et mindstetal.
-  const komplet = !domaene || raekker.length < GRUPPEKANDIDATER
+  const komplet = !domaene || raekker.length < gruppeloft()
 
   // Medlemmernes availability, fortolket enkeltvis. ALLE medlemmer, ogsaa
   // naar et filter kun rammer nogle af dem: `sammenfatGruppe` skal taelle
@@ -828,11 +857,22 @@ export async function soegGrupperet(
   //    raekke kan have flere medlemmer og alligevel staa alene (alle
   //    priser ukendte), og saa maa et matchende medlem ikke traekke en
   //    ikke-matchende repraesentant med ind.
+  // Hvor mange medlemmer matcher? `filter().length` i stedet for
+  // `.some()` — samme praedikat, samme pris, og tallet skal med ud paa
+  // kortet. `some()` svarede kun paa «skal kortet vises?»; brugeren
+  // spurgte ogsaa «hvor mange af dem er det saa?».
+  const antalMatchende = new Map<string, number>()
   const matchende = !domaene ? raekker : raekker.filter((r) => {
     const m = medlemmerAf(r)
-    if (erGruppekort(r)) return m.some((x) => matcherDomaene(f, x.a))
+    if (erGruppekort(r)) {
+      const n = m.filter((x) => matcherDomaene(f, x.a)).length
+      antalMatchende.set(r.repraesentant, n)
+      return n > 0
+    }
     const rep = m.find((x) => x.id === r.repraesentant)
-    return rep != null && matcherDomaene(f, rep.a)
+    const traf = rep != null && matcherDomaene(f, rep.a)
+    antalMatchende.set(r.repraesentant, traf ? 1 : 0)
+    return traf
   })
 
   // FOERST her skaeres udsnittet — og kortfelterne hentes kun for de kort,
@@ -873,6 +913,7 @@ export async function soegGrupperet(
         nogenUkendtDaekning: r.nogenUkendtDaekning ?? false,
         alleOgsaaAndetsteds: r.alleOgsaaAndetsteds ?? false,
         nyesteMarkedet: new Date(r.nyesteMarkedetMs),
+        matchende: domaene ? (antalMatchende.get(r.repraesentant) ?? 0) : null,
       },
     })
   }

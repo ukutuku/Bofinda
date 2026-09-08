@@ -23,14 +23,22 @@
 //  Driver de fra hinanden, er det dét, prøven skal fange.
 // ═══════════════════════════════════════════════════════════════
 
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { eq, inArray } from 'drizzle-orm'
 import { db } from '../db/client'
 import { crawlRuns, listings, sources } from '../db/schema'
+import { Gruppekort } from '../app/Boligkort'
 import {
-  antalBoliger, availabilityFor, filtreFraParametre, matcherDomaene,
+  _saetGruppeloft, antalBoliger, availabilityFor, filtreFraParametre,
+  gruppenoegleFraBolig, hentGruppe, matcherDomaene,
   opsummering, soegGrupperet, type Filtre,
 } from '../lib/soeg'
 import { KILDEKONTRAKTER } from '../lib/kildekontrakt'
+
+/** Kortets synlige tekst — det brugeren faktisk læser. */
+const kortTekst = (el: Parameters<typeof renderToStaticMarkup>[0]) =>
+  renderToStaticMarkup(el).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 
 let fejl = 0
 const tjek = (navn: string, ok: boolean, note = '') => {
@@ -430,6 +438,209 @@ async function koer() {
       if ((s.antal === 0) !== (g.kortIAlt === 0)) uenige++
     }
     tjek('9 · ti søgninger: aldrig «N boliger» over en tom liste', uenige === 0)
+  }
+
+  // ═══ 10 · Blandede gruppekort ═══
+  //
+  // Kortet står i listen, fordi MINDST ét medlem matcher — gruppens regel
+  // er uændret. Men så må de øvrige tal ikke tale, som om de også gjorde.
+  console.log('\n══ 10 · blandet gruppekort: hvad står der faktisk ══')
+  await saa([
+    { navn: 'bl-dyr-nu', vej: 'Blandvej', husnr: '1', postnr: '6000', by: 'Prøveby',
+      vaerelser: 3, areal: 90, leje: 2_000_000, total: 2_100_000,
+      fakta: { sourceAvailabilityDate: FORTID }, alder: 600 },
+    { navn: 'bl-billig-1', vej: 'Blandvej', husnr: '2', postnr: '6000', by: 'Prøveby',
+      vaerelser: 3, areal: 50, leje: 800_000, total: 900_000,
+      fakta: { sourceAvailabilityDate: FREMTID }, alder: 599 },
+    { navn: 'bl-billig-2', vej: 'Blandvej', husnr: '3', postnr: '6000', by: 'Prøveby',
+      vaerelser: 3, areal: 55, leje: 850_000, total: 950_000,
+      fakta: { sourceAvailabilityDate: FREMTID }, alder: 598 },
+    { navn: 'bl-ukendt', vej: 'Blandvej', husnr: '4', postnr: '6000', by: 'Prøveby',
+      vaerelser: 3, areal: 60, leje: 900_000, total: 1_000_000,
+      fakta: {}, alder: 597 },
+  ])
+  {
+    const f = filtreFraParametre({ postnr: '6000', overtagelse: 'nu' })
+    const g = await soegGrupperet(f, 48, nu)
+    const s = await opsummering(f, nu)
+    const v = g.visninger[0]
+    tjek('10A · gruppen vises, fordi ét medlem matcher',
+      g.kortIAlt === 1 && v?.slags === 'gruppe')
+    if (v?.slags === 'gruppe') {
+      const gr = v.gruppe
+      tjek('10A · gruppemedlemskabet er UÆNDRET — alle fire er med',
+        gr.antal === 4)
+      tjek('10A · matchende er talt og er 1', gr.matchende === 1)
+      tjek('10A · prisintervallet dækker stadig hele gruppen',
+        gr.prisMin === 900_000 && gr.prisMax === 2_100_000,
+        `${gr.prisMin}–${gr.prisMax}`)
+      tjek('10A · arealspændet ligeså', gr.arealMin === 50 && gr.arealMax === 90)
+      tjek('10A · availability-tællingerne går op med antal',
+        gr.availability.timing.nu === 1 && gr.availability.timing.senere === 2
+        && gr.availability.timing.unknown === 1)
+      const t = kortTekst(createElement(Gruppekort, { g: gr, nu }))
+      tjek('10A · kortet siger hvor mange der matcher',
+        t.includes('1 af 4 boliger matcher din søgning'), t.slice(0, 150))
+      tjek('10A · og at prisen dækker alle fire',
+        t.includes('Pris og areal dækker alle 4'))
+      tjek('10A · linket siger ALLE adresser, ikke bare «de»',
+        t.includes('Se alle 4 adresser'))
+      // Den billigste bolig matcher IKKE. Uden linjen ovenfor ville
+      // «9.000 kr» læses som en bolig, der kan overtages nu.
+      tjek('10A · den billigste i intervallet matcher ikke — derfor linjen',
+        gr.prisMin === 900_000 && gr.matchende === 1)
+      // Hvad kommer brugeren frem til efter klik?
+      const noegle = await gruppenoegleFraBolig(gr.repraesentant.id)
+      const efterKlik = noegle ? await hentGruppe(noegle) : []
+      tjek('10A · efter klik ses hele gruppen — og kortet sagde det',
+        efterKlik.length === 4 && t.includes('Se alle 4 adresser'),
+        `${efterKlik.length} boliger`)
+    }
+    tjek('10A · matchende BOLIGER er 1, ikke 4', s.antal === 1)
+  }
+
+  // 10B · To filtre, ingen enkelt bolig opfylder begge.
+  console.log('\n══ 10B · to filtre, ingen bolig opfylder begge ══')
+  await saa([
+    { navn: 'to-nu', vej: 'Tovej', husnr: '1', postnr: '6100', by: 'Prøveby',
+      vaerelser: 2, leje: 1_000_000,
+      fakta: { sourceAvailabilityDate: FORTID, rawApplicationType: 'Regular' }, alder: 610 },
+    { navn: 'to-vent', vej: 'Tovej', husnr: '2', postnr: '6100', by: 'Prøveby',
+      vaerelser: 2, leje: 1_100_000,
+      fakta: { sourceAvailabilityDate: FREMTID, rawApplicationType: 'WaitingList' }, alder: 609 },
+  ])
+  {
+    const kun1 = await soegGrupperet(filtreFraParametre({ postnr: '6100', overtagelse: 'nu' }), 48, nu)
+    const kun2 = await soegGrupperet(filtreFraParametre({ postnr: '6100', venteliste: '1' }), 48, nu)
+    const begge = filtreFraParametre({ postnr: '6100', overtagelse: 'nu', venteliste: '1' })
+    const b = await soegGrupperet(begge, 48, nu)
+    const sb = await opsummering(begge, nu)
+    tjek('10B · hvert filter for sig giver gruppen', kun1.kortIAlt === 1 && kun2.kortIAlt === 1)
+    tjek('10B · begge filtre giver INTET — ingen bolig opfylder hele søgningen',
+      b.kortIAlt === 0 && b.visninger.length === 0, `${b.kortIAlt} kort`)
+    tjek('10B · og optællingen er også nul', sb.antal === 0)
+    tjek('10B · facit er enig', facit(begge, nu).kort === 0 && facit(begge, nu).boliger === 0)
+  }
+
+  // 10C · Ukendt status bliver ikke et positivt match.
+  console.log('\n══ 10C · ukendt status ved siden af en matchende ══')
+  await saa([
+    { navn: 'uk-res', vej: 'Ukendtvej', husnr: '1', postnr: '6200', by: 'Prøveby',
+      vaerelser: 2, leje: 1_000_000, fakta: { rawStatus: 'Reserveret' }, alder: 620 },
+    { navn: 'uk-ukendt', vej: 'Ukendtvej', husnr: '2', postnr: '6200', by: 'Prøveby',
+      vaerelser: 2, leje: 1_050_000, fakta: {}, alder: 619 },
+  ])
+  {
+    const f = filtreFraParametre({ postnr: '6200', reserveret: '1' })
+    const g = await soegGrupperet(f, 48, nu)
+    const s = await opsummering(f, nu)
+    const v = g.visninger[0]
+    tjek('10C · den ukendte tæller IKKE som match', s.antal === 1 && facit(f, nu).boliger === 1)
+    if (v?.slags === 'gruppe') {
+      const gr = v.gruppe
+      tjek('10C · matchende er 1 af 2', gr.matchende === 1 && gr.antal === 2)
+      tjek('10C · markedsstatus: én reserveret, én ukendt',
+        gr.availability.marked.reserveret === 1 && gr.availability.marked.unknown === 1)
+      const t = kortTekst(createElement(Gruppekort, { g: gr, nu }))
+      tjek('10C · kortet siger det', t.includes('1 af 2 boliger matcher din søgning'))
+      tjek('10C · og mærkatet «reserveret» står IKKE, fordi det ikke gælder alle',
+        !t.includes('reserveret Sonde') && t.includes('1 af 2 reserveret'))
+    }
+  }
+
+  // 10D · Er hele gruppen med, skal linjen IKKE stå.
+  console.log('\n══ 10D · en gruppe hvor alle matcher ══')
+  await saa([
+    { navn: 'alle-1', vej: 'Allevej', husnr: '1', postnr: '6300', by: 'Prøveby',
+      vaerelser: 2, leje: 1_000_000, fakta: { sourceAvailabilityDate: FORTID }, alder: 630 },
+    { navn: 'alle-2', vej: 'Allevej', husnr: '2', postnr: '6300', by: 'Prøveby',
+      vaerelser: 2, leje: 1_100_000, fakta: { sourceAvailabilityDate: FORTID }, alder: 629 },
+  ])
+  {
+    const f = filtreFraParametre({ postnr: '6300', overtagelse: 'nu' })
+    const g = await soegGrupperet(f, 48, nu)
+    const v = g.visninger[0]
+    if (v?.slags === 'gruppe') {
+      const t = kortTekst(createElement(Gruppekort, { g: v.gruppe, nu }))
+      tjek('10D · matchende == antal', v.gruppe.matchende === 2 && v.gruppe.antal === 2)
+      tjek('10D · ingen forbeholdslinje, når intet er blandet',
+        !t.includes('matcher din søgning'), t.slice(0, 120))
+      tjek('10D · og linket siger «de», ikke «alle»', t.includes('Se de 2 adresser'))
+    }
+    // Uden domænefilter stilles spørgsmålet slet ikke.
+    const uden = await soegGrupperet(filtreFraParametre({ postnr: '6300' }), 48, nu)
+    const u = uden.visninger[0]
+    tjek('10D · uden domænefilter er matchende null — spørgsmålet er ikke stillet',
+      u?.slags === 'gruppe' && u.gruppe.matchende === null)
+    if (u?.slags === 'gruppe') {
+      tjek('10D · og kortet nævner det ikke',
+        !kortTekst(createElement(Gruppekort, { g: u.gruppe, nu })).includes('matcher din søgning'))
+    }
+  }
+
+  // ═══ 11 · Kandidatloftet ═══
+  //
+  // Loftet sænkes gennem prøvesædet, aldrig gennem konfiguration.
+  console.log('\n══ 11 · kandidatloftet ══')
+  {
+    const f = filtreFraParametre({ postnr: '2000', overtagelse: 'nu' })   // 55 matchende kort
+    // Under loftet: alt er med, og svaret er komplet.
+    _saetGruppeloft(1000)
+    const under = await soegGrupperet(f, 48, nu)
+    tjek('11 · under loftet: komplet og fuldt antal',
+      under.komplet === true && under.kortIAlt === 55)
+    // Præcis PÅ loftet: vi kan ikke vide, om der var flere.
+    _saetGruppeloft(55)
+    const paa = await soegGrupperet(f, 48, nu)
+    tjek('11 · præcis på loftet: komplet er FALSK — vi kan ikke vide om der var flere',
+      paa.komplet === false, `kortIAlt=${paa.kortIAlt}`)
+    // Over loftet: afkortet.
+    _saetGruppeloft(20)
+    const over = await soegGrupperet(f, 48, nu)
+    tjek('11 · over loftet: afkortet og ikke komplet',
+      over.komplet === false && over.kortIAlt === 20)
+    tjek('11 · et delvist antal er mindre end det sande',
+      over.kortIAlt < 55)
+    _saetGruppeloft(null)
+    const fri = await soegGrupperet(f, 48, nu)
+    tjek('11 · loftet slippes igen', fri.komplet === true && fri.kortIAlt === 55)
+  }
+
+  // 11B · DEN VIGTIGSTE: intet match før loftet, mindst ét efter.
+  console.log('\n══ 11B · intet match før loftet, mindst ét efter ══')
+  {
+    // 60 «Støjvej»-boliger i 1000 matcher ikke; 6 «Guldvej» gør. De 60 er
+    // nyest, så med et loft på 30 nås ingen af de matchende.
+    const f = filtreFraParametre({ postnr: '1000', overtagelse: 'nu' })
+    _saetGruppeloft(30)
+    const g = await soegGrupperet(f, 48, nu)
+    const s = await opsummering(f, nu)
+    tjek('11B · kortsættet er tomt', g.kortIAlt === 0 && g.visninger.length === 0)
+    tjek('11B · men komplet er FALSK — nul er ikke et svar her',
+      g.komplet === false)
+    tjek('11B · optællingen er IKKE afkortet og finder de seks',
+      s.antal === 6, `${s.antal}`)
+    tjek('11B · optællingens økonomital er derfor heller ikke afkortede',
+      s.billigst != null && s.dyrest != null && s.medTotal >= 0)
+    // empty_results fyrer på `sum.antal === 0` (app/page.tsx). Den er
+    // uafkortet, så et sikkert nulresultat kan ikke registreres her.
+    tjek('11B · empty_results ville IKKE fyre — sum.antal er 6, ikke 0',
+      s.antal !== 0)
+    _saetGruppeloft(null)
+    const fri = await soegGrupperet(f, 48, nu)
+    tjek('11B · uden loft findes de seks', fri.kortIAlt === 6 && fri.komplet === true)
+  }
+
+  // 11C · Et ægte nul skal stadig være et ægte nul.
+  console.log('\n══ 11C · ægte nul ved fuldt gennemgået sæt ══')
+  {
+    const f = filtreFraParametre({ postnr: '1000', venteliste: '1' })
+    _saetGruppeloft(1000)
+    const g = await soegGrupperet(f, 48, nu)
+    const s = await opsummering(f, nu)
+    tjek('11C · nul OG komplet — «Ingen boliger matcher» må stå',
+      g.kortIAlt === 0 && g.komplet === true && s.antal === 0)
+    _saetGruppeloft(null)
   }
 
   // ─── Oprydning ───────────────────────────────────────────────
