@@ -11,3 +11,6 @@ logs/
 
 # databasedumps — indeholder adgangskode-hashes
 backup/
+
+# Cloud-testmiljøets skærmbilleder — output, ikke kildekode.
+skaermbilleder/
