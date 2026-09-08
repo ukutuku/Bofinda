@@ -1,5 +1,5 @@
 import {
-  antalBoliger, facilitetsgrundlag, filtreFraParametre, harFiltre, oekonomigrundlag,
+  facilitetsgrundlag, filtreFraParametre, harFiltre, oekonomigrundlag,
   tavseKilder,
   availabilityGrundlag, opsummering, soegGrupperet, type Soegeparametre,
 } from '../lib/soeg'
@@ -101,25 +101,30 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // ReferenceNow: ét eksplicit nu pr. request, brugt af BAADE soegning,
   // kort og grundlag — saa alle laeser samme klokke.
   const nu = new Date()
-  const visninger = await soegGrupperet(f, 48, nu)
+  // Tre forskellige tal, og de maa ikke bruges som ét:
+  //  · `sum.antal`            matchende BOLIGER
+  //  · `kortIAlt`             matchende KORT efter gruppering
+  //  · `visninger.length`     kort i det viste udsnit
+  //  · `antalBoliger(...)`    boliger daekket af det viste udsnit
+  // `nu` gives til dem alle, saa domaenefiltrene laeser samme klokke.
+  const { visninger, kortIAlt, komplet } = await soegGrupperet(f, 48, nu)
   const avGrundlag = await availabilityGrundlag(f, nu)
-  const sum = await opsummering(f)
+  const sum = await opsummering(f, nu)
   // Grundlaget under afkrydsningerne skal beskrive søgningen UDEN de tre
   // facilitetsfiltre. Er ingen af dem sat, er det ordret samme forespørgsel
   // som `sum` — og så koster tallene ingenting. Er en sat, er det én
   // forespørgsel mere (~75 ms), og det er netop dér, hun har brug for at se,
   // hvad filteret skjuler.
   const facFiltre = f.kaeledyr || f.elevator || f.udeplads
-  const grundlag = facFiltre ? await facilitetsgrundlag(f) : sum
+  const grundlag = facFiltre ? await facilitetsgrundlag(f, nu) : sum
   // Kun naar hun faktisk har krydset af. Uden et filter er linjen en
   // advarsel mod noget, hun ikke har gjort.
   const tavse = facFiltre ? await tavseKilder(f) : { navne: [], antal: 0 }
   // Samme kneb: er filteret ikke sat, er det ordret samme forespørgsel som
   // `sum`, og så koster grundlagslinjen ingenting.
-  const oek = f.fuldOekonomi ? await oekonomigrundlag(f) : sum
+  const oek = f.fuldOekonomi ? await oekonomigrundlag(f, nu) : sum
   const fac = await facetterCached()
   const tal = await forsidetalCached()
-  const vist = antalBoliger(visninger)
   // To variabler, to spoergsmaal. `sted` er hvad der skal staa i feltet,
   // saa en NY indsendelse betyder det samme som nu; `stedNavn` er hvor hun
   // soeger. De falder fra hinanden i én sti, og det er en rigtig sti:
@@ -658,9 +663,25 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
 
         {/* Tallet er BOLIGER, ikke kort. Et gruppekort daekker flere, og
             "viser 48 af 904" ville vaere forkert paa begge maader. */}
-        {sum.antal > vist && (
+        {/* TO uafhaengige udsagn, ikke én broek. Kort af kort er en aegte
+            del/helhed; boliger staar for sig.
+
+            Foer parrede linjen `antalBoliger(visninger)` med `sum.antal`,
+            som om det foerste var en delmaengde af det andet. Uden
+            domaenefilter er det ogsaa — men MED et er det ikke: et
+            gruppekort vises, naar bare ét medlem matcher, saa de viste
+            kort daekker ogsaa boliger, der ikke goer. Paa `?reserveret=1`
+            stod der «194 af 151 boliger».
+
+            `komplet` er falsk, hvis kandidatloftet blev ramt. Saa maa der
+            ikke staa et tal, der lader som om det er alt. */}
+        {kortIAlt > visninger.length && (
           <p className="begraensning">
-            Viser de {vist} nyeste af {sum.antal}. Brug filtrene for at indsnævre.
+            Viser de {visninger.length} nyeste af{' '}
+            {komplet ? kortIAlt.toLocaleString('da-DK') : `mindst ${kortIAlt.toLocaleString('da-DK')}`}
+            {' '}kort — {sum.antal.toLocaleString('da-DK')}{' '}
+            {sum.antal === 1 ? 'bolig matcher' : 'boliger matcher'} søgningen.
+            {' '}Brug filtrene for at indsnævre.
           </p>
         )}
 

@@ -299,7 +299,7 @@ async function main() {
   await tjekProd('ingen kilde har alle 48 kort på forsiden',
     async () => {
       const m = new Map<string, number>()
-      for (const v of await soegGrupperet({})) {
+      for (const v of (await soegGrupperet({})).visninger) {
         const bo = v.slags === 'gruppe' ? v.gruppe.repraesentant : v.bolig
         const k = String((bo as Record<string, unknown>).kilde ?? '?')
         m.set(k, (m.get(k) ?? 0) + 1)
@@ -1400,7 +1400,7 @@ async function main() {
       return b
     }
     const kortPaaVejen = async () => {
-      const v = await soegGrupperet({ postnr: POSTNR }, 500)
+      const v = (await soegGrupperet({ postnr: POSTNR }, 500)).visninger
       return v.filter((x) => (x.slags === 'gruppe'
         ? x.gruppe.noegle.vej : x.bolig.vej) === VEJ)
     }

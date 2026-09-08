@@ -64,7 +64,7 @@ export default async function Side({ params }: { params: Promise<{ slug: string 
   // Efter hinanden, ikke i Promise.all — se noten i app/page.tsx.
   const s = await statistik(o)
   const nu = new Date()
-  const visninger = await soegGrupperet(filterFor(o), 48, nu)
+  const { visninger } = await soegGrupperet(filterFor(o), 48, nu)
   const nabo = await naboer(o)
   // Kort er ikke boliger: ens boliger paa samme vej staar som ét kort.
   const vist = antalBoliger(visninger)

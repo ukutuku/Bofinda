@@ -651,14 +651,66 @@ async function korteneFor(ider: string[]): Promise<Map<string, Bolig>> {
 }
 
 /**
+ * Sikkerhedsloft for KANDIDATER, naar domaenet skal filtrere. Kun da —
+ * uden domaenefilter afgoer SQL alt, og `limit(graense)` er baade rigtigt
+ * og billigst.
+ *
+ * 5.000 GRUPPER mod 985 i hele bestanden i dag. Loftet er ikke en
+ * optimering: gruppeforespoergslen bygger alligevel hver eneste gruppe,
+ * foer den kan sortere paa `min(PRIS)` og `max(NYHEDSDATO)`, saa
+ * `limit(985)` maaler det samme som `limit(48)` (51,5 mod 50,8 ms).
+ * Loftet er et vaern mod en dag, hvor bestanden er femdoblet, og det er
+ * det eneste, det er.
+ *
+ * Bliver det ramt, siger `komplet: false`. Et loft, der stiltiende
+ * afkorter en optaelling, ville lyve praecis som den fejl, det her
+ * findes for at rette.
+ */
+const GRUPPEKANDIDATER = 5000
+
+/** Listen som den vises, og de tal der beskriver den. */
+export interface Grupperet {
+  /** Det viste udsnit — hoejst `graense` kort. */
+  visninger: Visning[]
+  /** Matchende KORT i alt, efter domaenefilteret. Ikke det samme som
+   *  boliger, og ikke det samme som `visninger.length`. */
+  kortIAlt: number
+  /** false, hvis kandidatloftet blev ramt. Saa er `kortIAlt` et
+   *  mindstetal, ikke en total. */
+  komplet: boolean
+}
+
+/**
  * Listen, som den vises: enkelte boliger og grupper mellem hinanden.
  *
  * `graense` tæller KORT, ikke boliger. Ellers ville én gruppe på femten
  * spise en tredjedel af siden og efterlade plads til 33 andre.
+ *
+ * ── DOMAENEFILTERET AFGOERES FOER UDSNITTET ────────────────────
+ * Foer stod `.limit(graense)` i SQL'en, og domaenefiltrene — overtagelse,
+ * ansoegningsform, markedsstatus — blev anvendt bagefter i JS paa de
+ * raekker, der var tilbage. De kan ikke oversaettes til SQL, saa den
+ * raekkefoelge betoed, at et kort kun kunne findes, hvis det i forvejen
+ * laa blandt de 48 foerste i den UFILTREREDE sortering.
+ *
+ * Maalt paa produktionen 8. september 2026:
+ *
+ *   overtagelse=nu        0 kort vist   ·  139 matchede
+ *   overtagelse=senere    2             ·  401
+ *   venteliste            9             ·   52
+ *   reserveret            6             ·  103
+ *
+ * «Ingen boliger matcher» om 139 kort, mens filterpanelets egen
+ * grundlagslinje samtidig skrev «146 har oplyst overtagelse nu».
+ *
+ * `soeg()` har loest det samme problem hele tiden ved at hente bredt og
+ * skaere i JS bagefter. Den loesning var aldrig kopieret herover — to
+ * funktioner, samme spoergsmaal, to svar.
  */
 export async function soegGrupperet(
   f: Filtre, graense = 48, referenceNow: Date = new Date(),
-): Promise<Visning[]> {
+): Promise<Grupperet> {
+  const domaene = harDomaenefilter(f)
   const raekker = await db
     .select({
       kilde: sources.slug,
@@ -684,7 +736,14 @@ export async function soegGrupperet(
       // ALLE medlemmers facts, i samme raekkefoelge som intet — de
       // fortolkes enkeltvis og sammenfattes som taellinger. Kilden er ens
       // for hele gruppen (den staar i noeglen), saa én kontrakt daekker.
-      alleFactsJson: sql<unknown[]>`json_agg(${listings.availabilityFacts})`,
+      // ID'ET FOELGER MED FAKTA. Foer var det `json_agg(availability_facts)`
+      // alene, og repraesentantens egen fortolkning kunne saa kun findes ved
+      // at gaette paa raekkefoelgen mellem to uafhaengige aggregater. Med
+      // parret kan enkeltkortets domaenefilter afgoeres uden at hente
+      // kortfelterne foerst — og det er dét, der goer det muligt at
+      // filtrere FOER udsnittet skaeres.
+      alleFactsJson: sql<{ id: string; fakta: unknown }[]>`json_agg(
+        json_build_object('id', ${listings.id}::text, 'fakta', ${listings.availabilityFacts}))`,
       indflytningMin: sql<number | null>`min(${listings.moveInCost})::int`,
       indflytningMax: sql<number | null>`max(${listings.moveInCost})::int`,
       // coalesce, fordi count(distinct) springer null over: ellers ville
@@ -719,6 +778,13 @@ export async function soegGrupperet(
       // Den nyeste i gruppen. Dens billede er det, der er hentet sidst.
       repraesentant: sql<string>`(array_agg(${listings.id}::text
         order by coalesce(${listings.sourceCreatedAt}, ${listings.firstSeenAt}) desc))[1]`,
+      // Hvor mange grupper er der i ALT? Vinduet beregnes EFTER
+      // grupperingen og FOER `limit`, saa totalen koster ingen ekstra
+      // rundtur — og uden den ville «viser de 48 af …» ikke kunne skrives
+      // om kort, kun om boliger. Med et domaenefilter taeller den for
+      // meget (den kender ikke kontrakten), og saa bruges det praecise
+      // tal fra JS-filtreringen i stedet.
+      grupperIAlt: sql<number>`count(*) over ()::int`,
     })
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
@@ -726,32 +792,63 @@ export async function soegGrupperet(
     .groupBy(sources.slug, listings.postalCode, listings.street, listings.rooms,
       listings.landlordId, TOTALKENDT, ALENE)
     .orderBy(GRUPPEORDEN[f.sorter ?? 'nyeste'])
-    .limit(graense)
+    // Uden domaenefilter kan SQL afgoere alt, og top-N i basen er baade
+    // rigtigt og billigst — uaendret fra foer. MED domaenefilter kan den
+    // ikke, og saa skal hele kandidatsaettet med op, foer der skaeres.
+    .limit(domaene ? GRUPPEKANDIDATER : graense)
 
-  const kort = await korteneFor(raekker.map((r) => r.repraesentant))
+  // Kandidatloftet ramt? Saa er alt herunder et mindstetal.
+  const komplet = !domaene || raekker.length < GRUPPEKANDIDATER
+
+  // Medlemmernes availability, fortolket enkeltvis. ALLE medlemmer, ogsaa
+  // naar et filter kun rammer nogle af dem: `sammenfatGruppe` skal taelle
+  // hele gruppen, saa dens tal gaar op med `antal` og kortet kan skrive
+  // «3 af 9 reserveret». Filtreres arrayet her, holder de to op med at
+  // stemme, og kortet begynder at lyve om sin egen stoerrelse.
+  const medlemmerAf = (r: (typeof raekker)[number]) =>
+    (r.alleFactsJson ?? []).map((m) => ({
+      id: m.id,
+      a: availabilityFor({ availabilityFacts: m.fakta, kilde: r.kilde }, referenceNow),
+    }))
+
+  /** Bliver raekken et gruppekort? Ellers staar repraesentanten alene.
+   *  Typepraedikat, saa noeglens felter er kendt ikke-null nedenfor —
+   *  det er de samme fem betingelser som foer, kun samlet ét sted. */
+  type Gruppekortraekke = (typeof raekker)[number] & {
+    postnr: string; vej: string; vaerelser: number; prisMin: number; prisMax: number
+  }
+  const erGruppekort = (r: (typeof raekker)[number]): r is Gruppekortraekke =>
+    r.antal >= 2 && r.postnr != null && r.vej != null && r.vaerelser != null
+    && r.prisMin != null && r.prisMax != null
+
+  // Domaenefilteret, med PRAECIS de to regler som foer:
+  //  · et gruppekort rammes, hvis MINDST ét medlem matcher — kortet viser
+  //    taellingerne, saa brugeren ser hvor mange
+  //  · et enkeltkort rammes paa sin EGEN bolig, ikke paa naboerne. En
+  //    raekke kan have flere medlemmer og alligevel staa alene (alle
+  //    priser ukendte), og saa maa et matchende medlem ikke traekke en
+  //    ikke-matchende repraesentant med ind.
+  const matchende = !domaene ? raekker : raekker.filter((r) => {
+    const m = medlemmerAf(r)
+    if (erGruppekort(r)) return m.some((x) => matcherDomaene(f, x.a))
+    const rep = m.find((x) => x.id === r.repraesentant)
+    return rep != null && matcherDomaene(f, rep.a)
+  })
+
+  // FOERST her skaeres udsnittet — og kortfelterne hentes kun for de kort,
+  // der faktisk vises. Ellers ville rettelsen koste 5.000 opslag.
+  const udsnit = matchende.slice(0, graense)
+  const kort = await korteneFor(udsnit.map((r) => r.repraesentant))
 
   const ud: Visning[] = []
-  for (const r of raekker) {
+  for (const r of udsnit) {
     const bolig = kort.get(r.repraesentant)
     if (!bolig) continue
-    // Medlemmernes availability — fortolket enkeltvis, sammenfattet som
-    // taellinger. Kilden staar i noeglen, saa én kontrakt daekker alle.
-    const medlemmer = (r.alleFactsJson ?? []).map((facts) =>
-      availabilityFor({ availabilityFacts: facts, kilde: r.kilde }, referenceNow))
-    const sammenfatning = sammenfatGruppe(medlemmer)
+    const sammenfatning = sammenfatGruppe(medlemmerAf(r).map((x) => x.a))
     // En gruppe på én er ikke en gruppe.
-    if (r.antal < 2 || r.postnr == null || r.vej == null || r.vaerelser == null
-      || r.prisMin == null || r.prisMax == null) {
-      if (harDomaenefilter(f)
-        && !matcherDomaene(f, availabilityFor(bolig, referenceNow))) continue
+    if (!erGruppekort(r)) {
       ud.push({ slags: 'bolig', bolig })
       continue
-    }
-    // Et domaenefilter rammer gruppen, hvis MINDST ét medlem matcher —
-    // kortet viser taellingerne, saa brugeren ser hvor mange.
-    if (harDomaenefilter(f)) {
-      const nogen = medlemmer.some((m) => matcherDomaene(f, m))
-      if (!nogen) continue
     }
     ud.push({
       slags: 'gruppe',
@@ -779,7 +876,11 @@ export async function soegGrupperet(
       },
     })
   }
-  return ud
+  // Uden domaenefilter er `matchende` kun de `graense` raekker, SQL gav —
+  // totalen staar i vinduestaellingen. Med domaenefilter er `matchende`
+  // hele det gennemgaaede saet, og saa er dens laengde det praecise tal.
+  const kortIAlt = domaene ? matchende.length : (raekker[0]?.grupperIAlt ?? 0)
+  return { visninger: ud, kortIAlt, komplet }
 }
 
 /** Hvor mange BOLIGER de viste kort dækker. Til linjen over listen. */
@@ -884,8 +985,30 @@ export async function hentGruppe(n: Gruppenoegle) {
     )
 }
 
-/** Tal til linjen over listen. Regnes paa samme filtre som listen. */
-export async function opsummering(f: Filtre) {
+/**
+ * Tal til linjen over listen. Regnes paa samme filtre som listen.
+ *
+ * ── DOMAENEFILTRENE KAN IKKE TAELLES I SQL ─────────────────────
+ * `hvorVist(f)` udtrykker ikke overtagelse, ansoegningsform og
+ * markedsstatus — de kraever kildekontrakten og et referencetidspunkt.
+ * Saa laenge tallene blev regnet af SQL alene, taalte overskriften altsaa
+ * et ANDET saet end listen: med `overtagelse=nu` stod der «1.814 boliger»
+ * over en liste, der viste nul.
+ *
+ * Derfor to veje:
+ *  · Uden domaenefilter: aggregaterne i basen, som foer. Uaendret og
+ *    billigst.
+ *  · Med domaenefilter: de SAMME praedikater hentes som én boolean pr.
+ *    raekke, og summeringen sker i JS efter `matcherDomaene`. `FULD`,
+ *    `OPLYST` og `harFacilitet` staar stadig kun ét sted — kun stedet,
+ *    hvor de taelles, flytter.
+ *
+ * `referenceNow` er den samme klokke som listen bruger. To kald til
+ * `new Date()` i samme sidevisning kan lande paa hver sin side af
+ * midnat, og saa ville «kan overtages nu» betyde to ting paa én side.
+ */
+export async function opsummering(f: Filtre, referenceNow: Date = new Date()) {
+  if (harDomaenefilter(f)) return opsummeringMedDomaene(f, referenceNow)
   const [r] = await db
     .select({
       antal: sql<number>`count(*)::int`,
@@ -913,6 +1036,54 @@ export async function opsummering(f: Filtre) {
   return r!
 }
 
+export type Opsummering = Awaited<ReturnType<typeof opsummering>>
+
+/**
+ * Samme tal, men talt i JS over de raekker, domaenet slipper igennem.
+ *
+ * Praedikaterne er de samme SQL-udtryk som ovenfor — de hentes bare som
+ * én kolonne pr. raekke i stedet for som et aggregat. En anden
+ * formulering i JS ville vaere det andet udtryk for samme spoergsmaal,
+ * og saa ville filteret og tallet kunne sige hver sit.
+ */
+async function opsummeringMedDomaene(f: Filtre, referenceNow: Date) {
+  const raekker = await db
+    .select({
+      kilde: sources.slug,
+      availabilityFacts: listings.availabilityFacts,
+      pris: sql<number | null>`${PRIS}`,
+      harTotal: sql<boolean>`${listings.totalMonthly} is not null`,
+      harIndflytning: sql<boolean>`${listings.moveInCost} is not null`,
+      fuld: sql<boolean>`${FULD}`,
+      oplyst: sql<boolean>`${OPLYST}`,
+      kaeledyr: sql<boolean>`${harFacilitet(FACILITET.kaeledyr)}`,
+      elevator: sql<boolean>`${harFacilitet(FACILITET.elevator)}`,
+      udeplads: sql<boolean>`${harFacilitet(FACILITET.udeplads)}`,
+    })
+    .from(listings)
+    .innerJoin(sources, eq(sources.id, listings.sourceId))
+    .where(hvorVist(f))
+
+  const traf = raekker.filter((r) =>
+    matcherDomaene(f, availabilityFor(r, referenceNow)))
+  const priser = traf.map((r) => r.pris).filter((p): p is number => p != null)
+  const taeller = (v: (r: (typeof traf)[number]) => boolean) => traf.filter(v).length
+  return {
+    antal: traf.length,
+    medTotal: taeller((r) => r.harTotal),
+    medIndflytning: taeller((r) => r.harIndflytning),
+    fuld: taeller((r) => r.fuld),
+    // `min`/`max` paa et tomt saet giver Infinity — null er det aerlige.
+    billigst: priser.length ? Math.min(...priser) : null,
+    dyrest: priser.length ? Math.max(...priser) : null,
+    oplyser: taeller((r) => r.oplyst),
+    tier: taeller((r) => !r.oplyst),
+    kaeledyr: taeller((r) => r.kaeledyr),
+    elevator: taeller((r) => r.elevator),
+    udeplads: taeller((r) => r.udeplads),
+  }
+}
+
 /**
  * Grundlaget under hver afkrydsning: hvor mange oplyser en facilitet, og
  * hvor mange tier og forsvinder derfor, hvis man saetter kryds.
@@ -936,8 +1107,8 @@ export async function opsummering(f: Filtre) {
  * app/page.tsx. Forsiden koerer to forespoergsler pr. visning, og det tal
  * har vaeret dyrt at faa ned.
  */
-export const facilitetsgrundlag = (f: Filtre) =>
-  opsummering({ ...f, kaeledyr: false, elevator: false, udeplads: false })
+export const facilitetsgrundlag = (f: Filtre, referenceNow?: Date) =>
+  opsummering({ ...f, kaeledyr: false, elevator: false, udeplads: false }, referenceNow)
 
 export type Facilitetsgrundlag = Awaited<ReturnType<typeof opsummering>>
 
@@ -957,8 +1128,8 @@ export type Facilitetsgrundlag = Awaited<ReturnType<typeof opsummering>>
  * Alle tre tal er allerede i `opsummering` — `antal`, `medTotal`, `fuld` —
  * saa der er ingen ekstra forespoergsel, naar filteret ikke er sat.
  */
-export const oekonomigrundlag = (f: Filtre) =>
-  opsummering({ ...f, fuldOekonomi: false })
+export const oekonomigrundlag = (f: Filtre, referenceNow?: Date) =>
+  opsummering({ ...f, fuldOekonomi: false }, referenceNow)
 
 /** Kilder der aldrig oplyser faciliteter, og hvor mange boliger de har. */
 export interface Tavsekilder {
