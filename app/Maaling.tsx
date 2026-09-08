@@ -29,6 +29,10 @@ interface Post {
 const koe: Post[] = []
 const sendte = new Set<string>()
 let tilsluttet = false
+/** Loebenummer pr. formularindsendelse. Paa modulniveau som `sendte`, saa
+ *  dedupnoeglen er unik ogsaa efter en genmontering — en fast noegle ville
+ *  lade den ANDEN indsendelse med de samme filtre forsvinde. */
+let indsendelser = 0
 
 function laeg(p: Post, noegle: string) {
   if (sendte.has(noegle)) return
@@ -86,6 +90,41 @@ export function Maaling({ aktiv, impressions, visning, rute }: {
       }
     }
     document.addEventListener('toggle', paaToggle, true)
+
+    // ── search_submitted ───────────────────────────────────────
+    // En OBSERVERET indsendelse af soegeformularen. Serveren kan ikke se
+    // forskel paa en indsendelse og et klik paa et pagineringslink:
+    // begge er en GET-navigation med de samme headere. Derfor her.
+    //
+    // Syv krav fra docs/analytics-v1.md §7b, og hvordan de er mødt:
+    //  1 · `submit`, ikke knappens `click` — saa baade «Søg», «Find bolig»
+    //      og Enter i et tekstfelt daekkes af ÉN lytter, der fyrer én gang.
+    //  2 · Noeglen er unik pr. indsendelse. `laeg()` dedupliker paa et
+    //      modulglobalt Set, saa en fast noegle ville lade den ANDEN
+    //      indsendelse med de samme filtre forsvinde. Taelleren ligger paa
+    //      modulniveau ved siden af `sendte`, saa den overlever
+    //      StrictModes dobbelt-mount — samme grund som koeen selv.
+    //  3 · En afvist eller annulleret indsendelse taeller ikke. `submit`
+    //      fyrer slet ikke, naar HTML-validering fejler. Kalder en anden
+    //      handler `preventDefault()`, skal vi respektere det — derfor
+    //      lyttes UDEN capture, saa vi koerer sidst, og
+    //      `e.defaultPrevented` laeses.
+    //  4 · Paginering, reload og tilbage/frem roerer den ikke: «Naeste» og
+    //      «Forrige» er almindelige <a>, og de udloeser ingen `submit`.
+    //  5 · Maalingen maa ikke forsinke soegningen. `laeg()` lægger i koeen
+    //      og returnerer; intet `await`, intet `preventDefault`.
+    //  6 · Uden samtykke sker der intet: effekten her koerer kun naar
+    //      `aktiv` er sand.
+    //  7 · Ingen properties. Filterkonteksten staar paa det `search`, der
+    //      foelger i samme session.
+    const paaSubmit = (e: Event) => {
+      if (e.defaultPrevented) return
+      const t = e.target as HTMLElement | null
+      if (t?.matches?.('form.filtre')) {
+        laeg({ navn: 'search_submitted', props: {}, rute }, `sub:${++indsendelser}`)
+      }
+    }
+    document.addEventListener('submit', paaSubmit)
 
     // ── alert_started ──────────────────────────────────────────
     // Første tastetryk i gem-formularen. ALDRIG feltets indhold.
@@ -148,6 +187,7 @@ export function Maaling({ aktiv, impressions, visning, rute }: {
       document.removeEventListener('visibilitychange', paaSkjult)
       window.removeEventListener('pagehide', send)
       document.removeEventListener('toggle', paaToggle, true)
+      document.removeEventListener('submit', paaSubmit)
       document.removeEventListener('input', paaInput, true)
       window.removeEventListener('bofinda:maaling', paaMeld)
       for (const u of ure.values()) clearTimeout(u)
