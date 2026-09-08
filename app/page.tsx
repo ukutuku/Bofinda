@@ -11,6 +11,7 @@ import { Landkort, type Maerke } from './Landkort'
 import { Maaling } from './Maaling'
 import { maalingstilstand, spor } from '../lib/maaling-server'
 import { antalFiltre, filterDiff, forrigeFiltre, uddrag } from '../lib/maalingsoeg'
+import { sammenfatFlere } from '../lib/filterpanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -119,7 +120,22 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   const fac = await facetterCached()
   const tal = await forsidetalCached()
   const vist = antalBoliger(visninger)
+  // To variabler, to spoergsmaal. `sted` er hvad der skal staa i feltet,
+  // saa en NY indsendelse betyder det samme som nu; `stedNavn` er hvor hun
+  // soeger. De falder fra hinanden i én sti, og det er en rigtig sti:
+  // feltet `sted` ligger uden for panelet og indsendes ALTID, ogsaa tomt,
+  // saa efter en soegning fra panelets egne By-/Postnummer-felter er
+  // `sp.sted` den tomme streng. `??` falder ikke igennem paa '', og det er
+  // rigtigt for FELTET — stod byen der, ville naeste indsendelse sende
+  // baade `sted` og `by`, og `stedet()` ville kassere den ene.
+  // Men overskriften skal stadig kunne sige hvor. Foer stod der bare
+  // «304 boliger», mens 1.226 var filtreret ned til 304 af en by, der kun
+  // kunne ses inde i panelet. Med panelet lukket som udgangspunkt ville
+  // filteret vaere helt usynligt.
   const sted = en(sp.sted) ?? f.postnr ?? f.by ?? ''
+  const stedNavn = en(sp.sted)?.trim() || f.postnr || f.by || ''
+  // Panelets tilstand ligger i URL'en som kortets. Se noten ved <details>.
+  const panelAabent = en(sp.flere) === '1'
   // Slaas fra med ?kort=0. Tilstanden ligger i URL'en som alt andet paa
   // siden. Kun naar der er filtreret: uden en soegning spaender maerkerne
   // over hele landet, og udsnittet siger ingenting.
@@ -251,8 +267,48 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           <p className="soegehint">Fx København S, Aarhus C eller 2300.</p>
         )}
 
-        <details className="flere" open={soegt}>
-        <summary>Flere filtre</summary>
+        {/* ── Panelet aabner ALDRIG af sig selv ────────────────────
+            Det stod foer `open={soegt}`, altsaa aabent paa hver eneste
+            resultatside. Maalt: filterblokken 515 px paa 1120, 1.078 px
+            paa 390 — og foerste boligkort 854 px henholdsvis 1.668 px
+            nede. Paa en telefon var det to skaermfulde formular foer det
+            foerste hjem. Resultaterne er produktet.
+
+            Tilstanden ligger i URL'en som kortets, ikke i klient-state:
+            saa kan den deles, den overlever et genindlaes, og back og
+            frem goer det, man forventer. `flere` er et NYT navn; ingen
+            eksisterende parameter roeres, og `filtreFraParametre` laeser
+            kun navngivne felter, saa den kasseres ulaest af baade
+            soegningen, `harFiltre` og `forrigeFiltre`.
+            IKKE `filtre`: det navn er optaget af gem-formularens skjulte
+            felt, som baerer hele filtersaettet som JSON.
+
+            «Søg» nedenfor baerer `name="flere" value="1"`. En submit-knaps
+            name/value sendes kun, naar netop den knap indsender — saa at
+            soege fra det aabne panel holder det aabent, mens «Find bolig»
+            oeverst lukker det ned paa resultaterne. Enter i et felt bruger
+            formularens FOERSTE submit-knap, altsaa «Find bolig», og lukker
+            derfor ogsaa panelet. Det er med vilje: Enter betyder «vis mig
+            resultaterne».
+
+            Et LUKKET <details> indsender stadig sine felter — det er ikke
+            `disabled`, kun skjult — saa filtrene overlever, at panelet er
+            foldet sammen. Efterproevet. */}
+        <details className="flere" open={panelAabent}>
+        {/* Det eneste synlige af panelet, naar det er lukket. Derfor skal
+            det sige, hvad der er sat. Delene kommer fra lib/filterpanel.ts,
+            saa tallet ikke kan drive fra analytics' `antal_filtre`. */}
+        <summary>
+          {sammenfatFlere(f)[0]}
+          {sammenfatFlere(f).slice(1).map((d) => (
+            /* Skilletegnet staar som RIGTIG tekst, ikke som ::before. En
+               skaermlaeser laeser indholdet, og «Flere filtre3 aktive» er
+               ikke en saetning. */
+            <span key={d} className="flere-maerkat">
+              <span className="flere-prik">{' · '}</span>{d}
+            </span>
+          ))}
+        </summary>
         <div className="filtergitter">
         <div className="felt">
           <label htmlFor="by">By</label>
@@ -470,7 +526,10 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         )}
         </div>
         <div className="knapper">
-          <button type="submit">Søg</button>
+          {/* `name`/`value` sendes KUN, naar netop denne knap indsender.
+              At soege fra det aabne panel holder det derfor aabent, mens
+              «Find bolig» oeverst lukker det. Se noten ved <details>. */}
+          <button type="submit" name="flere" value="1">Søg</button>
           <a className="nulstil" href="/">Nulstil</a>
         </div>
         </div>
@@ -570,8 +629,9 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
               {sum.antal === 1 ? 'bolig' : 'boliger'}
               {/* Stedet står i søgefeltet, men headeren skal kunne læses
                   alene, når man er scrollet forbi filtrene. Kun når der ER
-                  et sted — et prisfilter uden by har intet at sætte her. */}
-              {sted && <span className="sted-navn"> i {sted}</span>}
+                  et sted — et prisfilter uden by har intet at sætte her.
+                  `stedNavn`, ikke `sted`: se noten ved de to variabler. */}
+              {stedNavn && <span className="sted-navn"> i {stedNavn}</span>}
             </h2>
           )}
           {!soegt && visninger.length > 0 && (
@@ -632,7 +692,12 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
       {visninger.length === 0 ? (
         <div className="tom">
           <p>Ingen boliger matcher.</p>
-          <p>Prøv at fjerne et filter.</p>
+          {/* «Nulstil» bor inde i panelet, og panelet er lukket. Uden det
+              her peger vejledningen paa en knap, der ikke er paa skaermen. */}
+          <p>
+            Prøv at fjerne et filter
+            {soegt && <> — eller <a href="/">nulstil søgningen</a></>}.
+          </p>
         </div>
       ) : (
         <div className={kortVises ? 'medkort' : 'udenkort'}>

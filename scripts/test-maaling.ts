@@ -53,6 +53,7 @@ import {
   anonymFra, laesSamtykke, planFor, sessionFra, sessionVaerdi, type Laeser,
 } from '../lib/samtykke'
 import { antalFiltre, filterDiff, forrigeFiltre, uddrag } from '../lib/maalingsoeg'
+import { antalAvancerede, erSorteret, sammenfatFlere } from '../lib/filterpanel'
 import { filtreFraParametre, harFiltre, type Filtre } from '../lib/soeg'
 
 let fejl = 0
@@ -86,6 +87,74 @@ _saetDedup(new Set())
     harFiltre(tom) === false && harFiltre(med) === true)
   tjek('1 · antalFiltre følger harFiltre',
     antalFiltre(tom) === 0 && antalFiltre(med) === 1)
+}
+
+// ─── 1b · Filterpanelets sammenfatning ─────────────────────────
+//  Naar panelet er lukket, er `<summary>` det eneste, der er tilbage af
+//  filtrene paa skaermen. Siger den forkert, er et aktivt filter usynligt.
+//  Tallet er udledt af `antalFiltre` ved subtraktion — proeverne her
+//  holder de to sammen, saa summary og `antal_filtre` ikke kan drive fra
+//  hinanden.
+{
+  const F = (sp: Record<string, string | string[]>) => filtreFraParametre(sp)
+
+  // Stedet er ikke et avanceret filter. Det staar i det store felt over
+  // panelet, uanset hvilket af de tre felter det kom fra.
+  tjek('1b · sted alene giver 0 avancerede',
+    antalAvancerede(F({ sted: '2300' })) === 0
+    && antalAvancerede(F({ sted: 'Aarhus' })) === 0
+    && antalAvancerede(F({ by: 'Aarhus' })) === 0
+    && antalAvancerede(F({ postnr: '2300' })) === 0
+    && antalAvancerede(F({ by: 'Aarhus', postnr: '2300' })) === 0)
+
+  // ... men det taeller stadig med i analytics' antal_filtre. De to tal
+  // svarer paa hver sit spoergsmaal og skal blive ved med det.
+  tjek('1b · og stedet taelles stadig i antal_filtre',
+    antalFiltre(F({ postnr: '2300' })) === 1
+    && antalFiltre(F({ by: 'Aarhus', postnr: '2300' })) === 2)
+
+  tjek('1b · hvert avanceret filter taeller ét',
+    antalAvancerede(F({ postnr: '2300', elevator: '1' })) === 1
+    && antalAvancerede(F({ postnr: '2300', elevator: '1', kaeledyr: '1' })) === 2
+    && antalAvancerede(F({ sted: 'Aarhus', prisMax: '12000', vaerelser: '3', fuld: '1' })) === 3)
+
+  // Aldrig negativ: `antalFiltre` bruger samme praedikat som fratraekket.
+  const alle: Record<string, string>[] = [
+    {}, { sted: '2300' }, { by: 'x' }, { postnr: '2300' }, { by: 'x', postnr: '2300' },
+    { sted: 'Aarhus', by: 'x', postnr: '2300' }, { sorter: 'pris_op' },
+  ]
+  tjek('1b · tallet kan ikke blive negativt',
+    alle.every((sp) => antalAvancerede(F(sp)) >= 0))
+
+  // Sorteringen er ikke et filter og maa ikke puste tallet op — men den
+  // bor inde i panelet og ville ellers vaere usynlig, naar det er lukket.
+  tjek('1b · sortering taelles ikke som filter',
+    antalAvancerede(F({ postnr: '2300', sorter: 'pris_ned' })) === 0
+    && antalFiltre(F({ postnr: '2300', sorter: 'pris_ned' })) === 1)
+  tjek('1b · men sorteringen naevnes for sig',
+    erSorteret(F({ sorter: 'pris_ned' })) === true
+    && erSorteret(F({ sorter: 'nyeste' })) === false
+    && erSorteret(F({})) === false)
+
+  // En ukendt sortering kasseres af filtreFraParametre og er altsaa
+  // standarden — saa maa sammenfatningen heller ikke sige «sorteret».
+  tjek('1b · ukendt sortering er ikke «sorteret»',
+    erSorteret(F({ sorter: 'fis' })) === false)
+
+  const s = (sp: Record<string, string | string[]>) => sammenfatFlere(F(sp)).join(' · ')
+  tjek('1b · sammenfatningens ordlyd',
+    s({}) === 'Flere filtre'
+    && s({ sted: '2300' }) === 'Flere filtre'
+    && s({ sted: '2300', elevator: '1' }) === 'Flere filtre · 1 aktivt'
+    && s({ elevator: '1', kaeledyr: '1' }) === 'Flere filtre · 2 aktive'
+    && s({ sorter: 'pris_op' }) === 'Flere filtre · sorteret'
+    && s({ elevator: '1', sorter: 'pris_op' }) === 'Flere filtre · 1 aktivt · sorteret',
+    s({ elevator: '1', sorter: 'pris_op' }))
+
+  // Foerste led er altid navnet — markuppen saetter kun mærkat-klassen paa
+  // resten, saa et skift her ville farve overskriften groen.
+  tjek('1b · foerste led er altid navnet',
+    alle.every((sp) => sammenfatFlere(F(sp))[0] === 'Flere filtre'))
 }
 
 // ─── 2 · Invarianten ───────────────────────────────────────────
@@ -531,6 +600,23 @@ _saetDedup(new Set())
   const sort = filterDiff(parse({ postnr: '2300' }), parse({ postnr: '2300', sorter: 'pris_op' }), kender)
   tjek('21 · en ændret sortering giver sort_changed',
     sort.length === 1 && sort[0]!.navn === 'sort_changed')
+
+  // Panelets egen parameter maa ALDRIG kunne ses af filterevents. Den er
+  // ren visning; udloeste den et filter_applied, ville et klik paa
+  // «Søg» i det aabne panel ligne en filtrering, brugeren ikke foretog.
+  tjek('21b · ?flere=1 er ikke et filter og giver ingen events',
+    filterDiff(parse({ postnr: '2300' }), parse({ postnr: '2300', flere: '1' }), kender).length === 0
+    && filterDiff(parse({ postnr: '2300', flere: '1' }), parse({ postnr: '2300' }), kender).length === 0)
+  tjek('21b · ?flere=1 aendrer hverken harFiltre eller antal_filtre',
+    harFiltre(parse({ flere: '1' })) === false
+    && antalFiltre(parse({ postnr: '2300', flere: '1' })) === antalFiltre(parse({ postnr: '2300' })))
+  tjek('21b · og heller ikke sammenfatningens tal',
+    antalAvancerede(parse({ postnr: '2300', flere: '1' })) === 0)
+  // Referer-vejen: en forrige side med ?flere=1 maa ikke give et cleared.
+  tjek('21b · ?flere=1 i Referer giver ingen events',
+    filterDiff(
+      forrigeFiltre(`${base}/?postnr=2300&flere=1`, base, parse),
+      parse({ postnr: '2300' }), kender).length === 0)
 
   const nulstil = filterDiff(
     parse({ by: 'Aarhus C', prisMax: '12000', vaerelser: '3', areal: '60', fuld: '1' }),

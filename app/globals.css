@@ -647,6 +647,13 @@ form.filtre.soegt .storsoeg button { padding: 11px 20px; font-size: 14.5px; bord
 .flere > summary::before { content: '\25B8'; font-size: 10px; color: var(--svag); }
 .flere[open] > summary::before { content: '\25BE'; }
 .flere > summary:hover { color: var(--accent); }
+/* Det aktive tal i sammenfatningen. Naar panelet er lukket, er linjen det
+   eneste, der er tilbage af filtrene — saa den skal kunne SES, uden at
+   blive en knap. Accentfarven og en anelse mere vaegt er nok; prikken
+   skiller leddene ad og staar i den svageste farve, saa oejet lander paa
+   tallet og ikke paa skilletegnet. */
+.flere > summary .flere-maerkat { color: var(--accent); font-weight: 600; }
+.flere > summary .flere-prik { color: var(--svag); font-weight: 400; }
 .filtergitter {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   gap: 9px 12px; align-items: end; margin-top: 9px;
