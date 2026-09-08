@@ -374,21 +374,49 @@ export const BAGKATALOG = sql`(
 export const NYHEDSDATO = sql`coalesce(${listings.sourceCreatedAt},
   case when ${BAGKATALOG} then null else ${listings.firstSeenAt} end)`
 
+/**
+ * SIDSTE SORTERINGSNOEGLE — den der goer ordenen TOTAL.
+ *
+ * Uden den er raekkefoelgen mellem to raekker med samme sorteringsvaerdi
+ * udefineret, og saa kan paginering hverken love «alle kort» eller «hvert
+ * kort én gang». Det er ikke teoretisk: en fuld gennemgang af alle 21
+ * sider under `pris_op` gav 987 raekker, men kun **985 unikke** kort — to
+ * kort stod paa to sider, og to blev aldrig vist. Med noeglen: 987 af 987.
+ *
+ * `id` er primaernoeglen og dermed unik pr. raekke. For en GRUPPE bruges
+ * `max(id)`: hver bolig hoerer til praecis én gruppe (se `ALENE`), saa
+ * grupperne er disjunkte maengder, og to disjunkte maengder kan ikke dele
+ * deres maksimum.
+ *
+ * Uafgjorte er ikke sjaeldne. Maalt paa 986 kort: `areal_ned` har 965
+ * kort i en uafgjort klump, og for `kilde=home` og `kilde=cej` er HELE
+ * saettet én klump under `indflytning_op` — alle mangler indflytningspris.
+ *
+ * Hovedsorteringen og NULL-adfaerden er uroert; noeglen staar altid sidst.
+ * Maalt pris: inden for stoej (-5 / +7 ms).
+ */
+const SIDST = sql`${listings.id}`
+// `::text`, fordi Postgres ikke har `max(uuid)` — der findes ingen
+// aggregatfunktion for typen. Tekstformen er lige saa entydig: id'erne er
+// unikke, og alle uuid'er har samme faste format, saa leksikografisk
+// orden paa hex-strengen er den samme totale orden som byteorden.
+const GRUPPESIDST = sql`max(${listings.id}::text)`
+
 const ORDEN = {
   // `first_seen_at desc` til sidst, saa raekkefoelgen inde i bagkataloget
   // stadig er forudsigelig — og ikke overladt til planlaeggeren.
-  nyeste: sql`${NYHEDSDATO} desc nulls last, ${listings.firstSeenAt} desc`,
+  nyeste: sql`${NYHEDSDATO} desc nulls last, ${listings.firstSeenAt} desc, ${SIDST} desc`,
   // Sorteres på samme tal som der filtreres på — ellers ville "billigst
   // først" og "under 18.000" pege på to forskellige priser.
-  pris_op: sql`${PRIS} asc nulls last`,
-  pris_ned: sql`${PRIS} desc nulls last`,
-  areal_ned: desc(listings.sizeM2),
+  pris_op: sql`${PRIS} asc nulls last, ${SIDST} asc`,
+  pris_ned: sql`${PRIS} desc nulls last, ${SIDST} desc`,
+  areal_ned: sql`${listings.sizeM2} desc nulls last, ${SIDST} desc`,
   // `nulls last` skal skrives ud ved desc: Postgres sætter ellers null
   // øverst, og en bolig uden oplyst indflytningspris ville stå som den
   // dyreste. Ved asc er det allerede standard, men det står der, så de to
   // linjer kan læses uden at kende reglen.
-  indflytning_op: sql`${listings.moveInCost} asc nulls last`,
-  indflytning_ned: sql`${listings.moveInCost} desc nulls last`,
+  indflytning_op: sql`${listings.moveInCost} asc nulls last, ${SIDST} asc`,
+  indflytning_ned: sql`${listings.moveInCost} desc nulls last, ${SIDST} desc`,
 }
 
 /** Felterne et boligkort bruger. Delt, saa en gruppes repraesentant hentes
@@ -648,12 +676,13 @@ const TOTALKENDT = sql<boolean>`(${listings.totalMonthly} is not null)`
 /** Gruppen står i listen dér, hvor dens stærkeste medlem ville have stået. */
 const GRUPPEORDEN = {
   // Gruppen er saa ny som sin nyeste bolig — samme regel som for de enkelte.
-  nyeste: sql`max(${NYHEDSDATO}) desc nulls last, max(${listings.firstSeenAt}) desc`,
-  pris_op: sql`min(${PRIS}) asc nulls last`,
-  pris_ned: sql`max(${PRIS}) desc nulls last`,
-  areal_ned: sql`max(${listings.sizeM2}) desc nulls last`,
-  indflytning_op: sql`min(${listings.moveInCost}) asc nulls last`,
-  indflytning_ned: sql`max(${listings.moveInCost}) desc nulls last`,
+  // `GRUPPESIDST` sidst i hver: se noten ved `SIDST`.
+  nyeste: sql`max(${NYHEDSDATO}) desc nulls last, max(${listings.firstSeenAt}) desc, ${GRUPPESIDST} desc`,
+  pris_op: sql`min(${PRIS}) asc nulls last, ${GRUPPESIDST} asc`,
+  pris_ned: sql`max(${PRIS}) desc nulls last, ${GRUPPESIDST} desc`,
+  areal_ned: sql`max(${listings.sizeM2}) desc nulls last, ${GRUPPESIDST} desc`,
+  indflytning_op: sql`min(${listings.moveInCost}) asc nulls last, ${GRUPPESIDST} asc`,
+  indflytning_ned: sql`max(${listings.moveInCost}) desc nulls last, ${GRUPPESIDST} desc`,
 }
 
 /** Boligkortets felter for en håndfuld id'er, i den rækkefølge de kom. */
@@ -683,19 +712,48 @@ async function korteneFor(ider: string[]): Promise<Map<string, Bolig>> {
  * afkorter en optaelling, ville lyve praecis som den fejl, det her
  * findes for at rette.
  */
-const GRUPPEKANDIDATER = 5000
+/**
+ * ARBEJDSGRAENSER, ikke katalogloft.
+ *
+ * Domaenefiltrene — overtagelse, ansoegningsform, markedsstatus — kan
+ * ikke oversaettes til SQL: de kraever kildekontrakten og et
+ * referencetidspunkt. Kandidaterne gennemgaas derfor i JS, og for at
+ * paginering kan naa HELE udbuddet, sker det i partier: hent et vindue i
+ * entydig raekkefoelge, anvend filteret, taeI de matchende, behold kun
+ * det oenskede sideudsnit, og fortsaet til kandidaterne slipper op.
+ *
+ * `PARTI` er hvor meget der hentes ad gangen. `MAKS_PARTIER` er et vaern
+ * mod en uendelig loekke, ikke et loft over katalogets stoerrelse: 25 ×
+ * 2.000 = 50.000 grupper mod 986 i bestanden i dag, altsaa 50 gange
+ * hovedrum. Bestanden i dag naas i ÉT parti, saa den domaenefiltrerede
+ * vej koster praecis én rundtur som foer.
+ *
+ * Rammes `MAKS_PARTIER`, er gennemgangen ikke faerdig, og `komplet` er
+ * falsk. Et afbrudt gennemloeb maa aldrig fremstaa som en komplet total
+ * eller som et sikkert nulresultat — se `Grupperet.komplet` og
+ * krydsfeltsreglen i lib/maaling.ts.
+ *
+ * Partiet er DETERMINISTISK, ikke tidsstyret: samme datasaet giver samme
+ * svar. Et ur ville gøre side 5 afhaengig af, hvor hurtig basen var.
+ */
+const PARTI = 2000
+const MAKS_PARTIER = 25
 
 /**
- * Loftet kan saenkes AF PROEVER — aldrig af konfiguration.
+ * Graenserne kan saenkes AF PROEVER — aldrig af konfiguration.
  *
- * Et loft, ingen har set fyre, er ikke et loft. At saa 5.000 grupper for
- * at naa det ville tage minutter og prøve noget andet end reglen. Samme
- * greb som `indsaetBase` og `_saetKontekst`: en seam, produktionen aldrig
- * roerer, saa produktionens tal staar urørt i `GRUPPEKANDIDATER`.
+ * En graense, ingen har set fyre, er ingen graense. At saa 50.000 grupper
+ * for at naa den ville tage minutter og proeve noget andet end reglen.
+ * Samme greb som `indsaetBase` og `_saetKontekst`.
  */
-let _proeveloft: number | null = null
-export function _saetGruppeloft(n: number | null) { _proeveloft = n }
-const gruppeloft = () => _proeveloft ?? GRUPPEKANDIDATER
+let _proeveparti: number | null = null
+let _proevepartier: number | null = null
+export function _saetGruppeloft(parti: number | null, partier: number | null = null) {
+  _proeveparti = parti
+  _proevepartier = partier
+}
+const partistoerrelse = () => _proeveparti ?? PARTI
+const maksPartier = () => _proevepartier ?? MAKS_PARTIER
 
 /** Listen som den vises, og de tal der beskriver den. */
 export interface Grupperet {
@@ -704,43 +762,19 @@ export interface Grupperet {
   /** Matchende KORT i alt, efter domaenefilteret. Ikke det samme som
    *  boliger, og ikke det samme som `visninger.length`. */
   kortIAlt: number
-  /** false, hvis kandidatloftet blev ramt. Saa er `kortIAlt` et
-   *  mindstetal, ikke en total. */
+  /** false, hvis gennemgangen blev afbrudt. Saa er `kortIAlt` et
+   *  mindstetal, og et sideantal maa ikke skrives som en total. */
   komplet: boolean
+  /** Den side, udsnittet er taget fra. 1-baseret. */
+  side: number
 }
 
 /**
- * Listen, som den vises: enkelte boliger og grupper mellem hinanden.
- *
- * `graense` tæller KORT, ikke boliger. Ellers ville én gruppe på femten
- * spise en tredjedel af siden og efterlade plads til 33 andre.
- *
- * ── DOMAENEFILTERET AFGOERES FOER UDSNITTET ────────────────────
- * Foer stod `.limit(graense)` i SQL'en, og domaenefiltrene — overtagelse,
- * ansoegningsform, markedsstatus — blev anvendt bagefter i JS paa de
- * raekker, der var tilbage. De kan ikke oversaettes til SQL, saa den
- * raekkefoelge betoed, at et kort kun kunne findes, hvis det i forvejen
- * laa blandt de 48 foerste i den UFILTREREDE sortering.
- *
- * Maalt paa produktionen 8. september 2026:
- *
- *   overtagelse=nu        0 kort vist   ·  139 matchede
- *   overtagelse=senere    2             ·  401
- *   venteliste            9             ·   52
- *   reserveret            6             ·  103
- *
- * «Ingen boliger matcher» om 139 kort, mens filterpanelets egen
- * grundlagslinje samtidig skrev «146 har oplyst overtagelse nu».
- *
- * `soeg()` har loest det samme problem hele tiden ved at hente bredt og
- * skaere i JS bagefter. Den loesning var aldrig kopieret herover — to
- * funktioner, samme spoergsmaal, to svar.
+ * Gruppequeryen med et vindue. ÉT sted, saa partivejen og den direkte vej
+ * ikke kan komme til at gruppere eller sortere forskelligt.
  */
-export async function soegGrupperet(
-  f: Filtre, graense = 48, referenceNow: Date = new Date(),
-): Promise<Grupperet> {
-  const domaene = harDomaenefilter(f)
-  const raekker = await db
+function gruppevindue(f: Filtre, graense: number, forskyd: number) {
+  return db
     .select({
       kilde: sources.slug,
       postnr: listings.postalCode,
@@ -820,71 +854,64 @@ export async function soegGrupperet(
     .where(hvorVist(f))
     .groupBy(sources.slug, listings.postalCode, listings.street, listings.rooms,
       listings.landlordId, TOTALKENDT, ALENE)
+    // Entydig orden. Uden den kan et vindue hverken love «alle kort» eller
+    // «hvert kort én gang» — se noten ved `SIDST`.
     .orderBy(GRUPPEORDEN[f.sorter ?? 'nyeste'])
-    // Uden domaenefilter kan SQL afgoere alt, og top-N i basen er baade
-    // rigtigt og billigst — uaendret fra foer. MED domaenefilter kan den
-    // ikke, og saa skal hele kandidatsaettet med op, foer der skaeres.
-    .limit(domaene ? gruppeloft() : graense)
+    .limit(graense)
+    .offset(forskyd)
+}
 
-  // Kandidatloftet ramt? Saa er alt herunder et mindstetal.
-  const komplet = !domaene || raekker.length < gruppeloft()
+type Grupperaekke = Awaited<ReturnType<typeof gruppevindue>>[number]
 
-  // Medlemmernes availability, fortolket enkeltvis. ALLE medlemmer, ogsaa
-  // naar et filter kun rammer nogle af dem: `sammenfatGruppe` skal taelle
-  // hele gruppen, saa dens tal gaar op med `antal` og kortet kan skrive
-  // «3 af 9 reserveret». Filtreres arrayet her, holder de to op med at
-  // stemme, og kortet begynder at lyve om sin egen stoerrelse.
-  const medlemmerAf = (r: (typeof raekker)[number]) =>
-    (r.alleFactsJson ?? []).map((m) => ({
-      id: m.id,
-      a: availabilityFor({ availabilityFacts: m.fakta, kilde: r.kilde }, referenceNow),
-    }))
+/** Bliver raekken et gruppekort? Ellers staar repraesentanten alene. */
+type Gruppekortraekke = Grupperaekke & {
+  postnr: string; vej: string; vaerelser: number; prisMin: number; prisMax: number
+}
+const erGruppekort = (r: Grupperaekke): r is Gruppekortraekke =>
+  r.antal >= 2 && r.postnr != null && r.vej != null && r.vaerelser != null
+  && r.prisMin != null && r.prisMax != null
 
-  /** Bliver raekken et gruppekort? Ellers staar repraesentanten alene.
-   *  Typepraedikat, saa noeglens felter er kendt ikke-null nedenfor —
-   *  det er de samme fem betingelser som foer, kun samlet ét sted. */
-  type Gruppekortraekke = (typeof raekker)[number] & {
-    postnr: string; vej: string; vaerelser: number; prisMin: number; prisMax: number
-  }
-  const erGruppekort = (r: (typeof raekker)[number]): r is Gruppekortraekke =>
-    r.antal >= 2 && r.postnr != null && r.vej != null && r.vaerelser != null
-    && r.prisMin != null && r.prisMax != null
+/**
+ * Medlemmernes availability, fortolket enkeltvis. ALLE medlemmer, ogsaa
+ * naar et filter kun rammer nogle af dem: `sammenfatGruppe` skal taelle
+ * hele gruppen, saa dens tal gaar op med `antal` og kortet kan skrive
+ * «3 af 9 reserveret». Filtreres arrayet, holder de to op med at stemme,
+ * og kortet begynder at lyve om sin egen stoerrelse.
+ */
+const medlemmerAf = (r: Grupperaekke, referenceNow: Date) =>
+  (r.alleFactsJson ?? []).map((m) => ({
+    id: m.id,
+    a: availabilityFor({ availabilityFacts: m.fakta, kilde: r.kilde }, referenceNow),
+  }))
 
-  // Domaenefilteret, med PRAECIS de to regler som foer:
-  //  · et gruppekort rammes, hvis MINDST ét medlem matcher — kortet viser
-  //    taellingerne, saa brugeren ser hvor mange
-  //  · et enkeltkort rammes paa sin EGEN bolig, ikke paa naboerne. En
-  //    raekke kan have flere medlemmer og alligevel staa alene (alle
-  //    priser ukendte), og saa maa et matchende medlem ikke traekke en
-  //    ikke-matchende repraesentant med ind.
-  // Hvor mange medlemmer matcher? `filter().length` i stedet for
-  // `.some()` — samme praedikat, samme pris, og tallet skal med ud paa
-  // kortet. `some()` svarede kun paa «skal kortet vises?»; brugeren
-  // spurgte ogsaa «hvor mange af dem er det saa?».
-  const antalMatchende = new Map<string, number>()
-  const matchende = !domaene ? raekker : raekker.filter((r) => {
-    const m = medlemmerAf(r)
-    if (erGruppekort(r)) {
-      const n = m.filter((x) => matcherDomaene(f, x.a)).length
-      antalMatchende.set(r.repraesentant, n)
-      return n > 0
-    }
-    const rep = m.find((x) => x.id === r.repraesentant)
-    const traf = rep != null && matcherDomaene(f, rep.a)
-    antalMatchende.set(r.repraesentant, traf ? 1 : 0)
-    return traf
-  })
+/**
+ * Hvor mange af raekkens boliger rammer domaenefilteret?
+ *
+ * PRAECIS de to regler som foer:
+ *  · et gruppekort rammes, hvis MINDST ét medlem matcher — kortet viser
+ *    taellingerne, saa brugeren ser hvor mange
+ *  · et enkeltkort rammes paa sin EGEN bolig, ikke paa naboerne. En
+ *    raekke kan have flere medlemmer og alligevel staa alene (alle priser
+ *    ukendte), og saa maa et matchende medlem ikke traekke en
+ *    ikke-matchende repraesentant med ind.
+ */
+function antalDerMatcher(f: Filtre, r: Grupperaekke, referenceNow: Date): number {
+  const m = medlemmerAf(r, referenceNow)
+  if (erGruppekort(r)) return m.filter((x) => matcherDomaene(f, x.a)).length
+  const rep = m.find((x) => x.id === r.repraesentant)
+  return rep != null && matcherDomaene(f, rep.a) ? 1 : 0
+}
 
-  // FOERST her skaeres udsnittet — og kortfelterne hentes kun for de kort,
-  // der faktisk vises. Ellers ville rettelsen koste 5.000 opslag.
-  const udsnit = matchende.slice(0, graense)
-  const kort = await korteneFor(udsnit.map((r) => r.repraesentant))
-
+/** Raekkerne som visninger. Kortfelterne hentes KUN for udsnittet. */
+async function byg(
+  udsnit: { r: Grupperaekke; matchende: number | null }[], referenceNow: Date,
+): Promise<Visning[]> {
+  const kort = await korteneFor(udsnit.map((x) => x.r.repraesentant))
   const ud: Visning[] = []
-  for (const r of udsnit) {
+  for (const { r, matchende } of udsnit) {
     const bolig = kort.get(r.repraesentant)
     if (!bolig) continue
-    const sammenfatning = sammenfatGruppe(medlemmerAf(r).map((x) => x.a))
+    const sammenfatning = sammenfatGruppe(medlemmerAf(r, referenceNow).map((x) => x.a))
     // En gruppe på én er ikke en gruppe.
     if (!erGruppekort(r)) {
       ud.push({ slags: 'bolig', bolig })
@@ -913,15 +940,81 @@ export async function soegGrupperet(
         nogenUkendtDaekning: r.nogenUkendtDaekning ?? false,
         alleOgsaaAndetsteds: r.alleOgsaaAndetsteds ?? false,
         nyesteMarkedet: new Date(r.nyesteMarkedetMs),
-        matchende: domaene ? (antalMatchende.get(r.repraesentant) ?? 0) : null,
+        matchende,
       },
     })
   }
-  // Uden domaenefilter er `matchende` kun de `graense` raekker, SQL gav —
-  // totalen staar i vinduestaellingen. Med domaenefilter er `matchende`
-  // hele det gennemgaaede saet, og saa er dens laengde det praecise tal.
-  const kortIAlt = domaene ? matchende.length : (raekker[0]?.grupperIAlt ?? 0)
-  return { visninger: ud, kortIAlt, komplet }
+  return ud
+}
+
+/**
+ * Listen, som den vises: enkelte boliger og grupper mellem hinanden.
+ *
+ * `graense` tæller KORT, ikke boliger. Ellers ville én gruppe på femten
+ * spise en tredjedel af siden og efterlade plads til 33 andre.
+ * `side` er 1-baseret; udsnittet er kort nr. `(side-1)*graense` og frem.
+ *
+ * ── DOMAENEFILTERET AFGOERES FOER UDSNITTET ────────────────────
+ * Foer stod `.limit(graense)` i SQL'en, og domaenefiltrene blev anvendt
+ * bagefter i JS paa de raekker, der var tilbage. Maalt paa produktionen
+ * 8. september 2026: `overtagelse=nu` viste 0 kort ud af 139 matchende,
+ * mens overskriften skrev «1.814 boliger».
+ *
+ * ── TO VEJE, ÉT VINDUE ────────────────────────────────────────
+ * Uden domaenefilter afgoer SQL alt: ét vindue med `limit`/`offset` er
+ * baade rigtigt og billigst, og `count(*) over ()` giver totalen gratis.
+ * MED domaenefilter gennemgaas kandidaterne i partier, saa en side langt
+ * inde i udbuddet kan naas — se noten ved `PARTI`.
+ */
+export async function soegGrupperet(
+  f: Filtre, graense = 48, referenceNow: Date = new Date(), side = 1,
+): Promise<Grupperet> {
+  const forskyd = (side - 1) * graense
+
+  // ── Uden domaenefilter ───────────────────────────────────────
+  if (!harDomaenefilter(f)) {
+    const raekker = await gruppevindue(f, graense, forskyd)
+    let kortIAlt = raekker[0]?.grupperIAlt ?? 0
+    // Vinduestaellingen staar PAA raekkerne. En side uden for raekkevidde
+    // giver nul raekker og dermed intet tal — og saa kunne siden ikke
+    // skelne «side 7 findes ikke» fra «ingen boliger matcher». Én
+    // minimal ekstra forespoergsel, KUN i det tilfaelde.
+    if (raekker.length === 0 && forskyd > 0) {
+      const [en] = await gruppevindue(f, 1, 0)
+      kortIAlt = en?.grupperIAlt ?? 0
+    }
+    return {
+      visninger: await byg(raekker.map((r) => ({ r, matchende: null })), referenceNow),
+      kortIAlt, komplet: true, side,
+    }
+  }
+
+  // ── Med domaenefilter: gennemgang i partier ──────────────────
+  const stoerrelse = partistoerrelse()
+  const udsnit: { r: Grupperaekke; matchende: number }[] = []
+  let matchendeIAlt = 0
+  let komplet = false
+  for (let parti = 0; parti < maksPartier(); parti++) {
+    const raekker = await gruppevindue(f, stoerrelse, parti * stoerrelse)
+    for (const r of raekker) {
+      const matchende = antalDerMatcher(f, r, referenceNow)
+      if (matchende === 0) continue
+      // Kun det oenskede udsnit beholdes. Resten taelles og kasseres —
+      // ellers ville et stort udbud ligge i hukommelsen, og kortfelterne
+      // ville blive hentet for kort, ingen ser.
+      if (matchendeIAlt >= forskyd && udsnit.length < graense) {
+        udsnit.push({ r, matchende })
+      }
+      matchendeIAlt++
+    }
+    // Et parti, der ikke er fyldt, er det sidste. Gennemgangen er faerdig,
+    // og tallet er en rigtig total.
+    if (raekker.length < stoerrelse) { komplet = true; break }
+  }
+  return {
+    visninger: await byg(udsnit, referenceNow),
+    kortIAlt: matchendeIAlt, komplet, side,
+  }
 }
 
 /** Hvor mange BOLIGER de viste kort dækker. Til linjen over listen. */

@@ -12,6 +12,7 @@ import { Maaling } from './Maaling'
 import { maalingstilstand, spor } from '../lib/maaling-server'
 import { antalFiltre, filterDiff, forrigeFiltre, uddrag } from '../lib/maalingsoeg'
 import { sammenfatFlere } from '../lib/filterpanel'
+import { Sider, sideUrl } from './Sider'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,6 +48,29 @@ function kortLink(sp: Soegeparametre, visesNu: boolean): string {
 
 /** Første værdi af en URL-parameter — til formularens defaultValue. */
 const en = (v: string | string[] | undefined) => Array.isArray(v) ? v[0] : v
+
+/** Kort pr. side. Ét sted, saa udsnittet, sideantallet og analytics'
+ *  `position` ikke kan regne med hver sit tal. */
+const PR_SIDE = 48
+
+/**
+ * `?side=N` — navigation, ikke et filter.
+ *
+ * STRENG. Kun et positivt heltal uden foranstillet nul, hoejst fire
+ * cifre; alt andet er side 1. `heltal()` i lib/soeg.ts ville acceptere
+ * «2,5» som 2 og «-3» som -3, og en navigationsparameter skal afvises
+ * rent, ikke fortolkes velvilligt. Loftet paa 9999 er der, saa
+ * `?side=1e9` hverken kan bede basen om et absurd offset eller faa
+ * pageren til at regne paa Infinity.
+ *
+ * Parameteren naar ALDRIG `filtreFraParametre`, og dermed hverken
+ * `Filtre`, `harFiltre`, `filterDiff`, `hvor()` eller en gemt
+ * boligalarms kriterier. `/?side=2` alene er stadig forsiden.
+ */
+function sidetal(v: string | string[] | undefined): number {
+  const s = Array.isArray(v) ? v[0] : v
+  return s != null && /^[1-9][0-9]{0,3}$/.test(s) ? Number(s) : 1
+}
 
 /**
  * Kampagneparametre til målingen.
@@ -107,7 +131,16 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   //  · `visninger.length`     kort i det viste udsnit
   //  · `antalBoliger(...)`    boliger daekket af det viste udsnit
   // `nu` gives til dem alle, saa domaenefiltrene laeser samme klokke.
-  const { visninger, kortIAlt, komplet } = await soegGrupperet(f, 48, nu)
+  const side = sidetal(sp.side)
+  const { visninger, kortIAlt, komplet } = await soegGrupperet(f, PR_SIDE, nu, side)
+  // Sideantallet er udledt af KORT, ikke af boliger. Er gennemgangen
+  // afbrudt, er det et mindstetal — pageren skriver det, og analytics
+  // faar slet ikke tallet.
+  const sider = Math.max(1, Math.ceil(kortIAlt / PR_SIDE))
+  // Et gyldigt, men for hoejt sidetal. Ikke «ingen boliger matcher» —
+  // det er en paastand om soegningen, og den er falsk her. Og ingen tavs
+  // clamping: adressen skal betyde det, den siger.
+  const forHoej = side > sider && kortIAlt > 0
   const avGrundlag = await availabilityGrundlag(f, nu)
   const sum = await opsummering(f, nu)
   // Grundlaget under afkrydsningerne skal beskrive søgningen UDEN de tre
@@ -175,6 +208,17 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
       const b = v.slags === 'gruppe' ? v.gruppe.repraesentant : v.bolig
       vistePrKilde[b.kilde] = (vistePrKilde[b.kilde] ?? 0) + 1
     }
+    // Pagineringens tre valgfri felter, jf. docs/analytics-v1.md §7b.
+    // `sider_i_alt` sendes KUN sammen med `komplet: true` — er
+    // gennemgangen afbrudt, er «3 sider» ikke tre sider, det er «mindst
+    // tre», og krydsfeltsreglen i rens() ville droppe feltet alligevel.
+    // Vi sender det ikke og lader den regel vaere det andet vaern, ikke
+    // det foerste.
+    const sidemeta = {
+      side,
+      komplet,
+      ...(komplet ? { sider_i_alt: sider } : {}),
+    }
     await spor({
       navn: 'search',
       props: {
@@ -184,13 +228,18 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         sorter: f.sorter ?? 'nyeste',
         result_view_id: visningId,
         kort_vist: kortVises,
+        ...sidemeta,
         ...kampagne(sp),
       },
     }, '/')
     if (sum.antal === 0) {
+      // `sum.antal` er den EKSAKTE optaelling fra `opsummering()`, uden
+      // loft og uafhaengig af hvilken side der bedes om. Et sidetal uden
+      // for raekkevidde giver derfor ikke et `empty_results` — se
+      // docs/analytics-v1.md.
       await spor({
         navn: 'empty_results',
-        props: { ...uddragKategorisk, antal_filtre: filtreSat },
+        props: { ...uddragKategorisk, antal_filtre: filtreSat, ...sidemeta },
       }, '/')
     } else {
       await spor({
@@ -198,9 +247,11 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         props: {
           ...uddragKategorisk,
           result_count: sum.antal,
+          // Udsnittet, ikke bestanden: begge beskriver DENNE side.
           viste_antal: visninger.length,
           viste_pr_kilde: vistePrKilde,
           result_view_id: visningId,
+          ...sidemeta,
         },
       }, '/')
     }
@@ -710,7 +761,18 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         )}
       </div>
 
-      {visninger.length === 0 ? (
+      {forHoej ? (
+        <div className="side-findes-ikke">
+          <p>
+            <strong>Side {side} findes ikke.</strong> Søgningen har{' '}
+            {komplet ? '' : 'mindst '}{sider} {sider === 1 ? 'side' : 'sider'}.
+          </p>
+          <p>
+            <a href={sideUrl('/', sp, sider)}>Gå til side {sider}</a>
+            {side !== 1 && <> · <a href={sideUrl('/', sp, 1)}>tilbage til side 1</a></>}
+          </p>
+        </div>
+      ) : visninger.length === 0 ? (
         <div className="tom">
           {/* «Ingen boliger matcher» er en PAASTAND om hele saettet. Den maa
               kun staa, naar vi har set hele saettet. Rammer kandidatloftet,
@@ -732,7 +794,10 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                 nu={nu}
                 key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
                 v={v}
-                position={i + 1}
+                // Global plads i HELE resultatsaettet, ikke paa siden.
+                // Side 2 begynder derfor paa 49. Sidelokal position kan
+                // altid genskabes som `position - (side-1)*48`.
+                position={(side - 1) * PR_SIDE + i + 1}
               />
             ))}
           </div>
@@ -758,6 +823,9 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           )}
         </div>
       )}
+
+      {/* Forrige · sidetal · Naeste. Almindelige links; se app/Sider.tsx. */}
+      <Sider basis="/" sp={sp} side={side} sider={sider} komplet={komplet} />
 
       {/* Kilderne uden den native: "hentet fra ... og Bofinda" er ikke
           rigtigt — de annoncer er ikke hentet nogen steder, de er

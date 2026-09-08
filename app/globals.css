@@ -881,6 +881,75 @@ form.filtre.soegt .storsoeg button { padding: 11px 20px; font-size: 14.5px; bord
   .kortboks { height: 60vh; max-height: 460px; }
 }
 
+/* ─── Sidenavigation ────────────────────────────────────────────
+   Almindelige links, ikke knapper. Rolig og groen som resten: den
+   aktuelle side er den eneste med fyldt flade, resten er tekst med en
+   let ramme. Trykfladen er 44 px hoej — Apples og Googles minimum for en
+   finger — ogsaa selv om tallet fylder mindre. */
+.sider {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  margin: 22px 0 4px; padding-top: 16px; border-top: 1px solid var(--linje);
+}
+.side-tal {
+  list-style: none; display: flex; flex-wrap: wrap; align-items: center;
+  gap: 6px; margin: 0; padding: 0;
+}
+.sider a, .side-nu {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 44px; min-height: 44px; padding: 0 12px;
+  border-radius: var(--r-s); font-size: 14px; font-weight: 560;
+  text-decoration: none; font-variant-numeric: tabular-nums;
+}
+.sider a {
+  color: var(--daempet); border: 1px solid var(--linje); background: var(--kort);
+}
+.sider a:hover { border-color: var(--accent); color: var(--accent); }
+/* Synligt tastaturfokus. `:focus-visible` og ikke `:focus`, saa et
+   museklik ikke efterlader en ring. */
+.sider a:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; color: var(--accent);
+}
+.side-nu {
+  background: var(--accent); color: #fff; border: 1px solid var(--accent);
+  font-weight: 620;
+}
+.side-hul {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; min-height: 44px; color: var(--svag); font-size: 14px;
+}
+.side-pil { white-space: nowrap; }
+.side-note {
+  flex-basis: 100%; margin: 4px 0 0; font-size: 12.5px;
+  color: var(--daempet); line-height: 1.5;
+}
+.side-note strong { color: var(--tekst); font-weight: 640; }
+/* Paa en telefon staar pilene i hver sin ende paa foerste raekke og
+   tallene centreret under dem, saa tommelfingeren finder «Naeste» det
+   samme sted hver gang.
+
+   `margin-left/right: auto` og IKKE `justify-content: space-between`:
+   paa side 1 findes «Forrige» ikke, og space-between ville da skubbe den
+   enlige «Naeste» hen i venstre side — altsaa et andet sted end paa alle
+   de oevrige sider. Med auto-margener bliver hver pil, hvor den hoerer
+   til, uanset om den anden er der. */
+@media (max-width: 520px) {
+  .side-pil { order: 1; }
+  .sider .side-pil:first-of-type { margin-right: auto; }
+  .sider .side-pil:last-of-type { margin-left: auto; }
+  .side-tal { order: 3; flex-basis: 100%; justify-content: center; }
+}
+
+/* Et sidetal uden for raekkevidde. Ikke «ingen boliger matcher» — det er
+   en paastand om soegningen, og den er falsk her. */
+.side-findes-ikke {
+  background: var(--kort); border: 1px solid var(--linje); border-radius: var(--r);
+  padding: 28px 24px; text-align: center; color: var(--daempet);
+}
+.side-findes-ikke p { margin: 0 0 8px; }
+.side-findes-ikke p:last-child { margin-bottom: 0; }
+.side-findes-ikke strong { color: var(--tekst); font-weight: 640; }
+.side-findes-ikke a { color: var(--accent); }
+
 /* ─── Prissammenligning ─────────────────────────────────────────
    Ingen farveskala uden tal bag: dommen står som ord, og grundlaget
    står ved siden af den. */

@@ -1,8 +1,18 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { findOmraade, naboer, statistik, type Omraade } from '../../../lib/omraade'
-import { antalBoliger, soegGrupperet } from '../../../lib/soeg'
+import { antalBoliger, soegGrupperet, type Soegeparametre } from '../../../lib/soeg'
 import { Visningskort, kr } from '../../Boligkort'
+import { Sider, sideUrl } from '../../Sider'
+
+/** Kort pr. side — samme tal som søgesiden. */
+const PR_SIDE = 48
+
+/** `?side=N`, samme strenge regel som på søgesiden. Se noten dér. */
+function sidetal(v: string | string[] | undefined): number {
+  const s = Array.isArray(v) ? v[0] : v
+  return s != null && /^[1-9][0-9]{0,3}$/.test(s) ? Number(s) : 1
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -23,9 +33,13 @@ const filterFor = (o: Omraade) =>
 // ─── Metadata ──────────────────────────────────────────────────
 
 export async function generateMetadata(
-  { params }: { params: Promise<{ slug: string }> },
+  { params, searchParams }: {
+    params: Promise<{ slug: string }>
+    searchParams: Promise<Soegeparametre>
+  },
 ): Promise<Metadata> {
   const { slug } = await params
+  const side = sidetal((await searchParams).side)
   const o = await findOmraade(slug)
   if (!o) return { title: 'Området findes ikke — Bofinda' }
 
@@ -46,16 +60,29 @@ export async function generateMetadata(
   ].filter(Boolean)
 
   return {
-    title: `Lejeboliger ${iOmraadet(o)} — ${s.antal} til leje | Bofinda`,
+    // Titlen siger hvilken side, saa to sider ikke staar med samme titel
+    // i et resultat.
+    title: `Lejeboliger ${iOmraadet(o)}${side > 1 ? ` — side ${side}` : ''} — ${s.antal} til leje | Bofinda`,
     description: dele.join(' ').slice(0, 300),
-    alternates: { canonical: `/lejeboliger/${o.slug}` },
+    // SELF-CANONICAL paa side 2 og frem. Pegede de alle paa side 1, ville
+    // hver side erklaere sig selv en dublet af den foerste, og boligerne
+    // laengere inde kunne falde ud af indekset — netop de boliger,
+    // pagineringen findes for at goere naabare.
+    alternates: {
+      canonical: side > 1 ? `/lejeboliger/${o.slug}?side=${side}` : `/lejeboliger/${o.slug}`,
+    },
   }
 }
 
 // ─── Siden ─────────────────────────────────────────────────────
 
-export default async function Side({ params }: { params: Promise<{ slug: string }> }) {
+export default async function Side({ params, searchParams }: {
+  params: Promise<{ slug: string }>
+  searchParams: Promise<Soegeparametre>
+}) {
   const { slug } = await params
+  const sp = await searchParams
+  const side = sidetal(sp.side)
   const o = await findOmraade(slug)
   // findOmraade returnerer kun omraader over graensen, saa en for tynd side
   // giver 404 og kommer heller ikke i sitemap'et.
@@ -64,10 +91,12 @@ export default async function Side({ params }: { params: Promise<{ slug: string 
   // Efter hinanden, ikke i Promise.all — se noten i app/page.tsx.
   const s = await statistik(o)
   const nu = new Date()
-  const { visninger } = await soegGrupperet(filterFor(o), 48, nu)
+  const { visninger, kortIAlt, komplet } = await soegGrupperet(filterFor(o), PR_SIDE, nu, side)
   const nabo = await naboer(o)
   // Kort er ikke boliger: ens boliger paa samme vej staar som ét kort.
   const vist = antalBoliger(visninger)
+  const sider = Math.max(1, Math.ceil(kortIAlt / PR_SIDE))
+  const forHoej = side > sider && kortIAlt > 0
 
   const typeListe = s.typer
     .filter((t) => t.antal > 0)
@@ -118,7 +147,18 @@ export default async function Side({ params }: { params: Promise<{ slug: string 
         </p>
       </div>
 
-      {visninger.length === 0 ? (
+      {forHoej ? (
+        <div className="side-findes-ikke">
+          <p>
+            <strong>Side {side} findes ikke.</strong> Området har{' '}
+            {sider} {sider === 1 ? 'side' : 'sider'}.
+          </p>
+          <p>
+            <a href={sideUrl(`/lejeboliger/${o.slug}`, sp, sider)}>Gå til side {sider}</a>
+            {side !== 1 && <> · <a href={sideUrl(`/lejeboliger/${o.slug}`, sp, 1)}>tilbage til side 1</a></>}
+          </p>
+        </div>
+      ) : visninger.length === 0 ? (
         <div className="tom"><p>Ingen boliger lige nu.</p></div>
       ) : (
         <div className="liste">
@@ -132,14 +172,17 @@ export default async function Side({ params }: { params: Promise<{ slug: string 
         </div>
       )}
 
-      {s.antal > vist && (
+      {/* Kort af kort, og boliger for sig — samme skel som paa soegesiden. */}
+      {kortIAlt > visninger.length && (
         <p className="begraensning">
-          Viser de {vist} nyeste af {s.antal}.{' '}
+          Viser {vist} af {s.antal} boliger på side {side} af {sider}.{' '}
           <a href={o.slags === 'by'
             ? `/?by=${encodeURIComponent(o.vaerdi)}`
             : `/?postnr=${o.vaerdi}`}>Søg med filtre for at indsnævre →</a>
         </p>
       )}
+
+      <Sider basis={`/lejeboliger/${o.slug}`} sp={sp} side={side} sider={sider} komplet={komplet} />
 
       {nabo.length > 0 && (
         <section className="naboer">
