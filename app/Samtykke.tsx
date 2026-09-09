@@ -34,6 +34,35 @@ export function Samtykke() {
   const svar = (v: 'ja' | 'nej') => start(async () => {
     await saetSamtykke(v)
     setAaben(false)
+    // GENINDLÆS RUTEN. Uden det tabes den første søgeindsendelse efter et ja.
+    //
+    // Server action'en sætter KUN samtykkecookien. `bofinda_aid` og
+    // `bofinda_sid` sættes af MIDDLEWARE ved næste request, og
+    // `maalingstilstand()` kræver begge — så siden står tilbage med
+    // `aktiv: false`, klientlytterne i Maaling er aldrig koblet på, og
+    // indsendelsen når ikke engang køen. Den er ikke forsinket; den er væk.
+    //
+    // MÅLT, IKKE FORMODET. Først med en `router.refresh()`: cookierne kom
+    // med det samme, men genrenderingen med `aktiv: true` kom senere, og
+    // vinduet var 500-1000 ms EFTER at cookien var sat — på denne maskine.
+    // En indsendelse i det vindue var stadig tabt. En rettelse, der virker,
+    // hvis brugeren er langsom nok, er ikke en rettelse.
+    //
+    // En fuld genindlæsning lukker vinduet: det nye dokument renderes på
+    // serveren MED identiteten, `aktiv` beregnes rigtigt — tændknappen
+    // MAALING_AKTIV bliver stadig respekteret — og lytterne kobles på
+    // under helt almindelig hydrering. Tilbage er kun det hydreringsvindue,
+    // enhver sideindlæsning har, og det er ikke noget samtykket indfører.
+    //
+    // En GENINDLÆSNING, ikke en omdirigering: `location.reload()` bruger
+    // den adresse, der allerede står i linjen. Der er intet mål at
+    // validere, ingen vej til et åbent redirect, intet at loope i, og
+    // brugerens sti, filtre og sidetal er præcis de samme bagefter.
+    //
+    // Også ved 'nej': så forsvinder lytterne med det samme dokument i
+    // stedet for at hænge til næste navigation. Fravalget bliver
+    // stærkere, ikke svagere.
+    window.location.reload()
   })
 
   return (

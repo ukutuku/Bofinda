@@ -31,9 +31,11 @@ import { crawlRuns, listings, sources } from '../db/schema'
 import { Gruppekort } from '../app/Boligkort'
 import {
   _saetGruppeloft, antalBoliger, availabilityFor, filtreFraParametre,
-  gruppenoegleFraBolig, hentGruppe, matcherDomaene,
+  gruppenoegleFraBolig, harFiltre, hentGruppe, matcherDomaene,
   opsummering, soegGrupperet, type Filtre,
 } from '../lib/soeg'
+import { antalFiltre, filterDiff, forrigeFiltre } from '../lib/maalingsoeg'
+import { Sider, sideUrl, sidevindue } from '../app/Sider'
 import { KILDEKONTRAKTER } from '../lib/kildekontrakt'
 
 /** Kortets synlige tekst — det brugeren faktisk læser. */
@@ -41,6 +43,10 @@ const kortTekst = (el: Parameters<typeof renderToStaticMarkup>[0]) =>
   renderToStaticMarkup(el).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 
 let fejl = 0
+/** Stille assertion inde i en loekke. Taelles op og rapporteres samlet —
+ *  en linje pr. iteration ville drukne resten af proeven. */
+let forStore = 0
+const tjek0 = (ok: boolean) => { if (!ok) forStore++ }
 const tjek = (navn: string, ok: boolean, note = '') => {
   console.log(`  ${ok ? '✓' : '✗'} ${navn}${note ? '  — ' + note : ''}`)
   if (!ok) fejl++
@@ -578,69 +584,271 @@ async function koer() {
     }
   }
 
-  // ═══ 11 · Kandidatloftet ═══
+  // ═══ 11 · Partigennemgangen ═══
   //
-  // Loftet sænkes gennem prøvesædet, aldrig gennem konfiguration.
-  console.log('\n══ 11 · kandidatloftet ══')
+  // En partistoerrelse er en ARBEJDSGRAENSE, ikke et katalogloft. Foer
+  // stoppede soegningen ved loftet og skrev «mindst N»; nu gennemgaas
+  // kandidaterne i partier, indtil de slipper op.
+  console.log('\n══ 11 · partigennemgangen naar hele udbuddet ══')
   {
     const f = filtreFraParametre({ postnr: '2000', overtagelse: 'nu' })   // 55 matchende kort
-    // Under loftet: alt er med, og svaret er komplet.
-    _saetGruppeloft(1000)
-    const under = await soegGrupperet(f, 48, nu)
-    tjek('11 · under loftet: komplet og fuldt antal',
-      under.komplet === true && under.kortIAlt === 55)
-    // Præcis PÅ loftet: vi kan ikke vide, om der var flere.
-    _saetGruppeloft(55)
-    const paa = await soegGrupperet(f, 48, nu)
-    tjek('11 · præcis på loftet: komplet er FALSK — vi kan ikke vide om der var flere',
-      paa.komplet === false, `kortIAlt=${paa.kortIAlt}`)
-    // Over loftet: afkortet.
-    _saetGruppeloft(20)
-    const over = await soegGrupperet(f, 48, nu)
-    tjek('11 · over loftet: afkortet og ikke komplet',
-      over.komplet === false && over.kortIAlt === 20)
-    tjek('11 · et delvist antal er mindre end det sande',
-      over.kortIAlt < 55)
+    // Partistoerrelsen maa ikke aendre svaret. `MAKS_PARTIER` haeves
+    // eksplicit, saa vaernet mod en uendelig loekke ikke forveksles med
+    // partistoerrelsen: 55 kandidater i partier a 1 kraever 56 runder.
+    for (const parti of [1000, 55, 20, 7, 1]) {
+      _saetGruppeloft(parti, 1000)
+      const g = await soegGrupperet(f, 48, nu, 1)
+      tjek(`11 · parti=${parti}: alle 55 findes, og svaret er komplet`,
+        g.kortIAlt === 55 && g.komplet === true && g.visninger.length === 48,
+        `kortIAlt=${g.kortIAlt} komplet=${g.komplet}`)
+    }
     _saetGruppeloft(null)
-    const fri = await soegGrupperet(f, 48, nu)
-    tjek('11 · loftet slippes igen', fri.komplet === true && fri.kortIAlt === 55)
   }
 
-  // 11B · DEN VIGTIGSTE: intet match før loftet, mindst ét efter.
-  console.log('\n══ 11B · intet match før loftet, mindst ét efter ══')
+  // 11B · DEN VIGTIGSTE: intet match i foerste parti, match senere.
+  console.log('\n══ 11B · intet match i foerste parti, match senere ══')
   {
-    // 60 «Støjvej»-boliger i 1000 matcher ikke; 6 «Guldvej» gør. De 60 er
-    // nyest, så med et loft på 30 nås ingen af de matchende.
+    // 60 «Støjvej» i 1000 matcher ikke; 6 «Guldvej» gør, og de er ældst.
     const f = filtreFraParametre({ postnr: '1000', overtagelse: 'nu' })
-    _saetGruppeloft(30)
-    const g = await soegGrupperet(f, 48, nu)
-    const s = await opsummering(f, nu)
-    tjek('11B · kortsættet er tomt', g.kortIAlt === 0 && g.visninger.length === 0)
-    tjek('11B · men komplet er FALSK — nul er ikke et svar her',
-      g.komplet === false)
-    tjek('11B · optællingen er IKKE afkortet og finder de seks',
-      s.antal === 6, `${s.antal}`)
-    tjek('11B · optællingens økonomital er derfor heller ikke afkortede',
-      s.billigst != null && s.dyrest != null && s.medTotal >= 0)
-    // empty_results fyrer på `sum.antal === 0` (app/page.tsx). Den er
-    // uafkortet, så et sikkert nulresultat kan ikke registreres her.
-    tjek('11B · empty_results ville IKKE fyre — sum.antal er 6, ikke 0',
-      s.antal !== 0)
+    for (const parti of [10, 30, 61]) {
+      _saetGruppeloft(parti)
+      const g = await soegGrupperet(f, 48, nu, 1)
+      const s = await opsummering(f, nu)
+      tjek(`11B · parti=${parti}: de seks bag de 60 er naabare`,
+        g.kortIAlt === 6 && g.visninger.length === 6 && g.komplet === true && s.antal === 6,
+        `kortIAlt=${g.kortIAlt} vist=${g.visninger.length} komplet=${g.komplet}`)
+    }
     _saetGruppeloft(null)
-    const fri = await soegGrupperet(f, 48, nu)
-    tjek('11B · uden loft findes de seks', fri.kortIAlt === 6 && fri.komplet === true)
   }
 
-  // 11C · Et ægte nul skal stadig være et ægte nul.
-  console.log('\n══ 11C · ægte nul ved fuldt gennemgået sæt ══')
+  // 11C · Bliver gennemgangen AFBRUDT, maa den ikke se komplet ud.
+  console.log('\n══ 11C · afbrudt gennemgang er ikke et komplet svar ══')
+  {
+    const f = filtreFraParametre({ postnr: '1000', overtagelse: 'nu' })
+    // Parti 10, hoejst 2 partier = 20 kandidater af 66. De 60 foerste
+    // matcher ikke, saa der findes intet — men vi VED det ikke.
+    _saetGruppeloft(10, 2)
+    const g = await soegGrupperet(f, 48, nu, 1)
+    tjek('11C · afbrudt: nul kort, men komplet er FALSK',
+      g.kortIAlt === 0 && g.komplet === false)
+    tjek('11C · et afbrudt nul er ikke et sikkert nulresultat — optællingen er uafkortet',
+      (await opsummering(f, nu)).antal === 6)
+    // Halvvejs: 9 x 7 = 63 kandidater af 66. De 60 foerste matcher ikke,
+    // saa netop 3 af de 6 er naaet — og gennemgangen er afbrudt midt i
+    // dem. Tallet er sandt saa langt vi kom, og maa ikke se komplet ud.
+    _saetGruppeloft(9, 7)
+    const halv = await soegGrupperet(f, 48, nu, 1)
+    tjek('11C · delvis gennemgang: fundet noget, men komplet er stadig FALSK',
+      halv.kortIAlt > 0 && halv.kortIAlt < 6 && halv.komplet === false,
+      `kortIAlt=${halv.kortIAlt}`)
+    _saetGruppeloft(null)
+  }
+
+  // 11D · Aegte nul ved fuldt gennemgaaet saet.
+  console.log('\n══ 11D · ægte nul ved fuldt gennemgået sæt ══')
   {
     const f = filtreFraParametre({ postnr: '1000', venteliste: '1' })
-    _saetGruppeloft(1000)
-    const g = await soegGrupperet(f, 48, nu)
-    const s = await opsummering(f, nu)
-    tjek('11C · nul OG komplet — «Ingen boliger matcher» må stå',
-      g.kortIAlt === 0 && g.komplet === true && s.antal === 0)
+    const g = await soegGrupperet(f, 48, nu, 1)
+    tjek('11D · nul OG komplet — «Ingen boliger matcher» må stå',
+      g.kortIAlt === 0 && g.komplet === true && (await opsummering(f, nu)).antal === 0)
+  }
+
+  // ═══ 12 · Paginering ═══
+  console.log('\n══ 12 · alle sider gennemløbes uden mangler eller gentagelser ══')
+  for (const sorter of ['nyeste', 'pris_op', 'pris_ned', 'areal_ned',
+    'indflytning_op', 'indflytning_ned'] as const) {
+    for (const [navn, sp] of [
+      ['uden domænefilter', { sorter }],
+      ['med domænefilter', { sorter, overtagelse: 'senere' }],
+    ] as [string, Record<string, string>][]) {
+      const f = filtreFraParametre(sp)
+      const set = new Set<string>()
+      let raekker = 0; let ialt = 0; let sider = 0
+      for (let side = 1; side <= 60; side++) {
+        const g = await soegGrupperet(f, 48, nu, side)
+        ialt = g.kortIAlt
+        if (g.visninger.length === 0) break
+        sider++
+        tjek0(g.visninger.length <= 48)
+        for (const v of g.visninger) {
+          set.add(v.slags === 'gruppe' ? v.gruppe.repraesentant.id : v.bolig.id)
+          raekker++
+        }
+      }
+      tjek(`12 · ${sorter} ${navn}: ${ialt} kort, ${sider} sider`,
+        raekker === ialt && set.size === ialt,
+        `raekker=${raekker} unikke=${set.size} kortIAlt=${ialt}`)
+    }
+  }
+  tjek('12 · og ingen side viste mere end 48 kort', forStore === 0, `${forStore} for store`)
+
+  console.log('\n══ 12B · sidetal: gyldige og ugyldige ══')
+  {
+    const f = filtreFraParametre({ postnr: '2000' })
+    const s1 = await soegGrupperet(f, 48, nu, 1)
+    const s2 = await soegGrupperet(f, 48, nu, 2)
+    const id = (g: Awaited<ReturnType<typeof soegGrupperet>>) =>
+      g.visninger[0] && (g.visninger[0].slags === 'gruppe'
+        ? g.visninger[0].gruppe.repraesentant.id : g.visninger[0].bolig.id)
+    tjek('12B · side 2 er et andet udsnit end side 1', id(s1) !== id(s2))
+    tjek('12B · side 1 og 2 overlapper ikke',
+      s1.visninger.length === 48 && s2.visninger.length === 7)
+    // Uden for raekkevidde: tomt udsnit, men totalen staar fast.
+    const s9 = await soegGrupperet(f, 48, nu, 9)
+    tjek('12B · side uden for rækkevidde: tomt udsnit, total uændret',
+      s9.visninger.length === 0 && s9.kortIAlt === s1.kortIAlt && s9.kortIAlt === 55)
+    tjek('12B · og det er IKKE et nulresultat',
+      (await opsummering(f, nu)).antal > 0)
+  }
+
+  console.log('\n══ 12C · en gruppe deles ikke mellem sider ══')
+  {
+    // Blandetvej i 3000 er én gruppe paa fem. Uanset sidestoerrelse maa
+    // den staa helt paa én side — grupperingen sker i SQL, saa et vindue
+    // kan kun ramme hele grupperaekker.
+    const f = filtreFraParametre({})
+    const set = new Map<string, number>()
+    for (let side = 1; side <= 60; side++) {
+      const g = await soegGrupperet(f, 5, nu, side)
+      if (g.visninger.length === 0) break
+      for (const v of g.visninger) {
+        if (v.slags !== 'gruppe') continue
+        const k = v.gruppe.repraesentant.id
+        set.set(k, (set.get(k) ?? 0) + 1)
+        tjek0(v.gruppe.antal >= 2)
+      }
+    }
+    tjek('12C · hvert gruppekort optræder præcis én gang',
+      [...set.values()].every((n) => n === 1), `${set.size} gruppekort`)
+  }
+
+  console.log('\n══ 12D · side er navigation, ikke et filter ══')
+  {
+    const medSide = { postnr: '2300', side: '3' }
+    const uden = { postnr: '2300' }
+    tjek('12D · side når ikke Filtre',
+      JSON.stringify(filtreFraParametre(medSide)) === JSON.stringify(filtreFraParametre(uden)))
+    tjek('12D · ?side=2 alene gør ikke forsiden til en søgning',
+      harFiltre(filtreFraParametre({ side: '2' })) === false)
+    tjek('12D · side ændrer ikke antal_filtre',
+      antalFiltre(filtreFraParametre(medSide)) === antalFiltre(filtreFraParametre(uden)))
+    const kender = () => true
+    tjek('12D · et sideskift giver ingen filterevents',
+      filterDiff(filtreFraParametre(uden), filtreFraParametre(medSide), kender).length === 0
+      && filterDiff(filtreFraParametre(medSide), filtreFraParametre(uden), kender).length === 0)
+    tjek('12D · ?side i Referer giver heller ingen',
+      filterDiff(
+        forrigeFiltre('https://bofinda.dk/?postnr=2300&side=5', 'https://bofinda.dk',
+          filtreFraParametre),
+        filtreFraParametre(uden), kender).length === 0)
+    // Gem-formularen sender `JSON.stringify(filtreFraParametre(sp))`, saa
+    // et felt, `filtreFraParametre` ikke laeser, kan ikke naa en alarm.
+    tjek('12D · side kan ikke havne i en boligalarms kriterier',
+      !JSON.stringify(filtreFraParametre({ ...medSide, sorter: 'pris_op' })).includes('side'))
+  }
+
+  console.log('\n══ 12E · pagineringens adresser ══')
+  {
+    const sp = { by: 'København S', type: ['hus', 'raekkehus'], kort: '0', flere: '1', side: '4' }
+    const u2 = sideUrl('/', sp, 2)
+    tjek('12E · alle parametre bevares, også flerværdi',
+      u2.includes('by=K') && (u2.match(/type=/g) ?? []).length === 2
+      && u2.includes('kort=0') && u2.includes('flere=1'), u2)
+    tjek('12E · den gamle side udskiftes, ikke tilføjes',
+      (u2.match(/side=/g) ?? []).length === 1 && u2.includes('side=2'))
+    tjek('12E · side 1 udelader parameteren helt',
+      !sideUrl('/', sp, 1).includes('side='), sideUrl('/', sp, 1))
+    tjek('12E · områdesidens basis bevares',
+      sideUrl('/lejeboliger/2300', {}, 3) === '/lejeboliger/2300?side=3')
+    tjek('12E · og side 1 dér er den bare slug',
+      sideUrl('/lejeboliger/2300', {}, 1) === '/lejeboliger/2300')
+    // Vinduet
+    tjek('12E · faa sider vises alle', JSON.stringify(sidevindue(3, 5)) === '[1,2,3,4,5]')
+    const v = sidevindue(10, 21)
+    tjek('12E · mange sider giver et kompakt vindue med huller',
+      v[0] === 1 && v[v.length - 1] === 21 && v.includes(null) && v.includes(10),
+      JSON.stringify(v))
+    tjek('12E · den aktuelle side er altid med',
+      [1, 2, 5, 11, 20, 21].every((n) => sidevindue(n, 21).includes(n)))
+  }
+
+  console.log('\n══ 12F · filtre anvendes før sideudsnittet ══')
+  {
+    // 55 matchende i 2000 bag 60 ikke-matchende i 1000. Side 2 af det
+    // filtrerede saet maa vaere matchende kort 49-55, ikke «de naeste 48
+    // raekker efter de foerste 48 ufiltrerede».
+    const f = filtreFraParametre({ overtagelse: 'nu' })
+    const alle = new Set<string>()
+    for (let side = 1; side <= 20; side++) {
+      const g = await soegGrupperet(f, 48, nu, side)
+      if (!g.visninger.length) break
+      for (const v of g.visninger) {
+        const b = v.slags === 'gruppe' ? v.gruppe.repraesentant : v.bolig
+        alle.add(b.id)
+        // Hvert eneste viste kort SKAL have mindst ét matchende medlem.
+        if (v.slags === 'gruppe') tjek0((v.gruppe.matchende ?? 0) > 0)
+      }
+    }
+    const facitKort = facit(f, nu).kort
+    tjek('12F · alle sider tilsammen = præcis det filtrerede sæt',
+      alle.size === facitKort, `${alle.size} = ${facitKort}`)
+  }
+
+  // 12G · KANDIDATVAERNET. 25 partier a 2.000 er 50.000 kandidatgrupper —
+  // et loft, ikke «ubegraenset». Naar det rammes, er gennemgangen afbrudt,
+  // og saa maa hverken tallet, teksten eller navigationen love mere, end
+  // der er daekning for.
+  console.log('\n══ 12G · kandidatværnet: en afbrudt gennemgang lover intet eksakt ══')
+  {
+    const f = filtreFraParametre({ postnr: '1000', overtagelse: 'nu' })
+    _saetGruppeloft(9, 7)                       // afbryd midt i gennemgangen
+    const afbrudt = await soegGrupperet(f, 48, nu, 1)
     _saetGruppeloft(null)
+    const helt = await soegGrupperet(f, 48, nu, 1)
+
+    tjek('12G · loftet fyrer: komplet er falsk, og tallet er lavere end det sande',
+      afbrudt.komplet === false && afbrudt.kortIAlt < helt.kortIAlt,
+      `${afbrudt.kortIAlt} < ${helt.kortIAlt}`)
+    tjek('12G · uden loft er det samme svar komplet',
+      helt.komplet === true)
+
+    // ── Hvad SIGER siden om det? ──
+    const siderAfbrudt = Math.max(1, Math.ceil(afbrudt.kortIAlt / 48))
+    const ufuld = kortTekst(createElement(Sider, {
+      basis: '/', sp: {}, side: 1, sider: Math.max(2, siderAfbrudt), komplet: false,
+    }))
+    const fuld = kortTekst(createElement(Sider, {
+      basis: '/', sp: {}, side: 1, sider: 3, komplet: true,
+    }))
+    tjek('12G · en afbrudt gennemgang siger «mindst N sider»',
+      /mindst \d+ sider/.test(ufuld), ufuld.slice(0, 90))
+    tjek('12G · og den siger IKKE at den naaede hele udbuddet',
+      /Vi n.ede ikke hele udbuddet/.test(ufuld))
+    tjek('12G · en komplet gennemgang siger det ikke — noten er ikke pynt paa alting',
+      !/mindst/.test(fuld) && !/n.ede ikke/.test(fuld), fuld.slice(0, 60))
+
+    // ── Navigationen maa ikke tilbyde en side, der ikke kan leveres ──
+    // Ved komplet=false er `sider` et MINDSTETAL. Pageren maa derfor
+    // gerne pege paa alle N — de findes — men aldrig paa N+1.
+    const markup = renderToStaticMarkup(createElement(Sider, {
+      basis: '/', sp: {}, side: 2, sider: 3, komplet: false,
+    }))
+    const tilbudte = [...markup.matchAll(/side=(\d+)/g)].map((m) => Number(m[1]))
+    tjek('12G · pageren tilbyder ingen side ud over dem, der faktisk er fundet',
+      tilbudte.length > 0 && tilbudte.every((n) => n <= 3), `tilbudt: ${tilbudte.join(', ')}`)
+    tjek('12G · «Naeste» findes ikke paa den sidste fundne side',
+      !renderToStaticMarkup(createElement(Sider, {
+        basis: '/', sp: {}, side: 3, sider: 3, komplet: false,
+      })).includes('rel="next"'))
+
+    // ── Og et afbrudt nul er ikke et nulresultat ──
+    _saetGruppeloft(10, 2)
+    const nul = await soegGrupperet(f, 48, nu, 1)
+    _saetGruppeloft(null)
+    tjek('12G · nul kort ved afbrudt gennemgang er IKKE et sikkert nul',
+      nul.kortIAlt === 0 && nul.komplet === false)
+    tjek('12G · den eksakte optaelling er uafhaengig af loftet',
+      (await opsummering(f, nu)).antal === 6)
   }
 
   // ─── Oprydning ───────────────────────────────────────────────
