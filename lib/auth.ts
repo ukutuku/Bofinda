@@ -19,7 +19,7 @@
 
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db/client'
 import { users } from '../db/schema'
 
@@ -59,13 +59,59 @@ export interface Bruger {
 /** Navnet bevares for de kaldere, der handler om udlejersiden. */
 export type Udlejer = Bruger
 
-/** Auth-kontoen alene. Rører ikke databasen. */
-async function authKonto(): Promise<{ id: string; email: string } | null> {
+/**
+ * Den verificerede auth-konto. Rører ikke databasen.
+ *
+ * `getUser()` og ikke `getSession()`: getSession laeser cookien og
+ * stoler paa den, mens getUser spoerger Auth-serveren og faar et svar,
+ * en klient ikke kan forfalske. Autorisation maa aldrig hvile paa den
+ * foerste.
+ *
+ * Fejl, manglende bruger og manglende mail behandles hver for sig og
+ * giver alle null — der gaettes ikke paa en identitet.
+ */
+export interface AuthKonto {
+  id: string
+  email: string
+  /**
+   * Har Auth-serveren en bekraeftelse paa mailadressen?
+   *
+   * ⚠ IKKE I SIG SELV BEVIS FOR, AT BRUGEREN HAR BEKRAEFTET.
+   * Er «Confirm Email» slaaet FRA i Supabase, saetter serveren selv
+   * `email_confirmed_at` ved oprettelsen — uden at nogen har aabnet en
+   * mail. Feltet er derfor en NOEDVENDIG, men ikke en tilstraekkelig
+   * betingelse: den anden halvdel er en indstilling i Auth-miljoeet, som
+   * skal efterproeves dér. Se `KRAEVER_CONFIRM_EMAIL` nedenfor.
+   */
+  mailBekraeftet: boolean
+}
+
+/**
+ * RELEASE-FORUDSAETNING, ikke en kodeantagelse.
+ *
+ * Bindingen af en eksisterende brugerraekke til en konto hviler paa, at
+ * mailadressen er bevist. Det er kun sandt, naar «Confirm Email» er slaaet
+ * TIL i Supabase Auth. Er den slaaet fra, kan enhver oprette en konto paa
+ * en fremmed adresse og arve hendes gemte soegninger.
+ *
+ * Koden kan ikke se indstillingen, og den maa ikke lade som om. Den
+ * tjekker det, den KAN se (`email_confirmed_at`), og lader resten staa
+ * som en gate, et menneske skal verificere i det rigtige Auth-miljoe foer
+ * release. Se docs/auth-binding.md.
+ */
+export const KRAEVER_CONFIRM_EMAIL = true
+
+async function authKonto(): Promise<AuthKonto | null> {
   if (!konfigureret()) return null
   const sb = await supabase()
-  const { data } = await sb.auth.getUser()
+  const { data, error } = await sb.auth.getUser()
+  if (error) return null
   const k = data.user
-  return k?.email ? { id: k.id, email: k.email } : null
+  if (!k) return null
+  // Mailen tages fra Auth-serverens brugerobjekt — aldrig fra en
+  // formular, og aldrig fra user_metadata, som brugeren selv kan rette.
+  if (!k.email) return null
+  return { id: k.id, email: k.email, mailBekraeftet: Boolean(k.email_confirmed_at) }
 }
 
 /**
@@ -91,47 +137,184 @@ export async function hentBrugerId(): Promise<string | null> {
  * kontoen i stedet for at lave en ny. Ellers ville den samme person have
  * to rækker, og hendes søgninger ville høre til den forkerte.
  */
-async function sikreBruger(
-  rolle: 'tenant' | 'landlord', rute: '/udlejer' | '/min-side',
-): Promise<Bruger | null> {
-  const konto = await authKonto()
-  if (!konto) return null
+/**
+ * Hvorfor en binding ikke lykkedes. Kaldere skal kunne SIGE det —
+ * «log ind» er et forkert svar til en, der ER logget ind.
+ */
+export type Bindingssvar =
+  | { slags: 'ok'; bruger: Bruger }
+  | { slags: 'ingen-session' }
+  | { slags: 'ubekraeftet-mail'; email: string }
+  | { slags: 'konflikt'; email: string }
 
-  const [alt] = await db.select().from(users).where(eq(users.authUserId, konto.id)).limit(1)
-  if (alt) return { id: alt.id, authUserId: konto.id, email: alt.email, navn: alt.name }
+const somBruger = (r: { id: string; email: string; name: string | null }, authId: string): Bruger =>
+  ({ id: r.id, authUserId: authId, email: r.email, navn: r.name })
 
-  // Bind en eksisterende raekke paa mailadressen, ellers opret.
-  const [paaMail] = await db.select().from(users).where(eq(users.email, konto.email)).limit(1)
-  if (paaMail) {
-    const [r] = await db.update(users)
-      .set({ authUserId: konto.id, role: rolle })
-      .where(eq(users.id, paaMail.id))
-      .returning()
-    await sporOprettet(r!.id, true, rute)
-    return { id: r!.id, authUserId: konto.id, email: r!.email, navn: r!.name }
-  }
-  const [ny] = await db.insert(users)
-    .values({ email: konto.email, authUserId: konto.id, role: rolle })
-    .returning()
-  await sporOprettet(ny!.id, false, rute)
-  return { id: ny!.id, authUserId: konto.id, email: ny!.email, navn: ny!.name }
+/** Raekken der ALLEREDE er bundet til denne konto. Den eneste sikre laesning. */
+async function paaAuthId(authId: string): Promise<Bruger | null> {
+  const [r] = await db.select().from(users).where(eq(users.authUserId, authId)).limit(1)
+  return r ? somBruger(r, authId) : null
 }
 
 /**
- * Udlejeren. Uændret adfærd: rollen sættes til `landlord`, og
- * `signup_completed` bogfoeres paa /udlejer.
+ * Bind en auth-konto til vores egen brugerraekke.
+ *
+ * ═══ KONTOEN KOMMER IND SOM ARGUMENT ═══
+ *
+ * Den laeses ikke her. Det er dét, der goer bindingen proevbar UDEN en
+ * injektionsluge: proeverne kalder denne funktion med en konto, de selv
+ * bygger, og rammer dermed den RIGTIGE logik — ikke en kopi af den. I
+ * produktion er `sikreBruger` den eneste kalder, og den henter kontoen
+ * fra Auth-serveren selv. Der findes altsaa ingen vej fra en request til
+ * en forfalsket identitet.
+ *
+ * ═══ AUTORITETEN ER auth_user_id, IKKE MAILEN ═══
+ *
+ * Mailen kan skifte. Den kan skifte til en, en anden havde. Derfor er
+ * `auth_user_id` det, der afgoer ejerskabet, og mailen kun det, der kan
+ * aabne en ENGANGSbinding af en raekke, ingen konto ejer endnu.
+ *
+ * Fem regler, og de haandhaeves i forespoergslerne — ikke i en
+ * forudgaaende laesning:
+ *
+ *  A · Er raekken allerede bundet til kontoen, er det den samme interne
+ *      bruger for altid — ogsaa hvis mailen siden er aendret.
+ *  B · En raekke bundet til en ANDEN konto roeres aldrig. Ikke bindingen,
+ *      ikke rollen, ikke noget. Et mailmatch er ikke et ejerskabsbevis.
+ *  C · En ubundet raekke bindes kun med en bekraeftet mailadresse.
+ *  D · «Ubundet» staar i UPDATE'ens egen WHERE. En SELECT foerst og en
+ *      UPDATE bagefter er et vindue: naaede en anden request at binde
+ *      raekken imellem de to, ville vi overskrive HENDES binding.
+ *  E · Ramte UPDATE'en nul raekker, udleveres den fundne raekke ALDRIG.
+ *      Der genlaeses kun paa vores eget verificerede `auth_user_id`.
+ *  F · Samtidige foerstegangsrequests loeses af databasens egen
+ *      unikhed, ikke af et gaet. Gentagne requests er idempotente.
  */
-export const hentUdlejer = (): Promise<Udlejer | null> => sikreBruger('landlord', '/udlejer')
+export async function bindKonto(
+  konto: AuthKonto, rolle: 'tenant' | 'landlord', rute: '/udlejer' | '/min-side',
+): Promise<Bindingssvar> {
+  // ── A · Allerede bundet ────────────────────────────────────
+  // Foerst, og uden nogen betingelse om mailen. Har hun skiftet adresse
+  // hos Supabase, er hun stadig den samme hos os.
+  const bundet = await paaAuthId(konto.id)
+  if (bundet) return { slags: 'ok', bruger: bundet }
+
+  // ── C · Binding kraever en bekraeftet mail ─────────────────
+  // Herfra og ned er mailen det eneste, der peger paa en raekke. Er den
+  // ikke bevist, er der intet at binde paa.
+  if (!konto.mailBekraeftet) return { slags: 'ubekraeftet-mail', email: konto.email }
+
+  // ── D-F · To forsoeg ───────────────────────────────────────
+  // Hvorfor en loekke og ikke ét gennemloeb: en SAMTIDIG request kan naa
+  // at INDSAETTE raekken mellem vores UPDATE og vores laesning. Foerste
+  // runde finder saa ingenting at binde og ingenting at oprette — men
+  // raekken findes nu, og anden runde binder den.
+  //
+  // Fundet af den rigtige samtidighedsproeve mod PostgreSQL: med tolv
+  // parallelle foerstegangsrequests fra SAMME konto fejlede én, fordi
+  // konflikt-tjekket kun saa, AT der laa en raekke paa adressen — ikke
+  // at den var vores egen. PGlite kunne ikke vise det; den koerer paa én
+  // forbindelse. Se scripts/cloud/samtidighed.ts.
+  for (let forsoeg = 0; forsoeg < 2; forsoeg++) {
+    // D · «Ubundet» staar i skrivningen selv. Databasen afgoer, om
+    //     raekken var ledig — ikke en laesning, der kan blive foraeldet.
+    const [nyBundet] = await db.update(users)
+      .set({ authUserId: konto.id, role: rolle })
+      .where(and(eq(users.email, konto.email), isNull(users.authUserId)))
+      .returning()
+    if (nyBundet) {
+      await sporOprettet(nyBundet.id, true, rute)
+      return { slags: 'ok', bruger: somBruger(nyBundet, konto.id) }
+    }
+
+    // F · Naaede en samtidig request fra DENNE konto at binde raekken,
+    //     er svaret hendes egen. Det er dét, idempotensen betyder.
+    const imellemtiden = await paaAuthId(konto.id)
+    if (imellemtiden) return { slags: 'ok', bruger: imellemtiden }
+
+    // E · Nul raekker ramt. Hvem ejer adressen?
+    const [optaget] = await db
+      .select({ id: users.id, email: users.email, name: users.name,
+        authUserId: users.authUserId })
+      .from(users).where(eq(users.email, konto.email)).limit(1)
+
+    if (optaget) {
+      // Vores egen — samme konto, en anden request var hurtigere.
+      if (optaget.authUserId === konto.id) {
+        return { slags: 'ok', bruger: somBruger(optaget, konto.id) }
+      }
+      // B · Bundet til en ANDEN konto. Her kunne man «loese» konflikten
+      //     ved at binde om. Det ville overfoere en fremmeds gemte
+      //     soegninger og annoncer til den, der tilfaeldigvis fik hendes
+      //     gamle mailadresse. En konto-konflikt maa koste et menneskes
+      //     hjaelp; den maa ikke koste en andens data.
+      if (optaget.authUserId !== null) return { slags: 'konflikt', email: konto.email }
+      // Ubundet, men indsat efter vores UPDATE. Anden runde binder den.
+      continue
+    }
+
+    // F · Opret. `onConflictDoNothing` i stedet for et forudgaaende
+    //     «findes den?»: to samtidige foerstegangsrequests skal ikke
+    //     kunne kaste paa unikhedsspaerringen.
+    const [ny] = await db.insert(users)
+      .values({ email: konto.email, authUserId: konto.id, role: rolle })
+      .onConflictDoNothing()
+      .returning()
+    if (ny) {
+      await sporOprettet(ny.id, false, rute)
+      return { slags: 'ok', bruger: somBruger(ny, konto.id) }
+    }
+    // Konflikt ved indsaettelsen: nogen naaede foerst. Naeste runde.
+  }
+
+  // Efter to runder: sidste laesning paa vores EGET verificerede
+  // auth_user_id. Er den der ikke, faar hun ingenting — aldrig en
+  // fremmed raekke.
+  const efter = await paaAuthId(konto.id)
+  return efter
+    ? { slags: 'ok', bruger: efter }
+    : { slags: 'konflikt', email: konto.email }
+}
+
+async function sikreBruger(
+  rolle: 'tenant' | 'landlord', rute: '/udlejer' | '/min-side',
+): Promise<Bindingssvar> {
+  const konto = await authKonto()
+  if (!konto) return { slags: 'ingen-session' }
+  return bindKonto(konto, rolle, rute)
+}
+
+const kunBruger = (s: Bindingssvar): Bruger | null =>
+  s.slags === 'ok' ? s.bruger : null
+
+/**
+ * Udlejeren. Rollen saettes til `landlord`, og `signup_completed`
+ * bogfoeres paa /udlejer — som foer.
+ */
+export const hentUdlejer = async (): Promise<Udlejer | null> =>
+  kunBruger(await sikreBruger('landlord', '/udlejer'))
 
 /**
  * Den boligsoegende. Samme mekanik, anden rolle og anden rute.
  *
  * Rollen er ikke adgangskontrol — den bruges ingen steder til at afgoere
  * noget — men en boligsoegende, der opretter konto paa Min side, skal ikke
- * staa i basen som udlejer. Det ville vaere en usandhed om vores egne
- * data, og den slags bliver dyr, den dag rollen FAAR betydning.
+ * staa i basen som udlejer.
  */
-export const hentBruger = (): Promise<Bruger | null> => sikreBruger('tenant', '/min-side')
+export const hentBruger = async (): Promise<Bruger | null> =>
+  kunBruger(await sikreBruger('tenant', '/min-side'))
+
+/**
+ * Som `hentBruger`, men med GRUNDEN til et nej.
+ *
+ * Min side bruger den, saa en bruger, der ER logget ind, ikke faar
+ * «log ind» som svar paa en kontokonflikt. At tie om en afvist binding
+ * ville se ud som en fejl paa siden — og hun ville proeve igen i stedet
+ * for at soege hjaelp.
+ */
+export const hentBrugerStatus = (): Promise<Bindingssvar> =>
+  sikreBruger('tenant', '/min-side')
+
 
 /**
  * `signup_completed` hoerer HER, ikke i `tilmeld()`.

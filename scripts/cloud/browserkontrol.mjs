@@ -213,9 +213,23 @@ kraev(await taelHaendelser() === 0, 'udgangspunkt: tabellen er tom')
   const { c } = await kontekst({ viewport: { width: 1280, height: 900 } })
   const s = await c.newPage()
   await s.goto(BASE + '/', { waitUntil: 'networkidle' })
+  // VENT PAA BANNERET, spoerg ikke bare efter det.
+  //
+  // `Samtykke` er en klientkomponent: den saetter `aaben` i en
+  // `useEffect`, saa banneret findes foerst EFTER hydrering.
+  // `networkidle` siger kun, at netvaerket er faldet til ro — ikke at
+  // React er kommet igennem. Kontrollen taltes derfor foer banneret
+  // fandtes; med brugeromraadets klientkomponenter paa hvert kort blev
+  // hydreringen tung nok til, at den tabte hver gang (maalt: 0 af 5 foer
+  // hydrering, 5 af 5 efter). Det var altid et kaploeb — det blev bare
+  // synligt nu.
   const knap = s.getByRole('button', { name: /Tillad statistik/i })
-  const fandt = await knap.count() > 0
-  kraev(fandt, 'samtykkebanneret er på skærmen')
+  let fandt = false
+  try {
+    await knap.waitFor({ state: 'visible', timeout: 20000 })
+    fandt = true
+  } catch { /* fandt forbliver falsk, og kontrollen bliver roed */ }
+  kraev(fandt, 'samtykkebanneret er på skærmen (efter hydrering)')
   if (fandt) {
     await knap.click()
     await s.waitForTimeout(1200)

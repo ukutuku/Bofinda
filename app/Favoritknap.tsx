@@ -89,18 +89,23 @@ export function Gemknap({ listingId, gemtFra, adresse }: {
   listingId: string; gemtFra: boolean; adresse?: string
 }) {
   const [gemt, setGemt] = useState(gemtFra)
-  const [fejl, setFejl] = useState(false)
+  const [fejl, setFejl] = useState<null | 'igen' | 'konto'>(null)
   const [venter, start] = useTransition()
 
   const tryk = () => {
     const oensket = !gemt
     setGemt(oensket)          // optimistisk
-    setFejl(false)
+    setFejl(null)
     start(async () => {
       const svar = await skiftFavorit(listingId)
       // Serverens svar vinder — ogsaa naar det er det samme.
       if ('gemt' in svar) setGemt(svar.gemt)
-      else { setGemt(!oensket); setFejl(true) }
+      else {
+        setGemt(!oensket)
+        // «Proev igen» er forkert raad ved en kontokonflikt: den loeser
+        // sig ikke af sig selv, og hun ville blive ved.
+        setFejl(svar.fejl === 'konto-konflikt' ? 'konto' : 'igen')
+      }
     })
   }
 
@@ -113,7 +118,11 @@ export function Gemknap({ listingId, gemtFra, adresse }: {
       disabled={venter}
       aria-pressed={gemt}
       aria-label={gemt ? `Fjern ${navn} fra gemte` : `Gem ${navn}`}
-      title={fejl ? 'Kunne ikke gemmes — prøv igen' : gemt ? 'Gemt' : 'Gem'}
+      title={
+        fejl === 'konto' ? 'Din konto skal først på plads — åbn Min side'
+          : fejl === 'igen' ? 'Kunne ikke gemmes — prøv igen'
+            : gemt ? 'Gemt' : 'Gem'
+      }
     >
       <Hjerte fyldt={gemt} />
     </button>

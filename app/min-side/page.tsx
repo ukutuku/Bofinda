@@ -5,19 +5,20 @@
 //  basen; siden her er den foerste, der viser dem for den, de tilhoerer.
 //
 //  Gemte soegninger genbruges UROERT fra alarmen. `saved_searches` har
-//  allerede `user_id NOT NULL` med fremmednoegle til `users`, og
-//  lib/auth.ts binder en alarm-brugerraekke til kontoen paa mailadressen,
-//  naar hun opretter én. Koblingen er altsaa sikker i forvejen — den
-//  hviler paa, at Supabase Auth kraever en bekraeftet mailadresse, ikke
-//  paa at vi gaetter. Der skrives intet nyt alarmsystem, og der aendres
-//  intet i det gamle.
+//  allerede `user_id NOT NULL` med fremmednoegle til `users`.
+//
+//  KOBLINGEN ER IKKE «SIKKER I FORVEJEN». Den oprindelige binding matchede
+//  paa mailadressen alene og kunne overtage en fremmed raekke. Den er nu
+//  laast til `auth_user_id` og kraever en bekraeftet mail — se
+//  `bindKonto` i lib/auth.ts og docs/auth-binding.md. Siden her viser
+//  udtrykkeligt en afvist binding i stedet for at lade som ingenting.
 // ═══════════════════════════════════════════════════════════════
 
 import type { Metadata } from 'next'
 import { desc, eq } from 'drizzle-orm'
 import { db } from '../../db/client'
 import { savedSearches } from '../../db/schema'
-import { hentBruger } from '../../lib/auth'
+import { hentBrugerStatus } from '../../lib/auth'
 import { hentFavoritter, type GemtBolig } from '../../lib/favoritter'
 import { beskrivFiltre } from '../../lib/alarm'
 import { kr } from '../Boligkort'
@@ -92,7 +93,47 @@ function Boligrække({ b }: { b: GemtBolig }) {
 // ─── Siden ─────────────────────────────────────────────────────
 
 export default async function Side() {
-  const bruger = await hentBruger()
+  const svar = await hentBrugerStatus()
+
+  // ── Kontoen kunne ikke bindes ────────────────────────────────
+  // Hun ER logget ind. At vise login-formularen ville se ud som en fejl
+  // paa siden, og hun ville proeve igen i stedet for at soege hjaelp.
+  // Der staar hvad der skete, og hvad hun kan goere.
+  if (svar.slags === 'konflikt' || svar.slags === 'ubekraeftet-mail') {
+    const ubekraeftet = svar.slags === 'ubekraeftet-mail'
+    return (
+      <div className="minside">
+        <h1>Min side</h1>
+        <div className="tom-boks">
+          {ubekraeftet ? (
+            <>
+              <p><strong>Din mailadresse er ikke bekræftet endnu.</strong></p>
+              <p>
+                Vi har sendt en mail til {svar.email}. Tryk på linket i den, og
+                genindlæs så denne side. Indtil da kan vi ikke knytte dine gemte
+                boliger og søgninger til kontoen.
+              </p>
+            </>
+          ) : (
+            <>
+              <p><strong>Vi kan ikke åbne Min side for denne konto.</strong></p>
+              <p>
+                Mailadressen {svar.email} hører allerede til en anden konto hos
+                os. Vi flytter ikke gemte boliger eller søgninger mellem konti —
+                det ville give én persons oplysninger til en anden.
+              </p>
+              <p>
+                Skriv til <a href="mailto:info@bofinda.dk">info@bofinda.dk</a>,
+                så retter vi det manuelt.
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  const bruger = svar.slags === 'ok' ? svar.bruger : null
 
   // ── Ikke logget ind ──────────────────────────────────────────
   if (!bruger) {

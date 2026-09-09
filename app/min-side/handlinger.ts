@@ -12,12 +12,13 @@
 //  autoritativ, fordi den er det eneste sted, identiteten laeses.
 // ═══════════════════════════════════════════════════════════════
 
-import { hentBruger } from '../../lib/auth'
+import { hentBrugerStatus } from '../../lib/auth'
 import { erFavorit, fjernFavorit, gemFavorit } from '../../lib/favoritter'
 
 export type Favoritsvar =
   | { gemt: boolean }
   | { fejl: 'ikke-logget-ind' }
+  | { fejl: 'konto-konflikt' }
   | { fejl: 'ugyldig' }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -32,8 +33,15 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
  */
 export async function skiftFavorit(listingId: string): Promise<Favoritsvar> {
   if (!UUID.test(listingId)) return { fejl: 'ugyldig' }
-  const bruger = await hentBruger()
-  if (!bruger) return { fejl: 'ikke-logget-ind' }
+  const svar = await hentBrugerStatus()
+  // En afvist binding er ikke det samme som «ikke logget ind». Skelnes de
+  // ikke, faar hun beskeden «log ind» hver gang hun trykker paa hjertet —
+  // og hun ER logget ind.
+  if (svar.slags === 'konflikt' || svar.slags === 'ubekraeftet-mail') {
+    return { fejl: 'konto-konflikt' }
+  }
+  if (svar.slags !== 'ok') return { fejl: 'ikke-logget-ind' }
+  const bruger = svar.bruger
 
   if (await erFavorit(bruger.id, listingId)) {
     await fjernFavorit(bruger.id, listingId)
@@ -47,9 +55,9 @@ export async function skiftFavorit(listingId: string): Promise<Favoritsvar> {
 export async function fjernFraMinSide(f: FormData): Promise<void> {
   const id = String(f.get('bolig') ?? '')
   if (!UUID.test(id)) return
-  const bruger = await hentBruger()
-  if (!bruger) return
-  await fjernFavorit(bruger.id, id)
+  const svar = await hentBrugerStatus()
+  if (svar.slags !== 'ok') return
+  await fjernFavorit(svar.bruger.id, id)
   const { revalidatePath } = await import('next/cache')
   revalidatePath('/min-side')
 }
