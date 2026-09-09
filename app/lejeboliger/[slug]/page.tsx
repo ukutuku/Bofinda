@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { cache } from 'react'
 import { findOmraade, naboer, statistik, type Omraade } from '../../../lib/omraade'
 import { antalBoliger, soegGrupperet, type Soegeparametre } from '../../../lib/soeg'
 import { Visningskort, kr } from '../../Boligkort'
@@ -27,8 +28,32 @@ const TYPENAVN: Record<string, string> = {
   ukendt: 'boliger uden oplyst type',
 }
 
-const filterFor = (o: Omraade) =>
-  o.slags === 'by' ? { by: o.vaerdi } : { postnr: o.vaerdi }
+const filterFor = (slags: string, vaerdi: string) =>
+  slags === 'by' ? { by: vaerdi } : { postnr: vaerdi }
+
+/**
+ * Request-stabilt «nu». To kald i samme sidevisning må ikke fortolke
+ * overtagelse mod hvert sit tidspunkt.
+ */
+const nuFor = cache(() => new Date())
+
+/**
+ * ÉT søgekald pr. request, delt af `generateMetadata` og siden.
+ *
+ * React's `cache()` deduplikerer på argumenterne, så metadata kan læse
+ * `kortIAlt` — og dermed vide, om sidetallet er uden for rækkevidde —
+ * UDEN en ekstra forespørgsel. Argumenterne er primitive med vilje:
+ * `cache()` sammenligner referencer, og et `Omraade`-objekt ville give
+ * to kald i stedet for ét.
+ */
+const sideudsnit = cache(async (slags: string, vaerdi: string, side: number) =>
+  soegGrupperet(filterFor(slags, vaerdi), PR_SIDE, nuFor(), side))
+
+/** Er sidetallet efter sidste gyldige side? Ét udtryk, brugt begge steder. */
+function udenForRaekkevidde(kortIAlt: number, side: number) {
+  const sider = Math.max(1, Math.ceil(kortIAlt / PR_SIDE))
+  return { sider, forHoej: side > sider && kortIAlt > 0 }
+}
 
 // ─── Metadata ──────────────────────────────────────────────────
 
@@ -44,6 +69,9 @@ export async function generateMetadata(
   if (!o) return { title: 'Området findes ikke — Bofinda' }
 
   const s = await statistik(o)
+  // Genbruger sidens egen tælling gennem cache() — ingen ekstra query.
+  const { kortIAlt } = await sideudsnit(o.slags, o.vaerdi, side)
+  const { forHoej } = udenForRaekkevidde(kortIAlt, side)
   const spaend = s.billigst != null && s.dyrest != null
     ? `${kr(s.billigst)}–${kr(s.dyrest)} kr.`
     : null
@@ -58,6 +86,25 @@ export async function generateMetadata(
       : null,
     'Se den reelle månedlige udgift, ikke bare huslejen.',
   ].filter(Boolean)
+
+  // ── En side EFTER sidste gyldige side ───────────────────────────
+  // Den svarer 200 og beholder sin forklaring, fordi et menneske, der
+  // lander her, skal kunne se hvad der skete og komme videre. Men den er
+  // ikke en resultatside, og den må ikke optræde som en.
+  //
+  // `noindex, follow`: links følges, siden indekseres ikke. Og INGEN
+  // canonical — hverken sig selv eller side 1. En self-canonical ville
+  // erklære en tom side kanonisk; en canonical til side 1 SAMMEN med
+  // noindex sender to modstridende signaler, og risikoen er, at
+  // noindex'et smitter af på den side, der peges på. Det utvetydige er
+  // at sige én ting: indeksér mig ikke.
+  if (forHoej) {
+    return {
+      title: `Side ${side} findes ikke — lejeboliger ${iOmraadet(o)} | Bofinda`,
+      description: `Området har færre sider. Se alle ${s.antal} lejeboliger ${iOmraadet(o)}.`,
+      robots: { index: false, follow: true },
+    }
+  }
 
   return {
     // Titlen siger hvilken side, saa to sider ikke staar med samme titel
@@ -90,13 +137,14 @@ export default async function Side({ params, searchParams }: {
 
   // Efter hinanden, ikke i Promise.all — se noten i app/page.tsx.
   const s = await statistik(o)
-  const nu = new Date()
-  const { visninger, kortIAlt, komplet } = await soegGrupperet(filterFor(o), PR_SIDE, nu, side)
+  const nu = nuFor()
+  // Samme kald som generateMetadata allerede lavede — cache() gør de to
+  // til én forespørgsel.
+  const { visninger, kortIAlt, komplet } = await sideudsnit(o.slags, o.vaerdi, side)
   const nabo = await naboer(o)
   // Kort er ikke boliger: ens boliger paa samme vej staar som ét kort.
   const vist = antalBoliger(visninger)
-  const sider = Math.max(1, Math.ceil(kortIAlt / PR_SIDE))
-  const forHoej = side > sider && kortIAlt > 0
+  const { sider, forHoej } = udenForRaekkevidde(kortIAlt, side)
 
   const typeListe = s.typer
     .filter((t) => t.antal > 0)
