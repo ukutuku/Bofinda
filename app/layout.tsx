@@ -25,11 +25,18 @@ export default function Layout({ children }: { children: ReactNode }) {
           <div className="ramme">
             <a className="maerke" href="/">bo<span>finda</span></a>
             <div className="undertitel">lejeboliger, samlet ét sted</div>
+            {/* Linket er STATISK tekst med vilje. Skulle toppen vise, om
+                man er logget ind, skulle layoutet laese cookies — og saa
+                blev hver eneste side dynamisk, ogsaa /privatliv, som i dag
+                praerenderes. Login-status staar paa Min side, hvor den
+                betyder noget. */}
+            <a className="topmin" href="/min-side">Min side</a>
           </div>
         </header>
         <div className="ramme">{children}</div>
         <footer className="sidefod">
           <div className="ramme">
+            <a href="/min-side">Min side</a>
             <a href="/udlejer">Udlej din bolig</a>
             <a href="/privatliv">Privatlivspolitik</a>
             {/* Tilbagetrækning skal være lige så let som at sige ja. */}

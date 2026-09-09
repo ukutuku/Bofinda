@@ -105,6 +105,12 @@ export const RUTER = [
   '/', '/bolig/[id]', '/gruppe', '/lejeboliger/[slug]',
   '/bekraeft/[token]', '/afmeld/[token]', '/privatliv',
   '/udlejer', '/udlejer/boliger', '/udlejer/opret', '/udlejer/boliger/[id]',
+  // Brugeromraadet. INGEN nye events — `signup_completed` og
+  // `login_completed` findes i forvejen og bogfoeres nu ogsaa herfra.
+  // Uden ruten ville en konto oprettet paa Min side enten forsvinde ud af
+  // taellingen eller blive bogfoert som en udlejer, og begge dele ville
+  // vaere en forkert oplysning om vores egne tal.
+  '/min-side',
   '/go/[id]', '/forsoeg/[kode]', '/api/maaling',
 ] as const
 export type Rute = (typeof RUTER)[number]

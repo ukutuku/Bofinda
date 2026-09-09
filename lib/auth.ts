@@ -49,11 +49,39 @@ export async function supabase() {
   })
 }
 
-export interface Udlejer {
+export interface Bruger {
   id: string
   authUserId: string
   email: string
   navn: string | null
+}
+
+/** Navnet bevares for de kaldere, der handler om udlejersiden. */
+export type Udlejer = Bruger
+
+/** Auth-kontoen alene. Rører ikke databasen. */
+async function authKonto(): Promise<{ id: string; email: string } | null> {
+  if (!konfigureret()) return null
+  const sb = await supabase()
+  const { data } = await sb.auth.getUser()
+  const k = data.user
+  return k?.email ? { id: k.id, email: k.email } : null
+}
+
+/**
+ * Brugerrækkens id, hvis den findes. OPRETTER INTET.
+ *
+ * Til læsninger, der sker på hver sidevisning — om et boligkort skal vise
+ * en fyldt hjerteknap. En læsning må ikke have en bivirkning: ellers ville
+ * det at kigge på forsiden oprette en brugerrække for enhver, der er
+ * logget ind, uanset om hun nogensinde gemte noget.
+ */
+export async function hentBrugerId(): Promise<string | null> {
+  const k = await authKonto()
+  if (!k) return null
+  const [r] = await db.select({ id: users.id }).from(users)
+    .where(eq(users.authUserId, k.id)).limit(1)
+  return r?.id ?? null
 }
 
 /**
@@ -63,12 +91,11 @@ export interface Udlejer {
  * kontoen i stedet for at lave en ny. Ellers ville den samme person have
  * to rækker, og hendes søgninger ville høre til den forkerte.
  */
-export async function hentUdlejer(): Promise<Udlejer | null> {
-  if (!konfigureret()) return null
-  const sb = await supabase()
-  const { data } = await sb.auth.getUser()
-  const konto = data.user
-  if (!konto?.email) return null
+async function sikreBruger(
+  rolle: 'tenant' | 'landlord', rute: '/udlejer' | '/min-side',
+): Promise<Bruger | null> {
+  const konto = await authKonto()
+  if (!konto) return null
 
   const [alt] = await db.select().from(users).where(eq(users.authUserId, konto.id)).limit(1)
   if (alt) return { id: alt.id, authUserId: konto.id, email: alt.email, navn: alt.name }
@@ -77,18 +104,34 @@ export async function hentUdlejer(): Promise<Udlejer | null> {
   const [paaMail] = await db.select().from(users).where(eq(users.email, konto.email)).limit(1)
   if (paaMail) {
     const [r] = await db.update(users)
-      .set({ authUserId: konto.id, role: 'landlord' })
+      .set({ authUserId: konto.id, role: rolle })
       .where(eq(users.id, paaMail.id))
       .returning()
-    await sporOprettet(r!.id, true)
+    await sporOprettet(r!.id, true, rute)
     return { id: r!.id, authUserId: konto.id, email: r!.email, navn: r!.name }
   }
   const [ny] = await db.insert(users)
-    .values({ email: konto.email, authUserId: konto.id, role: 'landlord' })
+    .values({ email: konto.email, authUserId: konto.id, role: rolle })
     .returning()
-  await sporOprettet(ny!.id, false)
+  await sporOprettet(ny!.id, false, rute)
   return { id: ny!.id, authUserId: konto.id, email: ny!.email, navn: ny!.name }
 }
+
+/**
+ * Udlejeren. Uændret adfærd: rollen sættes til `landlord`, og
+ * `signup_completed` bogfoeres paa /udlejer.
+ */
+export const hentUdlejer = (): Promise<Udlejer | null> => sikreBruger('landlord', '/udlejer')
+
+/**
+ * Den boligsoegende. Samme mekanik, anden rolle og anden rute.
+ *
+ * Rollen er ikke adgangskontrol — den bruges ingen steder til at afgoere
+ * noget — men en boligsoegende, der opretter konto paa Min side, skal ikke
+ * staa i basen som udlejer. Det ville vaere en usandhed om vores egne
+ * data, og den slags bliver dyr, den dag rollen FAAR betydning.
+ */
+export const hentBruger = (): Promise<Bruger | null> => sikreBruger('tenant', '/min-side')
 
 /**
  * `signup_completed` hoerer HER, ikke i `tilmeld()`.
@@ -104,11 +147,13 @@ export async function hentUdlejer(): Promise<Udlejer | null> {
  * kommer fra alarmsiden med en mailadresse, vi kendte i forvejen.
  * Mailadressen selv naar aldrig et event — kun vores egen uuid.
  */
-async function sporOprettet(brugerId: string, bandtEksisterende: boolean) {
+async function sporOprettet(
+  brugerId: string, bandtEksisterende: boolean, rute: '/udlejer' | '/min-side',
+) {
   const { spor } = await import('./maaling-server')
   await spor(
     { navn: 'signup_completed', props: { bandt_eksisterende: bandtEksisterende } },
-    '/udlejer',
+    rute,
     { brugerId },
   )
 }

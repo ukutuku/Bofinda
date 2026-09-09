@@ -841,9 +841,18 @@ async function main() {
   console.log('\n══ forbeholdet må ikke skubbe teksten en række ned ══')
 
   /** Klasserne paa kortets DIREKTE boern, i orden. Statisk markup, saa en
-   *  tag-taeller raekker — og den er uafhaengig af klassenavnene. */
+   *  tag-taeller raekker — og den er uafhaengig af klassenavnene.
+   *
+   *  Der maales fra `<a class="kort">` og ikke fra det yderste element:
+   *  gitteret er kortet selv. Brugeromraadet lagde et `.kort-hylster`
+   *  udenom, som favoritknappen kan ligge oven paa — og saa taltes
+   *  hylsterets ene barn i stedet for kortets felter. Praemissen fangede
+   *  det, og det er dét, den er til for. Gitterets raekker er stadig
+   *  netop kortets direkte boern. */
   const TOMME_TAGS = new Set(['img', 'br', 'input', 'hr', 'meta', 'link'])
-  const direkteBoern = (html: string): string[] => {
+  const direkteBoern = (raaHtml: string): string[] => {
+    const start = raaHtml.indexOf('<a class="kort')
+    const html = start >= 0 ? raaHtml.slice(start) : raaHtml
     const boern: string[] = []
     let dybde = 0
     for (const m of html.matchAll(/<(\/?)([a-z][a-z0-9]*)([^>]*)>/g)) {

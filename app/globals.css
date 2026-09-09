@@ -1205,3 +1205,105 @@ form.filtre.soegt .storsoeg button { padding: 11px 20px; font-size: 14.5px; bord
 .valgknapper button:hover:not(:disabled) { background: var(--accent-lys); }
 .valgknapper button:disabled { opacity: .45; cursor: default; }
 .valgsvar { margin: 11px 0 0 !important; color: var(--accent); font-size: 13.5px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   BRUGEROMRÅDET
+   Ingen nye farver og ingen ny formsprog — alt hentes fra de
+   variabler, resten af siden allerede bruger.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Hylsteret om et boligkort ──────────────────────────────────
+   Findes KUN for at give favoritknappen noget at ligge oven paa.
+   Det er en flex-post i `.liste` praecis som kortet var foer, saa
+   afstandene er uaendrede. */
+.kort-hylster { position: relative; display: flex; flex-direction: column; }
+.kort-hylster > .kort { flex: 1; }
+
+/* Pladsen til knappen reserveres ALTID, ogsaa naar den ikke vises.
+   Saa flytter der sig ingenting, naar man logger ind eller ud — og
+   maerkaterne i .hoejre loeber aldrig ind under den. */
+.kort-krop { padding-right: 44px; }
+
+.favoritknap {
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  width: 34px; height: 34px; padding: 0;
+  display: grid; place-items: center;
+  border: 1px solid var(--linje); border-radius: 999px;
+  background: var(--kort); color: var(--svag);
+  cursor: pointer; line-height: 0;
+  transition: color .14s, border-color .14s, background .14s;
+}
+.favoritknap:hover { color: var(--accent); border-color: var(--accent); }
+.favoritknap:disabled { cursor: progress; opacity: .65; }
+/* Tilstanden staar i FORMEN (fyldt hjerte) og i RAMMEN — ikke i
+   farven alene. Et graatonet display giver det samme svar. */
+.favoritknap.er-gemt {
+  color: var(--accent); border-color: var(--accent);
+  background: var(--accent-lys); box-shadow: inset 0 0 0 1px var(--accent);
+}
+.favoritknap.fejlede { color: var(--vaek); border-color: var(--vaek); background: var(--vaek-lys); }
+.favoritknap:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.favoritknap-login { text-decoration: none; }
+
+/* Boligsidens overskriftsrække: knappen ved siden af h1. */
+.hoved-titel { display: flex; align-items: flex-start; gap: 12px; }
+.hoved-titel h1 { flex: 1; min-width: 0; }
+.hoved-titel .favoritknap { position: static; flex: none; margin-top: 4px; }
+
+/* ── Min side ─────────────────────────────────────────────────── */
+.minside { max-width: 780px; }
+.minside h1 { margin: 0 0 6px; }
+.minside-top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; margin-bottom: 22px; flex-wrap: wrap;
+}
+.minside-hvem { margin: 0; font-size: 13px; color: var(--daempet); }
+.minside .manchet { margin: 0 0 20px; color: var(--daempet); max-width: 58ch; }
+.knaplink {
+  display: inline-block; text-decoration: none; font-size: 13px;
+  padding: 6px 12px; border: 1px solid var(--linje); border-radius: var(--r-s);
+}
+
+.gemte-liste { list-style: none; margin: 0; padding: 0; display: flex;
+  flex-direction: column; gap: 10px; }
+.gemt-bolig, .gemt-soegning {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--linje-svag);
+}
+.gemte-liste > li:last-child { border-bottom: none; }
+.gemt-krop { min-width: 0; flex: 1; }
+.gemt-krop .adresse { font-weight: 600; color: var(--tekst); text-decoration: none; }
+a.adresse:hover { text-decoration: underline; }
+.gemt-krop .sted { font-size: 12.5px; color: var(--daempet); margin-top: 2px; }
+.gemt-hoejre { display: flex; align-items: center; gap: 10px; flex: none; }
+.gemt-pris { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gemt-pris small { font-weight: 400; color: var(--daempet); font-size: 11px; }
+
+/* En bolig, kilden har taget ned, bliver STAAENDE. Den daempes, men
+   den skjules ikke — hun har selv lagt den der. */
+.utilgaengelig .adresse { color: var(--daempet); }
+.gemt-status {
+  margin: 6px 0 0; font-size: 12.5px; line-height: 1.5;
+  color: var(--advarsel); background: var(--advarsel-lys);
+  border-radius: var(--r-s); padding: 7px 10px;
+}
+.gemt-status strong { color: inherit; }
+
+.tom-boks {
+  border: 1px dashed var(--linje); border-radius: var(--r);
+  padding: 20px 22px; color: var(--daempet); font-size: 14px;
+}
+.tom-boks p { margin: 0 0 8px; }
+.tom-boks p:last-child { margin-bottom: 0; }
+.tom-boks strong { color: var(--tekst); }
+
+.topmin {
+  margin-left: auto; font-size: 13px; color: var(--daempet);
+  text-decoration: none; align-self: center;
+}
+.topmin:hover { color: var(--accent); }
+
+@media (max-width: 560px) {
+  .gemt-bolig, .gemt-soegning { flex-direction: column; gap: 10px; }
+  .gemt-hoejre { width: 100%; justify-content: space-between; }
+}
