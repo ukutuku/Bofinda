@@ -28,7 +28,9 @@
     "cloud:op": "scripts/cloud/op.sh",
     "cloud:ned": "scripts/cloud/ned.sh",
     "cloud:kontrol": "scripts/cloud/kontrol.sh",
-    "cloud:maal": "scripts/cloud/maal.sh"
+    "cloud:maal": "scripts/cloud/maal.sh",
+    "staging:tjek": "tsx --tsconfig tsconfig.scripts.json scripts/staging/tjek.ts",
+    "staging:proev": "tsx --tsconfig tsconfig.scripts.json scripts/staging/test-maal.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
