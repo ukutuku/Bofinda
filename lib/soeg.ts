@@ -722,11 +722,22 @@ async function korteneFor(ider: string[]): Promise<Map<string, Bolig>> {
  * entydig raekkefoelge, anvend filteret, taeI de matchende, behold kun
  * det oenskede sideudsnit, og fortsaet til kandidaterne slipper op.
  *
- * `PARTI` er hvor meget der hentes ad gangen. `MAKS_PARTIER` er et vaern
- * mod en uendelig loekke, ikke et loft over katalogets stoerrelse: 25 ×
- * 2.000 = 50.000 grupper mod 986 i bestanden i dag, altsaa 50 gange
- * hovedrum. Bestanden i dag naas i ÉT parti, saa den domaenefiltrerede
- * vej koster praecis én rundtur som foer.
+ * `PARTI` er hvor meget der hentes ad gangen. `MAKS_PARTIER` gange
+ * `PARTI` er et LOFT: 25 × 2.000 = 50.000 kandidatgrupper.
+ *
+ * ═══ DET ER EN BEGRAENSNING, IKKE EN UENDELIGHED ═══
+ *
+ * Gennemgangen er IKKE ubegraenset, og maa ikke beskrives som det. Over
+ * 50.000 kandidatgrupper stopper den, og saa er svaret ufuldstaendigt.
+ * Bestanden er 986 grupper i dag — 50 gange hovedrum — og naas i ÉT
+ * parti, saa den domaenefiltrerede vej koster praecis én rundtur som
+ * foer. Men hovedrum er ikke det samme som ingen graense.
+ *
+ * Naar loftet rammes, skal HELE kaeden vide det: `komplet` er falsk,
+ * sidetallet er et MINDSTETAL, og `Sider` skriver «mindst N sider» i
+ * stedet for at lade tallet staa som en total. Se 12G i
+ * scripts/test-soegning.ts, som saenker loftet og faelder hvert af de
+ * tre led hver for sig.
  *
  * Rammes `MAKS_PARTIER`, er gennemgangen ikke faerdig, og `komplet` er
  * falsk. Et afbrudt gennemloeb maa aldrig fremstaa som en komplet total

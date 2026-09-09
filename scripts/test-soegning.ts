@@ -35,7 +35,7 @@ import {
   opsummering, soegGrupperet, type Filtre,
 } from '../lib/soeg'
 import { antalFiltre, filterDiff, forrigeFiltre } from '../lib/maalingsoeg'
-import { sideUrl, sidevindue } from '../app/Sider'
+import { Sider, sideUrl, sidevindue } from '../app/Sider'
 import { KILDEKONTRAKTER } from '../lib/kildekontrakt'
 
 /** Kortets synlige tekst — det brugeren faktisk læser. */
@@ -792,6 +792,63 @@ async function koer() {
     const facitKort = facit(f, nu).kort
     tjek('12F · alle sider tilsammen = præcis det filtrerede sæt',
       alle.size === facitKort, `${alle.size} = ${facitKort}`)
+  }
+
+  // 12G · KANDIDATVAERNET. 25 partier a 2.000 er 50.000 kandidatgrupper —
+  // et loft, ikke «ubegraenset». Naar det rammes, er gennemgangen afbrudt,
+  // og saa maa hverken tallet, teksten eller navigationen love mere, end
+  // der er daekning for.
+  console.log('\n══ 12G · kandidatværnet: en afbrudt gennemgang lover intet eksakt ══')
+  {
+    const f = filtreFraParametre({ postnr: '1000', overtagelse: 'nu' })
+    _saetGruppeloft(9, 7)                       // afbryd midt i gennemgangen
+    const afbrudt = await soegGrupperet(f, 48, nu, 1)
+    _saetGruppeloft(null)
+    const helt = await soegGrupperet(f, 48, nu, 1)
+
+    tjek('12G · loftet fyrer: komplet er falsk, og tallet er lavere end det sande',
+      afbrudt.komplet === false && afbrudt.kortIAlt < helt.kortIAlt,
+      `${afbrudt.kortIAlt} < ${helt.kortIAlt}`)
+    tjek('12G · uden loft er det samme svar komplet',
+      helt.komplet === true)
+
+    // ── Hvad SIGER siden om det? ──
+    const siderAfbrudt = Math.max(1, Math.ceil(afbrudt.kortIAlt / 48))
+    const ufuld = kortTekst(createElement(Sider, {
+      basis: '/', sp: {}, side: 1, sider: Math.max(2, siderAfbrudt), komplet: false,
+    }))
+    const fuld = kortTekst(createElement(Sider, {
+      basis: '/', sp: {}, side: 1, sider: 3, komplet: true,
+    }))
+    tjek('12G · en afbrudt gennemgang siger «mindst N sider»',
+      /mindst \d+ sider/.test(ufuld), ufuld.slice(0, 90))
+    tjek('12G · og den siger IKKE at den naaede hele udbuddet',
+      /Vi n.ede ikke hele udbuddet/.test(ufuld))
+    tjek('12G · en komplet gennemgang siger det ikke — noten er ikke pynt paa alting',
+      !/mindst/.test(fuld) && !/n.ede ikke/.test(fuld), fuld.slice(0, 60))
+
+    // ── Navigationen maa ikke tilbyde en side, der ikke kan leveres ──
+    // Ved komplet=false er `sider` et MINDSTETAL. Pageren maa derfor
+    // gerne pege paa alle N — de findes — men aldrig paa N+1.
+    const markup = renderToStaticMarkup(createElement(Sider, {
+      basis: '/', sp: {}, side: 2, sider: 3, komplet: false,
+    }))
+    const tilbudte = [...markup.matchAll(/side=(\d+)/g)].map((m) => Number(m[1]))
+    tjek('12G · pageren tilbyder ingen side ud over dem, der faktisk er fundet',
+      tilbudte.length > 0 && tilbudte.every((n) => n <= 3), `tilbudt: ${tilbudte.join(', ')}`)
+    tjek('12G · «Naeste» findes ikke paa den sidste fundne side',
+      !renderToStaticMarkup(createElement(Sider, {
+        basis: '/', sp: {}, side: 3, sider: 3, komplet: false,
+      })).includes('rel="next"'))
+
+    // ── Og et afbrudt nul er ikke et nulresultat ──
+    _saetGruppeloft(10, 2)
+    const nul = await soegGrupperet(f, 48, nu, 1)
+    _saetGruppeloft(null)
+    tjek('12G · nul kort ved afbrudt gennemgang er IKKE et sikkert nul',
+      nul.kortIAlt === 0 && nul.komplet === false)
+    tjek('12G · den eksakte optaelling er uafhaengig af loftet',
+      (await opsummering(f, nu)).antal === 6)
   }
 
   // ─── Oprydning ───────────────────────────────────────────────
