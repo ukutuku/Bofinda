@@ -340,6 +340,90 @@ console.log('\n══ 9 · ingen session, intet kald ══')
   tjek('9D · et Auth-udfald kaster ikke ind i sidevisningen', !kastede)
 }
 
+// ═══ 9B · SDK'ets cache-headere skal NAA SVARET ════════════════
+//
+// @supabase/ssr giver setAll et ANDET argument: de headere, svaret skal
+// baere, naar det saetter auth-cookies. Vi tog kun imod cookierne.
+//
+// Hvorfor det er en blocker og ikke en formalitet: et svar med
+// Set-Cookie paa en sessionscookie, der havner i en CDN eller en omvendt
+// proxy, kan udleveres til den NAESTE bruger. Vercel Edge, CloudFront og
+// Cloudflare ligger alle paa den vej.
+//
+// Proeven maaler det RIGTIGE middleware-svar efter en aegte fornyelse
+// gennem det installerede SDK — ikke en hjaelpefunktion, der kopierer
+// headere.
+console.log('\n══ 9B · cachebeskyttelsen følger med ud på svaret ══')
+{
+  nulstil({ udloebSek: -100 })
+  const krukke = await medVerifier()
+  await klientFor(krukke).auth.exchangeCodeForSession('k')
+  kald.length = 0
+  const svar = await middleware(req('/min-side', Object.fromEntries(krukke)))
+
+  // Auth-cookien for sig. En analytics-cookie er ikke bevis for, at der
+  // blev fornyet noget som helst.
+  const fornyet = svar.cookies.get(SESSION)
+  tjek('9B-1 · sessionscookien er faktisk fornyet',
+    Boolean(fornyet?.value) && kald.some((k) => k.includes('refresh_token')),
+    kald.join(' · ') || 'ingen kald')
+
+  // Ordret det, SDK'et leverer i 0.12.5. Staar der noget andet, er
+  // kontrakten skiftet, og det skal ses — ikke glattes ud.
+  const forventet: Record<string, string> = {
+    'cache-control': 'private, no-cache, no-store, must-revalidate, max-age=0',
+    expires: '0',
+    pragma: 'no-cache',
+  }
+  for (const [navn, vaerdi] of Object.entries(forventet)) {
+    tjek(`9B · ${navn} videreført ordret`, svar.headers.get(navn) === vaerdi,
+      svar.headers.get(navn) ?? 'MANGLER')
+  }
+
+  // Og svaret maa ikke samtidig love det modsatte.
+  const cc = svar.headers.get('cache-control') ?? ''
+  tjek('9B · svaret annoncerer ikke offentlig eller delt caching',
+    !/\bpublic\b|\bs-maxage\b/.test(cc), cc)
+
+  // Det aktuelle server-request skal se den fornyede session, ellers
+  // renderer siden paa den udloebne.
+  tjek('9B · det aktuelle request ser den fornyede cookie',
+    Boolean(svar.headers.get('x-middleware-override-headers')))
+}
+{
+  // Samtykke maa ikke aendre noget af det.
+  nulstil({ udloebSek: -100 })
+  const krukke = await medVerifier()
+  await klientFor(krukke).auth.exchangeCodeForSession('k')
+  const svar = await middleware(req('/min-side',
+    { ...Object.fromEntries(krukke), bofinda_samtykke: 'ja' }))
+  tjek('9B · med samtykke: både auth-cookie, analytics-cookie og headere',
+    Boolean(svar.cookies.get(SESSION)) && Boolean(svar.cookies.get('bofinda_sid'))
+    && svar.headers.get('expires') === '0')
+}
+{
+  nulstil({ udloebSek: -100 })
+  const krukke = await medVerifier()
+  await klientFor(krukke).auth.exchangeCodeForSession('k')
+  const svar = await middleware(req('/min-side',
+    { ...Object.fromEntries(krukke), bofinda_samtykke: 'nej' }))
+  tjek('9B · uden statistik-samtykke: fornyelse OG beskyttelse alligevel',
+    Boolean(svar.cookies.get(SESSION)) && svar.headers.get('pragma') === 'no-cache')
+}
+{
+  // ═══ DEN ANDEN HALVDEL AF RETTELSEN ═══
+  // Beskyttelsen hoerer til de svar, der baerer en sessionscookie. Blev
+  // den sat ubetinget, ville hver eneste anonyme visning af en
+  // omraadeside blive ucachebar — og det er de sider, der er flest af.
+  nulstil()
+  const svar = await middleware(req('/lejeboliger/2300', { bofinda_samtykke: 'ja' }))
+  tjek('9B · en anonym request får INGEN ny cachebegrænsning',
+    svar.headers.get('cache-control') === null && svar.headers.get('pragma') === null
+    && svar.headers.get('expires') === null,
+    `cc=${svar.headers.get('cache-control')} pragma=${svar.headers.get('pragma')}`)
+  tjek('9B · og den kostede stadig intet Auth-kald', kald.length === 0)
+}
+
 // ═══ 10 · Bruger handlingerne bordet — eller deres egen mening? ═══
 //
 // STRUKTUREL, ikke adfaerdsmaessig. `login()`, `logUd()` og `tilmeld()`

@@ -29,7 +29,8 @@
     "cloud:ned": "scripts/cloud/ned.sh",
     "cloud:kontrol": "scripts/cloud/kontrol.sh",
     "cloud:maal": "scripts/cloud/maal.sh",
-    "cloud:samtidighed": "scripts/cloud/samtidighed.sh"
+    "cloud:samtidighed": "scripts/cloud/samtidighed.sh",
+    "cloud:hoveder": "scripts/cloud/prod-hoveder.sh"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

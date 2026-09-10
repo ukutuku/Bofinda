@@ -64,17 +64,45 @@ export async function middleware(req: NextRequest) {
   if (plan) for (const c of plan.saet) req.cookies.set(c.navn, c.vaerdi)
 
   // ── 2 · Auth, uanset samtykke ───────────────────────────────
+  // Begge samlinger er REQUEST-LOKALE. Lå de på modulniveau, ville to
+  // samtidige requests i den samme instans dele dem — og den enes
+  // sessionscookie kunne havne på den andens svar.
   const authSat: { name: string; value: string; options: Record<string, unknown> }[] = []
+  const authHoveder: Record<string, string> = {}
   if (skalFornyes(req)) {
     const sb = klientMed({
       getAll: () => req.cookies.getAll(),
-      setAll: (sat) => {
+      setAll: (sat, hoveder) => {
         for (const { name, value, options } of sat) {
           // Requestet: så siden, der renderes NU, ser den fornyede
           // session i stedet for den udløbne.
           req.cookies.set(name, value)
           authSat.push({ name, value, options: options as Record<string, unknown> })
         }
+        // ═══ ANDET ARGUMENT — OG DET SKAL PÅ SVARET ═══
+        //
+        // @supabase/ssr leverer her de headere, svaret SKAL bære, når det
+        // sætter auth-cookies:
+        //
+        //     Cache-Control: private, no-cache, no-store, must-revalidate, max-age=0
+        //     Expires: 0
+        //     Pragma: no-cache
+        //
+        // Vi tog kun imod cookierne og smed headerne væk. Det er ikke en
+        // formalitet: et svar med Set-Cookie på en sessionscookie, der
+        // ender i en CDN eller en omvendt proxy, kan udleveres til den
+        // NÆSTE bruger — altså én persons session i en fremmeds browser.
+        // Vercel Edge, CloudFront og Cloudflare ligger alle på den vej.
+        //
+        // De opsamles her og sættes på det ENDELIGE svar. At skrive dem
+        // ind i requestet ville ikke gøre noget: det er browserens og
+        // mellemleddenes svar, der skal bære dem.
+        //
+        // SDK'et sender dem også, når det RYDDER ugyldige cookies —
+        // `applyServerStorage` kalder setAll med både removeCookiesToWrite
+        // og setCookiesToWrite. En oprydning skal beskyttes lige så meget
+        // som en fornyelse, så der skelnes ikke.
+        Object.assign(authHoveder, hoveder)
       },
     })
     // getUser() og ikke getSession(): den spørger Auth-serveren og er
@@ -82,6 +110,10 @@ export async function middleware(req: NextRequest) {
     // svaret at lade requesten gå videre urørt. Siderne afgør selv, hvad
     // en manglende session betyder; middleware må ikke blokere en
     // offentlig side, fordi Auth har en dårlig dag.
+    //
+    // Bemærk at `authSat` og `authHoveder` beholdes, hvis kaldet kaster
+    // EFTER at setAll er fyret: er beskyttelsen først leveret, må en
+    // senere fejlvej ikke tabe den igen.
     try { await sb.auth.getUser() } catch { /* uroert videre */ }
   }
 
@@ -104,6 +136,12 @@ export async function middleware(req: NextRequest) {
   // At sætte vores egne ville betyde, at to steder bestemte levetid,
   // Secure og SameSite for den samme cookie.
   for (const c of authSat) svar.cookies.set(c.name, c.value, c.options)
+
+  // Og headerne, SDK'et bad om — kun dem, det faktisk leverede. Et
+  // ubetinget `no-store` her ville gøre HVER eneste anonyme visning af en
+  // områdeside ucachebar, og de sider er langt de fleste. Beskyttelsen
+  // hører til de svar, der bærer en sessionscookie, og kun dem.
+  for (const [navn, vaerdi] of Object.entries(authHoveder)) svar.headers.set(navn, vaerdi)
 
   return svar
 }

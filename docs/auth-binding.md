@@ -175,6 +175,22 @@ Tre ting skal blive, som de er:
   session, der ikke findes. `/api/*` er også undtaget: målingsbeaconet har
   ingen brug for en bruger.
 
+- **`setAll` har to argumenter, og det andet skal på SVARET.**
+  `@supabase/ssr` leverer de headere, et svar skal bære, når det sætter
+  auth-cookies: `Cache-Control: private, no-cache, no-store,
+  must-revalidate, max-age=0`, `Expires: 0`, `Pragma: no-cache`. Vi tog
+  kun imod cookierne. Målt i produktionstilstand før rettelsen svarede
+  `/privatliv` med **`Set-Cookie: sb-…-auth-token`** og
+  **`Cache-Control: s-maxage=31536000`** på det samme svar — et år i en
+  delt cache med én brugers sessionstoken i. Vercel Edge, CloudFront og
+  Cloudflare ligger alle på den vej. SDK'et sender headerne også, når det
+  RYDDER ugyldige cookies, så der skelnes ikke.
+  Beskyttelsen sættes **kun**, når SDK'et faktisk leverede den: et
+  ubetinget `no-store` ville gøre hver anonym visning af en områdeside
+  ucachebar. `npm run cloud:hoveder` måler det på det endelige HTTP-svar
+  fra `next start` — `next dev` sætter selv `no-store` på alting og ville
+  skjule fejlen.
+
 `lib/supabase-klient.ts` findes, fordi middleware kører i edge-runtime og
 **ikke må importere `db`**. Efterprøvet på det byggede bundt: `drizzle`,
 `db/client` og `pg-native` optræder nul gange i `middleware.js`.
