@@ -38,7 +38,7 @@ export default async function Side() {
         </div>
         <div className="udlejerknapper">
           <a className="knap" href="/udlejer/opret">Opret annonce</a>
-          <form action={logUd}><button className="nulstil" type="submit">Log ud</button></form>
+          <form action={logUd.bind(null, 'udlejer')}><button className="nulstil" type="submit">Log ud</button></form>
         </div>
       </div>
 

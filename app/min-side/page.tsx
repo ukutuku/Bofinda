@@ -19,6 +19,7 @@ import { desc, eq } from 'drizzle-orm'
 import { db } from '../../db/client'
 import { savedSearches } from '../../db/schema'
 import { hentBrugerStatus } from '../../lib/auth'
+import { LINKFEJL } from '../../lib/kontovej'
 import { hentFavoritter, type GemtBolig } from '../../lib/favoritter'
 import { beskrivFiltre } from '../../lib/alarm'
 import { kr } from '../Boligkort'
@@ -92,8 +93,11 @@ function Boligrække({ b }: { b: GemtBolig }) {
 
 // ─── Siden ─────────────────────────────────────────────────────
 
-export default async function Side() {
+export default async function Side(
+  { searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> },
+) {
   const svar = await hentBrugerStatus()
+  const linkfejl = Boolean((await searchParams)[LINKFEJL])
 
   // ── Kontoen kunne ikke bindes ────────────────────────────────
   // Hun ER logget ind. At vise login-formularen ville se ud som en fejl
@@ -144,7 +148,7 @@ export default async function Side() {
           Log ind for at se dine gemte boliger og dine gemte søgninger.
           Gemte boliger følger din konto, så de er der også på telefonen.
         </p>
-        <Konto />
+        <Konto kontekst="bolig" linkfejl={linkfejl} />
         <p className="note">
           Har du allerede en boligbesked, men ingen konto? Opret kontoen med
           den samme mailadresse — så samles dine gemte søgninger her.
@@ -171,7 +175,7 @@ export default async function Side() {
             Logget ind som <strong>{bruger.email}</strong>
           </p>
         </div>
-        <form action={logUd}>
+        <form action={logUd.bind(null, 'bolig')}>
           <button className="nulstil" type="submit">Log ud</button>
         </form>
       </div>

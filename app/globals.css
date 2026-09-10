@@ -991,6 +991,13 @@ form.filtre.soegt .storsoeg button { padding: 11px 20px; font-size: 14.5px; bord
 .formok { color: var(--accent); background: var(--accent-lys); border-radius: var(--r-s);
   padding: 9px 12px; font-size: 13.5px; margin: 12px 0 0; line-height: 1.5; }
 
+/* Bekraeftelseslinket kunne ikke veksles. Staar OVER formularerne, ikke
+   inde i én af dem: den vej videre kan vaere begge to — log ind, hvis
+   kontoen allerede er bekraeftet, ellers opret igen for et nyt link. */
+.kontofejl { border-left: 3px solid var(--vaek); margin-bottom: 16px; }
+.kontofejl p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.55; }
+.kontofejl p:last-child { margin-bottom: 0; }
+
 /* Trinbjælken. Trinnene kan klikkes frit — man skal kunne gå tilbage og
    rette noget uden at miste det, man allerede har skrevet. */
 .trinbjaelke { list-style: none; display: flex; gap: 6px; margin: 0 0 16px; padding: 0; flex-wrap: wrap; }

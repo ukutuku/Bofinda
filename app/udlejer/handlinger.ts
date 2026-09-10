@@ -19,6 +19,7 @@ import {
   tjekAdresse, type Boliginput,
 } from '../../lib/udlejer'
 import { spor } from '../../lib/maaling-server'
+import { callbackUrl, kontekstFra, vejFor, type Kontekst } from '../../lib/kontovej'
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL
 const NOEGLE = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
@@ -29,35 +30,87 @@ export interface Svar { fejl?: string; besked?: string }
 
 // ─── Konto ─────────────────────────────────────────────────────
 
-export async function tilmeld(_forrige: Svar, f: FormData): Promise<Svar> {
+/**
+ * Konteksten er FOERSTE argument, saa formularen kan binde den.
+ *
+ * `useActionState` giver os `(forrige, formData)`. Med `.bind(null, k)` i
+ * komponenten bliver signaturen `(k, forrige, formData)`, og konteksten
+ * kommer altsaa ikke fra et skjult inputfelt, brugeren kan rette i
+ * devtools. Den ville i oevrigt vaere harmloes dér — den vaelger en
+ * destination, ikke en rettighed, se lib/kontovej.ts — men et argument
+ * bundet paa serveren er baade enklere og aerligere.
+ *
+ * `kontekstFra` koeres alligevel: en bunden vaerdi er stadig en vaerdi,
+ * og bordet skal vaere det eneste, der afgoer maalet.
+ */
+export async function tilmeld(k: Kontekst, _forrige: Svar, f: FormData): Promise<Svar> {
+  const kontekst = kontekstFra(k)
   const mail = String(f.get('mail') ?? '').trim()
   const kode = String(f.get('kode') ?? '')
   if (kode.length < 10) {
     return { fejl: 'Adgangskoden skal være mindst 10 tegn. Længde slår krøllede tegn.' }
   }
+  const base = process.env.NEXT_PUBLIC_BASE_URL ?? ''
   const sb = await supabase()
   const { error } = await sb.auth.signUp({
     email: mail,
     password: kode,
-    options: { emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL ?? ''}/udlejer` },
+    // Til callback-ruten, ikke til en side. Ruten veksler PKCE-koden til
+    // en session og sender hende videre til KONTEKSTENS maal — foer laa
+    // «/udlejer» hardkodet her, saa en boligsoegende blev sendt til
+    // udlejersiden af sin egen bekraeftelsesmail.
+    options: { emailRedirectTo: base ? callbackUrl(base, kontekst) : undefined },
   })
   if (error) {
     // Kun fejlKLASSEN, aldrig Supabases egen tekst: den kan baere
     // brugerinput og tekniske detaljer, vi ikke skal gemme.
+    const klasse = fejlklasse(error.message)
     await spor({
       navn: 'server_action_failed',
-      props: { handling: 'tilmeld', fejlklasse: fejlklasse(error.message) },
-    }, '/udlejer')
+      props: { handling: 'tilmeld', fejlklasse: klasse },
+    }, rute(kontekst))
+    // «Findes allerede» siges ALDRIG til den, der spoerger. Se
+    // TILMELDT nedenfor. Klassen bogfoeres stadig — det er vores egen
+    // statistik, ikke et svar til en fremmed.
+    if (klasse === 'findes-allerede') return { besked: TILMELDT }
     return { fejl: oversaet(error.message) }
   }
   // «Startet», ikke «gennemfoert»: kontoen er ikke aktiv, foer linket i
   // mailen er trykket. signup_completed fyrer i lib/auth.ts ved foerste
   // binding af auth_user_id. Mailadressen naar aldrig et event.
-  await spor({ navn: 'signup_started', props: {} }, '/udlejer')
-  return { besked: 'Tjek din mail. Vi har sendt et link, du skal trykke på, før kontoen er aktiv.' }
+  await spor({ navn: 'signup_started', props: {} }, rute(kontekst))
+  return { besked: TILMELDT }
 }
 
-export async function login(_forrige: Svar, f: FormData): Promise<Svar> {
+/**
+ * ÉN besked, uanset om adressen var ledig.
+ *
+ * ═══ HVORFOR DEN ER FORMULERET SAADAN ═══
+ *
+ * En fejlfri `signUp()` er IKKE bevis for, at der blev sendt en mail. Med
+ * «Confirm email» slaaet til svarer GoTrue uden fejl paa en adresse, der
+ * allerede har en bekraeftet konto, og sender ingenting — beskyttelsen
+ * mod at afsoege, hvem der er kunde hos os. Den beskyttelse maa vi ikke
+ * ophaeve, og vi maa slet ikke slaa den op selv: et opslag i `auth.users`
+ * med en secret-noegle ville flytte laekagen fra Supabase til os.
+ *
+ * Derfor siger vi det samme begge veje, og vi siger det som en
+ * BETINGELSE til hende — ikke som en oplysning om adressen. Hun ved
+ * selv, om hun har en konto; en fremmed, der proever sig frem, laerer
+ * ingenting.
+ *
+ * Vejen videre er ikke «slet kontoen». Kom mailen ikke frem, sender
+ * `signUp()` paa en UBEKRAEFTET konto den igen — at udfylde formularen en
+ * gang til er altsaa den rigtige handling, og den er noget, hun selv kan
+ * goere.
+ */
+const TILMELDT = 'Kan adressen bruges til en ny konto, har vi sendt et link til den — '
+  + 'tryk på det, så er kontoen aktiv. Har du allerede en konto, er der ikke sendt noget; '
+  + 'så log ind i stedet. Er mailen ikke dukket op om et par minutter, så kig i spam og '
+  + 'udfyld formularen igen — så sender vi linket på ny.'
+
+export async function login(k: Kontekst, _forrige: Svar, f: FormData): Promise<Svar> {
+  const kontekst = kontekstFra(k)
   const sb = await supabase()
   const { error } = await sb.auth.signInWithPassword({
     email: String(f.get('mail') ?? '').trim(),
@@ -67,22 +120,33 @@ export async function login(_forrige: Svar, f: FormData): Promise<Svar> {
     await spor({
       navn: 'server_action_failed',
       props: { handling: 'login', fejlklasse: fejlklasse(error.message) },
-    }, '/udlejer')
+    }, rute(kontekst))
     return { fejl: oversaet(error.message) }
   }
   // Raekken, der syr det anonyme forloeb sammen med det indloggede: den
   // baerer BAADE anonymous_id og user_id. Brugerraekken hentes ikke her —
   // hentUdlejer() koster et Supabase-kald, og id'et kommer med paa de
   // efterfoelgende events fra udlejersiden.
-  await spor({ navn: 'login_completed', props: {} }, '/udlejer')
-  redirect('/udlejer/boliger')
+  await spor({ navn: 'login_completed', props: {} }, rute(kontekst))
+  redirect(vejFor(kontekst).efterLogin)
 }
 
-export async function logUd() {
+export async function logUd(k: Kontekst) {
+  const kontekst = kontekstFra(k)
   const sb = await supabase()
   await sb.auth.signOut()
-  redirect('/udlejer')
+  redirect(vejFor(kontekst).efterLogud)
 }
+
+/**
+ * Hvilken rute et event bogfoeres paa.
+ *
+ * Kontekstens EGEN side, ikke maalet: `login_completed` hoerer hjemme
+ * dér, hvor formularen stod. Begge staar i RUTER-allowlisten i
+ * lib/maaling.ts, saa der kommer ingen nye ruter og ingen nye events.
+ */
+const rute = (k: Kontekst): '/udlejer' | '/min-side' =>
+  k === 'udlejer' ? '/udlejer' : '/min-side'
 
 /**
  * Fejlens KLASSE, aldrig dens tekst.
