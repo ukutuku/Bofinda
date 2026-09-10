@@ -17,34 +17,29 @@
 //  dublet.
 // ═══════════════════════════════════════════════════════════════
 
-import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db/client'
 import { users } from '../db/schema'
+import { klientMed, konfigureret } from './supabase-klient'
 
-const URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const NOEGLE = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-
-export function konfigureret(): boolean {
-  return Boolean(URL && NOEGLE)
-}
+// URL'en og noeglen laeses ét sted — lib/supabase-klient.ts — fordi
+// middleware ogsaa skal bruge dem, og den fil maa ikke importere `db`.
+export { konfigureret }
 
 /** Klient bundet til brugerens cookies. Kun til identitet, ikke til data. */
 export async function supabase() {
-  if (!URL || !NOEGLE) {
-    throw new Error('NEXT_PUBLIC_SUPABASE_URL eller _PUBLISHABLE_KEY mangler')
-  }
   const jar = await cookies()
-  return createServerClient(URL, NOEGLE, {
-    cookies: {
-      getAll: () => jar.getAll(),
-      setAll: (sat) => {
-        // I en server component kan cookies ikke saettes. Det er fint:
-        // opdateringen sker i server actions og i middleware.
-        try { for (const { name, value, options } of sat) jar.set(name, value, options) }
-        catch { /* laeses kun */ }
-      },
+  return klientMed({
+    getAll: () => jar.getAll(),
+    setAll: (sat) => {
+      // I en server component kan cookies ikke saettes. Det er fint —
+      // men det er ogsaa GRUNDEN til, at fornyelsen skal ske i
+      // middleware: uden den ville et roteret refresh-token blive
+      // kasseret her, og GoTrue tilbagekalder hele sessionen, naar et
+      // forbrugt token bruges igen. Se middleware.ts.
+      try { for (const { name, value, options } of sat) jar.set(name, value, options) }
+      catch { /* laeses kun */ }
     },
   })
 }
