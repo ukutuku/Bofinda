@@ -109,11 +109,29 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
     },
   }, '/bolig/[id]')
 
+  /**
+   * Noegletals-strippen.
+   *
+   * Kun felter, KILDEN har oplyst. En post uden vaerdi udelades — der
+   * skrives aldrig «—» eller «ikke oplyst» her: strippen er et overblik,
+   * og det, vi ikke ved, staar i «Boligen» nedenfor, hvor der er plads
+   * til at sige hvorfor. Konceptbilledet viser fem faste felter; vi viser
+   * dem, der findes, og laver ikke resten om til tomme kasser.
+   *
+   * `ikon` peger paa en CSS-maske i globals.css — ingen ikonpakke, ingen
+   * nye filer, ingen netvaerkskald.
+   */
   const noegletal = [
-    b.areal != null ? { v: `${b.areal}`, e: 'm²' } : null,
-    b.vaerelser != null ? { v: `${b.vaerelser}`, e: b.vaerelser === 1 ? 'værelse' : 'værelser' } : null,
-    b.type ? { v: TYPENAVN[b.type] ?? b.type, e: '' } : null,
-  ].filter((x): x is { v: string; e: string } => !!x)
+    b.total != null
+      ? { ikon: 'moent', v: `${kr(b.total)} kr.`, e: 'pr. md. til udlejer' }
+      : b.leje != null ? { ikon: 'moent', v: `${kr(b.leje)} kr.`, e: 'husleje pr. md.' } : null,
+    b.indflytning != null
+      ? { ikon: 'moent', v: `${kr(b.indflytning)} kr.`, e: 'ved indflytning' } : null,
+    b.areal != null ? { ikon: 'maal', v: `${b.areal} m²`, e: 'boligareal' } : null,
+    b.vaerelser != null
+      ? { ikon: 'doer', v: `${b.vaerelser}`, e: b.vaerelser === 1 ? 'værelse' : 'værelser' } : null,
+    b.type ? { ikon: 'hus', v: TYPENAVN[b.type] ?? b.type, e: 'boligtype' } : null,
+  ].filter((x): x is { ikon: string; v: string; e: string } => !!x)
 
   return (
     <article className="detalje">
@@ -146,6 +164,35 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
           <div className="ingen-billeder">Ingen billeder at vise for denne bolig.</div>
         )}
 
+
+      {/* ── Titelbaandet ───────────────────────────────────────
+          Stod foer inde i venstre spalte, altsaa NEDE ved siden af
+          priskortet — sidens navn laa lavere end sidens pris. Nu ligger
+          det i fuld bredde lige under galleriet, hvor man laeser det
+          foerst, og noegletallene staar som en stribe under. */}
+      <div className="detalje-hoved">
+        <div className="maerkater">
+          {b.status === 'delisted' && <span className="maerkat m-vaek">ikke længere ledig</span>}
+          {avail!.ansoegning.status === 'venteliste'
+            && <span className="maerkat m-vent">Venteliste · efter anciennitet</span>}
+          {avail!.ansoegning.status === 'normal'
+            && <span className="maerkat m-ny">Almindelig ansøgning</span>}
+          {avail!.marked.status === 'reserveret'
+            && <span className="maerkat m-vent">Reserveret</span>}
+          {avail!.adgang.krav.includes('bopaelskrav')
+            && <span className="maerkat m-kilde">Bopælspligt</span>}
+        </div>
+        <h1>{adresselinje(b)}</h1>
+        <p className="sted">{b.postnr} {b.by}</p>
+        <ul className="noegletal">
+          {noegletal.map((n, i) => (
+            <li key={i} className={`nt-${n.ikon}`}>
+              <strong>{n.v}</strong>
+              {n.e && <span>{n.e}</span>}
+            </li>
+          ))}
+        </ul>
+      </div>
 
       <div className="spalter">
         {/* ── Økonomien. Sidens vigtigste element, og derfor det første
@@ -263,28 +310,6 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
         </aside>
 
         <div className="indhold">
-        <header className="hoved">
-          <div className="hoved-tekst">
-            <h1>{adresselinje(b)}</h1>
-            <p className="sted">{b.postnr} {b.by}</p>
-            <ul className="noegletal">
-              {noegletal.map((n, i) => (
-                <li key={i}><strong>{n.v}</strong>{n.e && <span> {n.e}</span>}</li>
-              ))}
-            </ul>
-          </div>
-          <div className="maerkater">
-            {b.status === 'delisted' && <span className="maerkat m-vaek">ikke længere ledig</span>}
-            {avail!.ansoegning.status === 'venteliste'
-              && <span className="maerkat m-vent">Venteliste · efter anciennitet</span>}
-            {avail!.ansoegning.status === 'normal'
-              && <span className="maerkat m-ny">Almindelig ansøgning</span>}
-            {avail!.marked.status === 'reserveret'
-              && <span className="maerkat m-vent">Reserveret</span>}
-            {avail!.adgang.krav.includes('bopaelskrav')
-              && <span className="maerkat m-kilde">Bopælspligt</span>}
-          </div>
-        </header>
 
           {/* ── Prissammenligning ──────────────────────────────
               Ingen farveskala uden tal bag. Der staar hvad afvigelsen er,

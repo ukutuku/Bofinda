@@ -649,15 +649,19 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                 )}
               </li>
             </ul>
+            {formular}
+
             {/* Availability-grundlaget: går op i hovedtallet, og de
-                ukendte har ord. Beregnet dynamisk af domænet. */}
-            <p className="note">
+                ukendte har ord. Beregnet dynamisk af domænet.
+
+                Stod FØR søgefeltet og skubbede handlingen ned under en
+                linje med småt. Rækkefølgen er nu påstand, bevis,
+                handling, forbehold — teksten er ordret den samme. */}
+            <p className="note grundlagsnote">
               {avGrundlag.timing.nu.toLocaleString('da-DK')} kan overtages nu ·{' '}
               {avGrundlag.timing.senere.toLocaleString('da-DK')} kan overtages senere ·{' '}
               {(avGrundlag.timing.unknown + avGrundlag.timing.conflict).toLocaleString('da-DK')} uden afklaret overtagelsestidspunkt
             </p>
-
-            {formular}
           </div>
         </section>
       )}
