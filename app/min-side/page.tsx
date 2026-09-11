@@ -19,7 +19,7 @@ import { desc, eq } from 'drizzle-orm'
 import { db } from '../../db/client'
 import { savedSearches } from '../../db/schema'
 import { hentBrugerStatus } from '../../lib/auth'
-import { LINKFEJL } from '../../lib/kontovej'
+import { LINKFEJL, NULSTILLET } from '../../lib/kontovej'
 import { hentFavoritter, type GemtBolig } from '../../lib/favoritter'
 import { beskrivFiltre } from '../../lib/alarm'
 import { kr } from '../Boligkort'
@@ -97,7 +97,10 @@ export default async function Side(
   { searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> },
 ) {
   const svar = await hentBrugerStatus()
-  const linkfejl = Boolean((await searchParams)[LINKFEJL])
+  const sp = await searchParams
+  const linkfejl = Boolean(sp[LINKFEJL])
+  // Kvitteringen efter en gennemfoert gendannelse. Se gemNyKode().
+  const nulstillet = Boolean(sp[NULSTILLET])
 
   // ── Kontoen kunne ikke bindes ────────────────────────────────
   // Hun ER logget ind. At vise login-formularen ville se ud som en fejl
@@ -148,7 +151,7 @@ export default async function Side(
           Log ind for at se dine gemte boliger og dine gemte søgninger.
           Gemte boliger følger din konto, så de er der også på telefonen.
         </p>
-        <Konto kontekst="bolig" linkfejl={linkfejl} />
+        <Konto kontekst="bolig" linkfejl={linkfejl} nulstillet={nulstillet} />
         <p className="note">
           Har du allerede en boligbesked, men ingen konto? Opret kontoen med
           den samme mailadresse — så samles dine gemte søgninger her.

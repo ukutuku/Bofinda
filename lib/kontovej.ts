@@ -41,7 +41,9 @@
 // ═══════════════════════════════════════════════════════════════
 
 /** De eneste adresser, et kontoforløb kan ende på. Alle er interne. */
-export const INTERNE_MAAL = ['/min-side', '/udlejer', '/udlejer/boliger'] as const
+export const INTERNE_MAAL = [
+  '/min-side', '/udlejer', '/udlejer/boliger', '/glemt', '/nulstil',
+] as const
 export type InterntMaal = (typeof INTERNE_MAAL)[number]
 
 export const KONTEKSTER = ['bolig', 'udlejer'] as const
@@ -67,6 +69,23 @@ export interface Vej {
   efterBekraeftelse: InterntMaal
   /** Når callbacken IKKE kunne veksle koden. Skal vise en vej videre. */
   vedLinkfejl: InterntMaal
+  /**
+   * Når et gendannelseslink ER vekslet til en session.
+   *
+   * Samme side for begge kontekster: «Vælg ny adgangskode» spørger om
+   * én ting og kender hverken annoncer eller gemte boliger. Konteksten
+   * følger med i adressen, så hun bagefter sendes hen, hvor HUN kom fra.
+   */
+  efterGendannelse: InterntMaal
+  /**
+   * Når gendannelseslinket ikke kunne veksles.
+   *
+   * IKKE `vedLinkfejl`: dér står «log ind, eller opret kontoen igen», og
+   * det er forkerte råd til en, der har glemt sin adgangskode. Hun skal
+   * kunne bede om et nyt link — altså tilbage til formularen, hun kom
+   * fra.
+   */
+  vedGendannelsesfejl: InterntMaal
 }
 
 export const KONTOVEJ: Record<Kontekst, Vej> = {
@@ -75,6 +94,8 @@ export const KONTOVEJ: Record<Kontekst, Vej> = {
     efterLogud: '/min-side',
     efterBekraeftelse: '/min-side',
     vedLinkfejl: '/min-side',
+    efterGendannelse: '/nulstil',
+    vedGendannelsesfejl: '/glemt',
   },
   udlejer: {
     efterLogin: '/udlejer/boliger',
@@ -84,6 +105,8 @@ export const KONTOVEJ: Record<Kontekst, Vej> = {
     // logget ind, og en fejlbesked, der forsvinder i et hop, er ingen
     // besked. Fejlen skal stå dér, hvor formularen er.
     vedLinkfejl: '/udlejer',
+    efterGendannelse: '/nulstil',
+    vedGendannelsesfejl: '/glemt',
   },
 }
 
@@ -112,9 +135,66 @@ export const K_PARAM = 'k'
  */
 export const LINKFEJL = 'linkfejl'
 
+/**
+ * HVILKET forløb et link hører til.
+ *
+ * ═══ HVORFOR DER SKAL SKELNES ═══
+ *
+ * Både bekræftelsesmailen og gendannelsesmailen lander på den SAMME
+ * rute med den samme `?code=`. Vekslingen er ens; det, der sker
+ * bagefter, er det ikke. En bekræftet konto skal ind på Min side. En,
+ * der har glemt sin adgangskode, skal videre til «Vælg ny adgangskode»
+ * — ellers er hun logget ind uden nogensinde at have sat en kode, og
+ * forløbet er uafsluttet på præcis den måde, callback-ruten blev
+ * skrevet for at fjerne.
+ *
+ * ═══ OG HVORFOR DET ER UFARLIGT ═══
+ *
+ * Ordet vælger en DESTINATION, ikke en rettighed — nøjagtig som `k`.
+ * Et ord, bordet ikke kender, bliver til standarden. At sætte
+ * `f=gendan` selv giver intet: `/nulstil` kræver en session, som kun
+ * Auth-serveren kan udstede, og den kigger aldrig på parameteren.
+ * Adgangen ligger i sessionen; parameteren peger kun på en side.
+ */
+export const FORLOEB = ['bekraeft', 'gendan'] as const
+export type Forloeb = (typeof FORLOEB)[number]
+
+/**
+ * Standarden er bekræftelsen.
+ *
+ * Den findes i forvejen og er i drift. Falder parameteren bort — en
+ * mailklient, der klipper i adressen, et gammelt link sendt før denne
+ * ændring — skal forløbet opføre sig præcis som før.
+ */
+export const STANDARDFORLOEB: Forloeb = 'bekraeft'
+
+export function forloebFra(v: unknown): Forloeb {
+  return typeof v === 'string' && (FORLOEB as readonly string[]).includes(v)
+    ? (v as Forloeb)
+    : STANDARDFORLOEB
+}
+
+/** Parameternavnet, forløbet bæres i. Ét sted, som K_PARAM. */
+export const F_PARAM = 'f'
+
+/** Parameternavnet på kvitteringen efter en gennemført gendannelse. */
+export const NULSTILLET = 'nulstillet'
+
 /** Bekræftelseslinkets landingsadresse, som den skal stå i emailRedirectTo. */
 export function callbackUrl(base: string, k: Kontekst): string {
   const u = new URL('/auth/callback', base)
   u.searchParams.set(K_PARAM, k)
+  return u.toString()
+}
+
+/**
+ * Gendannelseslinkets landingsadresse, som den skal stå i redirectTo.
+ *
+ * Bygget af callbackUrl, ikke ved siden af den: ruten og konteksten er
+ * det samme spørgsmål for begge forløb, og to steder ville drive.
+ */
+export function gendanUrl(base: string, k: Kontekst): string {
+  const u = new URL(callbackUrl(base, k))
+  u.searchParams.set(F_PARAM, 'gendan')
   return u.toString()
 }

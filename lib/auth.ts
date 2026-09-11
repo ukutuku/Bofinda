@@ -110,6 +110,22 @@ async function authKonto(): Promise<AuthKonto | null> {
 }
 
 /**
+ * Er der en session, Auth-serveren selv står inde for?
+ *
+ * Til «Vælg ny adgangskode», som skal vise en formular ELLER en
+ * forklaring — og intet andet. Den spørger hverken databasen eller
+ * kontobindingen: en gendannelse handler om adgangskoden på auth-kontoen,
+ * og en brugerrække er hverken nødvendig eller relevant for den. En helt
+ * frisk konto, der aldrig har gemt noget, har ingen række og skal stadig
+ * kunne skifte kode.
+ *
+ * Bygget på `authKonto()` og dermed på `getUser()` — altså et svar fra
+ * Auth-serveren, ikke en cookie, klienten selv kunne have skrevet.
+ */
+export const harAuthSession = async (): Promise<boolean> =>
+  (await authKonto()) !== null
+
+/**
  * Brugerrækkens id, hvis den findes. OPRETTER INTET.
  *
  * Til læsninger, der sker på hver sidevisning — om et boligkort skal vise

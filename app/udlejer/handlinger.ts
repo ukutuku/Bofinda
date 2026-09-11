@@ -19,7 +19,10 @@ import {
   tjekAdresse, type Boliginput,
 } from '../../lib/udlejer'
 import { spor } from '../../lib/maaling-server'
-import { callbackUrl, kontekstFra, vejFor, type Kontekst } from '../../lib/kontovej'
+import {
+  NULSTILLET, callbackUrl, gendanUrl, kontekstFra, vejFor, type Kontekst,
+} from '../../lib/kontovej'
+import { FOR_KORT, tjekAdgangskode } from '../../lib/adgangskode'
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL
 const NOEGLE = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
@@ -47,9 +50,8 @@ export async function tilmeld(k: Kontekst, _forrige: Svar, f: FormData): Promise
   const kontekst = kontekstFra(k)
   const mail = String(f.get('mail') ?? '').trim()
   const kode = String(f.get('kode') ?? '')
-  if (kode.length < 10) {
-    return { fejl: 'Adgangskoden skal være mindst 10 tegn. Længde slår krøllede tegn.' }
-  }
+  const kodefejl = tjekAdgangskode(kode)
+  if (kodefejl) return { fejl: kodefejl }
   const base = process.env.NEXT_PUBLIC_BASE_URL ?? ''
   const sb = await supabase()
   const { error } = await sb.auth.signUp({
@@ -145,6 +147,139 @@ export async function logUd(k: Kontekst) {
  * dér, hvor formularen stod. Begge staar i RUTER-allowlisten i
  * lib/maaling.ts, saa der kommer ingen nye ruter og ingen nye events.
  */
+
+// ─── Glemt adgangskode ─────────────────────────────────────────
+
+/**
+ * Svaret paa en anmodning. ALTID det samme, uanset om adressen findes.
+ *
+ * ═══ HVORFOR DEN IKKE MAA AFSLOERE NOGET ═══
+ *
+ * «Vi har sendt en mail» over for «den adresse kender vi ikke» goer
+ * formularen til et opslagsvaerk: enhver kan afproeve en liste og faa at
+ * vide, hvem der har en konto hos os. Det er den samme grund, som
+ * `TILMELDT` findes af — og de to beskeder skal derfor ogsaa taale at
+ * blive set ved siden af hinanden uden at kunne skelnes.
+ *
+ * Teksten lover derfor ikke, at der ER sendt noget. Den siger, hvad der
+ * sker, HVIS adressen har en konto.
+ */
+const GENDAN_SENDT = 'Har adressen en konto hos os, har vi sendt et link til den — '
+  + 'tryk på det, så kan du vælge en ny adgangskode. Linket kan kun bruges én gang '
+  + 'og udløber efter kort tid. Er mailen ikke dukket op om et par minutter, så kig '
+  + 'i spam og prøv igen.'
+
+/** Naar linket er brugt, udloebet, eller aabnet i en anden browser. */
+const INGEN_SESSION = 'Linket er ikke længere gyldigt. Bed om et nyt herunder — '
+  + 'gendannelseslinks kan kun bruges én gang og udløber efter kort tid.'
+
+/**
+ * Bed om et gendannelseslink.
+ *
+ * Kalder `resetPasswordForEmail`, som — praecis som `signUp` — laegger en
+ * PKCE-verifier i hendes cookies og sender hende en mail, der peger
+ * tilbage paa vores callback. Derfor `gendanUrl()` og ikke
+ * `callbackUrl()`: linket skal baere forloebet, saa callbacken ved, at
+ * hun skal videre til «Vaelg ny adgangskode» og ikke ind paa Min side.
+ *
+ * ⚠ VERIFIEREN LIGGER I DEN BROWSER, DER SPURGTE. Aabner hun mailen paa
+ * telefonen efter at have spurgt paa computeren, kan koden ikke veksles.
+ * Det er PKCE'ens vaesen og ikke en fejl — callbacken sender hende
+ * tilbage hertil med en forklaring.
+ */
+export async function anmodGendannelse(
+  k: Kontekst, _forrige: Svar, f: FormData,
+): Promise<Svar> {
+  const kontekst = kontekstFra(k)
+  const mail = String(f.get('mail') ?? '').trim()
+  if (!mail) return { fejl: 'Skriv den mailadresse, kontoen er oprettet med.' }
+
+  const base = process.env.NEXT_PUBLIC_BASE_URL ?? ''
+  const sb = await supabase()
+  const { error } = await sb.auth.resetPasswordForEmail(mail, {
+    redirectTo: base ? gendanUrl(base, kontekst) : undefined,
+  })
+
+  if (error) {
+    const klasse = fejlklasse(error.message)
+    await spor({
+      navn: 'server_action_failed',
+      props: { handling: 'gendan-anmod', fejlklasse: klasse },
+    }, rute(kontekst))
+
+    // To fejl maa hun se, fordi ingen af dem siger noget om, hvorvidt
+    // adressen har en konto:
+    //
+    //   · ratebegraensning er en egenskab ved VORES forsoeg. Tav vi om
+    //     den, ville hun vente paa en mail, der aldrig blev sendt.
+    //   · en syntaktisk umulig adresse er ren tastefejl.
+    //
+    // ALT andet — ogsaa «findes ikke», hvis Supabase en dag begynder at
+    // sige det — falder igennem til den neutrale besked. Standarden er
+    // altsaa tavshed, og kun to navngivne klasser bryder den.
+    if (klasse === 'for-mange-forsoeg' || klasse === 'ugyldig-mail') {
+      return { fejl: oversaet(error.message) }
+    }
+  }
+  return { besked: GENDAN_SENDT }
+}
+
+/**
+ * Gem den nye adgangskode.
+ *
+ * ═══ HVEM HUN ER, KOMMER FRA AUTH-SERVEREN ═══
+ *
+ * `getUser()` og ikke `getSession()`, og hverken bruger-id eller mail
+ * fra formularen. Et skjult felt er en anmodning, ikke et bevis — og
+ * her ville et bevis-frit felt betyde, at enhver kunne skifte en
+ * fremmeds adgangskode ved at skrive hendes adresse i devtools.
+ *
+ * `updateUser` skifter koden paa DEN konto, sessionen tilhoerer. Der er
+ * derfor ingen parameter at forfalske: kender vi ikke sessionen, er der
+ * ingen konto at pege paa.
+ *
+ * ⚠ URL'ens `?k=` giver ingen adgang. Den vaelger kun, hvor hun sendes
+ * hen bagefter. Uden session sker der intet, uanset hvad der staar i
+ * adresselinjen.
+ */
+export async function gemNyKode(
+  k: Kontekst, _forrige: Svar, f: FormData,
+): Promise<Svar> {
+  const kontekst = kontekstFra(k)
+  const kode = String(f.get('kode') ?? '')
+  const gentag = String(f.get('gentag') ?? '')
+
+  // Samme krav som ved oprettelsen, fordi det er den samme funktion.
+  const kodefejl = tjekAdgangskode(kode, gentag)
+  if (kodefejl) return { fejl: kodefejl }
+
+  const sb = await supabase()
+  const { data, error: sessionsfejl } = await sb.auth.getUser()
+  if (sessionsfejl || !data.user) return { fejl: INGEN_SESSION }
+
+  const { error } = await sb.auth.updateUser({ password: kode })
+  if (error) {
+    const klasse = fejlklasse(error.message)
+    await spor({
+      navn: 'server_action_failed',
+      props: { handling: 'gendan-gem', fejlklasse: klasse },
+    }, rute(kontekst))
+    return { fejl: oversaet(error.message) }
+  }
+
+  // FOERST her er koden skiftet. Kvitteringen ligger efter kaldet og
+  // ikke foer, saa «det lykkedes» aldrig kan staa paa skaermen, mens
+  // Supabase har afvist aendringen.
+  //
+  // Sessionen lukkes med vilje: linket gav hende en session uden at
+  // kraeve den gamle kode, og den skal ikke leve videre. Er mailen
+  // kommet paa afveje, mister den, der aabnede den, adgangen igen i
+  // samme sekund — og hun logger ind med den kode, KUN hun kender.
+  await sb.auth.signOut()
+  redirect(`${vejFor(kontekst).efterLogud}?${NULSTILLET}=1`)
+}
+
+
 const rute = (k: Kontekst): '/udlejer' | '/min-side' =>
   k === 'udlejer' ? '/udlejer' : '/min-side'
 
@@ -162,6 +297,9 @@ function fejlklasse(m: string): string {
   if (t.includes('email address') && t.includes('invalid')) return 'ugyldig-mail'
   if (t.includes('rate limit')) return 'for-mange-forsoeg'
   if (t.includes('not confirmed')) return 'ikke-bekraeftet'
+  // De to, `updateUser` kan svare med, naar den nye kode ikke duer.
+  if (t.includes('should be different')) return 'samme-kode'
+  if (t.includes('password') && t.includes('at least')) return 'for-svag'
   return 'andet'
 }
 
@@ -174,6 +312,10 @@ function oversaet(m: string): string {
   if (t.includes('email address') && t.includes('invalid')) return 'Den mailadresse ser ikke rigtig ud.'
   if (t.includes('rate limit')) return 'For mange forsøg lige nu. Prøv igen om lidt.'
   if (t.includes('not confirmed')) return 'Kontoen er ikke bekræftet endnu — tryk på linket i mailen.'
+  if (t.includes('should be different')) {
+    return 'Den nye adgangskode skal være en anden end den, du havde.'
+  }
+  if (t.includes('password') && t.includes('at least')) return FOR_KORT
   return m
 }
 

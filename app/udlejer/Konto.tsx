@@ -11,8 +11,9 @@
 //  afgør, hvor forløbet ender.
 // ═══════════════════════════════════════════════════════════════
 
+import Link from 'next/link'
 import { useActionState } from 'react'
-import type { Kontekst } from '../../lib/kontovej'
+import { K_PARAM, type Kontekst } from '../../lib/kontovej'
 import { login, tilmeld, type Svar } from './handlinger'
 
 const tom: Svar = {}
@@ -30,10 +31,18 @@ const TEKST: Record<Kontekst, { hvorfor: string }> = {
   },
 }
 
-export function Konto({ kontekst, linkfejl = false }: {
+export function Konto({ kontekst, linkfejl = false, nulstillet = false }: {
   kontekst: Kontekst
   /** Bekræftelseslinket kunne ikke veksles. Se app/auth/callback/route.ts. */
   linkfejl?: boolean
+  /**
+   * Hun kommer lige fra «Vælg ny adgangskode».
+   *
+   * Kvitteringen staar HER og ikke paa nulstillingssiden, fordi
+   * `gemNyKode` lukker sessionen og sender hende herhen — og en
+   * bekraeftelse, hun ikke kan se, er ingen bekraeftelse.
+   */
+  nulstillet?: boolean
 }) {
   const [ind, indAction, indVenter] = useActionState(login.bind(null, kontekst), tom)
   const [ny, nyAction, nyVenter] = useActionState(tilmeld.bind(null, kontekst), tom)
@@ -54,6 +63,15 @@ export function Konto({ kontekst, linkfejl = false }: {
         </div>
       )}
 
+      {nulstillet && (
+        <div className="blok kontook" role="status">
+          <p><strong>Din adgangskode er skiftet.</strong></p>
+          <p>
+            Vi har logget dig ud overalt. Log ind herunder med den nye adgangskode.
+          </p>
+        </div>
+      )}
+
       <div className="kontogitter">
         <form className="blok kontoform" action={indAction}>
           <h2>Log ind</h2>
@@ -63,6 +81,11 @@ export function Konto({ kontekst, linkfejl = false }: {
           <input id="ind-kode" name="kode" type="password" required autoComplete="current-password" />
           {ind?.fejl && <p className="formfejl">{ind.fejl}</p>}
           <button type="submit" disabled={indVenter}>{indVenter ? 'Logger ind …' : 'Log ind'}</button>
+          {/* Konteksten foelger med, saa hun efter nulstillingen lander
+              dér, hvor hun kom fra — ikke paa den anden kontos side. */}
+          <p className="note kontoglemt">
+            <Link href={`/glemt?${K_PARAM}=${kontekst}`}>Glemt adgangskode?</Link>
+          </p>
         </form>
 
         <form className="blok kontoform" action={nyAction}>

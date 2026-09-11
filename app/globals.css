@@ -994,6 +994,13 @@ form.filtre.soegt .storsoeg button { padding: 11px 20px; font-size: 14.5px; bord
 /* Bekraeftelseslinket kunne ikke veksles. Staar OVER formularerne, ikke
    inde i én af dem: den vej videre kan vaere begge to — log ind, hvis
    kontoen allerede er bekraeftet, ellers opret igen for et nyt link. */
+.kontoenkelt { max-width: 420px; }
+.kontoglemt { margin-top: 12px; text-align: center; }
+.kontoglemt a { color: var(--daempet); text-decoration: underline; }
+.kontoglemt a:hover { color: var(--accent); }
+.kontook { border-left: 3px solid var(--accent); margin-bottom: 16px; }
+.kontook p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.55; }
+.kontook p:last-child { margin-bottom: 0; }
 .kontofejl { border-left: 3px solid var(--vaek); margin-bottom: 16px; }
 .kontofejl p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.55; }
 .kontofejl p:last-child { margin-bottom: 0; }

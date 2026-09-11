@@ -29,7 +29,9 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { NextResponse, type NextRequest } from 'next/server'
-import { K_PARAM, LINKFEJL, kontekstFra, vejFor } from '../../../lib/kontovej'
+import {
+  F_PARAM, K_PARAM, LINKFEJL, forloebFra, kontekstFra, vejFor,
+} from '../../../lib/kontovej'
 import { konfigureret, klientMed } from '../../../lib/supabase-klient'
 
 /** Cookies og en kode pr. besøg: der er ikke noget at gengive på forhånd. */
@@ -61,8 +63,22 @@ function svarMed(sti: string, req: NextRequest): NextResponse {
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const kontekst = kontekstFra(req.nextUrl.searchParams.get(K_PARAM))
+  const forloeb = forloebFra(req.nextUrl.searchParams.get(F_PARAM))
   const vej = vejFor(kontekst)
-  const fejlsti = `${vej.vedLinkfejl}?${LINKFEJL}=1`
+  const gendan = forloeb === 'gendan'
+
+  // Begge sider af forløbet slås op i bordet. Konteksten bæres med
+  // videre, fordi BEGGE gendannelsessider skal vide, hvor hun kom fra:
+  // «Vælg ny adgangskode» for at sende hende det rigtige sted hen
+  // bagefter, og «Glemt adgangskode» for at kunne sende et nyt link i
+  // samme kontekst. Værdien er `kontekstFra`'s, altså ét af to ord fra
+  // denne kodebase — aldrig noget, kalderen har skrevet.
+  const maalsti = gendan
+    ? `${vej.efterGendannelse}?${K_PARAM}=${kontekst}`
+    : vej.efterBekraeftelse
+  const fejlsti = gendan
+    ? `${vej.vedGendannelsesfejl}?${LINKFEJL}=1&${K_PARAM}=${kontekst}`
+    : `${vej.vedLinkfejl}?${LINKFEJL}=1`
 
   // Miljøet uden Auth: siderne viser allerede «ikke sat op endnu», og en
   // veksling ville kaste. Landingssiden er stadig det rigtige svar.
@@ -77,7 +93,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // det. Skrev vi dem på et andet objekt og lavede redirect'et bagefter,
   // ville de falde på gulvet — og brugeren ville lande på Min side som
   // udlogget, hvilket er nøjagtig den fejl, ruten findes for at rette.
-  const svar = svarMed(vej.efterBekraeftelse, req)
+  const svar = svarMed(maalsti, req)
 
   const sb = klientMed({
     getAll: () => req.cookies.getAll(),
@@ -99,7 +115,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return svarMed(fejlsti, req)
   }
 
-  // Ingen løkke: `efterBekraeftelse` er /min-side eller /udlejer/boliger,
-  // og ingen af dem sender nogensinde tilbage hertil.
+  // Ingen løkke: `efterBekraeftelse` er /min-side eller /udlejer/boliger
+  // og `efterGendannelse` er /nulstil. Ingen af dem sender nogensinde
+  // tilbage hertil.
   return svar
 }
