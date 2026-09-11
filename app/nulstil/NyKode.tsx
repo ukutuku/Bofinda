@@ -27,9 +27,14 @@ export function NyKode({ kontekst }: { kontekst: Kontekst }) {
     <div className="kontoenkelt">
       <form className="blok kontoform" action={action}>
         <h2>Vælg ny adgangskode</h2>
+        {/* Ikke «du logges ud overalt med det samme»: udlogningen
+            tilbagekalder de sessioner, der skal fornyes, men en enhed, der
+            allerede er logget ind, beholder sin adgang, til dens session
+            udløber. Vi lover kun dét, der faktisk sker. */}
         <p className="note">
-          Når du har gemt, logger vi dig ud, så du kan logge ind med den nye
-          adgangskode. Det gælder også på dine andre enheder.
+          Når du har gemt, logger vi dig ud her, så du kan logge ind med den nye
+          adgangskode. Er du logget ind på en anden enhed, mister den adgangen,
+          når dens session udløber.
         </p>
 
         <label htmlFor="nulstil-kode">Ny adgangskode</label>

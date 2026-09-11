@@ -25,8 +25,9 @@ import http from 'node:http'
 import { readFileSync } from 'node:fs'
 import { NextRequest } from 'next/server'
 import {
-  FORLOEB, INTERNE_MAAL, KONTEKSTER, K_PARAM, F_PARAM, LINKFEJL, NULSTILLET,
-  STANDARDFORLOEB, callbackUrl, forloebFra, gendanUrl, kontekstFra, vejFor,
+  FORLOEB, INTERNE_MAAL, KONTEKSTER, K_PARAM, F_PARAM, KVITTERINGER, LINKFEJL,
+  STANDARDFORLOEB, callbackUrl, forloebFra, gendanUrl, kontekstFra,
+  kvitteringFra, vejFor,
 } from '../lib/kontovej'
 import { FOR_KORT, IKKE_ENS, MINDST_TEGN, tjekAdgangskode } from '../lib/adgangskode'
 
@@ -272,8 +273,14 @@ console.log('\n══ 8 · kilden til gemNyKode() (kildekontrol, ikke kørt) ═
   tjek('8F · sessionen lukkes efter skiftet', g.includes('auth.signOut()'))
   tjek('8G · og logud sker EFTER updateUser, ikke før',
     g.indexOf('updateUser') < g.indexOf('signOut'))
-  tjek('8H · kvitteringen ligger efter kaldet, så succes ikke kan vises for tidligt',
-    g.indexOf('updateUser') < g.indexOf('NULSTILLET'))
+  tjek('8H · kvitteringen sættes efter kaldet, så succes ikke kan vises for tidligt',
+    g.indexOf('updateUser') < g.indexOf('KVITTERINGSCOOKIE'))
+  tjek('8H3 · udfaldet af signOut aflæses, ikke ignoreret',
+    /signOut\(\)[\s\S]{0,120}kvittering = 'skiftet-uden-logud'/.test(g))
+  tjek('8H4 · og et kast fra signOut giver samme delvise udfald',
+    (g.match(/skiftet-uden-logud/g) ?? []).length >= 2)
+  tjek('8H5 · getUser og updateUser er begge omgivet af try',
+    (g.match(/try \{/g) ?? []).length >= 3)
   tjek('8H2 · og der returneres intet «det lykkedes» før kaldet',
     !/besked:/.test(g.slice(0, g.indexOf('updateUser'))))
   tjek('8I · destinationen hentes i bordet', g.includes('vejFor(kontekst)'))
@@ -293,6 +300,30 @@ console.log('\n══ 8 · kilden til gemNyKode() (kildekontrol, ikke kørt) ═
     /klasse === 'for-mange-forsoeg' \|\| klasse === 'ugyldig-mail'/.test(a))
   tjek('8Q · «findes allerede» kan ikke lække fra anmodningen',
     !/findes-allerede/.test(a))
+}
+
+// ═══ 8R · Kvitteringen er serverens, ikke adressens ═════════════
+console.log('\n══ 8R · kvitteringens grundlag ══')
+{
+  for (const ondt of ['ja', '1', 'nulstillet', '', null, undefined, 42, {}, ['skiftet']]) {
+    tjek(`8R · ${JSON.stringify(ondt) ?? 'undefined'} → ingen kvittering`,
+      kvitteringFra(ondt) === null)
+  }
+  tjek('8R · kun de to kendte udfald godtages',
+    KVITTERINGER.every((k) => kvitteringFra(k) === k) && KVITTERINGER.length === 2)
+  // Kommentarerne strippes foerst: de FORKLARER, at kvitteringen ikke
+  // laengere kommer fra «?nulstillet=1», og en proeve, der leder i
+  // prosaen, ville faa en korrekt side til at fejle.
+  const renKode = (t: string) =>
+    t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\/.*$/gm, '')
+  const sider = ['../app/udlejer/page.tsx', '../app/min-side/page.tsx']
+  for (const sti of sider) {
+    const navn = sti.split('/').slice(-2).join('/')
+    const s2 = renKode(readFileSync(new URL(sti, import.meta.url), 'utf8'))
+    tjek(`8R · ${navn} læser kvitteringen af en cookie`,
+      s2.includes('KVITTERINGSCOOKIE') && s2.includes('kvitteringFra'))
+    tjek(`8R · ${navn} bygger den ikke på searchParams`, !/nulstillet/i.test(s2))
+  }
 }
 
 // ═══ 9 · Siderne aendrer intet ved at blive AABNET ══════════════

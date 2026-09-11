@@ -19,7 +19,8 @@ import { desc, eq } from 'drizzle-orm'
 import { db } from '../../db/client'
 import { savedSearches } from '../../db/schema'
 import { hentBrugerStatus } from '../../lib/auth'
-import { LINKFEJL, NULSTILLET } from '../../lib/kontovej'
+import { cookies } from 'next/headers'
+import { KVITTERINGSCOOKIE, LINKFEJL, kvitteringFra } from '../../lib/kontovej'
 import { hentFavoritter, type GemtBolig } from '../../lib/favoritter'
 import { beskrivFiltre } from '../../lib/alarm'
 import { kr } from '../Boligkort'
@@ -99,8 +100,11 @@ export default async function Side(
   const svar = await hentBrugerStatus()
   const sp = await searchParams
   const linkfejl = Boolean(sp[LINKFEJL])
-  // Kvitteringen efter en gennemfoert gendannelse. Se gemNyKode().
-  const nulstillet = Boolean(sp[NULSTILLET])
+  // Kvitteringen efter en gennemfoert gendannelse. Den kommer fra en
+  // cookie, SERVEREN satte i gemNyKode() — ikke fra adressen. Et
+  // haandskrevet «?nulstillet=1» skal ikke kunne faa siden til at
+  // paastaa, at en adgangskode lige er skiftet.
+  const kvittering = kvitteringFra((await cookies()).get(KVITTERINGSCOOKIE)?.value)
 
   // ── Kontoen kunne ikke bindes ────────────────────────────────
   // Hun ER logget ind. At vise login-formularen ville se ud som en fejl
@@ -151,7 +155,7 @@ export default async function Side(
           Log ind for at se dine gemte boliger og dine gemte søgninger.
           Gemte boliger følger din konto, så de er der også på telefonen.
         </p>
-        <Konto kontekst="bolig" linkfejl={linkfejl} nulstillet={nulstillet} />
+        <Konto kontekst="bolig" linkfejl={linkfejl} kvittering={kvittering} />
         <p className="note">
           Har du allerede en boligbesked, men ingen konto? Opret kontoen med
           den samme mailadresse — så samles dine gemte søgninger her.

@@ -13,7 +13,7 @@
 
 import Link from 'next/link'
 import { useActionState } from 'react'
-import { K_PARAM, type Kontekst } from '../../lib/kontovej'
+import { K_PARAM, type Kontekst, type Kvittering } from '../../lib/kontovej'
 import { login, tilmeld, type Svar } from './handlinger'
 
 const tom: Svar = {}
@@ -31,18 +31,19 @@ const TEKST: Record<Kontekst, { hvorfor: string }> = {
   },
 }
 
-export function Konto({ kontekst, linkfejl = false, nulstillet = false }: {
+export function Konto({ kontekst, linkfejl = false, kvittering = null }: {
   kontekst: Kontekst
   /** Bekræftelseslinket kunne ikke veksles. Se app/auth/callback/route.ts. */
   linkfejl?: boolean
   /**
-   * Hun kommer lige fra «Vælg ny adgangskode».
+   * Hvad `gemNyKode` faktisk nåede at gøre — læst af en cookie, SERVEREN
+   * satte, aldrig af adressen.
    *
-   * Kvitteringen staar HER og ikke paa nulstillingssiden, fordi
+   * Kvitteringen står HER og ikke på nulstillingssiden, fordi
    * `gemNyKode` lukker sessionen og sender hende herhen — og en
-   * bekraeftelse, hun ikke kan se, er ingen bekraeftelse.
+   * bekræftelse, hun ikke kan se, er ingen bekræftelse.
    */
-  nulstillet?: boolean
+  kvittering?: Kvittering | null
 }) {
   const [ind, indAction, indVenter] = useActionState(login.bind(null, kontekst), tom)
   const [ny, nyAction, nyVenter] = useActionState(tilmeld.bind(null, kontekst), tom)
@@ -63,11 +64,26 @@ export function Konto({ kontekst, linkfejl = false, nulstillet = false }: {
         </div>
       )}
 
-      {nulstillet && (
+      {/* Begge udfald siger det samme om DET VIGTIGSTE: koden ER skiftet.
+          Kun det andet led er forskelligt, for hun må hverken tro, hun
+          skal skifte den igen, eller at udlogningen lykkedes, da den
+          ikke gjorde. */}
+      {kvittering === 'skiftet' && (
         <div className="blok kontook" role="status">
           <p><strong>Din adgangskode er skiftet.</strong></p>
           <p>
-            Vi har logget dig ud overalt. Log ind herunder med den nye adgangskode.
+            Log ind herunder med den nye. Er du logget ind på en anden enhed,
+            mister den adgangen, når dens session udløber.
+          </p>
+        </div>
+      )}
+      {kvittering === 'skiftet-uden-logud' && (
+        <div className="blok kontofejl" role="status">
+          <p><strong>Din adgangskode er skiftet.</strong></p>
+          <p>
+            Brug den nye, når du logger ind — du skal ikke skifte den igen.
+            Vi kunne ikke afslutte udlogningen, så er du stadig logget ind
+            et andet sted, så log ud dér.
           </p>
         </div>
       )}

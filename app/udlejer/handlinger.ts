@@ -9,6 +9,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { revalidatePath } from 'next/cache'
+import { cookies } from 'next/headers'
 import { FACILITETER } from '../../lib/faciliteter'
 import { byForPostnr } from '../../lib/omraade'
 import { redirect } from 'next/navigation'
@@ -20,8 +21,10 @@ import {
 } from '../../lib/udlejer'
 import { spor } from '../../lib/maaling-server'
 import {
-  NULSTILLET, callbackUrl, gendanUrl, kontekstFra, vejFor, type Kontekst,
+  KVITTERINGSCOOKIE, callbackUrl, gendanUrl, kontekstFra, vejFor,
+  type Kontekst, type Kvittering,
 } from '../../lib/kontovej'
+import { BASISCOOKIE } from '../../lib/samtykke'
 import { FOR_KORT, tjekAdgangskode } from '../../lib/adgangskode'
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -161,13 +164,32 @@ export async function logUd(k: Kontekst) {
  * `TILMELDT` findes af — og de to beskeder skal derfor ogsaa taale at
  * blive set ved siden af hinanden uden at kunne skelnes.
  *
- * Teksten lover derfor ikke, at der ER sendt noget. Den siger, hvad der
- * sker, HVIS adressen har en konto.
+ * ═══ OG HVORFOR DEN HELLER IKKE LOVER EN AFSENDELSE ═══
+ *
+ * Teksten sagde foer «har vi sendt et link til den». Det er usandt i to
+ * tilfaelde: naar adressen ikke har en konto, og naar mailserveren
+ * fejler — Supabase svarer da «Error sending recovery email», og der kom
+ * aldrig nogen mail.
+ *
+ * Den fejl kan KUN opstaa for en adresse, der HAR en konto. En saerlig
+ * besked om den ville derfor vaere praecis det opslagsvaerk, tavsheden
+ * findes for at forhindre. Svaret er altsaa ikke en besked mere, men én
+ * besked, der er sand i alle tre tilfaelde: vi kvitterer for ANMODNINGEN,
+ * forudsiger mailen i stedet for at paastaa den, og peger paa vejen
+ * videre, hvis der ikke kommer noget. Fejlen bogfoeres i vores egen
+ * statistik, hvor den hoerer hjemme.
  */
-const GENDAN_SENDT = 'Har adressen en konto hos os, har vi sendt et link til den — '
-  + 'tryk på det, så kan du vælge en ny adgangskode. Linket kan kun bruges én gang '
-  + 'og udløber efter kort tid. Er mailen ikke dukket op om et par minutter, så kig '
-  + 'i spam og prøv igen.'
+const GENDAN_SENDT = 'Vi har modtaget din anmodning. Har adressen en konto hos os, '
+  + 'kommer der en mail med et link — tryk på det, så kan du vælge en ny adgangskode. '
+  + 'Linket kan kun bruges én gang og udløber efter kort tid. Er mailen ikke dukket op '
+  + 'om et par minutter, så kig i spam og prøv igen herfra.'
+
+/** Naar kaldet til Auth-serveren slet ikke naaede frem. */
+const KUNNE_IKKE_SKIFTE = 'Vi kunne ikke skifte adgangskoden lige nu. '
+  + 'Prøv igen om lidt — din nuværende adgangskode virker stadig.'
+
+/** Hvor laenge kvitteringen ligger og venter paa at blive vist. */
+const KVITTERINGSSEK = 120
 
 /** Naar linket er brugt, udloebet, eller aabnet i en anden browser. */
 const INGEN_SESSION = 'Linket er ikke længere gyldigt. Bed om et nyt herunder — '
@@ -254,29 +276,70 @@ export async function gemNyKode(
   if (kodefejl) return { fejl: kodefejl }
 
   const sb = await supabase()
-  const { data, error: sessionsfejl } = await sb.auth.getUser()
-  if (sessionsfejl || !data.user) return { fejl: INGEN_SESSION }
 
-  const { error } = await sb.auth.updateUser({ password: kode })
-  if (error) {
-    const klasse = fejlklasse(error.message)
-    await spor({
-      navn: 'server_action_failed',
-      props: { handling: 'gendan-gem', fejlklasse: klasse },
-    }, rute(kontekst))
-    return { fejl: oversaet(error.message) }
+  // ── 1 · Hvem er hun? ─────────────────────────────────────────
+  // Et kast er lige saa muligt som en returneret fejl: getUser() er et
+  // netvaerkskald, og et udfald dér maa ikke blive en 500 paa en side,
+  // hun kom til fra et link i en mail.
+  try {
+    const { data, error } = await sb.auth.getUser()
+    if (error || !data.user) return { fejl: INGEN_SESSION }
+  } catch {
+    return { fejl: INGEN_SESSION }
   }
 
-  // FOERST her er koden skiftet. Kvitteringen ligger efter kaldet og
-  // ikke foer, saa «det lykkedes» aldrig kan staa paa skaermen, mens
-  // Supabase har afvist aendringen.
+  // ── 2 · Skift koden ──────────────────────────────────────────
+  try {
+    const { error } = await sb.auth.updateUser({ password: kode })
+    if (error) {
+      await spor({
+        navn: 'server_action_failed',
+        props: { handling: 'gendan-gem', fejlklasse: fejlklasse(error.message) },
+      }, rute(kontekst))
+      return { fejl: oversaet(error.message) }
+    }
+  } catch {
+    // Ikke `oversaet`: der er ingen besked fra Auth-serveren at oversaette.
+    await spor({
+      navn: 'server_action_failed',
+      props: { handling: 'gendan-gem', fejlklasse: 'kast' },
+    }, rute(kontekst))
+    return { fejl: KUNNE_IKKE_SKIFTE }
+  }
+
+  // ══ HERFRA ER KODEN SKIFTET ═════════════════════════════════
   //
-  // Sessionen lukkes med vilje: linket gav hende en session uden at
-  // kraeve den gamle kode, og den skal ikke leve videre. Er mailen
-  // kommet paa afveje, mister den, der aabnede den, adgangen igen i
-  // samme sekund — og hun logger ind med den kode, KUN hun kender.
-  await sb.auth.signOut()
-  redirect(`${vejFor(kontekst).efterLogud}?${NULSTILLET}=1`)
+  // Intet nedenfor maa kunne sende hende tilbage til formularen. Fejler
+  // udlogningen, er det ikke en grund til at bede hende skifte kode igen
+  // — den ER skiftet, og en ny omgang ville hverken hjaelpe eller vaere
+  // sand. Derfor baerer kvitteringen to udfald i stedet for ét.
+
+  // ── 3 · Luk sessionen ────────────────────────────────────────
+  // Linket gav hende adgang uden at kraeve den gamle kode, og den adgang
+  // skal ikke leve videre. Lykkes det ikke, siger vi dét — vi paastaar
+  // ikke, at hun er logget ud.
+  let kvittering: Kvittering = 'skiftet'
+  try {
+    const { error } = await sb.auth.signOut()
+    if (error) kvittering = 'skiftet-uden-logud'
+  } catch {
+    kvittering = 'skiftet-uden-logud'
+  }
+  if (kvittering === 'skiftet-uden-logud') {
+    await spor({
+      navn: 'server_action_failed',
+      props: { handling: 'gendan-logud', fejlklasse: 'logud-fejlede' },
+    }, rute(kontekst))
+  }
+
+  // ── 4 · Kvitteringen ─────────────────────────────────────────
+  // Paa en cookie, ikke i adressen: en paastand om, hvad serveren lige
+  // har gjort, skal komme fra serveren. HttpOnly, to minutter, og den
+  // baerer kun HVAD der skete — ikke hvem.
+  const jar = await cookies()
+  jar.set(KVITTERINGSCOOKIE, kvittering, { ...BASISCOOKIE, maxAge: KVITTERINGSSEK })
+
+  redirect(vejFor(kontekst).efterLogud)
 }
 
 
@@ -298,6 +361,8 @@ function fejlklasse(m: string): string {
   if (t.includes('rate limit')) return 'for-mange-forsoeg'
   if (t.includes('not confirmed')) return 'ikke-bekraeftet'
   // De to, `updateUser` kan svare med, naar den nye kode ikke duer.
+  // Mailserveren svigtede. Bogfoeres, men naar aldrig skaermen — se GENDAN_SENDT.
+  if (t.includes('error sending')) return 'afsendelse-fejlede'
   if (t.includes('should be different')) return 'samme-kode'
   if (t.includes('password') && t.includes('at least')) return 'for-svag'
   return 'andet'

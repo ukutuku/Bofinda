@@ -177,8 +177,41 @@ export function forloebFra(v: unknown): Forloeb {
 /** Parameternavnet, forløbet bæres i. Ét sted, som K_PARAM. */
 export const F_PARAM = 'f'
 
-/** Parameternavnet på kvitteringen efter en gennemført gendannelse. */
-export const NULSTILLET = 'nulstillet'
+/**
+ * Kvitteringen efter en gennemført gendannelse.
+ *
+ * ═══ HVORFOR DEN IKKE ER EN URL-PARAMETER ═══
+ *
+ * Den var det før, og det var forkert: enhver kunne skrive
+ * `?nulstillet=1` i adresselinjen og få siden til at påstå, at en
+ * adgangskode LIGE var skiftet. En kvittering er en oplysning om, hvad
+ * serveren gjorde — så må den også komme fra serveren.
+ *
+ * Cookien sættes af `gemNyKode` umiddelbart før omdirigeringen, er
+ * HttpOnly og lever to minutter. Den bærer intet om HVEM, kun HVAD der
+ * skete, og den er derfor hverken en session eller et bevis på adgang.
+ */
+export const KVITTERINGSCOOKIE = 'bofinda_kvittering'
+
+/**
+ * Hvad der faktisk skete. To udfald, fordi de kræver hver sin besked:
+ *
+ *   · `skiftet`            koden er skiftet, og udlogningen blev afsluttet
+ *   · `skiftet-uden-logud` koden ER skiftet, men udlogningen fejlede
+ *
+ * Det andet udfald findes, fordi hun ikke må tro, hun skal skifte koden
+ * igen — den ER skiftet — og heller ikke må få at vide, at udlogningen
+ * lykkedes, når den ikke gjorde.
+ */
+export const KVITTERINGER = ['skiftet', 'skiftet-uden-logud'] as const
+export type Kvittering = (typeof KVITTERINGER)[number]
+
+/** Kender vi ikke værdien, er der ingen kvittering — aldrig et gæt. */
+export function kvitteringFra(v: unknown): Kvittering | null {
+  return typeof v === 'string' && (KVITTERINGER as readonly string[]).includes(v)
+    ? (v as Kvittering)
+    : null
+}
 
 /** Bekræftelseslinkets landingsadresse, som den skal stå i emailRedirectTo. */
 export function callbackUrl(base: string, k: Kontekst): string {
