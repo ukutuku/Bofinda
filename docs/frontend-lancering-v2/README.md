@@ -66,6 +66,20 @@ begyndelsen af økonomien kan ses uden at scrolle.
 
 ## ⚠ Fotokontrollen er IKKE bestået
 
+**Forsøgt 12. september 2026 — se [`fotokontrol.md`](fotokontrol.md).**
+De udvalgte danske fotografier kunne ikke hentes: sessionens
+egress-politik afviser både `unsplash.com` og `images.pexels.com` med 403
+på CONNECT. Der er ikke prøvet igen og ikke søgt uden om.
+
+Geometrien er i stedet målt med genererede former i stående og liggende
+format og i lys og mørk tone — 26 kontroller, alle grønne. Det svarer på
+beskæring, stræk, højde og overløb, men ikke på, hvordan et rigtigt motiv
+ser ud. Billederne ligger i [`geometri/`](geometri/).
+
+Kontrollen kan køres færdig med ét kald, den dag filerne findes:
+`node scripts/cloud/fotokontrol.mjs`.
+
+
 **Alle billeder i mapperne viser ensfarvede testaktiver**, genereret af
 `scripts/cloud/aktiver.mjs` — diagonale bånd i én farve, ikke boligfotos.
 
