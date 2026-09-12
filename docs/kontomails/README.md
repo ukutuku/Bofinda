@@ -93,6 +93,26 @@ serveren nåede at gøre.
 Kunne linket ikke veksles, sættes ingen kvittering, og siden siger det
 ligeud i stedet for at byde velkommen.
 
+## Eksempelbilleder
+
+`eksempler/` er **layoutkontrol**, gengivet i Chromium på 1280 og 390 px
+bredde. De viser, hvordan skabelonen og kvitteringen bryder — ikke
+hvordan Outlook, Gmail eller Apple Mail gengiver en mail, og ikke at en
+mail overhovedet bliver leveret.
+
+| Billede | Hvad det viser |
+|---|---|
+| [`mail-desktop.png`](eksempler/mail-desktop.png) · [`mail-mobil.png`](eksempler/mail-mobil.png) | bekræftelsesmailen |
+| [`kvittering-bolig-desktop.png`](eksempler/kvittering-bolig-desktop.png) · [`kvittering-bolig-mobil.png`](eksempler/kvittering-bolig-mobil.png) | kvitteringen på Min side, logget ind |
+| [`kvittering-udlejer-desktop.png`](eksempler/kvittering-udlejer-desktop.png) · [`kvittering-udlejer-mobil.png`](eksempler/kvittering-udlejer-mobil.png) | kvitteringen på Mine annoncer, logget ind |
+| [`kvittering-udenlogin-desktop.png`](eksempler/kvittering-udenlogin-desktop.png) · [`kvittering-udenlogin-mobil.png`](eksempler/kvittering-udenlogin-mobil.png) | bekræftet, men ikke logget ind |
+
+**Alt i billederne er syntetisk.** Bekræftelseslinket i mailbillederne er
+en eksempeladresse med ordet `EKSEMPEL-IKKE-ET-RIGTIGT-TOKEN` i stedet
+for et token, og mailadressen på kvitteringerne er en `.invalid`-adresse
+fra den isolerede testbase. Der er hverken rigtige links, tokens,
+cookies eller personoplysninger i dem.
+
 ## Aktivering på staging — når nogen beslutter det
 
 **Intet af dette er gjort.** Rækkefølgen er:
