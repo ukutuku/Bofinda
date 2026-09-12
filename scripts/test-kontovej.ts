@@ -25,7 +25,8 @@
 import http from 'node:http'
 import { NextRequest } from 'next/server'
 import {
-  INTERNE_MAAL, KONTEKSTER, K_PARAM, LINKFEJL, STANDARDKONTEKST,
+  F_PARAM, INTERNE_MAAL, KONTEKSTER, KVITTERINGER, KVITTERINGSCOOKIE,
+  KVITTERINGSSEK, K_PARAM, LINKFEJL, STANDARDKONTEKST,
   callbackUrl, kontekstFra, vejFor,
 } from '../lib/kontovej'
 
@@ -240,6 +241,60 @@ tjek('5I · ingen fejlvej peger tilbage på callbacken',
 // ═══ 6 · Genkendelsen af en session ═════════════════════════════
 // Rammer moenstret ved siden af, fornyes sessionen aldrig — og det ville
 // vise sig som en bruger, der bliver logget ud uden grund.
+// ═══ 5B · Kvitteringen for bekraeftelsen ════════════════════════
+//
+// ═══ HVAD DEN ER, OG HVAD DEN IKKE ER ═══
+//
+// Vekslingen er det eneste sted, hvor bekraeftelsen faktisk er
+// verificeret. Siden laengere fremme ser kun en session — og en session
+// har hun ogsaa dagen efter. Derfor saettes kvitteringen HER, af
+// serveren, som en HttpOnly-cookie, og ikke af en parameter, nogen kan
+// skrive i adresselinjen.
+//
+// Den siger KUN, at bekraeftelsen gik igennem. Den siger ikke hvem, og
+// den aabner ingenting: siderne spoerger stadig Auth-serveren selv.
+console.log('\n══ 5B · kvitteringen efter en verificeret bekræftelse ══')
+{
+  nulstil()
+  const svar = await GET(req(`/auth/callback?${K_PARAM}=bolig&code=k`, await medVerifier()))
+  const k = svar.cookies.get(KVITTERINGSCOOKIE)
+  tjek('5B-A · en gennemført veksling sætter kvitteringen',
+    k?.value === 'bekraeftet', String(k?.value))
+  tjek('5B-B · den er HttpOnly — ingen skal kunne skrive den fra en konsol',
+    k?.httpOnly === true)
+  tjek('5B-C · og lever kun kort', k?.maxAge === KVITTERINGSSEK, String(k?.maxAge))
+  tjek('5B-D · værdien er ét af de kendte ord og bærer intet om hvem',
+    (KVITTERINGER as readonly string[]).includes(k?.value ?? '')
+    && !/@|proeve\.invalid|u1/.test(k?.value ?? ''))
+}
+{
+  // Gendannelseslinket gaar til «Vaelg ny adgangskode». Den bruger har
+  // haft kontoen laenge, og «Velkommen til BOFINDA» ville vaere forkert.
+  nulstil()
+  const svar = await GET(req(
+    `/auth/callback?${K_PARAM}=bolig&${F_PARAM}=gendan&code=k`, await medVerifier()))
+  tjek('5B-E · gendannelsen fører til sit eget forløb',
+    svar.headers.get('location') === `${BASE}/nulstil?${K_PARAM}=bolig`,
+    svar.headers.get('location') ?? '')
+  tjek('5B-F · og sætter INGEN bekræftelseskvittering',
+    svar.cookies.get(KVITTERINGSCOOKIE) === undefined,
+    String(svar.cookies.get(KVITTERINGSCOOKIE)?.value))
+}
+{
+  // Kunne linket ikke veksles, er der intet at kvittere for. Siden siger
+  // det ligeud i stedet for at byde velkommen.
+  nulstil({ vekslingFejler: true })
+  const svar = await GET(req(`/auth/callback?${K_PARAM}=bolig&code=k`, await medVerifier()))
+  tjek('5B-G · en mislykket veksling giver ingen kvittering',
+    svar.cookies.get(KVITTERINGSCOOKIE) === undefined)
+  tjek('5B-H · og fører til fejlbeskeden',
+    (svar.headers.get('location') ?? '').includes(LINKFEJL))
+  nulstil()
+  const uden = await GET(req(`/auth/callback?${K_PARAM}=bolig`))
+  tjek('5B-I · ingen kode, ingen kvittering',
+    uden.cookies.get(KVITTERINGSCOOKIE) === undefined)
+}
+
 console.log('\n══ 6 · hvad der tæller som en auth-cookie ══')
 tjek('6A · hel cookie', AUTHCOOKIE.test('sb-prgmenbwabwkgitjclrj-auth-token'))
 tjek('6B · delt cookie .0', AUTHCOOKIE.test('sb-prgmenbwabwkgitjclrj-auth-token.0'))

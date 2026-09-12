@@ -194,16 +194,40 @@ export const F_PARAM = 'f'
 export const KVITTERINGSCOOKIE = 'bofinda_kvittering'
 
 /**
- * Hvad der faktisk skete. To udfald, fordi de kræver hver sin besked:
+ * Hvor længe kvitteringen ligger og venter på at blive vist.
+ *
+ * Står HER og ikke hos den ene af de to, der sætter den: `gemNyKode`
+ * efter et kodeskift og callback-ruten efter en bekræftelse. To tal
+ * ville betyde, at den ene besked kunne nå at forsvinde, mens den anden
+ * blev stående, uden at nogen havde besluttet det.
+ */
+export const KVITTERINGSSEK = 120
+
+/**
+ * Hvad der faktisk skete. Tre udfald, fordi de kræver hver sin besked:
  *
  *   · `skiftet`            koden er skiftet, og udlogningen blev afsluttet
  *   · `skiftet-uden-logud` koden ER skiftet, men udlogningen fejlede
+ *   · `bekraeftet`         mailadressen er bekræftet hos Auth-serveren
  *
  * Det andet udfald findes, fordi hun ikke må tro, hun skal skifte koden
  * igen — den ER skiftet — og heller ikke må få at vide, at udlogningen
  * lykkedes, når den ikke gjorde.
+ *
+ * ═══ HVORFOR BEKRÆFTELSEN LIGGER I DEN SAMME COOKIE ═══
+ *
+ * Den svarer på det samme spørgsmål: hvad nåede serveren at gøre, lige
+ * før hun blev sendt herhen? Et parallelt flag ville være endnu et sted,
+ * der kan drive fra dette, og endnu en værdi, en URL kunne finde på at
+ * efterligne. Her gælder den samme spærring for alle tre: `kvitteringFra`
+ * kender kun de tre ord, cookien er HttpOnly, og den sættes kun af
+ * serveren selv.
+ *
+ * ⚠ `bekraeftet` siger KUN, at bekræftelsen blev verificeret. Den siger
+ * ikke, at hun er logget ind — det afgør siden selv ved at spørge
+ * Auth-serveren. Se `Visning` i app/udlejer/Kvitteringsblok.tsx.
  */
-export const KVITTERINGER = ['skiftet', 'skiftet-uden-logud'] as const
+export const KVITTERINGER = ['skiftet', 'skiftet-uden-logud', 'bekraeftet'] as const
 export type Kvittering = (typeof KVITTERINGER)[number]
 
 /** Kender vi ikke værdien, er der ingen kvittering — aldrig et gæt. */

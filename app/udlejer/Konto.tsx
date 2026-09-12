@@ -72,7 +72,7 @@ export function Konto({ kontekst, linkfejl = false, kvittering = null }: {
           og hun derfor stadig er logget ind — og to kopier af den samme
           besked driver fra hinanden. Her er visningen «udlogget», fordi
           formularen staar lige nedenfor. */}
-      <Kvitteringsblok kvittering={kvittering} visning="udlogget" />
+      <Kvitteringsblok kvittering={kvittering} visning="udlogget" kontekst={kontekst} />
 
       <div className="kontogitter">
         <form className="blok kontoform" action={indAction}>

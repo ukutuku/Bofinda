@@ -21,7 +21,7 @@ import {
 } from '../../lib/udlejer'
 import { spor } from '../../lib/maaling-server'
 import {
-  KVITTERINGSCOOKIE, callbackUrl, gendanUrl, kontekstFra, vejFor,
+  KVITTERINGSCOOKIE, KVITTERINGSSEK, callbackUrl, gendanUrl, kontekstFra, vejFor,
   type Kontekst, type Kvittering,
 } from '../../lib/kontovej'
 import { BASISCOOKIE } from '../../lib/samtykke'
@@ -220,9 +220,6 @@ const GENDAN_SENDT = 'Vi har modtaget din anmodning. Hvis adressen har en konto,
 const UKENDT_UDFALD = 'Vi kunne ikke bekræfte, om adgangskoden blev ændret. '
   + 'Prøv at logge ind med den nye adgangskode. Kan du ikke logge ind, '
   + 'så bed om et nyt gendannelseslink.'
-
-/** Hvor laenge kvitteringen ligger og venter paa at blive vist. */
-const KVITTERINGSSEK = 120
 
 /** Naar linket er brugt, udloebet, eller aabnet i en anden browser. */
 const INGEN_SESSION = 'Linket er ikke længere gyldigt. Bed om et nyt herunder — '

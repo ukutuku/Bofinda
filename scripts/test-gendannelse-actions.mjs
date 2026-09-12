@@ -1,5 +1,11 @@
 // ═══════════════════════════════════════════════════════════════
-//  Gendannelsens server actions — UDFØRT i en rigtig browser.
+//  Kontoforløbets server actions og kvitteringer — UDFØRT i en
+//  rigtig browser.
+//
+//  Hed før «gendannelsens». Siden kvitteringen blev ét sted for begge
+//  forløb, prøver scenarie 8 også bekræftelsen: samme cookie, samme
+//  visning, andre ord. To prøver ville betyde to harnesk om den samme
+//  komponent.
 //
 //  ═══ HVORFOR DENNE PRØVE FINDES VED SIDEN AF DEN ANDEN ═══
 //
@@ -485,6 +491,17 @@ console.log('\n══ 6 · ?nulstillet=1 uden serverresultat ══')
       await p.getByText('Din adgangskode er skiftet').count() === 0)
     await ctx.close()
   }
+  // Samme spærring for bekræftelsen. «Velkommen til BOFINDA» er en
+  // påstand om, at Auth-serveren lige har verificeret en adresse — den
+  // må en adresselinje ikke kunne fremkalde.
+  for (const sti of ['/min-side?bekraeftet=1', '/min-side?kvittering=bekraeftet',
+                     '/udlejer?bekraeftet=1', '/min-side?bofinda_kvittering=bekraeftet']) {
+    const { ctx, p } = await side()
+    await p.goto(B + sti, { waitUntil: 'networkidle' })
+    tjek(`6 · ${sti} påstår ingen bekræftelse`,
+      await p.getByText('Din mailadresse er bekræftet').count() === 0)
+    await ctx.close()
+  }
   for (const [navn, v, vent2] of [
     ['6E · serverens egen cookie viser kvitteringen', 'skiftet', true],
     ['6F · en ukendt værdi giver ingen kvittering', 'vroevl', false],
@@ -533,6 +550,65 @@ console.log('\n══ 7 · updateUser mistede svaret ══')
   // engelske tekst — og det er ikke et svar, hun kan handle på.
   tjek('7I · ingen rå SDK-tekst på skærmen',
     !/fetch failed|terminated|AuthRetryableFetchError|socket/i.test(t), t.slice(0, 90))
+  await ctx.close()
+}
+
+// ═══ 8 · BEKRÆFTELSESKVITTERINGEN ══════════════════════════════
+//
+// Cookien er serverens egen, sat af callback-ruten efter en verificeret
+// veksling (prøvet i scripts/test-kontovej.ts, sektion 5B). Her prøves
+// det, brugeren SER — og at teksten retter sig efter, om hun faktisk er
+// logget ind, i stedet for at påstå det.
+console.log('\n══ 8 · «Din mailadresse er bekræftet» ══')
+for (const [navn, sti, ender, kendetegn] of [
+  ['bolig', '/min-side', '/min-side', 'Logget ind som'],
+  ['udlejer', '/udlejer', '/udlejer/boliger', 'Mine annoncer'],
+]) {
+  await sat({})
+  const { ctx, p } = await side({ session: true, kvittering: 'bekraeftet' })
+  await p.goto(B + sti, { waitUntil: 'networkidle' })
+  tjek(`8 · ${navn} · hun ender paa ${ender}`, new URL(p.url()).pathname === ender, p.url())
+  tjek(`8 · ${navn} · siden er den indloggede`, await p.getByText(kendetegn).count() > 0)
+  tjek(`8 · ${navn} · KVITTERINGEN STAAR PAA SKAERMEN`,
+    await p.getByText('Din mailadresse er bekræftet. Velkommen til BOFINDA.').count() > 0)
+  tjek(`8 · ${navn} · og siger, at hun ER logget ind`,
+    await p.getByText('Du er logget ind').count() > 0)
+  tjek(`8 · ${navn} · uden «log ind herunder», som intet peger paa`,
+    await p.getByText('Log ind herunder').count() === 0)
+  await ctx.close()
+}
+{
+  // Vekslingen lykkedes, men sessionen naaede ikke frem til siden. Vi
+  // paastaar ikke, at hun er logget ind — vi siger, hvad vi ved, og
+  // peger paa formularen, der faktisk staar der.
+  await sat({})
+  const { ctx, p } = await side({ kvittering: 'bekraeftet' })
+  await p.goto(`${B}/min-side`, { waitUntil: 'networkidle' })
+  tjek('8E · uden session staar bekræftelsen stadig',
+    await p.getByText('Din mailadresse er bekræftet. Velkommen til BOFINDA.').count() > 0)
+  tjek('8F · men den paastaar ikke, at hun er logget ind',
+    await p.getByText('Du er ikke logget ind her').count() > 0)
+  tjek('8G · og peger paa kontoformularen, der faktisk staar der',
+    await p.locator('#ind-kode').count() === 1)
+  tjek('8H · kvitteringen gav ingen adgang til det personlige omraade',
+    await p.getByText('Logget ind som').count() === 0)
+  await ctx.close()
+}
+{
+  // De to forloeb maa ikke kunne vise hinandens besked.
+  await sat({})
+  const { ctx, p } = await side({ session: true, kvittering: 'skiftet-uden-logud' })
+  await p.goto(`${B}/min-side`, { waitUntil: 'networkidle' })
+  tjek('8I · et kodeskift byder ikke velkommen til BOFINDA',
+    await p.getByText('Din mailadresse er bekræftet').count() === 0)
+  await ctx.close()
+}
+{
+  await sat({})
+  const { ctx, p } = await side({ session: true, kvittering: 'bekraeftet' })
+  await p.goto(`${B}/min-side`, { waitUntil: 'networkidle' })
+  tjek('8J · og en bekræftelse paastaar ikke et kodeskift',
+    await p.getByText('Din adgangskode er skiftet').count() === 0)
   await ctx.close()
 }
 

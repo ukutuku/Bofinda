@@ -309,8 +309,13 @@ console.log('\n══ 8R · kvitteringens grundlag ══')
     tjek(`8R · ${JSON.stringify(ondt) ?? 'undefined'} → ingen kvittering`,
       kvitteringFra(ondt) === null)
   }
-  tjek('8R · kun de to kendte udfald godtages',
-    KVITTERINGER.every((k) => kvitteringFra(k) === k) && KVITTERINGER.length === 2)
+  // Tallet staar der, saa listen ikke kan udvides i forbifarten: hver
+  // vaerdi er en besked, en bruger faar at se. At hver af dem OGSAA har
+  // en tekst i alle tre visninger, er typen selv om — `BESKED` i
+  // Kvitteringsblok.tsx er en Record over baade Kvittering og Visning,
+  // saa en glemt tekst er en oversaettelsesfejl, ikke en tom blok.
+  tjek('8R · kun de tre kendte udfald godtages',
+    KVITTERINGER.every((k) => kvitteringFra(k) === k) && KVITTERINGER.length === 3)
   // Kommentarerne strippes foerst: de FORKLARER, at kvitteringen ikke
   // laengere kommer fra «?nulstillet=1», og en proeve, der leder i
   // prosaen, ville faa en korrekt side til at fejle.

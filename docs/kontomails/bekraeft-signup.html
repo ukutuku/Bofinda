@@ -1,0 +1,151 @@
+<!--
+  ═══════════════════════════════════════════════════════════════
+   BOFINDA · Supabase Auth → Email Templates → "Confirm signup"
+
+   Indsættes MANUELT i Supabase-dashboardet. Filen her er kilden;
+   dashboardet er kopien. Ændres teksten, ændres den her først.
+
+   ⚠ {{ .ConfirmationURL }} er selve bekræftelseslinket og skal blive
+     stående nøjagtig som det står. Det peger på Supabases egen
+     verify-endpoint, som sender browseren videre til den redirect,
+     appen bad om — der er derfor INGEN returadresse skrevet ind her,
+     hverken staging eller produktion.
+
+   ⚠ Ingen billeder, ingen eksterne filer, ingen sporing. Mærket er
+     TEKST, ikke et logo-billede: BOFINDA har ingen logofil, og en
+     mail, der kræver billeder for at give mening, er ikke en mail.
+
+   Tabeller og inline-stil med vilje. Mailprogrammer er ikke browsere:
+   Outlook kender hverken flexbox, grid eller eksterne stylesheets.
+  ═══════════════════════════════════════════════════════════════
+-->
+<!doctype html>
+<html lang="da">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="supported-color-schemes" content="light">
+    <title>Bekræft din mailadresse</title>
+    <style>
+      /* Kun det, der ikke kan sættes inline. Gmail og Apple Mail
+         respekterer begge en media query i head; de klienter, der ikke
+         gør, får den brede udgave, som stadig er læsbar på en telefon. */
+      @media only screen and (max-width: 600px) {
+        .ramme      { width: 100% !important; }
+        .luft       { padding-left: 20px !important; padding-right: 20px !important; }
+        .knap a     { display: block !important; text-align: center !important; }
+        .overskrift { font-size: 21px !important; }
+      }
+    </style>
+  </head>
+  <body style="margin:0; padding:0; background:#faf9f6;">
+
+    <!-- Forhåndsvisningen i indbakken. Skjult i selve mailen. -->
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0; mso-hide:all;">
+      Bekræft din mailadresse, så du kan gemme boliger og finde dem igen på Min side.
+    </div>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+           style="background:#faf9f6;">
+      <tr>
+        <td align="center" style="padding:32px 12px;">
+
+          <table role="presentation" class="ramme" width="600" cellpadding="0" cellspacing="0"
+                 border="0" style="width:600px; max-width:600px;">
+
+            <!-- ── Mærket ─────────────────────────────────────── -->
+            <tr>
+              <td class="luft" style="padding:0 8px 18px;">
+                <div style="font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                            font-size:22px; font-weight:700; letter-spacing:-0.7px; color:#14161a;">
+                  bo<span style="color:#14624f;">finda</span>
+                </div>
+                <div style="font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                            font-size:13px; color:#9aa1ac; padding-top:2px;">
+                  lejeboliger, samlet ét sted
+                </div>
+              </td>
+            </tr>
+
+            <!-- ── Selve beskeden ─────────────────────────────── -->
+            <tr>
+              <td class="luft" style="background:#ffffff; border:1px solid #e8e5de;
+                         border-radius:10px; padding:32px;">
+
+                <h1 class="overskrift"
+                    style="margin:0 0 18px; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                           font-size:23px; line-height:1.3; font-weight:680; letter-spacing:-0.5px;
+                           color:#14161a;">
+                  Velkommen til BOFINDA
+                </h1>
+
+                <p style="margin:0 0 14px; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                          font-size:16px; line-height:1.6; color:#14161a;">
+                  Hej!
+                </p>
+                <p style="margin:0 0 26px; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                          font-size:16px; line-height:1.6; color:#14161a;">
+                  Tak, fordi du har oprettet dig hos BOFINDA. Bekræft din mailadresse,
+                  så du kan gemme boliger og finde dem igen på Min side.
+                </p>
+
+                <!-- Knappen. En tabelcelle med baggrundsfarve, ikke en
+                     stylet <button>: Outlook gengiver kun den første. -->
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="knap">
+                  <tr>
+                    <td bgcolor="#14624f" style="border-radius:8px;">
+                      <a href="{{ .ConfirmationURL }}"
+                         style="display:inline-block; padding:14px 26px; border-radius:8px;
+                                font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                                font-size:16px; font-weight:640; line-height:1.2;
+                                color:#ffffff; text-decoration:none;">
+                        Bekræft min mailadresse
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- Virker knappen ikke, skal adressen kunne kopieres.
+                     Det er det SAMME link — ikke et omdirigeret et. -->
+                <p style="margin:26px 0 6px; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                          font-size:13px; line-height:1.6; color:#5f6672;">
+                  Virker knappen ikke, kan du kopiere denne adresse ind i browseren:
+                </p>
+                <p style="margin:0; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                          font-size:13px; line-height:1.6; color:#14624f; word-break:break-all;">
+                  {{ .ConfirmationURL }}
+                </p>
+
+                <div style="border-top:1px solid #f1efe9; margin:26px 0 0; padding-top:20px;">
+                  <p style="margin:0 0 16px; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                            font-size:14px; line-height:1.6; color:#5f6672;">
+                    Har du ikke oprettet en konto, kan du se bort fra denne mail.
+                  </p>
+                  <p style="margin:0; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                            font-size:14px; line-height:1.6; color:#14161a;">
+                    Venlig hilsen<br>
+                    Team BOFINDA
+                  </p>
+                </div>
+
+              </td>
+            </tr>
+
+            <!-- ── Foden ──────────────────────────────────────── -->
+            <tr>
+              <td class="luft" style="padding:18px 8px 0;">
+                <p style="margin:0; font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+                          font-size:12px; line-height:1.6; color:#9aa1ac;">
+                  Du har fået denne mail, fordi adressen blev brugt til at oprette en
+                  konto på BOFINDA. Vi sender ikke andet til dig, før du har bekræftet den.
+                </p>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

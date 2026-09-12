@@ -59,7 +59,7 @@ export default async function Side() {
         </div>
       </div>
 
-      <Kvitteringsblok kvittering={kvittering} visning="indlogget" />
+      <Kvitteringsblok kvittering={kvittering} visning="indlogget" kontekst="udlejer" />
 
       {boliger.length === 0 ? (
         <div className="tom">

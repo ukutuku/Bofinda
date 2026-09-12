@@ -122,9 +122,13 @@ export default async function Side(
       <div className="minside">
         <h1>Min side</h1>
         {/* Ogsaa her: hun er logget ind, siden vender om lidt, og et
-            kodeskift lige foer maa ikke forsvinde, fordi bindingen
-            faldt. Blokken oplyser — den aabner ingenting. */}
-        <Kvitteringsblok kvittering={kvittering} visning="indlogget" />
+            kodeskift eller en bekraeftelse lige foer maa ikke forsvinde,
+            fordi bindingen faldt. Blokken oplyser — den aabner ingenting.
+            Visningen er «begraenset» og ikke «indlogget»: hun ER logget
+            ind, men Min side kunne netop ikke aabnes, og en kvittering,
+            der lover det modsatte af beskeden lige nedenunder, er den
+            samme fejl som en total, der lader som om aconto er kendt. */}
+        <Kvitteringsblok kvittering={kvittering} visning="begraenset" kontekst="bolig" />
         <div className="tom-boks">
           {ubekraeftet ? (
             <>
@@ -204,7 +208,7 @@ export default async function Side(
           her uden et ord om, at koden lige var skiftet. Visningen er
           derfor «indlogget»: «log ind herunder» ville pege paa en
           formular, der ikke staar paa denne side. */}
-      <Kvitteringsblok kvittering={kvittering} visning="indlogget" />
+      <Kvitteringsblok kvittering={kvittering} visning="indlogget" kontekst="bolig" />
 
       {/* ── Gemte boliger ────────────────────────────────────── */}
       <section className="blok">

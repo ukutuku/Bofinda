@@ -30,8 +30,10 @@
 
 import { NextResponse, type NextRequest } from 'next/server'
 import {
-  F_PARAM, K_PARAM, LINKFEJL, forloebFra, kontekstFra, vejFor,
+  F_PARAM, K_PARAM, KVITTERINGSCOOKIE, KVITTERINGSSEK, LINKFEJL,
+  forloebFra, kontekstFra, vejFor,
 } from '../../../lib/kontovej'
+import { BASISCOOKIE } from '../../../lib/samtykke'
 import { konfigureret, klientMed } from '../../../lib/supabase-klient'
 
 /** Cookies og en kode pr. besøg: der er ikke noget at gengive på forhånd. */
@@ -113,6 +115,30 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (error) return svarMed(fejlsti, req)
   } catch {
     return svarMed(fejlsti, req)
+  }
+
+  // ── Kvitteringen ─────────────────────────────────────────────
+  //
+  // ═══ HVORFOR DEN SÆTTES HER OG IKKE PÅ SIDEN ═══
+  //
+  // Vekslingen er det ENESTE sted, hvor bekræftelsen faktisk er
+  // verificeret: Auth-serveren har svaret, og koden var gyldig. Siden
+  // længere fremme kan ikke se det — den ser kun en session, som også
+  // en gammel indlogning ville give. En kvittering, siden selv gættede
+  // sig til, ville stå på hver eneste visning bagefter.
+  //
+  // ⚠ KUN FOR BEKRÆFTELSESFORLØBET. Et gendannelseslink lander på
+  // «Vælg ny adgangskode» og skal ikke bære en velkomst — hun har haft
+  // kontoen længe. Derfor `!gendan`, og derfor kan de to forløb ikke
+  // komme til at vise hinandens besked.
+  //
+  // Cookien siger KUN, at bekræftelsen blev verificeret. Den siger
+  // hverken hvem eller at hun er logget ind, den er HttpOnly, og den
+  // giver ingen adgang: siderne spørger stadig Auth-serveren selv.
+  if (!gendan) {
+    svar.cookies.set(KVITTERINGSCOOKIE, 'bekraeftet', {
+      ...BASISCOOKIE, maxAge: KVITTERINGSSEK,
+    })
   }
 
   // Ingen løkke: `efterBekraeftelse` er /min-side eller /udlejer/boliger
