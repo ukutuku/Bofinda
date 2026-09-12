@@ -277,8 +277,18 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
             </div>
           )}
 
+          {/* Indflytningsprisen er sidens ANDET beloeb, ikke en note.
+              Den stod som 13,5 px graa tekst ved siden af en 27 px groen
+              total og forsvandt i den — og det er netop det tal, der
+              afgoer, om boligen overhovedet kan betales. Egen klasse,
+              egen stoerrelse og en lodret streg imellem, saa de to kan
+              skelnes paa et blik uden at vaere lige tunge.
+              `.total` bliver staaende paa alderslinjen nedenfor; de to
+              delte klasse foer, og et beloeb og en dato vejer ikke ens. */}
           {b.indflytning != null && (
-            <div className="total">indflytning <b>{kr(b.indflytning)} kr.</b></div>
+            <div className="kort-indflytning">
+              indflytning <b>{kr(b.indflytning)} kr.</b>
+            </div>
           )}
 
           {b.total == null && (
@@ -453,7 +463,7 @@ export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?
           </div>
 
           {g.indflytningMin != null && (
-            <div className="total">
+            <div className="kort-indflytning">
               indflytning{' '}
               <b>
                 {g.indflytningMin === g.indflytningMax

@@ -50,6 +50,15 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+/* ── Den klaebende bjaelke maa ikke daekke det, man springer hen til ──
+   `header.top` er `position: sticky` i 62 px hoejde (56 px under 560 px).
+   Uden den her lander et ankerspring — og browserens egen scroll til et
+   fokuseret element — under bjaelken, og maalet er usynligt netop naar
+   man har bedt om at se det. Det gaelder baade tastaturets Tab og et
+   `#id`-link, og det koster ingenting paa sider uden anker.
+   Vaerdien er bjaelkens hoejde plus lidt luft, ikke et rundt tal. */
+html { scroll-padding-top: 74px; }
+@media (max-width: 560px) { html { scroll-padding-top: 68px; } }
 body {
   background: var(--bg);
   color: var(--tekst);
@@ -64,7 +73,8 @@ button { font-family: inherit; }
 h1, h2, h3 { letter-spacing: -0.021em; }
 
 /* Beløb skal kunne sammenlignes lodret. */
-.oek-tal, .oek-tal2, .oek-poster b, .kort-pris, .leje, .total { font-variant-numeric: tabular-nums; }
+.oek-tal, .oek-tal2, .oek-poster b, .kort-pris, .leje, .total,
+.kort-indflytning { font-variant-numeric: tabular-nums; }
 
 .ramme { max-width: 1120px; margin: 0 auto; padding: 0 22px 72px; }
 
@@ -230,7 +240,7 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 /* Stedet faar en naal. Adressen og postnummer/by er to forskellige
    slags oplysning, og ikonet siger hvilken uden et ord ekstra. */
 .sted {
-  color: var(--daempet); font-size: 13.5px; margin-top: 4px;
+  color: var(--daempet); font-size: 12.5px; margin-top: 4px;
   display: flex; align-items: center; gap: 5px;
 }
 .sted::before {
@@ -245,7 +255,7 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
    prikker imellem. Som chips kan de aflæses hver for sig. */
 .fakta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
 .fakta-chip {
-  font-size: 12.5px; color: var(--daempet); background: var(--sand);
+  font-size: 12px; color: var(--daempet); background: var(--sand);
   border: 1px solid var(--linje-svag); border-radius: var(--r-xs);
   padding: 3px 9px; max-width: 100%;
   /* IKKE nowrap. «modstridende oplysninger om overtagelse» er 360 px
@@ -279,6 +289,27 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 .leje { font-size: 13px; color: var(--daempet); }
 .total { font-size: 13.5px; color: var(--daempet); order: 2; }
 .total b { color: var(--tekst); font-weight: 640; }
+/* Det andet beloeb. Mindre end totalen, men et BELOEB — ikke en note.
+   Stregen til venstre siger, at de to hoerer sammen og alligevel er
+   forskellige: den ene er hver maaned, den anden er én gang. */
+.kort-indflytning {
+  order: 2; font-size: 12px; color: var(--svag); line-height: 1.25;
+  padding-left: 18px; border-left: 1px solid var(--linje);
+  align-self: center;
+}
+.kort-indflytning b {
+  display: block; font-size: 16.5px; font-weight: 660; color: var(--tekst);
+  letter-spacing: -0.018em; line-height: 1.2; margin-top: 1px;
+}
+/* Uden plads ved siden af staar de to beloeb over hinanden — og saa er
+   en venstrestreg forkert: den ville pege paa ingenting. */
+@container (max-width: 460px) {
+  .kort-indflytning {
+    padding-left: 0; border-left: 0; flex-basis: 100%; order: 3;
+    align-self: flex-start; margin-top: 2px;
+  }
+  .kort-indflytning b { display: inline; margin-left: 4px; }
+}
 /* Alderen paa annoncen er baggrundsstof. Egen raekke, svagest vaegt. */
 .set-linje { flex-basis: 100%; order: 10; font-size: 12px; color: var(--svag); }
 .poster { flex-basis: 100%; order: 9; font-size: 12px; color: var(--svag); margin-top: 2px; }
@@ -374,7 +405,11 @@ footer.bund {
   display: grid; gap: 6px; overflow: hidden; position: relative;
   grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr;
   border-radius: var(--r-l); margin: 6px 0 0;
-  aspect-ratio: 21/9; max-height: 470px;
+  /* 470 px skubbede titlen, noegletallene OG oekonomikortet under
+     foldet paa en 1000 px skaerm: galleriet sluttede 600 px nede, og
+     det foerste beloeb stod 825 px nede. Billederne skal introducere
+     boligen, ikke vaere hele den foerste skaerm. */
+  aspect-ratio: 21/9; max-height: 400px;
 }
 .galleri > button:first-child { grid-row: 1 / span 2; }
 .galleri.g1 { grid-template-columns: 1fr; grid-template-rows: 1fr; aspect-ratio: 16/9; }
@@ -459,7 +494,7 @@ footer.bund {
 
 /* ─── Spalter: økonomien til højre, klæbende ────────────────── */
 /* ── Titelbåndet ────────────────────────────────────────────── */
-.detalje-hoved { margin: 26px 0 0; }
+.detalje-hoved { margin: 18px 0 0; }
 .detalje-hoved .maerkater { padding: 0 0 11px; }
 .detalje-hoved h1 {
   font-size: clamp(27px, 3.4vw, 40px); font-weight: 690;
@@ -754,21 +789,24 @@ footer.bund {
     linear-gradient(168deg, #e6efea 0%, #f1f2ec 48%, #fbfaf7 100%);
   border: 1px solid var(--linje);
   border-radius: var(--r-l);
-  margin: 26px 0 36px;
-  padding: 66px 52px 52px;
+  /* 66/52/52 px gav et baand paa 563 px paa desktop og 917 px paa mobil,
+     og foerste boligkort laa 870 hhv. 1.175 px nede — under foldet paa
+     begge bredder. Toppen skal introducere siden, ikke fylde den. */
+  margin: 20px 0 26px;
+  padding: 38px 44px 30px;
 }
 .hero h1 {
-  font-size: clamp(32px, 4.4vw, 50px);
-  font-weight: 690; letter-spacing: -0.042em; line-height: 1.06;
-  margin: 0 0 16px; max-width: 21ch;
+  font-size: clamp(27px, 3.2vw, 39px);
+  font-weight: 690; letter-spacing: -0.036em; line-height: 1.08;
+  margin: 0 0 11px; max-width: 24ch;
   /* Holder de to linjer nogenlunde lige lange, saa der ikke staar ét
      ord alene paa den sidste. Browsere uden balance faar den brede
      max-width. */
   text-wrap: balance;
 }
 .hero .manchet {
-  font-size: 18.5px; line-height: 1.55; color: var(--daempet);
-  margin: 0 0 30px; max-width: 52ch;
+  font-size: 16.5px; line-height: 1.55; color: var(--daempet);
+  margin: 0 0 20px; max-width: 58ch;
 }
 
 /* Formularen laaner baandets baggrund — ingen kasse i kassen. */
@@ -839,30 +877,38 @@ footer.bund {
 }
 .soegehint { margin: 11px 2px 0; font-size: 13px; color: var(--svag); }
 
-/* De tre tal er sidens bevis. De skal se ud som noget, ikke som en
-   raekke loes tekst — derfor kort med egen flade. */
+/* ── De tre tal: bevis, ikke sidens hovedperson ────────────────
+   Var tre kort med egen flade, 30 px tal og 34 px bund — 176 px, der
+   stod MELLEM loeftet og soegefeltet og skubbede boligerne under foldet.
+   Tallene er de samme, kilderne er de samme, og de tre grupper staar
+   stadig hver for sig. Men et bevis maa fylde mindre end det, det
+   beviser: nu én linje, der bryder efter behov.
+   Markuppen er uaendret — `<ul>` med `<li>`, `<strong>` og `<span>` —
+   saa `Hastighedspunkt` og prøven i test-soegning rammer det samme. */
 .punkter {
-  list-style: none; margin: 4px 0 34px; padding: 0;
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(196px, 1fr));
-  gap: 12px; max-width: 760px;
+  list-style: none; margin: 18px 0 0; padding: 14px 0 0; max-width: 760px;
+  border-top: 1px solid rgba(20,22,26,.07);
+  display: flex; flex-wrap: wrap; gap: 7px 26px;
 }
 .punkter li {
-  background: rgba(255,255,255,.8);
-  border: 1px solid rgba(232,229,222,.85);
-  border-radius: 12px; padding: 17px 19px 16px;
-  display: flex; flex-direction: column; gap: 4px;
-  box-shadow: 0 1px 2px rgba(20,22,26,.03);
+  display: flex; align-items: baseline; gap: 6px;
+  background: none; border: 0; border-radius: 0; padding: 0; box-shadow: none;
 }
 .punkter strong {
-  font-size: 30px; font-weight: 700; letter-spacing: -0.038em;
-  line-height: 1.02; color: var(--accent); font-variant-numeric: tabular-nums;
+  font-size: 16.5px; font-weight: 690; letter-spacing: -0.022em;
+  line-height: 1.2; color: var(--accent); font-variant-numeric: tabular-nums;
 }
-/* Det tredje "tal" er et ord. Sat ned, saa de tre kort vejer ens. */
-.punkter strong.ord { font-size: 20px; letter-spacing: -0.022em; line-height: 1.15; }
+/* Det tredje "tal" er et ord — og naar der ingen maaling er, er det en
+   oplysning om, hvad vi IKKE ved. Den maa ikke staa i accentfarven som
+   et resultat; den er daempet, men den staar der. */
+.punkter strong.ord {
+  font-size: 13.5px; font-weight: 620; letter-spacing: 0;
+  line-height: 1.3; color: var(--daempet);
+}
 .punkter strong .enhed {
-  font-size: .5em; font-weight: 550; color: var(--daempet); letter-spacing: -0.01em;
+  font-size: .72em; font-weight: 550; color: var(--daempet); letter-spacing: 0;
 }
-.punkter span { font-size: 13px; color: var(--daempet); line-height: 1.45; }
+.punkter span { font-size: 12.5px; color: var(--daempet); line-height: 1.4; }
 
 /* Filterboksen er beholder om begge dele */
 form.filtre { display: block; padding: 14px 16px; }
@@ -961,15 +1007,15 @@ form.filtre.soegt .storsoeg button { padding: 10px 22px; font-size: 14.5px; }
 }
 
 @media (max-width: 680px) {
-  .forside-baand { padding: 40px 22px 34px; border-radius: 14px; margin: 16px 0 26px; }
+  .forside-baand { padding: 26px 18px 22px; border-radius: 14px; margin: 12px 0 20px; }
   .hero h1 { max-width: none; }
-  .hero .manchet { font-size: 17px; margin-bottom: 26px; }
+  .hero .manchet { font-size: 15.5px; margin-bottom: 16px; }
   /* `flex-direction: column` stammer fra den gamle form, hvor feltet og
      knappen var to løsrevne kasser. Nu er båndet ÉN kontrol, og en
      kolonne ville lægge luppen på sin egen linje over et tomt felt.
      Brydningen håndteres af `flex-wrap` i reglen ved 520 px. */
   .storsoeg { max-width: none; }
-  .punkter { margin-bottom: 30px; }
+  .punkter { gap: 6px 18px; padding-top: 12px; }
 }
 /* Maerkaterne under adressen, naar de ellers klemmer den i to linjer. */
 @container (max-width: 780px) {
@@ -990,6 +1036,48 @@ form.filtre.soegt .storsoeg button { padding: 10px 22px; font-size: 14.5px; }
      og skal blive der. */
   .kort-billede { aspect-ratio: 16/9; }
   .kort-krop { padding: 0 4px 4px; }
+}
+
+/* ── Filtrene paa en telefon ───────────────────────────────────
+   Panelet virkede paa mobil, men det var ikke behageligt: 13,5 px
+   felter i 30 px hoejde er under enhver anbefaling om beroeringsmaal,
+   og en `font-size` under 16 px faar iOS til at zoome ind paa fokus —
+   hvorefter resten af siden staar skaevt, til man zoomer ud igen.
+   Ingen ny markup, ingen nye felter: kun stoerrelserne. */
+@media (max-width: 560px) {
+  /* 16 px er graensen, hvor iOS lader vaere med at zoome. */
+  .felt input, .felt select,
+  .filterpost .afkryds-linje select {
+    font-size: 16px; padding: 9px 11px; min-height: 42px;
+  }
+  .felt label { font-size: 12px; }
+  .filtergitter { gap: 12px 12px; }
+  /* Afkrydsningerne skal kunne rammes med en tommelfinger. */
+  .filterpost .afkryds-linje { gap: 10px; min-height: 34px; }
+  .filterpost .afkryds-linje input[type=checkbox],
+  .valg input { width: 20px; height: 20px; }
+  .valgraekke { gap: 10px 16px; }
+  .valg { min-height: 32px; }
+  /* «Soeg» er panelets handling og skal fylde en raekke, ikke et hjoerne. */
+  .knapper { gap: 10px; }
+  .knapper button { flex: 1 1 auto; padding: 12px 16px; font-size: 15px; }
+  .knapper .nulstil { flex: 0 0 auto; padding: 12px 16px; }
+  /* Hele linjen aabner panelet, ikke kun de to ord. */
+  .flere > summary { display: flex; width: 100%; padding: 10px 13px; font-size: 13.5px; }
+  /* Grundlagstallene er pillede chips paa desktop, hvor de ligger paa
+     én linje. Paa 390 px bliver de tre linjer med hver sin ramme, og
+     saa er de en mur mellem overskriften og boligerne. Samme tal, samme
+     orden — bare som almindelig tekst med prikker imellem. */
+  .resultathoved .optaelling { gap: 3px 12px; }
+  .resultathoved .optaelling > span {
+    background: none; border: 0; border-radius: 0; padding: 0;
+  }
+  .resultathoved .optaelling > span::before { display: none; }
+  .resultathoved .optaelling > span + span::before {
+    display: inline; content: '·'; width: auto; height: auto;
+    background: none; -webkit-mask: none; mask: none;
+    margin-right: 8px; opacity: 1; color: var(--svag);
+  }
 }
 
 /* ─── Gruppekort ────────────────────────────────────────────────
@@ -1101,6 +1189,73 @@ form.filtre.soegt .storsoeg button { padding: 10px 22px; font-size: 14.5px; }
    Den er ikke baggrundsstof: den siger, at hele kilder er ude. */
 .resultathoved .prisnote.advarsel {
   font-size: 12.5px; padding: 7px 11px; margin-top: 1px;
+}
+
+/* ── De aktive filtre ──────────────────────────────────────────
+   Chips med et kryds. Formen er bevidst en ANDEN end grundlagstallenes
+   pille ovenfor: de her kan klikkes, og de fjerner noget. Derfor
+   accentens lyse flade, accentens tekst og en peger — en chip, der
+   ligner et tal, bliver ikke trykket paa.
+   Kun tekstens egen bredde: en chip, der braekker i to linjer, ser ud
+   som to chips. Er der for mange, bryder RAEKKEN, ikke ordene. */
+.filterchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.filterchips .chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--accent-lys); border: 1px solid rgba(15,77,67,.18);
+  color: var(--accent-mrk); border-radius: var(--r-pille);
+  padding: 5px 9px 5px 12px; font-size: 12.5px; font-weight: 560;
+  text-decoration: none; line-height: 1.3;
+}
+.filterchips .chip:hover { border-color: var(--accent); background: #dceae4; }
+.filterchips .chip:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.filterchips .chip-x {
+  font-size: 15px; line-height: 1; opacity: .65; font-weight: 400;
+  /* Et kryds er ikke et ord: det skal have en kasse at blive trykket
+     paa, ogsaa med en tommelfinger. */
+  width: 17px; height: 17px; display: inline-flex;
+  align-items: center; justify-content: center;
+  border-radius: 50%; background: rgba(15,77,67,.10);
+}
+.filterchips .chip:hover .chip-x { opacity: 1; }
+/* «Ryd alle» fjerner ikke ét filter, men hele soegningen. Den maa ikke
+   ligne de andre chips: ingen flade, ingen accent, bare et link. */
+.filterchips .chip-ryd {
+  background: none; border-color: transparent; color: var(--daempet);
+  font-weight: 500; padding: 5px 8px; text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.filterchips .chip-ryd:hover { background: none; color: var(--tekst); border-color: transparent; }
+
+/* ── Sorteringen ───────────────────────────────────────────────
+   Seks almindelige links. Den aktive baerer accentfladen og
+   `aria-current`, saa den ogsaa kan hoeres — ikke kun ses. */
+.sortering {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
+  margin-top: 4px;
+}
+.sortering-navn {
+  font-size: 12px; color: var(--svag); margin-right: 3px; flex: none;
+}
+.sort-pille {
+  font-size: 12.5px; font-weight: 540; color: var(--daempet);
+  text-decoration: none; padding: 5px 11px; border-radius: var(--r-pille);
+  border: 1px solid transparent; white-space: nowrap; line-height: 1.3;
+}
+.sort-pille:hover { background: var(--linje-svag); color: var(--tekst); }
+.sort-pille:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sort-pille.valgt {
+  background: var(--accent); border-color: var(--accent);
+  color: #fff; font-weight: 600;
+}
+.sort-pille.valgt:hover { background: var(--accent-mrk); color: #fff; }
+@media (max-width: 560px) {
+  /* Paa en telefon er seks pillede ord to linjer. Etiketten kommer
+     foerst paa sin egen linje, saa raekken kan bruge hele bredden. */
+  .sortering { gap: 5px 4px; }
+  .sortering-navn { flex-basis: 100%; margin: 0 0 1px; }
+  .sort-pille { padding: 6px 11px; }
 }
 
 .listehoved {
@@ -1489,5 +1644,5 @@ form.filtre.soegt .storsoeg button { padding: 10px 22px; font-size: 14.5px; }
 /* Grundlagslinjen under hero-søgningen. Den er forbehold, ikke løfte —
    derfor lav vægt og luft over, så den ikke klæber til knappen. */
 .hero .grundlagsnote {
-  margin-top: 22px; font-size: 12.5px; color: var(--svag); line-height: 1.55;
+  margin-top: 8px; font-size: 12px; color: var(--svag); line-height: 1.5;
 }

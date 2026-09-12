@@ -7,10 +7,22 @@
 #  base, ingen har set på. Variablerne lever i denne ene proces og
 #  skrives ikke til nogen fil.
 # ═══════════════════════════════════════════════════════════════
+#
+#  `--produktion` starter det byggede output i stedet for dev-serveren.
+#  Det er den rigtige flade at TAGE SKAERMBILLEDER af: `next dev` lægger
+#  sin egen udviklingsmarkør nederst i hjørnet af hver eneste side, og
+#  et skærmbillede med den på dokumenterer ikke det, brugeren ser.
+#  Dev bliver standarden — den genindlæser ved en ændring.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 . scripts/cloud/miljoe.sh
 hemmeligheder
+
+TILSTAND=dev
+if [ "${1:-}" = "--produktion" ]; then
+  TILSTAND=produktion
+  [ -d .next ] || { echo "FEJL: der er intet byg. Kør 'npm run build' først." >&2; exit 1; }
+fi
 
 URL="$(test_url)"
 krav_isoleret "$URL"          # ← afviser alt andet end 127.0.0.1:55432/bofinda_test
@@ -42,6 +54,7 @@ if ! curl -sf --noproxy '*' -m 3 "http://127.0.0.1:$BOFINDA_AKTIVPORT/sund" >/de
 fi
 
 mkdir -p "$BOFINDA_LOG"
+TILSTAND_KOMMANDO=$([ "$TILSTAND" = produktion ] && echo start || echo dev)
 
 # Porten SKAL være fri. Var den optaget, ville næste kontrol få svar fra
 # den gamle proces — som peger på en base, der måske ikke findes mere —
@@ -59,7 +72,7 @@ if node -e '
   exit 1
 fi
 
-echo "→ starter appen på http://127.0.0.1:$BOFINDA_APPPORT"
+echo "→ starter appen ($TILSTAND) på http://127.0.0.1:$BOFINDA_APPPORT"
 
 # ── Miljøet for netop denne proces ──────────────────────────────
 # Ingen produktionshemmeligheder. Ingen RESEND_API_KEY: alarmmail hører
@@ -78,7 +91,7 @@ env -u VERCEL -u VERCEL_ENV \
   MAALING_AKTIV=1 \
   MAALING_IMPRESSION_PCT=100 \
   NODE_EXTRA_CA_CERTS=./certs/rapidssl-tls-rsa-ca-g1.pem \
-  setsid npx next dev -p "$BOFINDA_APPPORT" -H 127.0.0.1 \
+  setsid npx next "$TILSTAND_KOMMANDO" -p "$BOFINDA_APPPORT" -H 127.0.0.1 \
   > "$BOFINDA_LOG/app.log" 2>&1 &
 
 APPPID=$!

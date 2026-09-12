@@ -32,9 +32,13 @@ import { Gruppekort } from '../app/Boligkort'
 import {
   _saetGruppeloft, antalBoliger, availabilityFor, filtreFraParametre,
   gruppenoegleFraBolig, harFiltre, hentGruppe, matcherDomaene,
-  opsummering, soegGrupperet, type Filtre,
+  opsummering, soegGrupperet, SORTERINGER, type Filtre, type Soegeparametre,
 } from '../lib/soeg'
 import { antalFiltre, filterDiff, forrigeFiltre } from '../lib/maalingsoeg'
+import {
+  SORTERINGSNAVN, SORTERINGSVALG, aktiveFiltre, antalAvancerede,
+  soegeUrlSorteret, soegeUrlUden,
+} from '../lib/filterpanel'
 import { Sider, sideUrl, sidevindue } from '../app/Sider'
 import { Hastighedspunkt } from '../app/Hastighed'
 import { KILDEKONTRAKTER } from '../lib/kildekontrakt'
@@ -917,6 +921,97 @@ async function koer() {
     tjek('13 · komponenten importerer hverken database, soegelag eller headers',
       !importer.some((i) => /(^|\/)db\/|drizzle-orm|lib\/soeg|next\/(headers|cache)/.test(i)),
       importer.join(', ') || 'ingen importer')
+  }
+
+  // ═══ 14 · Resultathovedets chips og sortering ════════════════
+  //
+  //  Filtrene bor i et <details>, der er lukket. Fra i dag staar de
+  //  ogsaa som chips i resultathovedet, og sorteringen som links. To
+  //  steder paa skaermen for det samme valg — og saa er spoergsmaalet
+  //  ikke «ser det rigtigt ud», men «siger de det samme».
+  //
+  //  Prøven maaler to kontrakter:
+  //   · TAELLINGEN. `sammenfatFlere` skriver «N aktive» af
+  //     `antalAvancerede`, som er udledt af `antalFiltre`. Er der faerre
+  //     chips end N, mangler der et filter paa skaermen uden at nogen
+  //     kan se hvilket.
+  //   · KRYDSET. En chip lover at fjerne netop sit filter. Den paastand
+  //     efterproeves ved at BYGGE adressen, laese den tilbage gennem
+  //     `filtreFraParametre` og taelle efter — ikke ved at sammenligne
+  //     to lister af feltnavne, som jeg selv har skrevet begge steder.
+  {
+    const alt: Soegeparametre = {
+      sted: 'Attrapby', prisMin: '8000', prisMax: '20000', vaerelser: '2',
+      areal: '40', kilde: 'proevekilde', fuld: '1', type: ['lejlighed', 'hus'],
+      kaeledyr: '1', elevator: '1', udeplads: '1', overtagelse: 'nu',
+      venteliste: '1', reserveret: '1', sorter: 'pris_op', side: '3', kort: '0',
+    }
+    const fAlt = filtreFraParametre(alt)
+
+    tjek('14 · hvert avanceret filter har præcis én chip',
+      aktiveFiltre(fAlt).length === antalAvancerede(fAlt),
+      `${aktiveFiltre(fAlt).length} chips, ${antalAvancerede(fAlt)} talt`)
+    tjek('14 · stedet er IKKE en chip — det staar i feltet og i overskriften',
+      !aktiveFiltre(fAlt).some((c) => c.fjern.includes('by') || c.fjern.includes('postnr')
+        || c.fjern.includes('sted')))
+    tjek('14 · uden filtre er der ingen chips',
+      aktiveFiltre(filtreFraParametre({ sted: 'Attrapby' })).length === 0)
+
+    // Adressen laeses tilbage, praecis som Next ville give den til siden.
+    const tilbage = (url: string): Soegeparametre => {
+      const u = new URL(url, 'http://proeve.invalid')
+      const sp: Record<string, string | string[]> = {}
+      for (const n of new Set(u.searchParams.keys())) {
+        const v = u.searchParams.getAll(n)
+        sp[n] = v.length > 1 ? v : v[0]!
+      }
+      return sp as Soegeparametre
+    }
+
+    let alleVirker = true
+    let taeller = 0
+    for (const c of aktiveFiltre(fAlt)) {
+      const efter = filtreFraParametre(tilbage(soegeUrlUden('/', alt, c.fjern)))
+      const faldt = antalAvancerede(fAlt) - antalAvancerede(efter)
+      if (faldt !== 1) { alleVirker = false; console.log(`      ✗ «${c.navn}» fjernede ${faldt}`) }
+      taeller++
+    }
+    tjek('14 · hvert kryds fjerner præcis ét filter — hverken flere eller færre',
+      alleVirker, `${taeller} chips efterprøvet`)
+
+    tjek('14 · et kryds beholder alle de andre parametre',
+      (() => {
+        const u = soegeUrlUden('/', alt, ['elevator'])
+        return u.includes('kaeledyr=1') && u.includes('type=lejlighed')
+          && u.includes('type=hus') && u.includes('sorter=pris_op')
+          && !u.includes('elevator')
+      })(), soegeUrlUden('/', alt, ['elevator']))
+    tjek('14 · et kryds nulstiller sidetallet',
+      !soegeUrlUden('/', alt, ['elevator']).includes('side='))
+    tjek('14 · uden nogen parametre er adressen bare basis',
+      soegeUrlUden('/', { side: '4' }, []) === '/')
+
+    // ── Sorteringen ──────────────────────────────────────────────
+    tjek('14 · hver gyldig sortering har et navn — begge længder',
+      SORTERINGER.every((v) => SORTERINGSNAVN[v]?.lang && SORTERINGSNAVN[v]?.kort),
+      `${SORTERINGER.length} værdier`)
+    tjek('14 · visningslisten dækker dem alle og intet andet',
+      SORTERINGSVALG.length === SORTERINGER.length
+      && SORTERINGSVALG.every((v) => (SORTERINGER as readonly string[]).includes(v)))
+    tjek('14 · «nyeste» udelader parameteren — ingen anden adresse for samme side',
+      !soegeUrlSorteret('/', alt, 'nyeste').includes('sorter='))
+    tjek('14 · en anden orden saettes, og den gamle ryger',
+      (() => {
+        const u = soegeUrlSorteret('/', alt, 'areal_ned')
+        return u.includes('sorter=areal_ned') && !u.includes('sorter=pris_op')
+      })())
+    tjek('14 · sorteringen nulstiller ogsaa sidetallet',
+      !soegeUrlSorteret('/', alt, 'areal_ned').includes('side='))
+    tjek('14 · sorteringen roerer ikke filtrene',
+      (() => {
+        const f2 = filtreFraParametre(tilbage(soegeUrlSorteret('/', alt, 'areal_ned')))
+        return antalAvancerede(f2) === antalAvancerede(fAlt)
+      })())
   }
 
   // ─── Oprydning ───────────────────────────────────────────────
