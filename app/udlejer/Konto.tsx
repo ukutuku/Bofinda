@@ -14,6 +14,7 @@
 import Link from 'next/link'
 import { useActionState } from 'react'
 import { K_PARAM, type Kontekst, type Kvittering } from '../../lib/kontovej'
+import { Kvitteringsblok } from './Kvitteringsblok'
 import { login, tilmeld, type Svar } from './handlinger'
 
 const tom: Svar = {}
@@ -39,9 +40,11 @@ export function Konto({ kontekst, linkfejl = false, kvittering = null }: {
    * Hvad `gemNyKode` faktisk nåede at gøre — læst af en cookie, SERVEREN
    * satte, aldrig af adressen.
    *
-   * Kvitteringen står HER og ikke på nulstillingssiden, fordi
-   * `gemNyKode` lukker sessionen og sender hende herhen — og en
-   * bekræftelse, hun ikke kan se, er ingen bekræftelse.
+   * Kvitteringen står ikke på nulstillingssiden, fordi `gemNyKode`
+   * lukker sessionen og sender hende videre — og en bekræftelse, hun
+   * ikke kan se, er ingen bekræftelse. Af nøjagtig samme grund står den
+   * ikke KUN her: fejler udlogningen, er hun stadig logget ind og ser
+   * aldrig denne formular. Så gengiver hendes eget område blokken.
    */
   kvittering?: Kvittering | null
 }) {
@@ -64,29 +67,12 @@ export function Konto({ kontekst, linkfejl = false, kvittering = null }: {
         </div>
       )}
 
-      {/* Begge udfald siger det samme om DET VIGTIGSTE: koden ER skiftet.
-          Kun det andet led er forskelligt, for hun må hverken tro, hun
-          skal skifte den igen, eller at udlogningen lykkedes, da den
-          ikke gjorde. */}
-      {kvittering === 'skiftet' && (
-        <div className="blok kontook" role="status">
-          <p><strong>Din adgangskode er skiftet.</strong></p>
-          <p>
-            Log ind herunder med den nye. Er du logget ind på en anden enhed,
-            mister den adgangen, når dens session udløber.
-          </p>
-        </div>
-      )}
-      {kvittering === 'skiftet-uden-logud' && (
-        <div className="blok kontofejl" role="status">
-          <p><strong>Din adgangskode er skiftet.</strong></p>
-          <p>
-            Brug den nye, når du logger ind — du skal ikke skifte den igen.
-            Vi kunne ikke afslutte udlogningen, så er du stadig logget ind
-            et andet sted, så log ud dér.
-          </p>
-        </div>
-      )}
+      {/* Teksten ligger i Kvitteringsblok, ikke her. Den skal staa PRAECIS
+          det samme sted paa hendes eget omraade, naar udlogningen fejlede
+          og hun derfor stadig er logget ind — og to kopier af den samme
+          besked driver fra hinanden. Her er visningen «udlogget», fordi
+          formularen staar lige nedenfor. */}
+      <Kvitteringsblok kvittering={kvittering} visning="udlogget" />
 
       <div className="kontogitter">
         <form className="blok kontoform" action={indAction}>

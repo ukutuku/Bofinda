@@ -316,7 +316,12 @@ console.log('\n══ 8R · kvitteringens grundlag ══')
   // prosaen, ville faa en korrekt side til at fejle.
   const renKode = (t: string) =>
     t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\/.*$/gm, '')
-  const sider = ['../app/udlejer/page.tsx', '../app/min-side/page.tsx']
+  const sider = [
+    '../app/udlejer/page.tsx', '../app/min-side/page.tsx',
+    // Mine annoncer er den side, en INDLOGGET udlejer faktisk lander paa:
+    // /udlejer omdirigerer hende dertil, foer cookien overhovedet laeses.
+    '../app/udlejer/boliger/page.tsx',
+  ]
   for (const sti of sider) {
     const navn = sti.split('/').slice(-2).join('/')
     const s2 = renKode(readFileSync(new URL(sti, import.meta.url), 'utf8'))
@@ -324,6 +329,103 @@ console.log('\n══ 8R · kvitteringens grundlag ══')
       s2.includes('KVITTERINGSCOOKIE') && s2.includes('kvitteringFra'))
     tjek(`8R · ${navn} bygger den ikke på searchParams`, !/nulstillet/i.test(s2))
   }
+}
+
+// ═══ 8S · Kvitteringen naar ogsaa den, der stadig er logget ind ═
+//
+// ═══ HVAD DER GIK GALT ═══
+//
+// Kvitteringen stod inde i kontoformularen, og formularen vises kun for
+// en, der IKKE er logget ind. Men det udfald, den vigtigste af de to
+// beskeder handler om — «koden er skiftet, men udlogningen fejlede» —
+// betyder jo netop, at hun STADIG er logget ind. Beskeden kunne altsaa
+// ikke naa den eneste, der havde brug for den.
+//
+// Proeven her er en KILDEKONTROL og maaler kun, at de tre landingssider
+// bruger den samme ene visning. At den faktisk STAAR paa skaermen for en
+// bundet, indlogget bruger, maales i browseren af
+// scripts/test-gendannelse-actions.mjs (scenarie 4 og 4b).
+console.log('\n══ 8S · én kvitteringsvisning, brugt alle vegne ══')
+{
+  const ren = (t: string) =>
+    t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\/.*$/gm, '')
+  const fil = (sti: string) => ren(readFileSync(new URL(sti, import.meta.url), 'utf8'))
+
+  const blok = fil('../app/udlejer/Kvitteringsblok.tsx')
+  tjek('8S-A · visningen findes som én komponent', blok.includes('export function Kvitteringsblok'))
+  tjek('8S-B · og kender forskel paa udlogget og indlogget',
+    blok.includes("'udlogget'") && blok.includes("'indlogget'"))
+  tjek('8S-C · den laeser hverken cookies, database eller session',
+    !/next\/headers|db\b|supabase/.test(blok))
+
+  // Teksten maa findes ÉT sted. To kopier driver fra hinanden — se
+  // CLAUDE.md om to udtryk for ét spoergsmaal.
+  const brugere = [
+    '../app/udlejer/Konto.tsx', '../app/min-side/page.tsx',
+    '../app/udlejer/boliger/page.tsx',
+  ]
+  for (const sti of brugere) {
+    const navn = sti.split('/').slice(-2).join('/')
+    const t = fil(sti)
+    tjek(`8S · ${navn} bruger den faelles visning`, t.includes('<Kvitteringsblok'))
+    tjek(`8S · ${navn} har ikke sin egen kopi af teksten`,
+      !t.includes('Din adgangskode er skiftet'))
+  }
+
+  // De to sider, en INDLOGGET bruger kan lande paa, skal bruge
+  // «indlogget» — «log ind herunder» ville pege paa en formular, der
+  // ikke staar der.
+  for (const sti of ['../app/min-side/page.tsx', '../app/udlejer/boliger/page.tsx']) {
+    const navn = sti.split('/').slice(-2).join('/')
+    tjek(`8S · ${navn} viser den indloggede udgave`,
+      /<Kvitteringsblok[^>]*visning="indlogget"/.test(fil(sti)))
+  }
+  tjek('8S · kontoformularen viser den udloggede udgave',
+    /<Kvitteringsblok[^>]*visning="udlogget"/.test(fil('../app/udlejer/Konto.tsx')))
+
+  // Adgangen maa ikke afhaenge af cookien. Paa Mine annoncer staar
+  // `hentUdlejer()` og dens redirect FOER kvitteringen laeses.
+  //
+  // Maalt paa KALDENE, ikke paa navnene: `KVITTERINGSCOOKIE` staar ogsaa
+  // i importlinjen oeverst, og et indexOf paa ordet ville pege paa den —
+  // altsaa foer alt andet, uanset hvordan funktionen er skrevet.
+  const mine = fil('../app/udlejer/boliger/page.tsx')
+  const hent = mine.indexOf('await hentUdlejer()')
+  const vaern = mine.indexOf("redirect('/udlejer')")
+  const laes = mine.indexOf('kvitteringFra(')
+  tjek('8S-D · adgangen afgoeres foer kvitteringen laeses',
+    hent >= 0 && vaern > hent && laes > vaern, `hent=${hent} vaern=${vaern} laes=${laes}`)
+}
+
+// ═══ 8T · De to statusformuleringer ═════════════════════════════
+console.log('\n══ 8T · hvad teksterne lover ══')
+{
+  const kilde = readFileSync(new URL('../app/udlejer/handlinger.ts', import.meta.url), 'utf8')
+  const udenKommentarer = kilde
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+
+  // R2 · et mistet svar er et UKENDT udfald, ikke et kendt uaendret et.
+  tjek('8T-A · ingen garanti om, at den gamle kode stadig virker',
+    !/virker stadig/.test(udenKommentarer))
+  tjek('8T-B · teksten siger, at udfaldet er ukendt',
+    /Vi kunne ikke bekræfte, om adgangskoden blev ændret/.test(udenKommentarer))
+  tjek('8T-C · og peger paa begge veje videre',
+    /logge ind med den nye/.test(udenKommentarer) && /gendannelseslink/.test(udenKommentarer))
+  // SDK'et RETURNERER et tabt svar som en AuthError i stedet for at kaste.
+  // En vagt, der kun sad i catch, ville aldrig fyre paa det udfald.
+  tjek('8T-D · den returnerede netvaerksfejl faar samme svar som et kast',
+    /AuthRetryableFetchError/.test(udenKommentarer)
+    && (udenKommentarer.match(/UKENDT_UDFALD/g) ?? []).length >= 3)
+  tjek('8T-E · og skiftet gentages ikke af sig selv',
+    (udenKommentarer.match(/auth\.updateUser\(/g) ?? []).length === 1)
+
+  // R3 · ét svar, stadig neutralt, men uden et loefte om levering.
+  tjek('8T-F · mailsvaret lover ikke en mail, vi ikke kan staa inde for',
+    !/kommer der en mail/.test(udenKommentarer))
+  tjek('8T-G · afsendelsen er gjort betinget',
+    /kan gennemføres/.test(udenKommentarer))
+  tjek('8T-H · og der er stadig kun ÉT svar med en besked',
+    (udenKommentarer.match(/besked: GENDAN_SENDT/g) ?? []).length === 1)
 }
 
 // ═══ 9 · Siderne aendrer intet ved at blive AABNET ══════════════

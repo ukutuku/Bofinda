@@ -10,6 +10,11 @@ export const metadata = { title: 'Udlej din bolig — Bofinda' }
 export default async function Side(
   { searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> },
 ) {
+  // Er hun logget ind, hoerer hun til paa Mine annoncer, og hun sendes
+  // derhen FOER kvitteringen nedenfor laeses. Det er med vilje — adgangen
+  // maa ikke afhaenge af en cookie, der kun baerer en besked. Blokken
+  // gengives derfor OGSAA paa /udlejer/boliger, for fejler udlogningen i
+  // `gemNyKode`, er det den side, hun faktisk lander paa.
   if (konfigureret() && await hentUdlejer()) redirect('/udlejer/boliger')
   // Callbacken sender hertil, naar bekraeftelseslinket ikke kunne veksles.
   // Ét fast ord i URL'en — aldrig en kode og aldrig Auth-serverens tekst.

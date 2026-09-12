@@ -19,11 +19,25 @@
 //  JavaScript, som en rigtig bruger har, svarer de samme handlinger
 //  omgående. Prøven driver derfor formularerne, som brugeren gør.
 //
-//  ⚠ FORUDSÆTNING: `playwright` skal kunne indlæses, og Chromium skal
-//  findes. Derfor er prøven IKKE med i `npm test` — den ville gøre
-//  testkørslen afhængig af en browser. Kør den selv:
+//  ═══ OG HVORFOR DEN NU KRÆVER EN RIGTIG TESTBASE ═══
 //
-//      node scripts/test-gendannelse-actions.mjs
+//  Uden database faldt `hentBrugerStatus()` igennem, og /min-side gengav
+//  sin UDLOGGEDE gren — med kontoformularen og dermed med kvitteringen.
+//  Prøven så altså beskeden og gik grøn, mens den bruger, der faktisk
+//  havde været igennem forløbet, ikke gjorde: fejler udlogningen, ER hun
+//  logget ind, og den indloggede gren viste ingenting.
+//
+//  Det er samme fælde som en kildekontrol, der finder ordet `signOut()`.
+//  Målingen ramte ved siden af det, den skulle måle. Prøven kræver derfor
+//  den isolerede testbase med en KORREKT BUNDET brugerrække, og den
+//  kontrollerer udtrykkeligt, at siden er den indloggede.
+//
+//  ⚠ FORUDSÆTNING: `playwright` skal kunne indlæses, Chromium skal
+//  findes, og den isolerede testbase skal køre. Derfor er prøven IKKE med
+//  i `npm test` — den ville gøre testkørslen afhængig af begge dele:
+//
+//      scripts/cloud/db-op.sh                     # 127.0.0.1:55432
+//      DATABASE_URL=… node scripts/test-gendannelse-actions.mjs
 //
 //  Sæt PLAYWRIGHT_MODUL, hvis pakken ligger uden for projektet, og
 //  CHROMIUM_STI, hvis browseren ikke ligger, hvor playwright tror.
@@ -57,6 +71,65 @@ const tjek = (navn, ok, note = '') => {
   if (!ok) fejl++
 }
 
+// ─── Den isolerede testbase ────────────────────────────────────
+//
+// Samme stramme maal som scripts/cloud/klargoer.mjs og saa.mjs: loopback
+// OG port 55432 OG databasen bofinda_test. Ikke «en base» — DEN base.
+// Proeven skriver en brugerraekke, og en forkert forbindelse ville skrive
+// den et sted, ingen kiggede efter.
+const DBURL = process.env.DATABASE_URL ?? ''
+if (!DBURL) {
+  console.log('\n  ⚠ PRØVEN KØRTE IKKE — der er ingen DATABASE_URL.')
+  console.log('    Den indloggede kvittering kan kun måles med en rigtig brugerrække.')
+  console.log('    Rejs basen med scripts/cloud/db-op.sh og sæt DATABASE_URL.\n')
+  process.exit(2)
+}
+{
+  const u = new URL(DBURL)
+  const ok = ['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname)
+    && u.port === '55432' && u.pathname === '/bofinda_test'
+  if (!ok) {
+    console.log(`\n  ✗ ${u.hostname}:${u.port}${u.pathname} er ikke den isolerede testbase.`)
+    console.log('    Prøven skriver en brugerrække og nægter at gøre det andre steder.\n')
+    process.exit(1)
+  }
+}
+
+const { default: postgres } = await import('postgres')
+const sql = postgres(DBURL, { ssl: false, max: 1, onnotice: () => {} })
+
+/**
+ * Den syntetiske BOFINDA-bruger.
+ *
+ * En RIGTIG uuid, fordi `users.auth_user_id` er en uuid-kolonne — og
+ * korrekt BUNDET, saa `bindKonto()` rammer sin foerste gren (A) og svarer
+ * `ok` uden at skulle binde noget undervejs. Det er den tilstand, en
+ * bruger har, naar hun kommer tilbage fra et gendannelseslink.
+ */
+const BRUGER_ID = '11111111-2222-4333-8444-555555555555'
+const MAIL = 'gendannelse-proeve@invalid.test'
+
+// Ryd foerst: en raekke fra en afbrudt koersel maa ikke goere den naeste
+// groen eller roed af den forkerte grund.
+const ryd = async () => {
+  // public.users foerst: fremmednoeglen er `on delete set null`, saa den
+  // modsatte raekkefoelge ville efterlade en raekke uden binding.
+  await sql`delete from users where email = ${MAIL} or auth_user_id = ${BRUGER_ID}`
+  await sql`delete from auth.users where id = ${BRUGER_ID}`
+}
+await ryd()
+// `users.auth_user_id` peger paa auth.users — samme fremmednoegle som i
+// produktionen (0013). Auth-kontoen skal altsaa findes, foer vores egen
+// raekke kan bindes til den; det er netop den tilstand, en rigtig bruger
+// har, naar hun kommer tilbage fra et gendannelseslink.
+await sql`insert into auth.users (id, email) values (${BRUGER_ID}, ${MAIL})`
+await sql`insert into users (email, role, auth_user_id)
+          values (${MAIL}, 'landlord', ${BRUGER_ID})`
+const [{ n: bundne }] = await sql`
+  select count(*)::int as n from users where auth_user_id = ${BRUGER_ID}`
+if (bundne !== 1) { console.log('  ✗ kunne ikke så den bundne bruger'); process.exit(1) }
+console.log(`\n  · syntetisk bruger sået og bundet: ${MAIL}`)
+
 const ledigPort = () => new Promise((ok) => {
   const s = net.createServer()
   s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => ok(p)) })
@@ -87,16 +160,24 @@ const naaet = async (url, n = 80) => {
 }
 
 // ─── Op ────────────────────────────────────────────────────────
-start('node', ['scripts/gendannelse-attrap.mjs'], { ATTRAP_PORT: String(ATTRAP) })
+start('node', ['scripts/gendannelse-attrap.mjs'], {
+  ATTRAP_PORT: String(ATTRAP), ATTRAP_BRUGER_ID: BRUGER_ID, ATTRAP_MAIL: MAIL,
+})
 if (!await naaet(`${AUTH}/__kald`)) { console.log('  ✗ attrappen kom ikke op'); process.exit(1) }
 start('npx', ['next', 'start', '-p', String(APP)], {
   NEXT_PUBLIC_SUPABASE_URL: AUTH,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_kun_til_proever',
   NEXT_PUBLIC_BASE_URL: B,
+  DATABASE_URL: DBURL,
+  DATABASE_URL_DIRECT: DBURL,
+  BILLED_HEMMELIGHED: 'proeve-hemmelighed-kun-til-proever',
 })
 if (!await naaet(`${B}/glemt`)) { console.log('  ✗ appen kom ikke op'); process.exit(1) }
 
-const RENT = { ingenBruger: false, updateFejler: false, signOutFejler: false, mailFejler: false }
+const RENT = {
+  ingenBruger: false, updateFejler: false, updateKaster: false,
+  signOutFejler: false, mailFejler: false,
+}
 const sat = (t) => fetch(`${AUTH}/__tilstand`, {
   method: 'POST', body: JSON.stringify({ ...RENT, ...t }),
 }).then((r) => r.json())
@@ -111,7 +192,7 @@ browser = await chromium.launch({
 const sessionsvaerdi = 'base64-' + Buffer.from(JSON.stringify({
   access_token: 'AT', token_type: 'bearer', expires_in: 3600,
   expires_at: Math.floor(Date.now() / 1000) + 3600, refresh_token: 'RT',
-  user: { id: 'u1', email: 'proeve@invalid.test', aud: 'authenticated' },
+  user: { id: BRUGER_ID, email: MAIL, aud: 'authenticated' },
 })).toString('base64')
 
 async function side({ session = false, kvittering = null } = {}) {
@@ -142,6 +223,30 @@ async function faerdig(p, fraSti, ms = 20000) {
     await vent(150)
   }
   return 'timeout'
+}
+
+/**
+ * Vent paa en bestemt sti. Udlejerens vej er TO omdirigeringer —
+ * /nulstil → /udlejer → /udlejer/boliger — og et enkelt opslag paa
+ * p.url() kan ramme midt imellem dem.
+ */
+async function venterPaa(p, sti, ms = 20000) {
+  const t0 = Date.now()
+  while (Date.now() - t0 < ms) {
+    if (new URL(p.url()).pathname === sti) return true
+    await vent(150)
+  }
+  return false
+}
+
+/** Som venterPaa, men paa en tekst: et login skifter ikke sti. */
+async function venterPaaTekst(p, tekst, ms = 20000) {
+  const t0 = Date.now()
+  while (Date.now() - t0 < ms) {
+    if (await p.getByText(tekst).count() > 0) return true
+    await vent(150)
+  }
+  return false
 }
 
 /** Udfyld «Vælg ny adgangskode» og send. */
@@ -237,6 +342,102 @@ console.log('\n══ 4 · koden skiftet, men logud fejlede ══')
     await p.getByText('Din adgangskode er skiftet').count() > 0)
   tjek('4F · men IKKE at udlogningen lykkedes',
     await p.getByText('kunne ikke afslutte udlogningen').count() > 0)
+  // 4G-4H er hele forskellen paa den gamle proeve og denne. Uden en
+  // brugerraekke faldt /min-side tilbage paa sin UDLOGGEDE gren, og
+  // kvitteringen stod i kontoformularen — altsaa et andet sted end det,
+  // hun faktisk ser, naar udlogningen fejlede og sessionen lever videre.
+  // ⚠ MAALT, IKKE ANTAGET. @supabase/auth-js fjerner den LOKALE session,
+  // ogsaa naar serverens logud svarede med en fejl: `_signOut` kalder
+  // `removeCurrentSession()` og returnerer FOERST derefter fejlen. Hun er
+  // altsaa logget ud i denne browser, og kvitteringen lander ved
+  // kontoformularen. «Logud fejlede» betyder derfor «vi fik ikke
+  // bekraeftet, at sessionen blev tilbagekaldt paa serveren» — ikke «hun
+  // er stadig logget ind her».
+  tjek('4G · den lokale session ER ryddet, selv om serveren fejlede',
+    await p.getByText('Logget ind som').count() === 0)
+  tjek('4H · og hun kan logge ind igen med det samme',
+    await p.locator('#ind-kode').count() === 1)
+  await ctx.close()
+}
+{
+  await sat({})
+  const { ctx, p } = await side({ session: true })
+  await p.goto(`${B}/nulstil?k=udlejer`, { waitUntil: 'networkidle' })
+  await sat({ signOutFejler: true })
+  await gem(p)
+  tjek('4I · udlejeren lander paa kontoformularen med samme kvittering',
+    await venterPaa(p, '/udlejer') && await p.getByText('Din adgangskode er skiftet').count() > 0,
+    p.url())
+  await ctx.close()
+}
+
+// ═══ 4b · R1 · KVITTERINGEN FOR EN, DER ER LOGGET IND ═══════════
+//
+// ═══ HVORFOR DEN TILSTAND OVERHOVEDET OPSTAAR ═══
+//
+// Kvitteringscookien lever to minutter, og det foerste, beskeden beder
+// hende om, er at logge ind med den nye kode. Saa snart hun goer det, er
+// hun en INDLOGGET bruger med en levende kvittering — og indtil nu viste
+// hverken Min side eller Mine annoncer et ord om, at koden lige var
+// skiftet. Den tilstand saettes her direkte med de to cookies, praecis
+// som den ser ud paa serveren; 4c koerer hele vejen udenom.
+console.log('\n══ 4b · indlogget bruger med kvittering ══')
+for (const [navn, sti, ender, kendetegn] of [
+  ['bolig', '/min-side', '/min-side', 'Logget ind som'],
+  // /udlejer omdirigerer en indlogget udlejer videre, FOER cookien
+  // laeses. Blokken skal derfor staa paa den side, hun faktisk lander paa.
+  ['udlejer', '/udlejer', '/udlejer/boliger', 'Mine annoncer'],
+]) {
+  await sat({})
+  const { ctx, p } = await side({ session: true, kvittering: 'skiftet-uden-logud' })
+  await p.goto(B + sti, { waitUntil: 'networkidle' })
+  tjek(`4b · ${navn} · hun ender paa ${ender}`, new URL(p.url()).pathname === ender, p.url())
+  tjek(`4b · ${navn} · og siden er den indloggede`,
+    await p.getByText(kendetegn).count() > 0)
+  tjek(`4b · ${navn} · KVITTERINGEN STAAR PAA SKAERMEN`,
+    await p.getByText('Din adgangskode er skiftet').count() > 0)
+  tjek(`4b · ${navn} · med forbeholdet om udlogningen`,
+    await p.getByText('kunne ikke afslutte udlogningen').count() > 0)
+  tjek(`4b · ${navn} · og uden «log ind herunder», som intet peger paa`,
+    await p.getByText('Log ind herunder').count() === 0)
+  await ctx.close()
+}
+// Kvitteringen OPLYSER. Den maa ikke kunne aabne noget: uden en session
+// er en haandskrevet cookie stadig kun en besked paa en udlogget side.
+{
+  await sat({})
+  const { ctx, p } = await side({ kvittering: 'skiftet-uden-logud' })
+  await p.goto(`${B}/udlejer/boliger`, { waitUntil: 'networkidle' })
+  tjek('4b · uden session giver kvitteringen ingen adgang til Mine annoncer',
+    new URL(p.url()).pathname === '/udlejer', p.url())
+  tjek('4b · og der staar ingen annonceliste', await p.getByText('Mine annoncer').count() === 0)
+  await ctx.close()
+}
+
+// ═══ 4c · R1 · HELE VEJEN, UDEN EN HAANDSAT COOKIE ══════════════
+// Samme tilstand som 4b, men naaet som hun naar den: skift koden, faa
+// logud til at fejle, og log saa ind igen inden for kvitteringens to
+// minutter. Ingen cookie er sat af proeven.
+console.log('\n══ 4c · skift, mislykket logud, og log ind igen ══')
+{
+  await sat({})
+  const { ctx, p } = await side({ session: true })
+  await p.goto(`${B}/nulstil?k=bolig`, { waitUntil: 'networkidle' })
+  await sat({ signOutFejler: true })
+  await gem(p)
+  tjek('4cA · hun er paa kontoformularen med kvitteringen',
+    await p.locator('#ind-kode').count() === 1
+    && await p.getByText('Din adgangskode er skiftet').count() > 0)
+  const foer = await kvitteringsCookie(ctx)
+  await p.fill('#ind-mail', MAIL)
+  await p.fill('#ind-kode', LANG)
+  await p.click('form.kontoform button[type=submit]')
+  tjek('4cB · og logger ind igen med den nye kode',
+    await venterPaaTekst(p, 'Logget ind som'), p.url())
+  tjek('4cC · kvitteringen er den SAMME cookie, serveren satte',
+    await kvitteringsCookie(ctx) === foer && foer === 'skiftet-uden-logud', String(foer))
+  tjek('4cD · og den staar stadig paa skaermen, nu paa hendes eget omraade',
+    await p.getByText('Din adgangskode er skiftet').count() > 0)
   await ctx.close()
 }
 
@@ -262,6 +463,14 @@ console.log('\n══ 5 · SMTP svigter — ingen falsk afsendelsespåstand ═�
     !/Error sending recovery email|unexpected_failure/.test(fejlede))
   tjek('5D · ordret samme besked, om mailen blev sendt eller ej',
     fejlede === lykkedes && lykkedes.includes('Vi har modtaget din anmodning'))
+  // Neutraliteten var paa plads; loeftet var ikke. «Har adressen en konto
+  // hos os, KOMMER der en mail» er en ubetinget forudsigelse — og i netop
+  // det tilfaelde, hvor SMTP lige har fejlet, ved vi allerede, at den er
+  // usand. Betingelsen skal ogsaa daekke, om anmodningen kan gennemfoeres.
+  tjek('5E · og lover ikke en mail, den kan ikke staa inde for',
+    !/kommer der en mail/i.test(fejlede), fejlede.slice(0, 90))
+  tjek('5F · afsendelsen er gjort betinget, ikke fortiet',
+    /kan gennemføres/i.test(fejlede))
 }
 
 // ═══ 6 · URL-parameteren alene ══════════════════════════════════
@@ -287,6 +496,50 @@ console.log('\n══ 6 · ?nulstillet=1 uden serverresultat ══')
   }
 }
 
+// ═══ 7 · SVARET GIK TABT · udfaldet er UKENDT ══════════════════
+//
+// Forbindelsen brydes midt i PUT /user. Ingen af siderne ved, om GoTrue
+// naaede at skrive den nye kode — og netop derfor maa svaret hverken
+// love, at den gamle stadig virker, eller at den nye goer.
+console.log('\n══ 7 · updateUser mistede svaret ══')
+{
+  await sat({})
+  const { ctx, p } = await side({ session: true })
+  await p.goto(`${B}/nulstil?k=bolig`, { waitUntil: 'networkidle' })
+  await sat({ updateKaster: true })
+  await gem(p)
+  const k = await kald()
+  const forsoeg = k.filter((x) => x === 'PUT /auth/v1/user').length
+  const t = (await p.locator('.formfejl').allTextContents()).join(' ')
+  tjek('7A · updateUser blev forsøgt', forsoeg >= 1, k.join(' · '))
+  tjek('7B · og PRÆCIS én gang — ingen automatisk gentagelse',
+    forsoeg === 1, `${forsoeg} forsøg`)
+  tjek('7C · logud blev IKKE kaldt', !k.some((x) => x.includes('/logout')))
+  tjek('7D · ingen kvittering — vi ved ikke, om noget blev skiftet',
+    await kvitteringsCookie(ctx) === null)
+  tjek('7E · hun bliver på siden og får en besked',
+    new URL(p.url()).pathname === '/nulstil' && t.length > 0, p.url())
+  // Selve fundet: garantien var en påstand om serverens tilstand, som
+  // vi ikke kan se herfra. Et tabt svar kan ligge både før og efter, at
+  // koden blev skrevet.
+  tjek('7F · og vi garanterer IKKE, at den gamle kode stadig virker',
+    !/virker stadig/i.test(t), t.slice(0, 90))
+  tjek('7G · vi siger, at udfaldet er ukendt',
+    /kunne ikke bekræfte/i.test(t), t.slice(0, 90))
+  tjek('7H · og peger på begge veje videre',
+    /logge ind/i.test(t) && /gendannelseslink/i.test(t))
+  // SDK'et laver et tabt svar om til en RETURNERET fejl, ikke et kast.
+  // Slap den igennem til `oversaet()`, ville brugeren se auth-js' egen
+  // engelske tekst — og det er ikke et svar, hun kan handle på.
+  tjek('7I · ingen rå SDK-tekst på skærmen',
+    !/fetch failed|terminated|AuthRetryableFetchError|socket/i.test(t), t.slice(0, 90))
+  await ctx.close()
+}
+
 luk()
+// Ryd den syntetiske bruger. Basen er isoleret, men en efterladt raekke
+// ville goere den naeste koersel groen af den forkerte grund.
+await ryd()
+await sql.end()
 console.log(fejl === 0 ? '\n✓ ALT GRØNT\n' : `\n✗ ${fejl} FEJLEDE\n`)
 process.exit(fejl === 0 ? 0 : 1)

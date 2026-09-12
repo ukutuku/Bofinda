@@ -25,6 +25,7 @@ import { hentFavoritter, type GemtBolig } from '../../lib/favoritter'
 import { beskrivFiltre } from '../../lib/alarm'
 import { kr } from '../Boligkort'
 import { Konto } from '../udlejer/Konto'
+import { Kvitteringsblok } from '../udlejer/Kvitteringsblok'
 import { fjernFraMinSide } from './handlinger'
 import { logUd } from '../udlejer/handlinger'
 
@@ -104,6 +105,11 @@ export default async function Side(
   // cookie, SERVEREN satte i gemNyKode() — ikke fra adressen. Et
   // haandskrevet «?nulstillet=1» skal ikke kunne faa siden til at
   // paastaa, at en adgangskode lige er skiftet.
+  //
+  // Den laeses ÉT sted og bruges paa ALLE sidens udgange — logget ind,
+  // logget ud og afvist binding. Hentede vi den kun paa den ene vej,
+  // ville beskeden afhaenge af, hvilken gren hun faldt i, og netop det
+  // var fejlen: den forsvandt for den indloggede.
   const kvittering = kvitteringFra((await cookies()).get(KVITTERINGSCOOKIE)?.value)
 
   // ── Kontoen kunne ikke bindes ────────────────────────────────
@@ -115,6 +121,10 @@ export default async function Side(
     return (
       <div className="minside">
         <h1>Min side</h1>
+        {/* Ogsaa her: hun er logget ind, siden vender om lidt, og et
+            kodeskift lige foer maa ikke forsvinde, fordi bindingen
+            faldt. Blokken oplyser — den aabner ingenting. */}
+        <Kvitteringsblok kvittering={kvittering} visning="indlogget" />
         <div className="tom-boks">
           {ubekraeftet ? (
             <>
@@ -186,6 +196,15 @@ export default async function Side(
           <button className="nulstil" type="submit">Log ud</button>
         </form>
       </div>
+
+      {/* ── Kvitteringen efter en gendannelse ──────────────────
+          Den stod FOER kun i kontoformularen nedenfor, og den vises kun,
+          naar hun IKKE er logget ind. Men fejler udlogningen i
+          `gemNyKode`, er hun netop stadig logget ind — saa landede hun
+          her uden et ord om, at koden lige var skiftet. Visningen er
+          derfor «indlogget»: «log ind herunder» ville pege paa en
+          formular, der ikke staar paa denne side. */}
+      <Kvitteringsblok kvittering={kvittering} visning="indlogget" />
 
       {/* ── Gemte boliger ────────────────────────────────────── */}
       <section className="blok">

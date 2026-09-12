@@ -10,10 +10,21 @@ import http from 'node:http'
 const tilstand = {
   ingenBruger: false,      // getUser afviser  → «linket er ikke gyldigt»
   updateFejler: false,     // updateUser afviser → ingen succes
+  updateKaster: false,     // svaret går tabt  → UKENDT udfald, ikke «virker stadig»
   signOutFejler: false,    // logud fejler     → delvis succes
   mailFejler: false,       // SMTP svigter     → ingen falsk afsendelsespåstand
 }
 export const kald = []
+
+/**
+ * Auth-brugerens id.
+ *
+ * Skal kunne være en RIGTIG uuid: `users.auth_user_id` er en uuid-kolonne,
+ * og en prøve med en bundet brugerrække kan ikke slå op på «u1». Standarden
+ * er uændret, så de prøver, der ikke rører databasen, opfører sig som før.
+ */
+const BRUGER_ID = process.env.ATTRAP_BRUGER_ID ?? 'u1'
+const MAIL = process.env.ATTRAP_MAIL ?? 'proeve@invalid.test'
 
 const server = http.createServer((req, res) => {
   let krop = ''
@@ -41,16 +52,21 @@ const server = http.createServer((req, res) => {
     }
     if (sti.endsWith('/user')) {
       if (req.method === 'PUT') {
+        // Svaret GAAR TABT. Ikke det samme som en afvisning: forbindelsen
+        // brydes, uden at nogen af siderne ved, om GoTrue naaede at skrive
+        // den nye kode. Det er netop det udfald, klienten ikke maa kalde
+        // «din nuvaerende adgangskode virker stadig».
+        if (tilstand.updateKaster) return req.socket.destroy()
         return tilstand.updateFejler
           ? svar(422, { error: 'weak_password', message: 'Password should be at least 12 characters' })
-          : svar(200, { id: 'u1', email: 'proeve@invalid.test', aud: 'authenticated' })
+          : svar(200, { id: BRUGER_ID, email: MAIL, aud: 'authenticated' })
       }
       if (tilstand.ingenBruger) return svar(401, { message: 'invalid claim: missing sub claim' })
-      return svar(200, { id: 'u1', email: 'proeve@invalid.test', aud: 'authenticated',
+      return svar(200, { id: BRUGER_ID, email: MAIL, aud: 'authenticated',
                          email_confirmed_at: '2026-01-01T00:00:00Z' })
     }
     svar(200, { access_token: 'AT', refresh_token: 'RT', expires_in: 3600, token_type: 'bearer',
-                user: { id: 'u1', email: 'proeve@invalid.test', aud: 'authenticated' } })
+                user: { id: BRUGER_ID, email: MAIL, aud: 'authenticated' } })
   })
 })
 const PORT = Number(process.env.ATTRAP_PORT ?? 54321)

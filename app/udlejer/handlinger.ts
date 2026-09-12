@@ -174,19 +174,52 @@ export async function logUd(k: Kontekst) {
  * Den fejl kan KUN opstaa for en adresse, der HAR en konto. En saerlig
  * besked om den ville derfor vaere praecis det opslagsvaerk, tavsheden
  * findes for at forhindre. Svaret er altsaa ikke en besked mere, men én
- * besked, der er sand i alle tre tilfaelde: vi kvitterer for ANMODNINGEN,
- * forudsiger mailen i stedet for at paastaa den, og peger paa vejen
- * videre, hvis der ikke kommer noget. Fejlen bogfoeres i vores egen
- * statistik, hvor den hoerer hjemme.
+ * besked, der er sand i alle tre tilfaelde: vi kvitterer for ANMODNINGEN
+ * og peger paa vejen videre, hvis der ikke kommer noget. Fejlen bogfoeres
+ * i vores egen statistik, hvor den hoerer hjemme.
+ *
+ * ⚠ OG DEN LOVER HELLER IKKE EN FREMTIDIG MAIL. Teksten sagde «har
+ * adressen en konto hos os, kommer der en mail». Den betingelse er kun
+ * den HALVE: den daekker den ukendte adresse, men ikke den kendte, hvor
+ * SMTP lige har fejlet — dér er saetningen en forudsigelse, vi allerede
+ * ved ikke holder. Betingelsen skal derfor ogsaa daekke, om anmodningen
+ * kan gennemfoeres. Det afsloerer stadig intet: begge led er ukendte for
+ * laeseren, og svaret er ordret det samme i alle tre tilfaelde.
  */
-const GENDAN_SENDT = 'Vi har modtaget din anmodning. Har adressen en konto hos os, '
-  + 'kommer der en mail med et link — tryk på det, så kan du vælge en ny adgangskode. '
-  + 'Linket kan kun bruges én gang og udløber efter kort tid. Er mailen ikke dukket op '
-  + 'om et par minutter, så kig i spam og prøv igen herfra.'
+const GENDAN_SENDT = 'Vi har modtaget din anmodning. Hvis adressen har en konto, '
+  + 'og anmodningen kan gennemføres, modtager du en mail med et link til at vælge '
+  + 'en ny adgangskode. Linket kan kun bruges én gang og udløber efter kort tid. '
+  + 'Tjek også spam. Modtager du ikke en mail, kan du prøve igen herfra senere.'
 
-/** Naar kaldet til Auth-serveren slet ikke naaede frem. */
-const KUNNE_IKKE_SKIFTE = 'Vi kunne ikke skifte adgangskoden lige nu. '
-  + 'Prøv igen om lidt — din nuværende adgangskode virker stadig.'
+/**
+ * Naar svaret fra Auth-serveren gik tabt — og udfaldet derfor er UKENDT.
+ *
+ * Bruges BEGGE veje: baade naar `updateUser` kaster, og naar den
+ * RETURNERER en `AuthRetryableFetchError` (tabt forbindelse eller 5xx).
+ * Se noten i gemNyKode om, hvorfor SDK'et blander de to.
+ *
+ * ═══ HVORFOR DEN GAMLE TEKST VAR EN GARANTI, VI IKKE HAVDE ═══
+ *
+ * Der stod «din nuvaerende adgangskode virker stadig». Det er en paastand
+ * om serverens tilstand, og den kan vi ikke se herfra: et kast betyder,
+ * at vi mistede SVARET, ikke at kaldet ikke naaede frem. Netvaerket kan
+ * knaekke baade FOER og EFTER, at GoTrue har skrevet den nye kode. I det
+ * andet tilfaelde er koden skiftet, mens vi lige har lovet hende det
+ * modsatte — og hun bliver siddende med en kode, der ikke laengere
+ * virker, uden at forstaa hvorfor.
+ *
+ * Det aerlige svar er at sige, at vi ikke ved det, og give hende begge
+ * veje videre. Hun kan afgoere det paa ét forsoeg, vi ikke kan: at logge
+ * ind med den nye.
+ *
+ * ⚠ OG VI GENTAGER IKKE SKIFTET AF OS SELV. Et automatisk genforsoeg paa
+ * et ukendt udfald ville vaere endnu et skriv paa en konto, vi ikke ved
+ * tilstanden paa — og det loeser ingenting, for det andet forsoeg kan
+ * tabe svaret paa nøjagtig samme maade.
+ */
+const UKENDT_UDFALD = 'Vi kunne ikke bekræfte, om adgangskoden blev ændret. '
+  + 'Prøv at logge ind med den nye adgangskode. Kan du ikke logge ind, '
+  + 'så bed om et nyt gendannelseslink.'
 
 /** Hvor laenge kvitteringen ligger og venter paa at blive vist. */
 const KVITTERINGSSEK = 120
@@ -289,22 +322,41 @@ export async function gemNyKode(
   }
 
   // ── 2 · Skift koden ──────────────────────────────────────────
+  //
+  // ⚠ ET MISTET SVAR ER IKKE EN AFVISNING, og SDK'et blander de to.
+  // `updateUser` KASTER ikke, naar forbindelsen knaekker: @supabase/auth-js
+  // pakker baade et tabt svar (status 0) og et 5xx ind i en
+  // `AuthRetryableFetchError`, og fordi den er en AuthError, RETURNERES
+  // den som en almindelig fejl. En vagt, der kun sad i `catch`, ville
+  // altsaa aldrig fyre paa det udfald, den var skrevet for — og teksten
+  // ville i stedet blive SDK'ets egen engelske «fetch failed», som
+  // `oversaet()` sender videre ordret.
+  //
+  // Begge veje ender derfor samme sted: vi ved ikke, om GoTrue naaede at
+  // skrive koden, foer forbindelsen forsvandt. Se UKENDT_UDFALD.
   try {
     const { error } = await sb.auth.updateUser({ password: kode })
     if (error) {
+      // Navnet, ikke beskeden: `isAuthRetryableFetchError` i auth-js
+      // proever noejagtig det samme, og beskeden er fri tekst.
+      const ukendt = error.name === 'AuthRetryableFetchError'
       await spor({
         navn: 'server_action_failed',
-        props: { handling: 'gendan-gem', fejlklasse: fejlklasse(error.message) },
+        props: {
+          handling: 'gendan-gem',
+          fejlklasse: ukendt ? 'ukendt-udfald' : fejlklasse(error.message),
+        },
       }, rute(kontekst))
-      return { fejl: oversaet(error.message) }
+      return { fejl: ukendt ? UKENDT_UDFALD : oversaet(error.message) }
     }
   } catch {
     // Ikke `oversaet`: der er ingen besked fra Auth-serveren at oversaette.
+    // Og ingen gentagelse: udfaldet er ukendt, ikke kendt mislykket.
     await spor({
       navn: 'server_action_failed',
       props: { handling: 'gendan-gem', fejlklasse: 'kast' },
     }, rute(kontekst))
-    return { fejl: KUNNE_IKKE_SKIFTE }
+    return { fejl: UKENDT_UDFALD }
   }
 
   // ══ HERFRA ER KODEN SKIFTET ═════════════════════════════════
