@@ -1,4 +1,5 @@
 import { Kort, kr } from '../Boligkort'
+import { favoritIder, statusFor } from '../../lib/favoritter'
 import {
   gruppenoegleFra, gruppenoegleFraBolig, hentGruppe, type Soegeparametre,
 } from '../../lib/soeg'
@@ -42,6 +43,7 @@ export default async function Side(
   const n = b ? await gruppenoegleFraBolig(b.trim()) : gruppenoegleFra(sp)
   const nu = new Date()
   const boliger = n ? await hentGruppe(n) : []
+  const favkontekst = await favoritIder()
 
   if (!n || boliger.length === 0) {
     return (
@@ -100,7 +102,9 @@ export default async function Side(
       </div>
 
       <div className="liste">
-        {boliger.map((b) => <Kort key={b.id} b={b} nu={nu} />)}
+        {boliger.map((b) => (
+          <Kort key={b.id} b={b} nu={nu} favorit={statusFor(favkontekst, b.id)} />
+        ))}
       </div>
     </div>
   )

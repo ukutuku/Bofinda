@@ -1,0 +1,7 @@
+{
+  "git": {
+    "deploymentEnabled": {
+      "feature/kontomails-bekraeftelse-v1": false
+    }
+  }
+}

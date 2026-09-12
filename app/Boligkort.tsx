@@ -8,6 +8,8 @@ import type { Bolig, Gruppe, Visning } from '../lib/soeg'
 import { availabilityFor, gruppeUrl } from '../lib/soeg'
 import type { Availability, Gruppesammenfatning } from '../lib/availability'
 import { billedUrl } from '../lib/billede'
+import type { Favoritstatus } from '../lib/favoritter'
+import { Favoritknap } from './Favoritknap'
 import { eltilstand, type Eltilstand } from '../lib/eloplysning'
 
 // ─── Formatering ───────────────────────────────────────────────
@@ -155,7 +157,12 @@ function Kilder({ navn, ogsaa }: { navn: string; ogsaa: string[] }) {
 
 // ─── Kortet ────────────────────────────────────────────────────
 
-export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: number }) {
+export function Kort({ b, nu, position, favorit }: {
+  b: Bolig; nu: Date; position?: number
+  /** Udeladt = ingen knap. Saa er kortet praecis som foer — det er dét,
+   *  proeverne i scripts/test-soegning.ts renderer. */
+  favorit?: Favoritstatus
+}) {
   // Availability fra DOMÆNET — aldrig fra legacy ledigFra/ansoegning, og
   // aldrig fra Date.now(): referenceNow kommer eksplicit fra siden.
   const avail = availabilityFor(b, nu)
@@ -199,6 +206,12 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
   const forside = b.forside && billedUrl(b.forside, 400)
 
   return (
+    // Hylsteret findes KUN for at give knappen noget at ligge oven paa.
+    // Linket nedenfor er uroert — `a.kort[data-bolig]` er stadig den
+    // selektor, impression-maalingen i app/Maaling.tsx bygger paa, og
+    // knappen er en soeskende, ikke et barn: en <button> inde i et <a> er
+    // ugyldig HTML, og saa kan et klik aktivere linket alligevel.
+    <div className="kort-hylster">
     <a
       className={`kort${forside ? '' : ' uden-billede'}`}
       href={`/bolig/${b.id}`}
@@ -300,6 +313,10 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
         </div>
       </div>
     </a>
+    {favorit && (
+      <Favoritknap listingId={b.id} status={favorit} adresse={vist} />
+    )}
+    </div>
   )
 }
 
@@ -315,7 +332,10 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
 //  Er aconto-posterne ikke ens, står de slet ikke.
 // ═══════════════════════════════════════════════════════════════
 
-export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?: number }) {
+export function Gruppekort({ g, nu, position, favorit }: {
+  g: Gruppe; nu: Date; position?: number
+  favorit?: Favoritstatus
+}) {
   const { noegle: n, repraesentant: r } = g
   const nyligt = nu.getTime() - g.nyesteMarkedet.getTime() < 1000 * 60 * 60 * 24 * 3
 
@@ -354,6 +374,7 @@ export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?
   const spredt = g.prisMax > g.prisMin * SPREDT
 
   return (
+    <div className="kort-hylster">
     <a
       className={`kort gruppekort${forside ? '' : ' uden-billede'}`}
       href={gruppeUrl(r.id)}
@@ -488,6 +509,10 @@ export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?
         </div>
       </div>
     </a>
+    {favorit && (
+      <Favoritknap listingId={r.id} status={favorit} adresse={n.vej} />
+    )}
+    </div>
   )
 }
 
@@ -548,8 +573,10 @@ function Ellinje({ tilstand }: { tilstand: Eltilstand | null }) {
  * lib/soeg — og saa spoergsmaalet «bliver position 40 nogensinde set?»
  * kan besvares. Uden den er en impression bare et tal uden sted.
  */
-export function Visningskort({ v, nu, position }: { v: Visning; nu: Date; position?: number }) {
+export function Visningskort({ v, nu, position, favorit }: {
+  v: Visning; nu: Date; position?: number; favorit?: Favoritstatus
+}) {
   return v.slags === 'gruppe'
-    ? <Gruppekort g={v.gruppe} nu={nu} position={position} />
-    : <Kort b={v.bolig} nu={nu} position={position} />
+    ? <Gruppekort g={v.gruppe} nu={nu} position={position} favorit={favorit} />
+    : <Kort b={v.bolig} nu={nu} position={position} favorit={favorit} />
 }

@@ -18,7 +18,7 @@
     "alarm": "tsx --env-file-if-exists=.env scripts/alarm.ts",
     "genparse": "tsx --env-file-if-exists=.env scripts/genparse-adresser.ts",
     "db:status": "node --env-file-if-exists=.env scripts/migrationer.mjs",
-    "test": "BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/test-redigering.ts && BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/test-maaling.ts && BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/test-soegning.ts",
+    "test": "BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/test-redigering.ts && BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/test-maaling.ts && BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/test-soegning.ts && BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/test-brugeromraade.ts && BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/test-authbinding.ts && tsx --tsconfig tsconfig.scripts.json scripts/test-kontovej.ts && tsx --tsconfig tsconfig.scripts.json scripts/test-gendannelse.ts",
     "db:backup": "node --env-file-if-exists=.env scripts/backup.mjs",
     "db:backup:proev": "node --env-file-if-exists=.env scripts/proev-genskab.mjs",
     "tjek:noegler": "node --env-file-if-exists=.env scripts/tjek-noegler.mjs",
@@ -28,7 +28,9 @@
     "cloud:op": "scripts/cloud/op.sh",
     "cloud:ned": "scripts/cloud/ned.sh",
     "cloud:kontrol": "scripts/cloud/kontrol.sh",
-    "cloud:maal": "scripts/cloud/maal.sh"
+    "cloud:maal": "scripts/cloud/maal.sh",
+    "cloud:samtidighed": "scripts/cloud/samtidighed.sh",
+    "cloud:hoveder": "scripts/cloud/prod-hoveder.sh"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

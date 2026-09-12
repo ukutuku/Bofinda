@@ -6,6 +6,8 @@ import { eltilstand } from '../../../lib/eloplysning'
 import { Galleri } from './Galleri'
 import { Kontakt } from './Kontakt'
 import { Maaling } from '../../Maaling'
+import { Favoritknap } from '../../Favoritknap'
+import { favoritIder, statusFor } from '../../../lib/favoritter'
 import { maalingstilstand, spor } from '../../../lib/maaling-server'
 
 export const dynamic = 'force-dynamic'
@@ -92,6 +94,7 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
   // cache, der kan skjule den, og ingen re-render at dobbelttaelle.
   // Adressen, kontaktfelterne og kildens URL kommer ALDRIG med — kun
   // id'et, som i forvejen staar i adressefeltet.
+  const favkontekst = await favoritIder()
   const mt = await maalingstilstand()
   await spor({
     navn: 'listing_view',
@@ -265,7 +268,14 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
         <div className="indhold">
         <header className="hoved">
           <div className="hoved-tekst">
-            <h1>{adresselinje(b)}</h1>
+            <div className="hoved-titel">
+              <h1>{adresselinje(b)}</h1>
+              <Favoritknap
+                listingId={b.id}
+                status={statusFor(favkontekst, b.id)}
+                adresse={adresselinje(b)}
+              />
+            </div>
             <p className="sted">{b.postnr} {b.by}</p>
             <ul className="noegletal">
               {noegletal.map((n, i) => (
