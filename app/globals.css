@@ -441,8 +441,26 @@ footer.bund {
   font-size: 12.5px; font-weight: 580; padding: 8px 15px; border-radius: var(--r-pille);
   box-shadow: 0 2px 10px rgba(20,22,26,.18); cursor: pointer;
 }
+/* Knappen er en LYS pille med moerk tekst. Der stod to hover-regler
+   efter hinanden, og den sidste vandt: `rgba(20,22,26,.88)` er naesten
+   samme moerke som `var(--tekst)`, og teksten blev staaende i den.
+   Moerk tekst paa moerk bund — og fordi baggrunden er gennemsigtig,
+   skinnede motivet igennem, saa den ikke engang var konsekvent
+   ulaeselig: den skiftede fra bolig til bolig.
+   Reglen stammer fra en tidligere udgave, hvor pillen var moerk og
+   teksten hvid. Den blev staaende, da pillen blev lys.
+   Hover HAEVER nu kontrasten i stedet for at vende den: helt hvid bund
+   under den samme moerke tekst. */
 .galleri .flere:hover { background: #fff; }
-.galleri .flere:hover { background: rgba(20,22,26,.88); }
+/* Fokus skal kunne ses uden at gaa i ét med billedet bagved.
+   `.galleri > button:focus-visible` har `outline-offset: -3px`, som er
+   rigtigt for et billede i fuld stoerrelse og forkert for en 33 px hoej
+   knap — dér ville ringen ligge inde i pillen oven i teksten. Her
+   ligger den uden om, og baggrunden bliver hvid som ved hover. */
+.galleri .flere:focus-visible {
+  background: #fff; color: var(--tekst);
+  outline: 3px solid var(--accent); outline-offset: 2px;
+}
 .ingen-billeder {
   background: var(--kort); border: 1px dashed var(--linje); border-radius: var(--r);
   padding: 40px; text-align: center; color: var(--svag); font-size: 14px;
@@ -922,6 +940,17 @@ form.filtre.soegt {
 form.filtre.soegt .storsoeg { max-width: none; padding-left: 15px; }
 form.filtre.soegt .storsoeg input { padding: 11px 4px; font-size: 15px; }
 form.filtre.soegt .storsoeg button { padding: 10px 22px; font-size: 14.5px; }
+/* 15 px er et bevidst valg paa desktop: feltet er ikke resultatsidens
+   hovedgreb. Paa en telefon er det et andet spoergsmaal — iOS zoomer
+   ind paa et tekstfelt under 16 px og efterlader siden skaev, til man
+   zoomer ud igen. Hero'ens felt har 16 px i forvejen; det her stod
+   udenfor, fordi mobilreglerne kun naaede `.felt input` og
+   `.filterpost … select`, og det her er hverken. Samme graense som
+   dem, og lige efter reglen den varierer — ikke som en override
+   nederst i filen. */
+@media (max-width: 560px) {
+  form.filtre.soegt .storsoeg input { font-size: 16px; }
+}
 
 /* ── «Flere filtre» som en rigtig kontrol ────────────────────
    Var en 12,5 px disclosure-trekant — det eneste synlige af hele
@@ -1064,20 +1093,6 @@ form.filtre.soegt .storsoeg button { padding: 10px 22px; font-size: 14.5px; }
   .knapper .nulstil { flex: 0 0 auto; padding: 12px 16px; }
   /* Hele linjen aabner panelet, ikke kun de to ord. */
   .flere > summary { display: flex; width: 100%; padding: 10px 13px; font-size: 13.5px; }
-  /* Grundlagstallene er pillede chips paa desktop, hvor de ligger paa
-     én linje. Paa 390 px bliver de tre linjer med hver sin ramme, og
-     saa er de en mur mellem overskriften og boligerne. Samme tal, samme
-     orden — bare som almindelig tekst med prikker imellem. */
-  .resultathoved .optaelling { gap: 3px 12px; }
-  .resultathoved .optaelling > span {
-    background: none; border: 0; border-radius: 0; padding: 0;
-  }
-  .resultathoved .optaelling > span::before { display: none; }
-  .resultathoved .optaelling > span + span::before {
-    display: inline; content: '·'; width: auto; height: auto;
-    background: none; -webkit-mask: none; mask: none;
-    margin-right: 8px; opacity: 1; color: var(--svag);
-  }
 }
 
 /* ─── Gruppekort ────────────────────────────────────────────────
@@ -1183,6 +1198,31 @@ form.filtre.soegt .storsoeg button { padding: 10px 22px; font-size: 14.5px; }
   mask: var(--ikon-moent) center/contain no-repeat;
 }
 .resultathoved .optaelling strong { font-size: 12.5px; font-weight: 620; }
+/* ── De samme tal, uden pillerne, paa en telefon ───────────────
+   Paa 390 px bliver de tre chips til tre linjer med hver sin ramme og
+   sit ikon — en mur mellem overskriften og boligerne. Samme tal, samme
+   orden, samme oplysninger; kun fladen forsvinder, og prikken skiller
+   dem ad i stedet for kanten.
+
+   BLOKKEN SKAL BLIVE STAAENDE HER, lige efter det, den varierer.
+   Den stod foer oppe i filtrenes mobilblok, altsaa FOER reglerne
+   ovenfor i filen — og med samme specificitet vinder den sidste. Den
+   fyrede derfor aldrig, og pillerne stod paa mobil, som om intet var
+   sagt. Flyttes den op igen, eller skydes en ny `.optaelling > span`
+   ind under den, er fejlen tilbage. En ekstra `!important` nederst
+   ville skjule den, ikke rette den. */
+@media (max-width: 560px) {
+  .resultathoved .optaelling { gap: 3px 12px; }
+  .resultathoved .optaelling > span {
+    background: none; border: 0; border-radius: 0; padding: 0;
+  }
+  .resultathoved .optaelling > span::before { display: none; }
+  .resultathoved .optaelling > span + span::before {
+    display: inline; content: '·'; width: auto; height: auto;
+    background: none; -webkit-mask: none; mask: none;
+    margin-right: 8px; opacity: 1; color: var(--svag);
+  }
+}
 .resultathoved .prisnote { font-size: 12px; color: var(--svag); max-width: 88ch; }
 .resultathoved .prisnote strong { color: var(--daempet); font-weight: 600; }
 /* Advarslen om, hvad et facilitetsfilter fjerner, beholder sin vaegt.

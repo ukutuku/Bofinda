@@ -73,6 +73,28 @@ const tjek = (navn, ok, note = '') => {
   if (!ok) fejl++
 }
 
+// ── Kontrast, maalt og ikke skoennet ───────────────────────────
+//  En baggrund med alfa ligger oven paa et BOLIGFOTO, som vi ikke
+//  kender. Derfor regnes kontrasten mod begge yderpunkter — helt hvidt
+//  og helt sort motiv — og det DAARLIGSTE af de to taeller. Holder den
+//  dér, holder den for alt derimellem.
+const rgb = (s) => (s.match(/[\d.]+/g) || []).map(Number)
+const lum = ([r, g, b]) => {
+  const f = (v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4 }
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+}
+const paa = ([r, g, b, a = 1], u) => [r * a + u * (1 - a), g * a + u * (1 - a), b * a + u * (1 - a)]
+const forhold = (a, b) => {
+  const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m)
+  return (x + 0.05) / (y + 0.05)
+}
+/** Mindste kontrast mellem tekst og en gennemsigtig bund over ethvert motiv. */
+const mindsteKontrast = (farve, bund) => {
+  const t = rgb(farve)
+  const b = rgb(bund)
+  return Math.min(forhold(t, paa(b, 255)), forhold(t, paa(b, 0)))
+}
+
 /**
  * Samtykket afvises med den rigtige knap.
  *
@@ -193,6 +215,110 @@ for (const bredde of [1440, 390]) {
     fokus.fandt && fokus.erAktiv && fokus.ring)
   tjek(`${bredde} px · det fokuserede søgefelt dækkes ikke af bjælken`,
     fokus.fandt && fokus.fri)
+
+  // ══ De tre CSS-forhold fra gennemgangen af 8d7b51d ═══════════
+  //
+  //  Alle tre var det samme slags fejl: en regel, der var SKREVET, men
+  //  aldrig fyrede, fordi en anden stod senere i filen. Det kan ikke
+  //  ses i en diff og ikke paa et skaermbillede — kun ved at spoerge
+  //  browseren, hvad der faktisk gaelder. Derfor computed styles.
+  {
+    // ── A · galleriets «+N billeder» ──────────────────────────
+    await p.goto(`${BASE}/bolig/${rig.id}`, { waitUntil: 'networkidle', timeout: 90_000 })
+    const flere = p.locator('.galleri .flere')
+    if (await flere.count() > 0) {
+      const stil = () => p.evaluate(() => {
+        const e = document.querySelector('.galleri .flere')
+        const s = getComputedStyle(e)
+        return { farve: s.color, bund: s.backgroundColor, fokusring: s.outlineStyle !== 'none' }
+      })
+
+      const normal = await stil()
+      tjek(`${bredde} px · billedknap, normal: tekst mod bund er læsbar`,
+        mindsteKontrast(normal.farve, normal.bund) >= 4.5,
+        `${mindsteKontrast(normal.farve, normal.bund).toFixed(1)}:1 · ${normal.bund}`)
+
+      await flere.first().hover()
+      await p.waitForTimeout(160)
+      const hover = await stil()
+      tjek(`${bredde} px · billedknap, hover: tekst mod bund er læsbar`,
+        mindsteKontrast(hover.farve, hover.bund) >= 4.5,
+        `${mindsteKontrast(hover.farve, hover.bund).toFixed(1)}:1 · ${hover.bund}`)
+      // Selve fejlen, navngivet: den moerke bund under den moerke tekst.
+      tjek(`${bredde} px · hover er IKKE den mørke rgba(20,22,26,.88)`,
+        !/^rgba?\(2[01], ?2[12], ?2[56]/.test(hover.bund), hover.bund)
+
+      // Fokus skal vaere KEYBOARD-fokus. En programmatisk .focus() paa en
+      // <button> matcher ikke :focus-visible i Chromium, saa den ville
+      // maale den forkerte tilstand og melde groent uden daekning.
+      await p.evaluate(() => window.scrollTo(0, 0))
+      await p.keyboard.press('Tab')
+      let fandtFokus = false
+      for (let i = 0; i < 40; i++) {
+        fandtFokus = await p.evaluate(() =>
+          document.activeElement === document.querySelector('.galleri .flere'))
+        if (fandtFokus) break
+        await p.keyboard.press('Tab')
+      }
+      if (fandtFokus) {
+        const fokus = await stil()
+        tjek(`${bredde} px · billedknap, tastaturfokus: tekst mod bund er læsbar`,
+          mindsteKontrast(fokus.farve, fokus.bund) >= 4.5,
+          `${mindsteKontrast(fokus.farve, fokus.bund).toFixed(1)}:1 · ${fokus.bund}`)
+        tjek(`${bredde} px · og fokus har en synlig ring`, fokus.fokusring)
+      } else {
+        tjek(`${bredde} px · billedknappen kan nås med Tab`, false, 'ikke fundet på 40 tab')
+      }
+    } else {
+      tjek(`${bredde} px · en bolig med «+N billeder» i udsnittet`, false,
+        'ingen .flere-knap — kontrollen kunne ikke køres')
+    }
+
+    // ── B · resultatoptællingen og C · søgefeltet ─────────────
+    await p.goto(`${BASE}/?sted=Attrapby`, { waitUntil: 'networkidle', timeout: 90_000 })
+    const m = await p.evaluate(() => {
+      const sp = document.querySelector('.resultathoved .optaelling > span')
+      const felt = document.querySelector('form.filtre.soegt .storsoeg input')
+      const doc = document.documentElement
+      const s = sp ? getComputedStyle(sp) : null
+      const foer = sp ? getComputedStyle(sp, '::before') : null
+      return {
+        fandtSpan: Boolean(sp),
+        bund: s?.backgroundColor, kant: s?.borderTopWidth,
+        radius: s?.borderTopLeftRadius, polstring: s?.paddingTop + ' ' + s?.paddingLeft,
+        ikon: foer?.display,
+        antal: document.querySelectorAll('.resultathoved .optaelling > span').length,
+        feltStoerrelse: felt ? getComputedStyle(felt).fontSize : null,
+        overloeb: doc.scrollWidth - doc.clientWidth,
+      }
+    })
+
+    if (bredde === 390) {
+      tjek('390 px · optællingen står som tekst — ingen flade',
+        m.bund === 'rgba(0, 0, 0, 0)', String(m.bund))
+      tjek('390 px · ingen ramme og ingen pilleradius',
+        m.kant === '0px' && m.radius === '0px', `kant ${m.kant} · radius ${m.radius}`)
+      tjek('390 px · ingen polstring', m.polstring === '0px 0px', m.polstring)
+      tjek('390 px · møntikonet er væk', m.ikon === 'none', String(m.ikon))
+      tjek('390 px · søgefeltet er 16 px (ingen iOS-zoom ved fokus)',
+        m.feltStoerrelse === '16px', String(m.feltStoerrelse))
+    } else {
+      tjek('1440 px · optællingen er stadig chips med flade',
+        m.bund !== 'rgba(0, 0, 0, 0)', String(m.bund))
+      tjek('1440 px · pilleradius og polstring er bevaret',
+        m.radius !== '0px' && m.polstring !== '0px 0px',
+        `radius ${m.radius} · polstring ${m.polstring}`)
+      tjek('1440 px · møntikonet står stadig', m.ikon !== 'none', String(m.ikon))
+      tjek('1440 px · søgefeltet beholder sine bevidste 15 px',
+        m.feltStoerrelse === '15px', String(m.feltStoerrelse))
+    }
+    // Alle tre tal skal stadig staa der — det var aldrig meningen at
+    // fjerne en oplysning, kun fladen omkring den.
+    tjek(`${bredde} px · alle optællingens oplysninger står der endnu`,
+      m.fandtSpan && m.antal >= 2, `${m.antal} led`)
+    tjek(`${bredde} px · rettelserne giver intet vandret overløb`,
+      m.overloeb <= 0, `${m.overloeb} px`)
+  }
 
   // ── Gruppesiden ───────────────────────────────────────────────
   //  Adressen bygges ikke her: den hentes fra et gruppekort i listen,
