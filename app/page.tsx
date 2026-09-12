@@ -8,6 +8,7 @@ import { facetterCached, forsidetalCached } from './cache'
 import { GemSoegning } from './GemSoegning'
 import { Visningskort, kr } from './Boligkort'
 import { Landkort, type Maerke } from './Landkort'
+import { Hastighedspunkt } from './Hastighed'
 import { Maaling } from './Maaling'
 import { maalingstilstand, spor } from '../lib/maaling-server'
 import { antalFiltre, filterDiff, forrigeFiltre, uddrag } from '../lib/maalingsoeg'
@@ -300,11 +301,6 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
       else udenPlacering.push({ navn: b.kildeNavn, antal })
     }
   }
-  // Over en time skifter vi ENHED, ikke paastand. Der maa aldrig staa
-  // noget kortere, end vi har maalt.
-  const timer = tal.minutterP90 == null ? null
-    : (tal.minutterP90 / 60).toLocaleString('da-DK', { maximumFractionDigits: 1 })
-
   // Samme formular i begge tilstande — kun pladsen skifter. Paa forsiden
   // ligger den inde i hero-baandet, paa resultatsiden staar den alene
   // over listen.
@@ -599,10 +595,22 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
       {soegt ? formular : (
         <section className="forside-baand">
           <div className="hero">
-            <h1>Se hvad boligen faktisk koster</h1>
+            {/* Budskabet lovede før «den samlede månedlige udgift og
+                prisen ved indflytning» om hele bestanden. Det er ikke
+                sandt om hele bestanden: målt 12. september 2026 havde
+                1.312 af 1.782 synlige boliger en total og 1.393 en
+                indflytningspris — resten oplyser kilden ikke. Tallene
+                står HER som baggrund, aldrig på siden: dér regnes de af
+                bestanden. Løftet gælder nu det, udlejeren
+                HAR oplyst — og siger i samme åndedrag, hvad der sker,
+                når en post mangler. Andelene står som tal i punkterne
+                nedenfor, regnet af bestanden og aldrig skrevet ind. */}
+            <h1>Se hvad boligen koster ud over huslejen</h1>
             <p className="manchet">
-              Vi samler lejeboliger ét sted og viser den samlede månedlige
-              udgift og prisen ved indflytning — ikke bare huslejen.
+              Vi samler lejeboliger ét sted og viser huslejen, de udgifter
+              udlejeren oplyser, og indflytningsprisen, når den er oplyst.
+              Mangler en post hos kilden, står der hvad vi ikke ved — i
+              stedet for et gæt.
             </p>
 
             {/* Paastand, bevis, handling — i den raekkefoelge. Beviset stod
@@ -625,29 +633,24 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                     kort: "kr/md til udlejer". Sammensætningen måles stadig,
                     men står ved sit eget filter. */}
                 <strong>{tal.kendtTotal.toLocaleString('da-DK')}</strong>
-                <span>med hele udgiften til udlejer oplyst</span>
+                {/* To grupper, ikke én. Stod der kun det oplyste tal,
+                    kunne læseren ikke se, hvor stor resten var — og
+                    forsidens løfte ville se ud til at gælde alle.
+                    Modgruppen er `boliger − kendtTotal`: begge tal kommer
+                    fra den SAMME forespørgsel over det samme filtrerede
+                    sæt, så de går op i hovedtallet og kan ikke drive fra
+                    hinanden. Ingen ny forespørgsel, intet tal skrevet ind. */}
+                <span>
+                  med hele udgiften til udlejer oplyst ·{' '}
+                  {(tal.boliger - tal.kendtTotal).toLocaleString('da-DK')} uden
+                </span>
               </li>
-              {/* Det maalte tal, ikke en afrunding af det. "57 min." er saa
-                  praecist, at ingen ville opdigte det — "under en time" er et
-                  loefte. Stiger p90 over en time, skifter vi enhed, ikke
-                  paastand: der maa ikke staa noget kortere, end vi har maalt. */}
-              <li>
-                {tal.minutterP90 == null ? (
-                  <>
-                    <strong className="ord">Hver time</strong>
-                    <span>henter vi nye boliger fra kilderne</span>
-                  </>
-                ) : (
-                  <>
-                    <strong>
-                      {tal.minutterP90 <= 60
-                        ? <>{tal.minutterP90} <span className="enhed">min.</span></>
-                        : <>{timer} <span className="enhed">{timer === '1' ? 'time' : 'timer'}</span></>}
-                    </strong>
-                    <span>fra en bolig annonceres, til den står her (9 ud af 10)</span>
-                  </>
-                )}
-              </li>
+              {/* Punktet bor i `Hastighed.tsx`. Uden en måling stod der
+                  «Hver time henter vi nye boliger fra kilderne» — et
+                  ubetinget løfte, sat netop dér, hvor målingen ikke kunne
+                  bekræfte noget. Nu siger den tilstand, at hastigheden ikke
+                  er opgjort, og lover ingenting. Målingen er urørt. */}
+              <Hastighedspunkt minutterP90={tal.minutterP90} />
             </ul>
             {formular}
 

@@ -36,6 +36,7 @@ import {
 } from '../lib/soeg'
 import { antalFiltre, filterDiff, forrigeFiltre } from '../lib/maalingsoeg'
 import { Sider, sideUrl, sidevindue } from '../app/Sider'
+import { Hastighedspunkt } from '../app/Hastighed'
 import { KILDEKONTRAKTER } from '../lib/kildekontrakt'
 
 /** Kortets synlige tekst — det brugeren faktisk læser. */
@@ -849,6 +850,73 @@ async function koer() {
       nul.kortIAlt === 0 && nul.komplet === false)
     tjek('12G · den eksakte optaelling er uafhaengig af loftet',
       (await opsummering(f, nu)).antal === 6)
+  }
+
+  // ═══ 13 · Hastighedspunktet uden en måling ═══════════════════
+  //
+  //  `forsidetal().minutterP90` er null, når INGEN bolig opfylder
+  //  målingens grundlag — kilden oplyser ingen oprettelsesdato, eller
+  //  kilden har ikke været overvåget et døgn endnu. Forsiden skrev i den
+  //  tilstand «Hver time henter vi nye boliger fra kilderne»: et
+  //  ubetinget løfte om en kadence, sat præcis dér, hvor målingen ikke
+  //  kunne bekræfte noget som helst.
+  //
+  //  Prøven gengiver punktet — ikke hele forsiden, som ville kræve en
+  //  bestand, cookies og `headers()` — og læser den tekst, brugeren ser.
+  //  Den måler to ting hver for sig: at fallbacken ikke LOVER noget, og
+  //  at den målte tilstand er uændret. Et løfte, der blev flyttet fra
+  //  den ene gren til den anden, ville ellers gå fri.
+  {
+    const tekst = (m: number | null) =>
+      kortTekst(createElement(Hastighedspunkt, { minutterP90: m }))
+
+    const uden = tekst(null)
+
+    // ── Fallbacken lover ingenting ────────────────────────────────
+    tjek('13 · uden maaling staar der ikke «Hver time»',
+      !/hver\s+time/i.test(uden), uden)
+    // Bredere end den ene sætning: enhver kadence ville være den samme
+    // fejl. «hvert/hver <enhed>» og «N gange i timen/om dagen» rammes.
+    tjek('13 · uden maaling staar der ingen kadence overhovedet',
+      !/hver[t]?\s+(time|dag|døgn|minut|halve)/i.test(uden)
+      && !/\bgange?\s+(i|om|per|pr\.)\s/i.test(uden), uden)
+    // Et tal i fallbacken ville læses som en måling, uanset ordene.
+    tjek('13 · uden maaling staar der intet tal',
+      !/\d/.test(uden), uden)
+    tjek('13 · uden maaling loves der hverken «snart», «altid» eller «loebende»',
+      !/(snart|altid|løbende|konstant|realtid)/i.test(uden), uden)
+    // Men den forsvinder ikke: en manglende oplysning skal vaere synlig,
+    // ikke fravaerende. Punktet staar der og siger hvad der mangler.
+    tjek('13 · fallbacken er synlig og siger, at det ikke er opgjort',
+      /ikke opgjort/i.test(uden) && uden.length > 0, uden)
+
+    // ── Den målte tilstand er uændret ─────────────────────────────
+    const m57 = tekst(57)
+    tjek('13 · 57 min. staar som det maalte tal, ikke som en afrunding',
+      m57.includes('57') && /min\./.test(m57) && /9 ud af 10/.test(m57), m57)
+    tjek('13 · praecis 60 min. staar stadig i minutter',
+      tekst(60).includes('60') && /min\./.test(tekst(60)), tekst(60))
+    // Over en time skifter vi ENHED, ikke paastand: der maa aldrig staa
+    // noget KORTERE, end vi har maalt.
+    const m90 = tekst(90)
+    tjek('13 · over en time skifter enheden til timer',
+      /1,5/.test(m90) && /timer/.test(m90) && !/min\./.test(m90), m90)
+    tjek('13 · det maalte punkt siger ikke «ikke opgjort»',
+      !/ikke opgjort/i.test(m57) && !/ikke opgjort/i.test(m90))
+
+    // ── Maalingen selv er uroert ──────────────────────────────────
+    //  Punktet er en visning. Regnestykket bliver i `forsidetal()`, og
+    //  komponenten maa ikke kunne lave sit eget: den faar ét tal ind og
+    //  har ingen adgang til basen.
+    const kilde = await import('node:fs/promises')
+      .then((fs) => fs.readFile('app/Hastighed.tsx', 'utf8'))
+    //  Laes IMPORTERNE, ikke teksten. Foerste udgave soegte i hele filen
+    //  og blev roed af sin egen kommentar, der naevner `lib/soeg.ts` —
+    //  altsaa maalte den, om ordet stod der, ikke om koden naaede noget.
+    const importer = [...kilde.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1] ?? '')
+    tjek('13 · komponenten importerer hverken database, soegelag eller headers',
+      !importer.some((i) => /(^|\/)db\/|drizzle-orm|lib\/soeg|next\/(headers|cache)/.test(i)),
+      importer.join(', ') || 'ingen importer')
   }
 
   // ─── Oprydning ───────────────────────────────────────────────
