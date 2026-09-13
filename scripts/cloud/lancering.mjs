@@ -468,6 +468,69 @@ for (const bredde of [1440, 390]) {
   await ctx.close()
 }
 
+// ═══ Beroeringsmaal og afstand foer sidefoden ═════════════════
+//
+//  HVORFOR AFSTANDEN MAALES SAADAN HER: foerste udgave af maalingen
+//  tog «bunden af det nederste element i dokumentet» og trak den fra
+//  sidefodens top. Indholdsrammen `.ramme` HAR bundpolstring og naar
+//  derfor helt ned til sidefoden — saa maalingen gav 0 px paa hver
+//  eneste bredde og hver eneste flade. Nul var ikke en maaling af noget;
+//  det var rammens egen kasse. Nu maales der fra det SIDSTE
+//  INDHOLDSFELT i rammen, altsaa den flade en laeser faktisk ser slutte.
+//
+//  Beroeringsmaalene daekker de kontroller, der aabner eller indsender
+//  soegningen, og galleriets vej ind i lysbordet. Alle tre fik engang
+//  kun deres hoejde af regler under ét medie-brud og var for smaa over
+//  det — se 2cb6af1 og commit'en efter den.
+{
+  const MAAL = 44
+  for (const bredde of [390, 768, 1440]) {
+    const ctx = await browser.newContext({ viewport: { width: bredde, height: 900 } })
+    const p = await ctx.newPage()
+    await p.goto(`${BASE}/`, { waitUntil: 'networkidle', timeout: 90_000 })
+    await afvisSamtykke(p)
+
+    for (const [navn, sti] of [['forside', '/'], ['filtre åbne', '/?flere=1'], ['boligdetalje', `/bolig/${rig.id}`]]) {
+      await p.goto(BASE + sti, { waitUntil: 'networkidle', timeout: 90_000 })
+      await p.waitForTimeout(300)
+      const m = await p.evaluate(() => {
+        const kontroller = [...document.querySelectorAll(
+          '.soegeknap, .knapper button, .knapper .nulstil, .flere > summary, .galleri .flere, .ub-knap')]
+          .filter((e) => e.offsetParent !== null)
+          .map((e) => {
+            const r = e.getBoundingClientRect()
+            return { navn: (e.textContent || '').trim().slice(0, 22) || e.className,
+                     h: Math.round(r.height), b: Math.round(r.width) }
+          })
+        const fod = document.querySelector('.sidefod')
+        const ramme = [...document.querySelectorAll('.ramme')]
+          .find((r) => !r.closest('header.top') && !r.closest('.sidefod'))
+        const sidste = ramme && [...ramme.children].filter((e) => e.getBoundingClientRect().height > 0).pop()
+        return {
+          kontroller,
+          foerFod: fod && sidste
+            ? Math.round(fod.getBoundingClientRect().top - sidste.getBoundingClientRect().bottom)
+            : null,
+          sidsteFelt: sidste ? (sidste.className || sidste.tagName).toString().slice(0, 24) : null,
+        }
+      })
+      const forSmaa = m.kontroller.filter((k) => k.h < MAAL || k.b < MAAL)
+      tjek(`${bredde} px · ${navn}: alle kontroller er mindst ${MAAL}×${MAAL} px`,
+        forSmaa.length === 0,
+        forSmaa.length
+          ? forSmaa.map((k) => `«${k.navn}» ${k.h}×${k.b}`).join(' | ')
+          : m.kontroller.map((k) => `${k.h}×${k.b}`).join(' · ') || '(ingen kontroller på fladen)')
+      // Ikke et fast loft: afstanden er en DESIGNBESLUTNING (28 px paa
+      // telefon, 72 px derover). Kontrollen fanger, at den er positiv og
+      // ikke loeber loebsk — ikke at den rammer et bestemt tal.
+      tjek(`${bredde} px · ${navn}: afstand før sidefoden er 8–160 px`,
+        m.foerFod != null && m.foerFod >= 8 && m.foerFod <= 160,
+        `${m.foerFod} px fra .${m.sidsteFelt}`)
+    }
+    await ctx.close()
+  }
+}
+
 // ═══ Soegeknappen paa BEGGE sider og paa TRE bredder ═══════════
 //
 //  Egen maaling og ikke en del af sloejfen ovenfor, fordi den skal
