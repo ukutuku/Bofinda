@@ -15,9 +15,37 @@
 //  ingen ændring i allowlisten.
 // ═══════════════════════════════════════════════════════════════
 import { createServer } from 'node:http'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { extname, join } from 'node:path'
 import { deflateSync } from 'node:zlib'
 
 const PORT = Number(process.env.BOFINDA_AKTIVPORT ?? 55433)
+
+// ─── Rigtige fotografier, naar de er lagt frem ─────────────────
+//
+//  Fotokontrollen skal se layoutet med et RIGTIGT motiv: beskaering,
+//  kontrast, lysstyrke og hoejde er ting, et genereret baand ikke kan
+//  svare paa. Filerne laegges i den her mappe og serveres som de er.
+//
+//  MAPPEN LIGGER UDEN FOR REPOET, som alt andet i testmiljoeet. Reglen
+//  oeverst i filen staar ved magt: der kommer ingen binaere filer i
+//  git. Fotografier har desuden en licens og en fotograf, og et
+//  kodelager er et daarligt sted at opbevare begge dele.
+//
+//  Findes mappen ikke, eller er den tom, svarer ruten 404. Det er med
+//  vilje: saa kan browserkontrollen SE, at der ikke var fotografier, og
+//  sige det — i stedet for at vise et baand og lade som om.
+const FOTOMAPPE = process.env.BOFINDA_FOTOMAPPE ?? '/var/lib/bofinda-test/fotos'
+const TYPER = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' }
+
+function fotoliste() {
+  try {
+    return readdirSync(FOTOMAPPE)
+      .filter((f) => TYPER[extname(f).toLowerCase()])
+      .filter((f) => { try { return statSync(join(FOTOMAPPE, f)).size > 1024 } catch { return false } })
+      .sort()
+  } catch { return [] }
+}
 
 // ─── Minimal PNG-koder ─────────────────────────────────────────
 const tabel = (() => {
@@ -76,6 +104,27 @@ function bolig(n) {
   }
   return cache.get(noegle)
 }
+// Fire former med hver sit formaal. Ruderne goer beskaeringen synlig:
+// er billedet straakt, bliver de rektangler.
+const FORMER = {
+  staaende:  { b: 600,  h: 900, tone: [96, 118, 146], lys: 1 },
+  liggende:  { b: 1800, h: 600, tone: [120, 130, 108], lys: 1 },
+  lys:       { b: 1200, h: 900, tone: [236, 232, 224], lys: 1 },
+  moerk:     { b: 1200, h: 900, tone: [26, 28, 34],    lys: 1 },
+}
+function form(navn) {
+  const noegle = `form-${navn}`
+  if (!cache.has(noegle)) {
+    const { b, h, tone } = FORMER[navn]
+    const [r, g, bl] = tone
+    cache.set(noegle, png(b, h, (x, y) => {
+      // Kvadratiske ruder: de er kun kvadratiske, hvis intet er straakt.
+      const rude = (Math.floor(x / 100) + Math.floor(y / 100)) % 2 ? 1 : 0.88
+      return [r * rude, g * rude, bl * rude].map((v) => Math.round(Math.min(255, v)))
+    }))
+  }
+  return cache.get(noegle)
+}
 const flise = (() => {
   let f = null
   return () => f ??= png(256, 256, (x, y) =>
@@ -90,6 +139,35 @@ createServer((req, res) => {
   }).end(buf)
 
   let m
+  // ── Rigtige fotografier ──────────────────────────────────────
+  //  `/foto` lister hvad der ligger; `/foto/<navn>` serverer én fil.
+  //  Listen er det, browserkontrollen spoerger om for at afgoere, om
+  //  fotokontrollen overhovedet kan koeres.
+  if (sti === '/foto') {
+    const liste = fotoliste()
+    const krop = Buffer.from(JSON.stringify({ mappe: FOTOMAPPE, filer: liste }))
+    return res.writeHead(200, { 'content-type': 'application/json', 'content-length': krop.length })
+      .end(krop)
+  }
+  if ((m = sti.match(/^\/foto\/([\w.-]+)$/))) {
+    const navn = m[1]
+    // Ingen stier ud af mappen: kun et filnavn, og kun ét der faktisk
+    // staar paa listen. `..` og skraastreger kan ikke naa hertil.
+    if (!fotoliste().includes(navn)) return res.writeHead(404).end('intet foto')
+    const buf = readFileSync(join(FOTOMAPPE, navn))
+    return res.writeHead(200, {
+      'content-type': TYPER[extname(navn).toLowerCase()] ?? 'application/octet-stream',
+      'content-length': buf.length, 'cache-control': 'public, max-age=3600',
+    }).end(buf)
+  }
+  // ── Genererede former til GEOMETRIEN ─────────────────────────
+  //  Ikke fotografier og ikke et forsoeg paa at ligne det. De findes,
+  //  fordi beskaering, straek og overloeb kan maales med ethvert motiv,
+  //  og de eksisterende attrapper er alle 800x600 — altsaa kan de ikke
+  //  vise, hvad der sker med et STAAENDE billede i en liggende ramme.
+  //  Lys og moerk er der, fordi knappens laesbarhed skal kunne maales
+  //  mod begge yderpunkter.
+  if ((m = sti.match(/^\/form-(staaende|liggende|lys|moerk)\.png$/))) return send(form(m[1]))
   if ((m = sti.match(/^\/bolig-(\d+)\.png$/))) return send(bolig(Number(m[1])))
   if (/^\/flise\/\d+\/\d+\/\d+\.png$/.test(sti)) return send(flise())
   if (sti === '/sund') return res.writeHead(200).end('ok')

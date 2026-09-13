@@ -251,8 +251,12 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
           </div>
         </div>
 
+        {/* Chips frem for én graa linje med prikker imellem. Samme
+            oplysninger, samme raekkefoelge, samme kilder — men areal,
+            vaerelser, type og overtagelse kan nu aflaeses hver for sig
+            paa et blik. Separatoren er vaek, fordi kanten goer arbejdet. */}
         <div className="fakta">
-          {fakta.map((f, i) => <span key={i}>{i > 0 && ' · '}{f}</span>)}
+          {fakta.map((f, i) => <span className="fakta-chip" key={i}>{f}</span>)}
         </div>
 
         {/* Det store tal er alt, hvad der betales TIL UDLEJEREN — husleje
@@ -273,8 +277,18 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
             </div>
           )}
 
+          {/* Indflytningsprisen er sidens ANDET beloeb, ikke en note.
+              Den stod som 13,5 px graa tekst ved siden af en 27 px groen
+              total og forsvandt i den — og det er netop det tal, der
+              afgoer, om boligen overhovedet kan betales. Egen klasse,
+              egen stoerrelse og en lodret streg imellem, saa de to kan
+              skelnes paa et blik uden at vaere lige tunge.
+              `.total` bliver staaende paa alderslinjen nedenfor; de to
+              delte klasse foer, og et beloeb og en dato vejer ikke ens. */}
           {b.indflytning != null && (
-            <div className="total">indflytning <b>{kr(b.indflytning)} kr.</b></div>
+            <div className="kort-indflytning">
+              indflytning <b>{kr(b.indflytning)} kr.</b>
+            </div>
           )}
 
           {b.total == null && (
@@ -287,8 +301,11 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
             </span>
           )}
           <Ellinje tilstand={eltilstand(b)} />
+          {/* Egen klasse, saa den kan saettes ned i vaegt uden at tage
+              indflytningsprisen med: begge var `.total`, og alderen paa en
+              annonce vejer ikke det samme som et beloeb, hun skal betale. */}
           {!nyligt && (
-            <div className="total">
+            <div className="total set-linje">
               {b.hosKilden ? `annonceret ${siden(b.hosKilden)}` : `set ${siden(b.foerstSet)}`}
             </div>
           )}
@@ -400,8 +417,12 @@ export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?
           </div>
         </div>
 
+        {/* Chips frem for én graa linje med prikker imellem. Samme
+            oplysninger, samme raekkefoelge, samme kilder — men areal,
+            vaerelser, type og overtagelse kan nu aflaeses hver for sig
+            paa et blik. Separatoren er vaek, fordi kanten goer arbejdet. */}
         <div className="fakta">
-          {fakta.map((f, i) => <span key={i}>{i > 0 && ' · '}{f}</span>)}
+          {fakta.map((f, i) => <span className="fakta-chip" key={i}>{f}</span>)}
         </div>
         {/* Blandet ansøgningsform/markedsstatus vises som TAL — kortet må
             ikke lade en delmængdes status tale for hele gruppen, og
@@ -442,7 +463,7 @@ export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?
           </div>
 
           {g.indflytningMin != null && (
-            <div className="total">
+            <div className="kort-indflytning">
               indflytning{' '}
               <b>
                 {g.indflytningMin === g.indflytningMax

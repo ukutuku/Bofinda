@@ -32,10 +32,15 @@ import { Gruppekort } from '../app/Boligkort'
 import {
   _saetGruppeloft, antalBoliger, availabilityFor, filtreFraParametre,
   gruppenoegleFraBolig, harFiltre, hentGruppe, matcherDomaene,
-  opsummering, soegGrupperet, type Filtre,
+  opsummering, soegGrupperet, SORTERINGER, type Filtre, type Soegeparametre,
 } from '../lib/soeg'
 import { antalFiltre, filterDiff, forrigeFiltre } from '../lib/maalingsoeg'
+import {
+  SORTERINGSNAVN, SORTERINGSVALG, aktiveFiltre, antalAvancerede,
+  soegeUrlSorteret, soegeUrlUden,
+} from '../lib/filterpanel'
 import { Sider, sideUrl, sidevindue } from '../app/Sider'
+import { Hastighedspunkt } from '../app/Hastighed'
 import { KILDEKONTRAKTER } from '../lib/kildekontrakt'
 
 /** Kortets synlige tekst — det brugeren faktisk læser. */
@@ -849,6 +854,164 @@ async function koer() {
       nul.kortIAlt === 0 && nul.komplet === false)
     tjek('12G · den eksakte optaelling er uafhaengig af loftet',
       (await opsummering(f, nu)).antal === 6)
+  }
+
+  // ═══ 13 · Hastighedspunktet uden en måling ═══════════════════
+  //
+  //  `forsidetal().minutterP90` er null, når INGEN bolig opfylder
+  //  målingens grundlag — kilden oplyser ingen oprettelsesdato, eller
+  //  kilden har ikke været overvåget et døgn endnu. Forsiden skrev i den
+  //  tilstand «Hver time henter vi nye boliger fra kilderne»: et
+  //  ubetinget løfte om en kadence, sat præcis dér, hvor målingen ikke
+  //  kunne bekræfte noget som helst.
+  //
+  //  Prøven gengiver punktet — ikke hele forsiden, som ville kræve en
+  //  bestand, cookies og `headers()` — og læser den tekst, brugeren ser.
+  //  Den måler to ting hver for sig: at fallbacken ikke LOVER noget, og
+  //  at den målte tilstand er uændret. Et løfte, der blev flyttet fra
+  //  den ene gren til den anden, ville ellers gå fri.
+  {
+    const tekst = (m: number | null) =>
+      kortTekst(createElement(Hastighedspunkt, { minutterP90: m }))
+
+    const uden = tekst(null)
+
+    // ── Fallbacken lover ingenting ────────────────────────────────
+    tjek('13 · uden maaling staar der ikke «Hver time»',
+      !/hver\s+time/i.test(uden), uden)
+    // Bredere end den ene sætning: enhver kadence ville være den samme
+    // fejl. «hvert/hver <enhed>» og «N gange i timen/om dagen» rammes.
+    tjek('13 · uden maaling staar der ingen kadence overhovedet',
+      !/hver[t]?\s+(time|dag|døgn|minut|halve)/i.test(uden)
+      && !/\bgange?\s+(i|om|per|pr\.)\s/i.test(uden), uden)
+    // Et tal i fallbacken ville læses som en måling, uanset ordene.
+    tjek('13 · uden maaling staar der intet tal',
+      !/\d/.test(uden), uden)
+    tjek('13 · uden maaling loves der hverken «snart», «altid» eller «loebende»',
+      !/(snart|altid|løbende|konstant|realtid)/i.test(uden), uden)
+    // Men den forsvinder ikke: en manglende oplysning skal vaere synlig,
+    // ikke fravaerende. Punktet staar der og siger hvad der mangler.
+    tjek('13 · fallbacken er synlig og siger, at det ikke er opgjort',
+      /ikke opgjort/i.test(uden) && uden.length > 0, uden)
+
+    // ── Den målte tilstand er uændret ─────────────────────────────
+    const m57 = tekst(57)
+    tjek('13 · 57 min. staar som det maalte tal, ikke som en afrunding',
+      m57.includes('57') && /min\./.test(m57) && /9 ud af 10/.test(m57), m57)
+    tjek('13 · praecis 60 min. staar stadig i minutter',
+      tekst(60).includes('60') && /min\./.test(tekst(60)), tekst(60))
+    // Over en time skifter vi ENHED, ikke paastand: der maa aldrig staa
+    // noget KORTERE, end vi har maalt.
+    const m90 = tekst(90)
+    tjek('13 · over en time skifter enheden til timer',
+      /1,5/.test(m90) && /timer/.test(m90) && !/min\./.test(m90), m90)
+    tjek('13 · det maalte punkt siger ikke «ikke opgjort»',
+      !/ikke opgjort/i.test(m57) && !/ikke opgjort/i.test(m90))
+
+    // ── Maalingen selv er uroert ──────────────────────────────────
+    //  Punktet er en visning. Regnestykket bliver i `forsidetal()`, og
+    //  komponenten maa ikke kunne lave sit eget: den faar ét tal ind og
+    //  har ingen adgang til basen.
+    const kilde = await import('node:fs/promises')
+      .then((fs) => fs.readFile('app/Hastighed.tsx', 'utf8'))
+    //  Laes IMPORTERNE, ikke teksten. Foerste udgave soegte i hele filen
+    //  og blev roed af sin egen kommentar, der naevner `lib/soeg.ts` —
+    //  altsaa maalte den, om ordet stod der, ikke om koden naaede noget.
+    const importer = [...kilde.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1] ?? '')
+    tjek('13 · komponenten importerer hverken database, soegelag eller headers',
+      !importer.some((i) => /(^|\/)db\/|drizzle-orm|lib\/soeg|next\/(headers|cache)/.test(i)),
+      importer.join(', ') || 'ingen importer')
+  }
+
+  // ═══ 14 · Resultathovedets chips og sortering ════════════════
+  //
+  //  Filtrene bor i et <details>, der er lukket. Fra i dag staar de
+  //  ogsaa som chips i resultathovedet, og sorteringen som links. To
+  //  steder paa skaermen for det samme valg — og saa er spoergsmaalet
+  //  ikke «ser det rigtigt ud», men «siger de det samme».
+  //
+  //  Prøven maaler to kontrakter:
+  //   · TAELLINGEN. `sammenfatFlere` skriver «N aktive» af
+  //     `antalAvancerede`, som er udledt af `antalFiltre`. Er der faerre
+  //     chips end N, mangler der et filter paa skaermen uden at nogen
+  //     kan se hvilket.
+  //   · KRYDSET. En chip lover at fjerne netop sit filter. Den paastand
+  //     efterproeves ved at BYGGE adressen, laese den tilbage gennem
+  //     `filtreFraParametre` og taelle efter — ikke ved at sammenligne
+  //     to lister af feltnavne, som jeg selv har skrevet begge steder.
+  {
+    const alt: Soegeparametre = {
+      sted: 'Attrapby', prisMin: '8000', prisMax: '20000', vaerelser: '2',
+      areal: '40', kilde: 'proevekilde', fuld: '1', type: ['lejlighed', 'hus'],
+      kaeledyr: '1', elevator: '1', udeplads: '1', overtagelse: 'nu',
+      venteliste: '1', reserveret: '1', sorter: 'pris_op', side: '3', kort: '0',
+    }
+    const fAlt = filtreFraParametre(alt)
+
+    tjek('14 · hvert avanceret filter har præcis én chip',
+      aktiveFiltre(fAlt).length === antalAvancerede(fAlt),
+      `${aktiveFiltre(fAlt).length} chips, ${antalAvancerede(fAlt)} talt`)
+    tjek('14 · stedet er IKKE en chip — det staar i feltet og i overskriften',
+      !aktiveFiltre(fAlt).some((c) => c.fjern.includes('by') || c.fjern.includes('postnr')
+        || c.fjern.includes('sted')))
+    tjek('14 · uden filtre er der ingen chips',
+      aktiveFiltre(filtreFraParametre({ sted: 'Attrapby' })).length === 0)
+
+    // Adressen laeses tilbage, praecis som Next ville give den til siden.
+    const tilbage = (url: string): Soegeparametre => {
+      const u = new URL(url, 'http://proeve.invalid')
+      const sp: Record<string, string | string[]> = {}
+      for (const n of new Set(u.searchParams.keys())) {
+        const v = u.searchParams.getAll(n)
+        sp[n] = v.length > 1 ? v : v[0]!
+      }
+      return sp as Soegeparametre
+    }
+
+    let alleVirker = true
+    let taeller = 0
+    for (const c of aktiveFiltre(fAlt)) {
+      const efter = filtreFraParametre(tilbage(soegeUrlUden('/', alt, c.fjern)))
+      const faldt = antalAvancerede(fAlt) - antalAvancerede(efter)
+      if (faldt !== 1) { alleVirker = false; console.log(`      ✗ «${c.navn}» fjernede ${faldt}`) }
+      taeller++
+    }
+    tjek('14 · hvert kryds fjerner præcis ét filter — hverken flere eller færre',
+      alleVirker, `${taeller} chips efterprøvet`)
+
+    tjek('14 · et kryds beholder alle de andre parametre',
+      (() => {
+        const u = soegeUrlUden('/', alt, ['elevator'])
+        return u.includes('kaeledyr=1') && u.includes('type=lejlighed')
+          && u.includes('type=hus') && u.includes('sorter=pris_op')
+          && !u.includes('elevator')
+      })(), soegeUrlUden('/', alt, ['elevator']))
+    tjek('14 · et kryds nulstiller sidetallet',
+      !soegeUrlUden('/', alt, ['elevator']).includes('side='))
+    tjek('14 · uden nogen parametre er adressen bare basis',
+      soegeUrlUden('/', { side: '4' }, []) === '/')
+
+    // ── Sorteringen ──────────────────────────────────────────────
+    tjek('14 · hver gyldig sortering har et navn — begge længder',
+      SORTERINGER.every((v) => SORTERINGSNAVN[v]?.lang && SORTERINGSNAVN[v]?.kort),
+      `${SORTERINGER.length} værdier`)
+    tjek('14 · visningslisten dækker dem alle og intet andet',
+      SORTERINGSVALG.length === SORTERINGER.length
+      && SORTERINGSVALG.every((v) => (SORTERINGER as readonly string[]).includes(v)))
+    tjek('14 · «nyeste» udelader parameteren — ingen anden adresse for samme side',
+      !soegeUrlSorteret('/', alt, 'nyeste').includes('sorter='))
+    tjek('14 · en anden orden saettes, og den gamle ryger',
+      (() => {
+        const u = soegeUrlSorteret('/', alt, 'areal_ned')
+        return u.includes('sorter=areal_ned') && !u.includes('sorter=pris_op')
+      })())
+    tjek('14 · sorteringen nulstiller ogsaa sidetallet',
+      !soegeUrlSorteret('/', alt, 'areal_ned').includes('side='))
+    tjek('14 · sorteringen roerer ikke filtrene',
+      (() => {
+        const f2 = filtreFraParametre(tilbage(soegeUrlSorteret('/', alt, 'areal_ned')))
+        return antalAvancerede(f2) === antalAvancerede(fAlt)
+      })())
   }
 
   // ─── Oprydning ───────────────────────────────────────────────

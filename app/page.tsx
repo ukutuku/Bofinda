@@ -1,17 +1,22 @@
 import {
   facilitetsgrundlag, filtreFraParametre, harFiltre, oekonomigrundlag,
   tavseKilder,
-  availabilityGrundlag, opsummering, soegGrupperet, type Soegeparametre,
+  availabilityGrundlag, opsummering, soegGrupperet,
+  type Soegeparametre,
 } from '../lib/soeg'
 import { headers } from 'next/headers'
 import { facetterCached, forsidetalCached } from './cache'
 import { GemSoegning } from './GemSoegning'
 import { Visningskort, kr } from './Boligkort'
 import { Landkort, type Maerke } from './Landkort'
+import { Hastighedspunkt } from './Hastighed'
 import { Maaling } from './Maaling'
 import { maalingstilstand, spor } from '../lib/maaling-server'
 import { antalFiltre, filterDiff, forrigeFiltre, uddrag } from '../lib/maalingsoeg'
-import { sammenfatFlere } from '../lib/filterpanel'
+import {
+  SORTERINGSNAVN, SORTERINGSVALG, aktiveFiltre, sammenfatFlere,
+  soegeUrlSorteret, soegeUrlUden,
+} from '../lib/filterpanel'
 import { Sider, sideUrl } from './Sider'
 
 export const dynamic = 'force-dynamic'
@@ -174,6 +179,15 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   const stedNavn = en(sp.sted)?.trim() || f.postnr || f.by || ''
   // Panelets tilstand ligger i URL'en som kortets. Se noten ved <details>.
   const panelAabent = en(sp.flere) === '1'
+
+  // De aktive filtre som noget, der kan ses OG fjernes. Navnene paa
+  // typer og kilder kommer fra de samme kilder som feltet i panelet —
+  // ikke fra en anden liste. Stedet er ikke med: det staar i feltet og i
+  // overskriften over listen, jf. noten i lib/filterpanel.ts.
+  const chips = aktiveFiltre(f, {
+    type: (t) => TYPENAVN[t] ?? t,
+    kilde: (k) => fac.kilder.find((x) => x.slug === k)?.navn ?? k,
+  })
   // Slaas fra med ?kort=0. Tilstanden ligger i URL'en som alt andet paa
   // siden. Kun naar der er filtreret: uden en soegning spaender maerkerne
   // over hele landet, og udsnittet siger ingenting.
@@ -300,11 +314,6 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
       else udenPlacering.push({ navn: b.kildeNavn, antal })
     }
   }
-  // Over en time skifter vi ENHED, ikke paastand. Der maa aldrig staa
-  // noget kortere, end vi har maalt.
-  const timer = tal.minutterP90 == null ? null
-    : (tal.minutterP90 / 60).toLocaleString('da-DK', { maximumFractionDigits: 1 })
-
   // Samme formular i begge tilstande — kun pladsen skifter. Paa forsiden
   // ligger den inde i hero-baandet, paa resultatsiden staar den alene
   // over listen.
@@ -404,13 +413,14 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         </div>
         <div className="felt">
           <label htmlFor="sorter">Sortér</label>
+          {/* Navnene kommer fra `SORTERINGSNAVN`, ikke fra denne fil.
+              Sorteringen kan nu ogsaa skiftes i resultathovedet, og to
+              haandskrevne lister ville foer eller siden sige hver sit om
+              det samme valg. */}
           <select id="sorter" name="sorter" defaultValue={f.sorter}>
-            <option value="nyeste">nyeste først</option>
-            <option value="pris_op">md. udgift, lav til høj</option>
-            <option value="pris_ned">md. udgift, høj til lav</option>
-            <option value="indflytning_op">indflytningspris, laveste først</option>
-            <option value="indflytning_ned">indflytningspris, højeste først</option>
-            <option value="areal_ned">størst først</option>
+            {SORTERINGSVALG.map((v) => (
+              <option key={v} value={v}>{SORTERINGSNAVN[v].lang}</option>
+            ))}
           </select>
         </div>
 
@@ -599,14 +609,37 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
       {soegt ? formular : (
         <section className="forside-baand">
           <div className="hero">
-            <h1>Se hvad boligen faktisk koster</h1>
+            {/* Budskabet lovede før «den samlede månedlige udgift og
+                prisen ved indflytning» om hele bestanden. Det er ikke
+                sandt om hele bestanden: målt 12. september 2026 havde
+                1.312 af 1.782 synlige boliger en total og 1.393 en
+                indflytningspris — resten oplyser kilden ikke. Tallene
+                står HER som baggrund, aldrig på siden: dér regnes de af
+                bestanden. Løftet gælder nu det, udlejeren
+                HAR oplyst — og siger i samme åndedrag, hvad der sker,
+                når en post mangler. Andelene står som tal i punkterne
+                nedenfor, regnet af bestanden og aldrig skrevet ind. */}
+            <h1>Se hvad boligen koster ud over huslejen</h1>
             <p className="manchet">
-              Vi samler lejeboliger ét sted og viser den samlede månedlige
-              udgift og prisen ved indflytning — ikke bare huslejen.
+              Husleje, de udgifter udlejeren oplyser, og indflytningsprisen
+              når den er oplyst. Mangler en post hos kilden, står der hvad
+              vi ikke ved — i stedet for et gæt.
             </p>
 
-            {/* Paastand, bevis, handling — i den raekkefoelge. Beviset stod
-                foer under soegefeltet, hvor laeseren allerede var videre. */}
+            {/* ── Soegningen er sidens handling ─────────────────────
+                Stod FOER under de tre punkter. Punkterne var tre kort med
+                egen flade, 30 px tal og 34 px bund — 563 px hero paa
+                desktop og 917 px paa mobil, og foerste boligkort 870 hhv.
+                1.175 px nede. Beviset stod altsaa foran det, laeseren kom
+                for, og boligerne laa under foldet paa begge bredder.
+
+                Nu: paastand, handling, bevis. Feltet ligger lige under
+                manchetten, og punkterne er blevet til én linje under det —
+                samme tal, samme kilder, samme tre grupper, men sat i
+                stoerrelse med det, de er: baggrund for et loefte, ikke
+                sidens hovedperson. */}
+            {formular}
+
             <ul className="punkter">
               <li>
                 {/* «lejeboliger», ikke «ledige boliger»: kun 1 af 5 har
@@ -625,47 +658,39 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                     kort: "kr/md til udlejer". Sammensætningen måles stadig,
                     men står ved sit eget filter. */}
                 <strong>{tal.kendtTotal.toLocaleString('da-DK')}</strong>
-                <span>med hele udgiften til udlejer oplyst</span>
+                {/* To grupper, ikke én. Stod der kun det oplyste tal,
+                    kunne læseren ikke se, hvor stor resten var — og
+                    forsidens løfte ville se ud til at gælde alle.
+                    Modgruppen er `boliger − kendtTotal`: begge tal kommer
+                    fra den SAMME forespørgsel over det samme filtrerede
+                    sæt, så de går op i hovedtallet og kan ikke drive fra
+                    hinanden. Ingen ny forespørgsel, intet tal skrevet ind. */}
+                <span>
+                  med hele udgiften til udlejer oplyst ·{' '}
+                  {(tal.boliger - tal.kendtTotal).toLocaleString('da-DK')} uden
+                </span>
               </li>
-              {/* Det maalte tal, ikke en afrunding af det. "57 min." er saa
-                  praecist, at ingen ville opdigte det — "under en time" er et
-                  loefte. Stiger p90 over en time, skifter vi enhed, ikke
-                  paastand: der maa ikke staa noget kortere, end vi har maalt. */}
-              <li>
-                {tal.minutterP90 == null ? (
-                  <>
-                    <strong className="ord">Hver time</strong>
-                    <span>henter vi nye boliger fra kilderne</span>
-                  </>
-                ) : (
-                  <>
-                    <strong>
-                      {tal.minutterP90 <= 60
-                        ? <>{tal.minutterP90} <span className="enhed">min.</span></>
-                        : <>{timer} <span className="enhed">{timer === '1' ? 'time' : 'timer'}</span></>}
-                    </strong>
-                    <span>fra en bolig annonceres, til den står her (9 ud af 10)</span>
-                  </>
-                )}
-              </li>
+              {/* Punktet bor i `Hastighed.tsx`. Uden en måling stod der
+                  «Hver time henter vi nye boliger fra kilderne» — et
+                  ubetinget løfte, sat netop dér, hvor målingen ikke kunne
+                  bekræfte noget. Nu siger den tilstand, at hastigheden ikke
+                  er opgjort, og lover ingenting. Målingen er urørt. */}
+              <Hastighedspunkt minutterP90={tal.minutterP90} />
             </ul>
+
             {/* Availability-grundlaget: går op i hovedtallet, og de
-                ukendte har ord. Beregnet dynamisk af domænet. */}
-            <p className="note">
+                ukendte har ord. Beregnet dynamisk af domænet. Teksten er
+                ordret den samme; den står nu under punkterne, hvor den
+                forklarer det tal, den hører til. */}
+            <p className="note grundlagsnote">
               {avGrundlag.timing.nu.toLocaleString('da-DK')} kan overtages nu ·{' '}
               {avGrundlag.timing.senere.toLocaleString('da-DK')} kan overtages senere ·{' '}
               {(avGrundlag.timing.unknown + avGrundlag.timing.conflict).toLocaleString('da-DK')} uden afklaret overtagelsestidspunkt
             </p>
-
-            {formular}
           </div>
         </section>
       )}
 
-
-      {/* Begge hoerer til paa resultatsiden. Paa forsiden er de stoej,
-          foer brugeren har spurgt om noget. */}
-      {soegt && <GemSoegning sp={sp} />}
 
       {/* ── Resultatheaderen ──────────────────────────────────────
           De samme fem oplysninger som før, i ét hoved i stedet for fem
@@ -699,6 +724,56 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             </a>
           )}
         </div>
+
+        {/* ── Det, soegningen faktisk er sat til ───────────────────
+            Filtrene bor i et <details>, der er LUKKET som udgangspunkt,
+            og saa var «3 aktive» i <summary> det eneste, der stod om dem.
+            Et tal er ikke et svar paa «hvad har jeg sat»: hun skulle
+            aabne panelet og lede for at finde ud af, hvad det tredje var.
+
+            Chipperne siger det, og hvert klik fjerner netop det ene
+            filter. Almindelige links — samme adresser, samme parametre,
+            ingen JS. Navnene og parameternavnene kommer fra
+            `aktiveFiltre`, saa chippen og feltet i panelet ikke kan
+            komme til at beskrive det samme filter forskelligt. */}
+        {soegt && chips.length > 0 && (
+          <div className="filterchips">
+            {chips.map((c) => (
+              <a
+                key={c.navn} className="chip" href={soegeUrlUden('/', sp, c.fjern)}
+                aria-label={`Fjern filter: ${c.navn}`}
+              >
+                {c.navn}<span className="chip-x" aria-hidden="true">×</span>
+              </a>
+            ))}
+            <a className="chip chip-ryd" href="/">Ryd alle</a>
+          </div>
+        )}
+
+        {/* Sorteringen bor i panelet og var dermed ogsaa skjult. Her er
+            den seks links — ét pr. orden, med den aktive markeret. Ingen
+            <select> uden for formularen: en select uden JS skifter
+            ingenting, og en submit-knap mere ville vaere en kontrol, der
+            ligner filtrene uden at vaere dem. `aria-current` fortaeller
+            skaermlaeseren, hvilken der gaelder nu. */}
+        {soegt && visninger.length > 0 && (
+          <div className="sortering">
+            <span className="sortering-navn">Sortér</span>
+            {SORTERINGSVALG.map((v) => {
+              const valgt = (f.sorter ?? 'nyeste') === v
+              return (
+                <a
+                  key={v} href={soegeUrlSorteret('/', sp, v)}
+                  className={valgt ? 'sort-pille valgt' : 'sort-pille'}
+                  aria-current={valgt ? 'true' : undefined}
+                  title={SORTERINGSNAVN[v].lang}
+                >
+                  {SORTERINGSNAVN[v].kort}
+                </a>
+              )
+            })}
+          </div>
+        )}
 
         {/* Uden filtre staar de samme tal allerede i hero'en ovenfor.
             Linjen hoerer til, hvor den siger noget nyt: om et udsnit. */}
@@ -736,7 +811,13 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           </p>
         )}
 
-        {soegt && (
+        {/* Forbeholdet staar, hvor det gaelder: KUN naar der faktisk er
+            sat en prisgraense. Foer stod det paa hver eneste resultatside
+            — ogsaa en soegning paa «2300» uden et eneste tal i pris —
+            og en forklaring paa et filter, brugeren ikke har brugt, er
+            stoej i toppen af siden, ikke aabenhed. Teksten er uaendret.
+            Det er den samme regel som kortet og gem-boksen foelger. */}
+        {soegt && (f.prisMin != null || f.prisMax != null) && (
           <p className="prisnote">
             Prisfilteret gælder den <strong>samlede månedlige udgift</strong> — husleje
             plus aconto. Kender vi ikke totalen, filtreres der på huslejen alene, og
@@ -826,6 +907,17 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
 
       {/* Forrige · sidetal · Naeste. Almindelige links; se app/Sider.tsx. */}
       <Sider basis="/" sp={sp} side={side} sider={sider} komplet={komplet} />
+
+      {/* ── Gem soegningen ────────────────────────────────────
+          Stod FOER resultathovedet og skubbede baade antallet og det
+          foerste boligkort ned. Boksen svarer paa et spoergsmaal, man
+          foerst stiller, naar man har SET resultatet — «det her vil jeg
+          have besked om» — saa den hoerer til efter listen. Formularen,
+          dens server action og dens skjulte felter er uroerte; kun
+          pladsen paa siden er en anden.
+          Paa forsiden er den stadig stoej: uden filtre gemmes en
+          soegning ikke, jf. `harFiltre`. */}
+      {soegt && <GemSoegning sp={sp} />}
 
       {/* Kilderne uden den native: "hentet fra ... og Bofinda" er ikke
           rigtigt — de annoncer er ikke hentet nogen steder, de er

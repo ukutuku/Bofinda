@@ -22,9 +22,19 @@ export default function Layout({ children }: { children: ReactNode }) {
     <html lang="da" className={sans.variable}>
       <body>
         <header className="top">
-          <div className="ramme">
-            <a className="maerke" href="/">bo<span>finda</span></a>
-            <div className="undertitel">lejeboliger, samlet ét sted</div>
+          <div className="ramme toplinje">
+            <a className="maerke" href="/">
+              <span className="maerke-navn">Bofinda</span>
+              <span className="maerke-under">lejeboliger, samlet ét sted</span>
+            </a>
+            {/* Kun destinationer, der FINDES. Konceptbillederne viser
+                «Priser» og «Inbox»; dem har produktet ikke, og en menu,
+                der lover sider, vi ikke har, er en tom knap i en
+                situation, hvor nogen leder efter noget. */}
+            <nav className="topnav" aria-label="Hovedmenu">
+              <a href="/">Lejeboliger</a>
+              <a className="nav-primaer" href="/udlejer">Udlej din bolig</a>
+            </nav>
           </div>
         </header>
         <div className="ramme">{children}</div>
