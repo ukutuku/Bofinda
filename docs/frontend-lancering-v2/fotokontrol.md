@@ -1,148 +1,142 @@
-# Fotokontrollen — status: IKKE GENNEMFØRT
+# Fotokontrollen — DELVIST gennemført: ét af tre motiver
 
 Hører til [PR #6](https://github.com/ukutuku/Bofinda/pull/6), kandidat
 [`fa522eb`](https://github.com/ukutuku/Bofinda/commit/fa522eb).
+Applikationskoden er urørt under kontrollen.
 
-**Fotokontrollen er ikke bestået og er ikke kørt.** De udvalgte
-fotografier kunne ikke hentes: sessionens egress-politik afviser begge
-værter. Nedenfor står præcis hvad der blev forsøgt, hvad der i stedet er
-målt, og hvad der skal til for at gøre kontrollen færdig.
+**Stockfotos til layouttest — ikke en virkelig boligannonce.**
 
-## Fotografierne der skulle bruges
+Ét rigtigt fotografi er nået frem og er kørt igennem kort, galleri,
+billedknap og lysbord på 390 og 1440 px. **37 kontroller, alle grønne.**
+De to øvrige motiver mangler stadig — se nederst.
 
-Udvalgt og licenskontrolleret uden for denne session. Kilde, fotograf og
-licens bevares her, som aftalt — også selv om ingen af de to licenser
-kræver kreditering.
+## Fotografiet der blev brugt
 
-| # | Motiv | Fotograf | Kilde | Licens |
-|---|---|---|---|---|
-| 1 | Sommerhus ved Vesterhavet — liggende, mørk træfacade, græs, lys himmel | Johannes Sejer | [unsplash.com/photos/…Xn3vcIpPi1E](https://unsplash.com/photos/a-house-on-top-of-a-grassy-hill-Xn3vcIpPi1E) | [Unsplash License](https://unsplash.com/license) |
-| 2 | Stue/interiør, København — stående, dybe skygger og direkte sollys | Alla Hetman | [unsplash.com/photos/…nPXpvb06yc4](https://unsplash.com/photos/gray-padded-sofa-inside-pink-room-nPXpvb06yc4) | [Unsplash License](https://unsplash.com/license) |
-| 3 | Badeværelse, Holbæk — stående, lyse installationer, grå fliser | Christian Cortsen | [pexels.com/photo/27460871](https://www.pexels.com/photo/bathroom-interior-27460871/) | [Pexels License](https://www.pexels.com/license/) |
-| 4 | Gule byhuse, København *(ekstra, ikke visuelt gennemset)* | Anastasia Haritonov | [pexels.com/photo/30225599](https://www.pexels.com/photo/historic-yellow-houses-in-copenhagen-denmark-30225599/) | [Pexels License](https://www.pexels.com/license/) |
+| | |
+|---|---|
+| Fil | `dk-vesterhavet-sommerhus.jpg` |
+| Motiv | Sommerhus ved Vesterhavet — **liggende**, mørk trælamelfacade over marehalm, lys overskyet himmel |
+| Fotograf | Johannes Sejer |
+| Kilde | [unsplash.com/photos/…Xn3vcIpPi1E](https://unsplash.com/photos/a-house-on-top-of-a-grassy-hill-Xn3vcIpPi1E) |
+| Licens | [Unsplash License](https://unsplash.com/license) |
+| Sted | Vesterhavet, Danmark, ifølge fotografens egen beskrivelse på kildesiden |
+| Mål | **2048 × 1638 px** (5:4) |
+| Bytes | 841.514 |
+| SHA256 | `ae4cd85ad5980361422077f3bade43012185c6398354e922f9024b31325d00c7` |
 
-Stedsangivelserne bygger på kildesidernes egne oplysninger, ikke på en
-uafhængig geolokation. Ingen af billederne dokumenterer et faktisk
-lejemål.
+Filen kom som base64 i en tekstpakke, ikke fra nettet: egress-politikken
+afviser `unsplash.com` og `images.pexels.com`, og det er hverken prøvet
+igen eller omgået. **Den oplyste SHA256, filstørrelse og dimensioner er
+efterprøvet mod de afkodede bytes og matcher alle tre.** Filen ligger i
+`/var/lib/bofinda-test/fotos/` — uden for repoet, som aftalt.
 
-## Hvorfor hentningen ikke lykkedes
+Stedsangivelsen bygger på kildesidens egen oplysning. Fotografiet
+dokumenterer ikke et lejemål på Bofinda.
 
-Ét forsøg pr. adresse, med almindelig `curl` gennem sessionens proxy.
-Alle tre blev afvist i CONNECT-fasen:
-
-```
-curl: (56) CONNECT tunnel failed, response 403
-```
-
-Proxyens egen fejllog (`$HTTPS_PROXY/__agentproxy/status`):
-
-```
-connect_rejected  unsplash.com:443
-    gateway answered 403 to CONNECT (policy denial or upstream failure)
-connect_rejected  unsplash.com:443
-    gateway answered 403 to CONNECT (policy denial or upstream failure)
-connect_rejected  images.pexels.com:443
-    gateway answered 403 to CONNECT (policy denial or upstream failure)
-```
-
-Hverken `unsplash.com` eller `pexels.com` står på proxyens no-proxy-liste,
-så begge går gennem politikken, og politikken siger nej.
-
-**Der er ikke prøvet igen, og der er ikke søgt uden om.** Proxyens egen
-vejledning er utvetydig — *"Do not retry or route around it — report the
-blocked host"* — og opgaven siger det samme. Et andet billede fra en
-tredje vært ville være den samme omgåelse med en anden adresse, og er
-derfor heller ikke hentet.
-
-## Sådan gøres kontrollen færdig
-
-Filerne lægges i `/var/lib/bofinda-test/fotos/` (uden for repoet —
-fotografier med licens og fotograf hører ikke i et kodelager, og reglen i
-`scripts/cloud/aktiver.mjs` om ingen binære filer står ved magt):
+## Sådan blev den kørt
 
 ```bash
-scripts/cloud/op.sh                     # miljøet op
+scripts/cloud/op.sh
 node scripts/cloud/fotokontrol.mjs skaermbilleder/fotokontrol
 ```
 
-Aktivserveren serverer dem på `/foto/<filnavn>`, og
-`scripts/cloud/fotokontrol.mjs` bruger dem automatisk. Uden filer svarer
-`/foto` med en tom liste, scriptet siger det højt og slutter med **status
-2** — den kan aldrig forveksles med en bestået kontrol.
+Mod `next start` på det byggede output i det isolerede loopback-miljø, med
+testvariablerne indlæst af `scripts/cloud/miljoe.sh`. Samtykket afvist med
+den normale knap. Hvert skærmbillede bærer mærkatet nederst, sat af
+kontrollen — ikke af appen.
 
-Kontrollen sætter selv motiverne på to syntetiske annoncer i den
-isolerede base og **sætter rækkerne tilbage bagefter**, også hvis noget
-fejler undervejs.
+Fotografiet blev lagt på to syntetiske annoncer, og **rækkerne blev sat
+tilbage bagefter**. Galleriet viser tre ruder plus «+N billeder», så det
+ene motiv er gentaget fire gange for at kunne fylde dem — det er det
+samme fotografi, ikke fire forskellige. Det står også i scriptets
+udskrift.
 
-## Hvad der SÅ blev målt — geometri, ikke fotografi
-
-Med genererede former i stedet: stående 600×900, liggende 1800×600, og en
-næsten hvid og en næsten sort i 1200×900. De svarer på beskæring, stræk,
-højde og overløb. **De svarer ikke på, hvordan et rigtigt motiv ser ud.**
-
-Kørt mod `next start` på det byggede output i det isolerede loopback-miljø,
-på 1440 × 1000 og 390 × 844 px. Samtykket afvist med den normale knap.
-Alle visninger bærer et mærkat nederst i billedet.
-
-| Målt | 1440 px | 390 px |
-|---|---|---|
-| Kortets motiv dekodet | 400×600 px | 400×600 px |
-| Kortet beskærer (`object-fit`) | `cover` | `cover` |
-| Kortets højde med et stående motiv | 214 / 221 px | 452 / 453 px |
-| Galleriets højde | **400 px** (loftet) | 260 px |
-| Galleriet beskærer | `cover` | `cover` |
-| «+N billeder» inde i galleriet | ja | ja |
-| Lysbordet viser hele motivet | `contain` · 0,67 = 0,67 | `contain` · 0,67 = 0,67 |
-| Lysbordet lukker med Escape | ja | ja |
-| Vandret overløb | 0 px | 0 px |
-
-**26 kontroller, alle grønne.** `object-fit: cover` beskærer og strækker
-ikke — forskellen på et beskåret og et forvrænget motiv. Ternene i de
-genererede former er kvadratiske i alle udsnit, hvilket er den visuelle
-bekræftelse af det samme.
-
-### Billedknappen
-
-Knappens egne farver er `rgb(20,22,26)` på `rgba(255,255,255,.94)`, uændret
-af motivet. Fordi baggrunden er delvis gennemsigtig, er kontrasten regnet
-mod **begge** yderpunkter — et helt hvidt og et helt sort motiv — i
-`scripts/cloud/lancering.mjs`: **15,9:1 normalt og 18,1:1 ved hover og
-fokus**. Det holder for ethvert motiv derimellem, også et fotografi.
-
-Billederne nedenfor viser knappen over et næsten hvidt og et næsten sort
-motiv. Det er den visuelle side af det samme; det erstatter ikke et
-rigtigt fotografi.
-
-## Billederne
-
-I [`geometri/`](geometri/) — mærket, så de ikke kan forveksles med
-fotokontrollen:
+## Det målte
 
 | | 1440 px | 390 px |
 |---|---|---|
-| Boligkort i listen | [kort-desktop.png](geometri/kort-desktop.png) | [kort-mobil.png](geometri/kort-mobil.png) |
-| Galleri, lyst motiv under knappen | [galleri-desktop.png](geometri/galleri-desktop.png) | [galleri-mobil.png](geometri/galleri-mobil.png) |
-| Galleri, mørkt motiv under knappen | [galleri-desktop-moerkt-motiv.png](geometri/galleri-desktop-moerkt-motiv.png) | [galleri-mobil-moerkt-motiv.png](geometri/galleri-mobil-moerkt-motiv.png) |
-| Lysbord | [lysbord-desktop.png](geometri/lysbord-desktop.png) | [lysbord-mobil.png](geometri/lysbord-mobil.png) |
+| Kortets motiv, leveret af billedproxyen | 400 × 320 px | 400 × 320 px |
+| Kortets billedramme | 248 × 186 px | 326 × 183 px |
+| `object-fit` på kort og galleri | `cover` | `cover` |
+| Kortets samlede højde | 214 / 221 px | 452 / 453 px |
+| Galleriets højde | **400 px** (loftet) | 260 px |
+| Galleriets ruder, dekodet | 800 × 640 ×3 | 800 × 640 |
+| «+N billeder» inde i galleriet | ja | ja |
+| Knappens farver over motivet | `rgb(20,22,26)` på `rgba(255,255,255,.94)` | samme |
+| Lysbordet | `contain` · **1,25 = 1,25** | `contain` · **1,25 = 1,25** |
+| Lysbordet lukker med Escape | ja | ja |
+| Vandret overløb | 0 px | 0 px |
 
-Mærkatet er sat af **kontrollen**, ikke af appen — applikationskoden er
-urørt under kørslen. Teksten er tilpasset sandheden: med fotografier
-skriver scriptet *«Stockfotos til layouttest — ikke en virkelig
-boligannonce.»*, og uden dem *«Genererede testmotiver til layouttest —
-ikke fotografier, ikke en virkelig boligannonce.»* Et mærkat, der lovede
-stockfotos, hvor der ingen var, ville selv være usandt.
+Forholdet 1,25 er fotografiets eget (2048/1638). At det viste forhold er
+det samme, er beviset for, at lysbordet ikke beskærer og ikke forvrænger.
+
+## Vurdering af beskæringen — set, ikke kun målt
+
+**Boligkortet, 1440 px** ([kort-desktop.png](fotokontrol/kort-desktop.png)).
+Rammen er 248 × 186, altså 4:3, mod fotografiets 5:4. Beskæringen tager
+fra top og bund — mest himmel og forgrundsgræs. **Hele huset overlever:**
+tagryg, skorsten, den mørke trælamelfacade og vinduesbåndet står frit, og
+græsset under giver det kontekst. Motivet er stadig genkendeligt ved 248 px.
+
+**Boligkortet, 390 px** ([kort-mobil.png](fotokontrol/kort-mobil.png)).
+Kortet stabler, og billedet bliver et bånd i 16:9 over teksten. Det er den
+strammeste beskæring i hele fladen, og den holder: huset fylder den øverste
+halvdel, græsset den nederste. Intet væsentligt er skåret væk i siderne.
+
+**Galleriet, 1440 px** ([galleri-desktop.png](fotokontrol/galleri-desktop.png)).
+Den store rude er ~608 × 400 (1,52 mod motivets 1,25) og tager derfor en
+vandret skive: lidt himmel i toppen og lidt græs i bunden falder væk. Huset
+står helt. De to små ruder er ~310 × 195 og beskærer hårdere — i den øverste
+er husets venstre ende skåret af kanten. Det er `cover` der arbejder som
+den skal, ikke en fejl, men det er værd at vide: **de små ruder viser et
+udsnit, ikke motivet.** Den store rude bærer helheden.
+
+**Galleriet, 390 px** ([galleri-mobil.png](fotokontrol/galleri-mobil.png)).
+Én rude i 260 px. Huset og græsset er med; ingen af delene er klemt.
+
+**Lysbordet** ([lysbord-desktop.png](fotokontrol/lysbord-desktop.png) ·
+[lysbord-mobil.png](fotokontrol/lysbord-mobil.png)). Hele fotografiet, uden
+beskæring, med tæller «1 / 4», miniaturer, pile og lukkeknap. Det er her
+motivet kan ses som fotografen tog det, og det virker på begge bredder.
+
+**Billedknappen.** «+1 billeder» ligger på den nederste højre rude, altså
+over marehalmen — et mellemtonet, uroligt motiv med struktur, hvilket er
+det sværeste tilfælde for læsbarhed. Den lyse pille med mørk tekst står
+tydeligt. Knappens egne farver er uændrede af motivet, og kontrasten er
+regnet mod både helt hvidt og helt sort underlag i
+`scripts/cloud/lancering.mjs`: 15,9:1 normalt, 18,1:1 ved hover og fokus.
+
+**Ingen produktfejl fundet.**
 
 ## Det står stadig tilbage
 
-- **Beskæring med et rigtigt motiv.** Geometrien er rigtig; om
-  sommerhusets facade eller stuens sofa overlever et 4:3-udsnit på
-  248 px er ikke set.
-- **Galleriets 400 px med et fotografi.** Loftet holder, men om et
-  liggende landskabsmotiv bærer den højde er en vurdering, ikke en måling.
-- **Knappens læsbarhed over et fotografi med struktur.** Kontrasten
-  holder analytisk mod begge yderpunkter; et motiv med detaljer lige under
-  knappen er ikke set.
-- **Farver og hudtoner.** Intet i kontrollen rører farvegengivelse.
+**To af tre motiver mangler.** Tekstpakken indeholdt kun sommerhuset:
 
-Der er ikke rørt produktionsdata, ingen billeder er sat ind på rigtige
-annoncer, og produktions-billedproxyens værtstilladelser er uændrede.
+| Motiv | Status |
+|---|---|
+| Sommerhus ved Vesterhavet (liggende) | ✅ kørt igennem |
+| Stue/interiør, København (stående) — Alla Hetman | ❌ ikke i pakken |
+| Badeværelse, Holbæk (stående) — Christian Cortsen | ❌ ikke i pakken |
+
+Derfor er følgende **ikke** afgjort med et fotografi:
+
+- **Et stående motiv i en liggende ramme.** Det er den hårdeste beskæring
+  fladen laver, og de to manglende fotografier er netop stående. Geometrien
+  er målt med en genereret stående form (se [`geometri/`](geometri/)), men
+  om en sofa eller en håndvask overlever udsnittet er ikke set.
+- **Et motiv med kraftige skygger og direkte sollys.** Stuebilledet er
+  valgt netop for det; sommerhuset er jævnt, overskyet lys.
+- **Et lyst, detaljerigt motiv under billedknappen.** Her lå der grønt
+  græs; badeværelsets lyse fliser ville være en anden prøve.
+- **Farvegengivelse.** Intet i kontrollen rører det.
+
+Kommer de to filer gennem samme tekstpakke, er kontrollen ét kald væk:
+`node scripts/cloud/fotokontrol.mjs`.
+
+## Afgrænsning
+
+Skærmbillederne verificerer **layoutet med et fotografi** — ikke
+billedlevering fra Bofindas rigtige annoncekilder. Adresser og beløb er
+syntetiske. Der er ikke rørt produktionsdata, ingen billeder er sat ind på
+rigtige annoncer, og produktions-billedproxyens værtstilladelser er
+uændrede. De rå fotografier er ikke i repoet.

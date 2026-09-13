@@ -66,12 +66,27 @@ const RIGTIGE = fotos.length > 0
 // Motiverne: enten fotografierne, eller de genererede former.
 // «staaende»/«liggende» afgoeres for fotografier af filens egne maal,
 // maalt i browseren — ikke gaettet ud fra filnavnet.
+// Galleriet viser tre ruder plus «+N billeder». Er der faerre motiver
+// end det, gentages de — ellers staar galleriet som ét billede (`.g1`),
+// og saa kan hverken de tre ruder eller knappen proeves. Gentagelsen
+// staar i udskriften: det er det SAMME fotografi, ikke fire forskellige.
+const fyld = (liste) => {
+  const ud = []
+  for (let i = 0; i < 4; i++) ud.push(liste[i % liste.length])
+  return ud
+}
 const MOTIVER = RIGTIGE
-  ? fotos.map((f) => `${AKTIV}/foto/${f}`)
+  ? fyld(fotos.map((f) => `${AKTIV}/foto/${f}`))
   : ['staaende', 'liggende', 'lys', 'moerk'].map((f) => `${AKTIV}/form-${f}.png`)
 
 console.log(RIGTIGE
-  ? `\n  FOTOKONTROL — ${fotos.length} fotografier fra ${svar.mappe}\n`
+  ? `\n  FOTOKONTROL — ${fotos.length} fotografi(er) fra ${svar.mappe}\n`
+    + `    ${fotos.join(', ')}\n`
+    + (fotos.length < 4
+      ? `    Bemaerk: der er ${fotos.length}, ikke fire. Motivet gentages i galleriet,\n`
+        + '    saa de tre ruder og «+N billeder» kan proeves — det er det SAMME\n'
+        + '    fotografi flere gange, ikke flere forskellige.\n'
+      : '')
   : `\n  ⚠ INGEN FOTOGRAFIER i ${svar.mappe ?? '(ukendt mappe)'}.\n`
     + '    Fotokontrollen er IKKE koert. Nedenfor maales kun GEOMETRIEN\n'
     + '    med genererede former — det er ikke det samme.\n')
@@ -204,6 +219,15 @@ try {
     const overloeb = () => p.evaluate(() =>
       document.documentElement.scrollWidth - document.documentElement.clientWidth)
     tjek(`${merke} · listen med motiverne har intet vandret overløb`, await overloeb() <= 0)
+    // Rul hen til kortet FOER billedet tages. Paa 390 px ligger det
+    // foerste kort under foldet, og et skaermbillede af toppen viser
+    // ikke det, kontrollen handler om.
+    await p.evaluate((id) => {
+      const a = document.querySelector(`a.kort[data-bolig="${id}"]`)
+      if (a) a.scrollIntoView({ block: 'center' })
+    }, IDS[0])
+    await p.waitForTimeout(400)
+    await saetMaerkat()
     await p.screenshot({ path: `${UD}/kort-${merke}.png` })
 
     // ── Galleriet og lysbordet ──────────────────────────────────
@@ -258,6 +282,15 @@ try {
       await new Promise((r) => setTimeout(r, 400))
       const img = document.querySelector('.lys-billede')
       if (!img) return { fandt: false, aabnede: false }
+      // VENT paa dekodningen, ikke paa et fast tidsrum. Lysbordet henter
+      // motivet i fuld bredde, og et fotografi paa 841 kB naar ikke at
+      // blive dekodet paa 400 ms paa 1440 px — saa var naturalWidth 0, og
+      // forholdet blev NaN. Paa 390 px var billedet mindre og naaede det,
+      // saa fejlen sad kun paa den ene bredde: den slags maa en proeve
+      // ikke rapportere som en forvraengning.
+      for (let i = 0; i < 100 && !(img.complete && img.naturalWidth > 0); i++) {
+        await new Promise((r) => setTimeout(r, 100))
+      }
       const r = img.getBoundingClientRect()
       return {
         fandt: true, aabnede: true,

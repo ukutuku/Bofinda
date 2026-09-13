@@ -64,37 +64,24 @@ Samme bolig i begge: **Enkeltvej 104 58, 9001 Prøveby N**, 8.400 kr./md.
 Galleriets højde er sat ned fra 470 til 400 px, så titlen, nøgletallene og
 begyndelsen af økonomien kan ses uden at scrolle.
 
-## ⚠ Fotokontrollen er IKKE bestået
+## Fotokontrollen — delvist gennemført
 
-**Forsøgt 12. september 2026 — se [`fotokontrol.md`](fotokontrol.md).**
-De udvalgte danske fotografier kunne ikke hentes: sessionens
-egress-politik afviser både `unsplash.com` og `images.pexels.com` med 403
-på CONNECT. Der er ikke prøvet igen og ikke søgt uden om.
+**Se [`fotokontrol.md`](fotokontrol.md).** Ét af tre udvalgte danske
+fotografier er nået frem og er kørt igennem kort, galleri, billedknap og
+lysbord på 390 og 1440 px — **37 kontroller, alle grønne, ingen produktfejl
+fundet.** Billederne ligger i [`fotokontrol/`](fotokontrol/).
 
-Geometrien er i stedet målt med genererede former i stående og liggende
-format og i lys og mørk tone — 26 kontroller, alle grønne. Det svarer på
-beskæring, stræk, højde og overløb, men ikke på, hvordan et rigtigt motiv
-ser ud. Billederne ligger i [`geometri/`](geometri/).
+Motivet er Johannes Sejers sommerhus ved Vesterhavet, 2048 × 1638 px,
+liggende, SHA256 efterprøvet mod de afkodede bytes.
 
-Kontrollen kan køres færdig med ét kald, den dag filerne findes:
-`node scripts/cloud/fotokontrol.mjs`.
+**De to stående motiver mangler stadig** — stuen i København og
+badeværelset i Holbæk lå ikke i tekstpakken. Dermed er det hårdeste
+tilfælde, et stående fotografi i en liggende ramme, ikke set med et
+fotografi. Geometrien for det er målt med en genereret stående form; se
+[`geometri/`](geometri/).
 
-
-**Alle billeder i mapperne viser ensfarvede testaktiver**, genereret af
-`scripts/cloud/aktiver.mjs` — diagonale bånd i én farve, ikke boligfotos.
-
-De siger derfor **intet** om, hvordan boligkortets billedkolonne og
-detaljesidens galleri bærer et rigtigt fotografi med anden beskæring,
-kontrast, lysstyrke og højde. Det gælder især:
-
-- galleriets nye `max-height: 400px` med et rigtigt motiv,
-- «+N billeder»-knappens læsbarhed oven på et lyst motiv — kontrasten er
-  målt mod både helt hvidt og helt sort underlag, men ikke set,
-- kortets 248 px billedkolonne med et foto i et andet sideforhold.
-
-Fotokontrollen må ikke markeres bestået, før nogen har set kandidaten med
-rigtige boligbilleder. Der er ikke hentet fotografier til denne opgave, og
-produktionsdata er ikke rørt.
+Skærmbillederne i denne mappe (`eksempler/`) viser stadig de ensfarvede
+testaktiver — de er før/efter-dokumentation for layoutet, ikke fotokontrol.
 
 ## Hvad billederne ellers ikke viser
 
