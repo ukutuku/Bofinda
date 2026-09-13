@@ -13,7 +13,7 @@
   --kort:        #ffffff;
   --tekst:       #14161a;
   --daempet:     #5f6672;
-  --svag:        #9aa1ac;
+  --svag:        #626975;
   --linje:       #e8e5de;
   --linje-svag:  #f1efe9;
 
@@ -1124,7 +1124,8 @@ footer.bund {
   .hero { margin-bottom: 26px; }
 }
 @media (max-width: 520px) {
-  .soegebar { grid-template-columns: 1fr; }
+  .soegebar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sf-pris { grid-column: 1 / -1; }
   .soegefelt { border-left: 0 !important; border-top: 1px solid var(--linje); }
   .soegefelt:first-child { border-top: 0; }
   /* 16 px: under det zoomer iOS ind paa fokus og efterlader siden skaev. */
@@ -1195,9 +1196,12 @@ footer.bund {
   .talstribe li:nth-child(n+3) { border-top: 1px solid var(--linje); }
 }
 @media (max-width: 520px) {
-  .talstribe { grid-template-columns: 1fr; }
-  .talstribe li { border-left: 0; }
-  .talstribe li + li { border-top: 1px solid var(--linje); }
+  .talstribe li {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'tal' 'tekst';
+    align-content: start; padding: 14px;
+  }
+  .talstribe li::before { display: none; }
 }
 .punkter strong {
   font-size: 22px; font-weight: 700; letter-spacing: -0.028em;
@@ -1342,7 +1346,7 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
 @media (max-width: 680px) {
   .hero h1 { max-width: none; }
   .hero-manchet { font-size: 15.5px; }
-  .talstribe { gap: 10px; }
+  .talstribe { gap: 0; }
 }
 /* ── Kortets fod ───────────────────────────────────────────────
    Referencens «Fra BoligPortal» nederst, adskilt af en streg.
@@ -2127,3 +2131,29 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
   letter-spacing: -0.034em; line-height: 1.1;
 }
 .oek-kort .oek-tal { letter-spacing: -0.04em; }
+
+/* Mobil: synlige afsnitslinks uden skjulte faner og mindre luft
+   mellem oplysningerne. Ingen prisforbehold eller filtre skjules. */
+@media (max-width: 680px) {
+  .afsnitsnav { flex-wrap: wrap; gap: 6px; overflow-x: visible; border: 0; margin-top: 20px; }
+  .afsnitsnav a {
+    display: inline-flex; align-items: center; min-height: 44px;
+    padding: 8px 12px; margin: 0; white-space: normal;
+    border: 1px solid var(--linje); border-radius: var(--r-s);
+    background: var(--kort);
+  }
+  .sektion { margin-top: 28px; }
+  .sektion-titel { margin-bottom: 14px; }
+  .infokort { padding: 18px; }
+  .ik-flise { margin-bottom: 10px; }
+  .udlejerbaand { margin-top: 28px; }
+}
+
+/* Kortet reagerer på sin egen bredde, også ved siden af landkortet. */
+@container (max-width: 460px) {
+  .kort-krop { padding: 12px 16px; }
+  .kort-billedblok > .billedforbehold { margin: 0; padding: 7px 16px 0; }
+  .oekonomi-linje { margin-top: 9px; gap: 3px 14px; }
+  .fakta { margin-top: 9px; padding-top: 8px; }
+  .kort-fod { padding-top: 8px; }
+}
