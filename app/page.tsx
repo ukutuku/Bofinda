@@ -21,6 +21,37 @@ import { Sider, sideUrl } from './Sider'
 
 export const dynamic = 'force-dynamic'
 
+/**
+ * Forsidens standardfoto.
+ *
+ * FILEN LIGGER I REPOET — `public/hero-stue.jpg` — og foelger dermed
+ * koden. Det er en bevidst aendring fra foer, hvor fotoet kun kunne
+ * saettes med `NEXT_PUBLIC_HERO_FOTO`: en miljoevariabel, der SKAL
+ * saettes, er en variabel, nogen glemmer, og saa staar forsiden med en
+ * gradient i produktionen, uden at nogen kan se hvorfor. Nu virker den
+ * uden ny opsaetning nogen steder.
+ *
+ * Krediteringen staar HER, sammen med stien, af samme grund som
+ * `eltilstand` ligger ét sted: billedet og navnet paa den, der har taget
+ * det, er ét spoergsmaal. Skifter stien, skal navnet med i samme
+ * aendring — ellers tilskriver siden en fotograf et billede, hun ikke
+ * har taget.
+ *
+ *   Foto:    Taryn Elliott / Pexels
+ *   Kilde:   https://www.pexels.com/photo/scandinavian-interior-of-a-living-room-9565782/
+ *   Licens:  https://www.pexels.com/license/ — fri til kommerciel brug,
+ *            kreditering ikke paakraevet, men vi giver den alligevel.
+ *   Fil:     2048x1365, 636.485 bytes, uaendrede bytes fra kilden.
+ *            sha256 a2b2795193c96f2508593dc1dca77f62ea986a10dd2600cef331e64e245d5b5f
+ *
+ * Se ogsaa `docs/kildetilladelser.md`, hvor rettighederne pr. kilde
+ * staar samlet.
+ */
+const HERO_STANDARD = {
+  url: '/hero-stue.jpg',
+  kredit: 'Stemningsfoto: Taryn Elliott / Pexels',
+} as const
+
 /** "A", "A og B", "A, B og C" — dansk opremsning, ikke join(', '). */
 const sammenskriv = (n: string[]): string =>
   n.length <= 1 ? (n[0] ?? '') : `${n.slice(0, -1).join(', ')} og ${n[n.length - 1]}`
@@ -180,17 +211,26 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // Panelets tilstand ligger i URL'en som kortets. Se noten ved <details>.
   const panelAabent = en(sp.flere) === '1'
 
-  // Hero-fotoet. Ikke i repoet og ikke hardkodet: et billedaktiv har en
-  // licens og en ophavsmand, og begge dele hoerer daarligt hjemme i git.
-  // Er variablen ikke sat, staar baandet med brandets gradient — samme
-  // layout, anden flade. Læses paa serveren; ingen ny klientkode.
-  const heroFoto = process.env.NEXT_PUBLIC_HERO_FOTO || null
-  // Krediteringen staar SAMMEN med fotoet, ligesom kortflisernes
-  // `NEXT_PUBLIC_FLISE_KREDIT`. Et foto uden en ophavsmand paa skaermen
-  // er et foto, ingen kan efterproeve retten til — og i testmiljoeet er
-  // det linjen, der siger, at motivet er et stockfoto og ikke en
-  // virkelig boligannonce.
-  const heroKredit = process.env.NEXT_PUBLIC_HERO_FOTO_KREDIT || null
+  // Hero-fotoet OG dets kreditering, beregnet ét sted.
+  //
+  // De to er ét spoergsmaal — «hvilket billede staar der, og hvem har
+  // taget det» — og maa derfor ikke kunne svares forskelligt. Var de to
+  // selvstaendige udtryk, kunne en miljoevariabel skifte MOTIVET, mens
+  // krediteringen blev staaende paa det gamle; saa ville siden tilskrive
+  // en fotograf et billede, hun ikke har taget. Derfor ét objekt.
+  //
+  // Standarden er `public/hero-stue.jpg`, som ligger i repoet og foelger
+  // koden. Ingen miljoevariabel kraeves — hverken lokalt eller paa
+  // Vercel. `NEXT_PUBLIC_HERO_FOTO` kan stadig overstyre den, og saa
+  // foelger `NEXT_PUBLIC_HERO_FOTO_KREDIT` med som DEN fladeS kreditering.
+  const hero = process.env.NEXT_PUBLIC_HERO_FOTO
+    ? {
+      url: process.env.NEXT_PUBLIC_HERO_FOTO,
+      kredit: process.env.NEXT_PUBLIC_HERO_FOTO_KREDIT || null,
+    }
+    : { url: HERO_STANDARD.url, kredit: HERO_STANDARD.kredit }
+  const heroFoto = hero.url
+  const heroKredit = hero.kredit
 
   // De aktive filtre som noget, der kan ses OG fjernes. Navnene paa
   // typer og kilder kommer fra de samme kilder som feltet i panelet —

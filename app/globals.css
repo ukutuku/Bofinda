@@ -944,19 +944,70 @@ footer.bund {
    venstre side. Uden det staar en moerk overskrift paa et lyst
    interioer — og et interioerfoto er lyst netop dér, hvor teksten er. */
 .hero-billede { position: absolute; inset: 0; z-index: -2; overflow: hidden; }
-.hero-billede img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* BESKAERINGEN ER MAALT, IKKE SKOENNET. Middelluminans pr. lodret
+   stribe i `public/hero-stue.jpg` (2048x1365):
+
+       0–10 %   52–69   doeraabning, koeleskab, stolpe — motivets moerkeste
+      15–70 %  142–171  vaeggen og sofaen — DET, kortet skal vise
+      70–75 %      89   roegroerret, en moerk lodret soejle
+      75–100 % 152–174  reol og vindue
+
+   `cover` bevarer forholdet — der straekkes aldrig. Paa en smal skaerm
+   er baandet hoejere end bredt, saa der beskaeres VANDRET, og
+   `object-position: 52%` lader vinduet falde paa 36–68 % af motivet:
+   sofaen alene, uden koeleskab og uden roegroer. Paa en bred skaerm er
+   baandet bredere end motivets 3:2, saa der beskaeres LODRET, og de to
+   moerke partier bliver staaende — dér er det sloeret nedenfor, der
+   daemper dem.
+
+   48 % lodret loefter vinduet en anelse over midten, saa sofaen
+   (50–75 % af hoejden) lander i baandets nederste halvdel og teksten
+   staar over vaeggen, som er motivets lyseste flade. */
+.hero-billede img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  object-position: 52% 48%;
+}
 .hero.har-foto::after {
+  /* Sloeret loeser TO opgaver paa én gang, og stoppene er sat efter dem:
+     · 0–48 %  staar teksten. Her er sloeret naesten uigennemsigtigt, saa
+       overskriften kan laeses over ethvert motiv — og det er samtidig
+       dér, koeleskabet ligger paa en bred skaerm.
+     · 48–70 % staar sofaen. Her falder sloeret hurtigt, ellers viser
+       kortet et motiv, ingen kan se.
+     · 70–100 % ligger roegroerret og reolen. Et tyndt slag paa .16
+       daemper den moerke soejle uden at vaske reol og vindue ud. */
   content: ''; position: absolute; inset: 0; z-index: -1;
+  /* Stoppet paa 72 % er ikke en glidning — det er en LOKAL daempning
+     oven paa roegroerret, som ligger paa 70–75 % af motivet og er dets
+     eneste moerke element (luminans 89 mod 160 omkring det). Uden det
+     stod en sort lodret soejle som sidens kraftigste kontrast, hoejre
+     for teksten. Med .46 dér loeftes roerret til 164 mod 202 omkring
+     det: stadig synligt som en del af rummet, ikke laengere det, oejet
+     lander paa. Reol og vindue yderst til hoejre bliver lyse igen paa
+     .18, saa daempningen ikke bliver til en dis over hele hoejre side. */
   background: linear-gradient(96deg,
-    rgba(251,250,247,.97) 0%, rgba(251,250,247,.93) 30%,
-    rgba(251,250,247,.55) 52%, rgba(251,250,247,.06) 74%);
+    rgba(251,250,247,.97) 0%, rgba(251,250,247,.94) 34%,
+    rgba(251,250,247,.62) 48%, rgba(251,250,247,.30) 60%,
+    rgba(251,250,247,.46) 72%, rgba(251,250,247,.22) 86%,
+    rgba(251,250,247,.18) 100%);
 }
 @media (max-width: 900px) {
   /* Paa en smal skaerm er der ingen «venstre side» at laegge teksten i.
      Sloeret daekker hele fladen, ellers laeses overskriften ikke. */
   .hero.har-foto::after {
+    /* Var .95/.88/.97 og vaskede motivet naesten helt vaek: paa en
+       telefon saa hero'en ud som en tom cremefarvet flade.
+
+       GULVET ER .52, OG DET TAL ER REGNET, IKKE VALGT. Sloeret er
+       rgb(251,250,247); over et HELT SORT motiv bliver fladen 251·a.
+       Overskriften er #14161a. For at naa 4,5:1 skal fladen mindst
+       vaere 129 — altsaa a ≥ .52. Hver stop herunder ligger over det,
+       saa overskriften holder kravet uanset hvilket foto der saettes
+       ind, ogsaa et moerkt via `NEXT_PUBLIC_HERO_FOTO`. Maalt paa det
+       faktiske foto giver det 13–16:1, og saa kan motivet ses. */
     background: linear-gradient(180deg,
-      rgba(251,250,247,.95) 0%, rgba(251,250,247,.88) 55%, rgba(251,250,247,.97) 100%);
+      rgba(251,250,247,.74) 0%, rgba(251,250,247,.72) 38%,
+      rgba(251,250,247,.60) 66%, rgba(251,250,247,.70) 100%);
   }
 }
 /* Indholdet holder sig paa rammens midterspalte, selv om baandet naar

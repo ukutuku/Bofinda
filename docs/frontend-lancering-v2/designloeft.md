@@ -212,70 +212,92 @@ Et link, der lover at føre tilbage og i stedet nulstiller søgningen, er
 samme slags usandhed som en total, der lader som om aconto er kendt:
 den opdages først, når nogen har brugt den.
 
-### 3 · Hero-fotoet — stadig udestående
+### 3 · Hero-fotoet — løst siden
 
-Se afsnittet nedenfor. Fotoet kunne **ikke** skaffes i dette miljø.
+Fotoet kunne ikke skaffes, da rettelserne blev lavet: fem oplagte værter
+svarede `CONNECT tunnel failed, response 403` fra miljøets netværks-
+politik. Det blev derefter sendt som ZIP og ligger nu i repoet. Se
+«Hero-fotoet — på plads» nedenfor.
 
 ---
 
-## Det manglende billedaktiv
+## Hero-fotoet — på plads
 
-**Der findes ikke et lyst interiørfoto til hero'en.** Referencens hero er
-et lyst, møbleret opholdsrum. Det eneste fotografi, der er tilgængeligt i
-dette miljø, er `dk-vesterhavet-sommerhus.jpg` — et **udendørs** motiv af
-et sommerhus i gråt lys. Det er brugt i skærmbillederne herunder, og det
-er mærket på siden med linjen *«Stockfoto til layouttest — ikke en
-virkelig boligannonce.»*
+**Løst 13. september 2026.** Fotoet lå ikke i miljøet, da designløftet
+blev lavet; det blev sendt som ZIP og ligger nu i repoet.
 
-Layoutet omkring det er færdigt; **fladen er det ikke.** Det konkrete,
-manglende aktiv er:
+| | |
+|---|---|
+| Fil | `public/hero-stue.jpg` |
+| Motiv | Skandinavisk indrettet opholdsrum |
+| Fotograf | Taryn Elliott |
+| Kilde | https://www.pexels.com/photo/scandinavian-interior-of-a-living-room-9565782/ |
+| Licens | https://www.pexels.com/license/ |
+| Format | 2048 × 1365 px · 636.485 bytes · JPEG, sRGB |
+| SHA256 | `a2b2795193c96f2508593dc1dca77f62ea986a10dd2600cef331e64e245d5b5f` |
 
-> Ét liggende fotografi af et **lyst, møbleret dansk opholdsrum**, mindst
-> 2400 px bredt, med dokumenteret licens og ophavsmand, og med plads i
-> venstre halvdel til overskrift og manchet.
+**Bytes er uændrede fra kilden.** Ingen omkodning, ingen skalering, ingen
+retouchering, ingen AI-redigering. SHA256 er efterprøvet mod den værdi,
+pakken selv oplyste, og igen efter kopieringen til `public/`. Rettigheder
+og licensvilkår står i `docs/kildetilladelser.md`.
 
-### Forsøgt skaffet — miljøet tillader det ikke
+### Fotoet følger koden — ingen miljøvariabel kræves
 
-Gennemgangen bad om at finde et lyst interiørfoto med dokumenteret
-brugsret. **Det kan ikke lade sig gøre herfra.** Ét opslag mod fem
-oplagte værter — Wikimedia Commons og `upload.wikimedia.org` (CC/CC0 med
-navngiven ophavsmand), Unsplash, Pexels og Openverse — svarede alle:
+`HERO_STANDARD` i `app/page.tsx` peger på `/hero-stue.jpg`, og filen
+ligger i `public/`. Forsiden virker derfor uden opsætning — hverken
+lokalt eller på Vercel.
 
-    curl: (56) CONNECT tunnel failed, response 403
+`NEXT_PUBLIC_HERO_FOTO` kan stadig overstyre motivet, og så følger
+`NEXT_PUBLIC_HERO_FOTO_KREDIT` med. **De to beregnes ét sted**, i samme
+objekt: var de to selvstændige udtryk, kunne en miljøvariabel skifte
+motivet, mens krediteringen blev stående — og så ville siden tilskrive en
+fotograf et billede, hun ikke har taget.
 
-Det er miljøets egen netværkspolitik, ikke en fejl hos værterne. Der er
-**ikke** forsøgt igen og ikke forsøgt uden om: hverken proxy, anden rute
-eller genereret erstatning. Et genereret billede ville i øvrigt ikke
-løse opgaven — det har ingen ophavsmand at kreditere, og siden ville
-påstå et hjem, der ikke findes.
+### Krediteringen
 
-### To veje ind, når fotoet foreligger
+Der står **«Stemningsfoto: Taryn Elliott / Pexels»** øverst til højre på
+hero'en. Pexels-licensen kræver det ikke; vi gør det alligevel, af samme
+grund som kortflisernes kreditering står på kortet.
 
-**A · Statisk i repoet** (det gennemgangen foreslår, så billedet følger
-koden). Læg filen i en ny `public/`-mappe — projektet har ikke en i dag —
-og sæt `NEXT_PUBLIC_HERO_FOTO=/hero-stue.jpg`. Kreditering og licens
-skrives ind i `NEXT_PUBLIC_HERO_FOTO_KREDIT` og i
-`docs/kildetilladelser.md`, som allerede er stedet, hvor rettigheder
-noteres pr. kilde.
+Ordet *stemningsfoto* er ikke pynt. Billedet er ikke en bolig, vi har til
+leje, og en forside, der viser en stue uden at sige hvad den er, lader
+læseren tro, at det er en annonce.
 
-**B · Ekstern vært.** Samme to variabler, blot med en fuld URL. Vær
-opmærksom på, at værten IKKE skal i `TILLADTE_VAERTER` i
-`lib/billede.ts`: hero'en går uden om billedproxyen, fordi den ikke er
-et boligbillede fra en kilde.
+### Beskæringen — målt, ikke skønnet
 
-Ingen kodeændring er nødvendig for nogen af de to veje. Der er bevidst
-**ikke** bygget maskineri til en fil, der ikke findes: en
-eksistenskontrol mod en tom `public/`-mappe ville være plumbing uden et
-aktiv, og en hardkodet sti til en manglende fil ville give et 404 i
-hero'en.
+Middelluminans pr. lodret stribe i motivet:
 
-Fotoet er ikke lagt i repoet i dag. Det peges på med
-`NEXT_PUBLIC_HERO_FOTO`, og krediteringen med
-`NEXT_PUBLIC_HERO_FOTO_KREDIT` — samme mønster som kortflisernes
-`NEXT_PUBLIC_FLISE_URL`/`_KREDIT`. Er variablen ikke sat, står hero'en
-med brandets gradient; layoutet er det samme, kun fladen skifter.
-**Variablerne er valgfri og er ikke sat noget sted uden for
-testmiljøet.**
+| Del af motivet | Luminans | Hvad det er |
+|---|---|---|
+| 0–10 % | 52–69 | døråbning, køleskab, stolpe — motivets mørkeste |
+| 15–70 % | 142–171 | væggen og sofaen — **det, kortet skal vise** |
+| 70–75 % | 89 | røgrøret, en mørk lodret søjle |
+| 75–100 % | 152–174 | reol og vindue |
+
+`object-fit: cover` bevarer forholdet — der strækkes aldrig.
+
+- **Smal skærm** (390, 768 px): båndet er højere end bredt, så der
+  beskæres **vandret**. `object-position: 52%` lader vinduet falde på
+  36–68 % af motivet: sofaen alene, uden køleskab og uden røgrør.
+- **Bred skærm** (1440, 1920 px): båndet er bredere end motivets 3:2, så
+  der beskæres **lodret**, og hele bredden er synlig. Dér er det sløret,
+  der dæmper de to mørke partier.
+- **52 % lodret** løfter vinduet en anelse over midten, så sofaen
+  (50–75 % af højden) lander i båndets nederste halvdel, og teksten står
+  over væggen — motivets lyseste flade.
+
+Sløret gør to ting på én gang, og stoppene er sat efter dem:
+
+| Del af båndet | Slør | Hvorfor |
+|---|---|---|
+| 0–48 % | .97 → .62 | teksten står her — og køleskabet ligger her på en bred skærm |
+| 48–64 % | .62 → .30 | sofaen; sløret falder hurtigt, ellers vises et motiv, ingen kan se |
+| 70–75 % | .46 | **lokal dæmpning af røgrøret**: 89 → 164 mod 202 omkring det |
+| 86–100 % | .22 → .18 | reol og vindue lyse igen, så dæmpningen ikke bliver en dis |
+
+På mobil er sløret lodret. Det var før .95/.88/.97 og vaskede motivet
+næsten helt væk — hero'en så ud som en tom cremefarvet flade. Nu
+.74/.72/.60/.70, og stuen kan faktisk ses.
 
 ---
 
@@ -299,8 +321,8 @@ Ud over det manglende hero-foto og de udeladte produktpåstande ovenfor:
    øvrige paneler (AI-assistent, udlejerprofil med anmeldelser) er
    funktioner, der ikke findes. Panelet klæber, så spalten ikke står tom
    under rulning.
-5. **Udlejerbåndet har ingen bygningsfoto i højre side.** Samme grund som
-   hero'en: aktivet findes ikke.
+5. **Udlejerbåndet har ingen bygningsfoto i højre side.** Der findes
+   ikke et aktiv til det. Hero'en har fået sit; båndet mangler stadig.
 6. **Infokortene har kun «Læs mere →», hvor der er noget at gå til.**
    Referencen har linket på alle fire.
 7. **Boligkortene har ingen rund pileknap nede i fotoets hjørne.** Hele
@@ -325,6 +347,7 @@ Alle kørt mod det isolerede testmiljø efter den sidste ændring.
 | `scripts/cloud/kontrol.sh` | ALT GRØNT — kort, billeder dekodet, gruppekort, samtykke og analytics |
 | `scripts/cloud/kontrol-pagination.sh` | ALT GRØNT — sideudsnit, canonical, tomt udsnit ≠ nulresultat |
 | `scripts/cloud/lancering.mjs` | alt grønt · 88 kontroller — 1440, 768 og 390 px, fokus, kontrast, lang adresse, kort uden foto, søgeknappens højde |
+| `scripts/cloud/hero.sh` | alt grønt · 32 kontroller — 390, 768, 1440 og 1920 px, se nedenfor |
 
 `scripts/cloud/lancering.mjs` er rettet to steder og udvidet ét, fordi
 designet flyttede det, den målte:
@@ -350,12 +373,44 @@ Rammegeometrien er efterprøvet igen efter rettelserne og er uændret —
 symmetriske gutters og 0 px vandret overløb på 1440, 1280, 1100, 768,
 390 og 360 px.
 
+### Hero-kontrollen
+
+`scripts/cloud/herokontrol.mjs` er ny og kører **uden**
+hero-miljøvariabler — er en af dem sat i processen, stopper den. Otte
+kontroller pr. bredde på 390, 768, 1440 og 1920 px: at standardfotoet
+bruges, at billedet er **dekodet** (ikke bare har en `src`), at
+proportionerne bevares, at krediteringen står der, at søgeknappen holder
+48 px, at der ikke er vandret overløb, og to målinger af overskriftens
+læsbarhed.
+
+Læsbarheden måles i overskriftens egen kasse, to gange:
+
+| Bredde | Med det faktiske foto | Over et **helt sort** motiv |
+|---|---|---|
+| 390 px | 9,8:1 (middel 14,5) | 8,9:1 |
+| 768 px | 9,3:1 (middel 14,1) | 8,8:1 |
+| 1440 px | 12,1:1 (middel 16,0) | 5,2:1 |
+| 1920 px | 13,1:1 (middel 16,0) | 5,3:1 |
+
+Kravet er 4,5:1. **Den anden kolonne er den vigtige:** den første kan
+være grøn, fordi netop dette foto er lyst; den anden er grøn, fordi
+sløret er rigtigt — også hvis nogen sætter et mørkt foto ind med
+`NEXT_PUBLIC_HERO_FOTO`.
+
+*Første udgave af den kontrol målte forkert.* Den læste den laveste alfa
+i hele gradienten og regnede på den. På en bred skærm er gradienten
+vandret, og dens laveste stop (.18) ligger yderst til højre — flere
+hundrede pixels fra overskriften, som står i venstre side over .62–.97.
+Kontrollen meldte rødt om en flade, teksten aldrig rammer. Nu gengives
+siden med billedet erstattet af sort, og fladen læses dér, hvor teksten
+faktisk er; slørets form er ligegyldig.
+
 **Fotoafprøvning er noget andet end layoutafprøvning.** Alt ovenfor er
 målt på **syntetiske** data: 264 prøveboliger, stribede testaktiver i
 stedet for boligfotos, lokale kortfliser. Den eneste flade med et
-rigtigt fotografi er hero'en, og det er et stockfoto af et udendørs
-motiv, mærket som sådan på siden. Den egentlige fotokontrol — beskæring,
-billedforhold, liggende motiv i kort, galleri og lysbord — er
+rigtigt fotografi er hero'en, og den er mærket «Stemningsfoto» på siden,
+netop fordi motivet ikke er en bolig, vi har til leje. Den egentlige fotokontrol af KORT,
+galleri og lysbord — beskæring, billedforhold, liggende motiv — er
 dokumenteret særskilt i `fotokontrol.md` og blev kørt mod kandidat
 `fa522eb` (13. september, resultatet skrevet ned i `9a06f68`). Den er
 **ikke** gentaget i denne omgang: rettelserne rører hverken
@@ -376,10 +431,12 @@ skærmbillede.
 | `boligdetalje-ukendt-udgift-{desktop,mobil}.png` | ukendt total |
 | `boligdetalje-uden-foto-{desktop,mobil}.png` | ingen billeder |
 | `gruppeside-{desktop,mellem,tablet,mobil}.png` | gruppeannonce |
+| `forside-bred{,-hele}.png` | 1920 px — hero-kontrollens fjerde bredde |
 
 Alle er taget af **produktionsbygget**, ikke af `next dev`, og samtykket
 er afvist med den rigtige knap — aldrig skjult med CSS.
 
 **Dataene er syntetiske.** De stribede flader på kortene er testaktiver,
-ikke boligfotos. Kun hero'en bruger et rigtigt fotografi, og det er
-mærket som stockfoto på siden.
+ikke boligfotos. Kun hero'en bruger et rigtigt fotografi —
+`public/hero-stue.jpg`, Taryn Elliott / Pexels — og det er mærket
+«Stemningsfoto» på siden.
