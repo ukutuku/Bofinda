@@ -217,6 +217,7 @@ export default async function Side({ params, searchParams }: {
           {visninger.map((v) => (
             <Visningskort
               nu={nu}
+              filtre={filterFor(o.slags, o.vaerdi)}
               key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
               v={v}
             />

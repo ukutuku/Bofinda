@@ -4,7 +4,7 @@
 //  igennem begge steder.
 // ═══════════════════════════════════════════════════════════════
 
-import type { Bolig, Gruppe, Visning } from '../lib/soeg'
+import type { Bolig, Filtre, Gruppe, Visning } from '../lib/soeg'
 import { availabilityFor, gruppeUrl } from '../lib/soeg'
 import type { Availability, Gruppesammenfatning } from '../lib/availability'
 import { billedUrl } from '../lib/billede'
@@ -349,7 +349,7 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
 //  Er aconto-posterne ikke ens, står de slet ikke.
 // ═══════════════════════════════════════════════════════════════
 
-export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?: number }) {
+export function Gruppekort({ g, nu, position, filtre }: { g: Gruppe; nu: Date; position?: number; filtre?: Filtre }) {
   const { noegle: n, repraesentant: r } = g
   const nyligt = nu.getTime() - g.nyesteMarkedet.getTime() < 1000 * 60 * 60 * 24 * 3
 
@@ -401,7 +401,7 @@ export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?
   return (
     <a
       className={`kort gruppekort${forside ? '' : ' uden-billede'}`}
-      href={gruppeUrl(r.id)}
+      href={gruppeUrl(r.id, filtre)}
       id={`kort-${r.id}`}
       data-bolig={r.id}
       data-kilde={r.kilde}
@@ -592,8 +592,8 @@ function Ellinje({ tilstand }: { tilstand: Eltilstand | null }) {
  * lib/soeg — og saa spoergsmaalet «bliver position 40 nogensinde set?»
  * kan besvares. Uden den er en impression bare et tal uden sted.
  */
-export function Visningskort({ v, nu, position }: { v: Visning; nu: Date; position?: number }) {
+export function Visningskort({ v, nu, position, filtre }: { v: Visning; nu: Date; position?: number; filtre?: Filtre }) {
   return v.slags === 'gruppe'
-    ? <Gruppekort g={v.gruppe} nu={nu} position={position} />
+    ? <Gruppekort g={v.gruppe} nu={nu} position={position} filtre={filtre} />
     : <Kort b={v.bolig} nu={nu} position={position} />
 }

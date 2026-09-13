@@ -971,6 +971,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             {visninger.map((v, i) => (
               <Visningskort
                 nu={nu}
+                filtre={f}
                 key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
                 v={v}
                 // Global plads i HELE resultatsaettet, ikke paa siden.

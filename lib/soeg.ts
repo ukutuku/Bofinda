@@ -1032,19 +1032,35 @@ export async function soegGrupperet(
 export const antalBoliger = (v: Visning[]) =>
   v.reduce((n, x) => n + (x.slags === 'gruppe' ? x.gruppe.antal : 1), 0)
 
-/** Nøglen som URL. Hele nøglen med, så siden kan slå gruppen op igen. */
 /**
- * Linket til gruppens egen side.
+ * Linket til gruppens egen side med det samme SQL-filtrerede udsnit som kortet.
  *
- * Adressen baerer ÉN ting: repraesentantens bolig-id. Siden slaar den op og
- * udleder noeglen derfra.
+ * Kun offentlige søgefelter følger med. Sortering og sidetal ændrer ikke
+ * medlemskabet. Domænefiltre (indflytning, venteliste, reserveret) udvælger
+ * grupper med mindst ét match; kortets «Se alle» omfatter fortsat de øvrige
+ * medlemmer, som opfylder SQL-filtrene.
  *
  * Foer stod hele noeglen i adressen. Da ejeren kom med i noeglen, ville det
  * have lagt en udlejers KONTO-id i en delbar URL. Bolig-id'et er derimod
  * allerede offentligt — det staar i /bolig/{id} paa hvert eneste kort.
  */
-export const gruppeUrl = (repraesentantId: string): string =>
-  `/gruppe?b=${encodeURIComponent(repraesentantId)}`
+export function gruppeUrl(repraesentantId: string, f: Filtre = {}): string {
+  const p = new URLSearchParams({ b: repraesentantId })
+  if (f.by) p.set('by', f.by)
+  if (f.postnr) p.set('postnr', f.postnr)
+  // Filtre bruger øre; søgeparametrene bruger hele kroner.
+  if (f.prisMin != null) p.set('prisMin', String(f.prisMin / 100))
+  if (f.prisMax != null) p.set('prisMax', String(f.prisMax / 100))
+  if (f.vaerelserMin != null) p.set('vaerelser', String(f.vaerelserMin))
+  if (f.arealMin != null) p.set('areal', String(f.arealMin))
+  for (const kilde of f.kilder ?? []) p.append('kilde', kilde)
+  for (const type of f.boligtyper ?? []) p.append('type', type)
+  if (f.fuldOekonomi) p.set('fuld', '1')
+  if (f.kaeledyr) p.set('kaeledyr', '1')
+  if (f.elevator) p.set('elevator', '1')
+  if (f.udeplads) p.set('udeplads', '1')
+  return `/gruppe?${p}`
+}
 
 /**
  * Nøgle ud af de GAMLE URL-parametre. Er én del væk eller ugyldig, er der
@@ -1097,11 +1113,11 @@ export async function gruppenoegleFraBolig(id: string): Promise<Gruppenoegle | n
 /**
  * De enkelte boliger i én gruppe.
  *
- * Samme grundbetingelser som listen — kun aktive, kun med adressematch.
- * Brugerens øvrige filtre er med vilje IKKE med: gruppen er defineret af
- * nøglen alene, så linket peger på det samme uanset hvem der åbner det.
+ * Når søgefiltre følger med, bruges listens eget prædikat inkl. dedup på
+ * hele det filtrerede sæt. Ellers kunne skjulte dubletter komme tilbage
+ * efter klik. Gamle nøglelinks uden søgekontekst beholder deres opslag.
  */
-export async function hentGruppe(n: Gruppenoegle) {
+export async function hentGruppe(n: Gruppenoegle, f?: Filtre) {
   return db
     .select(KORTFELTER)
     .from(listings)
@@ -1109,6 +1125,7 @@ export async function hentGruppe(n: Gruppenoegle) {
     .where(and(
       eq(listings.status, 'active'),
       ne(listings.addressMatchLevel, 'failed'),
+      f ? hvorVist(f) : undefined,
       eq(sources.slug, n.kilde),
       eq(listings.postalCode, n.postnr),
       eq(listings.street, n.vej),

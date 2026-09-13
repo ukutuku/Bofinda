@@ -1,6 +1,6 @@
 import { Kort, kr } from '../Boligkort'
 import {
-  gruppenoegleFra, gruppenoegleFraBolig, hentGruppe, type Soegeparametre,
+  filtreFraParametre, gruppenoegleFra, gruppenoegleFraBolig, hentGruppe, type Soegeparametre,
 } from '../../lib/soeg'
 import { spor } from '../../lib/maaling-server'
 
@@ -9,10 +9,10 @@ export const dynamic = 'force-dynamic'
 // ═══════════════════════════════════════════════════════════════
 //  De enkelte boliger bag ét gruppekort.
 //
-//  Adressen bærer ét felt: `?b=<repræsentantens bolig-id>`. Nøglen udledes
+//  Adressen bærer `?b=<repræsentantens bolig-id>` og listens søgefiltre. Nøglen udledes
 //  af den bolig — kilde, postnummer, vej, værelser, om totalen er kendt, og
-//  for udlejerannoncer ejeren. Ikke brugerens øvrige filtre, så linket peger
-//  på det samme, uanset hvem der åbner det.
+//  for udlejerannoncer ejeren. Filtrene bevarer kortets udsnit efter klik,
+//  så «Se de 2 adresser» ikke åbner fire boliger over brugerens makspris.
 //
 //  Hvorfor ikke nøglen i adressen, som før: da ejeren kom med i nøglen,
 //  ville det have lagt en udlejers konto-id i en delbar URL. Bolig-id'et er
@@ -41,7 +41,9 @@ export default async function Side(
   const b = Array.isArray(sp.b) ? sp.b[0] : sp.b
   const n = b ? await gruppenoegleFraBolig(b.trim()) : gruppenoegleFra(sp)
   const nu = new Date()
-  const boliger = n ? await hentGruppe(n) : []
+  // Gamle nøglelinks bruger også postnr/værelser, men til selve nøglen.
+  // Kun id-linkene læser derfor parametrene som søgefiltre.
+  const boliger = n ? await hentGruppe(n, b ? filtreFraParametre(sp) : undefined) : []
 
   if (!n || boliger.length === 0) {
     return (

@@ -29,6 +29,7 @@ import { eq, inArray } from 'drizzle-orm'
 import { db } from '../db/client'
 import { crawlRuns, listings, sources } from '../db/schema'
 import { Gruppekort } from '../app/Boligkort'
+import Gruppeside from '../app/gruppe/page'
 import {
   _saetGruppeloft, antalBoliger, availabilityFor, filtreFraParametre,
   gruppenoegleFraBolig, harFiltre, hentGruppe, matcherDomaene,
@@ -1012,6 +1013,68 @@ async function koer() {
         const f2 = filtreFraParametre(tilbage(soegeUrlSorteret('/', alt, 'areal_ned')))
         return antalAvancerede(f2) === antalAvancerede(fAlt)
       })())
+  }
+
+  // ═══ 15 · Følg det rigtige kortlink efter en filtreret søgning ═══
+  console.log('\n══ 15 · gruppekortets adresser følger søgningen ══')
+  await saa([5800, 7600, 9400, 11200].map((pris, i) => ({
+    navn: `klik-${i}`, vej: 'Klikvej', husnr: String(i + 1), postnr: '6400',
+    by: 'Fiktivby', vaerelser: 3, areal: 50 + i * 15,
+    leje: (pris - 700) * 100, total: pris * 100,
+    fakta: { sourceAvailabilityDate: i === 1 ? FORTID : FREMTID }, alder: 700 + i,
+  })))
+  const klikFroe = saaede.filter((s) => s.navn.startsWith('klik-'))
+  for (const [i, f] of klikFroe.entries()) {
+    await db.update(listings).set({
+      propertyType: i === 0 ? 'hus' : i === 1 ? 'raekkehus' : 'lejlighed',
+      amenities: i < 2 ? ['kæledyr tilladt', 'elevator', 'altan'] : [],
+      totalMonthlyComponents: i < 2 ? ['rent', 'heat', 'water'] : ['rent'],
+    }).where(eq(listings.id, f.id))
+  }
+  // En dublet af samme enhedsadresse må ikke genopstå på gruppesiden.
+  const original = (await db.select().from(listings).where(eq(listings.id, klikFroe[0]!.id)))[0]!
+  const dubletId = 'ffffffff-ffff-4fff-bfff-ffffffffffff'
+  await db.insert(listings).values({ ...original, id: dubletId, externalKey: `${SLUG}-klik-dublet` })
+  saaede.push({ ...klikFroe[0]!, navn: 'klik-dublet', id: dubletId })
+  for (const { navn, sp, adresser } of [
+    { navn: 'makspris', sp: { sted: 'Fiktivby', prisMax: '8000' }, adresser: [1, 2] },
+    { navn: 'begge prisgrænser', sp: { postnr: '6400', prisMin: '7000', prisMax: '10000' }, adresser: [2, 3] },
+    { navn: 'areal', sp: { by: 'Fiktivby', areal: '70' }, adresser: [3, 4] },
+    { navn: 'pris og indflytning', sp: { sted: 'Fiktivby', prisMax: '8000', overtagelse: 'nu' }, adresser: [1, 2] },
+    { navn: 'typer, kilder og faciliteter', sp: {
+      by: 'Fiktivby', vaerelser: '3', type: ['hus', 'raekkehus'],
+      kilde: ['ingen sådan kilde & test', SLUG], fuld: '1', kaeledyr: '1', elevator: '1', udeplads: '1',
+    }, adresser: [1, 2] },
+    { navn: 'uden prisfilter', sp: { by: 'Fiktivby' }, adresser: [1, 2, 3, 4] },
+  ] satisfies { navn: string; sp: Soegeparametre; adresser: number[] }[]) {
+    const f = filtreFraParametre(sp)
+    const resultat = await soegGrupperet(f, 48, nu)
+    const v = resultat.visninger[0]
+    tjek(`15 · ${navn}: kortets antal`, v?.slags === 'gruppe' && v.gruppe.antal === adresser.length)
+    if (v?.slags !== 'gruppe') continue
+    const kort = renderToStaticMarkup(createElement(Gruppekort, { g: v.gruppe, nu, filtre: f }))
+    // Følg komponentens faktiske href helt ind i sidens serverfunktion.
+    const href = kort.match(/href="(\/gruppe\?[^"]+)"/)?.[1]?.replace(/&amp;/g, '&')
+    tjek(`15 · ${navn}: kortet har et gruppelink`, Boolean(href))
+    if (!href) continue
+    const parametre = new URL(href, 'https://proeve.invalid').searchParams
+    if (sp.type) {
+      tjek('15 · flere valgte typer og kilder overlever det delbare link',
+        parametre.getAll('type').join(',') === 'hus,raekkehus'
+        && parametre.getAll('kilde').join(',') === `ingen sådan kilde & test,${SLUG}`)
+    }
+    const klik: Soegeparametre = {}
+    for (const key of new Set(parametre.keys())) klik[key] = parametre.getAll(key)
+    const side = renderToStaticMarkup(await Gruppeside({ searchParams: Promise.resolve(klik) }))
+    const visteId = [...side.matchAll(/data-bolig="([^"]+)"/g)].map((m) => m[1])
+    const forventedeId = adresser.map((nr) => saaede.find((s) => s.navn === `klik-${nr - 1}`)!.id)
+    tjek(`15 · ${navn}: gruppesiden viser præcis kortets adresser`,
+      visteId.length === forventedeId.length && forventedeId.every((id) => visteId.includes(id)),
+      `${visteId.length} adresser, forventet ${forventedeId.length}`)
+    if (sp.overtagelse) {
+      tjek('15 · blandet indflytning beholder forklaringen og begge adresser',
+        kort.includes('Se alle 2 adresser') && v.gruppe.matchende === 1 && visteId.length === 2)
+    }
   }
 
   // ─── Oprydning ───────────────────────────────────────────────
