@@ -198,6 +198,21 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
   // manglende allowlist-post fejler ikke, den oedelaegger layoutet.
   const forside = b.forside && billedUrl(b.forside, 400)
 
+  // Status-maerkaterne. ÉT udtryk, to placeringer: paa fotoet naar der er
+  // et, oeverst i kroppen naar der ikke er. Skrevet to steder ville de
+  // foer eller siden vise hver sit.
+  const maerkater = (
+    <>
+      {nyligt && <span className="maerkat m-ny">ny {siden(paaMarkedet)}</span>}
+      {avail.ansoegning.status === 'venteliste'
+        && <span className="maerkat m-vent">venteliste</span>}
+      {avail.marked.status === 'reserveret'
+        && <span className="maerkat m-vent">reserveret</span>}
+      {avail.adgang.krav.includes('bopaelskrav')
+        && <span className="maerkat m-kilde">bopælspligt</span>}
+    </>
+  )
+
   return (
     <a
       className={`kort${forside ? '' : ' uden-billede'}`}
@@ -217,6 +232,11 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
           <div className="kort-billede">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={forside} alt="" loading="lazy" />
+            {/* Maerkaterne ligger PAA fotoet som i referencen. Uden et
+                foto er der ingen flade at ligge paa, og saa staar de
+                oeverst i kroppen i stedet — samme udtryk, ét sted i
+                koden. */}
+            <div className="kort-maerkater">{maerkater}</div>
             {b.billeder > 1 && <span className="kort-antal">{b.billeder} billeder</span>}
           </div>
           {b.billedforbehold && <Billedforbehold />}
@@ -224,39 +244,17 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
       )}
 
       <div className="kort-krop">
-        <div className="raek1">
-          <div>
-            <div className="adresse">{vist}</div>
-            <div className="sted">
-              {b.postnr} {b.by}
-              {b.match === 'access' && ' · uden etage/dør'}
-              {b.billeder === 0 && ' · ingen billeder'}
-            </div>
-            {parsningTabteNoget && (
-              <div className="afvig">kilden skriver: {raaUdenSted}</div>
-            )}
+        {!forside && <div className="kort-maerkater i-krop">{maerkater}</div>}
+        <div className="kort-titel">
+          <div className="adresse">{vist}</div>
+          <div className="sted">
+            {b.postnr} {b.by}
+            {b.match === 'access' && ' · uden etage/dør'}
+            {b.billeder === 0 && ' · ingen billeder'}
           </div>
-          <div className="hoejre">
-            {avail.ansoegning.status === 'venteliste'
-              && <span className="maerkat m-vent">venteliste</span>}
-            {avail.marked.status === 'reserveret'
-              && <span className="maerkat m-vent">reserveret</span>}
-            {avail.adgang.krav.includes('bopaelskrav')
-              && <span className="maerkat m-kilde">bopælspligt</span>}
-            {nyligt && <span className="maerkat m-ny">ny {siden(paaMarkedet)}</span>}
-            {/* Boligen vises én gang, selv om flere kilder annoncerer den.
-                Så skal kortet også sige, hvem der har den — ikke lade som
-                om den kun findes ét sted. */}
-            <Kilder navn={b.kildeNavn} ogsaa={b.ogsaaHos} />
-          </div>
-        </div>
-
-        {/* Chips frem for én graa linje med prikker imellem. Samme
-            oplysninger, samme raekkefoelge, samme kilder — men areal,
-            vaerelser, type og overtagelse kan nu aflaeses hver for sig
-            paa et blik. Separatoren er vaek, fordi kanten goer arbejdet. */}
-        <div className="fakta">
-          {fakta.map((f, i) => <span className="fakta-chip" key={i}>{f}</span>)}
+          {parsningTabteNoget && (
+            <div className="afvig">kilden skriver: {raaUdenSted}</div>
+          )}
         </div>
 
         {/* Det store tal er alt, hvad der betales TIL UDLEJEREN — husleje
@@ -315,6 +313,25 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
             <div className="poster">{['husleje', ...aconto].join(' + ')}</div>
           )}
         </div>
+
+        {/* Chips frem for én graa linje med prikker imellem. Samme
+            oplysninger, samme raekkefoelge, samme kilder — men areal,
+            vaerelser, type og overtagelse kan nu aflaeses hver for sig
+            paa et blik. Separatoren er vaek, fordi kanten goer arbejdet.
+
+            Staar UNDER beloebet som i referencen: adressen, prisen og
+            saa noegletallene. Prisen er det, kortet handler om, og den
+            skal ikke ligge bag tre etiketter. */}
+        <div className="fakta">
+          {fakta.map((f, i) => <span className="fakta-chip" key={i}>{f}</span>)}
+        </div>
+
+        {/* Kortets fod, som referencens «Fra BoligPortal». Boligen vises
+            én gang, selv om flere kilder annoncerer den — saa skal kortet
+            ogsaa sige, hvem der har den. */}
+        <div className="kort-fod">
+          <Kilder navn={b.kildeNavn} ogsaa={b.ogsaaHos} />
+        </div>
       </div>
     </a>
   )
@@ -370,6 +387,17 @@ export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?
   const SPREDT = 1.25
   const spredt = g.prisMax > g.prisMin * SPREDT
 
+  // Samme greb som paa enkeltkortet: ét udtryk, to placeringer.
+  // «ny bolig», ikke «ny» — det er én i gruppen, der er kommet til.
+  const maerkater = (
+    <>
+      {nyligt && <span className="maerkat m-ny">ny bolig {siden(g.nyesteMarkedet)}</span>}
+      {alleVenteliste && <span className="maerkat m-vent">venteliste</span>}
+      {alleReserveret && <span className="maerkat m-vent">reserveret</span>}
+      {alleBopael && <span className="maerkat m-kilde">bopælspligt</span>}
+    </>
+  )
+
   return (
     <a
       className={`kort gruppekort${forside ? '' : ' uden-billede'}`}
@@ -389,6 +417,7 @@ export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?
           <div className="kort-billede">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={forside} alt="" loading="lazy" />
+            <div className="kort-maerkater">{maerkater}</div>
             <span className="kort-antal">{g.antal} boliger</span>
           </div>
           {/* Repraesentantens forbehold: det er HANS billede, kortet viser. */}
@@ -397,33 +426,14 @@ export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?
       )}
 
       <div className="kort-krop">
-        <div className="raek1">
-          <div>
-            <div className="adresse">{n.vej}</div>
-            <div className="sted">
-              {n.postnr} {r.by} · {g.antal} {typeord(g.type, true)}
-            </div>
-          </div>
-          <div className="hoejre">
-            {/* "ny bolig", ikke "ny": det er én i gruppen, der er kommet
-                til — ikke dem alle. */}
-            {nyligt && <span className="maerkat m-ny">ny bolig {siden(g.nyesteMarkedet)}</span>}
-            {alleVenteliste && <span className="maerkat m-vent">venteliste</span>}
-            {alleReserveret && <span className="maerkat m-vent">reserveret</span>}
-            {alleBopael && <span className="maerkat m-kilde">bopælspligt</span>}
-            {/* Kun naar det gaelder hele gruppen — ellers ville
-                repraesentanten tale for de andre. */}
-            <Kilder navn={r.kildeNavn} ogsaa={g.alleOgsaaAndetsteds ? r.ogsaaHos : []} />
+        {!forside && <div className="kort-maerkater i-krop">{maerkater}</div>}
+        <div className="kort-titel">
+          <div className="adresse">{n.vej}</div>
+          <div className="sted">
+            {n.postnr} {r.by} · {g.antal} {typeord(g.type, true)}
           </div>
         </div>
 
-        {/* Chips frem for én graa linje med prikker imellem. Samme
-            oplysninger, samme raekkefoelge, samme kilder — men areal,
-            vaerelser, type og overtagelse kan nu aflaeses hver for sig
-            paa et blik. Separatoren er vaek, fordi kanten goer arbejdet. */}
-        <div className="fakta">
-          {fakta.map((f, i) => <span className="fakta-chip" key={i}>{f}</span>)}
-        </div>
         {/* Blandet ansøgningsform/markedsstatus vises som TAL — kortet må
             ikke lade en delmængdes status tale for hele gruppen, og
             unknown forsvinder aldrig ud af en blandet linje. */}
@@ -506,6 +516,19 @@ export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?
           {n.total && g.ensPoster && (
             <div className="poster">{['husleje', ...aconto].join(' + ')}</div>
           )}
+        </div>
+
+        {/* Samme plads som paa enkeltkortet: under beloebet. De to
+            korttyper staar side om side i den samme liste, og en
+            forskellig raekkefoelge ville laese som to slags kort. */}
+        <div className="fakta">
+          {fakta.map((f, i) => <span className="fakta-chip" key={i}>{f}</span>)}
+        </div>
+
+        {/* Kilderne kun naar det gaelder HELE gruppen — ellers ville
+            repraesentanten tale for de andre. */}
+        <div className="kort-fod">
+          <Kilder navn={r.kildeNavn} ogsaa={g.alleOgsaaAndetsteds ? r.ogsaaHos : []} />
         </div>
       </div>
     </a>

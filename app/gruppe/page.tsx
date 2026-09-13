@@ -77,18 +77,27 @@ export default async function Side(
 
   return (
     <div className="omraade">
-      <div className="krumme">
-        <a href="/">Alle boliger</a> <span>·</span>{' '}
+      {/* Samme sti og samme sidetitel som resultatsiden. Gruppesiden
+          er en udfoldning af ét kort derfra, og den skal se ud som det
+          sted, man kom fra — ikke som en tredje slags side. Adresserne
+          og teksten er uaendrede. */}
+      <nav className="broedkrumme" aria-label="Sti">
+        <a href="/">Forside</a>
+        <span aria-hidden="true">›</span>
         <a href={`/?sted=${encodeURIComponent(n.postnr)}`}>{n.postnr} {boliger[0]!.by}</a>
-      </div>
+        <span aria-hidden="true">›</span>
+        <span aria-current="page">{n.vej}</span>
+      </nav>
 
-      <h1>{n.vej}</h1>
-      <p className="gruppe-manchet">
-        <strong>{boliger.length} {ord}</strong> med {n.vaerelser}{' '}
-        {n.vaerelser === 1 ? 'værelse' : 'værelser'}, fra {boliger[0]!.kildeNavn}.
-        Boligerne kan være forskellige i pris, areal og indflytningsdato — det
-        står på hver enkelt nedenfor.
-      </p>
+      <div className="sidetitel">
+        <h1>{n.vej}</h1>
+        <p>
+          <strong>{boliger.length} {ord}</strong> med {n.vaerelser}{' '}
+          {n.vaerelser === 1 ? 'værelse' : 'værelser'}, fra {boliger[0]!.kildeNavn}.
+          Boligerne kan være forskellige i pris, areal og indflytningsdato — det
+          står på hver enkelt nedenfor.
+        </p>
+      </div>
 
       <div className="optaelling">
         <span><strong>{n.vaerelser}</strong> {n.vaerelser === 1 ? 'værelse' : 'værelser'}</span>

@@ -133,66 +133,47 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
     b.type ? { ikon: 'hus', v: TYPENAVN[b.type] ?? b.type, e: 'boligtype' } : null,
   ].filter((x): x is { ikon: string; v: string; e: string } => !!x)
 
+  /**
+   * Afsnittene paa siden — og dermed ogsaa afsnitsnavigationen.
+   *
+   * Betingelserne er de SAMME som afsnittene selv staar paa. Skrev vi
+   * listen af i haanden, ville et link kunne pege paa et afsnit, som
+   * ikke blev gengivet — og et anker, der ikke rammer noget, er en
+   * paastand om indhold, vi ikke har.
+   */
+  const afsnit = [
+    kvm && afvigelse != null && egenKvm != null
+      ? { id: 'kvadratmeterpris', navn: 'Pris pr. m²' } : null,
+    { id: 'boligen', navn: 'Boligen' },
+    b.faciliteter && b.faciliteter.length > 0
+      ? { id: 'faciliteter', navn: 'Faciliteter' } : null,
+    b.beskrivelse ? { id: 'beskrivelse', navn: 'Beskrivelse' } : null,
+    { id: 'beliggenhed', navn: 'Beliggenhed' },
+  ].filter((x): x is { id: string; navn: string } => !!x)
+
   return (
     <article className="detalje">
       <Maaling aktiv={mt.aktiv} impressions={false} visning={null} rute="/bolig/[id]" />
-      <a className="tilbage" href="/">← Alle boliger</a>
-
-      {galleri.length > 0
-        ? (
+      {/* ── Stien ─────────────────────────────────────────────
+          Referencens broedkrumme: tilbage til soegningen, byen, og
+          «Denne bolig» som det sted, man staar. Byen peger paa
+          soegesiden med `sted` — samme parameter som filterbjaelken
+          bruger, saa linket rammer noejagtig den soegning, navnet
+          lover. Ikke omraadesiden: den findes kun over
+          `MINDST_BOLIGER`, og et link, der kan give 404, er ikke en sti. */}
+      <nav className="detalje-sti" aria-label="Sti">
+        <a className="sti-tilbage" href="/">
+          <span aria-hidden="true">←</span> Tilbage til søgeresultater
+        </a>
+        {b.by && (
           <>
-            <Galleri billeder={galleri} />
-            {/* Kildens eget forbehold, givet videre. Citatet er VORES tekst
-                her i koden, skrevet af efter kilden — vi gemmer ikke deres
-                brødtekst, jf. noten ved `description` i db/schema.ts.
-                Feltet i basen siger kun AT forbeholdet står der.
-
-                Før blev billederne kasseret, når forbeholdet stod der. Men
-                det er også en påstand: den siger implicit "der er ingen",
-                og det er usandt — der er 115 på de 20 boliger. */}
-            {b.billedforbehold && (
-              <p className="billedforbehold">
-                Udlejer oplyser: «Billederne kan være fra en anden bolig,
-                hvorfor indretning, beliggenhed og udsigt kan variere.»
-              </p>
-            )}
+            <span className="sti-skil" aria-hidden="true">/</span>
+            <a href={`/?sted=${encodeURIComponent(b.by)}`}>{b.by}</a>
           </>
-        )
-        : (
-          /* Nu er sætningen ren: har kilden ingen billeder, står der
-             ingen. Forbeholdet fjerner dem ikke længere. */
-          <div className="ingen-billeder">Ingen billeder at vise for denne bolig.</div>
         )}
-
-
-      {/* ── Titelbaandet ───────────────────────────────────────
-          Stod foer inde i venstre spalte, altsaa NEDE ved siden af
-          priskortet — sidens navn laa lavere end sidens pris. Nu ligger
-          det i fuld bredde lige under galleriet, hvor man laeser det
-          foerst, og noegletallene staar som en stribe under. */}
-      <div className="detalje-hoved">
-        <div className="maerkater">
-          {b.status === 'delisted' && <span className="maerkat m-vaek">ikke længere ledig</span>}
-          {avail!.ansoegning.status === 'venteliste'
-            && <span className="maerkat m-vent">Venteliste · efter anciennitet</span>}
-          {avail!.ansoegning.status === 'normal'
-            && <span className="maerkat m-ny">Almindelig ansøgning</span>}
-          {avail!.marked.status === 'reserveret'
-            && <span className="maerkat m-vent">Reserveret</span>}
-          {avail!.adgang.krav.includes('bopaelskrav')
-            && <span className="maerkat m-kilde">Bopælspligt</span>}
-        </div>
-        <h1>{adresselinje(b)}</h1>
-        <p className="sted">{b.postnr} {b.by}</p>
-        <ul className="noegletal">
-          {noegletal.map((n, i) => (
-            <li key={i} className={`nt-${n.ikon}`}>
-              <strong>{n.v}</strong>
-              {n.e && <span>{n.e}</span>}
-            </li>
-          ))}
-        </ul>
-      </div>
+        <span className="sti-skil" aria-hidden="true">/</span>
+        <span aria-current="page">Denne bolig</span>
+      </nav>
 
       <div className="spalter">
         {/* ── Økonomien. Sidens vigtigste element, og derfor det første
@@ -309,14 +290,92 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
           </div>
         </aside>
 
-        <div className="indhold">
+        {/* ── Venstre spalte, oeverste felt ─────────────────────
+            Galleriet og titlen. De to felter er adskilt, fordi
+            raekkefoelgen skal kunne vaere en anden paa en telefon:
+            der staar billeder og adresse foerst, saa prispanelet, og
+            derefter afsnittene. Med ét felt kunne prispanelet kun
+            ligge enten foer billederne eller efter hele teksten. */}
+        <div className="detalje-visning">
+
+        {galleri.length > 0
+          ? (
+            <>
+              <Galleri billeder={galleri} />
+              {/* Kildens eget forbehold, givet videre. Citatet er VORES tekst
+                  her i koden, skrevet af efter kilden — vi gemmer ikke deres
+                  brødtekst, jf. noten ved `description` i db/schema.ts.
+                  Feltet i basen siger kun AT forbeholdet står der.
+
+                  Før blev billederne kasseret, når forbeholdet stod der. Men
+                  det er også en påstand: den siger implicit "der er ingen",
+                  og det er usandt — der er 115 på de 20 boliger. */}
+              {b.billedforbehold && (
+                <p className="billedforbehold">
+                  Udlejer oplyser: «Billederne kan være fra en anden bolig,
+                  hvorfor indretning, beliggenhed og udsigt kan variere.»
+                </p>
+              )}
+            </>
+          )
+          : (
+            /* Nu er sætningen ren: har kilden ingen billeder, står der
+               ingen. Forbeholdet fjerner dem ikke længere. */
+            <div className="ingen-billeder">Ingen billeder at vise for denne bolig.</div>
+          )}
+        {/* ── Titelbaandet ───────────────────────────────────────
+            Stod foer inde i venstre spalte, altsaa NEDE ved siden af
+            priskortet — sidens navn laa lavere end sidens pris. Nu ligger
+            det i fuld bredde lige under galleriet, hvor man laeser det
+            foerst, og noegletallene staar som en stribe under. */}
+        <div className="detalje-hoved">
+          <div className="maerkater">
+            {b.status === 'delisted' && <span className="maerkat m-vaek">ikke længere ledig</span>}
+            {avail!.ansoegning.status === 'venteliste'
+              && <span className="maerkat m-vent">Venteliste · efter anciennitet</span>}
+            {avail!.ansoegning.status === 'normal'
+              && <span className="maerkat m-ny">Almindelig ansøgning</span>}
+            {avail!.marked.status === 'reserveret'
+              && <span className="maerkat m-vent">Reserveret</span>}
+            {avail!.adgang.krav.includes('bopaelskrav')
+              && <span className="maerkat m-kilde">Bopælspligt</span>}
+          </div>
+          <h1>{adresselinje(b)}</h1>
+          <p className="sted">{b.postnr} {b.by}</p>
+          <ul className="noegletal">
+            {noegletal.map((n, i) => (
+              <li key={i} className={`nt-${n.ikon}`}>
+                <strong>{n.v}</strong>
+                {n.e && <span>{n.e}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+        </div>
+
+        <div className="detalje-afsnit">
+          {/* ── Afsnitsnavigation ─────────────────────────────────
+              Referencens fanerække over indholdet. Det ER faner i
+              billedet; her er det ankerlinks til de afsnit, der
+              faktisk staar paa siden. Listen bygges af `afsnit`, som
+              udledes af de samme betingelser, afsnittene selv staar
+              paa — ét udtryk, to steder, saa navigationen ikke kan
+              komme til at pege paa et afsnit, der ikke blev gengivet. */}
+          {afsnit.length > 1 && (
+            <nav className="afsnitsnav" aria-label="Afsnit på siden">
+              {afsnit.map((a) => (
+                <a key={a.id} href={`#${a.id}`}>{a.navn}</a>
+              ))}
+            </nav>
+          )}
+
 
           {/* ── Prissammenligning ──────────────────────────────
               Ingen farveskala uden tal bag. Der staar hvad afvigelsen er,
               hvad den maales mod, og hvor mange boliger medianen er regnet
               af — saa laeseren selv kan afgoere, om tallet betyder noget. */}
           {kvm && afvigelse != null && egenKvm != null && (
-            <section className="blok sammenligning">
+            <section className="blok sammenligning" id="kvadratmeterpris">
               <h2>Pris pr. kvadratmeter</h2>
               <p className="sml-dom">
                 {Math.abs(afvigelse) < 3 ? (
@@ -348,7 +407,7 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
             </section>
           )}
 
-          <section className="blok">
+          <section className="blok" id="boligen">
             <h2>Boligen</h2>
             <dl className="fakta2">
               {b.type && <><dt>Boligtype</dt><dd>{TYPENAVN[b.type] ?? b.type}</dd></>}
@@ -407,14 +466,14 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
           </section>
 
           {b.faciliteter && b.faciliteter.length > 0 && (
-            <section className="blok">
+            <section className="blok" id="faciliteter">
               <h2>Faciliteter</h2>
               <ul className="chips">{b.faciliteter.map((f) => <li key={f}>{f}</li>)}</ul>
             </section>
           )}
 
           {b.beskrivelse && (
-            <section className="blok">
+            <section className="blok" id="beskrivelse">
               <h2>Beskrivelse</h2>
               <p className="brodtekst">{b.beskrivelse}</p>
               <p className="note">
@@ -423,7 +482,7 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
             </section>
           )}
 
-          <section className="blok">
+          <section className="blok" id="beliggenhed">
             <h2>Beliggenhed</h2>
             {b.lat && b.lng ? (
               <>

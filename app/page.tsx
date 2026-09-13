@@ -180,6 +180,18 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // Panelets tilstand ligger i URL'en som kortets. Se noten ved <details>.
   const panelAabent = en(sp.flere) === '1'
 
+  // Hero-fotoet. Ikke i repoet og ikke hardkodet: et billedaktiv har en
+  // licens og en ophavsmand, og begge dele hoerer daarligt hjemme i git.
+  // Er variablen ikke sat, staar baandet med brandets gradient — samme
+  // layout, anden flade. Læses paa serveren; ingen ny klientkode.
+  const heroFoto = process.env.NEXT_PUBLIC_HERO_FOTO || null
+  // Krediteringen staar SAMMEN med fotoet, ligesom kortflisernes
+  // `NEXT_PUBLIC_FLISE_KREDIT`. Et foto uden en ophavsmand paa skaermen
+  // er et foto, ingen kan efterproeve retten til — og i testmiljoeet er
+  // det linjen, der siger, at motivet er et stockfoto og ikke en
+  // virkelig boligannonce.
+  const heroKredit = process.env.NEXT_PUBLIC_HERO_FOTO_KREDIT || null
+
   // De aktive filtre som noget, der kan ses OG fjernes. Navnene paa
   // typer og kilder kommer fra de samme kilder som feltet i panelet —
   // ikke fra en anden liste. Stedet er ikke med: det staar i feltet og i
@@ -319,17 +331,76 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // over listen.
   const formular = (
       <form className={soegt ? 'filtre soegt' : 'filtre'} method="get">
-        <div className="storsoeg">
-          <input
-            type="text" name="sted" defaultValue={sted}
-            placeholder="By eller postnummer"
-            aria-label="By eller postnummer" list="byer"
-          />
-          <button type="submit">Find bolig</button>
+        {/* ── Den brede soegebjaelke ────────────────────────────
+            Referencens hvide kort: fire felter med etiket over vaerdien,
+            adskilt af lodrette streger, og en stor groen knap yderst.
+
+            FELTERNE ER FLYTTET, IKKE DUPLIKERET. Pris, stoerrelse og
+            vaerelser laa i <details>-panelet; de staar nu her og er
+            fjernet derinde. To felter med samme `name` i samme formular
+            ville sende vaerdien to gange, og `filtreFraParametre` laeser
+            den foerste — altsaa ville panelets tomme felt slette det, man
+            lige havde skrevet i bjaelken.
+
+            Referencen viser ogsaa «Husdyr tilladt» og «Indflytning» her.
+            De to bliver i panelet med vilje: begge baerer en
+            grundlagslinje («N oplyser det · M oplyser ikke · K vises
+            ikke»), og den linje er et krav, ikke pynt. Et felt uden sin
+            linje ville se ud som et almindeligt filter og i stedet
+            skjule hele kilder uden at sige det. */}
+        <div className="soegebar">
+          <div className="soegefelt sf-sted">
+            <label htmlFor="sted">By eller område</label>
+            <input
+              id="sted" type="text" name="sted" defaultValue={sted}
+              placeholder="F.eks. København" list="byer"
+            />
+          </div>
+          <div className="soegefelt sf-pris">
+            <label htmlFor="prisMin">Pris pr. måned</label>
+            <div className="sf-par">
+              <input
+                id="prisMin" name="prisMin" defaultValue={en(sp.prisMin) ?? ''}
+                inputMode="numeric" placeholder="Min" aria-label="Mindstepris pr. måned"
+              />
+              <span className="sf-til" aria-hidden="true">–</span>
+              <input
+                id="prisMax" name="prisMax" defaultValue={en(sp.prisMax) ?? ''}
+                inputMode="numeric" placeholder="Max" aria-label="Højeste pris pr. måned"
+              />
+            </div>
+          </div>
+          <div className="soegefelt sf-areal">
+            <label htmlFor="areal">Størrelse</label>
+            <input
+              id="areal" name="areal" defaultValue={en(sp.areal) ?? ''}
+              inputMode="numeric" placeholder="m² mindst"
+            />
+          </div>
+          <div className="soegefelt sf-vaer">
+            <label htmlFor="vaerelser">Værelser</label>
+            <input
+              id="vaerelser" name="vaerelser" defaultValue={en(sp.vaerelser) ?? ''}
+              inputMode="numeric" placeholder="mindst"
+            />
+          </div>
+          <button className="soegeknap" type="submit">
+            Søg boliger<span className="sk-pil" aria-hidden="true">→</span>
+          </button>
         </div>
 
-        {!soegt && (
-          <p className="soegehint">Fx København S, Aarhus C eller 2300.</p>
+        {/* Referencens «Populaere soegninger». Byerne er IKKE skrevet
+            ind: de er de mest udbredte i bestanden, som `facetter()`
+            allerede har talt dem. Skifter udbuddet, skifter linjen. */}
+        {!soegt && fac.byer.length > 0 && (
+          <p className="populaere">
+            <span className="pop-navn">Populære søgninger:</span>
+            {fac.byer.filter((b) => b.by).slice(0, 6).map((b) => (
+              <a key={`${b.by}-${b.postnr}`} href={`/?sted=${encodeURIComponent(b.by!)}`}>
+                {b.by}
+              </a>
+            ))}
+          </p>
         )}
 
         {/* ── Panelet aabner ALDRIG af sig selv ────────────────────
@@ -386,22 +457,9 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           <label htmlFor="postnr">Postnummer</label>
           <input id="postnr" name="postnr" defaultValue={f.postnr ?? ''} placeholder="fx 2300" inputMode="numeric" />
         </div>
-        <div className="felt">
-          <label htmlFor="prisMin">Md. udgift fra</label>
-          <input id="prisMin" name="prisMin" defaultValue={en(sp.prisMin) ?? ''} inputMode="numeric" />
-        </div>
-        <div className="felt">
-          <label htmlFor="prisMax">Md. udgift til</label>
-          <input id="prisMax" name="prisMax" defaultValue={en(sp.prisMax) ?? ''} inputMode="numeric" />
-        </div>
-        <div className="felt">
-          <label htmlFor="vaerelser">Værelser mindst</label>
-          <input id="vaerelser" name="vaerelser" defaultValue={en(sp.vaerelser) ?? ''} inputMode="numeric" />
-        </div>
-        <div className="felt">
-          <label htmlFor="areal">m² mindst</label>
-          <input id="areal" name="areal" defaultValue={en(sp.areal) ?? ''} inputMode="numeric" />
-        </div>
+        {/* Pris, stoerrelse og vaerelser staar i soegebjaelken ovenfor.
+            De maa IKKE ogsaa staa her: samme `name` to gange i én
+            formular sender vaerdien to gange. */}
         <div className="felt">
           <label htmlFor="kilde">Kilde</label>
           <select id="kilde" name="kilde" defaultValue={kilderValgt?.[0] ?? ''}>
@@ -606,89 +664,193 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   return (
     <>
       <Maaling aktiv={mt.aktiv} impressions={mt.impressions} visning={visningId} rute="/" />
-      {soegt ? formular : (
-        <section className="forside-baand">
-          <div className="hero">
-            {/* Budskabet lovede før «den samlede månedlige udgift og
-                prisen ved indflytning» om hele bestanden. Det er ikke
-                sandt om hele bestanden: målt 12. september 2026 havde
-                1.312 af 1.782 synlige boliger en total og 1.393 en
-                indflytningspris — resten oplyser kilden ikke. Tallene
-                står HER som baggrund, aldrig på siden: dér regnes de af
-                bestanden. Løftet gælder nu det, udlejeren
-                HAR oplyst — og siger i samme åndedrag, hvad der sker,
-                når en post mangler. Andelene står som tal i punkterne
-                nedenfor, regnet af bestanden og aldrig skrevet ind. */}
-            <h1>Se hvad boligen koster ud over huslejen</h1>
-            <p className="manchet">
-              Husleje, de udgifter udlejeren oplyser, og indflytningsprisen
-              når den er oplyst. Mangler en post hos kilden, står der hvad
-              vi ikke ved — i stedet for et gæt.
-            </p>
-
-            {/* ── Soegningen er sidens handling ─────────────────────
-                Stod FOER under de tre punkter. Punkterne var tre kort med
-                egen flade, 30 px tal og 34 px bund — 563 px hero paa
-                desktop og 917 px paa mobil, og foerste boligkort 870 hhv.
-                1.175 px nede. Beviset stod altsaa foran det, laeseren kom
-                for, og boligerne laa under foldet paa begge bredder.
-
-                Nu: paastand, handling, bevis. Feltet ligger lige under
-                manchetten, og punkterne er blevet til én linje under det —
-                samme tal, samme kilder, samme tre grupper, men sat i
-                stoerrelse med det, de er: baggrund for et loefte, ikke
-                sidens hovedperson. */}
-            {formular}
-
-            <ul className="punkter">
-              <li>
-                {/* «lejeboliger», ikke «ledige boliger»: kun 1 af 5 har
-                    dokumenteret overtagelse nu, og et samlet tal må ikke
-                    kaldes ledigt, når timing ikke er dokumenteret for det
-                    hele. Grundlagslinjen nedenfor gør regnskabet op. */}
-                <strong>{tal.boliger.toLocaleString('da-DK')}</strong>
-                <span>lejeboliger fra {tal.kilder} kilder</span>
-              </li>
-              <li>
-                {/* Kendt total, ikke sammensætningen. "Hele økonomien
-                    oplyst" lovede, at vi vidste hvad acontoen bestod af —
-                    og det gør vi kun for godt halvdelen. Det, brugeren
-                    faktisk får, er hele beløbet til udlejeren, og det har
-                    vi for tre fjerdedele. Samme ord som prisen på hvert
-                    kort: "kr/md til udlejer". Sammensætningen måles stadig,
-                    men står ved sit eget filter. */}
-                <strong>{tal.kendtTotal.toLocaleString('da-DK')}</strong>
-                {/* To grupper, ikke én. Stod der kun det oplyste tal,
-                    kunne læseren ikke se, hvor stor resten var — og
-                    forsidens løfte ville se ud til at gælde alle.
-                    Modgruppen er `boliger − kendtTotal`: begge tal kommer
-                    fra den SAMME forespørgsel over det samme filtrerede
-                    sæt, så de går op i hovedtallet og kan ikke drive fra
-                    hinanden. Ingen ny forespørgsel, intet tal skrevet ind. */}
-                <span>
-                  med hele udgiften til udlejer oplyst ·{' '}
-                  {(tal.boliger - tal.kendtTotal).toLocaleString('da-DK')} uden
-                </span>
-              </li>
-              {/* Punktet bor i `Hastighed.tsx`. Uden en måling stod der
-                  «Hver time henter vi nye boliger fra kilderne» — et
-                  ubetinget løfte, sat netop dér, hvor målingen ikke kunne
-                  bekræfte noget. Nu siger den tilstand, at hastigheden ikke
-                  er opgjort, og lover ingenting. Målingen er urørt. */}
-              <Hastighedspunkt minutterP90={tal.minutterP90} />
-            </ul>
-
-            {/* Availability-grundlaget: går op i hovedtallet, og de
-                ukendte har ord. Beregnet dynamisk af domænet. Teksten er
-                ordret den samme; den står nu under punkterne, hvor den
-                forklarer det tal, den hører til. */}
-            <p className="note grundlagsnote">
-              {avGrundlag.timing.nu.toLocaleString('da-DK')} kan overtages nu ·{' '}
-              {avGrundlag.timing.senere.toLocaleString('da-DK')} kan overtages senere ·{' '}
-              {(avGrundlag.timing.unknown + avGrundlag.timing.conflict).toLocaleString('da-DK')} uden afklaret overtagelsestidspunkt
+      {soegt ? (
+        <>
+          {/* Referencens broedkrumme og store sidetitel over
+              filterbjaelken. Stedet kommer fra `stedNavn`, som
+              resultathovedet ogsaa bruger — ét udtryk, to steder. */}
+          <nav className="broedkrumme" aria-label="Sti">
+            <a href="/">Forside</a>
+            <span aria-hidden="true">›</span>
+            <span aria-current="page">Lejeboliger</span>
+          </nav>
+          <div className="sidetitel">
+            <h1>Lejeboliger{stedNavn ? ` i ${stedNavn}` : ' i hele Danmark'}</h1>
+            <p>
+              {sum.antal.toLocaleString('da-DK')}{' '}
+              {sum.antal === 1 ? 'bolig matcher' : 'boliger matcher'} din søgning
             </p>
           </div>
+          <div className="soegepanel">
+            {formular}
+            {/* ── Det, soegningen faktisk er sat til ───────────────────
+                Filtrene bor i et <details>, der er LUKKET som udgangspunkt,
+                og saa var «3 aktive» i <summary> det eneste, der stod om dem.
+                Et tal er ikke et svar paa «hvad har jeg sat»: hun skulle
+                aabne panelet og lede for at finde ud af, hvad det tredje var.
+
+                Chipperne siger det, og hvert klik fjerner netop det ene
+                filter. Almindelige links — samme adresser, samme parametre,
+                ingen JS. Navnene og parameternavnene kommer fra
+                `aktiveFiltre`, saa chippen og feltet i panelet ikke kan
+                komme til at beskrive det samme filter forskelligt. */}
+            {chips.length > 0 && (
+              <div className="filterchips">
+                {chips.map((c) => (
+                  <a
+                    key={c.navn} className="chip" href={soegeUrlUden('/', sp, c.fjern)}
+                    aria-label={`Fjern filter: ${c.navn}`}
+                  >
+                    {c.navn}<span className="chip-x" aria-hidden="true">×</span>
+                  </a>
+                ))}
+                <a className="chip chip-ryd" href="/">Ryd alle</a>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+        {/* ══ HERO ═══════════════════════════════════════════════
+            Referencens forside: et stort, lyst interioerfoto i fuld
+            bredde, teksten henover til venstre, og den hvide soegebjaelke
+            som et kort, der flyder ned over billedets underkant.
+
+            FOTOET ER IKKE I REPOET. `NEXT_PUBLIC_HERO_FOTO` peger paa det,
+            og er den ikke sat, staar baandet med brandets gradient som
+            hidtil — layoutet er det samme, kun fladen skifter. Et
+            hero-foto er et billedaktiv med en licens og en ophavsmand;
+            det hoerer ikke i git, og en midlertidig erstatning maa ikke
+            staa som om designet var faerdigt. */}
+        <section className={heroFoto ? 'hero fuldbredde har-foto' : 'hero fuldbredde'}>
+          {heroFoto && (
+            <div className="hero-billede" aria-hidden="true">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={heroFoto} alt="" />
+            </div>
+          )}
+          <div className="hero-indhold">
+            <p className="hero-oejenbryn">Find dit næste hjem</p>
+            {/* Budskabet er produktets eget, ikke referencens. Den
+                skriver «Lejeboliger i hele Danmark – nemmere for alle»;
+                vores loefte er, hvad boligen KOSTER, og det er det, vi
+                kan holde. Formen er referencens: oejenbryn, todelt
+                overskrift, kort manchet. */}
+            <h1>Se hvad boligen koster<br />— ud over huslejen</h1>
+            <p className="hero-manchet">
+              Vi samler lejeboliger fra flere kilder og viser huslejen, de
+              udgifter udlejeren oplyser, og indflytningsprisen når den er
+              oplyst. Mangler en post hos kilden, står der hvad vi ikke ved
+              — i stedet for et gæt.
+            </p>
+          </div>
+          <div className="hero-soeg">{formular}</div>
+          {heroFoto && heroKredit && (
+            <p className="hero-kredit">{heroKredit}</p>
+          )}
         </section>
+
+        {/* ── Talstriben ────────────────────────────────────────
+            Referencens fire tal med ikon. Vores er REGNET, ikke skrevet
+            ind: referencens «12.500+», «98 byer», «94 % faar svar inden
+            for 24 timer» og «Tusindvis har fundet hjem» er alle
+            opdigtede, og de tre sidste er desuden paastande, produktet
+            ikke kan maale. Markuppen er den samme <ul>/<li>, saa
+            `Hastighedspunkt` og proeven i test-soegning rammer det samme. */}
+        <ul className="talstribe punkter">
+          <li className="ts-hus">
+            <strong>{tal.boliger.toLocaleString('da-DK')}</strong>
+            <span>lejeboliger fra {tal.kilder} kilder</span>
+          </li>
+          <li className="ts-moent">
+            {/* To grupper, ikke én. Stod der kun det oplyste tal, kunne
+                laeseren ikke se, hvor stor resten var. Begge tal kommer
+                fra den SAMME foresporgsel og gaar op i hovedtallet. */}
+            <strong>{tal.kendtTotal.toLocaleString('da-DK')}</strong>
+            <span>
+              med hele udgiften til udlejer oplyst ·{' '}
+              {(tal.boliger - tal.kendtTotal).toLocaleString('da-DK')} uden
+            </span>
+          </li>
+          <li className="ts-kalender">
+            <strong>{avGrundlag.timing.nu.toLocaleString('da-DK')}</strong>
+            <span>kan overtages nu</span>
+          </li>
+          {/* Uden en maaling staar der hverken en kadence eller et tal —
+              se `Hastighed.tsx`. Maalingen selv er uroert. */}
+          <Hastighedspunkt minutterP90={tal.minutterP90} />
+        </ul>
+
+        <p className="note grundlagsnote">
+          {avGrundlag.timing.nu.toLocaleString('da-DK')} kan overtages nu ·{' '}
+          {avGrundlag.timing.senere.toLocaleString('da-DK')} kan overtages senere ·{' '}
+          {(avGrundlag.timing.unknown + avGrundlag.timing.conflict).toLocaleString('da-DK')} uden afklaret overtagelsestidspunkt
+        </p>
+
+        {/* ── Sektionerne ───────────────────────────────────────
+            Referencens fire kort med ikonflise. Indholdet er IKKE
+            referencens: «AI-assisterede ansoegninger» og «Verificerede
+            boliger» findes ikke i produktet, og et kort, der lover dem,
+            er en tom knap. De fire her er funktioner, der er paa denne
+            gren, og hver af dem peger paa noget, der findes. */}
+        <section className="sektion">
+          <h2 className="sektion-titel">Sådan bruger du Bofinda</h2>
+          <div className="kortgitter">
+            <article className="infokort">
+              <span className="ik-flise ik-moent" aria-hidden="true" />
+              <h3>Hele udgiften til udlejeren</h3>
+              <p>
+                Husleje plus den aconto, kilden opkræver — og
+                indflytningsprisen, når den er oplyst. Er en post ukendt,
+                står der hvad vi ikke ved.
+              </p>
+            </article>
+            <article className="infokort">
+              <span className="ik-flise ik-filter" aria-hidden="true" />
+              <h3>Filtre, der gør rede for sig selv</h3>
+              <p>
+                Under hvert filter står, hvor mange boliger der oplyser
+                feltet, og hvor mange der tier og derfor ikke vises.
+              </p>
+            </article>
+            <article className="infokort">
+              <span className="ik-flise ik-klokke" aria-hidden="true" />
+              <h3>Besked om nye boliger</h3>
+              <p>
+                Gem en søgning, og få en mail, når en ny bolig matcher.
+                Boksen står under resultaterne, når du har søgt.
+              </p>
+            </article>
+            <article className="infokort">
+              <span className="ik-flise ik-hus" aria-hidden="true" />
+              <h3>Er du udlejer?</h3>
+              <p>
+                Opret din annonce med adressen i separate felter, dine egne
+                billeder og den økonomi, du selv oplyser.
+              </p>
+              <a className="ik-link" href="/udlejer">For udlejere →</a>
+            </article>
+          </div>
+        </section>
+
+        {/* ── Udlejerbaandet ────────────────────────────────────
+            Referencens moerkegroenne baand med overskrift, tekst og
+            knap. Citatet med stjerner ved siden af er ikke med: det er
+            en opdigtet anmeldelse fra en navngiven udlejer. */}
+        <section className="udlejerbaand">
+          <div className="ub-tekst">
+            <p className="ub-oejenbryn">For udlejere</p>
+            <h2>Udlej din bolig på Bofinda</h2>
+            <p>
+              Opret annoncen selv: vej, husnummer, etage og dør i hvert sit
+              felt, dine egne billeder i den rækkefølge du vælger, og den
+              økonomi du oplyser. Annoncen vises i søgningen sammen med
+              resten.
+            </p>
+            <a className="ub-knap" href="/udlejer/opret">Opret annonce →</a>
+          </div>
+        </section>
+        </>
       )}
 
 
@@ -705,75 +867,51 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
       <div className="resultathoved">
         <div className="listehoved">
           {soegt && (
+            /* «N boliger fundet» som i referencen. Stedet staar i
+               sidetitlen ovenfor og gentages ikke her. */
             <h2 className="listetitel resultat-tal">
               <strong>{sum.antal.toLocaleString('da-DK')}</strong>{' '}
-              {sum.antal === 1 ? 'bolig' : 'boliger'}
-              {/* Stedet står i søgefeltet, men headeren skal kunne læses
-                  alene, når man er scrollet forbi filtrene. Kun når der ER
-                  et sted — et prisfilter uden by har intet at sætte her.
-                  `stedNavn`, ikke `sted`: se noten ved de to variabler. */}
-              {stedNavn && <span className="sted-navn"> i {stedNavn}</span>}
+              {sum.antal === 1 ? 'bolig fundet' : 'boliger fundet'}
             </h2>
           )}
           {!soegt && visninger.length > 0 && (
             <h2 className="listetitel">Nyeste boliger</h2>
           )}
+
+          {/* Referencen saetter sortering og kortknap paa SAMME linje som
+              «N boliger fundet», i hoejre side. De to er valg om
+              visningen; antallet er svaret. Raekken bryder af sig selv,
+              naar der ikke er plads. */}
           {soegt && visninger.length > 0 && (
-            <a className="kortknap" href={kortLink(sp, kortVises)}>
-              {kortVises ? 'Skjul kort' : 'Vis kort'}
-            </a>
+            <div className="listehoved-hoejre">
+              {/* Sorteringen bor i panelet og var dermed ogsaa skjult. Her
+                  er den seks links — ét pr. orden, med den aktive markeret.
+                  Ingen <select> uden for formularen: en select uden JS
+                  skifter ingenting, og en submit-knap mere ville vaere en
+                  kontrol, der ligner filtrene uden at vaere dem.
+                  `aria-current` fortaeller skaermlaeseren, hvad der gaelder. */}
+              <div className="sortering">
+                <span className="sortering-navn">Sortér</span>
+                {SORTERINGSVALG.map((v) => {
+                  const valgt = (f.sorter ?? 'nyeste') === v
+                  return (
+                    <a
+                      key={v} href={soegeUrlSorteret('/', sp, v)}
+                      className={valgt ? 'sort-pille valgt' : 'sort-pille'}
+                      aria-current={valgt ? 'true' : undefined}
+                      title={SORTERINGSNAVN[v].lang}
+                    >
+                      {SORTERINGSNAVN[v].kort}
+                    </a>
+                  )
+                })}
+              </div>
+              <a className="kortknap" href={kortLink(sp, kortVises)}>
+                {kortVises ? 'Skjul kort' : 'Vis kort'}
+              </a>
+            </div>
           )}
         </div>
-
-        {/* ── Det, soegningen faktisk er sat til ───────────────────
-            Filtrene bor i et <details>, der er LUKKET som udgangspunkt,
-            og saa var «3 aktive» i <summary> det eneste, der stod om dem.
-            Et tal er ikke et svar paa «hvad har jeg sat»: hun skulle
-            aabne panelet og lede for at finde ud af, hvad det tredje var.
-
-            Chipperne siger det, og hvert klik fjerner netop det ene
-            filter. Almindelige links — samme adresser, samme parametre,
-            ingen JS. Navnene og parameternavnene kommer fra
-            `aktiveFiltre`, saa chippen og feltet i panelet ikke kan
-            komme til at beskrive det samme filter forskelligt. */}
-        {soegt && chips.length > 0 && (
-          <div className="filterchips">
-            {chips.map((c) => (
-              <a
-                key={c.navn} className="chip" href={soegeUrlUden('/', sp, c.fjern)}
-                aria-label={`Fjern filter: ${c.navn}`}
-              >
-                {c.navn}<span className="chip-x" aria-hidden="true">×</span>
-              </a>
-            ))}
-            <a className="chip chip-ryd" href="/">Ryd alle</a>
-          </div>
-        )}
-
-        {/* Sorteringen bor i panelet og var dermed ogsaa skjult. Her er
-            den seks links — ét pr. orden, med den aktive markeret. Ingen
-            <select> uden for formularen: en select uden JS skifter
-            ingenting, og en submit-knap mere ville vaere en kontrol, der
-            ligner filtrene uden at vaere dem. `aria-current` fortaeller
-            skaermlaeseren, hvilken der gaelder nu. */}
-        {soegt && visninger.length > 0 && (
-          <div className="sortering">
-            <span className="sortering-navn">Sortér</span>
-            {SORTERINGSVALG.map((v) => {
-              const valgt = (f.sorter ?? 'nyeste') === v
-              return (
-                <a
-                  key={v} href={soegeUrlSorteret('/', sp, v)}
-                  className={valgt ? 'sort-pille valgt' : 'sort-pille'}
-                  aria-current={valgt ? 'true' : undefined}
-                  title={SORTERINGSNAVN[v].lang}
-                >
-                  {SORTERINGSNAVN[v].kort}
-                </a>
-              )
-            })}
-          </div>
-        )}
 
         {/* Uden filtre staar de samme tal allerede i hero'en ovenfor.
             Linjen hoerer til, hvor den siger noget nyt: om et udsnit. */}

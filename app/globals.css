@@ -76,7 +76,46 @@ h1, h2, h3 { letter-spacing: -0.021em; }
 .oek-tal, .oek-tal2, .oek-poster b, .kort-pris, .leje, .total,
 .kort-indflytning { font-variant-numeric: tabular-nums; }
 
-.ramme { max-width: 1120px; margin: 0 auto; padding: 0 22px 72px; }
+/* Mockuppens indholdsbredde er omkring 1.340 px. 1.120 kunne ikke baere
+   tre boligkort OG kortspalten uden at klemme teksten; 1.300 kan.
+
+   ── FULDBREDDE UDEN `100vw` ────────────────────────────────────
+   Rammen er et GITTER med tre spalter: luft, indhold, luft. Alt havner
+   som standard i midterspalten; det, der skal naa skaermkanten, beder
+   om `grid-column: fuld`. Hero'en er den eneste, der goer det.
+
+   Hvorfor ikke `width: 100vw` med en negativ margin? Fordi `100vw`
+   taeller rullebjaelken med. Paa en skaerm med klassisk rullebjaelke
+   bliver baandet 15 px bredere end viewporten, og siden faar vandret
+   rul — den samme faelde, `.galleri` allerede har en note om. Gitteret
+   kender ikke til rullebjaelker og kan derfor ikke ramme den.
+
+   `minmax(0, …)` paa midterspalten: uden nulmininmum faar et bredt barn
+   (et gitter af boligkort) lov at presse spalten ud over sin
+   maksimumsbredde. */
+:root { --ramme: 1300px; --ramme-luft: 22px; }
+.ramme {
+  display: grid;
+  grid-template-columns:
+    [fuld-start] minmax(var(--ramme-luft), 1fr)
+    [ind-start] minmax(0, var(--ramme)) [ind-slut]
+    minmax(var(--ramme-luft), 1fr) [fuld-slut];
+  padding: 0 0 72px;
+}
+/* BEGGE linjenavne skrives ud. `grid-column: ind` er IKKE det samme:
+   korthaanden slaar `ind-start` og `ind-end` op, og slutlinjen hedder
+   `ind-slut`. Uden en `ind-end` faldt slutningen tilbage paa en
+   implicit linje YDERST i gitteret, saa hvert eneste barn spaendte hen
+   over hoejre luftspalte. Paa 390 px betoed det 22 px luft til venstre
+   og 0 til hoejre; paa 1440 px laa indholdet 70 px inde fra venstre og
+   klods op ad hoejre kant. Det saa ud som en centrering og var det
+   ikke. Samme fejl laa i `fuld`, hvor den bare ikke kunne ses, fordi
+   den implicitte linje tilfaeldigvis faldt sammen med `fuld-slut`. */
+.ramme > * { grid-column: ind-start / ind-slut; min-width: 0; }
+.ramme > .fuldbredde { grid-column: fuld-start / fuld-slut; }
+/* Brandbjaelken og fodens rammer er flex og har deres egen polstring —
+   de skal ikke vaere gitre. */
+header.top .ramme, .sidefod .ramme { display: flex; padding: 0; }
 
 /* ─── Brandbjælken ──────────────────────────────────────────
    Stod før som et 20 px småt «bofinda» med en undertitel ved siden af
@@ -90,34 +129,39 @@ header.top {
   position: sticky; top: 0; z-index: 40;
 }
 header.top .ramme.toplinje {
-  padding: 0 22px; min-height: 62px;
-  display: flex; align-items: center; gap: 26px;
+  padding: 0 22px; min-height: 72px;
+  display: flex; align-items: center; gap: 34px;
 }
+/* Wordmarket ALENE. Undertitlen stod som en 11,5 px linje under og gjorde
+   logoet til en billedtekst; i referencen er der ét ord. */
 .maerke {
-  display: flex; flex-direction: column; gap: 1px;
-  text-decoration: none; line-height: 1.1; flex: none;
+  flex: none; text-decoration: none;
+  font-size: 22px; font-weight: 760; letter-spacing: .012em;
+  color: var(--accent); text-transform: uppercase; line-height: 1;
 }
-.maerke-navn {
-  font-size: 20px; font-weight: 720; letter-spacing: .01em;
-  color: var(--accent); text-transform: uppercase;
-}
-.maerke-under { font-size: 11.5px; color: var(--svag); letter-spacing: .005em; }
+.maerke:hover { color: var(--accent-mrk); }
 
-.topnav { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.topnav { display: flex; align-items: center; gap: 2px; }
 .topnav a {
-  text-decoration: none; font-size: 13.5px; font-weight: 560; color: var(--daempet);
-  padding: 7px 12px; border-radius: var(--r-pille); white-space: nowrap;
+  text-decoration: none; font-size: 14.5px; font-weight: 540; color: var(--tekst);
+  padding: 8px 14px; border-radius: var(--r-s); white-space: nowrap;
 }
-.topnav a:hover { background: var(--accent-lys); color: var(--accent-mrk); }
-.topnav a.nav-primaer {
-  background: var(--accent); color: #fff;
+.topnav a:hover { background: var(--sand); color: var(--accent-mrk); }
+.tophandlinger { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.topnav a.nav-primaer, .tophandlinger .nav-primaer {
+  background: var(--accent); color: #fff; font-weight: 600; font-size: 14.5px;
+  padding: 11px 20px; border-radius: var(--r-pille); text-decoration: none;
+  white-space: nowrap;
 }
-.topnav a.nav-primaer:hover { background: var(--accent-mrk); color: #fff; }
+.tophandlinger .nav-primaer:hover { background: var(--accent-mrk); color: #fff; }
 
-@media (max-width: 560px) {
-  header.top .ramme.toplinje { min-height: 56px; gap: 12px; }
-  .maerke-under { display: none; }
-  .topnav a { padding: 7px 10px; font-size: 13px; }
+@media (max-width: 720px) {
+  header.top .ramme.toplinje { min-height: 60px; gap: 14px; }
+  .maerke { font-size: 19px; }
+  /* Menuen viger foer handlingen: «Opret annonce» er det, bjaelken er
+     der for, og den skal kunne rammes med en tommelfinger. */
+  .topnav { display: none; }
+  .tophandlinger .nav-primaer { padding: 9px 15px; font-size: 14px; }
 }
 
 /* ─── Filtre ────────────────────────────────────────────────── */
@@ -174,16 +218,32 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 /* Boligkortene skal bryde efter DERES egen bredde, ikke efter vinduets.
    Med kortvisningen ved siden af er listen smal på en bred skærm, og en
    medieforespørgsel ville ikke opdage det. */
-.liste { display: flex; flex-direction: column; gap: 14px; container-type: inline-size; }
+/* ── Listen som GITTER ─────────────────────────────────────────
+   Referencen: billedkort i tre kolonner. `auto-fill` med en
+   minimumsbredde, ikke et fast `repeat(3, …)`: naar kortspalten er
+   slaaet til, er listen smallere, og saa skal gitteret selv gaa ned i
+   to eller én kolonne i stedet for at klemme teksten. 286 px er den
+   bredde, hvor pris, tre faktachips og kildelinjen staar uden at
+   braekke — maalt, ikke valgt. */
+.liste {
+  display: grid; gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(286px, 1fr));
+  container-type: inline-size;
+}
 /* Billedet er et element i kortet, ikke en kant af det: egen radius og
    egen afstand til teksten. */
 /* Billedkolonnen er vokset fra 216 til 248 px. Boligkortet er en
    VARE, ikke en tabelraekke — billedet er det, oejet lander paa foerst,
    og 216 px gjorde det til et miniature ved siden af en tekstblok. */
+/* Kortet er en LODRET vare: foto oeverst i fuld bredde, oplysninger
+   nedenunder — som i referencen. Var et vandret kort med billedet i en
+   248 px spalte til venstre; i et gitter paa tre kolonner er der ingen
+   248 px at give. Polstringen er flyttet fra kortet til kroppen, saa
+   fotoet naar kanten. */
 .kort {
   background: var(--kort); border: 1px solid var(--linje); border-radius: var(--r-l);
   text-decoration: none; display: grid;
-  grid-template-columns: 248px 1fr; gap: 20px; padding: 13px;
+  grid-template-rows: auto 1fr; gap: 0; padding: 0; overflow: hidden;
   box-shadow: var(--skygge-flad);
   transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
 }
@@ -198,7 +258,7 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
   outline: 2px solid var(--accent); outline-offset: 3px; border-color: transparent;
 }
 @media (prefers-reduced-motion: reduce) { .kort, .kort:hover { transition: none; transform: none; } }
-.kort.uden-billede { grid-template-columns: 1fr; }
+.kort.uden-billede { grid-template-rows: 1fr; }
 /* FORHOLDET BOR PAA RAMMEN, IKKE PAA BILLEDET.
    Det stod foer paa `img`, og dér var det uden virkning i den sidestillede
    form. IKKE fordi `width:100%` og `height:100%` i sig selv slaar
@@ -217,9 +277,12 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
    forholdet faldt til 0,83 — staaende udsnit af liggende motiver.
    Paa rammen har forholdet ingen arvet hoejde at blive overtrumfet af.
    Billedet fylder den ud og beskaeres af `object-fit: cover`. */
+/* Fotoet naar kortets kant: ingen egen radius, kortets `overflow:
+   hidden` klipper hjoernerne. 16/9 som i referencen — et 4/3-billede
+   over en 286 px spalte blev 215 px hoejt og skubbede oekonomien ned. */
 .kort-billede {
   background: var(--linje-svag); position: relative;
-  border-radius: 12px; overflow: hidden; aspect-ratio: 4/3;
+  border-radius: 0; overflow: hidden; aspect-ratio: 16/9;
 }
 /* Billedet trækkes ganske lidt op i kontrast ved hover — kortet
    reagerer som ét element, ikke som en ramme med et billede i. */
@@ -232,11 +295,24 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
   background: rgba(20,22,26,.66); backdrop-filter: blur(3px); color: #fff;
   font-size: 11px; font-weight: 560; padding: 3px 9px; border-radius: var(--r-pille);
 }
-.kort-krop { padding: 5px 6px 6px 0; min-width: 0; }
-/* Uden billede er der ingen billedkolonne at faa venstreluft fra. */
-.kort.uden-billede .kort-krop { padding: 5px 6px 6px 6px; }
-.raek1 { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
-.adresse { font-size: 19.5px; font-weight: 670; letter-spacing: -0.026em; line-height: 1.24; }
+.kort-krop {
+  padding: 15px 16px 14px; min-width: 0;
+  display: flex; flex-direction: column;
+}
+/* ── Maerkaterne paa fotoet ────────────────────────────────────
+   Referencen laegger status oeverst til venstre PAA billedet. Uden et
+   foto er der ingen flade at ligge paa, og saa staar de oeverst i
+   kroppen — samme maerkater, ét sted i koden. */
+.kort-maerkater {
+  position: absolute; left: 10px; top: 10px; right: 10px;
+  display: flex; flex-wrap: wrap; gap: 5px; pointer-events: none;
+}
+.kort-maerkater .maerkat { box-shadow: 0 1px 3px rgba(20,22,26,.16); }
+.kort-maerkater.i-krop {
+  position: static; margin: 0 0 9px; left: auto; top: auto; right: auto;
+}
+.kort-titel { min-width: 0; }
+.adresse { font-size: 17px; font-weight: 670; letter-spacing: -0.022em; line-height: 1.28; }
 /* Stedet faar en naal. Adressen og postnummer/by er to forskellige
    slags oplysning, og ikonet siger hvilken uden et ord ekstra. */
 .sted {
@@ -253,7 +329,14 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 /* ── Faktachips ──────────────────────────────────────────────
    Areal, værelser, boligtype og overtagelse stod som én grå linje med
    prikker imellem. Som chips kan de aflæses hver for sig. */
-.fakta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
+/* Staar nu UNDER beloebet, som i referencen: adresse, pris, og saa
+   noegletallene paa en egen linje med en streg over. Stregen flyttede
+   med — den skiller prisen fra noegletallene, ikke adressen fra prisen. */
+.fakta {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--linje-svag);
+}
+.fakta:empty { display: none; }
 .fakta-chip {
   font-size: 12px; color: var(--daempet); background: var(--sand);
   border: 1px solid var(--linje-svag); border-radius: var(--r-xs);
@@ -274,12 +357,12 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
      raekke 2   forbeholdene, i fuld bredde
      raekke 3   posterne og alderen, i den svageste vaegt        */
 .oekonomi-linje {
-  margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--linje-svag);
+  margin-top: 11px;
   display: flex; flex-wrap: wrap; gap: 4px 22px; align-items: baseline;
 }
 .kort-pris {
-  font-size: 27px; font-weight: 720; letter-spacing: -0.038em;
-  color: var(--accent); line-height: 1.06; order: 1;
+  font-size: 22px; font-weight: 720; letter-spacing: -0.032em;
+  color: var(--accent); line-height: 1.1; order: 1;
 }
 .kort-pris small {
   font-size: 12.5px; font-weight: 530; color: var(--daempet);
@@ -391,6 +474,40 @@ footer.bund {
 }
 .tilbage:hover { border-color: #cfe0d9; background: var(--accent-lys); }
 .tilbage:hover { color: var(--accent); }
+
+/* ─── Boligsidens sti ───────────────────────────────────────────
+   Referencens broedkrumme over galleriet: tilbage til soegningen,
+   byen, og «Denne bolig». Almindelige links — ingen JS, ingen
+   historik-afhaengighed. */
+.detalje-sti {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 9px;
+  margin: 18px 0 14px; font-size: 13.5px; color: var(--daempet);
+}
+.detalje-sti a { color: var(--daempet); text-decoration: none; }
+.detalje-sti a:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.detalje-sti .sti-tilbage { color: var(--accent); font-weight: 570; }
+.detalje-sti .sti-skil { color: var(--svag); }
+.detalje-sti [aria-current="page"] { color: var(--tekst); font-weight: 550; }
+
+/* ─── Afsnitsnavigationen paa boligsiden ───────────────────────
+   Referencens fanerække. Her er det ankerlinks, og listen bygges af
+   de samme betingelser som afsnittene — se `afsnit` i page.tsx.
+   Den ruller vandret i sin EGEN kasse paa smalle skaerme; siden selv
+   maa ikke kunne rulle vandret. */
+.afsnitsnav {
+  display: flex; gap: 4px; margin: 26px 0 4px;
+  border-bottom: 1px solid var(--linje);
+  overflow-x: auto; scrollbar-width: thin;
+}
+.afsnitsnav a {
+  flex: none; padding: 11px 14px 12px; color: var(--daempet);
+  font-size: 14.5px; font-weight: 560; text-decoration: none;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
+}
+.afsnitsnav a:hover { color: var(--accent); border-bottom-color: #cfe0d9; }
+.afsnitsnav a:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--r-xs);
+}
 
 /* ─── Galleri ───────────────────────────────────────────────── */
 .galleri {
@@ -566,20 +683,38 @@ footer.bund {
 
 /* ── Spalterne ─────────────────────────────────────────────── */
 .spalter {
-  display: grid; grid-template-columns: 1fr 360px; gap: 30px;
-  align-items: start; margin-top: 26px;
+  /* To felter i venstre spalte, ét i hoejre. Referencen har galleriet
+     OG prispanelet oeverst ved siden af hinanden — prisen er det, man
+     kom efter, og den maa ikke ligge under foldet.
+
+     Navngivne felter, ikke `order`: paa en telefon skal raekkefoelgen
+     vaere billeder → titel → pris → afsnit, og med ét indholdsfelt
+     kunne prispanelet kun ligge enten foer billederne eller efter hele
+     teksten. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-areas:
+    "visning oekonomi"
+    "afsnit  oekonomi";
+  gap: 0 28px; align-items: start; margin-top: 4px;
 }
+.detalje-visning { grid-area: visning; min-width: 0; }
+.detalje-afsnit  { grid-area: afsnit;  min-width: 0; }
 /* Klæber i sin egen spalte. Trak sig før 104 px OP over billederne —
    det skar det tredje billede over og gav siden et hjørne, der ikke
    passede sammen. Nu står galleriet helt, og økonomien følger med ned
    gennem beskrivelsen, hvor den er værd at have. */
-.oekonomi { position: sticky; top: 78px; order: 2; z-index: 2; }
-.indhold { order: 1; min-width: 0; }
+.oekonomi { grid-area: oekonomi; position: sticky; top: 78px; z-index: 2; }
 @media (max-width: 980px) {
-  .spalter { grid-template-columns: 1fr; gap: 20px; }
-  /* Ingen spalte at klaebe i. Kortet staar foerst, i normalt floew. */
-  .oekonomi { position: static; order: 0; margin: 4px 0 6px; }
-  .indhold { order: 1; }
+  .spalter {
+    grid-template-columns: 1fr;
+    grid-template-areas: "visning" "oekonomi" "afsnit";
+    gap: 0;
+  }
+  /* Ingen spalte at klaebe i — og her staar panelet efter billeder og
+     adresse, hvor det svarer paa «hvad koster den her bolig», man lige
+     har faaet stillet. */
+  .oekonomi { position: static; margin: 20px 0 4px; }
 }
 
 /* Sidens vigtigste kort. Kraftigere ramme og skygge end alt andet. */
@@ -668,15 +803,6 @@ footer.bund {
 
 /* ─── Områdesider ───────────────────────────────────────────── */
 .omraade { padding-top: 4px; }
-.krumme {
-  display: flex; gap: 8px; align-items: center; font-size: 13px;
-  color: var(--svag); margin: 18px 0 10px;
-}
-.krumme a { color: var(--daempet); text-decoration: none; }
-.krumme a:hover { color: var(--accent); }
-.omraade h1 {
-  font-size: 28px; font-weight: 660; margin: 0 0 14px; letter-spacing: -0.026em;
-}
 .fakta-blok {
   background: var(--kort); border: 1px solid var(--linje); border-radius: var(--r);
   padding: 18px 20px; margin-bottom: 18px; max-width: 74ch;
@@ -797,86 +923,183 @@ footer.bund {
 .sidefod a { color: var(--daempet); }
 .sidefod span { max-width: 70ch; }
 
-/* ─── Forside ───────────────────────────────────────────────── */
-/* Hero'en er et baand med egen bund, saa der er en tydelig kant mellem
-   "hvad er det her" og "her er boligerne". Tonen er accentfarven i
-   meget lav styrke — ingen nye farver. */
-.forside-baand {
+/* ═══ FORSIDENS HERO ═══════════════════════════════════════════
+   Referencen: et stort, lyst interioerfoto i FULD BREDDE, teksten
+   henover til venstre, og den hvide soegebjaelke som et kort, der
+   flyder ned over billedets underkant.
+
+   Baandet bryder ud af `.ramme`s polstring med en negativ margin, der
+   regnes af rammens egen bredde — saa det naar skaermkanten paa en smal
+   skaerm og stopper ved indholdsbredden paa en bred, uden at der
+   nogensinde kan opstaa vandret rul. `100vw` ville give netop det paa
+   en skaerm med klassisk rullebjaelke. */
+.hero {
+  position: relative; isolation: isolate;
+  padding: clamp(56px, 8vw, 104px) 0 0;
   background:
     radial-gradient(105% 95% at 6% -6%, rgba(15,77,67,.17) 0%, rgba(15,77,67,0) 62%),
     linear-gradient(168deg, #e6efea 0%, #f1f2ec 48%, #fbfaf7 100%);
-  border: 1px solid var(--linje);
-  border-radius: var(--r-l);
-  /* 66/52/52 px gav et baand paa 563 px paa desktop og 917 px paa mobil,
-     og foerste boligkort laa 870 hhv. 1.175 px nede — under foldet paa
-     begge bredder. Toppen skal introducere siden, ikke fylde den. */
-  margin: 20px 0 26px;
-  padding: 38px 44px 30px;
+}
+/* Fotoet ligger BAG teksten med et lag, der loefter kontrasten paa
+   venstre side. Uden det staar en moerk overskrift paa et lyst
+   interioer — og et interioerfoto er lyst netop dér, hvor teksten er. */
+.hero-billede { position: absolute; inset: 0; z-index: -2; overflow: hidden; }
+.hero-billede img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hero.har-foto::after {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(96deg,
+    rgba(251,250,247,.97) 0%, rgba(251,250,247,.93) 30%,
+    rgba(251,250,247,.55) 52%, rgba(251,250,247,.06) 74%);
+}
+@media (max-width: 900px) {
+  /* Paa en smal skaerm er der ingen «venstre side» at laegge teksten i.
+     Sloeret daekker hele fladen, ellers laeses overskriften ikke. */
+  .hero.har-foto::after {
+    background: linear-gradient(180deg,
+      rgba(251,250,247,.95) 0%, rgba(251,250,247,.88) 55%, rgba(251,250,247,.97) 100%);
+  }
+}
+/* Indholdet holder sig paa rammens midterspalte, selv om baandet naar
+   skaermkanten — ellers ville overskriften starte i kanten. */
+.hero-indhold {
+  max-width: var(--ramme); margin: 0 auto; padding: 0 var(--ramme-luft);
+  width: 100%; position: relative;
+}
+.hero-oejenbryn {
+  margin: 0 0 14px; font-size: 12.5px; font-weight: 640;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
 }
 .hero h1 {
-  font-size: clamp(27px, 3.2vw, 39px);
-  font-weight: 690; letter-spacing: -0.036em; line-height: 1.08;
-  margin: 0 0 11px; max-width: 24ch;
-  /* Holder de to linjer nogenlunde lige lange, saa der ikke staar ét
-     ord alene paa den sidste. Browsere uden balance faar den brede
-     max-width. */
-  text-wrap: balance;
+  font-size: clamp(32px, 4.6vw, 56px);
+  font-weight: 700; letter-spacing: -0.04em; line-height: 1.04;
+  margin: 0 0 18px; max-width: 17ch; text-wrap: balance;
 }
-.hero .manchet {
-  font-size: 16.5px; line-height: 1.55; color: var(--daempet);
-  margin: 0 0 20px; max-width: 58ch;
+.hero-manchet {
+  font-size: clamp(15.5px, 1.25vw, 18px); line-height: 1.6; color: var(--daempet);
+  margin: 0; max-width: 50ch;
 }
 
-/* Formularen laaner baandets baggrund — ingen kasse i kassen. */
+/* ── Soegekortet ───────────────────────────────────────────────
+   Det hvide kort flyder ned over billedets underkant. `translateY`
+   ville efterlade et hul under baandet; en negativ bundmargin paa
+   hero'en og en positiv top paa kortet holder flowet intakt. */
+.hero-soeg {
+  max-width: var(--ramme); margin: clamp(34px, 4vw, 56px) auto 0;
+  padding: 0 var(--ramme-luft); width: 100%;
+  position: relative; transform: translateY(38px);
+}
+.hero { margin-bottom: 38px; }
+/* Krediteringen paa fotoet. Lille, men aldrig skjult — samme regel som
+   kortflisernes kreditering: den, der ejer motivet, skal kunne ses. */
+.hero-kredit {
+  /* Oeverst til hoejre, ikke nederst: soegekortet raekker ned over
+     hero'ens underkant (`translateY(38px)`), og en linje dernede ville
+     ligge bag kortet paa hver eneste skaermbredde. */
+  position: absolute; right: 14px; top: 14px; margin: 0; z-index: 1;
+  font-size: 11px; color: rgba(255,255,255,.92);
+  background: rgba(20,22,26,.42); backdrop-filter: blur(3px);
+  padding: 4px 10px; border-radius: var(--r-pille);
+}
+@media (max-width: 900px) { .hero-kredit { font-size: 10.5px; padding: 3px 8px; } }
 .hero form.filtre {
-  background: none; border: 0; box-shadow: none; padding: 0; margin: 0;
+  background: var(--kort); border: 1px solid var(--linje);
+  border-radius: var(--r-l); box-shadow: var(--skygge-loeft);
+  padding: 10px 10px 10px 6px; margin: 0;
+  display: block;
 }
 
-/* ── Søgefeltet som ÉN kontrol ──────────────────────────────
-   Før: et felt og en knap ved siden af hinanden med 10 px imellem, som
-   to løsrevne elementer. Nu ét afrundet bånd med lup, felt og knap
-   indeni — samme markup, samme `name`-attributter, samme submit.
-   Feltet bærer selv fokusringen, så tastaturbrugeren ser præcis, hvor
-   hun står; båndet får en blødere ring omkring. */
-.storsoeg {
-  display: flex; gap: 8px; max-width: 620px; align-items: center;
-  background: #fff; border: 1px solid #dcd8ce; border-radius: var(--r-pille);
-  padding: 5px 5px 5px 16px; box-shadow: var(--skygge-flad);
-  transition: box-shadow .15s ease, border-color .15s ease;
+/* ── Den brede soegebjaelke ────────────────────────────────────
+   Fire felter med etiket over vaerdien, adskilt af lodrette streger,
+   og en stor groen knap yderst — som i referencen. Gitteret, ikke
+   flex: kolonnerne skal have FASTE forhold, saa stregerne staar lige
+   uanset hvor lang teksten i feltet er. */
+.soegebar {
+  display: grid;
+  grid-template-columns: 1.5fr 1.25fr 1fr 1fr auto;
+  align-items: stretch; gap: 0;
 }
-.storsoeg:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-lys); }
-/* Luppen er en baggrund, ikke et element: markup'en er urørt, og et
-   dekorativt ikon skal alligevel ikke i tilgængelighedstræet. */
-.storsoeg::before {
-  content: ''; flex: none; width: 18px; height: 18px; opacity: .5;
-  background: currentColor;
-  -webkit-mask: var(--ikon-lup) center/contain no-repeat;
-  mask: var(--ikon-lup) center/contain no-repeat;
+.soegefelt {
+  /* Ikonet til venstre, etiket over vaerdi til hoejre — referencens
+     opbygning. Gitter og ikke flex med et ekstra element: ikonet er en
+     CSS-maske paa ::before, saa der ikke skal et tomt <span> i
+     markuppen for hver eneste feltetiket. */
+  display: grid; grid-template-columns: 19px minmax(0, 1fr);
+  grid-template-rows: auto auto; column-gap: 11px; align-content: center;
+  padding: 10px 15px; min-width: 0; border-left: 1px solid var(--linje);
 }
-.storsoeg input {
-  flex: 1 1 auto; min-width: 0; font: inherit; font-size: 16px;
-  padding: 13px 4px; border: 0; border-radius: 0;
-  background: none; color: inherit; box-shadow: none;
+.soegefelt::before {
+  content: ''; grid-row: 1 / span 2; align-self: center;
+  width: 19px; height: 19px; background: var(--accent); opacity: .72;
+  -webkit-mask-position: center; mask-position: center;
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-image: var(--ikon-sted); mask-image: var(--ikon-sted);
 }
-.storsoeg input:focus { outline: none; }
-.storsoeg button {
-  flex: 0 0 auto; font-size: 15px; font-weight: 620;
-  padding: 12px 24px; border-radius: var(--r-pille);
+.sf-pris::before  { -webkit-mask-image: var(--ikon-moent); mask-image: var(--ikon-moent); }
+.sf-areal::before { -webkit-mask-image: var(--ikon-maal);  mask-image: var(--ikon-maal); }
+.sf-vaer::before  { -webkit-mask-image: var(--ikon-doer);  mask-image: var(--ikon-doer); }
+.soegefelt:first-child { border-left: 0; }
+.soegefelt label {
+  font-size: 12px; font-weight: 600; color: var(--tekst);
+  letter-spacing: 0; text-transform: none; line-height: 1.3;
+}
+.soegefelt input {
+  font: inherit; font-size: 15px; border: 0; background: none; padding: 2px 0;
+  width: 100%; min-width: 0; color: var(--tekst);
+}
+.soegefelt input::placeholder { color: var(--svag); }
+.soegefelt input:focus { outline: none; }
+/* Fokusringen ligger paa FELTET, ikke paa inputtet: inputtet har
+   hverken ramme eller flade, saa en ring om det ville svaeve. */
+.soegefelt:focus-within {
+  background: var(--accent-lys); border-radius: var(--r-s);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.sf-par { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.sf-par input { width: 100%; }
+.sf-til { color: var(--svag); flex: none; }
+.soegeknap {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  background: var(--accent); color: #fff; border: 0; border-radius: var(--r);
+  font-size: 16px; font-weight: 620; padding: 0 30px; margin-left: 8px;
+  cursor: pointer; white-space: nowrap;
+}
+.soegeknap:hover { background: var(--accent-mrk); }
+.sk-pil { font-size: 17px; line-height: 1; }
+
+/* «Populaere soegninger» — byerne kommer fra bestanden, ikke fra en
+   liste i koden. */
+.populaere {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px 16px;
+  margin: 13px 4px 2px; font-size: 13px;
+}
+.pop-navn { color: var(--svag); }
+.populaere a { color: var(--accent); text-decoration: none; font-weight: 540; }
+.populaere a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+@media (max-width: 900px) {
+  /* Felterne stables. Stregerne bliver vandrette: en lodret streg
+     mellem to felter over hinanden peger paa ingenting. */
+  .soegebar { grid-template-columns: 1fr 1fr; }
+  .soegefelt { border-left: 0; border-top: 1px solid var(--linje); padding: 11px 14px; }
+  .soegefelt:first-child, .soegefelt:nth-child(2) { border-top: 0; }
+  .sf-sted { grid-column: 1 / -1; border-top: 0; }
+  .soegefelt:nth-child(2), .soegefelt:nth-child(3) { border-top: 1px solid var(--linje); }
+  .soegefelt:nth-child(3) { border-left: 1px solid var(--linje); }
+  .soegefelt:nth-child(5) { border-left: 1px solid var(--linje); }
+  .soegeknap {
+    grid-column: 1 / -1; margin: 10px 4px 2px; padding: 14px 24px;
+    border-radius: var(--r-pille);
+  }
+  .hero-soeg { transform: translateY(26px); }
+  .hero { margin-bottom: 26px; }
 }
 @media (max-width: 520px) {
-  /* Under ~520 px er der ikke plads til felt OG knap på én linje uden
-     at knappen bliver et frimærke. Så bryder båndet i to — men KUN
-     knappen flytter ned. Luppen og feltet hører sammen: sætter man
-     feltet til `1 1 100%`, bliver luppen skubbet op på sin egen linje
-     og står som et løst ikon over et tomt felt. */
-  .storsoeg {
-    flex-wrap: wrap; border-radius: var(--r-l); padding: 12px 15px; gap: 10px;
-    row-gap: 12px;
-  }
-  .storsoeg input { flex: 1 1 0; min-width: 0; padding: 4px 0; }
-  .storsoeg button { flex: 1 1 100%; padding: 13px 20px; }
-  /* Kortet om søgefeltet må ikke blive en ramme om en ramme. */
-  form.filtre.soegt { padding: 10px 11px 12px; }
+  .soegebar { grid-template-columns: 1fr; }
+  .soegefelt { border-left: 0 !important; border-top: 1px solid var(--linje); }
+  .soegefelt:first-child { border-top: 0; }
+  /* 16 px: under det zoomer iOS ind paa fokus og efterlader siden skaev. */
+  .soegefelt input { font-size: 16px; }
 }
 
 /* ── Ikoner ────────────────────────────────────────────────────
@@ -893,7 +1116,6 @@ footer.bund {
   --ikon-moent: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cellipse cx='12' cy='6.6' rx='8' ry='3.1'/%3E%3Cpath d='M4 6.6v10.8c0 1.7 3.6 3.1 8 3.1s8-1.4 8-3.1V6.6'/%3E%3Cpath d='M4 12c0 1.7 3.6 3.1 8 3.1s8-1.4 8-3.1'/%3E%3C/svg%3E");
   --ikon-filter: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M4 7h16M7 12h10M10 17h4'/%3E%3C/svg%3E");
 }
-.soegehint { margin: 11px 2px 0; font-size: 13px; color: var(--svag); }
 
 /* ── De tre tal: bevis, ikke sidens hovedperson ────────────────
    Var tre kort med egen flade, 30 px tal og 34 px bund — 176 px, der
@@ -903,30 +1125,66 @@ footer.bund {
    beviser: nu én linje, der bryder efter behov.
    Markuppen er uaendret — `<ul>` med `<li>`, `<strong>` og `<span>` —
    saa `Hastighedspunkt` og prøven i test-soegning rammer det samme. */
-.punkter {
-  list-style: none; margin: 18px 0 0; padding: 14px 0 0; max-width: 760px;
-  border-top: 1px solid rgba(20,22,26,.07);
-  display: flex; flex-wrap: wrap; gap: 7px 26px;
+/* Referencens talstribe: fire felter paa en raekke med ikon, stort tal
+   og en kort forklaring — adskilt af lodrette streger. TALLENE ER
+   REGNET. Referencens «12.500+», «98 byer», «94 % faar svar inden for
+   24 timer» og «Tusindvis har fundet hjem» er opdigtede, og de tre
+   sidste er desuden paastande, produktet ikke kan maale. */
+.talstribe {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0; background: var(--kort);
+  border: 1px solid var(--linje); border-radius: var(--r-l);
+  box-shadow: var(--skygge-flad); overflow: hidden;
 }
-.punkter li {
-  display: flex; align-items: baseline; gap: 6px;
-  background: none; border: 0; border-radius: 0; padding: 0; box-shadow: none;
+.talstribe li {
+  display: grid; grid-template-columns: auto 1fr;
+  grid-template-areas: 'ikon tal' 'ikon tekst';
+  align-items: center; column-gap: 13px; row-gap: 1px;
+  padding: 20px 22px; border-left: 1px solid var(--linje);
+  background: none; border-radius: 0; box-shadow: none; min-width: 0;
+}
+.talstribe li:first-child { border-left: 0; }
+.talstribe li::before {
+  content: ''; grid-area: ikon; width: 26px; height: 26px; flex: none;
+  background: var(--accent); opacity: .85;
+  -webkit-mask: var(--ikon-hus) center/contain no-repeat;
+  mask: var(--ikon-hus) center/contain no-repeat;
+}
+.talstribe .ts-moent::before { -webkit-mask-image: var(--ikon-moent); mask-image: var(--ikon-moent); }
+.talstribe .ts-kalender::before { -webkit-mask-image: var(--ikon-kalender); mask-image: var(--ikon-kalender); }
+/* Hastighedspunktet har ingen egen klasse — det bor i Hastighed.tsx og
+   maa ikke skulle kende striben for at kunne staa i den. */
+.talstribe li:last-child::before {
+  -webkit-mask-image: var(--ikon-maal); mask-image: var(--ikon-maal);
+}
+.talstribe strong { grid-area: tal; }
+.talstribe span { grid-area: tekst; }
+@media (max-width: 900px) {
+  .talstribe { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .talstribe li:nth-child(odd) { border-left: 0; }
+  .talstribe li:nth-child(n+3) { border-top: 1px solid var(--linje); }
+}
+@media (max-width: 520px) {
+  .talstribe { grid-template-columns: 1fr; }
+  .talstribe li { border-left: 0; }
+  .talstribe li + li { border-top: 1px solid var(--linje); }
 }
 .punkter strong {
-  font-size: 16.5px; font-weight: 690; letter-spacing: -0.022em;
-  line-height: 1.2; color: var(--accent); font-variant-numeric: tabular-nums;
+  font-size: 22px; font-weight: 700; letter-spacing: -0.028em;
+  line-height: 1.15; color: var(--accent); font-variant-numeric: tabular-nums;
 }
 /* Det tredje "tal" er et ord — og naar der ingen maaling er, er det en
    oplysning om, hvad vi IKKE ved. Den maa ikke staa i accentfarven som
    et resultat; den er daempet, men den staar der. */
 .punkter strong.ord {
-  font-size: 13.5px; font-weight: 620; letter-spacing: 0;
-  line-height: 1.3; color: var(--daempet);
+  font-size: 15px; font-weight: 640; letter-spacing: -0.01em;
+  line-height: 1.25; color: var(--daempet);
 }
 .punkter strong .enhed {
   font-size: .72em; font-weight: 550; color: var(--daempet); letter-spacing: 0;
 }
-.punkter span { font-size: 12.5px; color: var(--daempet); line-height: 1.4; }
+.punkter span { font-size: 12.5px; color: var(--daempet); line-height: 1.42; }
 
 /* Filterboksen er beholder om begge dele */
 form.filtre { display: block; padding: 14px 16px; }
@@ -935,21 +1193,27 @@ form.filtre.soegt {
   background: var(--kort); border: 1px solid var(--linje);
   box-shadow: var(--skygge-flad);
 }
-/* Paa resultatsiden er soegefeltet ikke laengere sidens hovedgreb — det
-   er listen. Feltet beholder sin form, men ikke hero-stoerrelsen. */
-form.filtre.soegt .storsoeg { max-width: none; padding-left: 15px; }
-form.filtre.soegt .storsoeg input { padding: 11px 4px; font-size: 15px; }
-form.filtre.soegt .storsoeg button { padding: 10px 22px; font-size: 14.5px; }
-/* 15 px er et bevidst valg paa desktop: feltet er ikke resultatsidens
-   hovedgreb. Paa en telefon er det et andet spoergsmaal — iOS zoomer
-   ind paa et tekstfelt under 16 px og efterlader siden skaev, til man
-   zoomer ud igen. Hero'ens felt har 16 px i forvejen; det her stod
-   udenfor, fordi mobilreglerne kun naaede `.felt input` og
-   `.filterpost … select`, og det her er hverken. Samme graense som
-   dem, og lige efter reglen den varierer — ikke som en override
-   nederst i filen. */
+/* Paa resultatsiden er bjaelken ikke sidens hovedgreb — det er listen.
+   Den beholder sin form, men ikke hero-stoerrelsen.
+
+   KOLONNERNE STAAR I EN min-width, og det er ikke pynt. Reglen er
+   `form.filtre.soegt .soegebar` — tre klasser og et element — mens
+   stablingen paa smal skaerm er `.soegebar` alene. En regel uden
+   medieforespoergsel vinder over en med, naar den er mere specifik, og
+   saa stablede resultatsidens bjaelke ALDRIG: paa 390 px stod pris,
+   stoerrelse og vaerelser stadig ved siden af hinanden, og «Vaerelser»
+   laa uden for skaermen. Det er samme faelde som el-linjen: to rigtige
+   regler, der svarer paa det samme, og den ene fyrede aldrig. */
+@media (min-width: 901px) {
+  form.filtre.soegt .soegebar { grid-template-columns: 1.4fr 1.2fr 1fr 1fr auto; }
+}
+form.filtre.soegt .soegefelt { padding: 8px 14px; }
+form.filtre.soegt .soegefelt input { font-size: 14.5px; }
+form.filtre.soegt .soegeknap { font-size: 15px; padding: 0 24px; }
+/* 16 px paa mobil: under det zoomer iOS ind paa fokus og efterlader
+   siden skaev, til man zoomer ud igen. */
 @media (max-width: 560px) {
-  form.filtre.soegt .storsoeg input { font-size: 16px; }
+  form.filtre.soegt .soegefelt input { font-size: 16px; }
 }
 
 /* ── «Flere filtre» som en rigtig kontrol ────────────────────
@@ -1030,41 +1294,40 @@ form.filtre.soegt .storsoeg button { padding: 10px 22px; font-size: 14.5px; }
   outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-lys);
 }
 
+/* Paa forsiden er «Nyeste boliger» en sektionsoverskrift paa linje med
+   «Saadan bruger du Bofinda», ikke en etiket. Paa resultatsiden
+   overtager `.resultat-tal` og saetter sin egen, stoerre vaegt. */
 .listetitel {
-  font-size: 16px; font-weight: 650; margin: 0; padding: 0;
-  letter-spacing: -0.016em;
+  font-size: clamp(20px, 2vw, 25px); font-weight: 670; margin: 0; padding: 0;
+  letter-spacing: -0.026em;
 }
 
 @media (max-width: 680px) {
-  .forside-baand { padding: 26px 18px 22px; border-radius: 14px; margin: 12px 0 20px; }
   .hero h1 { max-width: none; }
-  .hero .manchet { font-size: 15.5px; margin-bottom: 16px; }
-  /* `flex-direction: column` stammer fra den gamle form, hvor feltet og
-     knappen var to løsrevne kasser. Nu er båndet ÉN kontrol, og en
-     kolonne ville lægge luppen på sin egen linje over et tomt felt.
-     Brydningen håndteres af `flex-wrap` i reglen ved 520 px. */
-  .storsoeg { max-width: none; }
-  .punkter { gap: 6px 18px; padding-top: 12px; }
+  .hero-manchet { font-size: 15.5px; }
+  .talstribe { gap: 10px; }
 }
-/* Maerkaterne under adressen, naar de ellers klemmer den i to linjer. */
-@container (max-width: 780px) {
-  .raek1 { flex-direction: column; align-items: flex-start; gap: 7px; }
+/* ── Kortets fod ───────────────────────────────────────────────
+   Referencens «Fra BoligPortal» nederst, adskilt af en streg.
+   `margin-top: auto` skubber den ned, saa alle kort i en raekke faar
+   kilden paa samme linje, uanset hvor lang adressen er. */
+.kort-fod {
+  margin-top: auto; padding-top: 11px;
+  border-top: 1px solid var(--linje-svag);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 12px; color: var(--svag);
 }
-/* Et smallere billede, saa teksten faar pladsen. */
-@container (max-width: 660px) {
-  .kort { grid-template-columns: 168px 1fr; gap: 14px; }
-}
-/* Billede over tekst, naar der ikke er plads ved siden af. */
-@container (max-width: 460px) {
-  .kort { grid-template-columns: 1fr; gap: 12px; }
-  /* Stablet er billedet et baand over teksten, ikke en spalte ved siden af
-     — derfor 16/9 og ikke 4/3. Forholdet skal saettes paa RAMMEN som
-     ovenfor; blev det staaende paa `img`, ville rammens 4/3 vinde, og de
-     stablede kort ville skifte fra 320x180 til 320x240 uden at nogen har
-     bedt om det. Det var maalt til 1,778 paa alle 48 kort foer aendringen
-     og skal blive der. */
-  .kort-billede { aspect-ratio: 16/9; }
-  .kort-krop { padding: 0 4px 4px; }
+
+/* ── Naar kortet selv bliver smalt ─────────────────────────────
+   Gitteret gaar ned i faerre kolonner foer et kort bliver kritisk
+   smalt, saa det her er sikkerhedsnettet: paa under 250 px maa prisen
+   og indflytningsprisen ikke staa ved siden af hinanden. Container-
+   forespoergsel og ikke medieforespoergsel — kortet ved selv, hvor
+   bredt det er, ogsaa naar kortspalten staar ved siden af listen. */
+@container (max-width: 250px) {
+  .kort-krop { padding: 13px 13px 12px; }
+  .adresse { font-size: 16px; }
+  .kort-pris { font-size: 20px; }
 }
 
 /* ── Filtrene paa en telefon ───────────────────────────────────
@@ -1117,11 +1380,6 @@ form.filtre.soegt .storsoeg button { padding: 10px 22px; font-size: 14.5px; }
 .gruppe-match strong { color: var(--tekst); font-weight: 640; }
 
 /* Gruppesiden */
-.gruppe-manchet {
-  font-size: 15px; line-height: 1.6; color: var(--daempet);
-  margin: 0 0 16px; max-width: 68ch;
-}
-.gruppe-manchet strong { color: var(--tekst); font-weight: 620; }
 
 /* ─── Flervalgsfelter i filtrene ────────────────────────────────
    Boligtype fylder mere end et enkelt felt, fordi valgene står ved
@@ -1300,11 +1558,19 @@ form.filtre.soegt .storsoeg button { padding: 10px 22px; font-size: 14.5px; }
 
 .listehoved {
   display: flex; align-items: baseline; justify-content: space-between;
-  gap: 14px; margin: 4px 0 7px; padding: 0 2px;
+  gap: 10px 18px; margin: 4px 0 7px; padding: 0 2px; flex-wrap: wrap;
 }
 .listehoved .listetitel { margin: 0; }
+/* Sortering og kortknap i hoejre side, som i referencen. Bryder ned
+   under overskriften, naar raekken ikke kan vaere der — ikke i en
+   medieforespoergsel, men naar det faktisk kniber. */
+.listehoved-hoejre {
+  display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap;
+  margin-left: auto;
+}
+.listehoved-hoejre .sortering { margin-top: 0; }
 .kortknap {
-  margin-left: auto; font-size: 13.5px; font-weight: 570; color: var(--accent);
+  font-size: 13.5px; font-weight: 570; color: var(--accent);
   text-decoration: none; white-space: nowrap; flex: none;
   padding: 8px 15px; border-radius: var(--r-pille);
   border: 1px solid #cfe0d9; background: var(--kort);
@@ -1312,7 +1578,10 @@ form.filtre.soegt .storsoeg button { padding: 10px 22px; font-size: 14.5px; }
 .kortknap:hover { background: var(--accent-lys); }
 .kortknap:hover { text-decoration: underline; }
 
-.medkort { display: grid; grid-template-columns: minmax(0, 1fr) 316px; gap: 16px; align-items: start; }
+/* Kortspalten som i referencen: en fast hoejre spalte, der foelger med
+   ned. 348 px giver listen 888 px paa den bredeste skaerm — plads til
+   tre kort à 282 px. */
+.medkort { display: grid; grid-template-columns: minmax(0, 1fr) 348px; gap: 24px; align-items: start; }
 .udenkort { display: block; }
 .kortspalte { position: sticky; top: 16px; }
 .kortboks {
@@ -1683,6 +1952,131 @@ form.filtre.soegt .storsoeg button { padding: 10px 22px; font-size: 14.5px; }
 
 /* Grundlagslinjen under hero-søgningen. Den er forbehold, ikke løfte —
    derfor lav vægt og luft over, så den ikke klæber til knappen. */
-.hero .grundlagsnote {
-  margin-top: 8px; font-size: 12px; color: var(--svag); line-height: 1.5;
+/* Grundlagslinjen ligger nu UNDER talstriben, ikke inde i hero'en —
+   den forklarer stribens foerste tal og hoerer til ved siden af det. */
+.grundlagsnote {
+  margin: 10px 4px 0; font-size: 12px; color: var(--svag); line-height: 1.5;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   LANCERING v2 — komponenter fra mockupsene
+   Nye klasser, ingen af dem overskriver noget ovenfor.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Broedkrumme og sidetitel ──────────────────────────────────
+   Referencens «Forside › Lejeboliger» og den store titel over
+   filterbjaelken. */
+.broedkrumme {
+  display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  margin: 20px 0 14px; font-size: 13px; color: var(--svag);
+}
+.broedkrumme a { color: var(--daempet); text-decoration: none; }
+.broedkrumme a:hover { color: var(--accent); text-decoration: underline; }
+.broedkrumme [aria-current] { color: var(--tekst); font-weight: 550; }
+
+.sidetitel { margin: 0 0 20px; }
+.sidetitel h1 {
+  font-size: clamp(28px, 3.4vw, 42px); font-weight: 700;
+  letter-spacing: -0.036em; line-height: 1.08; margin: 0 0 8px;
+  text-wrap: balance;
+}
+.sidetitel p { margin: 0; font-size: 16px; line-height: 1.6; color: var(--daempet); max-width: 78ch; }
+.sidetitel p strong { color: var(--tekst); font-weight: 620; }
+
+/* Filterbjaelken paa resultatsiden. Som i referencen er bjaelken OG de
+   aktive chips ét felt: chippen siger, hvad bjaelken er sat til, og de
+   to hoerer sammen. Kortet er derfor flyttet ud paa panelet, og
+   formularen indeni er gjort gennemsigtig — ikke to kasser i en kasse. */
+.soegepanel {
+  margin: 0 0 20px; background: var(--kort); border: 1px solid var(--linje);
+  border-radius: var(--r-l); box-shadow: var(--skygge-flad); padding: 4px;
+}
+.soegepanel form.filtre.soegt {
+  margin: 0; padding: 6px 6px 6px 2px;
+  background: none; border: 0; border-radius: 0; box-shadow: none;
+}
+.soegepanel .filterchips {
+  margin: 0; padding: 11px 12px 11px; border-top: 1px solid var(--linje-svag);
+}
+
+/* ── Sektioner og infokort ─────────────────────────────────────
+   Referencens raekke med ikonflise, overskrift og et par linjer.
+   Indholdet er funktioner, der findes paa denne gren — ikke
+   referencens «AI-assisterede ansoegninger» og «Verificerede
+   boliger», som produktet ikke har. */
+.sektion { margin: 46px 0 0; }
+.sektion-titel {
+  font-size: clamp(22px, 2.2vw, 28px); font-weight: 680;
+  letter-spacing: -0.028em; margin: 0 0 20px;
+}
+.kortgitter {
+  display: grid; gap: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(238px, 1fr));
+}
+.infokort {
+  background: var(--kort); border: 1px solid var(--linje);
+  border-radius: var(--r-l); padding: 24px 22px 22px;
+  box-shadow: var(--skygge-flad);
+  display: flex; flex-direction: column;
+}
+.infokort h3 {
+  font-size: 16.5px; font-weight: 660; letter-spacing: -0.018em;
+  margin: 0 0 8px;
+}
+.infokort p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--daempet); }
+.ik-flise {
+  width: 44px; height: 44px; border-radius: 12px; margin-bottom: 16px;
+  background: var(--accent-lys); display: block; position: relative;
+}
+.ik-flise::before {
+  content: ''; position: absolute; inset: 11px;
+  background: var(--accent);
+  -webkit-mask: var(--ikon-hus) center/contain no-repeat;
+  mask: var(--ikon-hus) center/contain no-repeat;
+}
+.ik-moent::before { -webkit-mask-image: var(--ikon-moent); mask-image: var(--ikon-moent); }
+.ik-filter::before { -webkit-mask-image: var(--ikon-filter); mask-image: var(--ikon-filter); }
+.ik-klokke::before { -webkit-mask-image: var(--ikon-kalender); mask-image: var(--ikon-kalender); }
+.ik-link {
+  margin-top: 13px; align-self: flex-start; color: var(--accent);
+  font-size: 14px; font-weight: 580; text-decoration: none;
+}
+.ik-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ── Udlejerbaandet ────────────────────────────────────────────
+   Referencens moerkegroenne baand. Citatet med stjerner ved siden af
+   er ikke med: det er en opdigtet anmeldelse fra en navngiven person. */
+.udlejerbaand {
+  margin: 46px 0 0; border-radius: var(--r-l); overflow: hidden;
+  background:
+    radial-gradient(120% 140% at 88% -20%, rgba(255,255,255,.10) 0%, rgba(255,255,255,0) 60%),
+    linear-gradient(104deg, var(--accent-mrk) 0%, var(--accent) 62%, #14624f 100%);
+  color: #fff; padding: clamp(30px, 3.2vw, 44px) clamp(24px, 3.5vw, 48px);
+}
+.ub-tekst { max-width: 62ch; }
+.ub-oejenbryn {
+  margin: 0 0 12px; font-size: 12px; font-weight: 640; letter-spacing: .14em;
+  text-transform: uppercase; color: rgba(255,255,255,.72);
+}
+.udlejerbaand h2 {
+  font-size: clamp(24px, 2.6vw, 34px); font-weight: 700;
+  letter-spacing: -0.032em; line-height: 1.12; margin: 0 0 14px; color: #fff;
+}
+.udlejerbaand p { margin: 0; font-size: 15.5px; line-height: 1.62; color: rgba(255,255,255,.86); }
+.ub-knap {
+  display: inline-block; margin-top: 24px; background: #fff; color: var(--accent-mrk);
+  font-size: 15px; font-weight: 640; padding: 13px 26px;
+  border-radius: var(--r-pille); text-decoration: none;
+}
+.ub-knap:hover { background: var(--sand); color: var(--accent-mrk); }
+
+/* ── Boligdetaljens hierarki ───────────────────────────────────
+   Referencen: stor titel under galleriet, noegletal som en stribe med
+   ikoner, og prispanelet i hoejre spalte. Markuppen er den samme;
+   det er vaegtene, der er lavet om. */
+.detalje-hoved h1 {
+  font-size: clamp(26px, 3vw, 38px); font-weight: 700;
+  letter-spacing: -0.034em; line-height: 1.1;
+}
+.oek-kort .oek-tal { letter-spacing: -0.04em; }

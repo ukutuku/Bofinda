@@ -152,13 +152,17 @@ export default async function Side({ params, searchParams }: {
 
   return (
     <div className="omraade">
-      <nav className="krumme">
-        <a href="/">Alle boliger</a>
-        <span>›</span>
-        <span>{o.navn}</span>
+      {/* Samme sti og sidetitel som resultat- og gruppesiden.
+          Omraadesidens tekst og tal er uroerte. */}
+      <nav className="broedkrumme" aria-label="Sti">
+        <a href="/">Forside</a>
+        <span aria-hidden="true">›</span>
+        <span aria-current="page">{o.navn}</span>
       </nav>
 
-      <h1>Lejeboliger {iOmraadet(o)}</h1>
+      <div className="sidetitel">
+        <h1>Lejeboliger {iOmraadet(o)}</h1>
+      </div>
 
       {/* Kun tal vi kan pege paa raekkerne bag. Ingen paastande om
           markedet, ingen "populaert omraade". */}

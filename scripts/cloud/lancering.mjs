@@ -190,14 +190,16 @@ for (const bredde of [1440, 390]) {
   // ── Tastatur: fokus maa ikke gemme sig under den klaebende bjaelke ──
   await p.goto(`${BASE}/?sted=Attrapby`, { waitUntil: 'networkidle', timeout: 90_000 })
   const fokus = await p.evaluate(() => {
-    const felt = document.querySelector('.storsoeg input')
+    const felt = document.querySelector('.soegebar input')
     if (!felt) return { fandt: false }
     felt.focus()
-    // Ringen ligger paa BAANDET, ikke paa feltet: `.storsoeg` bruger
-    // `:focus-within`, og feltet selv har `outline: none`. Foerste udgave
-    // maalte kun feltet og meldte roedt om en ring, der var der — den
-    // maalte det forkerte element, ikke en mangel i produktet.
-    const baand = felt.closest('.storsoeg') ?? felt
+    // Ringen ligger paa FELTET, ikke paa inputtet: `.soegefelt` bruger
+    // `:focus-within`, og inputtet selv har `outline: none`. Foerste
+    // udgave maalte kun inputtet og meldte roedt om en ring, der var der
+    // — den maalte det forkerte element, ikke en mangel i produktet.
+    // (Baandet hed `.storsoeg` foer designloeftet; bjaelken er nu
+    // `.soegebar` med ét `.soegefelt` pr. felt.)
+    const baand = felt.closest('.soegefelt') ?? felt
     const sf = getComputedStyle(felt)
     const sb = getComputedStyle(baand)
     const ring = (x) => x.outlineStyle !== 'none' || (x.boxShadow && x.boxShadow !== 'none')
@@ -278,7 +280,7 @@ for (const bredde of [1440, 390]) {
     await p.goto(`${BASE}/?sted=Attrapby`, { waitUntil: 'networkidle', timeout: 90_000 })
     const m = await p.evaluate(() => {
       const sp = document.querySelector('.resultathoved .optaelling > span')
-      const felt = document.querySelector('form.filtre.soegt .storsoeg input')
+      const felt = document.querySelector('form.filtre.soegt .soegebar input')
       const doc = document.documentElement
       const s = sp ? getComputedStyle(sp) : null
       const foer = sp ? getComputedStyle(sp, '::before') : null
@@ -309,8 +311,12 @@ for (const bredde of [1440, 390]) {
         m.radius !== '0px' && m.polstring !== '0px 0px',
         `radius ${m.radius} · polstring ${m.polstring}`)
       tjek('1440 px · møntikonet står stadig', m.ikon !== 'none', String(m.ikon))
-      tjek('1440 px · søgefeltet beholder sine bevidste 15 px',
-        m.feltStoerrelse === '15px', String(m.feltStoerrelse))
+      // 14,5 px efter designloeftet: resultatsidens bjaelke er sat ned
+      // i forhold til hero'ens 15 px, fordi listen er sidens hovedgreb
+      // dér. Kontrollen maaler stadig det samme: at desktop har en
+      // BEVIDST stoerrelse, og at mobilen hoppes op paa 16 px.
+      tjek('1440 px · søgefeltet beholder sine bevidste 14,5 px',
+        m.feltStoerrelse === '14.5px', String(m.feltStoerrelse))
     }
     // Alle tre tal skal stadig staa der — det var aldrig meningen at
     // fjerne en oplysning, kun fladen omkring den.

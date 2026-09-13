@@ -21,20 +21,27 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <html lang="da" className={sans.variable}>
       <body>
+        {/* ── Brandbjælken ──────────────────────────────────────
+            Mockuppens bjælke: wordmark til venstre, menuen ved siden af,
+            handlingen yderst til højre. Undertitlen er væk — den stod som
+            en 11,5 px linje under mærket og gjorde wordmarket til en
+            billedtekst i stedet for et logo.
+
+            KUN DESTINATIONER, DER FINDES. Referencen viser «Priser»,
+            «Inbox», «Log ind» og «Kom i gang». Priser og Inbox har
+            produktet ikke; login hører til PR #3 og er ikke på denne
+            gren. En menu, der lover sider, vi ikke har, er en tom knap i
+            en situation, hvor nogen leder efter noget. */}
         <header className="top">
           <div className="ramme toplinje">
-            <a className="maerke" href="/">
-              <span className="maerke-navn">Bofinda</span>
-              <span className="maerke-under">lejeboliger, samlet ét sted</span>
-            </a>
-            {/* Kun destinationer, der FINDES. Konceptbillederne viser
-                «Priser» og «Inbox»; dem har produktet ikke, og en menu,
-                der lover sider, vi ikke har, er en tom knap i en
-                situation, hvor nogen leder efter noget. */}
+            <a className="maerke" href="/">BOFINDA</a>
             <nav className="topnav" aria-label="Hovedmenu">
               <a href="/">Lejeboliger</a>
-              <a className="nav-primaer" href="/udlejer">Udlej din bolig</a>
+              <a href="/udlejer">For udlejere</a>
             </nav>
+            <div className="tophandlinger">
+              <a className="nav-primaer" href="/udlejer/opret">Opret annonce</a>
+            </div>
           </div>
         </header>
         <div className="ramme">{children}</div>
