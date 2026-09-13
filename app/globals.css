@@ -204,6 +204,17 @@ button, .nulstil, .knap {
   border: 1px solid var(--accent); background: var(--accent); color: #fff;
   cursor: pointer; text-decoration: none; display: inline-block; white-space: nowrap;
 }
+/* Panelets egne handlinger. Samme faelde som «Flere filtre» ovenfor:
+   `.knapper button { padding: 12px 16px }` staar i
+   `@media (max-width: 560px)`, saa knapperne var 48 px paa 390 px og
+   40 px paa 768 og 1440. `min-height` hoerer til handlingen og ikke til
+   bredden — 44 px er gulvet, og polstringen paa smal skaerm loefter dem
+   stadig til 48. Flex-centrering, fordi `min-height` alene ville
+   efterlade teksten oeverst i knappen. */
+.knapper button, .knapper .nulstil {
+  min-height: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
 button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--accent-mrk); }
 .nulstil { background: #fff; color: var(--daempet); border-color: var(--linje); }
 .nulstil:hover { background: #fff; border-color: var(--svag); color: var(--tekst); }
@@ -1270,6 +1281,12 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
   padding: 7px 13px; user-select: none;
   border: 1px solid var(--linje); border-radius: var(--r-pille);
   background: var(--kort);
+  /* Beroeringsmaalet hoerer til kontrollen, ikke til skaermbredden.
+     Maalt paa fe16c39: 36 px paa 768 og 1440 px, 43 px paa 390.
+     `.flere > summary` fik kun sin hoejde af en regel i
+     `@media (max-width: 560px)`, og en 768 px skaerm er ogsaa en
+     finger. Det her er den eneste vej ind i filtrene. */
+  min-height: 44px;
 }
 .flere > summary::-webkit-details-marker { display: none; }
 .flere > summary::before {
