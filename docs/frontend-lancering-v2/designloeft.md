@@ -156,6 +156,68 @@ Hero'en dækker `0..1440` af 1440 px og `0..390` af 390 px.
 
 ---
 
+## Rettet efter den uafhængige gennemgang
+
+Tre punkter fra gennemgangen af `4a1d2af`. Designretningen og
+opbygningen er uændret.
+
+### 1 · Søgeknappen på mobile søgeresultater
+
+`form.filtre.soegt .soegeknap { padding: 0 24px }` — tre klasser og et
+element — stod uden medieforespørgsel og slog mobilens
+`padding: 14px 24px` i `@media (max-width: 900px)`. Knappen mistede al
+lodret polstring på resultatsiden, mens forsidens knap, der ikke er
+`.soegt`, var rigtig.
+
+**Det er tredje gang samme fælde rammer den samme bjælke** — først
+kolonnerne, nu knappen. To rigtige regler om det samme, hvor den ene
+aldrig fyrer.
+
+Rettet to steder: nedskaleringen er flyttet ind i `@media (min-width: 901px)`,
+hvor den gælder, og `.soegeknap` har fået `min-height: 48px` i
+mobilblokken som gulv under berøringsmålet — polstring alene afhænger af
+skriftstørrelsen og af, at ingen anden regel når at overskrive den, og
+netop dét skete.
+
+Målt på begge sider og tre bredder, samme build før og efter:
+
+| Bredde | Side | Før | Efter |
+|---|---|---|---|
+| 390 px | forside | 48 px | 48 px |
+| 390 px | **søgeresultater** | **19 px** | **48 px** |
+| 768 px | forside | 48 px | 48 px |
+| 768 px | **søgeresultater** | **19 px** | **48 px** |
+| 1440 px | forside | 63 px | 63 px |
+| 1440 px | søgeresultater | 58 px | 58 px |
+
+«Før» er målt på `app/globals.css` udtjekket fra `4a1d2af` og bygget på
+ny — ikke skønnet ud fra reglerne.
+
+Målingen er lagt ind i `scripts/cloud/lancering.mjs` som seks faste
+kontroller. Den kører på 390, 768 **og** 1440 px og på **begge** sider,
+fordi fejlen netop var, at kun den ene side var gal, og fordi 768 px er
+den bredde, hvor mobilreglerne stadig gælder, men ingen så efter.
+
+### 2 · Tilbage-navigationen på boligsiden
+
+Linket hed «Tilbage til søgeresultater», men pegede på `/` uden
+parametre — altså ikke den søgning, brugeren kom fra: filtre, sortering
+og sidetal var væk. Det hedder nu **«Forside»**, som er hvad linket gør.
+
+Bylinket ved siden af er uændret og peger fortsat på `/?sted={by}` —
+samme parameter som filterbjælken bruger, så dét link rammer nøjagtig
+den søgning, navnet lover.
+
+Et link, der lover at føre tilbage og i stedet nulstiller søgningen, er
+samme slags usandhed som en total, der lader som om aconto er kendt:
+den opdages først, når nogen har brugt den.
+
+### 3 · Hero-fotoet — stadig udestående
+
+Se afsnittet nedenfor. Fotoet kunne **ikke** skaffes i dette miljø.
+
+---
+
 ## Det manglende billedaktiv
 
 **Der findes ikke et lyst interiørfoto til hero'en.** Referencens hero er
@@ -172,13 +234,48 @@ manglende aktiv er:
 > 2400 px bredt, med dokumenteret licens og ophavsmand, og med plads i
 > venstre halvdel til overskrift og manchet.
 
-Fotoet er ikke lagt i repoet. Det peges på med `NEXT_PUBLIC_HERO_FOTO`,
-og krediteringen med `NEXT_PUBLIC_HERO_FOTO_KREDIT` — samme mønster som
-kortflisernes `NEXT_PUBLIC_FLISE_URL`/`_KREDIT`, og af samme grund: et
-billedaktiv har en licens og en ophavsmand, og begge dele hører dårligt
-hjemme i git. Er variablen ikke sat, står hero'en med brandets gradient;
-layoutet er det samme, kun fladen skifter. **Variablerne er valgfri og
-er ikke sat noget sted uden for testmiljøet.**
+### Forsøgt skaffet — miljøet tillader det ikke
+
+Gennemgangen bad om at finde et lyst interiørfoto med dokumenteret
+brugsret. **Det kan ikke lade sig gøre herfra.** Ét opslag mod fem
+oplagte værter — Wikimedia Commons og `upload.wikimedia.org` (CC/CC0 med
+navngiven ophavsmand), Unsplash, Pexels og Openverse — svarede alle:
+
+    curl: (56) CONNECT tunnel failed, response 403
+
+Det er miljøets egen netværkspolitik, ikke en fejl hos værterne. Der er
+**ikke** forsøgt igen og ikke forsøgt uden om: hverken proxy, anden rute
+eller genereret erstatning. Et genereret billede ville i øvrigt ikke
+løse opgaven — det har ingen ophavsmand at kreditere, og siden ville
+påstå et hjem, der ikke findes.
+
+### To veje ind, når fotoet foreligger
+
+**A · Statisk i repoet** (det gennemgangen foreslår, så billedet følger
+koden). Læg filen i en ny `public/`-mappe — projektet har ikke en i dag —
+og sæt `NEXT_PUBLIC_HERO_FOTO=/hero-stue.jpg`. Kreditering og licens
+skrives ind i `NEXT_PUBLIC_HERO_FOTO_KREDIT` og i
+`docs/kildetilladelser.md`, som allerede er stedet, hvor rettigheder
+noteres pr. kilde.
+
+**B · Ekstern vært.** Samme to variabler, blot med en fuld URL. Vær
+opmærksom på, at værten IKKE skal i `TILLADTE_VAERTER` i
+`lib/billede.ts`: hero'en går uden om billedproxyen, fordi den ikke er
+et boligbillede fra en kilde.
+
+Ingen kodeændring er nødvendig for nogen af de to veje. Der er bevidst
+**ikke** bygget maskineri til en fil, der ikke findes: en
+eksistenskontrol mod en tom `public/`-mappe ville være plumbing uden et
+aktiv, og en hardkodet sti til en manglende fil ville give et 404 i
+hero'en.
+
+Fotoet er ikke lagt i repoet i dag. Det peges på med
+`NEXT_PUBLIC_HERO_FOTO`, og krediteringen med
+`NEXT_PUBLIC_HERO_FOTO_KREDIT` — samme mønster som kortflisernes
+`NEXT_PUBLIC_FLISE_URL`/`_KREDIT`. Er variablen ikke sat, står hero'en
+med brandets gradient; layoutet er det samme, kun fladen skifter.
+**Variablerne er valgfri og er ikke sat noget sted uden for
+testmiljøet.**
 
 ---
 
@@ -227,15 +324,42 @@ Alle kørt mod det isolerede testmiljø efter den sidste ændring.
 | `npx next build` | Compiled successfully · 18 ruter |
 | `scripts/cloud/kontrol.sh` | ALT GRØNT — kort, billeder dekodet, gruppekort, samtykke og analytics |
 | `scripts/cloud/kontrol-pagination.sh` | ALT GRØNT — sideudsnit, canonical, tomt udsnit ≠ nulresultat |
-| `scripts/cloud/lancering.mjs` | alt grønt — 1440 og 390 px, fokus, kontrast, lang adresse, kort uden foto |
+| `scripts/cloud/lancering.mjs` | alt grønt · 88 kontroller — 1440, 768 og 390 px, fokus, kontrast, lang adresse, kort uden foto, søgeknappens højde |
 
-`scripts/cloud/lancering.mjs` er rettet to steder, fordi designet flyttede
-det, den målte: `.storsoeg input` hedder nu `.soegebar input`, og
-resultatsidens bevidste feltstørrelse er 14,5 px i stedet for 15 px.
+`scripts/cloud/lancering.mjs` er rettet to steder og udvidet ét, fordi
+designet flyttede det, den målte:
+
+- `.storsoeg input` hedder nu `.soegebar input`
+- resultatsidens bevidste feltstørrelse er 14,5 px i stedet for 15 px
+- **nyt:** seks kontroller af søgeknappens højde — begge sider, tre
+  bredder. Se «Rettet efter den uafhængige gennemgang» ovenfor.
+
 Kontrollernes hensigt er uændret. Ingen funktionel kontrol er ændret.
 
 **Ikke kørt:** `npm run test:prod` (skriver i produktionen) og enhver
 import eller scheduler.
+
+### Hvad der er målt hvornår
+
+Alle seks kontroller i tabellen er kørt **efter** rettelserne fra
+gennemgangen, mod samme build som skærmbillederne. Før/efter-tallene for
+søgeknappen er begge målt i denne omgang: «før» ved at tjekke
+`app/globals.css` ud fra `4a1d2af` og bygge på ny.
+
+Rammegeometrien er efterprøvet igen efter rettelserne og er uændret —
+symmetriske gutters og 0 px vandret overløb på 1440, 1280, 1100, 768,
+390 og 360 px.
+
+**Fotoafprøvning er noget andet end layoutafprøvning.** Alt ovenfor er
+målt på **syntetiske** data: 264 prøveboliger, stribede testaktiver i
+stedet for boligfotos, lokale kortfliser. Den eneste flade med et
+rigtigt fotografi er hero'en, og det er et stockfoto af et udendørs
+motiv, mærket som sådan på siden. Den egentlige fotokontrol — beskæring,
+billedforhold, liggende motiv i kort, galleri og lysbord — er
+dokumenteret særskilt i `fotokontrol.md` og blev kørt mod kandidat
+`fa522eb` (13. september, resultatet skrevet ned i `9a06f68`). Den er
+**ikke** gentaget i denne omgang: rettelserne rører hverken
+billedproxyen, galleriet eller lysbordet.
 
 ---
 
@@ -246,12 +370,12 @@ skærmbillede.
 
 | Fil | Bredde |
 |---|---|
-| `forside-{desktop,mellem,mobil}.png` | 1440 · 1100 · 390 |
-| `soegeresultater-{desktop,mellem,mobil}.png` | med tre aktive filtre og sortering |
+| `forside-{desktop,mellem,tablet,mobil}.png` | 1440 · 1100 · 768 · 390 |
+| `soegeresultater-{desktop,mellem,tablet,mobil}.png` | med tre aktive filtre og sortering |
 | `boligdetalje-{desktop,mobil}.png` | bolig med flest billeder |
 | `boligdetalje-ukendt-udgift-{desktop,mobil}.png` | ukendt total |
 | `boligdetalje-uden-foto-{desktop,mobil}.png` | ingen billeder |
-| `gruppeside-{desktop,mellem,mobil}.png` | gruppeannonce |
+| `gruppeside-{desktop,mellem,tablet,mobil}.png` | gruppeannonce |
 
 Alle er taget af **produktionsbygget**, ikke af `next dev`, og samtykket
 er afvist med den rigtige knap — aldrig skjult med CSS.

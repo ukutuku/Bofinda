@@ -155,15 +155,24 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
     <article className="detalje">
       <Maaling aktiv={mt.aktiv} impressions={false} visning={null} rute="/bolig/[id]" />
       {/* ── Stien ─────────────────────────────────────────────
-          Referencens broedkrumme: tilbage til soegningen, byen, og
-          «Denne bolig» som det sted, man staar. Byen peger paa
-          soegesiden med `sted` — samme parameter som filterbjaelken
-          bruger, saa linket rammer noejagtig den soegning, navnet
-          lover. Ikke omraadesiden: den findes kun over
+          Referencens broedkrumme: forsiden, byen, og «Denne bolig» som
+          det sted, man staar.
+
+          DER STAAR «FORSIDE», FORDI LINKET FOERER TIL FORSIDEN. Det hed
+          «Tilbage til soegeresultater», men `/` uden parametre er ikke
+          den soegning, hun kom fra — filtre, sortering og sidetal er
+          vaek. Et link, der lover at foere tilbage og i stedet nulstiller
+          soegningen, er den samme slags usandhed som en total, der lader
+          som om aconto er kendt: den opdages foerst, naar nogen har brugt
+          den. Navnet siger nu, hvad linket goer.
+
+          Byen peger paa soegesiden med `sted` — samme parameter som
+          filterbjaelken bruger, saa dét link rammer noejagtig den
+          soegning, navnet lover. Ikke omraadesiden: den findes kun over
           `MINDST_BOLIGER`, og et link, der kan give 404, er ikke en sti. */}
       <nav className="detalje-sti" aria-label="Sti">
         <a className="sti-tilbage" href="/">
-          <span aria-hidden="true">←</span> Tilbage til søgeresultater
+          <span aria-hidden="true">←</span> Forside
         </a>
         {b.by && (
           <>

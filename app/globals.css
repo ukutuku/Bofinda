@@ -1090,6 +1090,12 @@ footer.bund {
   .soegeknap {
     grid-column: 1 / -1; margin: 10px 4px 2px; padding: 14px 24px;
     border-radius: var(--r-pille);
+    /* Gulv under beroeringsmaalet. Polstring alene afhaenger af
+       skriftstoerrelsen og af, at ingen anden regel naar at overskrive
+       den — og netop dét skete. Sidens vigtigste handling maa ikke
+       kunne blive lavere end en finger, uanset hvad der ellers
+       aendres. */
+    min-height: 48px;
   }
   .hero-soeg { transform: translateY(26px); }
   .hero { margin-bottom: 26px; }
@@ -1206,10 +1212,18 @@ form.filtre.soegt {
    regler, der svarer paa det samme, og den ene fyrede aldrig. */
 @media (min-width: 901px) {
   form.filtre.soegt .soegebar { grid-template-columns: 1.4fr 1.2fr 1fr 1fr auto; }
+  /* SAMME FAELDE, OG DEN RAMTE KNAPPEN. `form.filtre.soegt .soegeknap`
+     er tre klasser og et element og stod uden medieforespoergsel, saa
+     dens `padding: 0 24px` slog mobilens `padding: 14px 24px` i
+     `@media (max-width: 900px)`. Knappen mistede AL lodret polstring og
+     blev en tynd groen stribe paa resultatsiden — mens forsidens knap,
+     der ikke er `.soegt`, var rigtig. To rigtige regler om det samme,
+     hvor den ene aldrig fyrede. Nedskaleringen hoerer derfor her, hvor
+     den gaelder. */
+  form.filtre.soegt .soegeknap { font-size: 15px; padding: 0 24px; }
 }
 form.filtre.soegt .soegefelt { padding: 8px 14px; }
 form.filtre.soegt .soegefelt input { font-size: 14.5px; }
-form.filtre.soegt .soegeknap { font-size: 15px; padding: 0 24px; }
 /* 16 px paa mobil: under det zoomer iOS ind paa fokus og efterlader
    siden skaev, til man zoomer ud igen. */
 @media (max-width: 560px) {

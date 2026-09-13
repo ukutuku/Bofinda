@@ -468,6 +468,49 @@ for (const bredde of [1440, 390]) {
   await ctx.close()
 }
 
+// ═══ Soegeknappen paa BEGGE sider og paa TRE bredder ═══════════
+//
+//  Egen maaling og ikke en del af sloejfen ovenfor, fordi den skal
+//  daekke 768 px ogsaa — den bredde, hvor mobilreglerne stadig gaelder,
+//  men ingen havde set efter.
+//
+//  HVORFOR DEN FINDES: `form.filtre.soegt .soegeknap` — tre klasser —
+//  stod uden medieforespoergsel og slog mobilens `padding: 14px 24px` i
+//  `@media (max-width: 900px)`. Knappen mistede al lodret polstring og
+//  blev en tynd groen stribe paa resultatsiden, mens forsidens knap,
+//  der ikke er `.soegt`, var rigtig. Det er anden gang samme faelde
+//  rammer den samme bjaelke, og en maaling er billigere end en tredje.
+//
+//  Begge sider maales, fordi fejlen netop var, at KUN den ene var gal.
+{
+  const SIDER = [['forside', '/'], ['resultater', '/?sted=Attrapby']]
+  for (const bredde of [390, 768, 1440]) {
+    const ctx = await browser.newContext({ viewport: { width: bredde, height: 900 } })
+    const p = await ctx.newPage()
+    await p.goto(`${BASE}/`, { waitUntil: 'networkidle', timeout: 90_000 })
+    await afvisSamtykke(p)
+    for (const [navn, sti] of SIDER) {
+      await p.goto(BASE + sti, { waitUntil: 'networkidle', timeout: 90_000 })
+      const m = await p.evaluate(() => {
+        const k = document.querySelector('.soegeknap')
+        if (!k) return null
+        const r = k.getBoundingClientRect()
+        const s = getComputedStyle(k)
+        return {
+          h: Math.round(r.height), b: Math.round(r.width),
+          pt: s.paddingTop, pb: s.paddingBottom, skrift: s.fontSize,
+        }
+      })
+      // 48 px er beroeringsmaalet. Paa desktop straekkes knappen af
+      // gitteret og bliver hoejere af sig selv; kravet er det samme,
+      // for det er ikke bredden, der afgoer, om en knap kan rammes.
+      tjek(`${bredde} px · ${navn}: søgeknappen er mindst 48 px høj`,
+        Boolean(m) && m.h >= 48, m ? `${m.h}×${m.b} px · polstring ${m.pt}/${m.pb} · ${m.skrift}` : 'knappen blev ikke fundet')
+    }
+    await ctx.close()
+  }
+}
+
 await browser.close()
 console.log(`\n  ${fejl === 0 ? '✓' : '✗'} ${fejl === 0 ? 'alt grønt' : `${fejl} fejlede`} · billeder i ${UD}/`)
 console.log(`  bolig rig=${rig.id.slice(0, 8)} tynd=${tynd.id.slice(0, 8)}`
