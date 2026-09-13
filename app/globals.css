@@ -935,7 +935,7 @@ footer.bund {
    en skaerm med klassisk rullebjaelke. */
 .hero {
   position: relative; isolation: isolate;
-  padding: clamp(56px, 8vw, 104px) 0 0;
+  padding: clamp(52px, 5vw, 72px) 0 0;
   background:
     radial-gradient(105% 95% at 6% -6%, rgba(15,77,67,.17) 0%, rgba(15,77,67,0) 62%),
     linear-gradient(168deg, #e6efea 0%, #f1f2ec 48%, #fbfaf7 100%);
@@ -944,67 +944,24 @@ footer.bund {
    venstre side. Uden det staar en moerk overskrift paa et lyst
    interioer — og et interioerfoto er lyst netop dér, hvor teksten er. */
 .hero-billede { position: absolute; inset: 0; z-index: -2; overflow: hidden; }
-/* BESKAERINGEN ER MAALT, IKKE SKOENNET. Middelluminans pr. lodret
-   stribe i `public/hero-stue.jpg` (2048x1365):
-
-       0–10 %   52–69   doeraabning, koeleskab, stolpe — motivets moerkeste
-      15–70 %  142–171  vaeggen og sofaen — DET, kortet skal vise
-      70–75 %      89   roegroerret, en moerk lodret soejle
-      75–100 % 152–174  reol og vindue
-
-   `cover` bevarer forholdet — der straekkes aldrig. Paa en smal skaerm
-   er baandet hoejere end bredt, saa der beskaeres VANDRET, og
-   `object-position: 52%` lader vinduet falde paa 36–68 % af motivet:
-   sofaen alene, uden koeleskab og uden roegroer. Paa en bred skaerm er
-   baandet bredere end motivets 3:2, saa der beskaeres LODRET, og de to
-   moerke partier bliver staaende — dér er det sloeret nedenfor, der
-   daemper dem.
-
-   48 % lodret loefter vinduet en anelse over midten, saa sofaen
-   (50–75 % af hoejden) lander i baandets nederste halvdel og teksten
-   staar over vaeggen, som er motivets lyseste flade. */
+/* Cover bevarer motivets forhold. Sofaen er fokus ved alle bredder. */
 .hero-billede img {
   width: 100%; height: 100%; object-fit: cover; display: block;
   object-position: 52% 48%;
 }
+/* En tæt venstreside sikrer tekstkontrast; højresiden viser mere af stuen. */
 .hero.har-foto::after {
-  /* Sloeret loeser TO opgaver paa én gang, og stoppene er sat efter dem:
-     · 0–48 %  staar teksten. Her er sloeret naesten uigennemsigtigt, saa
-       overskriften kan laeses over ethvert motiv — og det er samtidig
-       dér, koeleskabet ligger paa en bred skaerm.
-     · 48–70 % staar sofaen. Her falder sloeret hurtigt, ellers viser
-       kortet et motiv, ingen kan se.
-     · 70–100 % ligger roegroerret og reolen. Et tyndt slag paa .16
-       daemper den moerke soejle uden at vaske reol og vindue ud. */
   content: ''; position: absolute; inset: 0; z-index: -1;
-  /* Stoppet paa 72 % er ikke en glidning — det er en LOKAL daempning
-     oven paa roegroerret, som ligger paa 70–75 % af motivet og er dets
-     eneste moerke element (luminans 89 mod 160 omkring det). Uden det
-     stod en sort lodret soejle som sidens kraftigste kontrast, hoejre
-     for teksten. Med .46 dér loeftes roerret til 164 mod 202 omkring
-     det: stadig synligt som en del af rummet, ikke laengere det, oejet
-     lander paa. Reol og vindue yderst til hoejre bliver lyse igen paa
-     .18, saa daempningen ikke bliver til en dis over hele hoejre side. */
   background: linear-gradient(96deg,
-    rgba(251,250,247,.97) 0%, rgba(251,250,247,.94) 34%,
-    rgba(251,250,247,.62) 48%, rgba(251,250,247,.30) 60%,
-    rgba(251,250,247,.46) 72%, rgba(251,250,247,.22) 86%,
-    rgba(251,250,247,.18) 100%);
+    rgba(251,250,247,.97) 0%, rgba(251,250,247,.94) 38%,
+    rgba(251,250,247,.68) 48%, rgba(251,250,247,.12) 62%,
+    rgba(251,250,247,.32) 72%, rgba(251,250,247,.08) 86%,
+    rgba(251,250,247,.08) 100%);
 }
 @media (max-width: 900px) {
   /* Paa en smal skaerm er der ingen «venstre side» at laegge teksten i.
      Sloeret daekker hele fladen, ellers laeses overskriften ikke. */
   .hero.har-foto::after {
-    /* Var .95/.88/.97 og vaskede motivet naesten helt vaek: paa en
-       telefon saa hero'en ud som en tom cremefarvet flade.
-
-       GULVET ER .52, OG DET TAL ER REGNET, IKKE VALGT. Sloeret er
-       rgb(251,250,247); over et HELT SORT motiv bliver fladen 251·a.
-       Overskriften er #14161a. For at naa 4,5:1 skal fladen mindst
-       vaere 129 — altsaa a ≥ .52. Hver stop herunder ligger over det,
-       saa overskriften holder kravet uanset hvilket foto der saettes
-       ind, ogsaa et moerkt via `NEXT_PUBLIC_HERO_FOTO`. Maalt paa det
-       faktiske foto giver det 13–16:1, og saa kan motivet ses. */
     background: linear-gradient(180deg,
       rgba(251,250,247,.74) 0%, rgba(251,250,247,.72) 38%,
       rgba(251,250,247,.60) 66%, rgba(251,250,247,.70) 100%);
@@ -1021,26 +978,14 @@ footer.bund {
   letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
 }
 .hero h1 {
-  font-size: clamp(32px, 4.6vw, 56px);
+  font-size: clamp(30px, 3.7vw, 48px);
   font-weight: 700; letter-spacing: -0.04em; line-height: 1.04;
-  margin: 0 0 18px; max-width: 17ch; text-wrap: balance;
+  margin: 0 0 14px; max-width: 18ch; text-wrap: balance;
 }
 .hero-manchet {
-  font-size: clamp(15.5px, 1.25vw, 18px); line-height: 1.6;
-  margin: 0; max-width: 50ch;
-  /* EGEN FARVE, IKKE `--daempet`. Manchetten er den eneste broedtekst
-     paa siden, der staar over et FOTO. `--daempet` (#5f6672) er valgt
-     til en rolig flade og maalte 2,2–2,9:1 her — under kravet paa alle
-     fire bredder, og vaerst dér hvor sloeret er tyndest.
-
-     #2c333d er regnet, ikke valgt: den lyseste flade bag teksten over
-     et helt sort motiv har luminans 0,357, og 4,5:1 kraever saa en
-     tekstluminans under 0,040. Den her ligger paa 0,032 og giver
-     4,9:1 med margen. Den er stadig tydeligt lettere end overskriftens
-     #14161a, saa hierarkiet holder.
-
-     Resten af sidens broedtekst bliver paa `--daempet`. Den staar paa
-     hvidt eller sand og har ingen af de problemer. */
+  font-size: clamp(15px, 1.2vw, 17px); line-height: 1.55;
+  margin: 0; max-width: 42ch;
+  /* Mørkere end almindelig brødtekst for kontrast over fotoet. */
   color: #2c333d;
 }
 
@@ -1049,7 +994,7 @@ footer.bund {
    ville efterlade et hul under baandet; en negativ bundmargin paa
    hero'en og en positiv top paa kortet holder flowet intakt. */
 .hero-soeg {
-  max-width: var(--ramme); margin: clamp(34px, 4vw, 56px) auto 0;
+  max-width: var(--ramme); margin: clamp(24px, 3vw, 38px) auto 0;
   padding: 0 var(--ramme-luft); width: 100%;
   position: relative; transform: translateY(38px);
 }
@@ -2144,7 +2089,8 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
   background:
     radial-gradient(120% 140% at 88% -20%, rgba(255,255,255,.10) 0%, rgba(255,255,255,0) 60%),
     linear-gradient(104deg, var(--accent-mrk) 0%, var(--accent) 62%, #14624f 100%);
-  color: #fff; padding: clamp(30px, 3.2vw, 44px) clamp(24px, 3.5vw, 48px);
+  color: #fff; padding: 28px clamp(24px, 3vw, 40px);
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
 }
 .ub-tekst { max-width: 62ch; }
 .ub-oejenbryn {
@@ -2152,16 +2098,25 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
   text-transform: uppercase; color: rgba(255,255,255,.72);
 }
 .udlejerbaand h2 {
-  font-size: clamp(24px, 2.6vw, 34px); font-weight: 700;
+  font-size: clamp(23px, 2.3vw, 30px); font-weight: 700;
   letter-spacing: -0.032em; line-height: 1.12; margin: 0 0 14px; color: #fff;
 }
 .udlejerbaand p { margin: 0; font-size: 15.5px; line-height: 1.62; color: rgba(255,255,255,.86); }
 .ub-knap {
-  display: inline-block; margin-top: 24px; background: #fff; color: var(--accent-mrk);
+  display: inline-flex; align-items: center; flex-shrink: 0; min-height: 48px; background: #fff; color: var(--accent-mrk);
   font-size: 15px; font-weight: 640; padding: 13px 26px;
   border-radius: var(--r-pille); text-decoration: none;
 }
+@media (max-width: 680px) {
+  .udlejerbaand { flex-direction: column; align-items: flex-start; }
+}
 .ub-knap:hover { background: var(--sand); color: var(--accent-mrk); }
+
+.designpreview-note {
+  margin: 0; padding: 9px var(--ramme-luft); text-align: center;
+  background: var(--accent-lys); color: var(--accent-mrk);
+  font-size: 12px; line-height: 1.5;
+}
 
 /* ── Boligdetaljens hierarki ───────────────────────────────────
    Referencen: stor titel under galleriet, noegletal som en stribe med

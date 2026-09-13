@@ -751,17 +751,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         </>
       ) : (
         <>
-        {/* ══ HERO ═══════════════════════════════════════════════
-            Referencens forside: et stort, lyst interioerfoto i fuld
-            bredde, teksten henover til venstre, og den hvide soegebjaelke
-            som et kort, der flyder ned over billedets underkant.
-
-            FOTOET ER IKKE I REPOET. `NEXT_PUBLIC_HERO_FOTO` peger paa det,
-            og er den ikke sat, staar baandet med brandets gradient som
-            hidtil — layoutet er det samme, kun fladen skifter. Et
-            hero-foto er et billedaktiv med en licens og en ophavsmand;
-            det hoerer ikke i git, og en midlertidig erstatning maa ikke
-            staa som om designet var faerdigt. */}
+        {/* Lokalt stemningsfoto; kilde og kreditering vælges samlet ovenfor. */}
         <section className={heroFoto ? 'hero fuldbredde har-foto' : 'hero fuldbredde'}>
           {heroFoto && (
             <div className="hero-billede" aria-hidden="true">
@@ -770,18 +760,11 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             </div>
           )}
           <div className="hero-indhold">
-            <p className="hero-oejenbryn">Find dit næste hjem</p>
-            {/* Budskabet er produktets eget, ikke referencens. Den
-                skriver «Lejeboliger i hele Danmark – nemmere for alle»;
-                vores loefte er, hvad boligen KOSTER, og det er det, vi
-                kan holde. Formen er referencens: oejenbryn, todelt
-                overskrift, kort manchet. */}
-            <h1>Se hvad boligen koster<br />— ud over huslejen</h1>
+            <p className="hero-oejenbryn">Lejeboliger med overblik</p>
+            <h1>Find dit næste hjem</h1>
             <p className="hero-manchet">
-              Vi samler lejeboliger fra flere kilder og viser huslejen, de
-              udgifter udlejeren oplyser, og indflytningsprisen når den er
-              oplyst. Mangler en post hos kilden, står der hvad vi ikke ved
-              — i stedet for et gæt.
+              Se husleje, oplyst aconto og indflytningspris samlet.
+              Vi viser tydeligt, når oplysninger mangler.
             </p>
           </div>
           <div className="hero-soeg">{formular}</div>
@@ -800,7 +783,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         <ul className="talstribe punkter">
           <li className="ts-hus">
             <strong>{tal.boliger.toLocaleString('da-DK')}</strong>
-            <span>lejeboliger fra {tal.kilder} kilder</span>
+            <span>lejeboliger fra {tal.kilder} {tal.kilder === 1 ? 'kilde' : 'kilder'}</span>
           </li>
           <li className="ts-moent">
             {/* To grupper, ikke én. Stod der kun det oplyste tal, kunne
@@ -827,69 +810,6 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           {(avGrundlag.timing.unknown + avGrundlag.timing.conflict).toLocaleString('da-DK')} uden afklaret overtagelsestidspunkt
         </p>
 
-        {/* ── Sektionerne ───────────────────────────────────────
-            Referencens fire kort med ikonflise. Indholdet er IKKE
-            referencens: «AI-assisterede ansoegninger» og «Verificerede
-            boliger» findes ikke i produktet, og et kort, der lover dem,
-            er en tom knap. De fire her er funktioner, der er paa denne
-            gren, og hver af dem peger paa noget, der findes. */}
-        <section className="sektion">
-          <h2 className="sektion-titel">Sådan bruger du Bofinda</h2>
-          <div className="kortgitter">
-            <article className="infokort">
-              <span className="ik-flise ik-moent" aria-hidden="true" />
-              <h3>Hele udgiften til udlejeren</h3>
-              <p>
-                Husleje plus den aconto, kilden opkræver — og
-                indflytningsprisen, når den er oplyst. Er en post ukendt,
-                står der hvad vi ikke ved.
-              </p>
-            </article>
-            <article className="infokort">
-              <span className="ik-flise ik-filter" aria-hidden="true" />
-              <h3>Filtre, der gør rede for sig selv</h3>
-              <p>
-                Under hvert filter står, hvor mange boliger der oplyser
-                feltet, og hvor mange der tier og derfor ikke vises.
-              </p>
-            </article>
-            <article className="infokort">
-              <span className="ik-flise ik-klokke" aria-hidden="true" />
-              <h3>Besked om nye boliger</h3>
-              <p>
-                Gem en søgning, og få en mail, når en ny bolig matcher.
-                Boksen står under resultaterne, når du har søgt.
-              </p>
-            </article>
-            <article className="infokort">
-              <span className="ik-flise ik-hus" aria-hidden="true" />
-              <h3>Er du udlejer?</h3>
-              <p>
-                Opret din annonce med adressen i separate felter, dine egne
-                billeder og den økonomi, du selv oplyser.
-              </p>
-              <a className="ik-link" href="/udlejer">For udlejere →</a>
-            </article>
-          </div>
-        </section>
-
-        {/* ── Udlejerbaandet ────────────────────────────────────
-            Referencens moerkegroenne baand med overskrift, tekst og
-            knap. Citatet med stjerner ved siden af er ikke med: det er
-            en opdigtet anmeldelse fra en navngiven udlejer. */}
-        <section className="udlejerbaand">
-          <div className="ub-tekst">
-            <p className="ub-oejenbryn">For udlejere</p>
-            <h2>Udlej din bolig på Bofinda</h2>
-            <p>
-              Opret annoncen selv: vej, husnummer, etage og dør i hvert sit
-              felt, dine egne billeder i den rækkefølge du vælger, og den
-              økonomi du oplyser. Annoncen vises i søgningen sammen med
-              resten.
-            </p>
-            <a className="ub-knap" href="/udlejer/opret">Opret annonce →</a>
-          </div>
-        </section>
         </>
       )}
 
@@ -1097,16 +1017,66 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           soegning ikke, jf. `harFiltre`. */}
       {soegt && <GemSoegning sp={sp} />}
 
+      {!soegt && (<>
+        <section className="sektion">
+          <h2 className="sektion-titel">Sådan bruger du Bofinda</h2>
+          <div className="kortgitter">
+            <article className="infokort">
+              <span className="ik-flise ik-moent" aria-hidden="true" />
+              <h3>Overblik over prisen</h3>
+              <p>
+                Se husleje, oplyst aconto og indflytningspris.
+                Mangler en oplysning, gør vi dig opmærksom på det.
+              </p>
+            </article>
+            <article className="infokort">
+              <span className="ik-flise ik-filter" aria-hidden="true" />
+              <h3>Søg efter dine ønsker</h3>
+              <p>
+                Find boliger efter område, pris og størrelse. Ved filtre
+                for faciliteter kan du se, når oplysninger mangler.
+              </p>
+            </article>
+            <article className="infokort">
+              <span className="ik-flise ik-klokke" aria-hidden="true" />
+              <h3>Besked om nye boliger</h3>
+              <p>
+                Gem din søgning, og få en mail, når nye boliger
+                matcher dine ønsker.
+              </p>
+            </article>
+            <article className="infokort">
+              <span className="ik-flise ik-hus" aria-hidden="true" />
+              <h3>Er du udlejer?</h3>
+              <p>
+                Opret din bolig med billeder, beskrivelse og pris.
+                Boligsøgende kan finde den direkte på Bofinda.
+              </p>
+              <a className="ik-link" href="/udlejer">For udlejere →</a>
+            </article>
+          </div>
+        </section>
+
+        <section className="udlejerbaand">
+          <div className="ub-tekst">
+            <p className="ub-oejenbryn">For udlejere</p>
+            <h2>Udlej din bolig på Bofinda</h2>
+            <p>
+              Vis din bolig frem med billeder og pris, og bliv fundet
+              af boligsøgende.
+            </p>
+          </div>
+          <a className="ub-knap" href="/udlejer/opret">Opret annonce →</a>
+        </section>
+      </>)}
+
       {/* Kilderne uden den native: "hentet fra ... og Bofinda" er ikke
           rigtigt — de annoncer er ikke hentet nogen steder, de er
           oprettet her. Og de aabner ikke hos en kilde. */}
       <footer className="bund">
-        {`Boliger hentet fra ${fac.kilder
-          .filter((k) => k.slug !== 'native')
-          .map((k) => k.navn).join(' og ')}${
-          fac.kilder.some((k) => k.slug === 'native')
-            ? ', samt annoncer oprettet af udlejere selv.'
-            : '.'}`}
+        {fac.kilder.some((k) => k.slug !== 'native')
+          ? `Boliger fra ${fac.kilder.map((k) => k.navn).join(' og ')}.`
+          : 'Annoncer oprettet af udlejere på Bofinda.'}
         {' '}Klik på en bolig for at åbne den hos kilden eller for at se
         udlejerens kontaktoplysninger.
         Tal vises som kilden oplyser dem; mangler en oplysning, står den tom.

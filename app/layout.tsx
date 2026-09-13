@@ -2,6 +2,7 @@ import './globals.css'
 import type { ReactNode } from 'react'
 import { Inter } from 'next/font/google'
 import { Samtykke } from './Samtykke'
+import { erDesignpreview } from '../lib/designpreview'
 
 // Hentes ved byg og selvhostes — ingen kald til Google fra brugerens browser.
 const sans = Inter({
@@ -44,6 +45,11 @@ export default function Layout({ children }: { children: ReactNode }) {
             </div>
           </div>
         </header>
+        {erDesignpreview() && (
+          <p className="designpreview-note">
+            Designpreview · Fiktive demoboliger og stemningsfotos. Boligerne kan ikke lejes.
+          </p>
+        )}
         <div className="ramme">{children}</div>
         <footer className="sidefod">
           <div className="ramme">
