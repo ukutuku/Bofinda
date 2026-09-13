@@ -27,6 +27,8 @@ import { mkdirSync, readdirSync, statSync } from 'node:fs'
 const UD = process.argv[2] || 'skaermbilleder/hero'
 const BASE = process.env.BOFINDA_APP_BASE ?? 'http://127.0.0.1:3100'
 const BREDDER = [390, 768, 1440, 1920]
+/** Acceptkravet. WCAG AA for almindelig tekst. */
+const KRAV = 4.5
 
 if (process.env.NEXT_PUBLIC_HERO_FOTO) {
   console.error('FEJL: NEXT_PUBLIC_HERO_FOTO er sat. Kontrollen maaler standardfotoet.')
@@ -81,11 +83,9 @@ for (const bredde of BREDDER) {
   const m = await p.evaluate(() => {
     const img = document.querySelector('.hero-billede img')
     const hero = document.querySelector('.hero')
-    const h1 = document.querySelector('.hero h1')
     const soeg = document.querySelector('.soegeknap')
     const kredit = document.querySelector('.hero-kredit')
     const hr = hero.getBoundingClientRect()
-    const tr = h1.getBoundingClientRect()
     const sr = soeg.getBoundingClientRect()
     return {
       src: img && img.getAttribute('src'),
@@ -95,8 +95,39 @@ for (const bredde of BREDDER) {
       pos: img && getComputedStyle(img).objectPosition,
       harFoto: hero.classList.contains('har-foto'),
       heroBoks: `${Math.round(hr.width)}×${Math.round(hr.height)}`,
-      h1: { x: Math.round(tr.left), y: Math.round(tr.top), w: Math.round(tr.width), h: Math.round(tr.height) },
-      h1Farve: getComputedStyle(h1).color,
+      // Hver tekst paa hero'en, med sin egen kasse og sin egen farve.
+      // Kontrollen maalte foer KUN h1. De andre staar over det samme
+      // foto, i lysere farver, og en overskrift der holder siger intet
+      // om broedteksten under den.
+      tekster: [
+        ['den lille overskrift', '.hero-oejenbryn'],
+        ['overskriften', '.hero h1'],
+        ['brødteksten', '.hero-manchet'],
+        ['fotokrediteringen', '.hero-kredit'],
+      ].map(([navn, vaelger]) => {
+        const e = document.querySelector(vaelger)
+        if (!e) return null
+        const cs = getComputedStyle(e)
+        // LINJEKASSERNE, ikke elementets kasse. `.hero-oejenbryn` er et
+        // <p> i fuld indholdsbredde — 1300 px — mens teksten fylder 160.
+        // Maalte vi elementets kasse, maalte vi fladen et halvt tusinde
+        // pixels fra naermeste bogstav, og paa en bred skaerm er dét
+        // fotoet uden sloer. Foerste koersel meldte 1,0:1 om en groen
+        // tekst paa en naesten hvid flade af netop den grund.
+        // En Range om indholdet giver kasserne om de faktiske linjer.
+        const r = document.createRange()
+        r.selectNodeContents(e)
+        const linjer = [...r.getClientRects()]
+          .filter((b) => b.width >= 2 && b.height >= 2)
+          .map((b) => ({
+            x: Math.floor(b.left), y: Math.floor(b.top),
+            width: Math.ceil(b.width), height: Math.ceil(b.height),
+          }))
+        return {
+          navn, vaelger, farve: cs.color, stoerrelse: cs.fontSize, vaegt: cs.fontWeight,
+          linjer,
+        }
+      }).filter((t) => t && t.linjer.length > 0),
       knapH: Math.round(sr.height),
       kredit: kredit && kredit.textContent.trim(),
       overloeb: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -112,47 +143,60 @@ for (const bredde of BREDDER) {
   tjek(`${bredde} px · intet vandret overløb`, m.overloeb <= 0, `${m.overloeb} px`)
 
   /**
-   * Fladen bag overskriften, maalt i selve overskriftens kasse.
+   * Fladen bag EN tekst, maalt i tekstens egen kasse.
    *
    * `motiv` = 'foto'  — som brugeren ser det med standardfotoet.
    * `motiv` = 'sort'  — det samme sloer over et HELT SORT billede.
    *
-   * FOERSTE UDGAVE AF DEN HER KONTROL MAALTE FORKERT. Den laeste den
-   * laveste alfa i hele gradienten og regnede paa den. Paa en bred
-   * skaerm er gradienten VANDRET, og dens laveste stop (.18) ligger
-   * yderst til hoejre — flere hundrede pixels fra overskriften, som
-   * staar i venstre side over .62–.97. Kontrollen meldte roedt om en
+   * Teksten skjules med `color: transparent`, IKKE med
+   * `visibility: hidden`. Forskellen betyder noget for
+   * fotokrediteringen: den har sin egen moerke pille bag sig, og
+   * `visibility: hidden` ville skjule pillen med, saa vi maalte hvid
+   * tekst mod fotoet i stedet for mod pillen. Med gennemsigtig farve
+   * bliver alt andet staaende, ogsaa `backdrop-filter`.
+   *
+   * FOERSTE UDGAVE AF DEN HER KONTROL MAALTE FORKERT PAA EN ANDEN MAADE.
+   * Den laeste den laveste alfa i hele gradienten og regnede paa den.
+   * Paa en bred skaerm er gradienten VANDRET, og dens laveste stop (.18)
+   * ligger yderst til hoejre — flere hundrede pixels fra overskriften,
+   * som staar i venstre side over .62–.97. Kontrollen meldte roedt om en
    * flade, teksten aldrig rammer. Nu maales der dér, hvor teksten er,
    * og sloerets form er ligegyldig.
    */
-  const bagTeksten = async (motiv) => {
-    await p.evaluate((m2) => {
+  const bagTeksten = async (t, motiv) => {
+    await p.evaluate(([vaelger, m2]) => {
       const s = document.createElement('style'); s.id = 'hero-maaling'
-      s.textContent = '.hero-indhold,.hero-soeg,.hero-kredit{visibility:hidden!important}'
+      s.textContent = `${vaelger}{color:transparent!important;text-shadow:none!important}`
         + (m2 === 'sort' ? '.hero-billede{background:#000!important}.hero-billede img{visibility:hidden!important}' : '')
       document.head.appendChild(s)
-    }, motiv)
+    }, [t.vaelger, motiv])
     await p.waitForTimeout(200)
-    const buf = await p.screenshot({ clip: { x: m.h1.x, y: m.h1.y, width: m.h1.w, height: m.h1.h } })
-    await p.evaluate(() => document.getElementById('hero-maaling')?.remove())
-    const { data, info } = await sharp(buf).removeAlpha().raw().toBuffer({ resolveWithObject: true })
-    const t = tal(m.h1Farve)
+    const farve = tal(t.farve)
     let vaerst = Infinity, sum = 0, n = 0
-    for (let i = 0; i < data.length; i += info.channels * 7) {
-      const r = forhold(t, [data[i], data[i + 1], data[i + 2]])
-      if (r < vaerst) vaerst = r
-      sum += r; n++
+    for (const linje of t.linjer) {
+      const buf = await p.screenshot({ clip: linje })
+      const { data, info } = await sharp(buf).removeAlpha().raw().toBuffer({ resolveWithObject: true })
+      for (let i = 0; i < data.length; i += info.channels * 3) {
+        const r = forhold(farve, [data[i], data[i + 1], data[i + 2]])
+        if (r < vaerst) vaerst = r
+        sum += r; n++
+      }
     }
+    await p.evaluate(() => document.getElementById('hero-maaling')?.remove())
     return { vaerst, middel: sum / n }
   }
 
-  const sort = await bagTeksten('sort')
-  tjek(`${bredde} px · overskriften holder 4,5:1 over ETHVERT motiv`,
-    sort.vaerst >= 4.5, `dårligste ${sort.vaerst.toFixed(1)}:1 over et helt sort billede`)
-
-  const foto = await bagTeksten('foto')
-  tjek(`${bredde} px · overskriften mod den faktiske flade bag den`,
-    foto.vaerst >= 4.5, `dårligste ${foto.vaerst.toFixed(1)}:1 · middel ${foto.middel.toFixed(1)}:1`)
+  for (const t of m.tekster) {
+    // Rækkefølgen er med vilje: det værst tænkelige først. Den faktiske
+    // måling kan være grøn, fordi NETOP dette foto er lyst; den anden er
+    // grøn, fordi sløret og farven er rigtige.
+    const sort = await bagTeksten(t, 'sort')
+    tjek(`${bredde} px · ${t.navn} holder 4,5:1 over ETHVERT motiv`,
+      sort.vaerst >= KRAV, `${sort.vaerst.toFixed(1)}:1 over et helt sort billede · ${t.farve} ${t.stoerrelse}`)
+    const foto = await bagTeksten(t, 'foto')
+    tjek(`${bredde} px · ${t.navn} mod den faktiske flade`,
+      foto.vaerst >= KRAV, `dårligste ${foto.vaerst.toFixed(1)}:1 · middel ${foto.middel.toFixed(1)}:1`)
+  }
 
   await p.screenshot({ path: `${UD}/forside-${bredde}.png` })
   await p.screenshot({ path: `${UD}/forside-${bredde}-hele.png`, fullPage: true })

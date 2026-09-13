@@ -301,6 +301,81 @@ næsten helt væk — hero'en så ud som en tom cremefarvet flade. Nu
 
 ---
 
+## Hero'ens tekstkontrast
+
+Kontrollen målte kun `h1`. Den øvrige tekst på hero'en står over det
+samme foto i lysere farver, og **en overskrift, der holder, siger intet
+om brødteksten under den.**
+
+### Målt før nogen rettelse
+
+Fire tekster × fire bredder × to målinger. **12 fald under 4,5:1:**
+
+| Tekst | Farve | Over sort | Med fotoet | |
+|---|---|---|---|---|
+| Den lille overskrift | `#0f4d43` | 4,8–8,4:1 | 5,5–9,0:1 | ✓ holdt |
+| Overskriften | `#14161a` | 7,2–8,9:1 | 9,3–13,0:1 | ✓ holdt |
+| **Brødteksten** | `#5f6672` | **2,2–2,8:1** | **2,9–3,8:1** | ✗ alle fire bredder |
+| **Fotokrediteringen** | hvid på `rgba(20,22,26,.42)` | 4,6–14,6:1 | **3,2–3,3:1** | ✗ alle fire bredder |
+
+### Hvad der var galt, og hvorfor
+
+**Brødteksten** brugte `--daempet` (`#5f6672`) — en farve valgt til en
+rolig flade, ikke til et foto. Den er nu `#2c333d`, og tallet er
+**regnet**: den lyseste flade bag teksten over et helt sort motiv har
+luminans 0,357, og 4,5:1 kræver så en tekstluminans under 0,040.
+`#2c333d` ligger på 0,032. Reglen er lokal for `.hero-manchet` — resten
+af sidens brødtekst bliver på `--daempet`, hvor den står på hvidt eller
+sand og ikke har problemet.
+
+**Fotokrediteringens** pille var `rgba(20,22,26,.42)` — for
+gennemsigtig. Øverst til højre i motivet ligger vinduet og reolen,
+motivets lyseste parti, og hvid tekst på den blanding gav 3,2:1. Pillen
+er nu `.66`, også regnet: er fladen bag den helt hvid, bliver blandingen
+`255 − 235·a`, og hvid tekst når 4,5:1, når blandingen er under 118 —
+altså `a ≥ .58`. Teksten er samtidig gjort ren hvid i stedet for
+`rgba(255,255,255,.92)`; forskellen er lille på skærmen, men den gjorde
+**målingen** upræcis, fordi kontrollen læser den oplyste farve.
+
+### Målt efter
+
+**Alle 57 hero-kontroller grønne.**
+
+| Tekst | 390 px | 768 px | 1440 px | 1920 px |
+|---|---|---|---|---|
+| Den lille overskrift · sort | 4,9:1 | 4,8:1 | 8,4:1 | 8,2:1 |
+| Den lille overskrift · foto | 7,7:1 | 5,5:1 | 8,5:1 | 9,0:1 |
+| Overskriften · sort | 8,9:1 | 8,8:1 | 7,7:1 | 7,2:1 |
+| Overskriften · foto | 9,7:1 | 9,3:1 | 13,0:1 | 13,0:1 |
+| **Brødteksten · sort** | 6,2:1 | 6,1:1 | 5,2:1 | 4,9:1 |
+| **Brødteksten · foto** | 6,4:1 | 6,5:1 | 8,4:1 | 8,4:1 |
+| **Krediteringen · sort** | 8,4:1 | 8,4:1 | 15,1:1 | 16,3:1 |
+| **Krediteringen · foto** | 6,5:1 | 6,6:1 | 6,7:1 | 6,7:1 |
+
+Kravet er 4,5:1. Foto, beskæring og resten af designet er uændret.
+
+### To fejl i selve målingen, fundet undervejs
+
+Begge er den samme slags som gradientfejlen: **måling det forkerte
+sted.** Begge blev fanget, fordi kontrollen kørte, før noget blev rettet.
+
+1. **Elementets kasse i stedet for tekstens linjer.** `.hero-oejenbryn`
+   er et `<p>` i fuld indholdsbredde — 1300 px — mens teksten fylder
+   160. Målt på elementets kasse lå prøvepunkterne et halvt tusinde
+   pixels fra nærmeste bogstav, og på en bred skærm er dét fotoet uden
+   slør. Kontrollen meldte **1,0:1** om en grøn tekst på en næsten hvid
+   flade. Nu bruges en `Range` om indholdet, så kasserne følger de
+   faktiske linjer.
+
+2. **`visibility: hidden` i stedet for gennemsigtig farve.**
+   Krediteringen har sin egen mørke pille bag sig.
+   `visibility: hidden` skjulte pillen med, så vi målte hvid tekst mod
+   **fotoet** i stedet for mod pillen — 1,2:1, et tal der ikke svarede
+   til noget, nogen ser. Nu sættes `color: transparent`, så alt andet
+   bliver stående, også `backdrop-filter`.
+
+---
+
 ## Resterende afvigelser fra mockupsene
 
 Ud over det manglende hero-foto og de udeladte produktpåstande ovenfor:
@@ -347,7 +422,7 @@ Alle kørt mod det isolerede testmiljø efter den sidste ændring.
 | `scripts/cloud/kontrol.sh` | ALT GRØNT — kort, billeder dekodet, gruppekort, samtykke og analytics |
 | `scripts/cloud/kontrol-pagination.sh` | ALT GRØNT — sideudsnit, canonical, tomt udsnit ≠ nulresultat |
 | `scripts/cloud/lancering.mjs` | alt grønt · 88 kontroller — 1440, 768 og 390 px, fokus, kontrast, lang adresse, kort uden foto, søgeknappens højde |
-| `scripts/cloud/hero.sh` | alt grønt · 32 kontroller — 390, 768, 1440 og 1920 px, se nedenfor |
+| `scripts/cloud/hero.sh` | alt grønt · 57 kontroller — 390, 768, 1440 og 1920 px, se nedenfor |
 
 `scripts/cloud/lancering.mjs` er rettet to steder og udvidet ét, fordi
 designet flyttede det, den målte:
@@ -375,26 +450,22 @@ symmetriske gutters og 0 px vandret overløb på 1440, 1280, 1100, 768,
 
 ### Hero-kontrollen
 
-`scripts/cloud/herokontrol.mjs` er ny og kører **uden**
-hero-miljøvariabler — er en af dem sat i processen, stopper den. Otte
-kontroller pr. bredde på 390, 768, 1440 og 1920 px: at standardfotoet
+`scripts/cloud/herokontrol.mjs` kører **uden** hero-miljøvariabler — er
+en af dem sat i processen, stopper den. Fjorten kontroller pr. bredde på
+390, 768, 1440 og 1920 px: at standardfotoet
 bruges, at billedet er **dekodet** (ikke bare har en `src`), at
 proportionerne bevares, at krediteringen står der, at søgeknappen holder
 48 px, at der ikke er vandret overløb, og to målinger af overskriftens
 læsbarhed.
 
-Læsbarheden måles i overskriftens egen kasse, to gange:
+Læsbarheden måles for **hver af hero'ens fire tekster** — den lille
+overskrift, overskriften, brødteksten og fotokrediteringen — i tekstens
+egne linjekasser, og to gange hver: med det faktiske foto og over et
+helt sort motiv. Tallene står under «Hero'ens tekstkontrast» ovenfor.
 
-| Bredde | Med det faktiske foto | Over et **helt sort** motiv |
-|---|---|---|
-| 390 px | 9,8:1 (middel 14,5) | 8,9:1 |
-| 768 px | 9,3:1 (middel 14,1) | 8,8:1 |
-| 1440 px | 12,1:1 (middel 16,0) | 5,2:1 |
-| 1920 px | 13,1:1 (middel 16,0) | 5,3:1 |
-
-Kravet er 4,5:1. **Den anden kolonne er den vigtige:** den første kan
-være grøn, fordi netop dette foto er lyst; den anden er grøn, fordi
-sløret er rigtigt — også hvis nogen sætter et mørkt foto ind med
+Kravet er 4,5:1. **Målingen over sort er den vigtige:** den med fotoet
+kan være grøn, fordi netop dette foto er lyst; den anden er grøn, fordi
+slør og farve er rigtige — også hvis nogen sætter et mørkt foto ind med
 `NEXT_PUBLIC_HERO_FOTO`.
 
 *Første udgave af den kontrol målte forkert.* Den læste den laveste alfa

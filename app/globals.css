@@ -1026,8 +1026,22 @@ footer.bund {
   margin: 0 0 18px; max-width: 17ch; text-wrap: balance;
 }
 .hero-manchet {
-  font-size: clamp(15.5px, 1.25vw, 18px); line-height: 1.6; color: var(--daempet);
+  font-size: clamp(15.5px, 1.25vw, 18px); line-height: 1.6;
   margin: 0; max-width: 50ch;
+  /* EGEN FARVE, IKKE `--daempet`. Manchetten er den eneste broedtekst
+     paa siden, der staar over et FOTO. `--daempet` (#5f6672) er valgt
+     til en rolig flade og maalte 2,2–2,9:1 her — under kravet paa alle
+     fire bredder, og vaerst dér hvor sloeret er tyndest.
+
+     #2c333d er regnet, ikke valgt: den lyseste flade bag teksten over
+     et helt sort motiv har luminans 0,357, og 4,5:1 kraever saa en
+     tekstluminans under 0,040. Den her ligger paa 0,032 og giver
+     4,9:1 med margen. Den er stadig tydeligt lettere end overskriftens
+     #14161a, saa hierarkiet holder.
+
+     Resten af sidens broedtekst bliver paa `--daempet`. Den staar paa
+     hvidt eller sand og har ingen af de problemer. */
+  color: #2c333d;
 }
 
 /* ── Soegekortet ───────────────────────────────────────────────
@@ -1047,8 +1061,21 @@ footer.bund {
      hero'ens underkant (`translateY(38px)`), og en linje dernede ville
      ligge bag kortet paa hver eneste skaermbredde. */
   position: absolute; right: 14px; top: 14px; margin: 0; z-index: 1;
-  font-size: 11px; color: rgba(255,255,255,.92);
-  background: rgba(20,22,26,.42); backdrop-filter: blur(3px);
+  /* PILLEN VAR FOR GENNEMSIGTIG. `rgba(20,22,26,.42)` laader det, der
+     ligger bag, slaa igennem, og oeverst til hoejre i motivet ligger
+     vinduet og reolen — motivets LYSESTE parti. Hvid tekst paa den
+     blanding maalte 3,2–3,3:1 paa alle fire bredder.
+
+     .66 er regnet paa det vaerst taenkelige: er fladen bag pillen helt
+     hvid, bliver blandingen 255 − 235·a. For at hvid tekst naar 4,5:1
+     skal blandingen under 118, altsaa a ≥ .58. Med .66 bliver den 100
+     og giver 5,9:1. Over en moerk flade bliver pillen kun moerkere.
+
+     Teksten er ren hvid og ikke .92: forskellen er lille paa skaermen,
+     men den gjorde MAALINGEN upraecis — kontrollen laeser den oplyste
+     farve, og den oplyste var lysere end den gengivne. */
+  font-size: 11px; color: #fff;
+  background: rgba(20,22,26,.66); backdrop-filter: blur(3px);
   padding: 4px 10px; border-radius: var(--r-pille);
 }
 @media (max-width: 900px) { .hero-kredit { font-size: 10.5px; padding: 3px 8px; } }
