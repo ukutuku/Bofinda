@@ -553,6 +553,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             de er sat ned i vægt, ikke skåret ned. Se `.filtersystem`
             i globals.css. */}
         <div className="filtersystem">
+        <h3 className="filtergruppe-titel">Økonomi</h3>
         <div className="filterpost">
           <span className="afkryds-linje">
             <input type="checkbox" id="fuld" name="fuld" value="1" defaultChecked={f.fuldOekonomi} />
@@ -567,6 +568,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           </span>
         </div>
 
+        <h3 className="filtergruppe-titel">Overtagelse og tilgængelighed</h3>
         {/* ── Availability-filtrene ─────────────────────────────
             Drives af fortolkAvailability — aldrig af rå jsonb, legacy
             available_from eller application_type. Grundlaget gælder DEN
@@ -623,6 +625,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         {(fac.faciliteter.kaeledyr > 0 || fac.faciliteter.elevator > 0
           || fac.faciliteter.udeplads > 0) && (
           <>
+            <h3 className="filtergruppe-titel">Faciliteter</h3>
             {fac.faciliteter.kaeledyr > 0 && (
               <div className="filterpost">
                 <span className="afkryds-linje">
@@ -1045,15 +1048,6 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                 Gem din søgning, og få en mail, når nye boliger
                 matcher dine ønsker.
               </p>
-            </article>
-            <article className="infokort">
-              <span className="ik-flise ik-hus" aria-hidden="true" />
-              <h3>Er du udlejer?</h3>
-              <p>
-                Opret din bolig med billeder, beskrivelse og pris.
-                Boligsøgende kan finde den direkte på Bofinda.
-              </p>
-              <a className="ik-link" href="/udlejer">For udlejere →</a>
             </article>
           </div>
         </section>

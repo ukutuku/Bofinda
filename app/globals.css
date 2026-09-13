@@ -1319,6 +1319,11 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
    ellers sad «Søg» i en tilfaeldig kolonne ved siden af et filter. */
 .filtergitter > .knapper { grid-column: 1 / -1; margin-top: 2px; }
 .hero .filtersystem { border-top-color: rgba(232,229,222,.9); }
+.filtergruppe-titel {
+  grid-column: 1 / -1; margin: 10px 0 0;
+  font-size: 14px; font-weight: 650; color: var(--accent);
+}
+.filtergruppe-titel:first-child { margin-top: 0; }
 .filterpost { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .filterpost .afkryds-linje { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .filterpost .afkryds-linje input[type=checkbox] { accent-color: var(--accent); margin: 0; flex: 0 0 auto; }
@@ -2136,6 +2141,11 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
    mellem oplysningerne. Ingen prisforbehold eller filtre skjules. */
 @media (max-width: 680px) {
   .afsnitsnav { flex-wrap: wrap; gap: 6px; overflow-x: visible; border: 0; margin-top: 20px; }
+  .detalje { padding-bottom: 20px; }
+  body > .ramme { padding-bottom: 28px; }
+  .filterpost .afkryds-linje { min-height: 44px; }
+  .filterpost .afkryds-linje label { white-space: normal; }
+  .filtergrundlag { line-height: 1.45; }
   .afsnitsnav a {
     display: inline-flex; align-items: center; min-height: 44px;
     padding: 8px 12px; margin: 0; white-space: normal;
