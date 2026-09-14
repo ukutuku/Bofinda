@@ -19,8 +19,58 @@ er heltal i øre; fire boliger mangler bevidst aconto og total.
 Adresser og byer er opdigtede. `address_match_level=unit` er en
 fixtureværdi, så kortene kan vises, ikke et faktisk opslag i adresseregistret.
 Enhederne har tydelige interne prøve-id’er (`intern:v3:proeve:…`).
-Der er ingen koordinater eller DAR-identifikatorer. Datasættet afprøver
-derfor ikke kortplacering, adressevask eller rigtige udlejerannoncer.
+Der er ingen DAR-identifikatorer, og datasættet afprøver ikke adressevask
+eller rigtige udlejerannoncer.
+
+## Koordinater — `staging-demo-koordinater.sql`
+
+Datasættet havde oprindelig **ingen** koordinater, og følgen var, at
+landkortet stod tomt i previewet. Ikke fordi kortet var i stykker, men
+fordi der ikke var noget at sætte på det.
+
+`staging-demo-koordinater.sql` giver koordinater til **8 af de 16**. De
+øvrige 8 bliver bevidst uden, så begge situationer kan afprøves i det
+samme preview:
+
+| Søgning | Boliger | Kortet viser |
+| --- | --- | --- |
+| 9001 Prøveby · 4 lejligheder | 4 | ét mærke med tallet 4 |
+| 9001 Prøveby · 4 værelser | 4 | intet mærke — nævnt i noten under kortet |
+| 9002 Attrapby · 4 lejligheder | 4 | ét mærke med tallet 4 |
+| 9003 Fiktivby · 4 rækkehuse | 4 | intet mærke — hele søgningen uden kort |
+
+En søgning på 9001 viser altså **begge tilstande på én skærm**: et mærke
+for lejlighederne og «… oplyser ikke placering» for værelserne. En
+søgning på 9003 viser den tredje: «Kortet kan ikke vise denne søgning».
+
+**Koordinaterne gives pr. GRUPPE, ikke pr. bolig.** De 16 danner fire
+gruppekort, og kortet viser ét mærke pr. KORT med gruppens antal. Fik
+kun nogle af en gruppes boliger en koordinat, ville mærket forsvinde den
+dag repræsentanten skifter — den vælges på billedantal, så kendt total,
+så alder.
+
+**Værdierne er fixtureværdier**, af samme slags som
+`address_match_level='unit'`. De ligger i et regelmæssigt gitter med
+0,004° / 0,006° mellemrum nord for Aalborg; gitteret er med vilje, for
+fire mærker på snorlige rækker ligner ikke rigtige adresser. Ingen af
+punkterne svarer til en rigtig adresse.
+
+Hver sætning kræver **både** et id fra `manifest.json` **og** demokildens
+`source_id`. Køres filen ved en fejl mod en base uden demodata, rammer
+den nul rækker; den kan aldrig røre en rigtig bolig. Den er idempotent,
+og nederst står en udkommenteret tilbagerulning.
+
+### Sådan afprøves den
+
+```sql
+-- 1) i Supabase SQL Editor, projekt prgmenbwabwkgitjclrj
+--    (staging-demo.sql skal være kørt først)
+\i staging-demo-koordinater.sql
+```
+
+Derefter i previewet: søg på `9001` (mærke + note), `9002` (kun mærker)
+og `9003` (intet kort, men en forklaring). `scripts/cloud/kortsynk.mjs`
+måler det samme automatisk mod en base, der har demodataene.
 
 `manifest.json` angiver alle egne UUID'er. Indsættelsen er idempotent med
 `ON CONFLICT (id) DO NOTHING`; den opdaterer eller sletter ingen eksisterende

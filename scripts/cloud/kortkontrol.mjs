@@ -551,9 +551,14 @@ if (process.env.DATABASE_URL) {
   } finally {
     await sql`update listings set move_in_cost = null where id = ${ider[0]}`
     await sql`update listings set images_may_differ = false where id = ${ider[1]}`
+    // KUN de to raekker, proeven selv rorte. Linjen taalte foer hver
+    // eneste raekke i basen med en indflytningspris — og med demodataene
+    // inde stod der «16 raekker har stadig indflytning», som om
+    // oprydningen var mislykkedes. Den havde ikke rort dem.
     const [{ n }] = await sql`select count(*)::int as n from listings
-      where move_in_cost is not null or images_may_differ`
-    console.log(`  · testdata gendannet (${n} rækker har stadig indflytning eller forbehold)`)
+      where id = any(${[ider[0], ider[1]]}::uuid[])
+        and (move_in_cost is not null or images_may_differ)`
+    console.log(`  · testdata gendannet (${n} af 2 prøverækker har stadig indflytning eller forbehold)`)
     await sql.end()
   }
   await c.close()

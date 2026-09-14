@@ -74,5 +74,29 @@
     "https://images.pexels.com/photos/29953440/pexels-photo-29953440/free-photo-of-modern-apartment-living-room-with-city-view.jpeg?auto=compress&dpr=1&h=750&w=1260",
     "https://images.pexels.com/photos/7404941/pexels-photo-7404941.jpeg?cs=srgb&dl=pexels-cottonbro-7404941.jpg&fm=jpg",
     "https://images.pexels.com/photos/7404940/pexels-photo-7404940.jpeg?cs=srgb&dl=pexels-cottonbro-7404940.jpg&fm=jpg"
-  ]
+  ],
+  "koordinater": {
+    "fil": "staging-demo-koordinater.sql",
+    "note": "Fixtureværdier i et regelmæssigt gitter nord for Aalborg — ikke opslag i adressregistret og ikke en rigtig adresse. Givet PR GRUPPE, ikke pr. bolig: kortet viser ét mærke pr. kort, og repræsentanten kan skifte.",
+    "med_koordinat": [
+      "20791203-99d8-5293-b106-6d12902b4d48",
+      "0a58650a-5b72-54d5-bd5e-c61e4e953081",
+      "d15521c7-cb0f-5a50-bf3e-67be1414513b",
+      "4ca5aa18-80a4-5645-a059-de9bc94c5d32",
+      "13809c09-81e8-536b-a1c6-afc02133ae97",
+      "4aae27ad-9125-568e-8e8d-03deab9d4f93",
+      "235a3992-8559-542e-834d-bfcdab828e71",
+      "00c87a6b-e428-581f-886d-7ee2d33ecb49"
+    ],
+    "uden_koordinat": [
+      "7cc59e9f-c2f5-5fe9-a199-32f7ae09b193",
+      "423a46ea-0b8b-55fb-80d7-1e0e7cd3ce04",
+      "4c386c1b-e552-5acd-bc80-e52b0db46782",
+      "c15a4bbf-dd2b-5a37-9523-82ec5c88e0bd",
+      "c9aa6fb1-b176-5a76-bf9f-4fd39d129dae",
+      "064c2f5c-d32c-5876-8bac-4632ef9c9d57",
+      "ac5c0e54-9648-5147-b4b5-97005a106470",
+      "c75da8bb-5441-5ae3-a6cd-3f903c13106a"
+    ]
+  }
 }
