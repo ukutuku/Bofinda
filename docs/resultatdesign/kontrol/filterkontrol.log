@@ -81,6 +81,11 @@
   ✓ lukknappen er et link tilbage til den samme søgning — /?sted=Pr%C3%B8veby+N
   ✓ «Ryd filtre» beholder området — /?sted=Pr%C3%B8veby%20N
 
+═══ Negativ kontrol: fokusprøven skal kunne fejle ═══
+  ✓ vinduet er åbnet UDEN fælde — open=true modal=false
+  ✓ uden fælde slipper fokus ud — detektoren ser det — 6 af 25, bl.a. A.sort-pille valgt, A.sort-pille
+  ✓ og det er kontroller bag vinduet — A.sort-pille valgt, A.sort-pille
+
 ═══ 390 px med tastatur oppe (340 px høj) ═══
   ✓ overskriften står fast i toppen — top 0
   ✓ «Vis resultater» er inden for skærmen — 284–328 af 340
@@ -116,4 +121,4 @@
   ✓ 1440 px · intet vandret overløb — 0 px
   · testdata gendannet (0 rækker har stadig den lange vej)
 
-✓ alle 100 kontroller bestået
+✓ alle 103 kontroller bestået

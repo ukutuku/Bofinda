@@ -210,6 +210,64 @@ for (const bredde of [390, 768, 1100, 1440]) {
   await c.close()
 }
 
+// ── KAN FOKUSPRØVEN OVERHOVEDET FEJLE? ──────────────────────────
+//  En prøve, der altid består, ser ud som en kontrol og er det ikke.
+//  Fokusfælden er browserens, ikke vores — så påstanden «fokus kan ikke
+//  forlade vinduet» ville stå grøn, selv om vores egen detektor var i
+//  stykker, og ingen ville opdage det.
+//
+//  Her tvinges den situation frem: vinduet åbnes med `show()` i stedet
+//  for `showModal()`. Det er den ENESTE forskel — samme markup, samme
+//  CSS, samme indhold — og et ikke-modalt <dialog> har ingen fælde.
+//  Tabulator skal derfor nå kontrollerne BAG vinduet, og detektoren skal
+//  se dem.
+//
+//  Består den her, er den grønne linje ovenfor et udsagn om vinduet og
+//  ikke om prøven.
+{
+  console.log('\n═══ Negativ kontrol: fokusprøven skal kunne fejle ═══')
+  const c = await br.newContext({ viewport: { width: 1100, height: 900 } })
+  const p = await c.newPage()
+  await p.goto(APP + '/', { waitUntil: 'networkidle' })
+  const k = p.getByRole('button', { name: 'Kun det nødvendige' })
+  if (await k.count()) { await k.first().click(); await p.waitForTimeout(700) }
+  await blok('negativ fokuskontrol', 3, async () => {
+    await p.goto(APP + SØGNING, { waitUntil: 'networkidle' })
+    // Ikke-modal: <dialog open> uden top-lag, uden backdrop, uden fælde.
+    const ikkeModal = await p.evaluate(() => {
+      const d = document.querySelector('.filterdialog')
+      d.close(); d.show()
+      return { open: d.open, modal: d.matches(':modal') }
+    })
+    prøve(ikkeModal.open && !ikkeModal.modal,
+      'vinduet er åbnet UDEN fælde', `open=${ikkeModal.open} modal=${ikkeModal.modal}`)
+
+    // Samme måling, ord for ord, som den positive påstand ovenfor.
+    await p.evaluate(() => document.querySelector('.filterdialog input, .filterdialog a')?.focus())
+    const slap = []
+    for (let i = 0; i < 25; i++) {
+      await p.keyboard.press('Tab')
+      const ude = await p.evaluate(() => {
+        const d = document.querySelector('.filterdialog')
+        const a = document.activeElement
+        if (!a || d.contains(a)) return null
+        if (a === document.body || a === document.documentElement) return null
+        return `${a.tagName}.${a.className || '(ingen klasse)'}`
+      })
+      if (ude) slap.push(ude)
+    }
+    // OMVENDT påstand: her SKAL der slippe noget ud.
+    prøve(slap.length > 0,
+      'uden fælde slipper fokus ud — detektoren ser det',
+      slap.length ? `${slap.length} af 25, bl.a. ${[...new Set(slap)].slice(0, 3).join(', ')}` : 'INTET set — detektoren er i stykker')
+    // Og det skal være rigtige kontroller bag vinduet, ikke tilfældig støj.
+    const bag = [...new Set(slap)].filter((x) => /filterknap|soegeknap|kortvalg|^INPUT|^A\./)
+    prøve(bag.length > 0, 'og det er kontroller bag vinduet', bag.slice(0, 3).join(', ') || 'ingen')
+    if (UD) await p.screenshot({ path: `${UD}/negativ-fokus.png` })
+  })
+  await c.close()
+}
+
 // ── Med tastaturet oppe ─────────────────────────────────────────
 //  Et blødt tastatur tager typisk 45-60 % af en telefons højde. Vinduet
 //  er fuldskærm dér, så hoved og bund skal blive stående: ruller

@@ -194,6 +194,54 @@ før målingen, så en søgning ikke tælles to gange. Adressen er nu
 
 ---
 
+## 4 · Hvad der faktisk er kørt
+
+| Kontrol | Resultat |
+|---|---|
+| `scripts/cloud/filterkontrol.mjs` **(ny)** | 103 kontroller grønne |
+| `scripts/cloud/kortkontrol.mjs` | 114 kontroller grønne |
+| `npm test` | ALT GRØNT |
+| `scripts/cloud/kontrol.sh` | ALT GRØNT |
+| `scripts/cloud/kontrol-pagination.sh` | ALT GRØNT |
+| `scripts/cloud/lancering.mjs` | alt grønt |
+| `npx tsc --noEmit` | rent |
+
+**Dækket:** 390, 768, 1100 og 1440 px · med og uden landkort · forside,
+resultatside, områdeside og gruppeside · åbent mobiltastatur (390 × 340
+px) · lange tekster (39 tegn i vejnavnet) · nul resultater · ukendte
+priser · grupper · boliger med og uden billeder · boliger med og uden
+koordinater · uden JavaScript.
+
+**Funktionelt efterprøvet i filterkontrollen:** at fokusprøven kan fejle
+(afsnit 7) · ingen dobbelte feltnavne ·
+vinduet åbner, lukker på Escape og på lukknappen · fokus står inde i
+vinduet og kan ikke forlade det · fokus vender tilbage til knappen ·
+lukning uden «Vis resultater» lader søgningen stå · den forladte kladde
+er væk ved næste åbning · genindlæsning, tilbageknap, sortering og
+gruppelink bevarer filtrene · ingen tomme parametre i adressen.
+
+**Ikke kørt:** `npm run test:prod` (skriver i produktionen).
+
+### Fejl i mine egne kontroller, fundet og rettet
+
+1. **«fokus kan ikke forlade vinduet» var for stram.** Ét af 25
+   tab-tryk gav `document.activeElement === BODY` — Chromiums eget
+   ombrydningspunkt i en modal, ikke et element uden for vinduet. En
+   prøve, der kalder det en fejl, lærer den næste at se bort fra en rød
+   linje.
+2. **«lange adresser» målte 18 tegn** og bestod på et krav om mindst 15.
+   Det er ikke en prøve af lang tekst, det er en prøve af, at der står
+   noget. En rigtig lang vej sættes nu ind i testbasen og skrives tilbage
+   igen.
+3. **Tre ældre kontroller kendte ikke skiftet mellem liste og kort.**
+   `kortkontrol.mjs` målte «42 kolonner à 0 px» om en skjult liste;
+   `browserkontrol.mjs` og `browserkontrol-pagination.mjs` kastede en
+   `TimeoutError` på `scrollIntoViewIfNeeded()`. Alle tre er rettet: den
+   skjulte liste har nu sine egne påstande i stedet for at blive målt som
+   en synlig.
+
+---
+
 ## 5 · Hvad referencen ændrede
 
 Første udgave var bygget på specifikationen alene. Da skærmbillederne
@@ -228,50 +276,103 @@ ikke filtrerer, ville love et interval, søgningen ikke kan holde.
 
 ---
 
-## 4 · Hvad der faktisk er kørt
+## 6 · Kortkontrollen gik fra 129 til 114 målinger
 
-| Kontrol | Resultat |
-|---|---|
-| `scripts/cloud/filterkontrol.mjs` **(ny)** | 100 kontroller grønne |
-| `scripts/cloud/kortkontrol.mjs` | 114 kontroller grønne |
-| `npm test` | ALT GRØNT |
-| `scripts/cloud/kontrol.sh` | ALT GRØNT |
-| `scripts/cloud/kontrol-pagination.sh` | ALT GRØNT |
-| `scripts/cloud/lancering.mjs` | alt grønt |
-| `npx tsc --noEmit` | rent |
+Tallet faldt, og et faldende kontroltal er præcis den slags, der skal
+gøres rede for. Her er hele forskellen, målt ved at sammenligne
+`docs/kortdesign/kortkontrol.log` (129, fra `8a8b04e`) med
+`docs/resultatdesign/kontrol/kortkontrol.log`.
 
-**Dækket:** 390, 768, 1100 og 1440 px · med og uden landkort · forside,
-resultatside, områdeside og gruppeside · åbent mobiltastatur (390 × 340
-px) · lange tekster (39 tegn i vejnavnet) · nul resultater · ukendte
-priser · grupper · boliger med og uden billeder · boliger med og uden
-koordinater · uden JavaScript.
+**Ingen egenskab er holdt op med at blive målt.** Faldet ligger i to af
+de seksten viste flader: `390 px · med-kort` og `768 px · med-kort`.
 
-**Funktionelt efterprøvet i filterkontrollen:** ingen dobbelte feltnavne ·
-vinduet åbner, lukker på Escape og på lukknappen · fokus står inde i
-vinduet og kan ikke forlade det · fokus vender tilbage til knappen ·
-lukning uden «Vis resultater» lader søgningen stå · den forladte kladde
-er væk ved næste åbning · genindlæsning, tilbageknap, sortering og
-gruppelink bevarer filtrene · ingen tomme parametre i adressen.
+Under 901 px er kort og liste nu et **skift**, ikke en stabel — og
+testdataene har koordinater, så kortet ER valgt på de to flader. Listen
+er skjult. De elleve listepåstande har dermed intet at måle: der er ingen
+synlig liste at tælle kolonner i, ingen kort at måle billedrammen på.
 
-**Ikke kørt:** `npm run test:prod` (skriver i produktionen).
+Før målte de den alligevel, og svaret var vrøvl: «42 kolonner à 0 px» og
+«4 strakte». Tre af dem stod røde af den grund.
 
-### Fejl i mine egne kontroller, fundet og rettet
+| | 390 px · med-kort | 768 px · med-kort |
+|---|---|---|
+| Listepåstande før | 11 | 10 |
+| Listepåstande nu | 0 | 0 |
+| Kortvisningspåstande nu | 3 | 3 |
+| **Netto** | **−8** | **−7** |
 
-1. **«fokus kan ikke forlade vinduet» var for stram.** Ét af 25
-   tab-tryk gav `document.activeElement === BODY` — Chromiums eget
-   ombrydningspunkt i en modal, ikke et element uden for vinduet. En
-   prøve, der kalder det en fejl, lærer den næste at se bort fra en rød
-   linje.
-2. **«lange adresser» målte 18 tegn** og bestod på et krav om mindst 15.
-   Det er ikke en prøve af lang tekst, det er en prøve af, at der står
-   noget. En rigtig lang vej sættes nu ind i testbasen og skrives tilbage
-   igen.
-3. **Tre ældre kontroller kendte ikke skiftet mellem liste og kort.**
-   `kortkontrol.mjs` målte «42 kolonner à 0 px» om en skjult liste;
-   `browserkontrol.mjs` og `browserkontrol-pagination.mjs` kastede en
-   `TimeoutError` på `scrollIntoViewIfNeeded()`. Alle tre er rettet: den
-   skjulte liste har nu sine egne påstande i stedet for at blive målt som
-   en synlig.
+−15 i alt. 129 − 15 = 114.
+
+### De tre nye påstande
+
+Den skjulte liste er ikke en undtagelse, den er **den anden flade**, og
+den har sine egne påstande — så ingen af de to kan slippe igennem umålt:
+
+- **«listen skjules kun på smal skærm»** — falder gitteret sammen over
+  901 px, er det en fejl.
+- **«listen skjules kun, når kortet er valgt»** — skjules den i
+  listevisningen, er der ingen resultater at se.
+- **«kortet fylder bredden i stedet»** — er listen væk uden at kortet
+  træder i stedet, står fladen tom.
+
+Dertil **«intet vandret overløb»**, som måles i BEGGE grene og derfor
+stadig dækker alle seksten flader.
+
+### Hvor de elleve så måles
+
+Hver eneste af dem måles stadig på **den samme bredde** i listevisningen,
+plus i begge visninger på 1100 og 1440 px:
+
+| Egenskab | Før | Nu |
+|---|---|---|
+| højst to kolonner | 390M 390U 768M 768U 1100M 1100U 1440M 1440U | 390U 768U 1100M 1100U 1440M 1440U |
+| én kolonne på mobil | 390M 390U | 390U |
+| intet barn bredere end sit kort | alle otte | seks — 390M og 768M ude |
+| billedet fylder rammen præcist | alle otte | seks |
+| object-fit: cover på alle billeder | alle otte | seks |
+| alle billeder er hentet | alle otte | seks |
+| kort uden foto strækkes ikke | alle otte | seks |
+| ingen afkortning i økonomi og forbehold | alle otte | seks |
+| kortet er ét klikmål | alle otte | seks |
+| højst én skillelinje per kort | alle otte | seks |
+| gruppelinket bærer filtrene videre | alle otte | seks |
+| **intet vandret overløb** | alle otte | **alle otte** |
+
+M = med landkort · U = uden landkort
+
+**Ingen bredde har mistet dækning.** 390, 768, 1100 og 1440 px måles
+stadig på hver af de elleve egenskaber.
+
+De øvrige forskelle i loggen er tal INDE i etiketten, ikke andre
+påstande: «(39 fotos)» blev til «(38 fotos)» og «(3 blandede rækker)» til
+«(4 blandede rækker)», fordi testdataene fik koordinater og dermed en
+anden fordeling. Samme målinger, andre tal.
+
+---
+
+## 7 · Kan fokusprøven overhovedet fejle?
+
+En prøve, der altid består, ser ud som en kontrol og er det ikke.
+Fokusfælden er browserens, ikke vores — så «fokus kan ikke forlade
+vinduet» ville stå grøn, selv om vores egen detektor var i stykker.
+
+`filterkontrol.mjs` har derfor en **negativ kontrol**. Den åbner det
+samme vindue med `show()` i stedet for `showModal()`. Det er den eneste
+forskel — samme markup, samme CSS, samme indhold — og et ikke-modalt
+`<dialog>` har ingen fælde. Påstanden er vendt om: her SKAL der slippe
+noget ud.
+
+    ✓ vinduet er åbnet UDEN fælde — open=true modal=false
+    ✓ uden fælde slipper fokus ud — detektoren ser det
+        — 6 af 25, bl.a. A.sort-pille valgt, A.sort-pille
+    ✓ og det er kontroller bag vinduet — A.sort-pille valgt, A.sort-pille
+
+Seks af 25 tabulatortryk lander på sorteringspillerne, som ligger BAG
+vinduet. Detektoren ser dem, og den skelner dem fra `<body>` —
+Chromiums eget ombrydningspunkt, som ikke er en lækage.
+
+Den grønne linje i den positive prøve er altså et udsagn om vinduet, ikke
+om prøven.
 
 ---
 
