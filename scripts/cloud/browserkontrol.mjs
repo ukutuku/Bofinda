@@ -151,13 +151,22 @@ console.log('\n═══ Mobil 390×844 ═══')
     deviceScaleFactor: 2,
   })
   const s = await c.newPage()
-  for (const [navn, sti] of [['forside', '/'], ['filtreret', '/?postnr=9001'],
-    ['arealfilter', '/?areal=100']]) {
+  // `kort=0` paa de filtrerede: under 901 px er kort og liste et SKIFT, og
+  // kortet er standard. Uden parameteren er `.liste` skjult — med vilje —
+  // og `scrollIntoViewIfNeeded()` venter tyve sekunder paa et element, der
+  // aldrig bliver synligt, og KASTER saa i stedet for at melde ✗. De tre
+  // maalinger her handler om LISTEN, saa de skal bede om listevisningen.
+  for (const [navn, sti] of [['forside', '/'], ['filtreret', '/?postnr=9001&kort=0'],
+    ['arealfilter', '/?areal=100&kort=0']]) {
     await s.goto(BASE + sti, { waitUntil: 'networkidle', timeout: 90_000 })
     const m = await maal(s)
     // Rul til listen. Uden det viser alle tre skærmbilleder den samme
     // hero-sektion, og de tre sider kan ikke skelnes fra hinanden.
-    await s.locator('.liste').first().scrollIntoViewIfNeeded()
+    // Ikke-fatal: en skjult liste skal melde ✗, ikke vaelte hele
+    // kontrollen med en TimeoutError efter tyve sekunder.
+    const synlig = await s.locator('.liste').first().isVisible().catch(() => false)
+    kraev(synlig, `${navn}: listen er synlig`, synlig ? 'ja' : 'skjult — kortvisningen er valgt')
+    if (synlig) await s.locator('.liste').first().scrollIntoViewIfNeeded().catch(() => {})
     await s.waitForTimeout(600)
     await s.screenshot({ path: `${UD}/mobil-${navn}.png` })
     kraev(m.kort > 0, `${navn}: kort renderet`, `${m.kort} kort`)

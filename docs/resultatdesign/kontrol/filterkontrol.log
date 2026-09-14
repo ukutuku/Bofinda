@@ -1,0 +1,119 @@
+
+═══ 390 px ═══
+  ✓ ingen dobbelte feltnavne — 7 navngivne felter
+  ✓ formularen bærer stadig filtrene — 7 navngivne felter
+  ✓ knappen åbner vinduet
+  ✓ det er modalt — Escape og fokusfælde er browserens
+  ✓ fokus står inde i vinduet ved åbning
+  ✓ fokus kan ikke forlade vinduet — 0 af 25 tab-tryk
+  ✓ Escape lukker vinduet
+  ✓ fokus vender tilbage til knappen — true
+  ✓ lukning uden «Vis resultater» lader søgningen stå — ://127.0.0.1:3100/?sted=Pr%C3%B8veby%20N
+  ✓ resultaterne er uændrede — 44 kort
+  ✓ den forladte kladde er væk ved næste åbning — «»
+  ✓ «Vis resultater» skriver filteret i URL'en og lukker vinduet — p://127.0.0.1:3100/?sted=Pr%C3%B8veby+N&prisMin=9000
+  ✓ ingen tomme parametre i adressen — ?sted=Pr%C3%B8veby+N&prisMin=9000
+  ✓ genindlæsning bevarer filteret — fra 9.000 kr./md.× | Ryd alle
+  ✓ sortering bevarer filtrene — /?sted=Pr%C3%B8veby+N&prisMin=9000&sorter=pris_op
+  ✓ gruppelinket bærer filtrene — /gruppe?b=41b79d0f-3716-423b-8d3e-e6a6cf456947&by=Pr%C3%B8veby+N&prisMin=9000
+  ✓ tilbage og frem lander på den samme søgning — 1:3100/?sted=Pr%C3%B8veby+N&prisMin=9000
+
+═══ 768 px ═══
+  ✓ ingen dobbelte feltnavne — 7 navngivne felter
+  ✓ formularen bærer stadig filtrene — 7 navngivne felter
+  ✓ knappen åbner vinduet
+  ✓ det er modalt — Escape og fokusfælde er browserens
+  ✓ fokus står inde i vinduet ved åbning
+  ✓ fokus kan ikke forlade vinduet — 0 af 25 tab-tryk
+  ✓ Escape lukker vinduet
+  ✓ fokus vender tilbage til knappen — true
+  ✓ lukning uden «Vis resultater» lader søgningen stå — ://127.0.0.1:3100/?sted=Pr%C3%B8veby%20N
+  ✓ resultaterne er uændrede — 44 kort
+  ✓ den forladte kladde er væk ved næste åbning — «»
+  ✓ «Vis resultater» skriver filteret i URL'en og lukker vinduet — p://127.0.0.1:3100/?sted=Pr%C3%B8veby+N&prisMin=9000
+  ✓ ingen tomme parametre i adressen — ?sted=Pr%C3%B8veby+N&prisMin=9000
+  ✓ genindlæsning bevarer filteret — fra 9.000 kr./md.× | Ryd alle
+  ✓ sortering bevarer filtrene — /?sted=Pr%C3%B8veby+N&prisMin=9000&sorter=pris_op
+  ✓ gruppelinket bærer filtrene — /gruppe?b=41b79d0f-3716-423b-8d3e-e6a6cf456947&by=Pr%C3%B8veby+N&prisMin=9000
+  ✓ tilbage og frem lander på den samme søgning — 1:3100/?sted=Pr%C3%B8veby+N&prisMin=9000
+
+═══ 1100 px ═══
+  ✓ ingen dobbelte feltnavne — 7 navngivne felter
+  ✓ formularen bærer stadig filtrene — 7 navngivne felter
+  ✓ knappen åbner vinduet
+  ✓ det er modalt — Escape og fokusfælde er browserens
+  ✓ fokus står inde i vinduet ved åbning
+  ✓ fokus kan ikke forlade vinduet — 0 af 25 tab-tryk
+  ✓ Escape lukker vinduet
+  ✓ fokus vender tilbage til knappen — true
+  ✓ lukning uden «Vis resultater» lader søgningen stå — ://127.0.0.1:3100/?sted=Pr%C3%B8veby%20N
+  ✓ resultaterne er uændrede — 44 kort
+  ✓ den forladte kladde er væk ved næste åbning — «»
+  ✓ «Vis resultater» skriver filteret i URL'en og lukker vinduet — p://127.0.0.1:3100/?sted=Pr%C3%B8veby+N&prisMin=9000
+  ✓ ingen tomme parametre i adressen — ?sted=Pr%C3%B8veby+N&prisMin=9000
+  ✓ genindlæsning bevarer filteret — fra 9.000 kr./md.× | Ryd alle
+  ✓ sortering bevarer filtrene — /?sted=Pr%C3%B8veby+N&prisMin=9000&sorter=pris_op
+  ✓ gruppelinket bærer filtrene — /gruppe?b=41b79d0f-3716-423b-8d3e-e6a6cf456947&by=Pr%C3%B8veby+N&prisMin=9000
+  ✓ tilbage og frem lander på den samme søgning — 1:3100/?sted=Pr%C3%B8veby+N&prisMin=9000
+
+═══ 1440 px ═══
+  ✓ ingen dobbelte feltnavne — 7 navngivne felter
+  ✓ formularen bærer stadig filtrene — 7 navngivne felter
+  ✓ knappen åbner vinduet
+  ✓ det er modalt — Escape og fokusfælde er browserens
+  ✓ fokus står inde i vinduet ved åbning
+  ✓ fokus kan ikke forlade vinduet — 0 af 25 tab-tryk
+  ✓ Escape lukker vinduet
+  ✓ fokus vender tilbage til knappen — true
+  ✓ lukning uden «Vis resultater» lader søgningen stå — ://127.0.0.1:3100/?sted=Pr%C3%B8veby%20N
+  ✓ resultaterne er uændrede — 44 kort
+  ✓ den forladte kladde er væk ved næste åbning — «»
+  ✓ «Vis resultater» skriver filteret i URL'en og lukker vinduet — p://127.0.0.1:3100/?sted=Pr%C3%B8veby+N&prisMin=9000
+  ✓ ingen tomme parametre i adressen — ?sted=Pr%C3%B8veby+N&prisMin=9000
+  ✓ genindlæsning bevarer filteret — fra 9.000 kr./md.× | Ryd alle
+  ✓ sortering bevarer filtrene — /?sted=Pr%C3%B8veby+N&prisMin=9000&sorter=pris_op
+  ✓ gruppelinket bærer filtrene — /gruppe?b=41b79d0f-3716-423b-8d3e-e6a6cf456947&by=Pr%C3%B8veby+N&prisMin=9000
+  ✓ tilbage og frem lander på den samme søgning — 1:3100/?sted=Pr%C3%B8veby+N&prisMin=9000
+
+═══ uden JavaScript ═══
+  ✓ `?flere=1` åbner vinduet uden JavaScript
+  ✓ vinduets indhold er synligt
+  ✓ lukknappen er et link tilbage til den samme søgning — /?sted=Pr%C3%B8veby+N
+  ✓ «Ryd filtre» beholder området — /?sted=Pr%C3%B8veby%20N
+
+═══ 390 px med tastatur oppe (340 px høj) ═══
+  ✓ overskriften står fast i toppen — top 0
+  ✓ «Vis resultater» er inden for skærmen — 284–328 af 340
+  ✓ knappen er stadig mindst 44 px høj — 44 px
+  ✓ indholdet ruller i midten — true
+
+═══ Datatilfælde ═══
+  ✓ nul resultater giver en forklaring, ikke en tom side
+  ✓ filtrene kan stadig nås — true
+  ✓ intet vandret overløb — 0 px
+  ✓ hvert kort har en overskrift — 0 uden
+  ✓ ingen klippet tekst i kortene
+  ✓ adressen står på hvert kort — længste i udsnittet: «Dubletvej 4, 2. tv · 9001 Prøveby N» (35 tegn)
+  ✓ både kort med og uden foto er med — 38 med · 6 uden
+  ✓ gruppekort er med i udsnittet — 9 grupper
+  ✓ ukendt aconto står altid med sit forbehold — 7 uden kendt total, 0 uden forbehold
+  ✓ hvert kort har en overskrift — 0 uden
+  ✓ ingen klippet tekst i kortene
+  ✓ adressen står på hvert kort — længste i udsnittet: «Dubletvej 4, 2. tv · 9001 Prøveby N» (35 tegn)
+  ✓ både kort med og uden foto er med — 38 med · 6 uden
+  ✓ gruppekort er med i udsnittet — 9 grupper
+  ✓ ukendt aconto står altid med sit forbehold — 7 uden kendt total, 0 uden forbehold
+
+═══ Lang adresse (39 tegn i vejnavnet) ═══
+  ✓ 390 px · den lange adresse står på kortet — Stenlængegårdens Kvarter Nordre Sidevej 188, 12. tv · 9001 Prøveby N
+  ✓ 390 px · den brydes i stedet for at klippes eller flyde ud — intet for bredt
+  ✓ 390 px · intet vandret overløb — 0 px
+  ✓ 768 px · den lange adresse står på kortet — Stenlængegårdens Kvarter Nordre Sidevej 188, 12. tv · 9001 Prøveby N
+  ✓ 768 px · den brydes i stedet for at klippes eller flyde ud — intet for bredt
+  ✓ 768 px · intet vandret overløb — 0 px
+  ✓ 1440 px · den lange adresse står på kortet — Stenlængegårdens Kvarter Nordre Sidevej 188, 12. tv · 9001 Prøveby N
+  ✓ 1440 px · den brydes i stedet for at klippes eller flyde ud — intet for bredt
+  ✓ 1440 px · intet vandret overløb — 0 px
+  · testdata gendannet (0 rækker har stadig den lange vej)
+
+✓ alle 100 kontroller bestået

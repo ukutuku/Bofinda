@@ -364,13 +364,36 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
   position: static; margin: 0 0 9px; left: auto; top: auto; right: auto;
 }
 .kort-titel { min-width: 0; }
-.adresse { font-size: 17px; font-weight: 670; letter-spacing: -0.022em; line-height: 1.28; }
+/* ── Kortets overskrift ───────────────────────────────────────
+   «Lejlighed · 3 vær. · 85 m²». Hvad boligen ER, i én linje.
+   Stod før som tre chips under adressen, og adressen var
+   overskriften. Det var den forkerte vej rundt: en adresse afgør
+   først noget, når størrelsen passer, og tre etiketter er tre ting at
+   læse, hvor der skulle stå én. */
+.kort-overskrift {
+  margin: 0; font-size: 16.5px; font-weight: 690;
+  letter-spacing: -0.02em; line-height: 1.3;
+}
+/* Adressen er nu STEDET, ikke overskriften. Derfor lettere vægt end
+   før — den skal kunne læses, ikke råbe. */
+.adresse {
+  margin: 3px 0 0; font-size: 14px; font-weight: 500;
+  color: var(--daempet); line-height: 1.4;
+}
 /* Stedet faar en naal. Adressen og postnummer/by er to forskellige
    slags oplysning, og ikonet siger hvilken uden et ord ekstra. */
 .sted {
-  color: var(--daempet); font-size: 12.5px; margin-top: 4px;
+  color: var(--daempet); font-size: 12.5px; margin-top: 2px;
   display: flex; align-items: center; gap: 5px;
 }
+/* ── Metalinjen ───────────────────────────────────────────────
+   Overtagelsen og de statusord, der før var farvede mærkater oven på
+   fotoet. Samme oplysninger, mindre støj — og de kan ikke længere
+   dække billedet. */
+.kort-meta {
+  margin: 9px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--svag);
+}
+.kort-meta:empty { display: none; }
 .sted::before {
   content: ''; width: 13px; height: 13px; flex: none; opacity: .6; background: currentColor;
   -webkit-mask: var(--ikon-sted) center/contain no-repeat;
@@ -1139,24 +1162,27 @@ footer.bund {
   display: block;
 }
 
-/* ── Den brede soegebjaelke ────────────────────────────────────
-   Fire felter med etiket over vaerdien, adskilt af lodrette streger,
-   og en stor groen knap yderst — som i referencen. Gitteret, ikke
-   flex: kolonnerne skal have FASTE forhold, saa stregerne staar lige
-   uanset hvor lang teksten i feltet er. */
+/* ── Den kompakte søgelinje ────────────────────────────────────
+   Område · «Filter og sortering» · kortvalg · søg. Fire ting, én linje.
+
+   Var fire felter i et gitter med faste kolonneforhold — pris,
+   størrelse og værelser stod her. De er flyttet ind i filtervinduet,
+   og med ét felt tilbage giver faste forhold ingen mening: flex, så
+   området får den plads, der er, og knapperne deres egen bredde.
+
+   Med gitteret ryger også dets `nth-child`-regler. De talte felter og
+   ville pege på knapperne nu — en regel, der rammer noget andet, end
+   den er skrevet til, er værre end ingen regel. */
 .soegebar {
-  display: grid;
-  grid-template-columns: 1.5fr 1.25fr 1fr 1fr auto;
-  align-items: stretch; gap: 0;
+  display: flex; align-items: stretch; gap: 8px; padding: 6px;
 }
 .soegefelt {
-  /* Ikonet til venstre, etiket over vaerdi til hoejre — referencens
-     opbygning. Gitter og ikke flex med et ekstra element: ikonet er en
-     CSS-maske paa ::before, saa der ikke skal et tomt <span> i
-     markuppen for hver eneste feltetiket. */
+  /* Ikonet til venstre, etiket over værdi til højre. Gitter og ikke
+     flex med et ekstra element: ikonet er en CSS-maske på ::before, så
+     der ikke skal et tomt <span> i markuppen for hver feltetiket. */
   display: grid; grid-template-columns: 19px minmax(0, 1fr);
   grid-template-rows: auto auto; column-gap: 11px; align-content: center;
-  padding: 10px 15px; min-width: 0; border-left: 1px solid var(--linje);
+  padding: 8px 14px; min-width: 0; flex: 1 1 auto;
 }
 .soegefelt::before {
   content: ''; grid-row: 1 / span 2; align-self: center;
@@ -1166,10 +1192,6 @@ footer.bund {
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
   -webkit-mask-image: var(--ikon-sted); mask-image: var(--ikon-sted);
 }
-.sf-pris::before  { -webkit-mask-image: var(--ikon-moent); mask-image: var(--ikon-moent); }
-.sf-areal::before { -webkit-mask-image: var(--ikon-maal);  mask-image: var(--ikon-maal); }
-.sf-vaer::before  { -webkit-mask-image: var(--ikon-doer);  mask-image: var(--ikon-doer); }
-.soegefelt:first-child { border-left: 0; }
 .soegefelt label {
   font-size: 12px; font-weight: 600; color: var(--tekst);
   letter-spacing: 0; text-transform: none; line-height: 1.3;
@@ -1186,14 +1208,49 @@ footer.bund {
   background: var(--accent-lys); border-radius: var(--r-s);
   box-shadow: inset 0 0 0 2px var(--accent);
 }
-.sf-par { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
-.sf-par input { width: 100%; }
-.sf-til { color: var(--svag); flex: none; }
+
+/* ── «Filter og sortering» og kortvalget ──────────────────────
+   To kontroller i samme form: hvide piller med ikon, ved siden af den
+   grønne søgeknap. Begge er LINKS og ikke knapper — de virker uden
+   JavaScript, kan åbnes i en ny fane, og deres tilstand ligger i
+   URL'en som alt andet på siden.
+
+   44 px i højden er et gulv, ikke en polstring. Gulvet hører til
+   kontrollen og ikke til den tekst, der tilfældigvis står i den. */
+.filterknap, .kortvalg {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  flex: 0 0 auto; min-height: 44px; padding: 0 17px;
+  border: 1px solid var(--linje); border-radius: var(--r);
+  background: #fff; color: var(--tekst); text-decoration: none;
+  font-size: 14.5px; font-weight: 570; white-space: nowrap; cursor: pointer;
+}
+.filterknap:hover, .kortvalg:hover { border-color: var(--accent); color: var(--accent-mrk); }
+.filterknap:focus-visible, .kortvalg:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.fk-ikon, .kv-ikon {
+  width: 17px; height: 17px; flex: none; background: currentColor; opacity: .75;
+  -webkit-mask-position: center; mask-position: center;
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-image: var(--ikon-skyder); mask-image: var(--ikon-skyder);
+}
+.kv-ikon { -webkit-mask-image: var(--ikon-sted); mask-image: var(--ikon-sted); }
+/* Er der filtre sat, skal knappen sige det UDEN at man åbner den.
+   Tallet er `aktiveFiltre().length` — de samme filtre, chipperne viser,
+   så knappen og chipperne ikke kan sige hver sit. */
+.filterknap.har-filtre { border-color: var(--accent); color: var(--accent-mrk); }
+.fk-tal {
+  display: inline-grid; place-items: center; min-width: 21px; height: 21px;
+  padding: 0 5px; border-radius: var(--r-pille);
+  background: var(--accent); color: #fff;
+  font-size: 12px; font-weight: 640; font-variant-numeric: tabular-nums;
+}
 .soegeknap {
   display: inline-flex; align-items: center; justify-content: center; gap: 9px;
   background: var(--accent); color: #fff; border: 0; border-radius: var(--r);
-  font-size: 16px; font-weight: 620; padding: 0 30px; margin-left: 8px;
-  cursor: pointer; white-space: nowrap;
+  font-size: 15.5px; font-weight: 620; padding: 0 26px; flex: 0 0 auto;
+  min-height: 44px; cursor: pointer; white-space: nowrap;
 }
 .soegeknap:hover { background: var(--accent-mrk); }
 .sk-pil { font-size: 17px; line-height: 1; }
@@ -1208,36 +1265,22 @@ footer.bund {
 .populaere a { color: var(--accent); text-decoration: none; font-weight: 540; }
 .populaere a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
-@media (max-width: 900px) {
-  /* Felterne stables. Stregerne bliver vandrette: en lodret streg
-     mellem to felter over hinanden peger paa ingenting. */
-  .soegebar { grid-template-columns: 1fr 1fr; }
-  .soegefelt { border-left: 0; border-top: 1px solid var(--linje); padding: 11px 14px; }
-  .soegefelt:first-child, .soegefelt:nth-child(2) { border-top: 0; }
-  .sf-sted { grid-column: 1 / -1; border-top: 0; }
-  .soegefelt:nth-child(2), .soegefelt:nth-child(3) { border-top: 1px solid var(--linje); }
-  .soegefelt:nth-child(3) { border-left: 1px solid var(--linje); }
-  .soegefelt:nth-child(5) { border-left: 1px solid var(--linje); }
-  .soegeknap {
-    grid-column: 1 / -1; margin: 10px 4px 2px; padding: 14px 24px;
-    border-radius: var(--r-pille);
-    /* Gulv under beroeringsmaalet. Polstring alene afhaenger af
-       skriftstoerrelsen og af, at ingen anden regel naar at overskrive
-       den — og netop dét skete. Sidens vigtigste handling maa ikke
-       kunne blive lavere end en finger, uanset hvad der ellers
-       aendres. */
-    min-height: 48px;
-  }
+/* Under 760 px bryder linjen i to: område og søg øverst, filter og
+   kortvalg under. Tre kontroller ved siden af et tekstfelt på en
+   telefon giver et felt, der er for smalt til et bynavn. */
+@media (max-width: 760px) {
+  .soegebar { flex-wrap: wrap; }
+  .sf-sted { flex: 1 1 60%; }
+  .filterknap, .kortvalg { flex: 1 1 auto; }
+  .soegeknap { padding: 0 20px; }
   .hero-soeg { transform: translateY(26px); }
   .hero { margin-bottom: 26px; }
 }
 @media (max-width: 520px) {
-  .soegebar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .sf-pris { grid-column: 1 / -1; }
-  .soegefelt { border-left: 0 !important; border-top: 1px solid var(--linje); }
-  .soegefelt:first-child { border-top: 0; }
   /* 16 px: under det zoomer iOS ind paa fokus og efterlader siden skaev. */
   .soegefelt input { font-size: 16px; }
+  .sf-sted { flex: 1 1 100%; }
+  .soegeknap { flex: 1 1 100%; min-height: 48px; }
 }
 
 /* ── Ikoner ────────────────────────────────────────────────────
@@ -1245,6 +1288,8 @@ footer.bund {
    netværkskald — og farven arves, så et ikon aldrig kan stå i en
    farve, temaet ikke kender. */
 :root {
+  /* Tre vandrette skydere — det almindelige tegn for «filtre». */
+  --ikon-skyder: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M3 7h13M19 7h2M3 12h4M10 12h11M3 17h9M15 17h6'/%3E%3Ccircle cx='17.5' cy='7' r='2'/%3E%3Ccircle cx='8.5' cy='12' r='2'/%3E%3Ccircle cx='13.5' cy='17' r='2'/%3E%3C/svg%3E");
   --ikon-lup: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.1' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.6-3.6'/%3E%3C/svg%3E");
   --ikon-hus: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 10.5 12 3l9 7.5'/%3E%3Cpath d='M5.5 9.5V20h13V9.5'/%3E%3C/svg%3E");
   --ikon-sted: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z'/%3E%3Ccircle cx='12' cy='10' r='2.6'/%3E%3C/svg%3E");
@@ -1345,24 +1390,204 @@ form.filtre.soegt {
    stoerrelse og vaerelser stadig ved siden af hinanden, og «Vaerelser»
    laa uden for skaermen. Det er samme faelde som el-linjen: to rigtige
    regler, der svarer paa det samme, og den ene fyrede aldrig. */
-@media (min-width: 901px) {
-  form.filtre.soegt .soegebar { grid-template-columns: 1.4fr 1.2fr 1fr 1fr auto; }
-  /* SAMME FAELDE, OG DEN RAMTE KNAPPEN. `form.filtre.soegt .soegeknap`
-     er tre klasser og et element og stod uden medieforespoergsel, saa
-     dens `padding: 0 24px` slog mobilens `padding: 14px 24px` i
-     `@media (max-width: 900px)`. Knappen mistede AL lodret polstring og
-     blev en tynd groen stribe paa resultatsiden — mens forsidens knap,
-     der ikke er `.soegt`, var rigtig. To rigtige regler om det samme,
-     hvor den ene aldrig fyrede. Nedskaleringen hoerer derfor her, hvor
-     den gaelder. */
-  form.filtre.soegt .soegeknap { font-size: 15px; padding: 0 24px; }
-}
-form.filtre.soegt .soegefelt { padding: 8px 14px; }
+/* Bjælken er den samme i begge tilstande. Den havde før en egen
+   nedskalering på resultatsiden — `form.filtre.soegt .soegebar` med
+   faste kolonner — og netop den regel var den fælde, der stod
+   beskrevet her: tre klasser uden medieforespørgsel slog mobilens
+   stabling, der kun havde én. Med ét felt og flex er der ingen
+   kolonner at skalere, og fælden er væk med dem.
+
+   Skriftstørrelsen skæres stadig ned; den kan ikke ramme forbi. */
+form.filtre.soegt .soegefelt { padding: 7px 13px; }
 form.filtre.soegt .soegefelt input { font-size: 14.5px; }
 /* 16 px paa mobil: under det zoomer iOS ind paa fokus og efterlader
    siden skaev, til man zoomer ud igen. */
 @media (max-width: 560px) {
   form.filtre.soegt .soegefelt input { font-size: 16px; }
+}
+
+/* ═══ FILTERVINDUET ════════════════════════════════════════════
+   Centreret dialog på desktop, fuldskærm på mobil. Fast hoved med
+   lukknap, rullende indhold, fast bund med «Ryd filtre» og «Vis
+   resultater».
+
+   <dialog> og ikke en div: browseren giver Escape, fokusfælde og fokus
+   tilbage til knappen, der åbnede den. Skrevet i hånden ville det være
+   tre ting, der kan gå galt hver for sig — og fokusfælden er den, alle
+   glemmer.
+
+   ::backdrop males kun, når vinduet er åbnet med `showModal()`. Uden
+   JavaScript står det som en almindelig blok i siden med `open`, og så
+   er der ingen baggrund at male — og ingen grund til at prøve. */
+.filterdialog {
+  padding: 0; border: 0; background: none; color: inherit;
+  max-width: min(720px, calc(100vw - 32px));
+  max-height: min(760px, calc(100vh - 48px));
+  width: 100%;
+}
+.filterdialog::backdrop { background: rgba(20, 22, 26, .46); }
+
+/* Gitteret er det, der gør hoved og bund FASTE: to auto-rækker om en
+   1fr i midten, og kun midten ruller. Med almindelig flow ville
+   knapperne rulle væk netop når listen er lang nok til, at man har
+   brug for dem. */
+.fd-ramme {
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: inherit; height: 100%;
+  background: var(--kort); border: 1px solid var(--linje);
+  border-radius: var(--r-l); overflow: hidden;
+  box-shadow: 0 24px 60px rgba(20, 22, 26, .22);
+}
+.fd-hoved {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 15px 18px; border-bottom: 1px solid var(--linje-svag);
+  background: var(--kort);
+}
+.fd-hoved h2 {
+  margin: 0; font-size: 17px; font-weight: 680; letter-spacing: -0.02em;
+}
+.fd-luk {
+  display: inline-grid; place-items: center;
+  width: 44px; height: 44px; margin: -6px -8px -6px 0;
+  border-radius: var(--r-s); color: var(--daempet);
+  font-size: 26px; line-height: 1; text-decoration: none;
+}
+.fd-luk:hover { background: var(--sand); color: var(--tekst); }
+.fd-luk:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.fd-krop { overflow-y: auto; padding: 4px 18px 18px; -webkit-overflow-scrolling: touch; }
+
+.fd-fod {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 13px 18px; border-top: 1px solid var(--linje-svag);
+  background: var(--kort);
+}
+.fd-ryd {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px;
+  color: var(--accent); text-decoration: none; font-size: 14.5px; font-weight: 620;
+  border-radius: var(--r-s);
+}
+.fd-ryd:hover { color: var(--accent-mrk); text-decoration: underline; text-underline-offset: 3px; }
+.fd-ryd:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fd-vis {
+  flex: 0 1 auto; min-height: 44px; padding: 0 26px;
+  background: var(--accent); color: #fff; border: 0; border-radius: var(--r);
+  font: inherit; font-size: 15.5px; font-weight: 620; cursor: pointer;
+}
+.fd-vis:hover { background: var(--accent-mrk); }
+
+/* ── Afsnittene ───────────────────────────────────────────────
+   Boligtype · pris · værelser · størrelse · overtagelse · faciliteter ·
+   øvrige valg. Én streg mellem to afsnit, ikke en ramme om hvert. */
+.fd-afsnit { padding: 15px 0; border-top: 1px solid var(--linje-svag); }
+.fd-afsnit:first-child { border-top: 0; }
+/* Referencens afsnitsoverskrifter er store og tydelige — de deler
+   vinduet op, og et 13 px etiketord gjorde dem til fodnoter. */
+.fd-afsnit > h3 {
+  margin: 0 0 12px; font-size: 16px; font-weight: 680;
+  letter-spacing: -0.012em; color: var(--tekst);
+}
+.fd-note { margin: 9px 0 0; font-size: 12px; line-height: 1.5; color: var(--svag); }
+
+/* ── Valgbare knapper ─────────────────────────────────────────
+   Afkrydsning og radio, tegnet som piller. Det RIGTIGE felt ligger
+   under og er stadig et input — tastatur, skærmlæser og «virker uden
+   JavaScript» er browserens, ikke vores. `appearance: none` ville have
+   taget fokusringen med; i stedet flyttes den til pillen. */
+.valgknapper { display: flex; flex-wrap: wrap; gap: 8px; }
+.valgknap { position: relative; display: inline-flex; }
+.valgknap input {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  margin: 0; opacity: 0; cursor: pointer;
+}
+.valgknap span {
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: 40px; padding: 0 15px;
+  border: 1px solid var(--linje); border-radius: var(--r-pille);
+  background: #fff; color: var(--tekst); font-size: 14px; font-weight: 540;
+  white-space: nowrap;
+}
+.valgknap span b { color: var(--svag); font-weight: 540; font-variant-numeric: tabular-nums; }
+.valgknap input:checked + span {
+  background: var(--accent-lys); border-color: var(--accent); color: var(--accent-mrk);
+}
+.valgknap input:checked + span b { color: var(--accent-mrk); }
+.valgknap input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.valgknap:hover span { border-color: var(--accent); }
+
+/* ── Min./maks.-felterne ──────────────────────────────────────
+   To felter, fordi basen har to grænser for prisen. Størrelse og
+   værelser har kun en nedre, og der står kun ét felt — et «til»-felt
+   ville love et interval, søgningen ikke kan holde. */
+/* Etiketten OVER feltet og enheden inde i det, som i referencen —
+   «Min.» og «Max.» med en tankestreg imellem. Etiketten stod inde i
+   feltet før, og så sagde «Fra» og pladsholderen «Min» det samme to
+   gange på den samme linje. */
+.fd-par { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: end; }
+.fd-felt { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.fd-felt label { font-size: 13px; color: var(--daempet); }
+.fd-til { color: var(--svag); padding-bottom: 13px; }
+.fd-boks {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center; gap: 8px;
+  border: 1px solid var(--linje); border-radius: var(--r-s);
+  padding: 0 13px; min-height: 46px; background: #fff;
+}
+.fd-boks:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-lys); }
+.fd-boks input {
+  font: inherit; font-size: 15px; border: 0; background: none; padding: 0;
+  width: 100%; min-width: 0; color: var(--tekst);
+}
+.fd-boks input:focus { outline: none; }
+.fd-enhed { font-size: 13px; color: var(--svag); }
+.fd-enkelt { max-width: 220px; }
+
+/* Grundlagslinjerne er UÆNDREDE i indhold. De er sat ned i vægt, ikke
+   skåret ned: et filter skal gøre rede for, hvad det udelader, og de
+   tre grupper skal gå op med antallet. */
+/* Hver post er en pille med sit grundlag under. Referencen har kun
+   pillerne; grundlagslinjen er vores, og den er ikke til forhandling:
+   faciliteterne er en POSITIV liste, så et filter skjuler alle, hvis
+   kilde tier, og så skal det stå, hvor mange det er. */
+.fd-afsnit .filterpost { margin-top: 14px; gap: 6px; }
+.fd-afsnit .filterpost:first-of-type { margin-top: 0; }
+.fd-afsnit .filterpost .valgknap { align-self: flex-start; }
+.fd-afsnit .filtergrundlag { padding-left: 2px; }
+
+@media (max-width: 620px) {
+  /* Fuldskærm. `max-height: 100dvh` og ikke `100vh`: på iOS er `vh`
+     regnet uden adresselinjen, så bunden — og dermed «Vis resultater»
+     — lå uden for skærmen, netop på den flade hvor vinduet fylder
+     alt. */
+  .filterdialog {
+    max-width: 100vw; width: 100vw;
+    max-height: 100dvh; height: 100dvh;
+    margin: 0; top: 0; left: 0;
+  }
+  .fd-ramme { border: 0; border-radius: 0; }
+  /* Stablet: tankestregen mellem Min. og Max. peger på ingenting, når
+     de to står over hinanden, og bliver til en streg alene på en linje.
+     Den er `aria-hidden` pynt, så den kan gå. */
+  .fd-par { grid-template-columns: 1fr; gap: 12px; }
+  .fd-til { display: none; }
+  /* 16 px: under det zoomer iOS ind paa fokus. Med et tastatur oppe er
+     vinduet i forvejen halvt saa hoejt; en zoom oveni gør det
+     ubrugeligt. */
+  .fd-felt input { font-size: 16px; }
+  .fd-fod { padding: 12px 14px; }
+  .fd-vis { flex: 1 1 auto; }
+  .fd-krop { padding: 4px 14px 16px; }
+  .fd-hoved { padding: 13px 14px; }
+}
+
+/* Uden JavaScript renderes vinduet med `open` og står som en blok i
+   siden. Det skal ikke flyde over skærmen som en modal, der ikke kan
+   lukkes med Escape — så er det bedre, at det er en almindelig
+   panelflade, man kan rulle forbi. */
+@media (scripting: none) {
+  .filterdialog { position: static; max-height: none; margin: 12px 0 0; }
+  .fd-ramme { max-height: none; }
+  .fd-krop { overflow: visible; }
 }
 
 /* ── «Flere filtre» som en rigtig kontrol ────────────────────
@@ -1457,6 +1682,10 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
 /* Paa forsiden er «Nyeste boliger» en sektionsoverskrift paa linje med
    «Saadan bruger du Bofinda», ikke en etiket. Paa resultatsiden
    overtager `.resultat-tal` og saetter sin egen, stoerre vaegt. */
+/* Antallet i overskriften, som i referencen: «Lejeboliger i X (76)».
+   Lettere end titlen selv — det er en optælling, ikke stedets navn. */
+.titeltal { color: var(--svag); font-weight: 500; margin-left: 8px; }
+
 .listetitel {
   font-size: clamp(20px, 2vw, 25px); font-weight: 670; margin: 0; padding: 0;
   letter-spacing: -0.026em;
@@ -1741,7 +1970,27 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
 /* Kortspalten som i referencen: en fast hoejre spalte, der foelger med
    ned. 348 px giver listen 888 px paa den bredeste skaerm — plads til
    tre kort à 282 px. */
-.medkort { display: grid; grid-template-columns: minmax(0, 1fr) 348px; gap: 24px; align-items: start; }
+/* Kortspalten var 348 px fast. Det er et miniature ved siden af en
+   liste på 900: man kan se, at der er mærker, men ikke hvor de ligger i
+   forhold til hinanden. En andel af bredden i stedet, med et gulv, så
+   den ikke bliver ubrugelig på en smallere skærm — og listen beholder
+   sine to kolonner hele vejen. Målt: 1440 px giver 416 px kort og
+   860 px liste (2 × 420), 1100 px giver 340 og 692 (2 × 336). */
+/* Referencen deler bredden 50/50 mellem liste og kort. Vores kortspalte
+   var 348 px fast — et miniature ved siden af en liste på 900, hvor man
+   kan se AT der er mærker, men ikke hvor de ligger i forhold til
+   hinanden.
+
+   42 % og ikke 50: listen skal holde to kolonner hele vejen, og
+   `minmax(680px, 1fr)` er gulvet, der sikrer det — 2 × 330 px kort plus
+   gitterets 20 px. Bliver der ikke plads til begge dele, giver KORTET
+   sig; det er listen, der er produktet.
+     1440 px → kort 546, liste 730 (2 × 355)
+     1100 px → kort 352, liste 680 (2 × 330) */
+.medkort {
+  display: grid; grid-template-columns: minmax(680px, 1fr) minmax(340px, 42%);
+  gap: 24px; align-items: start;
+}
 .udenkort { display: block; }
 .kortspalte { position: sticky; top: 16px; }
 .kortboks {
@@ -1750,6 +1999,13 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
   background: var(--linje-svag);
 }
 .landkort-flade { width: 100%; height: 100%; }
+/* Ingen af resultaterne har koordinater. En OPLYSNING om kilden, ikke
+   en fejlmelding om boligen: boligerne står i listen, fuldt ud. */
+.kortmangler {
+  margin: 0 0 16px; padding: 11px 14px;
+  background: var(--sand); border: 1px solid var(--linje-svag);
+  border-radius: var(--r-s); font-size: 13px; line-height: 1.55; color: var(--daempet);
+}
 .kortnote { margin: 9px 2px 0; font-size: 12.5px; color: var(--svag); line-height: 1.5; }
 
 /* Mærket. Et tal kun når det dækker flere boliger. */
@@ -1773,11 +2029,20 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
 .leaflet-container { font: inherit; font-size: 11px; background: var(--linje-svag); }
 .leaflet-control-attribution { font-size: 10.5px; }
 
+/* ── På mobil er kort og liste et SKIFT, ikke en stabel ────────
+   De lå under hinanden: hele listen, og så kortet nederst, hvor ingen
+   kom hen. Kortvalget i søgelinjen skifter nu mellem dem, som på en
+   telefon er det, valget betyder.
+
+   Listen står stadig i markuppen — den skjules, ikke fjernes. Det er
+   ikke et forbehold, det er et krav: landkortet lytter på `.liste` for
+   at fremhæve det kort, et mærke peger på, og uden JavaScript eller
+   uden CSS skal begge dele stadig kunne læses. */
 @media (max-width: 900px) {
-  /* Listen først. Kortet ligger under og indlæses, når man ruller ned. */
   .medkort { grid-template-columns: 1fr; }
-  .kortspalte { position: static; order: 2; }
-  .kortboks { height: 60vh; max-height: 460px; }
+  .medkort > .listeomraade { display: none; }
+  .kortspalte { position: static; }
+  .kortboks { height: 68vh; max-height: 620px; }
 }
 
 /* ─── Sidenavigation ────────────────────────────────────────────

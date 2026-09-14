@@ -156,6 +156,13 @@ const MAAL = () => {
 
   return {
     omraade: omraade ? boks(omraade).b : null,
+    // Under 901 px er kort og liste et SKIFT, ikke to spalter: er kortet
+    // valgt, er listen skjult. Målingen skal vide det — ellers rapporterer
+    // den 42 «kolonner» à 0 px om en liste, ingen kan se, og fejler på et
+    // layout, der gør præcis det, den skal.
+    listeSkjult: getComputedStyle(liste.parentElement).display === 'none',
+    kortboks: document.querySelector('.kortboks')
+      ? Math.round(document.querySelector('.kortboks').getBoundingClientRect().width) : null,
     liste: boks(liste).b,
     kolonner,
     kortbredde: kort.length ? boks(kort[0]).b : 0,
@@ -187,7 +194,28 @@ for (const bredde of BREDDER) {
     await p.waitForTimeout(500)
     const m = await p.evaluate(MAAL)
     console.log(`\n${bredde} px · ${navn} — listeområde ${m.omraade} px, liste ${m.liste} px, `
-      + `${m.kolonner} kolonne(r) à ${m.kortbredde} px, ${m.antal} kort (${m.udenFoto} uden foto)`)
+      + `${m.kolonner} kolonne(r) à ${m.kortbredde} px, ${m.antal} kort (${m.udenFoto} uden foto)`
+      + (m.listeSkjult ? ' · LISTEN ER SKJULT, kortet vises i stedet' : ''))
+
+    // ── To flader, to sæt påstande ──────────────────────────────
+    // Er listen skjult, er dette KORTVISNINGEN, og så er der ingen
+    // kolonner at tælle. At måle dem alligevel gav «42 kolonner à 0 px»
+    // og tre røde linjer om et layout, der gjorde nøjagtig det, det
+    // skulle. Grenen er ikke en undtagelse, den er den anden flade —
+    // og den har sine egne påstande, så ingen af de to kan slippe
+    // igennem umålt.
+    if (m.listeSkjult) {
+      prøve(bredde <= 900, 'listen skjules kun på smal skærm', `${bredde} px`)
+      prøve(navn === 'med-kort', 'listen skjules kun, når kortet er valgt', navn)
+      prøve(m.kortboks != null && m.kortboks > bredde * 0.8,
+        'kortet fylder bredden i stedet', `${m.kortboks} px af ${bredde}`)
+      prøve(m.vandretOverløb === 0, 'intet vandret overløb', `${m.vandretOverløb} px`)
+      if (UD) {
+        await p.screenshot({ path: `${UD}/${navn}-${bredde}.png` })
+        await p.screenshot({ path: `${UD}/${navn}-${bredde}-hele.png`, fullPage: true })
+      }
+      continue
+    }
 
     prøve(m.kolonner <= 2, 'højst to kolonner', `${m.kolonner}`)
     if (bredde === 390) prøve(m.kolonner === 1, 'én kolonne på mobil', `${m.kolonner}`)
