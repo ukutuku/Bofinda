@@ -230,6 +230,21 @@ try {
     await saetMaerkat()
     await p.screenshot({ path: `${UD}/kort-${merke}.png` })
 
+    // ── Og hvert kort for sig ───────────────────────────────────
+    // Sideskaermbilledet viser toppen af listen, og paa 390 px ligger
+    // det ene af de to motiver uden for udsnittet. Et billede, der ikke
+    // viser den tilstand, det er navngivet efter, dokumenterer ingenting
+    // — saa hvert kort tages ogsaa for sig, med selve elementet som
+    // ramme. Saa kan der ikke vaere tvivl om, hvad man ser paa.
+    for (const [i, id] of IDS.entries()) {
+      const e = p.locator(`a.kort[data-bolig="${id}"]`).first()
+      if (!(await e.count())) continue
+      await e.scrollIntoViewIfNeeded()
+      await p.mouse.move(2, 2)
+      await p.waitForTimeout(250)
+      await e.screenshot({ path: `${UD}/motiv${i + 1}-${merke}.png` })
+    }
+
     // ── Galleriet og lysbordet ──────────────────────────────────
     await p.goto(`${BASE}/bolig/${IDS[0]}`, { waitUntil: 'networkidle', timeout: 90_000 })
     await p.waitForTimeout(500)

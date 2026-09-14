@@ -164,6 +164,9 @@ const MAAL = () => {
     kortboks: document.querySelector('.kortboks')
       ? Math.round(document.querySelector('.kortboks').getBoundingClientRect().width) : null,
     liste: boks(liste).b,
+    // Gitterets eget mellemrum, laest af CSS'en og ikke skrevet af: det
+    // indgaar i regnestykket for, om der er plads til en kolonne mere.
+    gab: parseFloat(getComputedStyle(liste).columnGap) || 0,
     kolonner,
     kortbredde: kort.length ? boks(kort[0]).b : 0,
     antal: kort.length,
@@ -217,8 +220,30 @@ for (const bredde of BREDDER) {
       continue
     }
 
-    prøve(m.kolonner <= 2, 'højst to kolonner', `${m.kolonner}`)
+    // ── Kolonnetallet ────────────────────────────────────────
+    // Påstanden var «højst to kolonner». Den holdt ikke: to kolonner på
+    // 1440 px uden landkort gav 640 px brede kort med 360 px høje fotos,
+    // hvor billedet fylder mere end oplysningerne.
+    //
+    // Reglen er ikke et fast tal. Den er: læg en kolonne til, så længe
+    // hvert kort bliver mindst GULV bredt — og aldrig flere end LOFT.
+    // Prøven må ikke skrive breakpointsene af fra CSS'en; så ville den
+    // samme regel stå to steder og kunne drive fra hinanden. Den måler
+    // EGENSKABEN i stedet: er tallet det højeste, gulvet tillader?
+    //
+    // Den kan fejle. Sættes breakpointet til 1400 px, står 1440 px uden
+    // kort tilbage på to kolonner, og «én mere ville give 420 px» er
+    // over gulvet — altså rødt, hvilket er præcis den fejl, der blev
+    // meldt ind.
+    const GULV = 380
+    const LOFT = 3
+    prøve(m.kolonner >= 1 && m.kolonner <= LOFT, `mellem 1 og ${LOFT} kolonner`, `${m.kolonner}`)
     if (bredde === 390) prøve(m.kolonner === 1, 'én kolonne på mobil', `${m.kolonner}`)
+    const enMere = (m.liste - m.kolonner * m.gab) / (m.kolonner + 1)
+    prøve(m.kolonner === LOFT || enMere < GULV,
+      'kolonnetallet er det højeste, gulvet tillader',
+      `${m.kolonner} kol à ${m.kortbredde} px i en liste på ${m.liste} px`
+      + ` · én mere ville give ${Math.round(enMere)} px (gulv ${GULV})`)
     prøve(m.vandretOverløb === 0, 'intet vandret overløb', `${m.vandretOverløb} px`)
     prøve(m.forBrede.length === 0, 'intet barn bredere end sit kort',
       m.forBrede.slice(0, 2).map((f) => `${f.klasse} ${f.barn} > ${f.kortbredde}`).join(' · '))

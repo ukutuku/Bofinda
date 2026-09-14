@@ -1,4 +1,5 @@
 import {
+  boligtypegrundlag,
   facilitetsgrundlag, filtreFraParametre, harFiltre, oekonomigrundlag,
   tavseKilder,
   availabilityGrundlag, opsummering, soegGrupperet,
@@ -227,6 +228,22 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // Samme kneb: er filteret ikke sat, er det ordret samme forespørgsel som
   // `sum`, og så koster grundlagslinjen ingenting.
   const oek = f.fuldOekonomi ? await oekonomigrundlag(f, nu) : sum
+  // Samme kneb igen for boligtyperne. Uden et typefilter er det ordret
+  // `sum`; med ét er det én forespørgsel mere — og det er netop dér, hun
+  // skal kunne se, hvor mange der ligger i de andre typer.
+  const typeGrundlag = f.boligtyper?.length ? await boligtypegrundlag(f, nu) : sum
+  // Hvilke typeknapper der vises. Reglen er den samme som før — et valg,
+  // der ikke kan give træf, kommer ikke på skærmen — men den måles nu på
+  // SØGNINGEN og ikke på hele bestanden.
+  //
+  // Undtagelsen er en type, hun allerede har valgt: den bliver stående,
+  // også hvis de øvrige filtre har talt den til nul. Ellers ville
+  // afkrydsningen forsvinde under fingeren på hende, og det eneste sted,
+  // filteret kan fjernes fra vinduet, ville være væk. (Chippen over
+  // listen kan stadig fjerne det — men vinduet må ikke lyve om, hvad der
+  // er sat.)
+  const typevalg = typeGrundlag.typer.filter((t) =>
+    t.antal > 0 || (f.boligtyper?.includes(t.type) ?? false))
   const fac = await facetterCached()
   const tal = await forsidetalCached()
   // To variabler, to spoergsmaal. `sted` er hvad der skal staa i feltet,
@@ -531,20 +548,32 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         >
 
             {/* ── Boligtype ─────────────────────────────────────
-                Kun typer kilderne faktisk leverer. Skemaets enum har seks
-                værdier; tre af dem findes i data. Et filter, der aldrig
-                kan give træf, er værre end intet filter. */}
-            {fac.typer.length > 1 && (
+                Kun typer, der faktisk kan give træf I DENNE SØGNING.
+                Et filter, der aldrig kan give træf, er værre end intet
+                filter — og et TAL, der er talt på noget andet end
+                søgningen, er værre end intet tal.
+
+                Tallene kom før fra `facetter()`, som tæller hele
+                bestanden: på en søgning med 76 boliger stod der
+                75 · 58 · 54 · 53 · 34 · 6 = 280 ved siden af
+                facilitetslinjer, der summerede til 76. Se
+                `boligtypegrundlag` i lib/soeg.ts.
+
+                En valgt type bliver stående, også hvis den er talt til
+                nul af de ØVRIGE filtre — ellers ville afkrydsningen
+                forsvinde under fingeren på hende, og filteret kunne ikke
+                fjernes igen fra vinduet. */}
+            {typevalg.length > 1 && (
               <section className="fd-afsnit">
                 <h3>Boligtype</h3>
                 <div className="valgknapper">
-                  {fac.typer.map((t) => (
+                  {typevalg.map((t) => (
                     <label key={t.type} className="valgknap">
                       <input
-                        type="checkbox" name="type" value={t.type!}
-                        defaultChecked={f.boligtyper?.includes(t.type!) ?? false}
+                        type="checkbox" name="type" value={t.type}
+                        defaultChecked={f.boligtyper?.includes(t.type) ?? false}
                       />
-                      <span>{typenavn(t.type!)} <b>{t.antal}</b></span>
+                      <span>{typenavn(t.type)} <b>{t.antal}</b></span>
                     </label>
                   ))}
                 </div>
@@ -647,10 +676,10 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                   dokumenterede træf, og så skal det stå, hvor mange der ikke
                   kunne vurderes. */}
               <p id="overtagelse-note" className="filtergrundlag">
-                {avGrundlag.timing.nu.toLocaleString('da-DK')} har oplyst overtagelse nu ·{' '}
+                {avGrundlag.timing.nu.toLocaleString('da-DK')} kan overtages nu ·{' '}
                 {avGrundlag.timing.senere.toLocaleString('da-DK')} senere ·{' '}
                 {(avGrundlag.timing.unknown + avGrundlag.timing.conflict).toLocaleString('da-DK')} uden
-                afklaret tidspunkt — de vises ikke med filteret slået til
+                oplyst dato — de vises ikke, hvis du vælger et tidspunkt
               </p>
             </section>
 
@@ -703,10 +732,10 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                     ['Altan eller terrasse', fac.faciliteter.udeplads, grundlag.udeplads],
                   ].filter(([, vises]) => (vises as number) > 0).map(([navn, , oplyser]) => (
                     <p key={navn as string} className="filtergrundlag">
-                      <b>{navn}</b>: {(oplyser as number).toLocaleString('da-DK')} oplyser det ·{' '}
+                      <b>{navn}</b>: {(oplyser as number).toLocaleString('da-DK')} nævner det ·{' '}
                       {(grundlag.antal - grundlag.tier - (oplyser as number)).toLocaleString('da-DK')}
-                      {' '}oplyser faciliteter uden det ·{' '}
-                      {grundlag.tier.toLocaleString('da-DK')} oplyser ingen og vises ikke
+                      {' '}nævner andre faciliteter ·{' '}
+                      {grundlag.tier.toLocaleString('da-DK')} mangler oplysninger og vises ikke
                     </p>
                   ))}
                 </div>
@@ -733,35 +762,38 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                   kilden. En sætning uden tal svarer ikke på det. */}
               <div id="status-note" className="fd-grundlagsliste">
                 <p className="filtergrundlag">
-                  <b>Venteliste</b>: {avGrundlag.ansoegning.venteliste.toLocaleString('da-DK')} venteliste ·{' '}
-                  {avGrundlag.ansoegning.normal.toLocaleString('da-DK')} almindelig ansøgning ·{' '}
-                  {avGrundlag.ansoegning.unknown.toLocaleString('da-DK')} uoplyst ansøgningsform
+                  <b>Venteliste</b>: {avGrundlag.ansoegning.venteliste.toLocaleString('da-DK')} har venteliste ·{' '}
+                  {avGrundlag.ansoegning.normal.toLocaleString('da-DK')} søges direkte ·{' '}
+                  {avGrundlag.ansoegning.unknown.toLocaleString('da-DK')} mangler oplysninger
                 </p>
                 <p className="filtergrundlag">
-                  <b>Reserverede</b>: {avGrundlag.marked.reserveret.toLocaleString('da-DK')} reserveret ·{' '}
-                  {avGrundlag.marked.paa_markedet.toLocaleString('da-DK')} på markedet ·{' '}
-                  {(avGrundlag.marked.unknown + avGrundlag.marked.udlejet + avGrundlag.marked.conflict).toLocaleString('da-DK')} uden
-                  oplyst markedsstatus
+                  <b>Reserverede</b>: {avGrundlag.marked.reserveret.toLocaleString('da-DK')} er reserveret ·{' '}
+                  {avGrundlag.marked.paa_markedet.toLocaleString('da-DK')} er på markedet ·{' '}
+                  {(avGrundlag.marked.unknown + avGrundlag.marked.udlejet + avGrundlag.marked.conflict).toLocaleString('da-DK')}
+                  {' '}mangler oplysninger
                 </p>
               </div>
               <div className="filterpost">
                 <label className="valgknap">
                   <input type="checkbox" id="fuld" name="fuld" value="1" defaultChecked={f.fuldOekonomi}
                     aria-describedby="oekonomi-note" />
-                  <span>Specificeret aconto</span>
+                  <span>Aconto delt op</span>
                 </label>
-                {/* «Specificeret aconto» er ikke det samme som «total
-                    kendt»: kravet er husleje plus mindst én NAVNGIVEN
-                    aconto-post. Definitionen forklarer navnet; tallene
-                    forklarer, hvad filteret udelader. Begge dele skal
-                    stå. */}
+                {/* «Aconto delt op» er ikke det samme som «total kendt»:
+                    kravet er husleje plus mindst én NAVNGIVEN aconto-post.
+                    Etiketten hed «Specificeret aconto» og før det «Hele
+                    økonomien oplyst» — begge var ord fra skemaet, ikke fra
+                    den, der leder efter en bolig. Definitionen forklarer
+                    navnet; tallene forklarer, hvad filteret udelader.
+                    Begge dele skal stå. */}
                 <p id="oekonomi-note" className="fd-note">
-                  Husleje og mindst én oplyst post for varme, vand eller el.
+                  Kun boliger hvor udlejer skriver, hvad varmen, vandet eller
+                  strømmen koster — ikke bare ét samlet beløb.
                 </p>
                 <p className="filtergrundlag">
-                  {oek.fuld.toLocaleString('da-DK')} oplyser varme, vand eller el hver for sig ·{' '}
-                  {(oek.medTotal - oek.fuld).toLocaleString('da-DK')} oplyser kun én samlet aconto ·{' '}
-                  {(oek.antal - oek.medTotal).toLocaleString('da-DK')} oplyser ingen total
+                  {oek.fuld.toLocaleString('da-DK')} har delt aconto op ·{' '}
+                  {(oek.medTotal - oek.fuld).toLocaleString('da-DK')} oplyser kun ét samlet beløb ·{' '}
+                  {(oek.antal - oek.medTotal).toLocaleString('da-DK')} oplyser kun huslejen
                 </p>
               </div>
               {/* Kilde stod i en to-spaltet raekke sammen med Sortér.
@@ -975,7 +1007,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             Antallet står ét sted, i overskriften. */}
         {soegt && visninger.length > 0 && (
           <div className="optaelling">
-            <span>{sum.medTotal} med kendt total</span>
+            <span>{sum.medTotal} med samlet pris til udlejer</span>
             <span>{sum.medIndflytning} med indflytningspris</span>
             {sum.billigst != null && sum.dyrest != null && (
               <span>{kr(sum.billigst)}–{kr(sum.dyrest)} kr/md</span>

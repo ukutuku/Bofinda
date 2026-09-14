@@ -214,6 +214,13 @@ for (const bredde of [390, 768, 1100, 1440]) {
     })
     prøve(d.findes && d.open, '`?flere=1` åbner vinduet uden JavaScript')
     prøve(d.synlig, 'vinduets indhold er synligt')
+    // Billedet tages HER, mens vinduet staar aabent — ikke nederst i
+    // blokken. Dér laa det foer, altsaa EFTER at nulstillingsproeven
+    // havde navigeret videre, og filen «uden-js.png» viste derfor en
+    // almindelig resultatliste. Paastanden var groen og billedet viste
+    // noget andet; det er praecis den slags, en gennemgang skal kunne
+    // stole paa.
+    if (UD) await p.screenshot({ path: `${UD}/uden-js.png`, fullPage: false })
     prøve((d.luk ?? '').includes('prisMin=9000') && !(d.luk ?? '').includes('flere='),
       'lukknappen fører tilbage til den samme søgning med filtrene i behold',
       d.luk ?? 'intet')
@@ -260,7 +267,68 @@ for (const bredde of [390, 768, 1100, 1440]) {
       restFiltre(`${APP}/?sted=Pr%C3%B8veby%20N&sorter=pris_op`).join(', ') || 'ingen')
   })
 
-  if (UD) await p.screenshot({ path: `${UD}/uden-js.png`, fullPage: false })
+  await c.close()
+}
+
+// ── Boligtypernes tal ───────────────────────────────────────────
+//  Tallene paa typeknapperne kom fra `facetter()`, som taeller HELE
+//  bestanden og er cachet i fem minutter. Paa en soegning med 76 boliger
+//  stod der 75 · 58 · 54 · 53 · 34 · 6 = 280 ved siden af et resultattal
+//  paa 76 og facilitetslinjer, der summerede til 76. Knapperne lignede
+//  facetter og var det ikke.
+//
+//  Invarianten er IKKE «summen er hoejst resultatantallet». Den ville
+//  vaere forkert i det ene tilfaelde, der betyder noget: med et typefilter
+//  sat taelles de andre typer paa soegningen UDEN det filter — ellers
+//  stod hver anden type paa 0, og knapperne kunne kun fravaelges, aldrig
+//  bruges til at skifte type.
+//
+//  Invarianten er: summen er lig resultatantallet for den SAMME soegning
+//  uden `type`, minus de boliger hvis type kilden ikke oplyser. Den
+//  maales ved at hente begge sider.
+{
+  console.log('\n═══ Boligtypernes tal ═══')
+  const c = await br.newContext({ viewport: { width: 1440, height: 1000 } })
+  const p = await c.newPage()
+  await p.goto(APP + '/', { waitUntil: 'networkidle' })
+  const kn = p.getByRole('button', { name: 'Kun det nødvendige' })
+  if (await kn.count()) { await kn.first().click(); await p.waitForTimeout(700) }
+
+  // To geografier og tre kombinationer af filtre.
+  const SAGER = [
+    ['Prøveby N', '/?sted=Pr%C3%B8veby%20N'],
+    ['Attrapby', '/?sted=Attrapby'],
+    ['Prøveby N + pris', '/?sted=Pr%C3%B8veby%20N&prisMin=9000'],
+    ['Attrapby + vær. + areal', '/?sted=Attrapby&vaerelser=2&areal=40'],
+    ['Prøveby N + type=hus', '/?sted=Pr%C3%B8veby%20N&type=hus'],
+  ]
+  for (const [navn, sti] of SAGER) {
+    await blok(`typetal · ${navn}`, 2, async () => {
+      await p.goto(APP + sti + '&flere=1', { waitUntil: 'networkidle' })
+      const typer = await p.evaluate(() =>
+        [...document.querySelectorAll('.fd-afsnit .valgknapper input[name="type"]')]
+          .map((i) => ({
+            type: i.value,
+            antal: Number(i.closest('label')?.querySelector('b')?.textContent?.replace(/\./g, '') ?? -1),
+          })))
+      // Grundlaget: den samme soegning UDEN typefilteret.
+      const uden = new URL(APP + sti)
+      uden.searchParams.delete('type')
+      await p.goto(uden.href, { waitUntil: 'networkidle' })
+      const m = await p.evaluate(() => ({
+        antal: Number(document.querySelector('.titeltal')?.textContent?.replace(/[^\d]/g, '') ?? -1),
+        udenType: [...document.querySelectorAll('.liste a.kort')].length,
+      }))
+      const sum = typer.reduce((a, t) => a + t.antal, 0)
+      prøve(typer.length > 0 && typer.every((t) => t.antal >= 0),
+        'hver type har et tal', typer.map((t) => `${t.type} ${t.antal}`).join(' · '))
+      // «<=» og ikke «===»: boliger uden oplyst type taelles ikke i nogen
+      // af grupperne. Forskellen er dem, og den maa ikke vaere negativ.
+      prøve(sum <= m.antal && sum > 0,
+        'typerne summerer til søgningen uden typefilter, aldrig over',
+        `sum ${sum} mod ${m.antal} boliger (uden type-filter)`)
+    })
+  }
   await c.close()
 }
 

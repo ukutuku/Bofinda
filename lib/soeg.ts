@@ -1189,13 +1189,36 @@ export async function opsummering(f: Filtre, referenceNow: Date = new Date()) {
       kaeledyr: sql<number>`count(*) filter (where ${harFacilitet(FACILITET.kaeledyr)})::int`,
       elevator: sql<number>`count(*) filter (where ${harFacilitet(FACILITET.elevator)})::int`,
       udeplads: sql<number>`count(*) filter (where ${harFacilitet(FACILITET.udeplads)})::int`,
+      // Boligtyperne, talt paa DENNE soegning. Se `boligtypegrundlag`
+      // nedenfor for hvorfor de ikke maa komme fra `facetter()`.
+      ...typeaggregater(),
     })
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
     // Samme saet som listen. Ellers ville "Viser de 62 nyeste af 1.137"
     // taelle dubletter, listen ikke viser.
     .where(hvorVist(f))
-  return r!
+  return { ...r!, typer: typerAf(r!) }
+}
+
+/**
+ * Ét aggregat pr. boligtype, paa den scanning der alligevel sker.
+ *
+ * Navngivet `type_<slug>` og ikke bare typen, saa en enum-vaerdi aldrig kan
+ * kollidere med en af `opsummering`s egne kolonner.
+ */
+function typeaggregater() {
+  return Object.fromEntries(BOLIGTYPER.map((t) => [
+    `type_${t}`,
+    sql<number>`count(*) filter (where ${listings.propertyType} = ${t})::int`,
+  ])) as Record<string, ReturnType<typeof sql<number>>>
+}
+
+/** De samme kolonner laest tilbage som en liste, stoerste foerst. */
+function typerAf(r: Record<string, unknown>): { type: Boligtype; antal: number }[] {
+  return BOLIGTYPER
+    .map((t) => ({ type: t, antal: Number(r[`type_${t}`] ?? 0) }))
+    .sort((a, b) => b.antal - a.antal)
 }
 
 export type Opsummering = Awaited<ReturnType<typeof opsummering>>
@@ -1221,6 +1244,7 @@ async function opsummeringMedDomaene(f: Filtre, referenceNow: Date) {
       kaeledyr: sql<boolean>`${harFacilitet(FACILITET.kaeledyr)}`,
       elevator: sql<boolean>`${harFacilitet(FACILITET.elevator)}`,
       udeplads: sql<boolean>`${harFacilitet(FACILITET.udeplads)}`,
+      type: listings.propertyType,
     })
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
@@ -1243,6 +1267,10 @@ async function opsummeringMedDomaene(f: Filtre, referenceNow: Date) {
     kaeledyr: taeller((r) => r.kaeledyr),
     elevator: taeller((r) => r.elevator),
     udeplads: taeller((r) => r.udeplads),
+    // Samme tal som SQL-grenens, talt paa de raekker domaenet slap igennem.
+    typer: BOLIGTYPER
+      .map((t) => ({ type: t, antal: taeller((r) => r.type === t) }))
+      .sort((a, b) => b.antal - a.antal),
   }
 }
 
@@ -1292,6 +1320,30 @@ export type Facilitetsgrundlag = Awaited<ReturnType<typeof opsummering>>
  */
 export const oekonomigrundlag = (f: Filtre, referenceNow?: Date) =>
   opsummering({ ...f, fuldOekonomi: false }, referenceNow)
+
+/**
+ * Grundlaget under boligtypeknapperne: hvor mange af DENNE soegnings
+ * boliger er lejligheder, huse, vaerelser …
+ *
+ * Tallene kom foer fra `facetter()`, som taeller hele bestanden og er
+ * cachet i fem minutter. Paa en soegning med 76 boliger stod der derfor
+ * 75 · 58 · 54 · 53 · 34 · 6 — tilsammen 280, altsaa hele bestanden — ved
+ * siden af et resultatantal paa 76 og facilitetslinjer, der summerede til
+ * 76. Tre tal om tre forskellige saet paa den samme skaerm, hvor kun det
+ * ene var maerket som noget andet. Knapperne lignede facetter og var det
+ * ikke.
+ *
+ * Samme regel som `facilitetsgrundlag` og `oekonomigrundlag`: soegningen
+ * UDEN det filter, tallene beskriver. Med typefilteret paa ville hver
+ * anden type staa paa 0, og knapperne kunne aldrig bruges til at skifte
+ * type — de ville kun kunne fravaelges.
+ *
+ * Er filteret ikke sat, er `where` ORDRET den samme som `opsummering`s, og
+ * saa skal kalderen genbruge det svar i stedet for at spoerge igen. Se
+ * app/page.tsx.
+ */
+export const boligtypegrundlag = (f: Filtre, referenceNow?: Date) =>
+  opsummering({ ...f, boligtyper: undefined }, referenceNow)
 
 /** Kilder der aldrig oplyser faciliteter, og hvor mange boliger de har. */
 export interface Tavsekilder {

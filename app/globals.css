@@ -245,14 +245,34 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 .listeomraade { container-type: inline-size; container-name: listeomraade; }
 
 /* ── Listen som GITTER ─────────────────────────────────────────
-   HOEJST TO KOLONNER. `auto-fill` med en minimumsbredde paa 286 px stod
-   her foer, og den taeller saa mange kort, der kan vaere: ved siden af
-   landkortet gav 928 px tre kort à 296 px, og paa 1440 px uden kort fire
-   à 310 px. Et boligkort paa 296 px er ikke et kort, det er en spalte —
-   adressen braekker, prisen og indflytningsprisen kan ikke staa ved siden
-   af hinanden, og fotoet bliver 166 px hoejt.
-   Med et loft paa to er det smalleste kort 332 px (1100 px med kort) og
-   det bredeste 640 px (1440 px uden kort).
+   Kolonnetallet foelger LISTENS bredde, ikke vinduets — derfor
+   `@container` paa `.listeomraade`. Med landkortet ved siden af er
+   listen smal paa en bred skaerm, og en medieforespoergsel ville ikke
+   opdage det.
+
+   Trinene er faste tal og ikke `auto-fill`, og grunden staar i to
+   maalinger, der peger hver sin vej:
+
+   · `auto-fill` med 286 px som minimum taeller saa mange kort, der KAN
+     vaere: 928 px gav tre à 296 px og 1440 px uden kort fire à 310 px.
+     Et boligkort paa 296 px er ikke et kort, det er en spalte — adressen
+     braekker, prisen og indflytningsprisen kan ikke staa ved siden af
+     hinanden, og fotoet bliver 166 px hoejt. Derfor faste trin.
+   · Men et loft paa TO gav 640 px brede kort med 360 px hoeje fotos paa
+     1440 px uden landkort. Saa fylder billedet mere end oplysningerne,
+     og naeste raekke begynder uden for skaermen. Derfor et tredje trin.
+
+   Trinene er valgt saa et kort aldrig bliver smallere end ~380 px:
+
+     under 620 px       1 kolonne
+     620–1179 px        2 kolonner   (620 → 300 px, 1179 → 580 px)
+     1180 px og op      3 kolonner   (1180 → 380 px, 1300 → 420 px)
+
+   Maalt paa de fire bredder: 390 og 768 px giver 1 og 2; 1100 og 1440 px
+   MED landkort giver listen ~690 og ~730 px, altsaa 2; 1440 px UDEN
+   landkort giver ~1300 px, altsaa 3 à 420 px. 1100 px uden landkort er
+   ~1056 px og bliver staaende paa 2 à 518 — tre ville vaere 338 px dér,
+   og det er under gulvet.
 
    `align-items: start` er det, der holder et kort uden foto i sin egen
    hoejde. Uden den straekkes hvert kort til raekkens hoejde, og et kort
@@ -264,6 +284,9 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 }
 @container listeomraade (min-width: 620px) {
   .liste { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container listeomraade (min-width: 1180px) {
+  .liste { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 /* Billedet er et element i kortet, ikke en kant af det: egen radius og
    egen afstand til teksten. */
@@ -1233,7 +1256,24 @@ footer.bund {
   /* 16 px: under det zoomer iOS ind paa fokus og efterlader siden skaev. */
   .soegefelt input { font-size: 16px; }
   .sf-sted { flex: 1 1 100%; }
-  .soegeknap { flex: 1 1 100%; min-height: 48px; }
+  /* TO raekker, ikke tre: stedfeltet oeverst, og de tre handlinger paa
+     én linje under. Foer havde «Soeg» sin egen raekke, og hele toppen
+     skubbede foerste bolig 563 px ned paa en 390 px skaerm — brugeren
+     moedte betjeningen, ikke boligerne.
+
+     `flex: 1 1 0` og ikke `auto`: med `auto` faar hver knap sin
+     tekstbredde som udgangspunkt, og «Vis kort» er bredere end «Soeg».
+     Med 0 deler de tre den samme plads, og ingen af dem braekker.
+     De 44 px i hoejden staar — det er beroeringsmaalet, ikke pynt. */
+  .filterknap, .kortvalg, .soegeknap { flex: 1 1 0; min-width: 0; }
+  /* 48 og ikke 46: lanceringskontrollen kraever 48 px paa soegeknappen,
+     og to pixels er ikke en handel vaerd mod et beroeringsmaal. Raekken
+     er `align-items: stretch`, saa de tre knapper foelges ad. */
+  .soegeknap { min-height: 48px; padding: 0 12px; }
+  .filterknap, .kortvalg { padding: 0 10px; }
+  /* Ikonet foerst, teksten efter — og teksten maa gerne klippes foer
+     knappen vokser ud over raekken. */
+  .filterknap span, .kortvalg span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 }
 
 /* ── Ikoner ────────────────────────────────────────────────────
@@ -1301,13 +1341,36 @@ footer.bund {
   .talstribe li:nth-child(odd) { border-left: 0; }
   .talstribe li:nth-child(n+3) { border-top: 1px solid var(--linje); }
 }
+/* ── Talstriben paa en telefon ────────────────────────────────
+   Fire felter i et gitter er referencens greb paa en bred skaerm. Paa
+   390 px blev de til to raekker à 90 px — 202 px statistik mellem
+   soegningen og den foerste bolig, sat i 22 px accentfarve, altsaa
+   tungere end noget andet paa skaermen paa naer overskriften.
+
+   Tallene er de samme, ordene er de samme, og BEGGE tal i pengelinjen
+   staar stadig («252 med hele udgiften til udlejer oplyst · 27 uden»).
+   Det eneste, der aendrer sig, er vaegten: tallet gaar foran teksten paa
+   samme linje i stedet for over den, stoerrelsen ned fra 22 til 16 px,
+   og kortfladen bliver til tynde skillelinjer. Forsiden handler om
+   boligerne; det her er baggrund for dem.
+
+   SPECIFICITET og ikke raekkefoelge paa `strong` og `span`:
+   `.punkter strong` er defineret LIGE NEDENFOR, altsaa efter den her
+   blok, og ville vinde med samme vaegt. `.talstribe.punkter strong` er
+   tre klasser mod to. Samme kaskadefaelde som seks andre steder. */
 @media (max-width: 520px) {
+  .talstribe { grid-template-columns: minmax(0, 1fr); }
   .talstribe li {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'tal' 'tekst';
-    align-content: start; padding: 14px;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: 'tal tekst';
+    align-items: baseline; column-gap: 8px; row-gap: 0;
+    padding: 7px 14px;
+    border-left: 0; border-top: 1px solid var(--linje-svag);
   }
+  .talstribe li:first-child { border-top: 0; }
   .talstribe li::before { display: none; }
+  .talstribe.punkter strong { font-size: 16px; line-height: 1.35; }
+  .talstribe.punkter span { font-size: 12.5px; line-height: 1.4; color: var(--daempet); }
 }
 .punkter strong {
   font-size: 22px; font-weight: 700; letter-spacing: -0.028em;
@@ -1850,6 +1913,24 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
   }
 }
 .resultathoved .prisnote { font-size: 12px; color: var(--svag); max-width: 88ch; }
+
+/* Samme tal, mindre plads. 560 px og ikke 620: det er dér, blokken
+   ovenfor tager rammen af maerkaterne og saetter et `·` imellem dem.
+   Faldt de to breakpoints ikke sammen, ville 561-620 px vise maerkater
+   med ramme i den her stoerrelse — en tilstand ingen har tegnet. Blokken
+   skal blive staaende EFTER 560-blokken, af samme grund som den selv
+   skal staa efter sin.
+
+   FLEX OG IKKE `display: block`. Det var proevet: spans har
+   `white-space: nowrap`, og der er ingen mellemrum mellem dem i
+   markuppen — saa uden flex-wrap har linjen ingen brydepunkt overhovedet,
+   og «6.110-24.010 kr/md» stak 37 px ud over skaermkanten. Nowrap er
+   rigtigt: et beloebsspaend maa ikke braekke midt i. Det er wrappet
+   MELLEM maerkaterne, der skal blive. */
+@media (max-width: 560px) {
+  .resultathoved .optaelling { font-size: 11.5px; gap: 2px 10px; line-height: 1.45; }
+  .resultathoved .optaelling strong { font-size: 11.5px; }
+}
 .resultathoved .prisnote strong { color: var(--daempet); font-weight: 600; }
 /* Advarslen om, hvad et facilitetsfilter fjerner, beholder sin vaegt.
    Den er ikke baggrundsstof: den siger, at hele kilder er ude. */
@@ -2401,6 +2482,69 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
 .soegepanel .filterchips {
   margin: 0; padding: 11px 12px 11px; border-top: 1px solid var(--linje-svag);
 }
+
+/* ── Toppen paa en telefon ─────────────────────────────────────
+   Paa 390 px begyndte foerste bolig 563 px nede, og prisen paa den
+   foerste 852 px nede — altsaa uden for skaermen paa en 844 px telefon.
+   Det er en resultatside: hun HAR soegt, og saa skal svaret ikke ligge
+   under en skaerm fuld af betjening.
+
+   Intet er fjernet. Broedkrummen, titlen med antallet, sorteringen,
+   stedfeltet, soegehandlingen og datakvalitetslinjen staar alle
+   stadig — de er sat taettere, og soegelinjen er gaaet fra tre raekker
+   til to (se blokken ved `.soegebar` ovenfor).
+
+   BLOKKEN SKAL BLIVE STAAENDE HER, efter `.broedkrumme`, `.sidetitel`
+   og `.soegepanel`. Den stod foerst 500 linjer hoejere oppe, altsaa FOER
+   dem — og med samme specificitet vinder den sidste. Maalt dengang:
+   `.sidetitel h1` var stadig 28 px, broedkrummen stadig 13 px, og
+   marginerne stadig 20 px. Reglerne saa rigtige ud og fyrede aldrig.
+   Det er den samme kaskadefaelde, der staar beskrevet seks andre
+   steder i filen.
+
+   Beroeringsmaalene er uroerte, og der er ingen tekst under 11,5 px. */
+@media (max-width: 620px) {
+  .broedkrumme { margin: 9px 0 5px; font-size: 12px; gap: 6px; }
+  .sidetitel { margin: 0 0 10px; }
+  .sidetitel h1 { font-size: 22px; line-height: 1.1; margin: 0; }
+  .soegepanel { margin: 0 0 10px; }
+  .resultathoved { margin: 8px 0 10px; gap: 4px; }
+  /* Etiket over vaerdi i stedet for to luftige raekker. Feltet er det
+     samme, og 16 px paa selve inputtet staar — under det zoomer iOS. */
+  .soegefelt { padding: 6px 12px; }
+  .soegefelt label { font-size: 11.5px; line-height: 1.25; }
+
+  /* Titlen og sorteringen deler raekke i stedet for at staa over
+     hinanden. `flex-wrap: wrap` gav sorteringen sin egen raekke — 44 px
+     knap plus to mellemrum, altsaa 64 px, foran den foerste bolig, og
+     raekken var tom paa naer knappen i hoejre side.
+
+     `nowrap` koster titlen bredde og dermed en ekstra tekstlinje, men en
+     tekstlinje paa 22 px er 24 px. Regnestykket er 64 mod 24, og
+     ingen af delene er fjernet fra skaermen.
+
+     `min-width: 0` paa h1 staar allerede i grundreglen — uden den ville
+     flexboksen give overskriften dens indholdsbredde og skubbe knappen
+     ud over kanten. */
+  /* SPECIFICITET, ikke raekkefoelge. `.resultat-titel` og
+     `.sortering summary` er defineret LAENGERE NEDE i filen, saa en
+     regel med samme vaegt her ville tabe uanset medieforespoergslen —
+     den samme kaskadefaelde, der staar beskrevet seks andre steder.
+     `.sidetitel.resultat-titel` er to klasser mod én, og
+     `.resultat-titel .sortering summary` er tre mod to. Begge elementer
+     baerer faktisk de klasser: <div class="sidetitel resultat-titel">. */
+  .sidetitel.resultat-titel { flex-wrap: nowrap; align-items: flex-start; gap: 10px; }
+  .resultat-titel .sortering summary { font-size: 13px; padding: 0 12px; }
+}
+
+/* Under 430 px har titlen ikke plads til at staa paa to linjer ved siden
+   af sorteringsknappen: «Lejeboliger i Prøveby N (76)» braekker i tre.
+   22 px ned til 20 px giver den de to. Det er stadig sidens stoerste
+   tekst og stadig den eneste h1 — kun paa den smalleste klasse skaerme. */
+@media (max-width: 430px) {
+  .sidetitel h1 { font-size: 20px; }
+}
+
 
 /* ── Sektioner og infokort ─────────────────────────────────────
    Referencens raekke med ikonflise, overskrift og et par linjer.
