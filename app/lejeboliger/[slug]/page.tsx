@@ -213,15 +213,17 @@ export default async function Side({ params, searchParams }: {
       ) : visninger.length === 0 ? (
         <div className="tom"><p>Ingen boliger lige nu.</p></div>
       ) : (
-        <div className="liste">
-          {visninger.map((v) => (
-            <Visningskort
-              nu={nu}
-              filtre={filterFor(o.slags, o.vaerdi)}
-              key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
-              v={v}
-            />
-          ))}
+        <div className="listeomraade">
+          <div className="liste">
+            {visninger.map((v) => (
+              <Visningskort
+                nu={nu}
+                filtre={filterFor(o.slags, o.vaerdi)}
+                key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
+                v={v}
+              />
+            ))}
+          </div>
         </div>
       )}
 

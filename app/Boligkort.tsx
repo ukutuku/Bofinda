@@ -164,10 +164,13 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
   // maerkat der siger "ny" om en annonce fra juli er en loegn.
   const paaMarkedet = b.hosKilden ?? b.foerstSet
   const nyligt = Date.now() - paaMarkedet.getTime() < 1000 * 60 * 60 * 24 * 3
+  // Boligtype, vaerelser, areal — i den raekkefoelge. Det er den, en der
+  // leder efter bolig laeser i: hvad ER det, hvor mange rum, hvor stort.
+  // Overtagelsen staar sidst; den afgoer intet, foer de tre foerste passer.
   const fakta = [
-    b.areal != null ? <><b>{b.areal}</b> m²</> : null,
-    b.vaerelser != null ? <><b>{b.vaerelser}</b> {b.vaerelser === 1 ? 'værelse' : 'værelser'}</> : null,
     typeord(b.type),
+    b.vaerelser != null ? <><b>{b.vaerelser}</b> {b.vaerelser === 1 ? 'værelse' : 'værelser'}</> : null,
+    b.areal != null ? <><b>{b.areal}</b> m²</> : null,
     overtagelsesTekst(avail),
   ].filter(Boolean)
 
@@ -257,6 +260,19 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
           )}
         </div>
 
+        {/* Chips frem for én graa linje med prikker imellem: type,
+            vaerelser, areal og overtagelse kan aflaeses hver for sig.
+
+            Staar OVER beloebet. Foer laa den under, saa kortet gik fra
+            adresse til pris og foerst bagefter fortalte, hvad prisen var
+            for. Raekkefoelgen er nu adresse og by, hvad boligen er, hvad
+            den koster — og saa forbeholdene om det tal. Chipraekken har
+            ingen streg laengere; afstanden skiller, og kortet har én
+            skillelinje i alt, over foden. */}
+        <div className="fakta">
+          {fakta.map((f, i) => <span className="fakta-chip" key={i}>{f}</span>)}
+        </div>
+
         {/* Det store tal er alt, hvad der betales TIL UDLEJEREN — husleje
             plus den aconto, kilden opkraever. Etiketten sagde foer "i alt",
             og det var ikke sandt: el staar udenfor hos naesten alle kilder,
@@ -314,18 +330,6 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
           )}
         </div>
 
-        {/* Chips frem for én graa linje med prikker imellem. Samme
-            oplysninger, samme raekkefoelge, samme kilder — men areal,
-            vaerelser, type og overtagelse kan nu aflaeses hver for sig
-            paa et blik. Separatoren er vaek, fordi kanten goer arbejdet.
-
-            Staar UNDER beloebet som i referencen: adressen, prisen og
-            saa noegletallene. Prisen er det, kortet handler om, og den
-            skal ikke ligge bag tre etiketter. */}
-        <div className="fakta">
-          {fakta.map((f, i) => <span className="fakta-chip" key={i}>{f}</span>)}
-        </div>
-
         {/* Kortets fod, som referencens «Fra BoligPortal». Boligen vises
             én gang, selv om flere kilder annoncerer den — saa skal kortet
             ogsaa sige, hvem der har den. */}
@@ -357,11 +361,30 @@ export function Gruppekort({ g, nu, position, filtre }: { g: Gruppe; nu: Date; p
   // tællinger, aldrig som én status for alle. Aldrig legacy ledigMin/Max.
   const ledig = gruppeOvertagelse(g.availability)
 
-  // Typen staar allerede i underlinjen ("3 ledige raekkehuse") — den skal
-  // ikke ogsaa staa her.
+  // Samme raekkefoelge som enkeltkortet: type, vaerelser, areal,
+  // overtagelse. De to korttyper staar side om side i den samme liste, og
+  // to raekkefoelger ville laese som to slags kort.
+  //
+  // Antal og type stod foer i stedlinjen ("2300 Koebenhavn S · 4
+  // raekkehuse"), mens maerkatet paa fotoet sagde "4 boliger" og linket
+  // "Se de 4 adresser" — tre steder om det samme. Her i chipraekken er
+  // det ét sted, og det ER svaret paa «hvad er det her»: fire raekkehuse,
+  // ikke én bolig. Maerkatet og linket bliver; de er henholdsvis signalet
+  // paa fotoet og handlingen.
+  //
+  // «hver» paa vaerelseschippen er ikke pynt. Er gruppens type `vaerelse`,
+  // skriver de to foerste chips ellers «4 vaerelser · 5 vaerelser» — fire
+  // udlejede vaerelser med fem rum i hvert, men laest i raekkefoelge er det
+  // det samme ord om to forskellige ting. Ordet siger, at tallet gaelder
+  // PER BOLIG, og det er ogsaa svaret paa, at gruppens tal ikke maa laese
+  // som én boligs: antallet er gruppens, vaerelserne er den enkeltes,
+  // arealet er et spaend. Vaerelsestallet ER en noegledel i grupperingen,
+  // saa alle medlemmer har det samme — «hver» er efterproevet, ikke et
+  // forbehold.
   const fakta = [
+    <><b>{g.antal}</b> {typeord(g.type, true)}</>,
+    <><b>{n.vaerelser}</b> {n.vaerelser === 1 ? 'værelse' : 'værelser'} hver</>,
     areal(g.arealMin, g.arealMax),
-    <><b>{n.vaerelser}</b> {n.vaerelser === 1 ? 'værelse' : 'værelser'}</>,
     ledig,
   ].filter(Boolean)
   const av = g.availability
@@ -429,9 +452,8 @@ export function Gruppekort({ g, nu, position, filtre }: { g: Gruppe; nu: Date; p
         {!forside && <div className="kort-maerkater i-krop">{maerkater}</div>}
         <div className="kort-titel">
           <div className="adresse">{n.vej}</div>
-          <div className="sted">
-            {n.postnr} {r.by} · {g.antal} {typeord(g.type, true)}
-          </div>
+          {/* Kun stedet. Antal og type staar i chipraekken nedenfor. */}
+          <div className="sted">{n.postnr} {r.by}</div>
         </div>
 
         {/* Blandet ansøgningsform/markedsstatus vises som TAL — kortet må
@@ -463,6 +485,13 @@ export function Gruppekort({ g, nu, position, filtre }: { g: Gruppe; nu: Date; p
             søgning. Pris og areal dækker alle {g.antal}.
           </div>
         )}
+
+        {/* Samme plads som paa enkeltkortet: over beloebet. De to
+            korttyper staar side om side i den samme liste, og en
+            forskellig raekkefoelge ville laese som to slags kort. */}
+        <div className="fakta">
+          {fakta.map((f, i) => <span className="fakta-chip" key={i}>{f}</span>)}
+        </div>
 
         <div className="oekonomi-linje">
           <div className={n.total ? 'kort-pris' : 'kort-pris kun-leje'}>
@@ -516,13 +545,6 @@ export function Gruppekort({ g, nu, position, filtre }: { g: Gruppe; nu: Date; p
           {n.total && g.ensPoster && (
             <div className="poster">{['husleje', ...aconto].join(' + ')}</div>
           )}
-        </div>
-
-        {/* Samme plads som paa enkeltkortet: under beloebet. De to
-            korttyper staar side om side i den samme liste, og en
-            forskellig raekkefoelge ville laese som to slags kort. */}
-        <div className="fakta">
-          {fakta.map((f, i) => <span className="fakta-chip" key={i}>{f}</span>)}
         </div>
 
         {/* Kilderne kun naar det gaelder HELE gruppen — ellers ville

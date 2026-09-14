@@ -970,19 +970,26 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         </div>
       ) : (
         <div className={kortVises ? 'medkort' : 'udenkort'}>
-          <div className="liste">
-            {visninger.map((v, i) => (
-              <Visningskort
-                nu={nu}
-                filtre={f}
-                key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
-                v={v}
-                // Global plads i HELE resultatsaettet, ikke paa siden.
-                // Side 2 begynder derfor paa 49. Sidelokal position kan
-                // altid genskabes som `position - (side-1)*48`.
-                position={(side - 1) * PR_SIDE + i + 1}
-              />
-            ))}
+          {/* `.listeomraade` er det lag, kolonnetallet maales paa. En
+              container kan ikke forespoerge sin egen bredde, saa gitteret
+              selv kan ikke vaere den: med landkortet ved siden af er
+              listen smal paa en bred skaerm, og en medieforespoergsel
+              ville ikke opdage det. */}
+          <div className="listeomraade">
+            <div className="liste">
+              {visninger.map((v, i) => (
+                <Visningskort
+                  nu={nu}
+                  filtre={f}
+                  key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
+                  v={v}
+                  // Global plads i HELE resultatsaettet, ikke paa siden.
+                  // Side 2 begynder derfor paa 49. Sidelokal position kan
+                  // altid genskabes som `position - (side-1)*48`.
+                  position={(side - 1) * PR_SIDE + i + 1}
+                />
+              ))}
+            </div>
           </div>
 
           {kortVises && (

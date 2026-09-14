@@ -110,8 +110,10 @@ export default async function Side(
         <span>{n.postnr} {boliger[0]!.by}</span>
       </div>
 
-      <div className="liste">
-        {boliger.map((b) => <Kort key={b.id} b={b} nu={nu} />)}
+      <div className="listeomraade">
+        <div className="liste">
+          {boliger.map((b) => <Kort key={b.id} b={b} nu={nu} />)}
+        </div>
       </div>
     </div>
   )

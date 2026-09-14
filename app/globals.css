@@ -236,10 +236,34 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
    to eller én kolonne i stedet for at klemme teksten. 286 px er den
    bredde, hvor pris, tre faktachips og kildelinjen staar uden at
    braekke — maalt, ikke valgt. */
+/* Indpakningen er container'en, ikke gitteret. En container kan ikke
+   forespoerge sin EGEN bredde: skrev vi `container-type` paa `.liste` og
+   `@container` om `.liste`s kolonner, ville reglen aldrig fyre. Derfor er
+   `.listeomraade` et lag uden om, hvis eneste opgave er at kunne maales.
+   Den findes tre steder — soegesiden, gruppesiden og omraadesiderne — og
+   er det ene sted, kolonnetallet afgoeres. */
+.listeomraade { container-type: inline-size; container-name: listeomraade; }
+
+/* ── Listen som GITTER ─────────────────────────────────────────
+   HOEJST TO KOLONNER. `auto-fill` med en minimumsbredde paa 286 px stod
+   her foer, og den taeller saa mange kort, der kan vaere: ved siden af
+   landkortet gav 928 px tre kort à 296 px, og paa 1440 px uden kort fire
+   à 310 px. Et boligkort paa 296 px er ikke et kort, det er en spalte —
+   adressen braekker, prisen og indflytningsprisen kan ikke staa ved siden
+   af hinanden, og fotoet bliver 166 px hoejt.
+   Med et loft paa to er det smalleste kort 332 px (1100 px med kort) og
+   det bredeste 640 px (1440 px uden kort).
+
+   `align-items: start` er det, der holder et kort uden foto i sin egen
+   hoejde. Uden den straekkes hvert kort til raekkens hoejde, og et kort
+   uden foto er ~180 px lavere end naboen: resten blev tom soejle. */
 .liste {
   display: grid; gap: 20px;
-  grid-template-columns: repeat(auto-fill, minmax(286px, 1fr));
-  container-type: inline-size;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+@container listeomraade (min-width: 620px) {
+  .liste { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 /* Billedet er et element i kortet, ikke en kant af det: egen radius og
    egen afstand til teksten. */
@@ -251,11 +275,19 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
    248 px spalte til venstre; i et gitter paa tre kolonner er der ingen
    248 px at give. Polstringen er flyttet fra kortet til kroppen, saa
    fotoet naar kanten. */
+/* KORTET ER SIN EGEN CONTAINER, og den er navngivet.
+   De tre `@container`-blokke laengere nede — indflytningsprisens
+   stabling, polstringen, den smalle nednormering — hoerer til KORTET og
+   ikke til listen. De var unavngivne, og den naermeste container var
+   `.liste`: ved to kolonner over 620 px saa `(max-width: 460px)` altsaa
+   620 og fyrede aldrig, selv om kortet var 300 px. Med et navn kan de
+   ikke ramme forbi. */
 .kort {
   background: var(--kort); border: 1px solid var(--linje); border-radius: var(--r-l);
   text-decoration: none; display: grid;
   grid-template-rows: auto 1fr; gap: 0; padding: 0; overflow: hidden;
   box-shadow: var(--skygge-flad);
+  container-type: inline-size; container-name: boligkort;
   transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
 }
 /* Løftet er lille og hurtigt. Et kort, der hopper, tager opmærksomhed
@@ -270,6 +302,15 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 }
 @media (prefers-reduced-motion: reduce) { .kort, .kort:hover { transition: none; transform: none; } }
 .kort.uden-billede { grid-template-rows: 1fr; }
+/* ── Kortet uden foto: en BEVIDST kompakt variant ───────────────
+   Ikke et kort med et hul, hvor billedet skulle have vaeret. Det staar
+   i sin egen hoejde (`align-items: start` paa listen), og kroppen er
+   strammere, saa formen laeser som et valg og ikke som et frafald.
+   Ingen pladsholder og intet eksempelbillede: vi opfinder ikke data,
+   heller ikke billeddata. Mangler kilden billeder, staar det i
+   stedlinjen — det er en oplysning, ikke en dekoration. */
+.kort.uden-billede .kort-krop { padding: 16px 17px 14px; }
+
 /* FORHOLDET BOR PAA RAMMEN, IKKE PAA BILLEDET.
    Det stod foer paa `img`, og dér var det uden virkning i den sidestillede
    form. IKKE fordi `width:100%` og `height:100%` i sig selv slaar
@@ -343,9 +384,16 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 /* Staar nu UNDER beloebet, som i referencen: adresse, pris, og saa
    noegletallene paa en egen linje med en streg over. Stregen flyttede
    med — den skiller prisen fra noegletallene, ikke adressen fra prisen. */
+/* Staar nu OVER beloebet: adresse og by, saa hvad boligen ER, og
+   derefter hvad den koster. Det er den raekkefoelge, en der leder efter
+   bolig laeser i — type, vaerelser og areal afgoer om prisen overhovedet
+   er interessant.
+   Skillelinjen er vaek. Den delte prisen fra noegletallene, og med to
+   streger i et kort (her og over foden) blev de dekoration frem for
+   inddeling. Afstanden goer arbejdet; foden beholder sin ene streg. */
 .fakta {
   display: flex; flex-wrap: wrap; gap: 6px;
-  margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--linje-svag);
+  margin-top: 10px;
 }
 .fakta:empty { display: none; }
 .fakta-chip {
@@ -368,7 +416,7 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
      raekke 2   forbeholdene, i fuld bredde
      raekke 3   posterne og alderen, i den svageste vaegt        */
 .oekonomi-linje {
-  margin-top: 11px;
+  margin-top: 14px;
   display: flex; flex-wrap: wrap; gap: 4px 22px; align-items: baseline;
 }
 .kort-pris {
@@ -397,7 +445,7 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 }
 /* Uden plads ved siden af staar de to beloeb over hinanden — og saa er
    en venstrestreg forkert: den ville pege paa ingenting. */
-@container (max-width: 460px) {
+@container boligkort (max-width: 460px) {
   .kort-indflytning {
     padding-left: 0; border-left: 0; flex-basis: 100%; order: 3;
     align-self: flex-start; margin-top: 2px;
@@ -447,6 +495,43 @@ p.billedforbehold {
   font-size: 13px; color: var(--daempet);
   margin: 10px 0 0; max-width: 62ch;
 }
+/* ── Det brede kort bliver VANDRET ─────────────────────────────
+   Blokken staar HER og ikke oppe ved `.kort`, hvor den hoerer hjemme
+   logisk. En container-forespoergsel giver ingen ekstra specificitet:
+   `@container … { .kort-billede { aspect-ratio: auto } }` er (0,1,0)
+   ligesom `.kort-billede { aspect-ratio: 16/9 }` 140 linjer laengere
+   nede, og den sidste vinder. Foerste forsoeg stod foer begge, og saa
+   slap kun `min-height: 180px` igennem — med 16/9 stadig i kraft blev
+   rammen 320 px bred i en 240 px spalte og laa hen over teksten.
+   Det er samme kaskadefaelde, som er dokumenteret fem gange i denne
+   fil: en regel under en forespoergsel slaaet af en uden.
+
+   Over 1020 px listebredde er hvert af de to kort ~500 px, og et 16/9
+   foto i fuld bredde ville vaere 280 px hoejt — paa 1440 px uden
+   landkort 360 px. To kort i hoejden per skaerm er ikke en resultatliste.
+   Vandret er fotoet 240 px bredt, og kortet fylder hoejden af sin egen
+   tekst.
+
+   Forespoergslen gaar paa LISTEOMRAADET og ikke paa kortet: et kort kan
+   ikke forespoerge sin egen bredde, og kolonnetallet saettes i den samme
+   blok — de to tal skal afgoeres sammen, ellers kan de drive fra
+   hinanden. Kortets INDRE justeringer forespoerger stadig kortet selv. */
+@container listeomraade (min-width: 1020px) {
+  .kort { grid-template-rows: 1fr; grid-template-columns: 240px minmax(0, 1fr); }
+  .kort.uden-billede { grid-template-columns: minmax(0, 1fr); }
+  /* RAMMEN BEHOLDER ET FAST FORHOLD, ogsaa her. Foerste forsoeg lod
+     fotoet fylde raekkens hoejde, saa spalten ikke stod halvtom ved
+     siden af en hoej tekst — og saa fik hvert kort sin egen billedform:
+     maalt 0,82 · 0,85 · 0,89 · 0,93 · 1,06 paa den samme side. En ramme,
+     der retter sig efter tekstens laengde, er ikke en ramme.
+     1/1 og ikke 16/9: kortene i den vandrette form er 229-295 px hoeje,
+     saa en 240 px firkant fylder spalten ud uden at drive hoejden op.
+     `align-self: start` fra grundreglen bliver staaende — den er det,
+     der holder billedforbeholdet fast under billedet. */
+  .kort-billede { aspect-ratio: 1/1; }
+  .kort-krop { padding: 17px 19px 15px; }
+}
+
 .ukendt {
   flex-basis: 100%; order: 5;
   background: var(--advarsel-lys); color: var(--advarsel);
@@ -1399,7 +1484,7 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
    og indflytningsprisen ikke staa ved siden af hinanden. Container-
    forespoergsel og ikke medieforespoergsel — kortet ved selv, hvor
    bredt det er, ogsaa naar kortspalten staar ved siden af listen. */
-@container (max-width: 250px) {
+@container boligkort (max-width: 250px) {
   .kort-krop { padding: 13px 13px 12px; }
   .adresse { font-size: 16px; }
   .kort-pris { font-size: 20px; }
@@ -2189,10 +2274,10 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
 }
 
 /* Kortet reagerer på sin egen bredde, også ved siden af landkortet. */
-@container (max-width: 460px) {
+@container boligkort (max-width: 460px) {
   .kort-krop { padding: 12px 16px; }
   .kort-billedblok > .billedforbehold { margin: 0; padding: 7px 16px 0; }
   .oekonomi-linje { margin-top: 9px; gap: 3px 14px; }
-  .fakta { margin-top: 9px; padding-top: 8px; }
+  .fakta { margin-top: 8px; }
   .kort-fod { padding-top: 8px; }
 }

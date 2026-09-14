@@ -22,6 +22,17 @@ TILSTAND=dev
 if [ "${1:-}" = "--produktion" ]; then
   TILSTAND=produktion
   [ -d .next ] || { echo "FEJL: der er intet byg. Kør 'npm run build' først." >&2; exit 1; }
+  # `NEXT_PUBLIC_*` bages ind i klientbundtet ved BYG, ikke ved start.
+  # Variablerne nedenfor sættes kun på processen, og et byg lavet uden
+  # dem bærer standardværdierne — altså OpenStreetMaps rigtige fliser.
+  # Så henter browseren fra tile.openstreetmap.org midt i en kontrol, der
+  # ellers er isoleret på loopback. Det skete og kostede tre kald.
+  # Byg med scripts/cloud/byg.sh, som sætter dem.
+  if grep -rqs 'tile\.openstreetmap\.org' .next/static; then
+    echo "FEJL: bygget bærer OpenStreetMaps flise-URL — det er ikke isoleret." >&2
+    echo "      Kør 'bash scripts/cloud/byg.sh' i stedet for 'npm run build'." >&2
+    exit 1
+  fi
 fi
 
 URL="$(test_url)"
