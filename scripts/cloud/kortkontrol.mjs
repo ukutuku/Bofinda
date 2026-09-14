@@ -40,9 +40,32 @@ const SIDER = [
 ]
 
 let fejl = 0
+let kørte = 0
 const prøve = (ok, tekst, detalje = '') => {
+  kørte++
   if (!ok) fejl++
   console.log(`${ok ? '  ✓' : '  ✗'} ${tekst}${detalje ? ` — ${detalje}` : ''}`)
+}
+
+// ── EN PRØVE, DER IKKE KØRTE, ER IKKE EN BESTÅET PRØVE ──────────
+//  En løkke over en tom liste kalder `prøve()` nul gange, og filen
+//  slutter grønt på noget, der aldrig blev målt. Det skete: prøven for
+//  billedformater valgte to boliger, der hverken stod på første side
+//  eller som enkeltkort, og meldte sig bestået uden en eneste måling.
+//
+//  `blok()` tæller, hvad der faktisk blev kaldt indenfor, og kræver et
+//  antal. Tallet er strukturelt — 2 bredder à 6 målinger — så en ny
+//  kontrol et andet sted i filen ikke får det til at ryge. Et samlet
+//  gulv for hele filen ville have netop den svaghed.
+async function blok(navn, forventet, fn) {
+  const før = kørte
+  await fn()
+  const antal = kørte - før
+  if (antal !== forventet) {
+    kørte++; fejl++
+    console.log(`  ✗ ${navn}: ${antal} målinger kørte, ${forventet} forventet`
+      + ' — noget blev sprunget over i tavshed')
+  }
 }
 
 // ── Målingen i browseren ────────────────────────────────────────
@@ -288,6 +311,9 @@ if (!process.env.DATABASE_URL) {
   // Rækkefølgen bestemmes her, ikke i SQL: den skal følge kandidaterne,
   // så stående og liggende lander på de kort, prøven kigger efter.
   const emner = kandidater.map((id) => raa.find((r) => r.id === id)).filter(Boolean)
+  if (emner.length !== 2) {
+    console.error(`FEJL: ${emner.length} af 2 prøveboliger har et billede i basen`); process.exit(1)
+  }
   const før = emner.map((e) => ({ id: e.billed_id, url: e.external_url }))
   const former = ['staaende', 'liggende']
   try {
@@ -318,18 +344,48 @@ if (!process.env.DATABASE_URL) {
             fit: getComputedStyle(img).objectFit,
           }
         }).filter(Boolean), emner.map((e) => e.id))
-      for (const x of r) {
-        prøve(x.ramme === x.billede && x.fit === 'cover',
-          `${navn}: ${x.naturlig} i rammen ${x.ramme}`, `billede ${x.billede}, ${x.fit}`)
-      }
-      // Alle rammer på siden skal have SAMME form — det er hele pointen
-      // med en ramme. Ét udfald, uanset hvad kilden leverede.
-      const forhold = await p.evaluate(() => [...document.querySelectorAll('.liste .kort-billede')]
-        .map((e) => Math.round((e.clientWidth / e.clientHeight) * 100) / 100))
-      const unikke = [...new Set(forhold)].sort((a, b) => a - b)
-      const spænd = unikke.length ? unikke[unikke.length - 1] - unikke[0] : 0
-      prøve(spænd <= 0.02, `${navn}: rammen har ÉN form`,
-        `${unikke.length} forhold, spænd ${spænd.toFixed(2)} — ${unikke.join(' · ')}`)
+
+      // 6 målinger per bredde: at begge boliger står der, og for hver
+      // af dem at fotoet nåede browseren og fylder rammen — plus at
+      // rammen har én form. Går én af dem tabt, siger `blok()` det.
+      await blok(navn, 6, async () => {
+        // PRØVEN SKAL KUNNE FEJLE PAA SIT EGET FRAVAER.
+        // `for (const x of r)` kører nul gange, når `r` er tom — nul
+        // påstande og en grøn rapport om noget, der aldrig blev målt. Det
+        // er nøjagtig den fejl, valget af boliger allerede kostede én gang.
+        // Antallet er derfor en påstand for sig, FØR løkken.
+        // `r.length === emner.length` stod her først, og den er værdiløs:
+        // er begge tomme, er den sand. Afprøvet ved at pege prøven på to
+        // bolig-id'er, der ikke findes — påstanden meldte «0 af 0» og gik
+        // grøn, og kun blok()-tællingen fangede det. To udtryk, der begge
+        // kan falde bort på én gang, kan ikke holde hinanden i ørerne.
+        // Tallet er derfor skrevet ud: der ER to prøveboliger.
+        prøve(r.length === 2,
+          `${navn}: begge prøveboliger står på siden`, `${r.length} af 2 fundet`)
+
+        // Og at det swappede foto faktisk nåede browseren. Proxyen leverer
+        // 400 px bredt, så formen aflæses på forholdet: 600x900 bliver
+        // 400x600 (0,67) og 1800x600 bliver 400x133 (3,0). Rammer den 4/3
+        // som de såede bolig-N.png, er opdateringen ikke slået igennem, og
+        // prøven måler standardbilledet i stedet for det, den bad om.
+        const FORVENTET = [{ navn: 'stående', f: 2 / 3 }, { navn: 'liggende', f: 3 }]
+        for (const [i, x] of r.entries()) {
+          const [nb, nh] = x.naturlig.split('x').map(Number)
+          const f = FORVENTET[i]
+          prøve(nh > 0 && Math.abs(nb / nh - f.f) < 0.1,
+            `${navn}: ${f.navn} foto nåede browseren`, `${x.naturlig} → ${(nb / nh).toFixed(2)}, ventet ${f.f.toFixed(2)}`)
+          prøve(x.ramme === x.billede && x.fit === 'cover',
+            `${navn}: ${x.naturlig} fylder rammen ${x.ramme}`, `billede ${x.billede}, ${x.fit}`)
+        }
+        // Alle rammer på siden skal have SAMME form — det er hele pointen
+        // med en ramme. Ét udfald, uanset hvad kilden leverede.
+        const forhold = await p.evaluate(() => [...document.querySelectorAll('.liste .kort-billede')]
+          .map((e) => Math.round((e.clientWidth / e.clientHeight) * 100) / 100))
+        const unikke = [...new Set(forhold)].sort((a, b) => a - b)
+        const spænd = unikke.length ? unikke[unikke.length - 1] - unikke[0] : 0
+        prøve(spænd <= 0.02, `${navn}: rammen har ÉN form`,
+          `${unikke.length} forhold, spænd ${spænd.toFixed(2)} — ${unikke.join(' · ')}`)
+      })
       if (UD) await p.screenshot({ path: `${UD}/former-${bredde}.png`, fullPage: false })
     }
     await c.close()
@@ -382,6 +438,7 @@ if (process.env.DATABASE_URL) {
         const forb = b?.querySelector('.billedforbehold')
         const bil = b?.querySelector('.kort-billede')
         return {
+          fundet: [a, b].filter(Boolean).length,
           indflytning: ind?.textContent?.trim() ?? null,
           indKlippet: ind ? ind.scrollWidth > ind.clientWidth + 1 : null,
           // Står den under fotoet, den handler om? Afstanden måles fra
@@ -393,13 +450,19 @@ if (process.env.DATABASE_URL) {
           overløb: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         }
       }, ider)
-      prøve(r.indflytning?.includes('34.500') && r.indKlippet === false,
-        `${bredde} px · indflytningsprisen står og klippes ikke`, r.indflytning ?? 'mangler')
-      prøve(r.forbehold?.includes('anden bolig') && r.forbKlippet === false,
-        `${bredde} px · billedforbeholdet står og klippes ikke`, r.forbehold ?? 'mangler')
-      prøve(r.afstand != null && r.afstand >= 0 && r.afstand <= 24,
-        `${bredde} px · billedforbeholdet står ved sit foto`, `${r.afstand} px under billedet`)
-      prøve(r.overløb === 0, `${bredde} px · intet vandret overløb`, `${r.overløb} px`)
+      await blok(`${bredde} px`, 5, async () => {
+        // Samme værn som ovenfor, men her er det gratis: findes kortet
+        // ikke, er `indflytning` null, og påstanden fejler af sig selv.
+        // `fundet` gør grunden synlig i stedet for at lade den gætte.
+        prøve(r.fundet === 2, `${bredde} px · begge prøveboliger står på siden`, `${r.fundet} af 2`)
+        prøve(r.indflytning?.includes('34.500') && r.indKlippet === false,
+          `${bredde} px · indflytningsprisen står og klippes ikke`, r.indflytning ?? 'mangler')
+        prøve(r.forbehold?.includes('anden bolig') && r.forbKlippet === false,
+          `${bredde} px · billedforbeholdet står og klippes ikke`, r.forbehold ?? 'mangler')
+        prøve(r.afstand != null && r.afstand >= 0 && r.afstand <= 24,
+          `${bredde} px · billedforbeholdet står ved sit foto`, `${r.afstand} px under billedet`)
+        prøve(r.overløb === 0, `${bredde} px · intet vandret overløb`, `${r.overløb} px`)
+      })
       if (UD && (bredde === 390 || bredde === 1440)) {
         for (const [navn, id] of [['indflytning', ider[0]], ['billedforbehold', ider[1]]]) {
           await p.locator(`[data-bolig="${id}"]`).first().screenshot({ path: `${UD}/${navn}-${bredde}.png` })
@@ -418,5 +481,5 @@ if (process.env.DATABASE_URL) {
 }
 
 await br.close()
-console.log(fejl === 0 ? '\n✓ alle kontroller bestået' : `\n✗ ${fejl} kontrol(ler) fejlede`)
+console.log(fejl === 0 ? `\n✓ alle ${kørte} kontroller bestået` : `\n✗ ${fejl} af ${kørte} kontrol(ler) fejlede`)
 process.exit(fejl === 0 ? 0 : 1)

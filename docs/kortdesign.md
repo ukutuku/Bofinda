@@ -167,7 +167,7 @@ til landkortets sammenkobling er urørt.
 
 | Kontrol | Resultat |
 |---|---|
-| `node scripts/cloud/kortkontrol.mjs` (ny) | 120 kontroller grønne |
+| `node scripts/cloud/kortkontrol.mjs` (ny) | 129 kontroller grønne |
 | `npm test` | ALT GRØNT |
 | `scripts/cloud/kontrol.sh` (browserkontrol) | ALT GRØNT |
 | `scripts/cloud/kontrol-pagination.sh` | ALT GRØNT |
@@ -196,6 +196,45 @@ To målefejl, begge rettet, begge dokumenteret i kontrollen:
    De stod hverken på første side eller som enkeltkort, så prøven målte
    ingenting og meldte sig grøn på kontroller, der aldrig kørte. Boligerne
    vælges nu fra siden.
+
+### En prøve, der ikke kørte, er ikke en bestået prøve
+
+Da kontrollen var skrevet, havde den selv det hul, den var lavet for at
+lukke. Prøven for billedformater målte i en løkke over de fundne kort:
+
+    for (const x of r) { prøve(...) }
+
+Er `r` tom, kører løkken nul gange. Nul påstande, og filen slutter grønt
+på noget, der aldrig blev målt. Det skete én gang under arbejdet, fordi
+prøveboligerne blev valgt med `order by id limit 2` og hverken stod på
+første side eller som enkeltkort.
+
+Tre værn er tilføjet:
+
+1. **`blok(navn, forventet, fn)`** tæller, hvor mange påstande der faktisk
+   blev kaldt indenfor, og fejler, hvis tallet ikke passer. Tallet er
+   strukturelt — 2 bredder à 6 målinger, 4 bredder à 5 — så en ny kontrol
+   et andet sted i filen ikke får det til at ryge. Et samlet gulv for hele
+   filen ville have netop den svaghed.
+2. **Antallet af prøveboliger er skrevet ud som et tal.** Første udgave
+   sagde `r.length === emner.length`, og den er værdiløs: er begge tomme,
+   er den sand. Afprøvet ved at pege prøven på to bolig-id'er, der ikke
+   findes — påstanden meldte «0 af 0» og gik **grøn**. Nu står der `=== 2`.
+3. **At det swappede foto nåede browseren.** Proxyen leverer 400 px bredt,
+   så formen aflæses på forholdet: 600×900 bliver 400×600 (0,67), 1800×600
+   bliver 400×133 (3,0). Rammer den 1,33, er opdateringen ikke slået
+   igennem, og prøven måler det såede standardbillede i stedet.
+
+Efterprøvet ved at genindføre fejlen i tre former:
+
+| Brud | Før værnene | Efter |
+|---|---|---|
+| Prøveboligerne findes ikke i basen | grøn | `FEJL: 0 af 2 prøveboliger har et billede i basen`, exit 1 |
+| Valgt fra basen, ikke fra siden (den oprindelige fejl) | **grøn** | `✗ 0 af 2 fundet` · `✗ 2 målinger kørte, 6 forventet`, exit 1 |
+| Opdateringen slår ikke igennem | grøn | `✗ stående foto nåede browseren — 400x300 → 1.33, ventet 0.67`, exit 1 |
+
+Testbasen er urørt efter alle tre brud: 0 `form-*`-billeder, 0
+indflytningspriser, 0 billedforbehold, 595 billedrækker, 264 boliger.
 
 ### En fejl i testopsætningen, ikke i designet
 

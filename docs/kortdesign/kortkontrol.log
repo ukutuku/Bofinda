@@ -115,31 +115,41 @@ Gruppesiden /gruppe?b=bdb20ff3-bd0e-4f15-a6bc-96e6cc7064f5&by=Attrapby
   ✓ brødkrummen fører til forsiden og til postnummeret — / · /?sted=9003
 
 Billedformater (600x900 stående · 1800x600 liggende)
-  ✓ smalt kort: 400x600 i rammen 344x194 — billede 344x194, cover
-  ✓ smalt kort: 400x133 i rammen 344x194 — billede 344x194, cover
+  ✓ smalt kort: begge prøveboliger står på siden — 2 af 2 fundet
+  ✓ smalt kort: stående foto nåede browseren — 400x600 → 0.67, ventet 0.67
+  ✓ smalt kort: 400x600 fylder rammen 344x194 — billede 344x194, cover
+  ✓ smalt kort: liggende foto nåede browseren — 400x133 → 3.01, ventet 3.00
+  ✓ smalt kort: 400x133 fylder rammen 344x194 — billede 344x194, cover
   ✓ smalt kort: rammen har ÉN form — 1 forhold, spænd 0.00 — 1.77
-  ✓ bredt kort: 400x600 i rammen 240x240 — billede 240x240, cover
-  ✓ bredt kort: 400x133 i rammen 240x240 — billede 240x240, cover
+  ✓ bredt kort: begge prøveboliger står på siden — 2 af 2 fundet
+  ✓ bredt kort: stående foto nåede browseren — 400x600 → 0.67, ventet 0.67
+  ✓ bredt kort: 400x600 fylder rammen 240x240 — billede 240x240, cover
+  ✓ bredt kort: liggende foto nåede browseren — 400x133 → 3.01, ventet 3.00
+  ✓ bredt kort: 400x133 fylder rammen 240x240 — billede 240x240, cover
   ✓ bredt kort: rammen har ÉN form — 1 forhold, spænd 0.00 — 1
   · testdata gendannet (0 rækker peger stadig på form-*)
 
 Indflytningspris og billedforbehold
+  ✓ 390 px · begge prøveboliger står på siden — 2 af 2
   ✓ 390 px · indflytningsprisen står og klippes ikke — indflytning 34.500 kr.
   ✓ 390 px · billedforbeholdet står og klippes ikke — Udlejer oplyser: billederne kan være fra en anden bolig
   ✓ 390 px · billedforbeholdet står ved sit foto — 0 px under billedet
   ✓ 390 px · intet vandret overløb — 0 px
+  ✓ 768 px · begge prøveboliger står på siden — 2 af 2
   ✓ 768 px · indflytningsprisen står og klippes ikke — indflytning 34.500 kr.
   ✓ 768 px · billedforbeholdet står og klippes ikke — Udlejer oplyser: billederne kan være fra en anden bolig
   ✓ 768 px · billedforbeholdet står ved sit foto — 0 px under billedet
   ✓ 768 px · intet vandret overløb — 0 px
+  ✓ 1100 px · begge prøveboliger står på siden — 2 af 2
   ✓ 1100 px · indflytningsprisen står og klippes ikke — indflytning 34.500 kr.
   ✓ 1100 px · billedforbeholdet står og klippes ikke — Udlejer oplyser: billederne kan være fra en anden bolig
   ✓ 1100 px · billedforbeholdet står ved sit foto — 8 px under billedet
   ✓ 1100 px · intet vandret overløb — 0 px
+  ✓ 1440 px · begge prøveboliger står på siden — 2 af 2
   ✓ 1440 px · indflytningsprisen står og klippes ikke — indflytning 34.500 kr.
   ✓ 1440 px · billedforbeholdet står og klippes ikke — Udlejer oplyser: billederne kan være fra en anden bolig
   ✓ 1440 px · billedforbeholdet står ved sit foto — 8 px under billedet
   ✓ 1440 px · intet vandret overløb — 0 px
   · testdata gendannet (0 rækker har stadig indflytning eller forbehold)
 
-✓ alle kontroller bestået
+✓ alle 129 kontroller bestået
