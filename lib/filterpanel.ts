@@ -151,7 +151,7 @@ export function aktiveFiltre(
   }
   if (f.arealMin != null) c.push({ navn: `mindst ${f.arealMin} m²`, fjern: ['areal'] })
   if (f.kilder?.length) c.push({ navn: f.kilder.map(kildenavn).join(', '), fjern: ['kilde'] })
-  if (f.fuldOekonomi) c.push({ navn: 'hele økonomien oplyst', fjern: ['fuld'] })
+  if (f.fuldOekonomi) c.push({ navn: 'specificeret aconto', fjern: ['fuld'] })
   if (f.boligtyper?.length) {
     c.push({ navn: f.boligtyper.map(typenavn).join(', '), fjern: ['type'] })
   }
@@ -164,8 +164,8 @@ export function aktiveFiltre(
       fjern: ['overtagelse'],
     })
   }
-  if (f.ansoegningsform != null) c.push({ navn: 'venteliste', fjern: ['venteliste'] })
-  if (f.markedsstatus != null) c.push({ navn: 'reserveret', fjern: ['reserveret'] })
+  if (f.ansoegningsform != null) c.push({ navn: 'kun venteliste', fjern: ['venteliste'] })
+  if (f.markedsstatus != null) c.push({ navn: 'kun reserverede', fjern: ['reserveret'] })
   return c
 }
 

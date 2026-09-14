@@ -454,7 +454,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   const formular = (
       <form className={soegt ? 'filtre soegt' : 'filtre'} method="get">
         {/* ── Den kompakte søgelinje ────────────────────────────
-            Område · «Filter og sortering» · kortvalg · søg. Ikke mere.
+            Område · «Filtre» · kortvalg · søg. Ikke mere.
 
             Pris, størrelse og værelser stod her før og står nu i
             vinduet. De må ikke stå begge steder: to felter med samme
@@ -478,7 +478,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
 
           <Filterknap
             aabnHref={aabnFiltre}
-            etiket="Filter og sortering"
+            etiket="Filtre"
             antal={chips.length}
           />
 
@@ -630,135 +630,146 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
               </div>
             </section>
 
-            {/* ── Overtagelse og tilgængelighed ─────────────────
-                Drives af fortolkAvailability — aldrig af rå jsonb, legacy
-                available_from eller application_type. Grundlaget gælder DEN
-                AKTUELLE søgning, og de ukendte har ord: et filter viser kun
-                dokumenterede træf, og så skal det stå, hvor mange der ikke
-                kunne vurderes. */}
             <section className="fd-afsnit">
               <h3>Overtagelse</h3>
-              <div className="filterpost">
-                <span className="afkryds-linje">
-                  <label htmlFor="overtagelse">Kan overtages</label>
-                  <select id="overtagelse" name="overtagelse" defaultValue={f.overtagelse ?? ''}>
-                    <option value="">Alle</option>
-                    <option value="nu">Kan overtages nu</option>
-                    <option value="senere">Kan overtages senere</option>
-                  </select>
-                </span>
-                <span className="filtergrundlag">
-                  {avGrundlag.timing.nu.toLocaleString('da-DK')} har oplyst overtagelse nu ·{' '}
-                  {avGrundlag.timing.senere.toLocaleString('da-DK')} senere ·{' '}
-                  {(avGrundlag.timing.unknown + avGrundlag.timing.conflict).toLocaleString('da-DK')} uden
-                  afklaret tidspunkt — de vises ikke med filteret slået til
-                </span>
+              <div className="fd-felt">
+                <label htmlFor="overtagelse">Hvornår vil du flytte?</label>
+                <select id="overtagelse" name="overtagelse" defaultValue={f.overtagelse ?? ''}
+                  aria-describedby="overtagelse-note">
+                  <option value="">Alle tidspunkter</option>
+                  <option value="nu">Kan overtages nu</option>
+                  <option value="senere">Kan overtages senere</option>
+                </select>
               </div>
-              <div className="filterpost">
-                <label className="valgknap">
-                  <input type="checkbox" id="venteliste" name="venteliste" value="1"
-                    defaultChecked={f.ansoegningsform === 'venteliste'} />
-                  <span>Venteliste</span>
-                </label>
-                <span className="filtergrundlag">
-                  {avGrundlag.ansoegning.venteliste.toLocaleString('da-DK')} venteliste ·{' '}
-                  {avGrundlag.ansoegning.normal.toLocaleString('da-DK')} almindelig ansøgning ·{' '}
-                  {avGrundlag.ansoegning.unknown.toLocaleString('da-DK')} uoplyst ansøgningsform
-                </span>
-              </div>
-              <div className="filterpost">
-                <label className="valgknap">
-                  <input type="checkbox" id="reserveret" name="reserveret" value="1"
-                    defaultChecked={f.markedsstatus === 'reserveret'} />
-                  <span>Reserveret</span>
-                </label>
-                {/* Reserveret-grundlaget viser alle TRE grupper, så «vis
-                    reserverede» ikke læses som «resten er dokumenteret ledige»:
-                    de fleste har slet ingen markedsstatus fra kilden. */}
-                <span className="filtergrundlag">
-                  {avGrundlag.marked.reserveret.toLocaleString('da-DK')} reserveret ·{' '}
-                  {avGrundlag.marked.paa_markedet.toLocaleString('da-DK')} på markedet ·{' '}
-                  {(avGrundlag.marked.unknown + avGrundlag.marked.udlejet + avGrundlag.marked.conflict).toLocaleString('da-DK')} uden
-                  oplyst markedsstatus
-                </span>
-              </div>
+              {/* Drives af fortolkAvailability — aldrig af rå jsonb, legacy
+                  available_from eller application_type. Grundlaget gælder DEN
+                  AKTUELLE søgning, og de ukendte har ord: et filter viser kun
+                  dokumenterede træf, og så skal det stå, hvor mange der ikke
+                  kunne vurderes. */}
+              <p id="overtagelse-note" className="filtergrundlag">
+                {avGrundlag.timing.nu.toLocaleString('da-DK')} har oplyst overtagelse nu ·{' '}
+                {avGrundlag.timing.senere.toLocaleString('da-DK')} senere ·{' '}
+                {(avGrundlag.timing.unknown + avGrundlag.timing.conflict).toLocaleString('da-DK')} uden
+                afklaret tidspunkt — de vises ikke med filteret slået til
+              </p>
             </section>
 
-            {/* ── Faciliteter ───────────────────────────────────
-                Vises kun, hvis nogen faktisk oplyser feltet. Faciliteter er
-                en POSITIV liste: står `elevator` ikke i `amenities`, betyder
-                det «ikke oplyst» — ikke «ingen elevator». Derfor udelukker
-                filteret de ukendte, og derfor SKAL det stå, hvor mange det
-                er. Tre grupper, ikke to; tallene går op med antallet. */}
             {(fac.faciliteter.kaeledyr > 0 || fac.faciliteter.elevator > 0
               || fac.faciliteter.udeplads > 0) && (
               <section className="fd-afsnit">
                 <h3>Faciliteter</h3>
-                {fac.faciliteter.kaeledyr > 0 && (
-                  <div className="filterpost">
+                <div className="valgknapper" aria-describedby="faciliteter-note">
+                  {fac.faciliteter.kaeledyr > 0 && (
                     <label className="valgknap">
-                      <input type="checkbox" id="kaeledyr" name="kaeledyr" value="1" defaultChecked={f.kaeledyr} />
+                      <input type="checkbox" id="kaeledyr" name="kaeledyr" value="1" aria-describedby="faciliteter-note" defaultChecked={f.kaeledyr} />
                       <span>Kæledyr tilladt</span>
                     </label>
-                    <span className="filtergrundlag">
-                      {grundlag.kaeledyr.toLocaleString('da-DK')} oplyser det ·{' '}
-                      {(grundlag.antal - grundlag.tier - grundlag.kaeledyr).toLocaleString('da-DK')}
-                      {' '}oplyser faciliteter uden det ·{' '}
-                      {grundlag.tier.toLocaleString('da-DK')} oplyser ingen og vises ikke
-                    </span>
-                  </div>
-                )}
-                {fac.faciliteter.elevator > 0 && (
-                  <div className="filterpost">
+                  )}
+                  {fac.faciliteter.elevator > 0 && (
                     <label className="valgknap">
-                      <input type="checkbox" id="elevator" name="elevator" value="1" defaultChecked={f.elevator} />
+                      <input type="checkbox" id="elevator" name="elevator" value="1" aria-describedby="faciliteter-note" defaultChecked={f.elevator} />
                       <span>Elevator</span>
                     </label>
-                    <span className="filtergrundlag">
-                      {grundlag.elevator.toLocaleString('da-DK')} oplyser det ·{' '}
-                      {(grundlag.antal - grundlag.tier - grundlag.elevator).toLocaleString('da-DK')}
-                      {' '}oplyser faciliteter uden det ·{' '}
-                      {grundlag.tier.toLocaleString('da-DK')} oplyser ingen og vises ikke
-                    </span>
-                  </div>
-                )}
-                {fac.faciliteter.udeplads > 0 && (
-                  <div className="filterpost">
+                  )}
+                  {fac.faciliteter.udeplads > 0 && (
                     <label className="valgknap">
-                      <input type="checkbox" id="udeplads" name="udeplads" value="1" defaultChecked={f.udeplads} />
+                      <input type="checkbox" id="udeplads" name="udeplads" value="1" aria-describedby="faciliteter-note" defaultChecked={f.udeplads} />
                       <span>Altan eller terrasse</span>
                     </label>
-                    <span className="filtergrundlag">
-                      {grundlag.udeplads.toLocaleString('da-DK')} oplyser det ·{' '}
-                      {(grundlag.antal - grundlag.tier - grundlag.udeplads).toLocaleString('da-DK')}
+                  )}
+                </div>
+                {/* ── TALLENE STÅR PÅ SKÆRMEN, IKKE BAG EN KLIK ────
+                    Linjerne lå et øjeblik i en lukket «Om oplysningerne».
+                    Målt: alle syv grundlagslinjer var i et `<details>`,
+                    der er lukket som udgangspunkt — altså ingen af dem på
+                    skærmen. Og den korte erstatning nævnte kun ÉN af de
+                    tre grupper.
+
+                    Faciliteter er en POSITIV liste: står `elevator` ikke i
+                    `amenities`, betyder det «ikke oplyst», ikke «ingen
+                    elevator». Filteret skjuler derfor alle, hvis kilde
+                    tier — og så skal det stå, hvor mange det er. Den
+                    MIDTERSTE gruppe er den, reglen blev skrevet om: uden
+                    den manglede en tredjedel af boligerne uden
+                    forklaring.
+
+                    Forenklingen er bevaret dér, hvor den var rigtig:
+                    linjerne står samlet UNDER pillerækken i stedet for
+                    interleavet mellem tre afkrydsningsrækker. */}
+                <div id="faciliteter-note" className="fd-grundlagsliste">
+                  {[
+                    ['Kæledyr tilladt', fac.faciliteter.kaeledyr, grundlag.kaeledyr],
+                    ['Elevator', fac.faciliteter.elevator, grundlag.elevator],
+                    ['Altan eller terrasse', fac.faciliteter.udeplads, grundlag.udeplads],
+                  ].filter(([, vises]) => (vises as number) > 0).map(([navn, , oplyser]) => (
+                    <p key={navn as string} className="filtergrundlag">
+                      <b>{navn}</b>: {(oplyser as number).toLocaleString('da-DK')} oplyser det ·{' '}
+                      {(grundlag.antal - grundlag.tier - (oplyser as number)).toLocaleString('da-DK')}
                       {' '}oplyser faciliteter uden det ·{' '}
                       {grundlag.tier.toLocaleString('da-DK')} oplyser ingen og vises ikke
-                    </span>
-                  </div>
-                )}
+                    </p>
+                  ))}
+                </div>
               </section>
             )}
 
-            {/* ── Øvrige valg ───────────────────────────────────
-                Økonomifilteret, kilden og sorteringen. «Fuld økonomi» er
-                ikke det samme som «total kendt»: kravet er husleje plus
-                mindst én NAVNGIVEN aconto-post. Derfor står de tre grupper
-                under den, og derfor står den her og ikke på forsiden. */}
             <section className="fd-afsnit">
               <h3>Øvrige valg</h3>
+              <div className="valgknapper" aria-describedby="status-note">
+                <label className="valgknap">
+                  <input type="checkbox" id="venteliste" name="venteliste" value="1"
+                    defaultChecked={f.ansoegningsform === 'venteliste'} />
+                  <span>Kun venteliste</span>
+                </label>
+                <label className="valgknap">
+                  <input type="checkbox" id="reserveret" name="reserveret" value="1"
+                    defaultChecked={f.markedsstatus === 'reserveret'} />
+                  <span>Kun reserverede</span>
+                </label>
+              </div>
+              {/* Reserveret-grundlaget viser alle TRE grupper, så «vis
+                  reserverede» ikke læses som «resten er dokumenteret
+                  ledige»: de fleste har slet ingen markedsstatus fra
+                  kilden. En sætning uden tal svarer ikke på det. */}
+              <div id="status-note" className="fd-grundlagsliste">
+                <p className="filtergrundlag">
+                  <b>Venteliste</b>: {avGrundlag.ansoegning.venteliste.toLocaleString('da-DK')} venteliste ·{' '}
+                  {avGrundlag.ansoegning.normal.toLocaleString('da-DK')} almindelig ansøgning ·{' '}
+                  {avGrundlag.ansoegning.unknown.toLocaleString('da-DK')} uoplyst ansøgningsform
+                </p>
+                <p className="filtergrundlag">
+                  <b>Reserverede</b>: {avGrundlag.marked.reserveret.toLocaleString('da-DK')} reserveret ·{' '}
+                  {avGrundlag.marked.paa_markedet.toLocaleString('da-DK')} på markedet ·{' '}
+                  {(avGrundlag.marked.unknown + avGrundlag.marked.udlejet + avGrundlag.marked.conflict).toLocaleString('da-DK')} uden
+                  oplyst markedsstatus
+                </p>
+              </div>
               <div className="filterpost">
                 <label className="valgknap">
-                  <input type="checkbox" id="fuld" name="fuld" value="1" defaultChecked={f.fuldOekonomi} />
-                  <span>Hele økonomien oplyst</span>
+                  <input type="checkbox" id="fuld" name="fuld" value="1" defaultChecked={f.fuldOekonomi}
+                    aria-describedby="oekonomi-note" />
+                  <span>Specificeret aconto</span>
                 </label>
-                <span className="filtergrundlag">
+                {/* «Specificeret aconto» er ikke det samme som «total
+                    kendt»: kravet er husleje plus mindst én NAVNGIVEN
+                    aconto-post. Definitionen forklarer navnet; tallene
+                    forklarer, hvad filteret udelader. Begge dele skal
+                    stå. */}
+                <p id="oekonomi-note" className="fd-note">
+                  Husleje og mindst én oplyst post for varme, vand eller el.
+                </p>
+                <p className="filtergrundlag">
                   {oek.fuld.toLocaleString('da-DK')} oplyser varme, vand eller el hver for sig ·{' '}
                   {(oek.medTotal - oek.fuld).toLocaleString('da-DK')} oplyser kun én samlet aconto ·{' '}
                   {(oek.antal - oek.medTotal).toLocaleString('da-DK')} oplyser ingen total
-                </span>
+                </p>
               </div>
-              <div className="filterpost">
-                <span className="afkryds-linje">
+              {/* Kilde stod i en to-spaltet raekke sammen med Sortér.
+                  Da sorteringen flyttede ud, stod den tilbage i den
+                  venstre halvdel med en tom spalte ved siden af. Ét felt
+                  er ikke et par. */}
+              <div className="fd-kildefelt">
+                <div className="fd-felt">
                   <label htmlFor="kilde">Kilde</label>
                   <select id="kilde" name="kilde" defaultValue={kilderValgt?.[0] ?? ''}>
                     <option value="">Alle kilder</option>
@@ -766,21 +777,24 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                       <option key={k.slug} value={k.slug}>{k.navn} ({k.antal})</option>
                     ))}
                   </select>
-                </span>
-              </div>
-              <div className="filterpost">
-                <span className="afkryds-linje">
-                  <label htmlFor="sorter">Sortér</label>
-                  {/* Navnene kommer fra `SORTERINGSNAVN`, ikke fra denne fil.
-                      Sorteringen kan også skiftes i resultathovedet, og to
-                      håndskrevne lister ville før eller siden sige hver sit
-                      om det samme valg. */}
-                  <select id="sorter" name="sorter" defaultValue={f.sorter}>
-                    {SORTERINGSVALG.map((v) => (
-                      <option key={v} value={v}>{SORTERINGSNAVN[v].lang}</option>
-                    ))}
-                  </select>
-                </span>
+                </div>
+                {/* Sorteringen bor i menuen over listen og INTET andet
+                    sted. To menuer for den samme indstilling er to
+                    steder at lede og to steder at rette.
+
+                    Men feltet kan ikke bare slettes: vinduet er en
+                    GET-formular, og en GET-formular sender kun sine egne
+                    felter. Uden noget, der bærer ordenen med, ville
+                    «Vis resultater» tabe den og stille søgningen tilbage
+                    til «nyeste» — hver gang hun rettede et filter.
+                    Derfor et skjult felt i stedet for en rullemenu.
+
+                    Kun naar den ikke er standarden: `/?…&sorter=nyeste`
+                    og `/?…` er den samme side, og omdirigeringen ovenfor
+                    skaerer parameteren vaek igen. */}
+                {f.sorter && f.sorter !== 'nyeste' && (
+                  <input type="hidden" name="sorter" value={f.sorter} />
+                )}
               </div>
             </section>
         </Filterdialog>
@@ -807,8 +821,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
       {soegt ? (
         <>
           {/* Referencens broedkrumme og store sidetitel over
-              filterbjaelken. Stedet kommer fra `stedNavn`, som
-              resultathovedet ogsaa bruger — ét udtryk, to steder. */}
+              filterbjælken. Sted og resultatantal vises samlet én gang. */}
           <nav className="broedkrumme" aria-label="Sti">
             <a href="/">Forside</a>
             <span aria-hidden="true">›</span>
@@ -818,17 +831,37 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
               Det stod tre: i en linje under titlen, i «N boliger fundet»
               over listen, og i tællelinjen under den. Referencen skriver
               «Lejeboliger på Østerbro (116)» og lader det være. */}
-          <div className="sidetitel">
+          <div className="sidetitel resultat-titel">
             <h1>
               Lejeboliger{stedNavn ? ` i ${stedNavn}` : ' i hele Danmark'}
               <span className="titeltal">({sum.antal.toLocaleString('da-DK')})</span>
             </h1>
+            {visninger.length > 0 && (
+              <details className="sortering">
+                <summary>Sortér: {SORTERINGSNAVN[f.sorter ?? 'nyeste'].kort}</summary>
+                <nav aria-label="Sortering" className="sortering-valg">
+                  {SORTERINGSVALG.map((v) => {
+                    const valgt = (f.sorter ?? 'nyeste') === v
+                    return (
+                      <a
+                        key={v} href={soegeUrlSorteret('/', sp, v)}
+                        className={valgt ? 'sort-pille valgt' : 'sort-pille'}
+                        aria-current={valgt ? 'true' : undefined}
+                        title={SORTERINGSNAVN[v].lang}
+                      >
+                        {SORTERINGSNAVN[v].kort}
+                      </a>
+                    )
+                  })}
+                </nav>
+              </details>
+            )}
           </div>
           <div className="soegepanel">
             {formular}
             {/* ── Det, soegningen faktisk er sat til ───────────────────
-                Filtrene bor i et <details>, der er LUKKET som udgangspunkt,
-                og saa var «3 aktive» i <summary> det eneste, der stod om dem.
+                Filtrene bor i et lukket vindue. Chipperne viser valgene
+                uden at kræve, at vinduet åbnes.
                 Et tal er ikke et svar paa «hvad har jeg sat»: hun skulle
                 aabne panelet og lede for at finde ud af, hvad det tredje var.
 
@@ -928,57 +961,19 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           `.optaelling` og `.begraensning` bruges også af gruppe- og
           områdesiderne, og de er urørte. */}
       <div className="resultathoved">
-        <div className="listehoved">
-          {soegt && (
-            /* «N boliger fundet» som i referencen. Stedet staar i
-               sidetitlen ovenfor og gentages ikke her. */
-            <h2 className="listetitel resultat-tal">
-              {sum.antal.toLocaleString('da-DK')}{' '}
-              {sum.antal === 1 ? 'bolig' : 'boliger'}
-            </h2>
-          )}
-          {!soegt && visninger.length > 0 && (
-            <h2 className="listetitel">Nyeste boliger</h2>
-          )}
+        {!soegt && visninger.length > 0 && (
+          <h2 className="listetitel">Nyeste boliger</h2>
+        )}
 
-          {/* Referencen saetter sortering og kortknap paa SAMME linje som
-              «N boliger fundet», i hoejre side. De to er valg om
-              visningen; antallet er svaret. Raekken bryder af sig selv,
-              naar der ikke er plads. */}
-          {soegt && visninger.length > 0 && (
-            <div className="listehoved-hoejre">
-              {/* Sorteringen bor i panelet og var dermed ogsaa skjult. Her
-                  er den seks links — ét pr. orden, med den aktive markeret.
-                  Ingen <select> uden for formularen: en select uden JS
-                  skifter ingenting, og en submit-knap mere ville vaere en
-                  kontrol, der ligner filtrene uden at vaere dem.
-                  `aria-current` fortaeller skaermlaeseren, hvad der gaelder. */}
-              <div className="sortering">
-                <span className="sortering-navn">Sortér</span>
-                {SORTERINGSVALG.map((v) => {
-                  const valgt = (f.sorter ?? 'nyeste') === v
-                  return (
-                    <a
-                      key={v} href={soegeUrlSorteret('/', sp, v)}
-                      className={valgt ? 'sort-pille valgt' : 'sort-pille'}
-                      aria-current={valgt ? 'true' : undefined}
-                      title={SORTERINGSNAVN[v].lang}
-                    >
-                      {SORTERINGSNAVN[v].kort}
-                    </a>
-                  )
-                })}
-              </div>
-              {/* Kortvalget stod også her. Det er flyttet op i den
-                  kompakte søgelinje og står nu ét sted: to knapper om
-                  samme tilstand er to udtryk for det samme spørgsmål. */}
-            </div>
-          )}
-        </div>
-
-        {/* Uden filtre staar de samme tal allerede i hero'en ovenfor.
-            Linjen hoerer til, hvor den siger noget nyt: om et udsnit. */}
-        {soegt && (
+        {/* ── Tre udsagn om DATAENE, ikke et resultatantal ──────
+            Linjen lå et øjeblik ude sammen med det dobbelte antal. Men
+            den tæller ikke resultater — den siger, hvor mange af dem vi
+            kender hele udgiften til udlejeren for, hvor mange der har en
+            indflytningspris, og hvad spændet er. Det er præcis den slags
+            forbehold, resten af fladen er bygget om at bevare: uden den
+            kan man ikke se, at 69 af 76 har en kendt total.
+            Antallet står ét sted, i overskriften. */}
+        {soegt && visninger.length > 0 && (
           <div className="optaelling">
             <span>{sum.medTotal} med kendt total</span>
             <span>{sum.medIndflytning} med indflytningspris</span>
@@ -1004,7 +999,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             ikke staa et tal, der lader som om det er alt. */}
         {kortIAlt > visninger.length && (
           <p className="begraensning">
-            Viser de {visninger.length} nyeste af{' '}
+            Viser {visninger.length} af{' '}
             {komplet ? kortIAlt.toLocaleString('da-DK') : `mindst ${kortIAlt.toLocaleString('da-DK')}`}
             {' '}kort — {sum.antal.toLocaleString('da-DK')}{' '}
             {sum.antal === 1 ? 'bolig matcher' : 'boliger matcher'} søgningen.
@@ -1020,8 +1015,8 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             Det er den samme regel som kortet og gem-boksen foelger. */}
         {soegt && (f.prisMin != null || f.prisMax != null) && (
           <p className="prisnote">
-            Prisfilteret gælder den <strong>samlede månedlige udgift</strong> — husleje
-            plus aconto. Kender vi ikke totalen, filtreres der på huslejen alene, og
+            Prisfilteret gælder <strong>husleje og oplyst aconto til udlejer</strong>.
+            Kender vi ikke totalen, filtreres der på huslejen alene, og
             boligen kan være dyrere end grænsen.
           </p>
         )}

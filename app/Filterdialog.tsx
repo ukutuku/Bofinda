@@ -127,7 +127,7 @@ export function Filterdialog({
         id={DIALOG_ID}
         className="filterdialog"
         open={aaben || undefined}
-        aria-label="Filter og sortering"
+        aria-label="Filtre"
         // Escape udløser `cancel` før `close`. Uden den her ville
         // felterne blive stående som kladde efter en Escape, mens de
         // nulstilles ved et klik på «Luk» — to veje ud, to udfald.
@@ -136,7 +136,7 @@ export function Filterdialog({
       >
         <div className="fd-ramme">
           <div className="fd-hoved">
-            <h2>Filter og sortering</h2>
+            <h2>Filtre</h2>
             <a
               className="fd-luk" href={lukHref} aria-label="Luk filtre"
               onClick={(e) => { if (klar && dialog.current) { e.preventDefault(); luk() } }}

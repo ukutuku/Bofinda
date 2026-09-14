@@ -7,7 +7,7 @@
 import type { Bolig, Filtre, Gruppe, Visning } from '../lib/soeg'
 import { availabilityFor, gruppeUrl } from '../lib/soeg'
 import type { Availability, Gruppesammenfatning } from '../lib/availability'
-import { billedUrl } from '../lib/billede'
+import { billedUrl, breddeTilladt } from '../lib/billede'
 import { eltilstand, type Eltilstand } from '../lib/eloplysning'
 // Typens navn kommer ÉT sted fra. Kortet og filtrene sagde før hver sit
 // om `andet`, og `villa` fandtes kun i den ene liste. Se lib/boligtype.ts.
@@ -240,7 +240,26 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
         <div className="kort-billedblok">
           <div className="kort-billede">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={forside} alt="" loading="lazy" />
+            {/* 800 tilbydes KUN, hvis vaerten maa levere den. `billedUrl`
+                skaerer stille ned til naermeste tilladte bredde i
+                BREDDER_PR_VAERT — den returnerer ikke null og fejler ikke.
+                Uden vagten ville en vaert med et loft paa 400 faa den
+                SAMME fil udpeget som baade «400w» og «800w», og browseren
+                ville straekke 400 px op paa en taet skaerm. En deskriptor,
+                der lyver om filens bredde, er vaerre end ingen deskriptor.
+
+                I dag er ingen vaert under 800 — `lokalbolig.io` er skaaret
+                ned fra 1600 til 400 og 800 — saa vagten aendrer intet nu.
+                Den staar, fordi srcset'en og ruten skal svare paa det
+                samme spoergsmaal ét sted: naeste gang en vaert beder om
+                mindre, foelger kortet med af sig selv. */}
+            <img src={forside}
+              srcSet={breddeTilladt(b.forside!, 800)
+                ? `${forside} 400w, ${billedUrl(b.forside!, 800)} 800w`
+                : undefined}
+              sizes={breddeTilladt(b.forside!, 800)
+                ? '(max-width: 620px) calc(100vw - 44px), 50vw' : undefined}
+              alt="" loading="lazy" />
             {/* Ét maerkat paa fotoet. Uden et foto er der ingen flade
                 at ligge paa, og saa staar det oeverst i kroppen — samme
                 udtryk, ét sted i koden. */}
@@ -460,9 +479,27 @@ export function Gruppekort({ g, nu, position, filtre }: { g: Gruppe; nu: Date; p
         <div className="kort-billedblok">
           <div className="kort-billede">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={forside} alt="" loading="lazy" />
+            {/* 800 tilbydes KUN, hvis vaerten maa levere den. `billedUrl`
+                skaerer stille ned til naermeste tilladte bredde i
+                BREDDER_PR_VAERT — den returnerer ikke null og fejler ikke.
+                Uden vagten ville en vaert med et loft paa 400 faa den
+                SAMME fil udpeget som baade «400w» og «800w», og browseren
+                ville straekke 400 px op paa en taet skaerm. En deskriptor,
+                der lyver om filens bredde, er vaerre end ingen deskriptor.
+
+                I dag er ingen vaert under 800 — `lokalbolig.io` er skaaret
+                ned fra 1600 til 400 og 800 — saa vagten aendrer intet nu.
+                Den staar, fordi srcset'en og ruten skal svare paa det
+                samme spoergsmaal ét sted: naeste gang en vaert beder om
+                mindre, foelger kortet med af sig selv. */}
+            <img src={forside}
+              srcSet={breddeTilladt(r.forside!, 800)
+                ? `${forside} 400w, ${billedUrl(r.forside!, 800)} 800w`
+                : undefined}
+              sizes={breddeTilladt(r.forside!, 800)
+                ? '(max-width: 620px) calc(100vw - 44px), 50vw' : undefined}
+              alt="" loading="lazy" />
             {nymaerkat && <div className="kort-maerkater">{nymaerkat}</div>}
-            <span className="kort-antal">{g.antal} boliger</span>
           </div>
           {/* Repraesentantens forbehold: det er HANS billede, kortet viser. */}
           {r.billedforbehold && <Billedforbehold />}

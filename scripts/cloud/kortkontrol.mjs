@@ -469,6 +469,25 @@ if (process.env.DATABASE_URL) {
           fundet: [a, b].filter(Boolean).length,
           indflytning: ind?.textContent?.trim() ?? null,
           indKlippet: ind ? ind.scrollWidth > ind.clientWidth + 1 : null,
+          // Hierarkiet mellem sidens to beloeb. Maanedsprisen er det
+          // store groenne tal; indflytningsprisen er det andet beloeb —
+          // egen raekke, mindre vaegt. Maales, fordi begge er «et tal i
+          // en prisblok», og den dag de faar samme stoerrelse, er der
+          // ingen forskel at se for den, der skimmer.
+          hierarki: (() => {
+            const pris = a?.querySelector('.kort-pris')
+            const bel = ind?.querySelector('b')
+            if (!pris || !bel || !ind) return null
+            const px = (e) => parseFloat(getComputedStyle(e).fontSize)
+            // Prisblokkens egen stoerrelse staar paa dens foerste
+            // tekstknude, ikke paa <small>-enheden ved siden af.
+            return {
+              maaned: Math.round(px(pris)),
+              indflytning: Math.round(px(bel)),
+              egenRaekke: Math.round(ind.getBoundingClientRect().top
+                - pris.getBoundingClientRect().bottom),
+            }
+          })(),
           // Står den under fotoet, den handler om? Afstanden måles fra
           // billedets underkant, ikke fra kortets.
           forbehold: forb?.textContent?.trim() ?? null,
@@ -478,13 +497,20 @@ if (process.env.DATABASE_URL) {
           overløb: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         }
       }, ider)
-      await blok(`${bredde} px`, 5, async () => {
+      await blok(`${bredde} px`, 6, async () => {
         // Samme værn som ovenfor, men her er det gratis: findes kortet
         // ikke, er `indflytning` null, og påstanden fejler af sig selv.
         // `fundet` gør grunden synlig i stedet for at lade den gætte.
         prøve(r.fundet === 2, `${bredde} px · begge prøveboliger står på siden`, `${r.fundet} af 2`)
         prøve(r.indflytning?.includes('34.500') && r.indKlippet === false,
           `${bredde} px · indflytningsprisen står og klippes ikke`, r.indflytning ?? 'mangler')
+        prøve(r.hierarki != null && r.hierarki.indflytning < r.hierarki.maaned
+          && r.hierarki.egenRaekke >= 0,
+          `${bredde} px · månedsprisen vejer tungest, indflytningsprisen står under den`,
+          r.hierarki
+            ? `måned ${r.hierarki.maaned} px · indflytning ${r.hierarki.indflytning} px`
+              + ` · ${r.hierarki.egenRaekke} px under prisblokken`
+            : 'prisblok eller indflytningslinje mangler')
         prøve(r.forbehold?.includes('anden bolig') && r.forbKlippet === false,
           `${bredde} px · billedforbeholdet står og klippes ikke`, r.forbehold ?? 'mangler')
         prøve(r.afstand != null && r.afstand >= 0 && r.afstand <= 24,

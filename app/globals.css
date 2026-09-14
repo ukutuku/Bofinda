@@ -454,26 +454,14 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 .leje { font-size: 13px; color: var(--daempet); }
 .total { font-size: 13.5px; color: var(--daempet); order: 2; }
 .total b { color: var(--tekst); font-weight: 640; }
-/* Det andet beloeb. Mindre end totalen, men et BELOEB — ikke en note.
-   Stregen til venstre siger, at de to hoerer sammen og alligevel er
-   forskellige: den ene er hver maaned, den anden er én gang. */
+/* Indflytningsprisen er sekundær og har sin egen linje ved alle bredder. */
 .kort-indflytning {
-  order: 2; font-size: 12px; color: var(--svag); line-height: 1.25;
-  padding-left: 18px; border-left: 1px solid var(--linje);
-  align-self: center;
+  order: 3; flex-basis: 100%; font-size: 13px; color: var(--daempet);
+  line-height: 1.45; margin-top: 3px;
 }
 .kort-indflytning b {
-  display: block; font-size: 16.5px; font-weight: 660; color: var(--tekst);
-  letter-spacing: -0.018em; line-height: 1.2; margin-top: 1px;
-}
-/* Uden plads ved siden af staar de to beloeb over hinanden — og saa er
-   en venstrestreg forkert: den ville pege paa ingenting. */
-@container boligkort (max-width: 460px) {
-  .kort-indflytning {
-    padding-left: 0; border-left: 0; flex-basis: 100%; order: 3;
-    align-self: flex-start; margin-top: 2px;
-  }
-  .kort-indflytning b { display: inline; margin-left: 4px; }
+  display: inline; margin-left: 4px; font-size: 15px;
+  font-weight: 650; color: var(--tekst);
 }
 /* Alderen paa annoncen er baggrundsstof. Egen raekke, svagest vaegt. */
 .set-linje { flex-basis: 100%; order: 10; font-size: 12px; color: var(--svag); }
@@ -518,42 +506,7 @@ p.billedforbehold {
   font-size: 13px; color: var(--daempet);
   margin: 10px 0 0; max-width: 62ch;
 }
-/* ── Det brede kort bliver VANDRET ─────────────────────────────
-   Blokken staar HER og ikke oppe ved `.kort`, hvor den hoerer hjemme
-   logisk. En container-forespoergsel giver ingen ekstra specificitet:
-   `@container … { .kort-billede { aspect-ratio: auto } }` er (0,1,0)
-   ligesom `.kort-billede { aspect-ratio: 16/9 }` 140 linjer laengere
-   nede, og den sidste vinder. Foerste forsoeg stod foer begge, og saa
-   slap kun `min-height: 180px` igennem — med 16/9 stadig i kraft blev
-   rammen 320 px bred i en 240 px spalte og laa hen over teksten.
-   Det er samme kaskadefaelde, som er dokumenteret fem gange i denne
-   fil: en regel under en forespoergsel slaaet af en uden.
-
-   Over 1020 px listebredde er hvert af de to kort ~500 px, og et 16/9
-   foto i fuld bredde ville vaere 280 px hoejt — paa 1440 px uden
-   landkort 360 px. To kort i hoejden per skaerm er ikke en resultatliste.
-   Vandret er fotoet 240 px bredt, og kortet fylder hoejden af sin egen
-   tekst.
-
-   Forespoergslen gaar paa LISTEOMRAADET og ikke paa kortet: et kort kan
-   ikke forespoerge sin egen bredde, og kolonnetallet saettes i den samme
-   blok — de to tal skal afgoeres sammen, ellers kan de drive fra
-   hinanden. Kortets INDRE justeringer forespoerger stadig kortet selv. */
-@container listeomraade (min-width: 1020px) {
-  .kort { grid-template-rows: 1fr; grid-template-columns: 240px minmax(0, 1fr); }
-  .kort.uden-billede { grid-template-columns: minmax(0, 1fr); }
-  /* RAMMEN BEHOLDER ET FAST FORHOLD, ogsaa her. Foerste forsoeg lod
-     fotoet fylde raekkens hoejde, saa spalten ikke stod halvtom ved
-     siden af en hoej tekst — og saa fik hvert kort sin egen billedform:
-     maalt 0,82 · 0,85 · 0,89 · 0,93 · 1,06 paa den samme side. En ramme,
-     der retter sig efter tekstens laengde, er ikke en ramme.
-     1/1 og ikke 16/9: kortene i den vandrette form er 229-295 px hoeje,
-     saa en 240 px firkant fylder spalten ud uden at drive hoejden op.
-     `align-self: start` fra grundreglen bliver staaende — den er det,
-     der holder billedforbeholdet fast under billedet. */
-  .kort-billede { aspect-ratio: 1/1; }
-  .kort-krop { padding: 17px 19px 15px; }
-}
+/* Billedet står øverst ved alle listebredder. Ingen vandret variant. */
 
 .ukendt {
   flex-basis: 100%; order: 5;
@@ -1502,7 +1455,7 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
 }
 .valgknap span {
   display: inline-flex; align-items: center; gap: 7px;
-  min-height: 40px; padding: 0 15px;
+  min-height: 44px; min-width: 44px; padding: 5px 15px;
   border: 1px solid var(--linje); border-radius: var(--r-pille);
   background: #fff; color: var(--tekst); font-size: 14px; font-weight: 540;
   white-space: nowrap;
@@ -1535,24 +1488,51 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
 }
 .fd-boks:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-lys); }
 .fd-boks input {
-  font: inherit; font-size: 15px; border: 0; background: none; padding: 0;
+  font: inherit; font-size: 16px; border: 0; background: none; padding: 0; min-height: 44px;
   width: 100%; min-width: 0; color: var(--tekst);
 }
 .fd-boks input:focus { outline: none; }
 .fd-enhed { font-size: 13px; color: var(--svag); }
 .fd-enkelt { max-width: 220px; }
 
-/* Grundlagslinjerne er UÆNDREDE i indhold. De er sat ned i vægt, ikke
-   skåret ned: et filter skal gøre rede for, hvad det udelader, og de
-   tre grupper skal gå op med antallet. */
-/* Hver post er en pille med sit grundlag under. Referencen har kun
-   pillerne; grundlagslinjen er vores, og den er ikke til forhandling:
-   faciliteterne er en POSITIV liste, så et filter skjuler alle, hvis
-   kilde tier, og så skal det stå, hvor mange det er. */
-.fd-afsnit .filterpost { margin-top: 14px; gap: 6px; }
-.fd-afsnit .filterpost:first-of-type { margin-top: 0; }
+/* Forklaringerne er samlet. Den korte besked om udeladte boliger står ved valget. */
+.fd-afsnit .filterpost { margin-top: 16px; gap: 6px; }
 .fd-afsnit .filterpost .valgknap { align-self: flex-start; }
-.fd-afsnit .filtergrundlag { padding-left: 2px; }
+.fd-felt select {
+  width: 100%; min-width: 0; min-height: 46px; padding: 10px 12px;
+  font: inherit; font-size: 16px; color: var(--tekst); background: #fff;
+  border: 1px solid var(--linje); border-radius: var(--r-s);
+}
+.fd-felt select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Kilde staar alene nu — sorteringen bor i menuen over listen. Et enkelt
+   felt i et to-spaltet gitter ville staa i venstre halvdel med en tom
+   spalte ved siden af. */
+.fd-kildefelt { margin-top: 18px; }
+/* ── Grundlagslinjerne under pillerækken ──────────────────────
+   De lå et øjeblik i en lukket «Om oplysningerne». Målt: alle syv var i
+   et `<details>`, der er lukket som udgangspunkt — altså ingen af dem på
+   skærmen, netop når filteret er slået til. Reglen er, at de står UNDER
+   afkrydsningen med tre grupper, der går op med antallet.
+
+   Forenklingen er bevaret, hvor den var rigtig: linjerne står SAMLET
+   under pillerækken i stedet for interleavet mellem tre
+   afkrydsningsrækker, og de er sat ned i vægt. De er ikke skåret ned. */
+.fd-grundlagsliste { display: grid; gap: 5px; margin-top: 10px; }
+.fd-grundlagsliste b { color: var(--daempet); font-weight: 620; }
+
+/* `.filtergrundlag` har `margin-left: 25px` i bunden af filen — et
+   indryk under en afkrydsning. Under en pillerække peger det ingen
+   steder, så det nulstilles her.
+
+   Rækkefølgen er IKKE nok: `.fd-afsnit .filtergrundlag` er to klasser og
+   slår `.fd-grundlagsliste p` (klasse + element), uanset hvem der står
+   sidst. Skrev man afstanden inde i listen som `p { margin: 0 }`, ville
+   den tabe i tavshed, og linjerne ville stå med 9 px oven i gitterets
+   5 px. Det er den samme kaskadefælde, som står beskrevet seks andre
+   steder i denne fil. Derfor er listens egen regel den mest specifikke
+   af de to, og ikke bare den sidste. */
+.fd-afsnit .filtergrundlag { display: block; margin: 9px 0 0; }
+.fd-afsnit .fd-grundlagsliste .filtergrundlag { margin: 0; }
 
 @media (max-width: 620px) {
   /* Fuldskærm. `max-height: 100dvh` og ikke `100vh`: på iOS er `vh`
@@ -1565,10 +1545,8 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
     margin: 0; top: 0; left: 0;
   }
   .fd-ramme { border: 0; border-radius: 0; }
-  /* Stablet: tankestregen mellem Min. og Max. peger på ingenting, når
-     de to står over hinanden, og bliver til en streg alene på en linje.
-     Den er `aria-hidden` pynt, så den kan gå. */
-  .fd-par { grid-template-columns: 1fr; gap: 12px; }
+  /* Prisgrænserne deler en række. Enhederne bliver i felterne. */
+  .fd-par { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
   .fd-til { display: none; }
   /* 16 px: under det zoomer iOS ind paa fokus. Med et tastatur oppe er
      vinduet i forvejen halvt saa hoejt; en zoom oveni gør det
@@ -1814,6 +1792,7 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
    grundlag i lav vaegt. Klasserne bliver paa elementerne, saa
    gruppe- og omraadesiderne, der ogsaa bruger `.optaelling` og
    `.begraensning`, er uroerte. */
+.resultathoved:empty { display: none; }
 .resultathoved {
   display: flex; flex-direction: column; gap: 5px;
   margin: 22px 0 15px; padding: 0 2px;
@@ -1918,32 +1897,30 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
 /* ── Sorteringen ───────────────────────────────────────────────
    Seks almindelige links. Den aktive baerer accentfladen og
    `aria-current`, saa den ogsaa kan hoeres — ikke kun ses. */
-.sortering {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
-  margin-top: 4px;
+.resultat-titel { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+.resultat-titel h1 { min-width: 0; }
+.sortering { position: relative; flex: 0 0 auto; margin-left: auto; }
+.sortering summary {
+  display: flex; align-items: center; gap: 12px; min-height: 44px;
+  padding: 10px 15px; border: 1px solid var(--linje); border-radius: var(--r-s);
+  background: #fff; color: var(--tekst); font-size: 14px; cursor: pointer;
+  list-style: none;
 }
-.sortering-navn {
-  font-size: 12px; color: var(--svag); margin-right: 3px; flex: none;
+.sortering summary::-webkit-details-marker { display: none; }
+.sortering summary::after { content: '⌄'; }
+.sortering summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sortering-valg {
+  position: absolute; z-index: 30; right: 0; top: calc(100% + 6px);
+  display: grid; width: 250px; max-width: calc(100vw - 44px); padding: 6px;
+  background: #fff; border: 1px solid var(--linje); border-radius: var(--r-s);
+  box-shadow: 0 8px 24px #102e2520;
 }
 .sort-pille {
-  font-size: 12.5px; font-weight: 540; color: var(--daempet);
-  text-decoration: none; padding: 5px 11px; border-radius: var(--r-pille);
-  border: 1px solid transparent; white-space: nowrap; line-height: 1.3;
+  display: flex; align-items: center; min-height: 44px; padding: 10px 12px;
+  color: var(--tekst); font-size: 14px; text-decoration: none; border-radius: 6px;
 }
-.sort-pille:hover { background: var(--linje-svag); color: var(--tekst); }
-.sort-pille:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.sort-pille.valgt {
-  background: var(--accent); border-color: var(--accent);
-  color: #fff; font-weight: 600;
-}
-.sort-pille.valgt:hover { background: var(--accent-mrk); color: #fff; }
-@media (max-width: 560px) {
-  /* Paa en telefon er seks pillede ord to linjer. Etiketten kommer
-     foerst paa sin egen linje, saa raekken kan bruge hele bredden. */
-  .sortering { gap: 5px 4px; }
-  .sortering-navn { flex-basis: 100%; margin: 0 0 1px; }
-  .sort-pille { padding: 6px 11px; }
-}
+.sort-pille:hover, .sort-pille.valgt { background: var(--accent-lys); color: var(--accent); }
+.sort-pille:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 .listehoved {
   display: flex; align-items: baseline; justify-content: space-between;

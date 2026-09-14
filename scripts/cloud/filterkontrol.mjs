@@ -189,8 +189,20 @@ for (const bredde of [390, 768, 1100, 1440]) {
 {
   console.log('\n═══ uden JavaScript ═══')
   const { c, p } = await fane(1100, false)
-  await blok('uden JS', 4, async () => {
-    await p.goto(APP + SØGNING + '&flere=1', { waitUntil: 'domcontentloaded' })
+  // Søgningen SKAL bære filtre her. Med et bart «?sted=…» ville
+  // «Ryd filtre» pege på præcis den adresse, den kom fra, og prøven
+  // ville bestå, uanset om den ryddede noget — en kontrol, der ikke kan
+  // fejle. Filtrene nedenfor er dem, den skal af med.
+  const MED_FILTRE = SØGNING + '&prisMin=9000&vaerelser=2&areal=40&sorter=pris_op'
+  // `sted` er området, som knappen lover at beholde; `sorter` er en
+  // orden, ikke et filter, og holdes uden for, så den dag nogen vil lade
+  // ordenen overleve en nulstilling, fejler prøven ikke for en rigtig
+  // ændring. Alt andet ER et filter og skal væk.
+  const BEVARES = ['sted', 'sorter']
+  const restFiltre = (href) =>
+    [...new URL(href, APP).searchParams.keys()].filter((k) => !BEVARES.includes(k))
+  await blok('uden JS', 6, async () => {
+    await p.goto(APP + MED_FILTRE + '&flere=1', { waitUntil: 'domcontentloaded' })
     const d = await p.evaluate(() => {
       const dl = document.querySelector('.filterdialog')
       return {
@@ -202,11 +214,175 @@ for (const bredde of [390, 768, 1100, 1440]) {
     })
     prøve(d.findes && d.open, '`?flere=1` åbner vinduet uden JavaScript')
     prøve(d.synlig, 'vinduets indhold er synligt')
-    prøve((d.luk ?? '').includes('sted=') && !(d.luk ?? '').includes('flere='),
-      'lukknappen er et link tilbage til den samme søgning', d.luk ?? 'intet')
+    prøve((d.luk ?? '').includes('prisMin=9000') && !(d.luk ?? '').includes('flere='),
+      'lukknappen fører tilbage til den samme søgning med filtrene i behold',
+      d.luk ?? 'intet')
     prøve((d.ryd ?? '').includes('sted='), '«Ryd filtre» beholder området', d.ryd ?? 'intet')
+
+    // Selve nulstillingen. `restFiltre` er detektoren, og den er delt
+    // med den negative kontrol nedenfor — ellers ville prøven her måle
+    // sig selv.
+    const tilbage = d.ryd == null ? ['intet link'] : restFiltre(d.ryd)
+    prøve(tilbage.length === 0, '«Ryd filtre» fjerner hvert eneste filter',
+      tilbage.join(', ') || `kun ${[...new URL(d.ryd, APP).searchParams.keys()].join(', ')} tilbage`)
+
+    // Og den skal virke uden JavaScript: linket følges, og søgningen
+    // står tilbage uden filtre, men med området og med resultater.
+    await p.goto(new URL(d.ryd, APP).href, { waitUntil: 'domcontentloaded' })
+    const efter = restFiltre(p.url())
+    const m = await p.evaluate(() => ({
+      kort: document.querySelectorAll('.liste a.kort').length,
+      chips: [...document.querySelectorAll('.chip')].map((c) => c.textContent?.trim()),
+    }))
+    prøve(efter.length === 0 && m.kort > 0 && m.chips.length === 0,
+      'efter «Ryd filtre» står søgningen uden filtre og med resultater',
+      `${efter.join(', ') || 'ingen filterparametre'} · ${m.kort} kort · ${m.chips.length} chips`)
   })
+
+  // ── KAN NULSTILLINGSPRØVEN OVERHOVEDET FEJLE? ─────────────────
+  //  Den forrige udgave kørte på «?sted=Prøveby N» uden filtre. Dér
+  //  peger «Ryd filtre» på præcis den adresse, den kom fra, så prøven
+  //  bestod, uanset om knappen ryddede noget. Den kunne ikke fejle.
+  //
+  //  Her fodres den SAMME detektor med et link, der ikke har ryddet
+  //  noget — søgningens egen adresse. Opdager den ikke det, måler den
+  //  intet, og så skal den røde linje stå her og ikke i produktionen.
+  await blok('negativ nulstillingskontrol', 2, async () => {
+    const ikkeRyddet = APP + MED_FILTRE
+    const fundet = restFiltre(ikkeRyddet)
+    prøve(fundet.length > 0,
+      'detektoren fanger et «Ryd filtre», der ikke har ryddet noget',
+      fundet.join(', ') || 'INTET FUNDET — prøven kan ikke fejle')
+    // Og den må ikke råbe op om selve området og ordenen: de to SKAL
+    // overleve, og en detektor der kalder dem filtre, er lige så ubrugelig.
+    prøve(restFiltre(`${APP}/?sted=Pr%C3%B8veby%20N&sorter=pris_op`).length === 0,
+      'området og ordenen tæller ikke med som filtre',
+      restFiltre(`${APP}/?sted=Pr%C3%B8veby%20N&sorter=pris_op`).join(', ') || 'ingen')
+  })
+
   if (UD) await p.screenshot({ path: `${UD}/uden-js.png`, fullPage: false })
+  await c.close()
+}
+
+// ── Sorteringsmenuen ────────────────────────────────────────────
+//  Sorteringen var seks piller på en linje; den er nu én menu. Formen
+//  er skiftet, så adfærden skal måles på ny: et `<details>` åbner uden
+//  JavaScript, og valgene er almindelige links — men det er præcis den
+//  slags, der kan se rigtigt ud og alligevel tabe filtrene eller lande
+//  på et sidetal fra det gamle sæt.
+{
+  console.log('\n═══ Sorteringsmenuen ═══')
+  const c = await br.newContext({ viewport: { width: 1440, height: 900 } })
+  const p = await c.newPage()
+  await p.goto(APP + '/', { waitUntil: 'networkidle' })
+  const k = p.getByRole('button', { name: 'Kun det nødvendige' })
+  if (await k.count()) { await k.first().click(); await p.waitForTimeout(700) }
+  await blok('sorteringsmenu', 8, async () => {
+    // Et filter OG et sidetal, så begge dele kan efterprøves. Uden et
+    // filter, der lader mere end én side tilbage, er side 2 tom — og så
+    // findes menuen slet ikke, fordi den kun vises med resultater.
+    // `?areal=1` og ikke en bysøgning: gruppering skærer 76 boliger i
+    // Prøveby N ned til under 48 KORT, så den søgning har kun én side, og
+    // side 2 er tom — og menuen vises kun med resultater. `areal=1`
+    // rammer hele bestanden og har flere sider.
+    await p.goto(APP + '/?areal=1&side=2', { waitUntil: 'networkidle' })
+    const lukket = await p.evaluate(() => {
+      const d = document.querySelector('details.sortering')
+      return { findes: !!d, open: d?.open ?? null, etiket: d?.querySelector('summary')?.textContent?.trim() ?? null }
+    })
+    prøve(lukket.findes && lukket.open === false,
+      'menuen er lukket som udgangspunkt', `open=${lukket.open}`)
+    prøve((lukket.etiket ?? '').startsWith('Sortér:'),
+      'knappen siger, hvad der er valgt', lukket.etiket ?? 'ingen')
+
+    // Berøringsmålet på selve knappen.
+    const maal = await p.evaluate(() => {
+      const r = document.querySelector('details.sortering summary').getBoundingClientRect()
+      return { h: Math.round(r.height), b: Math.round(r.width) }
+    })
+    prøve(maal.h >= 44, 'knappen er mindst 44 px høj', `${maal.b}×${maal.h}`)
+
+    await p.locator('details.sortering summary').click()
+    await p.waitForTimeout(200)
+    const aaben = await p.evaluate(() => {
+      const d = document.querySelector('details.sortering')
+      const valg = [...d.querySelectorAll('.sort-pille')]
+      const r = (e) => e.getBoundingClientRect()
+      return {
+        open: d.open,
+        antal: valg.length,
+        lave: valg.filter((e) => r(e).height < 44).length,
+        udenforSkaerm: valg.filter((e) => r(e).right > innerWidth + 1 || r(e).left < -1).length,
+        valgt: valg.filter((e) => e.getAttribute('aria-current') === 'true').map((e) => e.textContent.trim()),
+        href: valg.find((e) => e.getAttribute('aria-current') !== 'true')?.getAttribute('href') ?? null,
+      }
+    })
+    prøve(aaben.open && aaben.antal >= 5, 'menuen åbner med alle ordener', `${aaben.antal} valg`)
+    prøve(aaben.lave === 0 && aaben.udenforSkaerm === 0,
+      'valgene er mindst 44 px høje og inden for skærmen',
+      `${aaben.lave} for lave, ${aaben.udenforSkaerm} uden for`)
+    prøve(aaben.valgt.length === 1, 'præcis ét valg er markeret', aaben.valgt.join(', '))
+    // Linket skal bære filteret og LADE SIDETALLET FALDE: en anden orden
+    // lægger andre boliger på side 2, og et sidetal fra det gamle sæt
+    // peger ingen steder i det nye.
+    prøve((aaben.href ?? '').includes('areal=1') && !/[?&]side=/.test(aaben.href ?? ''),
+      'valget bærer filteret og nulstiller sidetallet', aaben.href ?? 'intet link')
+
+    await p.locator('details.sortering .sort-pille:not([aria-current])').first().click()
+    await p.waitForLoadState('networkidle')
+    const efter = await p.evaluate(() => ({
+      url: location.search,
+      etiket: document.querySelector('details.sortering summary')?.textContent?.trim() ?? null,
+      chips: [...document.querySelectorAll('.chip')].map((c) => c.textContent?.trim()).join(' | '),
+    }))
+    prøve(efter.url.includes('areal=1') && efter.url.includes('sorter=')
+      && !/[?&]side=/.test(efter.url),
+      'efter valget: filteret står, sidetallet er væk, ordenen er i adressen',
+      `${efter.url} · ${efter.etiket}`)
+    if (UD) await p.screenshot({ path: `${UD}/sortering-1440.png` })
+  })
+
+  // ── Ordenen overlever «Vis resultater» ────────────────────────
+  //  Sorteringen bor nu ÉT sted: menuen over listen. Vinduet har intet
+  //  sorteringsfelt mere — og et vindue uden felt er en GET-formular,
+  //  der ikke sender parameteren. Uden det skjulte felt ville hvert
+  //  eneste filtertryk stille søgningen tilbage til «nyeste», uden at
+  //  nogen rørte sorteringen. Det er den fejl, denne blok måler.
+  await blok('ordenen overlever et filtertryk', 4, async () => {
+    await p.goto(APP + '/?areal=1&sorter=pris_op', { waitUntil: 'networkidle' })
+    const før = await p.evaluate(() =>
+      document.querySelector('details.sortering summary')?.textContent?.trim() ?? null)
+    prøve((før ?? '').includes('Billigst'), 'søgningen står på den valgte orden', før ?? 'ingen')
+
+    // Vinduet må ikke have sit eget sorteringsfelt: to menuer for den
+    // samme indstilling er to steder at lede og to steder at rette.
+    await p.locator('.filterknap').click()
+    await p.waitForTimeout(250)
+    const ifeltet = await p.evaluate(() => {
+      const d = document.querySelector('.filterdialog')
+      return {
+        synlige: [...d.querySelectorAll('select[name="sorter"], input[name="sorter"]:not([type="hidden"])')].length,
+        skjult: d.querySelector('input[type="hidden"][name="sorter"]')?.value ?? null,
+      }
+    })
+    prøve(ifeltet.synlige === 0, 'vinduet har ingen anden sorteringsmenu',
+      `${ifeltet.synlige} synlige sorteringsfelter`)
+    prøve(ifeltet.skjult === 'pris_op', 'ordenen bæres med som et skjult felt',
+      String(ifeltet.skjult))
+
+    // Og så det, der faktisk betyder noget: ret et filter, tryk «Vis
+    // resultater», og se at ordenen stadig står.
+    await p.locator('#prisMin').fill('7000')
+    await p.locator('.fd-vis').click()
+    await p.waitForURL(/prisMin=7000/, { timeout: 8000 }).catch(() => {})
+    const efterVis = await p.evaluate(() => ({
+      url: location.search,
+      etiket: document.querySelector('details.sortering summary')?.textContent?.trim() ?? null,
+    }))
+    prøve(/sorter=pris_op/.test(efterVis.url) && (efterVis.etiket ?? '').includes('Billigst'),
+      '«Vis resultater» taber ikke den valgte orden',
+      `${efterVis.url} · ${efterVis.etiket}`)
+  })
   await c.close()
 }
 
