@@ -364,7 +364,8 @@ try {
         document.querySelector('.galleri .flere')?.click()
         await new Promise((r) => setTimeout(r, 400))
         const t = document.querySelector('.lysbord .taeller')
-        return { aaben: !!document.querySelector('.lysbord'), taeller: t?.textContent?.trim() ?? null }
+        const d = document.querySelector('.lysbord')
+        return { aaben: !!d && d.open, taeller: t?.textContent?.trim() ?? null }
       })
       tjek(`${merke} · knappen åbner lysbordet`, viaKnap.aaben)
       tjek(`${merke} · lysbordet åbner på det FØRSTE billede`,
@@ -397,7 +398,7 @@ try {
         return {
           fandt: true, ruder: ruder.length, harKnap: !!f,
           knaptekst: f?.textContent?.trim() ?? null,
-          aaben: !!document.querySelector('.lysbord'),
+          aaben: (() => { const d = document.querySelector('.lysbord'); return !!d && d.open })(),
           taeller: t?.textContent?.trim() ?? null,
         }
       })
@@ -451,8 +452,17 @@ try {
       await p.screenshot({ path: `${UD}/lysbord-${merke}.png` })
       await p.keyboard.press('Escape')
       await p.waitForTimeout(250)
+      // Dialogen er monteret bestandigt (se Galleri.tsx), saa «findes ikke»
+      // er ikke laengere maalet paa, om den er lukket. `open` og `display`
+      // er, og de er skrappere: de fanger ogsaa en dialog, der er lukket
+      // men blevet staaende synlig.
+      const lukket = await p.evaluate(() => {
+        const d = document.querySelector('.lysbord')
+        return { findes: !!d, open: d ? d.open : null, display: d ? getComputedStyle(d).display : null }
+      })
       tjek(`${merke} · lysbordet lukker igen med Escape`,
-        await p.locator('.lysbord').count() === 0)
+        lukket.findes && lukket.open === false && lukket.display === 'none',
+        `open=${lukket.open} display=${lukket.display}`)
 
       // ── Og det STAAENDE motiv i lysbordet ─────────────────────
       //  Lysbordet skal vise hele motivet, ogsaa naar det er hoejere end

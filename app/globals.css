@@ -691,11 +691,34 @@ footer.bund {
 }
 
 /* ─── Lysbord ───────────────────────────────────────────────── */
+/* Lysbordet er et RIGTIGT `<dialog>`, aabnet med `showModal()` — se
+   noten i app/bolig/[id]/Galleri.tsx. Det giver fokusfaelden, Escape og
+   fokus tilbage af browseren i stedet for af en haandskrevet faelde.
+
+   Blokken herunder nulstiller UA-stilen for `dialog`, saa udseendet er
+   nojagtig som foer: browseren giver den `width/height: fit-content`,
+   `margin: auto`, `max-width/height: calc(100% - 6px - 2em)`, en ramme,
+   1em polstring og `color: CanvasText`. Uden nulstillingen ville
+   lysbordet blive en lille hvid kasse midt paa skaermen.
+
+   `display` skal staa paa `[open]` og ikke paa elementet: UA-stilen
+   skjuler en lukket dialog med `display: none`, og et `display: grid`
+   uden betingelse ville slaa den regel ud — saa stod lysbordet aabent
+   hele tiden, ogsaa lukket. Dialogen er monteret bestandigt, netop for
+   at `close()` kan naa at give fokus tilbage, saa den regel baerer. */
 .lysbord {
   position: fixed; inset: 0; z-index: 100; background: rgba(12,13,16,.96);
-  display: grid; grid-template-rows: auto 1fr auto; align-items: center;
+  width: 100%; height: 100%; max-width: none; max-height: none;
+  margin: 0; padding: 0; border: 0; color: #fff;
+  grid-template-rows: auto 1fr auto; align-items: center;
   animation: ton .14s ease-out;
 }
+.lysbord[open] { display: grid; }
+/* Dialogen daekker selv hele skaermen med sin egen moerke flade, saa
+   browserens backdrop skal vaere gennemsigtig. Med UA-standardens lette
+   toning ville de to lag lagt oven i hinanden gore indtoningen moerkere
+   end den var foer. */
+.lysbord::backdrop { background: transparent; }
 @keyframes ton { from { opacity: 0 } to { opacity: 1 } }
 .lys-top {
   display: flex; justify-content: space-between; align-items: center;

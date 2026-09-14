@@ -19,19 +19,49 @@ export interface GalleriBillede {
 export function Galleri({ billeder }: { billeder: GalleriBillede[] }) {
   const [aaben, setAaben] = useState<number | null>(null)
   const roer = useRef<number | null>(null)
+  const dialog = useRef<HTMLDialogElement>(null)
 
   const luk = useCallback(() => setAaben(null), [])
   const gaa = useCallback((retning: number) => {
     setAaben((n) => (n == null ? null : (n + retning + billeder.length) % billeder.length))
   }, [billeder.length])
 
-  // Tastatur. Bindes kun mens lysbordet er aabent, saa piletaster ellers
-  // stadig ruller siden.
+  // ── Lysbordet er en RIGTIG modal dialog ───────────────────────
+  //
+  //  Det var et `<div role="dialog" aria-modal="true">`. Attributten
+  //  lover tre ting, som et div ikke kan holde: at fokus flytter ind,
+  //  at Tab bliver inde, og at fokus vender tilbage. Ingen af dem
+  //  skete. Maalt paa en bolig med fem billeder, begge bredder:
+  //  fokus blev staaende paa aabningsknappen, 21 af 30 tab-tryk landede
+  //  paa siden BAG lysbordet — «Boligen», «Faciliteter», «Pris pr. m²» —
+  //  og ved lukning faldt fokus til <body>.
+  //
+  //  `showModal()` giver alle tre af browseren. Det er den samme
+  //  loesning som filtervinduet i app/Filterdialog.tsx, og det er
+  //  pointen: der skal vaere ÉT svar paa «hvordan laver vi en modal»,
+  //  ikke to. En haandskrevet fokusfaelde ville vaere det andet udtryk
+  //  for det samme spoergsmaal.
+  //
+  //  Dialogen bliver MONTERET hele tiden og aabnes og lukkes med
+  //  metoderne. Lod vi React afmontere den, ville browseren aldrig se
+  //  `close()` — og saa er der ingen til at give fokus tilbage.
+  //  Indholdet renderes stadig kun naar den er aaben, saa 1600px-
+  //  varianterne foerst hentes ved aabning, som foer.
+  useEffect(() => {
+    const d = dialog.current
+    if (!d) return
+    if (aaben != null && !d.open) d.showModal()
+    else if (aaben == null && d.open) d.close()
+  }, [aaben])
+
+  // Piletaster. Bindes kun mens lysbordet er aabent, saa de ellers
+  // stadig ruller siden. Escape staar IKKE her mere: en modal dialog
+  // haandterer den selv og sender `cancel`, som `onCancel` tager. To
+  // veje ud ville vaere to steder at rette.
   useEffect(() => {
     if (aaben == null) return
     const paaTast = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') luk()
-      else if (e.key === 'ArrowRight') gaa(1)
+      if (e.key === 'ArrowRight') gaa(1)
       else if (e.key === 'ArrowLeft') gaa(-1)
     }
     window.addEventListener('keydown', paaTast)
@@ -42,7 +72,7 @@ export function Galleri({ billeder }: { billeder: GalleriBillede[] }) {
       window.removeEventListener('keydown', paaTast)
       document.body.style.overflow = gemt
     }
-  }, [aaben, luk, gaa])
+  }, [aaben, gaa])
 
   // Hent naboerne paa forhaand, saa bladring ikke blinker.
   useEffect(() => {
@@ -110,19 +140,26 @@ export function Galleri({ billeder }: { billeder: GalleriBillede[] }) {
         )}
       </div>
 
-      {aaben != null && (
-        <div
-          className="lysbord"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Billede ${aaben + 1} af ${billeder.length}`}
-          onClick={(e) => { if (e.target === e.currentTarget) luk() }}
-          onTouchStart={(e) => start(e.touches[0]!.clientX)}
-          onTouchEnd={(e) => slut(e.changedTouches[0]!.clientX)}
-        >
+      <dialog
+        ref={dialog}
+        className="lysbord"
+        aria-label={aaben == null ? 'Billeder' : `Billede ${aaben + 1} af ${billeder.length}`}
+        // Escape lukker en modal dialog af sig selv. `preventDefault` stopper
+        // browserens egen lukning, saa tilstanden i React og dialogens
+        // `open` ikke kan komme fra hinanden: ÉN vej ud, gennem `luk`.
+        onCancel={(e) => { e.preventDefault(); luk() }}
+        onClick={(e) => { if (e.target === e.currentTarget) luk() }}
+        onTouchStart={(e) => { if (e.touches[0]) start(e.touches[0].clientX) }}
+        onTouchEnd={(e) => { if (e.changedTouches[0]) slut(e.changedTouches[0].clientX) }}
+      >
+        {aaben != null && (
+        <>
           <div className="lys-top">
             <span className="taeller">{aaben + 1} / {billeder.length}</span>
-            <button type="button" className="luk" onClick={luk} aria-label="Luk (Esc)">✕</button>
+            {/* Foerste fokuserbare i traeet, og udtrykkeligt markeret:
+                `showModal()` leder foerst efter [autofocus]. Saa er det
+                ikke DOM-raekkefoelgen, der afgoer, hvor fokus lander. */}
+            <button type="button" className="luk" onClick={luk} aria-label="Luk (Esc)" autoFocus>✕</button>
           </div>
 
           <button type="button" className="pil venstre" onClick={() => gaa(-1)} aria-label="Forrige">‹</button>
@@ -144,8 +181,9 @@ export function Galleri({ billeder }: { billeder: GalleriBillede[] }) {
               </button>
             ))}
           </div>
-        </div>
-      )}
+        </>
+        )}
+      </dialog>
     </>
   )
 }
