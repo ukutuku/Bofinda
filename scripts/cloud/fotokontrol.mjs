@@ -66,7 +66,7 @@ const RIGTIGE = fotos.length > 0
 // Motiverne: enten fotografierne, eller de genererede former.
 // «staaende»/«liggende» afgoeres for fotografier af filens egne maal,
 // maalt i browseren — ikke gaettet ud fra filnavnet.
-// Galleriet viser tre ruder plus «+N billeder». Er der faerre motiver
+// Galleriet viser tre ruder plus «Se alle N billeder». Er der faerre motiver
 // end det, gentages de — ellers staar galleriet som ét billede (`.g1`),
 // og saa kan hverken de tre ruder eller knappen proeves. Gentagelsen
 // staar i udskriften: det er det SAMME fotografi, ikke fire forskellige.
@@ -84,7 +84,7 @@ console.log(RIGTIGE
     + `    ${fotos.join(', ')}\n`
     + (fotos.length < 4
       ? `    Bemaerk: der er ${fotos.length}, ikke fire. Motivet gentages i galleriet,\n`
-        + '    saa de tre ruder og «+N billeder» kan proeves — det er det SAMME\n'
+        + '    saa de tre ruder og «Se alle N billeder» kan proeves — det er det SAMME\n'
         + '    fotografi flere gange, ikke flere forskellige.\n'
       : '')
   : `\n  ⚠ INGEN FOTOGRAFIER i ${svar.mappe ?? '(ukendt mappe)'}.\n`
@@ -281,13 +281,137 @@ try {
       tjek(`${merke} · galleriet beskærer (cover), strækker ikke`,
         g.billeder.every((b) => b.fit === 'cover'))
       if (g.flereInde !== null) {
-        tjek(`${merke} · «+N billeder» ligger inde i galleriet (intet overlap ud)`, g.flereInde)
+        // Navnet sagde «+N billeder» efter at knappen var doebt om. En
+        // rapportlinje, der ikke svarer til virkeligheden, er vaerre end
+        // ingen linje — samme regel som startlinjen, der printede hele
+        // kilderegistret, mens `koerAlle` filtrerede.
+        tjek(`${merke} · «Se alle N billeder» ligger inde i galleriet (intet overlap ud)`, g.flereInde)
       }
     } else {
       tjek(`${merke} · galleriet findes`, false)
     }
     tjek(`${merke} · boligsiden har intet vandret overløb`, await overloeb() <= 0)
     await p.screenshot({ path: `${UD}/galleri-${merke}.png` })
+
+    // ── Galleriknappen: siger den det RIGTIGE tal? ───────────────
+    //  Den sagde «+N billeder», hvor N var `billeder.length - 3` — altsaa
+    //  hvor mange der laa ud over de tre ruder, komponenten lægger i
+    //  gitteret. Men under 720 px skjuler CSS'en alle ruder paa naer den
+    //  foerste. Med fire motiver saa en telefonbruger derfor ÉT foto og
+    //  fik at vide, at der var «+1 billeder» — to i alt, ikke fire.
+    //
+    //  Forventningen regnes af MOTIVER.length, ikke skrevet af. Skifter
+    //  proeven antal motiver, foelger paastanden med; og staar der et
+    //  hardcodet «4» i koden, fejler den, naar tallet aendres.
+    const galknap = await p.evaluate(() => {
+      const gal = document.querySelector('.galleri')
+      const f = gal && gal.querySelector('.flere')
+      if (!f) return { fandt: false }
+      const r = f.getBoundingClientRect()
+      return {
+        fandt: true,
+        tekst: (f.textContent ?? '').replace(/\s+/g, ' ').trim(),
+        navn: f.getAttribute('aria-label') || (f.textContent ?? '').trim(),
+        b: Math.round(r.width), h: Math.round(r.height),
+        galBredde: Math.round(gal.getBoundingClientRect().width),
+        klippet: f.scrollWidth > f.clientWidth + 1,
+        // Hvor mange ruder ser man FAKTISK ved den her bredde?
+        synligeRuder: [...gal.querySelectorAll('button:not(.flere)')]
+          .filter((e) => e.getBoundingClientRect().width > 0).length,
+      }
+    })
+    const VENTET = `Se alle ${MOTIVER.length} billeder`
+    tjek(`${merke} · galleriknappen findes`, galknap.fandt)
+    if (galknap.fandt) {
+      tjek(`${merke} · knappen siger det SAMLEDE antal, ikke resten`,
+        galknap.tekst === VENTET, `«${galknap.tekst}» — ventet «${VENTET}»`)
+      // Selve fejlen, sat paa skrift. Den forrige paastand fulgte allerede
+      // af den foerste og sagde intet om ruder; den her binder de to tal
+      // sammen. Knappen sagde «+1 billeder», fordi tallet var regnet af
+      // tre RUDER — saa paastanden skal vaere: uanset hvor mange ruder der
+      // vises, naevner knappen det SAMLEDE antal og ikke ruderne.
+      //
+      // Den fejler, hvis nogen regner tallet af ruderne igen: paa mobil
+      // ville knappen saa sige 1 eller 3, ikke 4. Og den fejler, hvis
+      // nogen fjerner `display: none` i globals.css, saa mobil pludselig
+      // viser tre ruder — for saa er `synligeRuder` ikke 1 laengere, og
+      // linjen siger det.
+      const VENTEDE_RUDER = merke === 'mobil' ? 1 : Math.min(3, MOTIVER.length)
+      tjek(`${merke} · ${VENTEDE_RUDER} rude(r) vises, og knappen siger stadig ${MOTIVER.length}`,
+        galknap.synligeRuder === VENTEDE_RUDER
+        && Number((galknap.tekst.match(/\d+/) ?? [])[0]) === MOTIVER.length,
+        `${galknap.synligeRuder} synlig(e) rude(r) — knappen siger «${galknap.tekst}»`)
+      // «scrollWidth > clientWidth» kan ikke fejle her: pillen har ingen
+      // breddebegraensning og vokser med sin tekst, saa tallet er altid 0.
+      // En proeve, der ikke kan fejle, er ikke en proeve. To ting, der
+      // FAKTISK kan gaa galt med en laengere tekst, maales i stedet:
+      // at knappen ikke bliver hoejere end én linje, og at den bliver
+      // inde i galleriet. Begge fejler, hvis teksten en dag ikke kan vaere.
+      tjek(`${merke} · teksten står på én linje`,
+        galknap.h <= 52, `${galknap.b}×${galknap.h} px (over 52 ⇒ brudt)`)
+      tjek(`${merke} · knappen er smallere end galleriet`,
+        galknap.b < galknap.galBredde, `knap ${galknap.b} px i galleri ${galknap.galBredde} px`)
+      tjek(`${merke} · berøringsmålet er mindst 44×44`,
+        galknap.h >= 44 && galknap.b >= 44, `${galknap.b}×${galknap.h} px`)
+      tjek(`${merke} · knappen har et brugbart tilgængeligt navn`,
+        /\d/.test(galknap.navn) && galknap.navn.length > 3, `«${galknap.navn}»`)
+
+      // Og den skal aabne lysbordet paa det FOERSTE billede. Den aabnede
+      // foer paa nr. 4 — `setAaben(vist.length)`, altsaa den samme
+      // antagelse om tre synlige ruder. Paa en telefon sprang den de to
+      // over, brugeren aldrig havde set.
+      const viaKnap = await p.evaluate(async () => {
+        document.querySelector('.galleri .flere')?.click()
+        await new Promise((r) => setTimeout(r, 400))
+        const t = document.querySelector('.lysbord .taeller')
+        return { aaben: !!document.querySelector('.lysbord'), taeller: t?.textContent?.trim() ?? null }
+      })
+      tjek(`${merke} · knappen åbner lysbordet`, viaKnap.aaben)
+      tjek(`${merke} · lysbordet åbner på det FØRSTE billede`,
+        viaKnap.taeller === `1 / ${MOTIVER.length}`,
+        `tælleren siger «${viaKnap.taeller}», ventet «1 / ${MOTIVER.length}»`)
+      if (viaKnap.aaben) {
+        await saetMaerkat()
+        await p.screenshot({ path: `${UD}/knap-lysbord-${merke}.png` })
+        await p.keyboard.press('Escape')
+        await p.waitForTimeout(250)
+      }
+    }
+
+    // ── Ét billede: ingen knap, men stadig en vej ind ────────────
+    //  Annonce 2 har præcis ét motiv. «Se alle 1 billeder» er hverken
+    //  dansk eller en handling, saa knappen skal være væk — og saa skal
+    //  det ene foto selv kunne aabne lysbordet, ellers er der ingen vej
+    //  ind overhovedet.
+    {
+      await p.goto(`${BASE}/bolig/${IDS[1]}`, { waitUntil: 'networkidle', timeout: 90_000 })
+      await p.waitForTimeout(400)
+      const en = await p.evaluate(async () => {
+        const gal = document.querySelector('.galleri')
+        if (!gal) return { fandt: false }
+        const ruder = [...gal.querySelectorAll('button:not(.flere)')]
+        const f = gal.querySelector('.flere')
+        ruder[0]?.click()
+        await new Promise((r) => setTimeout(r, 400))
+        const t = document.querySelector('.lysbord .taeller')
+        return {
+          fandt: true, ruder: ruder.length, harKnap: !!f,
+          knaptekst: f?.textContent?.trim() ?? null,
+          aaben: !!document.querySelector('.lysbord'),
+          taeller: t?.textContent?.trim() ?? null,
+        }
+      })
+      tjek(`${merke} · ét billede: galleriet findes`, en.fandt, `${en.ruder} rude(r)`)
+      tjek(`${merke} · ét billede: ingen «Se alle»-knap`,
+        en.harKnap === false, en.knaptekst ?? 'ingen knap')
+      tjek(`${merke} · ét billede: fotoet åbner selv lysbordet`, en.aaben === true)
+      tjek(`${merke} · ét billede: tælleren siger 1 / 1`, en.taeller === '1 / 1', String(en.taeller))
+      await p.keyboard.press('Escape').catch(() => {})
+      await p.waitForTimeout(200)
+      await p.goto(`${BASE}/bolig/${IDS[0]}`, { waitUntil: 'networkidle', timeout: 90_000 })
+      await p.waitForTimeout(400)
+      await saetMaerkat()
+    }
 
     // Lysbordet: hele motivet skal kunne ses, ikke et beskaaret udsnit.
     const aabnet = await p.evaluate(async () => {
@@ -329,11 +453,69 @@ try {
       await p.waitForTimeout(250)
       tjek(`${merke} · lysbordet lukker igen med Escape`,
         await p.locator('.lysbord').count() === 0)
+
+      // ── Og det STAAENDE motiv i lysbordet ─────────────────────
+      //  Lysbordet skal vise hele motivet, ogsaa naar det er hoejere end
+      //  bredt. Et liggende foto fylder rammen; et staaende efterlader
+      //  luft i siderne, og det er dér, en `cover` i stedet for `contain`
+      //  ville klippe toppen og bunden af uden at nogen saa det.
+      //
+      //  Motivet findes paa sine EGNE maal i browseren, ikke paa filnavnet
+      //  — samme regel som resten af filen. Er der ingen staaende motiver,
+      //  siges det; en oversprunget maaling maa ikke taelle groent.
+      const staaende = await p.evaluate(async (antal) => {
+        // IKKE `a?.click() ?? b?.click()`: `click()` giver `undefined`,
+        // saa `??` falder igennem OGSAA naar det foerste klik er fyret,
+        // og begge ville ramme. Her skal kun ét af dem.
+        const aabner = document.querySelector('.galleri .flere')
+          ?? document.querySelector('.galleri > button')
+        aabner?.click()
+        await new Promise((r) => setTimeout(r, 400))
+        const minier = [...document.querySelectorAll('.lysbord .minier button')]
+        for (let i = 0; i < minier.length && i < antal; i++) {
+          minier[i].click()
+          await new Promise((r) => setTimeout(r, 350))
+          const img = document.querySelector('.lys-billede')
+          for (let k = 0; k < 100 && !(img?.complete && img.naturalWidth > 0); k++) {
+            await new Promise((r) => setTimeout(r, 100))
+          }
+          if (img && img.naturalHeight > img.naturalWidth) {
+            const r = img.getBoundingClientRect()
+            return {
+              fandt: true, indeks: i,
+              nat: [img.naturalWidth, img.naturalHeight],
+              vist: [Math.round(r.width), Math.round(r.height)],
+              fit: getComputedStyle(img).objectFit,
+              taeller: document.querySelector('.lysbord .taeller')?.textContent?.trim() ?? null,
+              indenfor: r.top >= -1 && r.bottom <= innerHeight + 1,
+            }
+          }
+        }
+        return { fandt: false }
+      }, MOTIVER.length)
+      if (staaende.fandt) {
+        const f1 = staaende.nat[0] / staaende.nat[1]
+        const f2 = staaende.vist[0] / staaende.vist[1]
+        tjek(`${merke} · staaende motiv: hele billedet vises (contain)`,
+          staaende.fit === 'contain', staaende.fit)
+        tjek(`${merke} · staaende motiv: ikke forvrænget`,
+          Math.abs(f1 - f2) / f1 < 0.02,
+          `motiv ${f1.toFixed(2)} · vist ${f2.toFixed(2)} (${staaende.nat.join('×')})`)
+        tjek(`${merke} · staaende motiv: hele højden er inden for skærmen`,
+          staaende.indenfor, `vist ${staaende.vist.join('×')} i ${bredde} px`)
+        await saetMaerkat()
+        await p.screenshot({ path: `${UD}/lysbord-staaende-${merke}.png` })
+        await p.keyboard.press('Escape')
+        await p.waitForTimeout(250)
+      } else {
+        tjek(`${merke} · der ER et staaende motiv at prøve lysbordet med`, false,
+          'ingen af motiverne er højere end brede — prøven blev IKKE kørt')
+      }
     } else {
       tjek(`${merke} · lysbordet åbner`, false, 'ingen .lys-billede')
     }
 
-    // ── «+N billeder» mod et MOERKT motiv ───────────────────────
+    // ── «Se alle N billeder» mod et MOERKT motiv ────────────────
     //  Knappen sidder nederst til hoejre, altsaa over det SIDSTE synlige
     //  motiv. I foerste omgang var det den lyse form. Rekkefoelgen
     //  byttes, saa den ogsaa proeves mod det moerkeste, vi har.
