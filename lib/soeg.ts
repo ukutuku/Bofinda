@@ -106,9 +106,9 @@ const FULD = sql`(${listings.totalMonthly} is not null
 /**
  * Prisen der filtreres, sorteres og opsummeres på.
  *
- * Den reelle månedlige udgift, når vi kender den — ellers huslejen. Det er
- * det tal, brugeren SER som overskrift på kortet, og dermed det, hun mener,
- * når hun skriver "under 18.000". Filtrerede vi på huslejen alene, ville en
+ * Den månedlige betaling til udlejer, når vi kender den — ellers huslejen.
+ * Det er det tal, brugeren SER som overskrift på kortet, og dermed det, hun
+ * mener, når hun skriver "under 18.000". Filtrerede vi på huslejen alene, ville en
  * bolig til 17.200 i husleje og 18.100 i alt slippe gennem et 18.000-filter
  * og se dyrere ud end bestilt.
  *
@@ -1032,19 +1032,35 @@ export async function soegGrupperet(
 export const antalBoliger = (v: Visning[]) =>
   v.reduce((n, x) => n + (x.slags === 'gruppe' ? x.gruppe.antal : 1), 0)
 
-/** Nøglen som URL. Hele nøglen med, så siden kan slå gruppen op igen. */
 /**
- * Linket til gruppens egen side.
+ * Linket til gruppens egen side med det samme SQL-filtrerede udsnit som kortet.
  *
- * Adressen baerer ÉN ting: repraesentantens bolig-id. Siden slaar den op og
- * udleder noeglen derfra.
+ * Kun offentlige søgefelter følger med. Sortering og sidetal ændrer ikke
+ * medlemskabet. Domænefiltre (indflytning, venteliste, reserveret) udvælger
+ * grupper med mindst ét match; kortets «Se alle» omfatter fortsat de øvrige
+ * medlemmer, som opfylder SQL-filtrene.
  *
  * Foer stod hele noeglen i adressen. Da ejeren kom med i noeglen, ville det
  * have lagt en udlejers KONTO-id i en delbar URL. Bolig-id'et er derimod
  * allerede offentligt — det staar i /bolig/{id} paa hvert eneste kort.
  */
-export const gruppeUrl = (repraesentantId: string): string =>
-  `/gruppe?b=${encodeURIComponent(repraesentantId)}`
+export function gruppeUrl(repraesentantId: string, f: Filtre = {}): string {
+  const p = new URLSearchParams({ b: repraesentantId })
+  if (f.by) p.set('by', f.by)
+  if (f.postnr) p.set('postnr', f.postnr)
+  // Filtre bruger øre; søgeparametrene bruger hele kroner.
+  if (f.prisMin != null) p.set('prisMin', String(f.prisMin / 100))
+  if (f.prisMax != null) p.set('prisMax', String(f.prisMax / 100))
+  if (f.vaerelserMin != null) p.set('vaerelser', String(f.vaerelserMin))
+  if (f.arealMin != null) p.set('areal', String(f.arealMin))
+  for (const kilde of f.kilder ?? []) p.append('kilde', kilde)
+  for (const type of f.boligtyper ?? []) p.append('type', type)
+  if (f.fuldOekonomi) p.set('fuld', '1')
+  if (f.kaeledyr) p.set('kaeledyr', '1')
+  if (f.elevator) p.set('elevator', '1')
+  if (f.udeplads) p.set('udeplads', '1')
+  return `/gruppe?${p}`
+}
 
 /**
  * Nøgle ud af de GAMLE URL-parametre. Er én del væk eller ugyldig, er der
@@ -1097,11 +1113,11 @@ export async function gruppenoegleFraBolig(id: string): Promise<Gruppenoegle | n
 /**
  * De enkelte boliger i én gruppe.
  *
- * Samme grundbetingelser som listen — kun aktive, kun med adressematch.
- * Brugerens øvrige filtre er med vilje IKKE med: gruppen er defineret af
- * nøglen alene, så linket peger på det samme uanset hvem der åbner det.
+ * Når søgefiltre følger med, bruges listens eget prædikat inkl. dedup på
+ * hele det filtrerede sæt. Ellers kunne skjulte dubletter komme tilbage
+ * efter klik. Gamle nøglelinks uden søgekontekst beholder deres opslag.
  */
-export async function hentGruppe(n: Gruppenoegle) {
+export async function hentGruppe(n: Gruppenoegle, f?: Filtre) {
   return db
     .select(KORTFELTER)
     .from(listings)
@@ -1109,6 +1125,7 @@ export async function hentGruppe(n: Gruppenoegle) {
     .where(and(
       eq(listings.status, 'active'),
       ne(listings.addressMatchLevel, 'failed'),
+      f ? hvorVist(f) : undefined,
       eq(sources.slug, n.kilde),
       eq(listings.postalCode, n.postnr),
       eq(listings.street, n.vej),
@@ -1172,13 +1189,36 @@ export async function opsummering(f: Filtre, referenceNow: Date = new Date()) {
       kaeledyr: sql<number>`count(*) filter (where ${harFacilitet(FACILITET.kaeledyr)})::int`,
       elevator: sql<number>`count(*) filter (where ${harFacilitet(FACILITET.elevator)})::int`,
       udeplads: sql<number>`count(*) filter (where ${harFacilitet(FACILITET.udeplads)})::int`,
+      // Boligtyperne, talt paa DENNE soegning. Se `boligtypegrundlag`
+      // nedenfor for hvorfor de ikke maa komme fra `facetter()`.
+      ...typeaggregater(),
     })
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
     // Samme saet som listen. Ellers ville "Viser de 62 nyeste af 1.137"
     // taelle dubletter, listen ikke viser.
     .where(hvorVist(f))
-  return r!
+  return { ...r!, typer: typerAf(r!) }
+}
+
+/**
+ * Ét aggregat pr. boligtype, paa den scanning der alligevel sker.
+ *
+ * Navngivet `type_<slug>` og ikke bare typen, saa en enum-vaerdi aldrig kan
+ * kollidere med en af `opsummering`s egne kolonner.
+ */
+function typeaggregater() {
+  return Object.fromEntries(BOLIGTYPER.map((t) => [
+    `type_${t}`,
+    sql<number>`count(*) filter (where ${listings.propertyType} = ${t})::int`,
+  ])) as Record<string, ReturnType<typeof sql<number>>>
+}
+
+/** De samme kolonner laest tilbage som en liste, stoerste foerst. */
+function typerAf(r: Record<string, unknown>): { type: Boligtype; antal: number }[] {
+  return BOLIGTYPER
+    .map((t) => ({ type: t, antal: Number(r[`type_${t}`] ?? 0) }))
+    .sort((a, b) => b.antal - a.antal)
 }
 
 export type Opsummering = Awaited<ReturnType<typeof opsummering>>
@@ -1204,6 +1244,7 @@ async function opsummeringMedDomaene(f: Filtre, referenceNow: Date) {
       kaeledyr: sql<boolean>`${harFacilitet(FACILITET.kaeledyr)}`,
       elevator: sql<boolean>`${harFacilitet(FACILITET.elevator)}`,
       udeplads: sql<boolean>`${harFacilitet(FACILITET.udeplads)}`,
+      type: listings.propertyType,
     })
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
@@ -1226,6 +1267,10 @@ async function opsummeringMedDomaene(f: Filtre, referenceNow: Date) {
     kaeledyr: taeller((r) => r.kaeledyr),
     elevator: taeller((r) => r.elevator),
     udeplads: taeller((r) => r.udeplads),
+    // Samme tal som SQL-grenens, talt paa de raekker domaenet slap igennem.
+    typer: BOLIGTYPER
+      .map((t) => ({ type: t, antal: taeller((r) => r.type === t) }))
+      .sort((a, b) => b.antal - a.antal),
   }
 }
 
@@ -1275,6 +1320,30 @@ export type Facilitetsgrundlag = Awaited<ReturnType<typeof opsummering>>
  */
 export const oekonomigrundlag = (f: Filtre, referenceNow?: Date) =>
   opsummering({ ...f, fuldOekonomi: false }, referenceNow)
+
+/**
+ * Grundlaget under boligtypeknapperne: hvor mange af DENNE soegnings
+ * boliger er lejligheder, huse, vaerelser …
+ *
+ * Tallene kom foer fra `facetter()`, som taeller hele bestanden og er
+ * cachet i fem minutter. Paa en soegning med 76 boliger stod der derfor
+ * 75 · 58 · 54 · 53 · 34 · 6 — tilsammen 280, altsaa hele bestanden — ved
+ * siden af et resultatantal paa 76 og facilitetslinjer, der summerede til
+ * 76. Tre tal om tre forskellige saet paa den samme skaerm, hvor kun det
+ * ene var maerket som noget andet. Knapperne lignede facetter og var det
+ * ikke.
+ *
+ * Samme regel som `facilitetsgrundlag` og `oekonomigrundlag`: soegningen
+ * UDEN det filter, tallene beskriver. Med typefilteret paa ville hver
+ * anden type staa paa 0, og knapperne kunne aldrig bruges til at skifte
+ * type — de ville kun kunne fravaelges.
+ *
+ * Er filteret ikke sat, er `where` ORDRET den samme som `opsummering`s, og
+ * saa skal kalderen genbruge det svar i stedet for at spoerge igen. Se
+ * app/page.tsx.
+ */
+export const boligtypegrundlag = (f: Filtre, referenceNow?: Date) =>
+  opsummering({ ...f, boligtyper: undefined }, referenceNow)
 
 /** Kilder der aldrig oplyser faciliteter, og hvor mange boliger de har. */
 export interface Tavsekilder {

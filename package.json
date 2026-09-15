@@ -28,7 +28,8 @@
     "cloud:op": "scripts/cloud/op.sh",
     "cloud:ned": "scripts/cloud/ned.sh",
     "cloud:kontrol": "scripts/cloud/kontrol.sh",
-    "cloud:maal": "scripts/cloud/maal.sh"
+    "cloud:maal": "scripts/cloud/maal.sh",
+    "cloud:skaerm": "scripts/cloud/skaerm.sh"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

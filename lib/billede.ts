@@ -13,6 +13,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { erDesignpreview } from './designpreview'
 
 /**
  * Vaerter vi henter billeder fra. SKAL foelge kilderne i adapters/.
@@ -75,6 +76,9 @@ export const TILLADTE_VAERTER = new Set([
   'alabubolig.dk',
 
   ...(EGEN_LAGERVAERT ? [EGEN_LAGERVAERT] : []),
+  // Licenserede stemningsfotos til fiktive demoboliger i staging.
+  // Samme signerede proxy og SQL-tælling som øvrige billeder.
+  ...(erDesignpreview() ? ['images.pexels.com'] : []),
 ])
 
 /** Bredder vi overhovedet udleverer. Frit valg ville lade en fremmed

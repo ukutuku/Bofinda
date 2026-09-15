@@ -1,11 +1,15 @@
 import { notFound } from 'next/navigation'
-import { availabilityFor, hentBolig, kvadratmeterpris, type BoligDetalje } from '../../../lib/soeg'
+import {
+  availabilityFor, hentBolig, kvadratmeterpris, MINDST_TIL_SAMMENLIGNING,
+  type BoligDetalje,
+} from '../../../lib/soeg'
 import { forklar } from '../../../lib/availability'
 import { billedUrl } from '../../../lib/billede'
 import { eltilstand } from '../../../lib/eloplysning'
 import { Galleri } from './Galleri'
 import { Kontakt } from './Kontakt'
 import { Maaling } from '../../Maaling'
+import { Landkort } from '../../Landkort'
 import { maalingstilstand, spor } from '../../../lib/maaling-server'
 
 export const dynamic = 'force-dynamic'
@@ -109,43 +113,80 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
     },
   }, '/bolig/[id]')
 
+  /**
+   * Noegletals-strippen.
+   *
+   * Kun felter, KILDEN har oplyst. En post uden vaerdi udelades — der
+   * skrives aldrig «—» eller «ikke oplyst» her: strippen er et overblik,
+   * og det, vi ikke ved, staar i «Boligen» nedenfor, hvor der er plads
+   * til at sige hvorfor. Konceptbilledet viser fem faste felter; vi viser
+   * dem, der findes, og laver ikke resten om til tomme kasser.
+   *
+   * `ikon` peger paa en CSS-maske i globals.css — ingen ikonpakke, ingen
+   * nye filer, ingen netvaerkskald.
+   */
   const noegletal = [
-    b.areal != null ? { v: `${b.areal}`, e: 'm²' } : null,
-    b.vaerelser != null ? { v: `${b.vaerelser}`, e: b.vaerelser === 1 ? 'værelse' : 'værelser' } : null,
-    b.type ? { v: TYPENAVN[b.type] ?? b.type, e: '' } : null,
-  ].filter((x): x is { v: string; e: string } => !!x)
+    b.total != null
+      ? { ikon: 'moent', v: `${kr(b.total)} kr.`, e: 'pr. md. til udlejer' }
+      : b.leje != null ? { ikon: 'moent', v: `${kr(b.leje)} kr.`, e: 'husleje pr. md.' } : null,
+    b.indflytning != null
+      ? { ikon: 'moent', v: `${kr(b.indflytning)} kr.`, e: 'ved indflytning' } : null,
+    b.areal != null ? { ikon: 'maal', v: `${b.areal} m²`, e: 'boligareal' } : null,
+    b.vaerelser != null
+      ? { ikon: 'doer', v: `${b.vaerelser}`, e: b.vaerelser === 1 ? 'værelse' : 'værelser' } : null,
+    b.type ? { ikon: 'hus', v: TYPENAVN[b.type] ?? b.type, e: 'boligtype' } : null,
+  ].filter((x): x is { ikon: string; v: string; e: string } => !!x)
+
+  /**
+   * Afsnittene paa siden — og dermed ogsaa afsnitsnavigationen.
+   *
+   * Betingelserne er de SAMME som afsnittene selv staar paa. Skrev vi
+   * listen af i haanden, ville et link kunne pege paa et afsnit, som
+   * ikke blev gengivet — og et anker, der ikke rammer noget, er en
+   * paastand om indhold, vi ikke har.
+   */
+  const afsnit = [
+    kvm && afvigelse != null && egenKvm != null
+      ? { id: 'kvadratmeterpris', navn: 'Pris pr. m²' } : null,
+    { id: 'boligen', navn: 'Boligen' },
+    b.faciliteter && b.faciliteter.length > 0
+      ? { id: 'faciliteter', navn: 'Faciliteter' } : null,
+    b.beskrivelse ? { id: 'beskrivelse', navn: 'Beskrivelse' } : null,
+    { id: 'beliggenhed', navn: 'Beliggenhed' },
+  ].filter((x): x is { id: string; navn: string } => !!x)
 
   return (
     <article className="detalje">
       <Maaling aktiv={mt.aktiv} impressions={false} visning={null} rute="/bolig/[id]" />
-      <a className="tilbage" href="/">← Alle boliger</a>
+      {/* ── Stien ─────────────────────────────────────────────
+          Referencens broedkrumme: forsiden, byen, og «Denne bolig» som
+          det sted, man staar.
 
-      {galleri.length > 0
-        ? (
+          DER STAAR «FORSIDE», FORDI LINKET FOERER TIL FORSIDEN. Det hed
+          «Tilbage til soegeresultater», men `/` uden parametre er ikke
+          den soegning, hun kom fra — filtre, sortering og sidetal er
+          vaek. Et link, der lover at foere tilbage og i stedet nulstiller
+          soegningen, er den samme slags usandhed som en total, der lader
+          som om aconto er kendt: den opdages foerst, naar nogen har brugt
+          den. Navnet siger nu, hvad linket goer.
+
+          Byen peger paa soegesiden med `sted` — samme parameter som
+          filterbjaelken bruger, saa dét link rammer noejagtig den
+          soegning, navnet lover. Ikke omraadesiden: den findes kun over
+          `MINDST_BOLIGER`, og et link, der kan give 404, er ikke en sti. */}
+      <nav className="detalje-sti" aria-label="Sti">
+        <a className="sti-tilbage" href="/">
+          <span aria-hidden="true">←</span> Forside
+        </a>
+        {b.by && (
           <>
-            <Galleri billeder={galleri} />
-            {/* Kildens eget forbehold, givet videre. Citatet er VORES tekst
-                her i koden, skrevet af efter kilden — vi gemmer ikke deres
-                brødtekst, jf. noten ved `description` i db/schema.ts.
-                Feltet i basen siger kun AT forbeholdet står der.
-
-                Før blev billederne kasseret, når forbeholdet stod der. Men
-                det er også en påstand: den siger implicit "der er ingen",
-                og det er usandt — der er 115 på de 20 boliger. */}
-            {b.billedforbehold && (
-              <p className="billedforbehold">
-                Udlejer oplyser: «Billederne kan være fra en anden bolig,
-                hvorfor indretning, beliggenhed og udsigt kan variere.»
-              </p>
-            )}
+            <span className="sti-skil" aria-hidden="true">/</span>
+            <a href={`/?sted=${encodeURIComponent(b.by)}`}>{b.by}</a>
           </>
-        )
-        : (
-          /* Nu er sætningen ren: har kilden ingen billeder, står der
-             ingen. Forbeholdet fjerner dem ikke længere. */
-          <div className="ingen-billeder">Ingen billeder at vise for denne bolig.</div>
         )}
-
+        <span className="sti-skil" aria-hidden="true">/</span>
+        <span aria-current="page">Denne bolig</span>
+      </nav>
 
       <div className="spalter">
         {/* ── Økonomien. Sidens vigtigste element, og derfor det første
@@ -154,7 +195,19 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
           <div className="oek-kort">
             {b.total != null ? (
               <>
-                <div className="oek-etiket">Reel månedlig udgift</div>
+                {/* ── «Betaling til udlejer», ikke «reel udgift» ──
+                    Tallet er husleje plus den aconto, kilden opkræver —
+                    alt hvad der betales TIL UDLEJEREN. «Reel månedlig
+                    udgift» lovede mere end det: el står uden for hos
+                    næsten alle kilder, så en læser, der tog ordet for
+                    pålydende, ville regne med et tal, der ikke var
+                    hendes reelle udgift.
+
+                    Det er den samme rettelse, prisetiketten på
+                    boligkortet allerede har fået — der står «kr/md til
+                    udlejer», og det var «i alt» før. Nu siger begge
+                    flader det samme om det samme tal. */}
+                <div className="oek-etiket">Månedlig betaling til udlejer</div>
                 <div className="oek-tal">{kr(b.total)}<span className="enhed"> kr.</span></div>
                 <ul className="oek-poster">
                   <li><span>Husleje</span><b>{kr(b.leje)}</b></li>
@@ -184,11 +237,19 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
               </>
             ) : (
               <>
-                <div className="oek-etiket">Månedlig udgift</div>
+                {/* Kender vi kun huslejen, hedder tallet husleje. «Månedlig
+                    udgift» stod her og var det, tallet netop IKKE var —
+                    aconto er ukendt, så udgiften er større end det, der
+                    står. Underlinjen «kun husleje» skulle bære hele
+                    forbeholdet for en etiket, der sagde noget andet;
+                    etiketten siger det nu selv, og linjen gentager ikke
+                    overskriften. Boligkortet siger «i husleje» om det
+                    samme tal. */}
+                <div className="oek-etiket">Månedlig husleje</div>
                 <div className="oek-tal ukendt-tal">
                   {kr(b.leje) ?? '—'}<span className="enhed"> kr.</span>
                 </div>
-                <p className="oek-etiket-under">kun husleje</p>
+                <p className="oek-etiket-under">aconto ikke oplyst</p>
                 <div className="oek-mangler">
                   <strong>Udlejer oplyser ikke aconto.</strong>
                   <span>Spørg om varme og vand, før du regner på det —
@@ -262,17 +323,45 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
           </div>
         </aside>
 
-        <div className="indhold">
-        <header className="hoved">
-          <div className="hoved-tekst">
-            <h1>{adresselinje(b)}</h1>
-            <p className="sted">{b.postnr} {b.by}</p>
-            <ul className="noegletal">
-              {noegletal.map((n, i) => (
-                <li key={i}><strong>{n.v}</strong>{n.e && <span> {n.e}</span>}</li>
-              ))}
-            </ul>
-          </div>
+        {/* ── Venstre spalte, oeverste felt ─────────────────────
+            Galleriet og titlen. De to felter er adskilt, fordi
+            raekkefoelgen skal kunne vaere en anden paa en telefon:
+            der staar billeder og adresse foerst, saa prispanelet, og
+            derefter afsnittene. Med ét felt kunne prispanelet kun
+            ligge enten foer billederne eller efter hele teksten. */}
+        <div className="detalje-visning">
+
+        {galleri.length > 0
+          ? (
+            <>
+              <Galleri billeder={galleri} />
+              {/* Kildens eget forbehold, givet videre. Citatet er VORES tekst
+                  her i koden, skrevet af efter kilden — vi gemmer ikke deres
+                  brødtekst, jf. noten ved `description` i db/schema.ts.
+                  Feltet i basen siger kun AT forbeholdet står der.
+
+                  Før blev billederne kasseret, når forbeholdet stod der. Men
+                  det er også en påstand: den siger implicit "der er ingen",
+                  og det er usandt — der er 115 på de 20 boliger. */}
+              {b.billedforbehold && (
+                <p className="billedforbehold">
+                  Udlejer oplyser: «Billederne kan være fra en anden bolig,
+                  hvorfor indretning, beliggenhed og udsigt kan variere.»
+                </p>
+              )}
+            </>
+          )
+          : (
+            /* Nu er sætningen ren: har kilden ingen billeder, står der
+               ingen. Forbeholdet fjerner dem ikke længere. */
+            <div className="ingen-billeder">Ingen billeder at vise for denne bolig.</div>
+          )}
+        {/* ── Titelbaandet ───────────────────────────────────────
+            Stod foer inde i venstre spalte, altsaa NEDE ved siden af
+            priskortet — sidens navn laa lavere end sidens pris. Nu ligger
+            det i fuld bredde lige under galleriet, hvor man laeser det
+            foerst, og noegletallene staar som en stribe under. */}
+        <div className="detalje-hoved">
           <div className="maerkater">
             {b.status === 'delisted' && <span className="maerkat m-vaek">ikke længere ledig</span>}
             {avail!.ansoegning.status === 'venteliste'
@@ -284,14 +373,42 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
             {avail!.adgang.krav.includes('bopaelskrav')
               && <span className="maerkat m-kilde">Bopælspligt</span>}
           </div>
-        </header>
+          <h1>{adresselinje(b)}</h1>
+          <p className="sted">{b.postnr} {b.by}</p>
+          <ul className="noegletal">
+            {noegletal.map((n, i) => (
+              <li key={i} className={`nt-${n.ikon}`}>
+                <strong>{n.v}</strong>
+                {n.e && <span>{n.e}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+        </div>
+
+        <div className="detalje-afsnit">
+          {/* ── Afsnitsnavigation ─────────────────────────────────
+              Referencens fanerække over indholdet. Det ER faner i
+              billedet; her er det ankerlinks til de afsnit, der
+              faktisk staar paa siden. Listen bygges af `afsnit`, som
+              udledes af de samme betingelser, afsnittene selv staar
+              paa — ét udtryk, to steder, saa navigationen ikke kan
+              komme til at pege paa et afsnit, der ikke blev gengivet. */}
+          {afsnit.length > 1 && (
+            <nav className="afsnitsnav" aria-label="Afsnit på siden">
+              {afsnit.map((a) => (
+                <a key={a.id} href={`#${a.id}`}>{a.navn}</a>
+              ))}
+            </nav>
+          )}
+
 
           {/* ── Prissammenligning ──────────────────────────────
               Ingen farveskala uden tal bag. Der staar hvad afvigelsen er,
               hvad den maales mod, og hvor mange boliger medianen er regnet
               af — saa laeseren selv kan afgoere, om tallet betyder noget. */}
           {kvm && afvigelse != null && egenKvm != null && (
-            <section className="blok sammenligning">
+            <section className="blok sammenligning" id="kvadratmeterpris">
               <h2>Pris pr. kvadratmeter</h2>
               <p className="sml-dom">
                 {Math.abs(afvigelse) < 3 ? (
@@ -314,16 +431,56 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
                   <dd>{(kvm.median / 100).toLocaleString('da-DK', { maximumFractionDigits: 0 })} kr/m² pr. md.</dd>
                 </div>
               </dl>
+              {/* ── Forbeholdet bliver stående, metoden foldes ─────
+                  Blokken skal kunne aflæses på ét blik: afvigelsen, de
+                  to beløb og hvor mange boliger medianen er regnet af —
+                  de tre står ovenfor og røres ikke. Men den fulde
+                  metodetekst er fem linjer, og på en telefon skubbede
+                  den resten af siden ned uden at være det, læseren kom
+                  efter.
+
+                  Det ENE, der ikke må foldes væk, er forbeholdet om
+                  datagrundlaget: et tal, der lyder som en markedspris
+                  uden at være det, er præcis den slags påstand, resten
+                  af fladen er bygget om at undgå. Det står derfor
+                  synligt, og metoden ligger under det.
+
+                  `<details>` og ikke en knap: browseren giver
+                  udfoldningen, tastaturet og den rigtige rolle gratis,
+                  og den virker uden JavaScript. Samme valg som
+                  filtervinduets `<details class="flere">`. */}
               <p className="note">
-                Regnet af den samlede månedlige udgift på de {kvm.antal} boliger i {b.postnr},
-                vi har hentet, og som oplyser både aconto og areal. Boliger, hvor kun huslejen
-                er kendt, indgår ikke — de ville trække medianen ned og sammenligne to
-                forskellige ting. Tallet er ikke et udtryk for hele markedet.
+                Tallet er talt af de boliger, vi har hentet, og er ikke et udtryk
+                for hele markedet.
               </p>
+              <details className="metode">
+                <summary>Sådan beregner vi</summary>
+                <div className="metode-krop">
+                  <p>
+                    Denne bolig: {kr(b.total)} kr. om måneden delt med {b.areal} m²
+                    {' = '}
+                    {(egenKvm / 100).toLocaleString('da-DK', { maximumFractionDigits: 0 })} kr/m²
+                    {' '}pr. md.
+                  </p>
+                  <p>
+                    Medianen er regnet af den samlede månedlige betaling til udlejer på
+                    de {kvm.antal} boliger i {b.postnr}, vi har hentet, og som oplyser
+                    både aconto og areal. Boliger, hvor kun huslejen er kendt, indgår
+                    ikke — de ville trække medianen ned og sammenligne to forskellige
+                    ting.
+                  </p>
+                  <p>
+                    Grundlaget er dedupet, så den samme bolig annonceret hos to kilder
+                    kun tæller én gang. Er der færre end {MINDST_TIL_SAMMENLIGNING} boliger
+                    i postnummeret, vises sammenligningen slet ikke: en median af nogle få
+                    boliger er ikke en markedspris.
+                  </p>
+                </div>
+              </details>
             </section>
           )}
 
-          <section className="blok">
+          <section className="blok" id="boligen">
             <h2>Boligen</h2>
             <dl className="fakta2">
               {b.type && <><dt>Boligtype</dt><dd>{TYPENAVN[b.type] ?? b.type}</dd></>}
@@ -382,14 +539,14 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
           </section>
 
           {b.faciliteter && b.faciliteter.length > 0 && (
-            <section className="blok">
+            <section className="blok" id="faciliteter">
               <h2>Faciliteter</h2>
               <ul className="chips">{b.faciliteter.map((f) => <li key={f}>{f}</li>)}</ul>
             </section>
           )}
 
           {b.beskrivelse && (
-            <section className="blok">
+            <section className="blok" id="beskrivelse">
               <h2>Beskrivelse</h2>
               <p className="brodtekst">{b.beskrivelse}</p>
               <p className="note">
@@ -398,16 +555,48 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
             </section>
           )}
 
-          <section className="blok">
+          <section className="blok" id="beliggenhed">
             <h2>Beliggenhed</h2>
             {b.lat && b.lng ? (
               <>
-                <iframe
-                  className="landkort" loading="lazy" title="Kort"
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${
-                    Number(b.lng) - 0.006},${Number(b.lat) - 0.003},${
-                    Number(b.lng) + 0.006},${Number(b.lat) + 0.003}&layer=mapnik&marker=${b.lat},${b.lng}`}
-                />
+                {/* ── SAMME kort som ved resultatlisten ──────────────
+                    Her stod en `<iframe>` til
+                    `openstreetmap.org/export/embed.html`. OSM's egen
+                    indlejring renderer i dag med WebGL, og i en browser
+                    uden WebGL viste beliggenheden derfor en fejl, mens
+                    søgeresultaternes kort — Leaflet med rasterfliser —
+                    virkede fint på den samme side.
+
+                    Det var ikke kun en WebGL-sag. Indlejringen var en
+                    ANDEN kortløsning end resten af appen, og den brød
+                    tre ting, `Landkort.tsx` er bygget til at holde:
+
+                    · Flise-URL'en var hardkodet til openstreetmap.org.
+                      Reglen er, at kilden skiftes med
+                      `NEXT_PUBLIC_FLISE_URL` og ikke med en
+                      kodeændring — Tile Usage Policy afsnit 7 siger, at
+                      adgang kan trækkes uden varsel.
+                    · Krediteringen lå inde i en fremmed side. Nu er den
+                      Leaflets egen, synlig og vores at stå inde for,
+                      med «Meld en fejl i kortet» som politikken beder om.
+                    · Kortet kunne ikke afprøves i det isolerede
+                      testmiljø: det pegede ud af maskinen, mens
+                      søgekortet bruger de lokale prøvefliser. Derfor
+                      var beliggenheden aldrig målt.
+
+                    Ét mærke, ét svar på «hvordan viser vi et kort». */}
+                <div className="landkort">
+                  <Landkort
+                    etiket={`Kort over ${b.adresse}`}
+                    maerker={[{
+                      id: b.id,
+                      lat: Number(b.lat),
+                      lng: Number(b.lng),
+                      antal: 1,
+                      etiket: b.adresse,
+                    }]}
+                  />
+                </div>
                 <p className="note">
                   {b.match === 'unit'
                     ? 'Adressen er stedfæstet på den enkelte bolig.'

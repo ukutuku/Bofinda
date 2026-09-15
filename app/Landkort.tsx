@@ -44,7 +44,16 @@ const KREDIT = process.env.NEXT_PUBLIC_FLISE_KREDIT
   ?? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-bidragydere'
   + ' &middot; <a href="https://www.openstreetmap.org/fixthemap">Meld en fejl i kortet</a>'
 
-export function Landkort({ maerker }: { maerker: Maerke[] }) {
+/**
+ * `etiket` er kortets tilgaengelige navn. Den er en prop og ikke en fast
+ * streng, fordi komponenten bruges to steder: ved siden af resultatlisten,
+ * hvor den viser mange boliger, og paa boligdetaljen, hvor den viser én.
+ * «Kort over boligerne» ville vaere forkert det ene af stederne.
+ */
+export function Landkort({ maerker, etiket = 'Kort over boligerne' }: {
+  maerker: Maerke[]
+  etiket?: string
+}) {
   const boks = useRef<HTMLDivElement>(null)
   const kort = useRef<LeafletMap | null>(null)
   const lag = useRef<LayerGroup | null>(null)
@@ -168,5 +177,5 @@ export function Landkort({ maerker }: { maerker: Maerke[] }) {
     }
   }, [])
 
-  return <div ref={boks} className="landkort-flade" aria-label="Kort over boligerne" />
+  return <div ref={boks} className="landkort-flade" aria-label={etiket} />
 }
