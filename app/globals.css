@@ -926,7 +926,16 @@ footer.bund {
 .note { margin: 10px 0 0; font-size: 12px; color: var(--svag); line-height: 1.5; }
 /* Landkortet paa boligsiden. Hed foer .kort og arvede boligkortets stil —
    samme ord, to ting. */
-.landkort { width: 100%; height: 290px; border: 0; border-radius: 8px; display: block; }
+/* Beliggenhedskortet paa boligdetaljen. Var en `<iframe>`; er nu en
+   ramme om den samme `Landkort`-komponent som ved resultatlisten.
+   `overflow: hidden` er nyt og noedvendigt: Leaflets flisepaneler
+   ligger i absolut placerede lag og ville ellers staa uden om den
+   afrundede kant. `position: relative` er Leaflets eget krav til den
+   beholder, den maaler sig i. */
+.landkort {
+  width: 100%; height: 290px; border: 0; border-radius: 8px;
+  display: block; position: relative; overflow: hidden;
+}
 .begraensning {
   font-size: 12.5px; color: var(--svag); margin: 0 0 12px; padding: 0 2px;
 }

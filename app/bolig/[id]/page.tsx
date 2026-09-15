@@ -6,6 +6,7 @@ import { eltilstand } from '../../../lib/eloplysning'
 import { Galleri } from './Galleri'
 import { Kontakt } from './Kontakt'
 import { Maaling } from '../../Maaling'
+import { Landkort } from '../../Landkort'
 import { maalingstilstand, spor } from '../../../lib/maaling-server'
 
 export const dynamic = 'force-dynamic'
@@ -495,12 +496,44 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
             <h2>Beliggenhed</h2>
             {b.lat && b.lng ? (
               <>
-                <iframe
-                  className="landkort" loading="lazy" title="Kort"
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${
-                    Number(b.lng) - 0.006},${Number(b.lat) - 0.003},${
-                    Number(b.lng) + 0.006},${Number(b.lat) + 0.003}&layer=mapnik&marker=${b.lat},${b.lng}`}
-                />
+                {/* ── SAMME kort som ved resultatlisten ──────────────
+                    Her stod en `<iframe>` til
+                    `openstreetmap.org/export/embed.html`. OSM's egen
+                    indlejring renderer i dag med WebGL, og i en browser
+                    uden WebGL viste beliggenheden derfor en fejl, mens
+                    søgeresultaternes kort — Leaflet med rasterfliser —
+                    virkede fint på den samme side.
+
+                    Det var ikke kun en WebGL-sag. Indlejringen var en
+                    ANDEN kortløsning end resten af appen, og den brød
+                    tre ting, `Landkort.tsx` er bygget til at holde:
+
+                    · Flise-URL'en var hardkodet til openstreetmap.org.
+                      Reglen er, at kilden skiftes med
+                      `NEXT_PUBLIC_FLISE_URL` og ikke med en
+                      kodeændring — Tile Usage Policy afsnit 7 siger, at
+                      adgang kan trækkes uden varsel.
+                    · Krediteringen lå inde i en fremmed side. Nu er den
+                      Leaflets egen, synlig og vores at stå inde for,
+                      med «Meld en fejl i kortet» som politikken beder om.
+                    · Kortet kunne ikke afprøves i det isolerede
+                      testmiljø: det pegede ud af maskinen, mens
+                      søgekortet bruger de lokale prøvefliser. Derfor
+                      var beliggenheden aldrig målt.
+
+                    Ét mærke, ét svar på «hvordan viser vi et kort». */}
+                <div className="landkort">
+                  <Landkort
+                    etiket={`Kort over ${b.adresse}`}
+                    maerker={[{
+                      id: b.id,
+                      lat: Number(b.lat),
+                      lng: Number(b.lng),
+                      antal: 1,
+                      etiket: b.adresse,
+                    }]}
+                  />
+                </div>
                 <p className="note">
                   {b.match === 'unit'
                     ? 'Adressen er stedfæstet på den enkelte bolig.'
