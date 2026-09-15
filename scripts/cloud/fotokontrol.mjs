@@ -141,8 +141,8 @@ try {
   await saetMotiver(IDS[0], MOTIVER)
   await saetMotiver(IDS[1], [MOTIVER[0]])
 
-  for (const bredde of [1440, 390]) {
-    const merke = bredde === 390 ? 'mobil' : 'desktop'
+  for (const bredde of [1440, 768, 390]) {
+    const merke = bredde === 390 ? 'mobil' : bredde === 768 ? 'tablet' : 'desktop'
     const ctx = await browser.newContext({
       viewport: { width: bredde, height: bredde === 390 ? 844 : 1000 },
       deviceScaleFactor: 1,
@@ -197,6 +197,7 @@ try {
           objectFit: s.objectFit,
           dekodet: img.naturalWidth > 0,
           kortHoejde: Math.round(a.getBoundingClientRect().height),
+          kortBredde: Math.round(a.getBoundingClientRect().width),
         })
       }
       return ud
@@ -211,9 +212,17 @@ try {
       tjek(`${maerke} · beskæres (cover), strækkes ikke`, k.objectFit === 'cover', k.objectFit)
       // Billedet fylder hele rammen, og rammen har sit eget forhold —
       // saa hoejden kan ikke loebe loebsk med et staaende motiv.
+      // Graensen foelger kortets EGEN bredde, ikke vinduets. Kortet
+      // bryder paa `@container boligkort (max-width: 460px)`, hvor
+      // billedet gaar fra at staa ved siden af teksten til at ligge
+      // over den — og saa er kortet naturligt hoejere. Paa 768 px er
+      // listen to spalter à ~350 px, altsaa den STABLEDE form, selv om
+      // vinduet er bredt. En graense bundet til `merke === 'mobil'`
+      // ville derfor maale den forkerte form ved netop den bredde.
+      const loft = k.kortBredde <= 460 ? 900 : 520
       tjek(`${maerke} · billedet fylder rammen uden at sprænge kortet`,
-        k.vist[0] > 0 && k.vist[1] > 0 && k.kortHoejde < (merke === 'mobil' ? 900 : 520),
-        `vist ${k.vist[0]}×${k.vist[1]} · kort ${k.kortHoejde} px høj`)
+        k.vist[0] > 0 && k.vist[1] > 0 && k.kortHoejde < loft,
+        `vist ${k.vist[0]}×${k.vist[1]} · kort ${k.kortBredde}×${k.kortHoejde} px (loft ${loft})`)
     }
 
     const overloeb = () => p.evaluate(() =>
@@ -336,7 +345,13 @@ try {
       // nogen fjerner `display: none` i globals.css, saa mobil pludselig
       // viser tre ruder — for saa er `synligeRuder` ikke 1 laengere, og
       // linjen siger det.
-      const VENTEDE_RUDER = merke === 'mobil' ? 1 : Math.min(3, MOTIVER.length)
+      // Graensen er `@media (max-width: 720px)` i globals.css, ikke
+      // ordet «mobil». Ved 768 px er vinduet OVER graensen, saa der
+      // vises tre ruder — og en betingelse skrevet paa etiketten ville
+      // tilfaeldigvis ramme rigtigt her og forkert ved den naeste
+      // bredde, nogen tilfoejer. Reglen staar ét sted; proeven laeser
+      // den samme graense.
+      const VENTEDE_RUDER = bredde <= 720 ? 1 : Math.min(3, MOTIVER.length)
       tjek(`${merke} · ${VENTEDE_RUDER} rude(r) vises, og knappen siger stadig ${MOTIVER.length}`,
         galknap.synligeRuder === VENTEDE_RUDER
         && Number((galknap.tekst.match(/\d+/) ?? [])[0]) === MOTIVER.length,

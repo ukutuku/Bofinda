@@ -56,8 +56,8 @@ const tjek = (ok, navn, note = '') => {
   if (!ok) fejl++
   console.log(`  ${ok ? '✓' : '✗'} ${navn}${note ? '  — ' + note : ''}`)
 }
-for (const bredde of [1440, 390]) {
-  const merke = bredde === 390 ? 'mobil' : 'desktop'
+for (const bredde of [1440, 768, 390]) {
+  const merke = bredde === 390 ? 'mobil' : bredde === 768 ? 'tablet' : 'desktop'
   console.log(`── ${merke} (${bredde} px) ──`)
   const c = await br.newContext({ viewport: { width: bredde, height: bredde === 390 ? 844 : 1000 } })
   const p = await c.newPage()
