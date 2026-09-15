@@ -33,6 +33,7 @@ import { matchAlarmer } from '../lib/alarm'
 import { byForPostnr } from '../lib/omraade'
 import { laesBolig as dacasLaes } from '../adapters/dacas'
 import { laesSag as homeLaes } from '../adapters/home'
+import { noeglerISag, sagstypeFor } from './home-felter'
 import { laes as balderLaes } from '../adapters/balder'
 import { findSearchResponse as cejFind, laes as cejLaes } from '../adapters/cej'
 import {
@@ -522,6 +523,88 @@ async function main() {
     hjemSag.availableFrom === '2026-10-01', String(hjemSag.availableFrom))
   tjek('… og lejen er sagens egen', hjemSag.rentMonthly === 1200000,
     String(hjemSag.rentMonthly))
+
+  // ── home.dk: optaellingen af feltnavne ───────────────────────
+  // `scripts/home-felter.ts` findes, fordi adapteren IKKE saetter
+  // deposit, prepaidRent og rooms, og fordi ingen har maalt, hvad de
+  // hedder i payloaden. Vaerktoejet TAELLER noeglerne i stedet for at
+  // slaa et formodet navn op — og det er netop en optaelling, der skal
+  // kunne stoles paa, for den bliver grundlaget for at udvide
+  // adapterens allowlist.
+  //
+  // Fixturen er konstrueret og laegger NABOENS sag foerst, som den
+  // eksisterende home-fixture ovenfor. Naboen har et beloebsfelt, SAGEN
+  // IKKE HAR (`rentalDepositUkendt`) og et ekstra stats-felt — saa en
+  // ubunden «foerste objekt med et offer»-laesning ville rapportere
+  // naboens feltnavne som boligens. Det er praecis den fejl, en
+  // optaelling maa vaere immun over for: den ville faa os til at skrive
+  // et feltnavn ind i adapteren, som den maalte bolig ikke har.
+  console.log('\n══ home.dk: feltoptaelling bundet til sagens id ══')
+  const HF_FLAD: unknown[] = [
+    'meta',                                                    // 0
+    { id: 2, offer: 3, stats: 6 },                             // 1  NABOEN — foerst
+    'NABO1',                                                   // 2
+    { rentalPricePerMonth: 4, rentalDepositUkendt: 5 },        // 3  EKSTRA beloebsfelt
+    { amount: 9000 },                                          // 4
+    { amount: 27000 },                                         // 5
+    { floorArea: 7, naboFelt: 8 },                             // 6  EKSTRA stats-felt
+    55,                                                        // 7
+    'kun-hos-naboen',                                          // 8
+    { id: 10, offer: 11, stats: 14 },                          // 9  SAGEN
+    'SAG1',                                                    // 10
+    { rentalPricePerMonth: 12, rentalUtilitiesPerMonth: 13 },  // 11
+    { amount: 12000 },                                         // 12
+    { amount: 1100 },                                          // 13
+    { floorArea: 15 },                                         // 14
+    70,                                                        // 15
+    { id: 17, offer: 18 },                                     // 16  TREDJE — uden stats
+    '177P000001',                                              // 17
+    {},                                                        // 18  tomt offer
+  ]
+
+  const hfSag = noeglerISag(HF_FLAD, 'SAG1')
+  tjek('præmis: naboens sag står FØRST i den flade liste',
+    JSON.stringify(HF_FLAD).indexOf('NABO1') < JSON.stringify(HF_FLAD).indexOf('SAG1'))
+  tjek('offer-nøglerne er SAGENS egne',
+    hfSag.offer.some((k) => k.startsWith('rentalPricePerMonth:'))
+    && hfSag.offer.some((k) => k.startsWith('rentalUtilitiesPerMonth:')),
+    hfSag.offer.join(' · '))
+  tjek('naboens ekstra beløbsfelt lækker IKKE ind som sagens',
+    !hfSag.offer.some((k) => k.startsWith('rentalDepositUkendt:')),
+    hfSag.offer.join(' · '))
+  tjek('stats-nøglerne er sagens egne — naboens ekstra felt er ude',
+    hfSag.stats.some((k) => k.startsWith('floorArea:'))
+    && !hfSag.stats.some((k) => k.startsWith('naboFelt:')),
+    hfSag.stats.join(' · '))
+  tjek('beløbsformede felter findes, og kun sagens',
+    hfSag.beloebsformede.join(',') === 'offer.rentalPricePerMonth,offer.rentalUtilitiesPerMonth',
+    hfSag.beloebsformede.join(','))
+
+  // Manglende felt er ikke en fejl — det er et tomt svar. En kilde, der
+  // ikke har `stats` paa en sag, skal give en tom liste, ikke et kast:
+  // fravaeret er selve maaleresultatet.
+  const hfUden = noeglerISag(HF_FLAD, '177P000001')
+  tjek('en sag uden stats giver tom liste, ikke et kast',
+    hfUden.stats.length === 0 && hfUden.offer.length === 0)
+  tjek('… og den taelles stadig som en sag', hfUden.id === '177P000001')
+
+  // Sagstypen kan ses paa sagsnummeret (adapterens eget hoved), og de to
+  // typer har dokumenteret forskellig dataform — derfor skal BEGGE maales.
+  tjek('sagstype: 177P… er projektlejemål',
+    sagstypeFor('177P009058') === 'projekt')
+  tjek('sagstype: 1770021465 er almindelig sag',
+    sagstypeFor('1770021465') === 'almindelig')
+  tjek('sagstype: ukendt form gættes ikke', sagstypeFor('SAG1') === 'ukendt')
+
+  // PRIVATLIV: optaellingen maa aldrig baere vaerdier ud. Allowlisten
+  // findes, fordi kilders datamodeller baerer sagsbehandlernoter med
+  // navne og telefonnumre paa nuvaerende lejere. Et vaerktoej, der
+  // dumpede hele objektet, ville vaere den lige vej uden om reglen.
+  const udskrift = JSON.stringify(hfSag)
+  tjek('optællingen bærer NAVNE, ikke værdier',
+    !udskrift.includes('12000') && !udskrift.includes('1100')
+    && !udskrift.includes('kun-hos-naboen') && !udskrift.includes('70'),
+    udskrift)
 
   // ── UI læser DOMÆNET — aldrig legacy ─────────────────────────
   // Fixturerne er bygget så legacy og domæne SIGER NOGET FORSKELLIGT.

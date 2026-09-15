@@ -25,6 +25,31 @@
 //  Kilden oplyser den ikke, og et tal, vi selv har lagt sammen, ville se
 //  lige saa sikkert ud som et oplyst.
 //
+//  ── HVAD DER ER MAALT, OG HVAD DER KUN ER SET ────────────────
+//  Saetningen ovenfor om depositum og forudbetalt leje stammer fra
+//  kildeundersoegelsen 3. sep. 2026 (CLAUDE.md), og den er set paa den
+//  RENDEREDE detaljeside — «Leje pr. maaned 20.200 kr.» Den er IKKE en
+//  maaling af payloaden, og den naevner ikke ét feltnavn. Adapteren
+//  saetter derfor hverken `deposit` eller `prepaidRent`: vi ved, at
+//  tallene staar paa siden, men ikke hvad de hedder i `__NUXT_DATA__`.
+//
+//  Det er bevidst og skal blive saadan, indtil noeglerne er TALT. Et
+//  gaettet feltnavn er dobbelt tavst her: rammer det ved siden af, giver
+//  `los()` undefined og feltet forsvinder uden en fejl — rammer det en
+//  NABOSAGS projektion, faar vi et rigtigt udseende tal fra en anden
+//  bolig. Begge fejl har filen allerede haft (se `d[121]` ovenfor og
+//  id-bindingen i `laesSag`).
+//
+//  `rooms` er endnu tyndere: ingen har undersoegt, om kilden overhovedet
+//  oplyser et vaerelsestal. home er den eneste af de elleve adaptere
+//  uden feltet. FAELDE: `room: 'vaerelse'` i TYPER nedenfor er en
+//  boligTYPE-oversaettelse, ikke et antal — den slaas op mod `type`.
+//
+//  Vejen videre er `scripts/home-felter.ts`, som TAELLER noeglerne i
+//  sagsobjektet, `offer` og `stats` paa begge sagstyper i stedet for at
+//  slaa et formodet navn op. Resultatet skrives ned som belaeg i
+//  lib/kildekontrakt.ts-form, og FOERST derefter udvides adapteren.
+//
 //  ── Om billederne ────────────────────────────────────────────
 //  De ligger IKKE paa home.dk, og der er TO vaerter, ikke én. Hvilken
 //  foelger sagstypen, og det kan ses paa sagsnummeret:
@@ -56,10 +81,10 @@ const LISTE = `${ORIGIN}/til-leje/lejlighed/region-hovedstaden/koebenhavn-kommun
 /** Loft. Uden det kan en aendret paginering koere i ring. */
 const MAKS_SIDER = 60
 
-type Flad = unknown[]
-type Ukendt = Record<string, unknown>
+export type Flad = unknown[]
+export type Ukendt = Record<string, unknown>
 
-async function hentNuxt(url: string): Promise<Flad> {
+export async function hentNuxt(url: string): Promise<Flad> {
   const res = await politeFetch(url, 3, { headers: { Accept: 'text/html' } })
   if (!res.ok) throw new Error(`home ${url} gav ${res.status}`)
   const m = /<script type="application\/json"[^>]*id="__NUXT_DATA__"[^>]*>(.*?)<\/script>/s
@@ -69,7 +94,7 @@ async function hentNuxt(url: string): Promise<Flad> {
 }
 
 /** Ét opslag, derefter kun struktureI rekursion. Se noten i hovedet. */
-function los(d: Flad, i: unknown, dyb = 0): unknown {
+export function los(d: Flad, i: unknown, dyb = 0): unknown {
   if (dyb > 10) return null
   const v = typeof i === 'number' && Number.isInteger(i) && i >= 0 && i < d.length ? d[i] : i
   if (Array.isArray(v)) return v.map((x) => los(d, x, dyb + 1))
@@ -91,7 +116,7 @@ const oere = (v: unknown): number | undefined => {
 }
 
 /** Alle objekter i payloaden der har et bestemt felt. */
-const medFelt = (d: Flad, felt: string): Ukendt[] =>
+export const medFelt = (d: Flad, felt: string): Ukendt[] =>
   d.filter((x): x is Ukendt =>
     !!x && typeof x === 'object' && !Array.isArray(x) && felt in (x as Ukendt))
 
