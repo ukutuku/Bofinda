@@ -91,23 +91,31 @@ export default async function Side(
         <span aria-current="page">{n.vej}</span>
       </nav>
 
+      {/* ── Titel, antal og ÉN forklaring ──────────────────────
+          Her stod to blokke, og den anden gentog den første. Striben
+          havde tre felter: værelsestallet, som sætningen ovenfor
+          allerede sagde; postnummer og by, som brødkrummen allerede
+          sagde; og prisspændet, som var det eneste nye. To af tre
+          oplysninger stod altså to gange, og de skubbede tilsammen
+          boligkortene 48 px ned på en telefon.
+
+          Prisspændet er flyttet ind i sætningen, hvor det hører til —
+          det er en oplysning om gruppen, ikke en fjerde overskrift — og
+          striben er væk. Ingenting er tabt: værelser, by og postnummer
+          står stadig på siden, bare ét sted hver.
+
+          Forbeholdet bliver. Et gruppekort må kun påstå det, der gælder
+          for HELE gruppen, og at boligerne kan være forskellige er
+          netop det, læseren skal vide, før hun læser ét tal som alles. */}
       <div className="sidetitel">
         <h1>{n.vej}</h1>
         <p>
           <strong>{boliger.length} {ord}</strong> med {n.vaerelser}{' '}
-          {n.vaerelser === 1 ? 'værelse' : 'værelser'}, fra {boliger[0]!.kildeNavn}.
-          Boligerne kan være forskellige i pris, areal og indflytningsdato — det
-          står på hver enkelt nedenfor.
-        </p>
-      </div>
-
-      <div className="optaelling">
-        <span><strong>{n.vaerelser}</strong> {n.vaerelser === 1 ? 'værelse' : 'værelser'}</span>
-        <span>
+          {n.vaerelser === 1 ? 'værelse' : 'værelser'} fra {boliger[0]!.kildeNavn},{' '}
           {prisMin === prisMax ? kr(prisMin) : `${kr(prisMin)}–${kr(prisMax)}`} kr/md{' '}
-          {n.total ? 'til udlejer' : 'i husleje'}
-        </span>
-        <span>{n.postnr} {boliger[0]!.by}</span>
+          {n.total ? 'til udlejer' : 'i husleje'}. Pris, areal og indflytningsdato
+          kan variere — se hver enkelt nedenfor.
+        </p>
       </div>
 
       <div className="listeomraade">

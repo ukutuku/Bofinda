@@ -71,8 +71,15 @@ const sammenskriv = (n: string[]): string =>
  * Tilstanden ligger i URL'en ligesom alt andet: den kan deles, den
  * overlever et genindlæs, og listen er allerede bred på serveren — så den
  * hopper ikke i bredden, når siden er færdig.
+ *
+ * **Valget skrives ALTID ud, også `kort=1`.** Før udelod linket
+ * parameteren, når kortet blev slået til, fordi «til» dengang var
+ * standarden. Nu er der tre tilstande og ikke to — se `kortOenske`
+ * nedenfor — og et fravær betyder noget andet end et ja. Uden den
+ * eksplicitte `1` ville et klik på «Vis kort» på en telefon føre
+ * tilbage til listen, altså til den tilstand, man lige forlod.
  */
-function kortLink(sp: Soegeparametre, visesNu: boolean): string {
+function kortLink(sp: Soegeparametre, vaelg: 'ja' | 'nej'): string {
   const q = new URLSearchParams()
   for (const [k, v] of Object.entries(sp)) {
     // `flere` ryger med ud. At skifte mellem liste og kort er ikke en
@@ -81,7 +88,7 @@ function kortLink(sp: Soegeparametre, visesNu: boolean): string {
     if (v == null || k === 'kort' || k === 'flere') continue
     for (const x of Array.isArray(v) ? v : [v]) q.append(k, x)
   }
-  if (visesNu) q.set('kort', '0')
+  q.set('kort', vaelg === 'ja' ? '1' : '0')
   const s = q.toString()
   return s ? `/?${s}` : '/'
 }
@@ -331,9 +338,32 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // `kort_vist` i målingen bruger `kortVises`, ikke `kortValgt`: ellers
   // ville tallet sige, at kortet blev vist, på de visninger hvor det
   // beviseligt ikke kunne.
-  const kortValgt = soegt && en(sp.kort) !== '0'
+  // ── TRE tilstande, ikke to ───────────────────────────────────
+  //  `kort` kan nu være `1`, `0` eller slet ikke sat, og de tre betyder
+  //  tre forskellige ting. Før var fraværet det samme som `1`, og det
+  //  var derfor, en telefon mødte landkortet i stedet for boligerne: en
+  //  bruger, der bare havde søgt, havde ikke valgt kortet — vi havde
+  //  valgt det for hende.
+  //
+  //    kort=1     hun har bedt om kortet  → kort begge steder
+  //    kort=0     hun har valgt det fra   → liste begge steder
+  //    (intet)    hun har ikke taget stilling
+  //                 · bred skærm: kort OG liste, som før
+  //                 · smal skærm: LISTEN — boligerne er svaret
+  //
+  //  **Forskellen afgøres i CSS, ikke i JavaScript.** Serveren ved ikke,
+  //  hvor bred skærmen er, så en klientside-beslutning ville betyde, at
+  //  siden først viste kortet og derefter sprang til listen. Markuppen
+  //  er derfor den samme, og `@media (max-width: 900px)` afgør, hvad der
+  //  er synligt — ved første maling, uden et spring og uden JavaScript.
+  //  Landkortet indlæses først, når det er SYNLIGT, så et skjult kort
+  //  koster heller ikke en flisehentning.
+  const kortOenske = en(sp.kort) === '1' ? 'ja' : en(sp.kort) === '0' ? 'nej' : 'uvalgt'
+  const kortValgt = soegt && kortOenske !== 'nej'
   const kortMuligt = maerker.length > 0
   const kortVises = kortValgt && kortMuligt
+  /** Kortspalten er i markuppen, men hun har ikke bedt om den. */
+  const kortUvalgt = kortVises && kortOenske === 'uvalgt'
 
   // ── Måling ───────────────────────────────────────────────────
   // Skellet mellem forside og søgning er `harFiltre()`, ikke pathname:
@@ -503,11 +533,39 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
               visning, ikke et filter, og det skal kunne skiftes uden at
               åbne noget. Et almindeligt link — tilstanden ligger i URL'en
               som alt andet på siden. */}
+          {/* ── To links, når valget ikke er truffet ─────────────
+              Etiketten skal sige det modsatte af det, der står på
+              skærmen — og i den uvalgte tilstand er det IKKE det samme
+              ved de to bredder: på en bred skærm ses kortet allerede
+              («Vis liste»), på en smal ses listen («Vis kort»).
+
+              Serveren kan ikke vide hvilken. Så renderes begge, og CSS
+              viser den ene. `display: none` tager den anden ud af
+              tabulatorrækkefølgen, så et tastatur møder netop ét link —
+              og der er ingen JavaScript involveret, så det virker fra
+              første maling. To adresser, ikke én, fordi de to knapper
+              faktisk fører hver sit sted hen.
+
+              I de to VALGTE tilstande er svaret det samme ved alle
+              bredder, og så er der kun ét link. */}
           {soegt && visninger.length > 0 && kortMuligt && (
-            <a className="kortvalg" href={kortLink(sp, kortVises)}>
-              <span className="kv-ikon" aria-hidden="true" />
-              {kortVises ? 'Vis liste' : 'Vis kort'}
-            </a>
+            kortUvalgt ? (
+              <>
+                <a className="kortvalg kv-smal" href={kortLink(sp, 'ja')}>
+                  <span className="kv-ikon" aria-hidden="true" />
+                  Vis kort
+                </a>
+                <a className="kortvalg kv-bred" href={kortLink(sp, 'nej')}>
+                  <span className="kv-ikon" aria-hidden="true" />
+                  Vis liste
+                </a>
+              </>
+            ) : (
+              <a className="kortvalg" href={kortLink(sp, kortVises ? 'nej' : 'ja')}>
+                <span className="kv-ikon" aria-hidden="true" />
+                {kortVises ? 'Vis liste' : 'Vis kort'}
+              </a>
+            )
           )}
 
           <button className="soegeknap" type="submit">
@@ -827,6 +885,21 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                 {f.sorter && f.sorter !== 'nyeste' && (
                   <input type="hidden" name="sorter" value={f.sorter} />
                 )}
+                {/* Samme grund, samme løsning, for kortvalget. Chipperne,
+                    sorteringsmenuen og sidenavigationen kopierer alle
+                    parametre og bærer det allerede videre; formularen er
+                    det ene sted, der kun sender sine EGNE felter. Uden
+                    det her ville «Vis resultater» stille visningen
+                    tilbage til standarden, hver gang hun rettede et
+                    filter — altså kaste hendes valg væk netop dér, hvor
+                    hun var i gang.
+
+                    Kun når hun HAR valgt: en tom `kort=` ville blive
+                    skåret væk af omdirigeringen ovenfor alligevel, og
+                    den uvalgte tilstand er fraværet af parameteren. */}
+                {(en(sp.kort) === '0' || en(sp.kort) === '1') && (
+                  <input type="hidden" name="kort" value={en(sp.kort)} />
+                )}
               </div>
             </section>
         </Filterdialog>
@@ -940,43 +1013,6 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             <p className="hero-kredit">{heroKredit}</p>
           )}
         </section>
-
-        {/* ── Talstriben ────────────────────────────────────────
-            Referencens fire tal med ikon. Vores er REGNET, ikke skrevet
-            ind: referencens «12.500+», «98 byer», «94 % faar svar inden
-            for 24 timer» og «Tusindvis har fundet hjem» er alle
-            opdigtede, og de tre sidste er desuden paastande, produktet
-            ikke kan maale. Markuppen er den samme <ul>/<li>, saa
-            `Hastighedspunkt` og proeven i test-soegning rammer det samme. */}
-        <ul className="talstribe punkter">
-          <li className="ts-hus">
-            <strong>{tal.boliger.toLocaleString('da-DK')}</strong>
-            <span>lejeboliger fra {tal.kilder} {tal.kilder === 1 ? 'kilde' : 'kilder'}</span>
-          </li>
-          <li className="ts-moent">
-            {/* To grupper, ikke én. Stod der kun det oplyste tal, kunne
-                laeseren ikke se, hvor stor resten var. Begge tal kommer
-                fra den SAMME foresporgsel og gaar op i hovedtallet. */}
-            <strong>{tal.kendtTotal.toLocaleString('da-DK')}</strong>
-            <span>
-              med hele udgiften til udlejer oplyst ·{' '}
-              {(tal.boliger - tal.kendtTotal).toLocaleString('da-DK')} uden
-            </span>
-          </li>
-          <li className="ts-kalender">
-            <strong>{avGrundlag.timing.nu.toLocaleString('da-DK')}</strong>
-            <span>kan overtages nu</span>
-          </li>
-          {/* Uden en maaling staar der hverken en kadence eller et tal —
-              se `Hastighed.tsx`. Maalingen selv er uroert. */}
-          <Hastighedspunkt minutterP90={tal.minutterP90} />
-        </ul>
-
-        <p className="note grundlagsnote">
-          {avGrundlag.timing.nu.toLocaleString('da-DK')} kan overtages nu ·{' '}
-          {avGrundlag.timing.senere.toLocaleString('da-DK')} kan overtages senere ·{' '}
-          {(avGrundlag.timing.unknown + avGrundlag.timing.conflict).toLocaleString('da-DK')} uden afklaret overtagelsestidspunkt
-        </p>
 
         </>
       )}
@@ -1115,7 +1151,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             . Boligerne står i listen herunder.
           </p>
         )}
-        <div className={kortVises ? 'medkort' : 'udenkort'}>
+        <div className={kortVises ? (kortUvalgt ? 'medkort kort-uvalgt' : 'medkort') : 'udenkort'}>
           {/* `.listeomraade` er det lag, kolonnetallet maales paa. En
               container kan ikke forespoerge sin egen bredde, saa gitteret
               selv kan ikke vaere den: med landkortet ved siden af er
@@ -1174,6 +1210,49 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           Paa forsiden er den stadig stoej: uden filtre gemmes en
           soegning ikke, jf. `harFiltre`. */}
       {soegt && <GemSoegning sp={sp} />}
+
+      {/* ── Talstriben — EFTER boligerne ──────────────────────
+          Den stod mellem søgefeltet og det første boligkort og fyldte
+          164 px på en telefon. Tallene er rigtige og skal blive, men de
+          er baggrund: en bruger, der lige har søgt, skal møde boliger,
+          ikke en opgørelse over bestanden. Målt på 390 px lå det første
+          boligkort 821 px nede — under folden på en 844 px høj skærm.
+
+          Markuppen er ORDRET den samme <ul>/<li> som før, så
+          `Hastighedspunkt` og de prøver, der læser `.punkter`, rammer
+          det samme. Kun pladsen på siden er en anden — samme slags
+          flytning som gem-boksen fik, og af samme grund. */}
+      {!soegt && (<>
+        <ul className="talstribe punkter">
+          <li className="ts-hus">
+            <strong>{tal.boliger.toLocaleString('da-DK')}</strong>
+            <span>lejeboliger fra {tal.kilder} {tal.kilder === 1 ? 'kilde' : 'kilder'}</span>
+          </li>
+          <li className="ts-moent">
+            {/* To grupper, ikke én. Stod der kun det oplyste tal, kunne
+                laeseren ikke se, hvor stor resten var. Begge tal kommer
+                fra den SAMME foresporgsel og gaar op i hovedtallet. */}
+            <strong>{tal.kendtTotal.toLocaleString('da-DK')}</strong>
+            <span>
+              med hele udgiften til udlejer oplyst ·{' '}
+              {(tal.boliger - tal.kendtTotal).toLocaleString('da-DK')} uden
+            </span>
+          </li>
+          <li className="ts-kalender">
+            <strong>{avGrundlag.timing.nu.toLocaleString('da-DK')}</strong>
+            <span>kan overtages nu</span>
+          </li>
+          {/* Uden en maaling staar der hverken en kadence eller et tal —
+              se `Hastighed.tsx`. Maalingen selv er uroert. */}
+          <Hastighedspunkt minutterP90={tal.minutterP90} />
+        </ul>
+
+        <p className="note grundlagsnote">
+          {avGrundlag.timing.nu.toLocaleString('da-DK')} kan overtages nu ·{' '}
+          {avGrundlag.timing.senere.toLocaleString('da-DK')} kan overtages senere ·{' '}
+          {(avGrundlag.timing.unknown + avGrundlag.timing.conflict).toLocaleString('da-DK')} uden afklaret overtagelsestidspunkt
+        </p>
+      </>)}
 
       {!soegt && (<>
         <section className="sektion">

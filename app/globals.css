@@ -1283,6 +1283,31 @@ footer.bund {
   .soegeknap { padding: 0 20px; }
   .hero-soeg { transform: translateY(26px); }
   .hero { margin-bottom: 26px; }
+
+  /* ── Toppen giver plads til boligerne ────────────────────────
+     Hero'ens afstande, ikke dens typografi. Skriftstørrelser,
+     farver og fotoet er uændrede — det er luften mellem delene, der
+     var sat efter en bred skærm og bare fulgte med ned.
+
+     Målt på 390 px: 52 px polstring foroven, 14 px under
+     øjenbrynet, 14 px under overskriften og 24 px over søgekortet.
+     Fire afstande, der tilsammen er en tredjedel af en telefonskærm,
+     før nogen har set en bolig.
+
+     Søgekortet bliver, hvor det er, og bliver dermed MERE
+     fremtrædende: det er nu det første, der møder øjet under
+     overskriften i stedet for at ligge under en luftig blok.
+
+     Polstringen foroven stopper ved 40 px og ikke lavere: fotokrediteringen
+     ligger absolut placeret 14 px fra toppen og er ~21 px høj, og med 24 px
+     løb øjenbrynet ind under pillen på 390 px. Krediteringen må aldrig
+     dækkes — det er kortflisernes regel om den, der ejer motivet, anvendt
+     på fotoet. `herokontrol` måler nu overlappet, så grænsen ikke kan
+     skride igen uden at nogen får det at vide. */
+  .hero { padding-top: 40px; margin-bottom: 20px; }
+  .hero-oejenbryn { margin-bottom: 8px; }
+  .hero h1 { margin-bottom: 10px; }
+  .hero-soeg { margin-top: 14px; }
 }
 @media (max-width: 520px) {
   /* 16 px: under det zoomer iOS ind paa fokus og efterlader siden skaev. */
@@ -2130,9 +2155,34 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
    uden CSS skal begge dele stadig kunne læses. */
 @media (max-width: 900px) {
   .medkort { grid-template-columns: 1fr; }
-  .medkort > .listeomraade { display: none; }
+  /* ── Listen er udgangspunktet, kortet er et tilvalg ──────────
+     `:not(.kort-uvalgt)` er hele forskellen. Reglen skjulte før
+     listen, hver gang kortspalten var i markuppen — og den var den
+     som standard, så en telefonbruger, der havde søgt, mødte
+     landkortet. Nu skjules listen KUN, når hun udtrykkeligt har bedt
+     om kortet med `?kort=1`.
+
+     I den uvalgte tilstand går det den anden vej: kortspalten står i
+     markuppen (den skal, for en bred skærm viser den), men den er
+     skjult her. Beslutningen ligger i CSS og ikke i JavaScript, så der
+     er intet spring fra kort til liste efter hydrering — den rigtige
+     visning står der ved første maling.
+
+     Et skjult landkort koster ingenting: `Landkort` indlæser først
+     Leaflet, når fladen er synlig. */
+  .medkort:not(.kort-uvalgt) > .listeomraade { display: none; }
+  .medkort.kort-uvalgt > .kortspalte { display: none; }
+  
   .kortspalte { position: static; }
   .kortboks { height: 68vh; max-height: 620px; }
+  /* Kortvalget i den uvalgte tilstand: her ses LISTEN, så knappen
+     tilbyder kortet. Se noten i app/page.tsx om de to links. */
+  .kortvalg.kv-bred { display: none; }
+}
+/* Over grænsen står kort og liste side om side, så det, knappen kan
+   tilbyde, er at skrue kortet FRA. */
+@media (min-width: 901px) {
+  .kortvalg.kv-smal { display: none; }
 }
 
 /* ─── Sidenavigation ────────────────────────────────────────────
@@ -2220,6 +2270,39 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
 .sml-tal dt { font-size: 11px; font-weight: 640; text-transform: uppercase;
   letter-spacing: .07em; color: var(--svag); }
 .sml-tal dd { margin: 0; font-size: 17px; font-weight: 640; font-variant-numeric: tabular-nums; }
+
+/* ── «Sådan beregner vi» ────────────────────────────────────────
+   Metodeteksten er fem linjer og stod åben. Den er ikke det, læseren
+   kom efter — dommen, de to beløb og grundlagstallet er — men den skal
+   kunne læses i sin helhed af den, der vil efterprøve tallet.
+
+   Native <details>: tastatur, skærmlæser og «virker uden JavaScript»
+   følger med af sig selv. Samme valg og samme grund som filtervinduets
+   `.flere`. Markøren er vores egen, så den peger den rigtige vej i
+   begge tilstande — `::-webkit-details-marker` slås fra, fordi Safari
+   ellers tegner sin egen ved siden af.
+
+   44 px høj: det er berøringsmålet, ikke pynt. */
+.metode { margin: 0; }
+.metode > summary {
+  display: flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 4px 2px; cursor: pointer;
+  font-size: 13.5px; font-weight: 620; color: var(--accent);
+  list-style: none; user-select: none;
+}
+.metode > summary::-webkit-details-marker { display: none; }
+.metode > summary::after {
+  content: '⌄'; font-size: 15px; line-height: 1; color: var(--svag);
+  transition: transform .15s ease;
+}
+.metode[open] > summary::after { transform: rotate(180deg); }
+.metode > summary:hover { color: var(--accent-mrk); }
+.metode > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.metode-krop { padding: 0 2px 4px; }
+.metode-krop p {
+  margin: 0 0 9px; font-size: 12.5px; line-height: 1.55; color: var(--svag);
+}
+.metode-krop p:last-child { margin-bottom: 0; }
 
 /* ─── Udlejersiden ──────────────────────────────────────────────
    Samme sprog som resten: hvide blokke, samme skrift, samme accent. */

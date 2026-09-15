@@ -152,10 +152,12 @@ console.log('\n═══ Mobil 390×844 ═══')
   })
   const s = await c.newPage()
   // `kort=0` paa de filtrerede: under 901 px er kort og liste et SKIFT, og
-  // kortet er standard. Uden parameteren er `.liste` skjult — med vilje —
-  // og `scrollIntoViewIfNeeded()` venter tyve sekunder paa et element, der
-  // aldrig bliver synligt, og KASTER saa i stedet for at melde ✗. De tre
-  // maalinger her handler om LISTEN, saa de skal bede om listevisningen.
+  // listen er nu standarden paa mobil, saa `&kort=0` er ikke laengere
+  // noedvendigt her — men det bliver staaende, fordi disse tre maalinger
+  // handler om LISTEN og skal bede udtrykkeligt om den. Tidligere var
+  // kortet standard, `.liste` var skjult, og `scrollIntoViewIfNeeded()`
+  // ventede tyve sekunder paa et element, der aldrig blev synligt, og
+  // KASTEDE saa i stedet for at melde ✗. Vagten nedenfor bliver ogsaa.
   for (const [navn, sti] of [['forside', '/'], ['filtreret', '/?postnr=9001&kort=0'],
     ['arealfilter', '/?areal=100&kort=0']]) {
     await s.goto(BASE + sti, { waitUntil: 'networkidle', timeout: 90_000 })

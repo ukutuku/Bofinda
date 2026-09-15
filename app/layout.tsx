@@ -14,7 +14,7 @@ const sans = Inter({
 export const metadata = {
   title: 'Bofinda — lejeboliger, samlet ét sted',
   description:
-    'Lejeboliger samlet ét sted, med den reelle månedlige udgift og '
+    'Lejeboliger samlet ét sted, med den månedlige betaling til udlejer og '
     + 'indflytningsprisen — ikke bare huslejen.',
 }
 

@@ -1,5 +1,8 @@
 import { notFound } from 'next/navigation'
-import { availabilityFor, hentBolig, kvadratmeterpris, type BoligDetalje } from '../../../lib/soeg'
+import {
+  availabilityFor, hentBolig, kvadratmeterpris, MINDST_TIL_SAMMENLIGNING,
+  type BoligDetalje,
+} from '../../../lib/soeg'
 import { forklar } from '../../../lib/availability'
 import { billedUrl } from '../../../lib/billede'
 import { eltilstand } from '../../../lib/eloplysning'
@@ -192,7 +195,19 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
           <div className="oek-kort">
             {b.total != null ? (
               <>
-                <div className="oek-etiket">Reel månedlig udgift</div>
+                {/* ── «Betaling til udlejer», ikke «reel udgift» ──
+                    Tallet er husleje plus den aconto, kilden opkræver —
+                    alt hvad der betales TIL UDLEJEREN. «Reel månedlig
+                    udgift» lovede mere end det: el står uden for hos
+                    næsten alle kilder, så en læser, der tog ordet for
+                    pålydende, ville regne med et tal, der ikke var
+                    hendes reelle udgift.
+
+                    Det er den samme rettelse, prisetiketten på
+                    boligkortet allerede har fået — der står «kr/md til
+                    udlejer», og det var «i alt» før. Nu siger begge
+                    flader det samme om det samme tal. */}
+                <div className="oek-etiket">Månedlig betaling til udlejer</div>
                 <div className="oek-tal">{kr(b.total)}<span className="enhed"> kr.</span></div>
                 <ul className="oek-poster">
                   <li><span>Husleje</span><b>{kr(b.leje)}</b></li>
@@ -222,11 +237,19 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
               </>
             ) : (
               <>
-                <div className="oek-etiket">Månedlig udgift</div>
+                {/* Kender vi kun huslejen, hedder tallet husleje. «Månedlig
+                    udgift» stod her og var det, tallet netop IKKE var —
+                    aconto er ukendt, så udgiften er større end det, der
+                    står. Underlinjen «kun husleje» skulle bære hele
+                    forbeholdet for en etiket, der sagde noget andet;
+                    etiketten siger det nu selv, og linjen gentager ikke
+                    overskriften. Boligkortet siger «i husleje» om det
+                    samme tal. */}
+                <div className="oek-etiket">Månedlig husleje</div>
                 <div className="oek-tal ukendt-tal">
                   {kr(b.leje) ?? '—'}<span className="enhed"> kr.</span>
                 </div>
-                <p className="oek-etiket-under">kun husleje</p>
+                <p className="oek-etiket-under">aconto ikke oplyst</p>
                 <div className="oek-mangler">
                   <strong>Udlejer oplyser ikke aconto.</strong>
                   <span>Spørg om varme og vand, før du regner på det —
@@ -408,12 +431,52 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
                   <dd>{(kvm.median / 100).toLocaleString('da-DK', { maximumFractionDigits: 0 })} kr/m² pr. md.</dd>
                 </div>
               </dl>
+              {/* ── Forbeholdet bliver stående, metoden foldes ─────
+                  Blokken skal kunne aflæses på ét blik: afvigelsen, de
+                  to beløb og hvor mange boliger medianen er regnet af —
+                  de tre står ovenfor og røres ikke. Men den fulde
+                  metodetekst er fem linjer, og på en telefon skubbede
+                  den resten af siden ned uden at være det, læseren kom
+                  efter.
+
+                  Det ENE, der ikke må foldes væk, er forbeholdet om
+                  datagrundlaget: et tal, der lyder som en markedspris
+                  uden at være det, er præcis den slags påstand, resten
+                  af fladen er bygget om at undgå. Det står derfor
+                  synligt, og metoden ligger under det.
+
+                  `<details>` og ikke en knap: browseren giver
+                  udfoldningen, tastaturet og den rigtige rolle gratis,
+                  og den virker uden JavaScript. Samme valg som
+                  filtervinduets `<details class="flere">`. */}
               <p className="note">
-                Regnet af den samlede månedlige udgift på de {kvm.antal} boliger i {b.postnr},
-                vi har hentet, og som oplyser både aconto og areal. Boliger, hvor kun huslejen
-                er kendt, indgår ikke — de ville trække medianen ned og sammenligne to
-                forskellige ting. Tallet er ikke et udtryk for hele markedet.
+                Tallet er talt af de boliger, vi har hentet, og er ikke et udtryk
+                for hele markedet.
               </p>
+              <details className="metode">
+                <summary>Sådan beregner vi</summary>
+                <div className="metode-krop">
+                  <p>
+                    Denne bolig: {kr(b.total)} kr. om måneden delt med {b.areal} m²
+                    {' = '}
+                    {(egenKvm / 100).toLocaleString('da-DK', { maximumFractionDigits: 0 })} kr/m²
+                    {' '}pr. md.
+                  </p>
+                  <p>
+                    Medianen er regnet af den samlede månedlige betaling til udlejer på
+                    de {kvm.antal} boliger i {b.postnr}, vi har hentet, og som oplyser
+                    både aconto og areal. Boliger, hvor kun huslejen er kendt, indgår
+                    ikke — de ville trække medianen ned og sammenligne to forskellige
+                    ting.
+                  </p>
+                  <p>
+                    Grundlaget er dedupet, så den samme bolig annonceret hos to kilder
+                    kun tæller én gang. Er der færre end {MINDST_TIL_SAMMENLIGNING} boliger
+                    i postnummeret, vises sammenligningen slet ikke: en median af nogle få
+                    boliger er ikke en markedspris.
+                  </p>
+                </div>
+              </details>
             </section>
           )}
 

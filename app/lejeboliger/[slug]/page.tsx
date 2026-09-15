@@ -84,7 +84,7 @@ export async function generateMetadata(
     s.medianIndflytning != null
       ? `Typisk indflytningspris ${kr(s.medianIndflytning)} kr.`
       : null,
-    'Se den reelle månedlige udgift, ikke bare huslejen.',
+    'Se den månedlige betaling til udlejer, ikke bare huslejen.',
   ].filter(Boolean)
 
   // ── En side EFTER sidste gyldige side ───────────────────────────
@@ -187,9 +187,9 @@ export default async function Side({ params, searchParams }: {
           )}
           {' '}
           {s.medTotal === s.antal
-            ? <>Alle {s.antal} oplyser aconto, så den reelle månedlige udgift kendes.</>
+            ? <>Alle {s.antal} oplyser aconto, så den samlede betaling til udlejer kendes.</>
             : s.medTotal === 0
-              ? <>Ingen af dem oplyser aconto, så den samlede månedlige udgift kendes ikke.</>
+              ? <>Ingen af dem oplyser aconto, så den samlede betaling til udlejer kendes ikke.</>
               : <><strong>{s.medTotal} af {s.antal}</strong> oplyser aconto. På resten kender
                 vi kun huslejen — spørg udlejeren om varme og vand.</>}
         </p>

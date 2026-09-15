@@ -106,9 +106,9 @@ const FULD = sql`(${listings.totalMonthly} is not null
 /**
  * Prisen der filtreres, sorteres og opsummeres på.
  *
- * Den reelle månedlige udgift, når vi kender den — ellers huslejen. Det er
- * det tal, brugeren SER som overskrift på kortet, og dermed det, hun mener,
- * når hun skriver "under 18.000". Filtrerede vi på huslejen alene, ville en
+ * Den månedlige betaling til udlejer, når vi kender den — ellers huslejen.
+ * Det er det tal, brugeren SER som overskrift på kortet, og dermed det, hun
+ * mener, når hun skriver "under 18.000". Filtrerede vi på huslejen alene, ville en
  * bolig til 17.200 i husleje og 18.100 i alt slippe gennem et 18.000-filter
  * og se dyrere ud end bestilt.
  *

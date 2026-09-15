@@ -140,6 +140,32 @@ for (const bredde of BREDDER) {
   tjek(`${bredde} px · krediteringen står på skærmen`,
     m.kredit === 'Stemningsfoto: Taryn Elliott / Pexels', String(m.kredit))
   tjek(`${bredde} px · søgeknappen er mindst 48 px høj`, m.knapH >= 48, `${m.knapH} px`)
+
+  // ── Krediteringen maa ikke ligge oven i teksten ──────────────
+  //  Den er absolut placeret 14 px fra toppen; hero'ens polstring
+  //  foroven er det eneste, der holder oejenbrynet fri af den. Da
+  //  polstringen blev sat ned paa mobil for at give plads til
+  //  boligerne, loeb de to sammen paa 390 px — laeseligt paa ingen af
+  //  dem. En pille, der daekker en overskrift, og en overskrift, der
+  //  daekker en pille, er den samme fejl.
+  //
+  //  Maalt paa LINJEKASSERNE, ikke elementernes: `.hero-oejenbryn` er
+  //  et <p> i fuld bredde og ville altid «overlappe» pillen, hvis man
+  //  maalte kassen. De rigtige kasser er der allerede — det er dem,
+  //  kontrastmaalingen bruger.
+  const kasser = (navn) => (m.tekster.find((t) => t.navn === navn)?.linjer ?? [])
+  const overlap = []
+  for (const k of kasser('fotokrediteringen')) {
+    for (const navn of ['den lille overskrift', 'overskriften', 'brødteksten']) {
+      for (const t of kasser(navn)) {
+        const x = Math.min(k.x + k.width, t.x + t.width) - Math.max(k.x, t.x)
+        const y = Math.min(k.y + k.height, t.y + t.height) - Math.max(k.y, t.y)
+        if (x > 0 && y > 0) overlap.push(`${navn} (${x}×${y} px)`)
+      }
+    }
+  }
+  tjek(`${bredde} px · krediteringen ligger ikke oven i hero-teksten`,
+    overlap.length === 0, overlap.join(' · ') || 'ingen')
   tjek(`${bredde} px · intet vandret overløb`, m.overloeb <= 0, `${m.overloeb} px`)
 
   /**
