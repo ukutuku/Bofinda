@@ -167,83 +167,149 @@ for (const medJS of [true, false]) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  B · Valget overlever et søgeforløb — gennem FAKTISKE klik
+//  B · HELE søgeforløbet, gennem faktiske klik
 //
 //  Mod koden fra før: `kortLink` udelod parameteren, når kortet blev
 //  slået til, så «Vis kort» førte til en adresse uden `kort` — altså
 //  tilbage til standardvisningen. Og GET-formularen bar ikke `kort`
 //  med, så det første filterklik nulstillede valget.
+//
+//  ── HVORFOR DEN BLEV SKREVET OM ──────────────────────────────
+//  Den første udgave brød forløbet midtvejs: den gik med `p.goto()` til
+//  `/?kort=1&prisMin=5000`, fordi Attrapby kun fylder én side og der
+//  ikke var en «næste side» at klikke på. Det var et bevidst skift af
+//  søgning — men det betød, at sideskiftet kun beviste, at `kort`
+//  overlevede, og intet sagde om `sted` og `sorter`. I loggen så det ud
+//  som om forløbet tabte to parametre mellem sortering og paginering.
+//  Det gjorde produktet ikke; prøven skiftede søgning.
+//
+//  Nu er der ÉN søgning hele vejen. `sted=Prøveby` er valgt, fordi den
+//  fylder to sider (88 kort) OG bærer et rigtigt stedfilter — begge dele
+//  skal være opfyldt, for at et sideskift kan måles på noget. Hvert
+//  skridt er et KLIK, og efter hvert skridt kræves alle fire dele:
+//  sted, filter, sortering og det eksplicitte visningsvalg.
+//
+//  Det eksplicitte valg aflæses af klikket i stedet for at være skrevet
+//  ind: over 900 px viser den uvalgte tilstand kortet, så knappen fører
+//  til `kort=0`; under fører den til `kort=1`. Prøven kræver, at netop
+//  den værdi, klikket gav, står der hele vejen.
 // ══════════════════════════════════════════════════════════════
-console.log('\n═══ B · valget gennem filtrering, sortering, paginering og tilbage ═══')
-{
-  const c = await br.newContext({ viewport: { width: 390, height: 844 } })
+console.log('\n═══ B · hele søgeforløbet gennem faktiske klik ═══')
+// Søgningen skal fylde MERE END ÉN SIDE, ellers er der ingen
+// «næste side» at klikke på, og et sideskift kan ikke måles.
+const FORLOEB_STED = 'Prøveby'
+for (const bredde of [1440, 768, 390]) {
+  const merke = bredde === 390 ? 'mobil' : bredde === 768 ? 'tablet' : 'desktop'
+  console.log(`\n── ${merke} (${bredde} px) ──`)
+  const c = await br.newContext({
+    viewport: { width: bredde, height: bredde === 390 ? 844 : 1000 },
+  })
   const p = await c.newPage()
   await p.goto(BASE + '/', { waitUntil: 'networkidle' })
   const k = p.getByRole('button', { name: 'Kun det nødvendige' })
   if (await k.count()) { await k.first().click(); await p.waitForTimeout(600) }
 
-  await p.goto(BASE + SOEGNING, { waitUntil: 'networkidle' })
+  /** Alle fire dele af søgningen, læst af adressen. */
+  const q = () => Object.fromEntries(new URL(p.url()).searchParams)
+  /** Kræver, at de dele, der ER sat, står uændret. */
+  const staar = (navn, ventet) => {
+    const a = q()
+    const mangler = Object.entries(ventet)
+      .filter(([nk, nv]) => a[nk] !== nv)
+      .map(([nk, nv]) => `${nk}: ${a[nk] ?? '(væk)'} ≠ ${nv}`)
+    tjek(mangler.length === 0, `${merke} · ${navn}`,
+      mangler.join(' · ') || p.url().replace(BASE, ''))
+  }
+
+  // 1 · Søg, som en bruger gør: skriv i feltet og tryk Søg.
+  await p.locator('.soegebar input[name="sted"]').first().fill(FORLOEB_STED)
+  await p.locator('.soegeknap').first().click()
+  await p.waitForLoadState('networkidle')
   await p.waitForTimeout(500)
-  // Det SYNLIGE kortvalg — der er to i markuppen i den uvalgte tilstand.
+  staar('søgningen står i adressen', { sted: FORLOEB_STED })
+  tjek(await p.locator('nav.sider a[rel="next"]').count() > 0,
+    `${merke} · søgningen fylder mere end én side`,
+    `${await p.locator('a.kort[data-bolig]').count()} kort på side 1`)
+
+  // 2 · Vælg visning ved at KLIKKE på kortvalget. Hvad klikket giver,
+  //     afhænger af bredden — og netop den værdi skal bæres videre.
   await p.locator('.kortvalg:visible').first().click()
   await p.waitForLoadState('networkidle')
-  await p.waitForTimeout(900)
-  tjek(new URL(p.url()).searchParams.get('kort') === '1',
-    'mobil · klik på «Vis kort» skriver valget i adressen', p.url().replace(BASE, ''))
-  tjek((await visning(p)).kortboks, 'mobil · og landkortet står der')
-  if (UD) await p.screenshot({ path: `${UD}/b-efter-klik.png` })
+  await p.waitForTimeout(800)
+  const VALG = q().kort ?? null
+  tjek(VALG === '1' || VALG === '0',
+    `${merke} · klikket skriver et eksplicit visningsvalg`, `kort=${VALG}`)
+  staar('og søgningen er stadig i behold', { sted: FORLOEB_STED, kort: VALG })
+  const efterValg = await visning(p)
+  tjek(VALG === '1' ? efterValg.kortboks : !efterValg.kortboks,
+    `${merke} · visningen svarer til valget`,
+    `kort=${VALG}, kortboks=${efterValg.kortboks}`)
 
-  // Filtrering: formularen sender kun sine egne felter.
+  // 3 · Filtrér gennem filtervinduet.
   await p.locator('.filterknap').first().click()
   await p.waitForLoadState('networkidle')
-  const prisfelt = p.locator('input[name="prisMin"]').first()
-  if (await prisfelt.count()) {
-    await prisfelt.fill('5000')
-    await p.locator('form.filtre button[type="submit"]:visible').last().click()
+  await p.locator('input[name="prisMin"]').first().fill('5000')
+  await p.locator('form.filtre button[type="submit"]:visible').last().click()
+  await p.waitForLoadState('networkidle')
+  await p.waitForTimeout(600)
+  staar('filtrering bevarer sted og visningsvalg',
+    { sted: FORLOEB_STED, prisMin: '5000', kort: VALG })
+
+  // 4 · Sortér — ved at åbne menuen og klikke, ikke ved at gå til en
+  //     adresse. Et link, der ser rigtigt ud, er ikke et klik.
+  const menu = p.locator('details.sortering')
+  if (await menu.count()) {
+    await menu.locator('summary').first().click()
+    await p.waitForTimeout(200)
+    await menu.locator('a.sort-pille:not(.valgt)').first().click()
     await p.waitForLoadState('networkidle')
-    await p.waitForTimeout(700)
-    const q = new URL(p.url()).searchParams
-    tjek(q.get('kort') === '1' && q.get('prisMin') === '5000',
-      'mobil · valget overlever en filtrering', p.url().replace(BASE, ''))
-    tjek((await visning(p)).kortboks, 'mobil · og kortet står der stadig bagefter')
+    await p.waitForTimeout(600)
+    tjek(q().sorter != null, `${merke} · sorteringen står i adressen`, `sorter=${q().sorter}`)
+    staar('sortering bevarer sted, filter og visningsvalg',
+      { sted: FORLOEB_STED, prisMin: '5000', kort: VALG, sorter: q().sorter })
   } else {
-    tjek(false, 'mobil · filterfeltet blev fundet', 'prisMin mangler')
+    tjek(false, `${merke} · sorteringsmenuen findes`)
   }
+  const SORT = q().sorter
+  const SIDE1 = p.url().replace(BASE, '')
 
-  // Sortering.
-  const sorterlink = await p.evaluate(() => {
-    const a = [...document.querySelectorAll('.sortering a')].find((x) => !x.className.includes('valgt'))
-    return a ? a.getAttribute('href') : null
-  })
-  if (sorterlink) {
-    await p.goto(BASE + sorterlink, { waitUntil: 'networkidle' })
-    const q = new URL(p.url()).searchParams
-    tjek(q.get('kort') === '1' && q.has('sorter'),
-      'mobil · valget overlever en sortering', p.url().replace(BASE, ''))
-  } else {
-    tjek(false, 'mobil · der var en sortering at klikke på')
-  }
-
-  // Paginering — uden stedfilter, så der er mere end én side.
-  await p.goto(`${BASE}/?kort=1&prisMin=5000`, { waitUntil: 'networkidle' })
+  // 5 · Skift side — i den SAMME søgning.
   const naeste = p.locator('nav.sider a[rel="next"]').first()
   if (await naeste.count()) {
     await naeste.click()
     await p.waitForLoadState('networkidle')
-    const q = new URL(p.url()).searchParams
-    tjek(q.get('kort') === '1' && q.get('side') === '2',
-      'mobil · valget overlever et sideskift', p.url().replace(BASE, ''))
+    await p.waitForTimeout(600)
+    staar('sideskift bevarer sted, filter, sortering og visningsvalg',
+      { sted: FORLOEB_STED, prisMin: '5000', kort: VALG, sorter: SORT, side: '2' })
+    const paaSide2 = await visning(p)
+    tjek(VALG === '1' ? paaSide2.kortboks : paaSide2.liste,
+      `${merke} · og visningen er den samme på side 2`,
+      `kort=${VALG}, kortboks=${paaSide2.kortboks}, liste=${paaSide2.liste}`)
   } else {
-    tjek(false, 'mobil · der var en side 2 at gå til')
+    tjek(false, `${merke} · der var en «næste side» at klikke på`)
   }
 
-  // Tilbage-navigation.
+  // 6 · Tilbage — browserens egen knap, gennem det forløb vi lige gik.
+  await p.goBack({ waitUntil: 'networkidle' })
+  await p.waitForTimeout(700)
+  tjek(p.url().replace(BASE, '') === SIDE1,
+    `${merke} · tilbage fører til præcis den side, man kom fra`,
+    `${p.url().replace(BASE, '')} — ventet ${SIDE1}`)
+  staar('og hele søgningen er intakt efter tilbage',
+    { sted: FORLOEB_STED, prisMin: '5000', kort: VALG, sorter: SORT })
+  const efterTilbage = await visning(p)
+  tjek(VALG === '1' ? efterTilbage.kortboks : efterTilbage.liste,
+    `${merke} · visningen er den samme efter tilbage`,
+    `kortboks=${efterTilbage.kortboks}, liste=${efterTilbage.liste}`)
+
+  // 7 · Ét skridt mere tilbage: før sorteringen. Historikken skal bære
+  //     hele forløbet, ikke kun det sidste skridt.
   await p.goBack({ waitUntil: 'networkidle' })
   await p.waitForTimeout(600)
-  const tq = new URL(p.url()).searchParams
-  tjek(tq.get('kort') === '1' && !tq.has('side'),
-    'mobil · og tilbage-knappen fører til den samme visning', p.url().replace(BASE, ''))
-  tjek((await visning(p)).kortboks, 'mobil · kortet står der efter tilbage')
+  staar('to skridt tilbage: sted, filter og visningsvalg står endnu',
+    { sted: FORLOEB_STED, prisMin: '5000', kort: VALG })
+
+  if (UD && bredde === 390) await p.screenshot({ path: `${UD}/b-forloeb-mobil.png` })
   await c.close()
 }
 
