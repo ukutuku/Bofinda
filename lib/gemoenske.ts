@@ -76,13 +76,27 @@ export function gemOenskeFra(v: unknown): string | null {
  *   · `gemt`           boligen ligger nu paa hendes liste
  *   · `ukendt-bolig`   id'et er velformet, men der findes ingen saadan bolig
  *   · `ugyldigt-link`  parameteren var ikke et bolig-id
+ *   · `ikke-gemt`      skrivningen knaekkede — hun ER logget ind, men
+ *                      boligen naaede ikke listen
  *
- * De to sidste er adskilt med vilje. «Boligen findes ikke laengere» er en
- * oplysning om boligen; «linket var ikke gyldigt» er en oplysning om
- * linket. Slaar man dem sammen, faar hun at vide, at en bolig er
- * forsvundet, i et tilfaelde hvor den maaske aldrig har eksisteret.
+ * De tre sidste er adskilt med vilje. «Boligen findes ikke laengere» er
+ * en oplysning om boligen; «linket var ikke gyldigt» er en oplysning om
+ * linket; «vi kunne ikke gemme den» er en oplysning om OS. Slaar man dem
+ * sammen, faar hun at vide, at en bolig er forsvundet, i et tilfaelde
+ * hvor den maaske aldrig har eksisteret — eller hvor det var vores egen
+ * base, der svigtede.
+ *
+ * ═══ HVORFOR `ikke-gemt` FINDES ═══
+ *
+ * Maalt, ikke formodet. Foerste udgave lod `gemOenske` kaste videre ud
+ * gennem `login()`: en proeve med en kastende trigger paa `favorites`
+ * viste, at sessionen BLEV oprettet, men omdirigeringen aldrig skete —
+ * hun blev staaende paa `/min-side?gem=…` med en gammel besked fra et
+ * tidligere forsoeg. Hun var logget ind og fik at vide, at en anden
+ * bolig ikke fandtes. En gemning maa aldrig kunne vaelte det login, den
+ * hang paa.
  */
-export const GEMUDFALD = ['gemt', 'ukendt-bolig', 'ugyldigt-link'] as const
+export const GEMUDFALD = ['gemt', 'ukendt-bolig', 'ugyldigt-link', 'ikke-gemt'] as const
 export type Gemudfald = (typeof GEMUDFALD)[number]
 
 /** Kender vi ikke ordet, er der intet udfald at vise — aldrig et gaet. */
@@ -109,7 +123,13 @@ export const GEMCOOKIE = 'bofinda_gemoenske'
  * Hvor laenge udfaldet ligger og venter paa at blive vist.
  *
  * Kort, fordi den ikke kan slettes ved visningen: Min side er en GET, og
- * en side maa ikke saette cookies under gengivelsen. Samme loesning og
- * samme tal som kvitteringen efter et kodeskift.
+ * en side maa ikke saette cookies under gengivelsen. Den lever derfor sit
+ * vindue ud, og et genindlaes inden for det viser beskeden igen.
+ *
+ * KORTERE end kvitteringen efter et kodeskift (120 s). Den her handler om
+ * det ene klik, hun lige lavede, og en besked om en bolig, der stadig
+ * staar to minutter senere, kan naa at blive et svar paa et andet
+ * spoergsmaal — det skete i proeven, hvor sektion 7's besked stod og
+ * lignede et svar i sektion 8.
  */
-export const GEMUDFALDSSEK = 120
+export const GEMUDFALDSSEK = 30

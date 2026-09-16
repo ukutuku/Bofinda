@@ -117,8 +117,14 @@ async function koer() {
     // blive til to boliger — der tages den foerste.
     tjek('2G · flere vaerdier: den foerste vinder',
       gemOenskeFra([boligId, FALSK_ID]) === boligId)
-    tjek('2H · gemudfaldFra kender kun de tre ord',
-      GEMUDFALD.every((u) => gemudfaldFra(u) === u) && gemudfaldFra('gemt!') === null)
+    tjek('2H · gemudfaldFra kender kun sine egne ord',
+      GEMUDFALD.every((u) => gemudfaldFra(u) === u) && gemudfaldFra('gemt!') === null,
+      GEMUDFALD.join(', '))
+    // «Vi kunne ikke gemme den» skal kunne siges. Uden det udfald ville en
+    // knaekket skrivning enten tie eller vaelte login — se noten i
+    // lib/gemoenske.ts.
+    tjek('2I · der findes et udfald for en fejlet skrivning',
+      GEMUDFALD.includes('ikke-gemt'))
   }
 
   // ═══ 3 · Formularen baerer oensket videre ═══

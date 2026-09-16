@@ -15,7 +15,9 @@ import { byForPostnr } from '../../lib/omraade'
 import { redirect } from 'next/navigation'
 import { adgangstoken, hentBrugerStatus, hentUdlejer, supabase } from '../../lib/auth'
 import { gemOenske } from '../../lib/favoritter'
-import { GEMCOOKIE, GEMUDFALDSSEK, GEM_PARAM } from '../../lib/gemoenske'
+import {
+  GEMCOOKIE, GEMUDFALDSSEK, GEM_PARAM, type Gemudfald,
+} from '../../lib/gemoenske'
 import { billedUrl } from '../../lib/billede'
 import {
   fjernBolig, genudgivBolig, opdaterBolig, opretBolig, renTekst,
@@ -151,13 +153,40 @@ async function fuldfoerGemOenske(raa: FormDataEntryValue | null): Promise<void> 
   const tekst = typeof raa === 'string' ? raa.trim() : ''
   if (tekst === '') return
 
-  const svar = await hentBrugerStatus()
-  if (svar.slags !== 'ok') return
+  // ═══ INTET HERINDE MAA KUNNE VAELTE LOGIN ═══
+  //
+  // Maalt, ikke formodet. Uden fangsten kastede en knaekket skrivning
+  // videre ud gennem `login()`: sessionen VAR oprettet, men
+  // `redirect()` blev aldrig naaet, saa hun blev staaende paa
+  // `/min-side?gem=…` — logget ind, med en gammel besked fra et
+  // tidligere forsoeg som eneste forklaring. Proeven med en kastende
+  // trigger paa `favorites` viste det.
+  //
+  // Hun bad om to ting: at komme ind, og at faa boligen gemt. Fejler
+  // den anden, skal den foerste stadig lykkes — og hun skal have det at
+  // vide.
+  let udfald: Gemudfald = 'ikke-gemt'
+  try {
+    const svar = await hentBrugerStatus()
+    // Kan kontoen ikke bindes — konflikt eller ubekraeftet mail — gemmes
+    // der intet, og der saettes INGEN kvittering. Min side viser sin egen
+    // forklaring, og en besked om en gemt bolig oven i den ville love
+    // noget, der ikke skete.
+    if (svar.slags !== 'ok') return
+    udfald = await gemOenske(svar.bruger.id, tekst)
+    revalidatePath('/min-side')
+  } catch {
+    // `udfald` staar allerede paa 'ikke-gemt'. Fejlen slugges IKKE i
+    // tavshed — den bliver til den besked, hun laeser paa Min side.
+  }
 
-  const udfald = await gemOenske(svar.bruger.id, tekst)
-  revalidatePath('/min-side')
-  const jar = await cookies()
-  jar.set(GEMCOOKIE, udfald, { ...BASISCOOKIE, maxAge: GEMUDFALDSSEK })
+  // Ogsaa den her uden for kastevejen: kan kvitteringen ikke saettes, er
+  // det stadig bedre at lande paa Min side uden besked end at se en
+  // fejlside efter et login, der lykkedes.
+  try {
+    const jar = await cookies()
+    jar.set(GEMCOOKIE, udfald, { ...BASISCOOKIE, maxAge: GEMUDFALDSSEK })
+  } catch { /* uden kvittering, men inde */ }
 }
 
 export async function login(k: Kontekst, _forrige: Svar, f: FormData): Promise<Svar> {

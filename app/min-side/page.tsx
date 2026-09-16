@@ -247,6 +247,14 @@ export default async function Side(
             på hjertet igen.
           </p>
         )}
+        {/* Vores fejl, ikke hendes. Der staar udtrykkeligt, at hun ER
+            logget ind — ellers ville hun proeve at logge ind igen. */}
+        {gemudfald === 'ikke-gemt' && (
+          <p className="formfejl" role="status">
+            Du er logget ind, men vi kunne ikke gemme boligen lige nu.
+            Prøv at trykke på hjertet igen.
+          </p>
+        )}
 
         {boliger.length === 0 ? (
           <div className="tom-boks">
