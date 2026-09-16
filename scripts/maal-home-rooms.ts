@@ -66,20 +66,26 @@ import { hvor, udenDubletter } from '../lib/soeg'
 
 const KILDE = process.env.HOME_SLUG ?? 'home'
 
-/** Vaerten, databasen og Supabase-ref'en — saa tallene kan henfoeres. */
-function hvilkenBase(): string {
-  // Kun DATABASE_URL_DIRECT: det er den, `forbindelse()` i db/client.ts
-  // vaelger uden for webappen. Et fald tilbage til DATABASE_URL ville
-  // vaere endnu et udtryk for samme spoergsmaal.
-  const raa = process.env.DATABASE_URL_DIRECT ?? ''
-  if (!raa) return '(ingen DATABASE_URL_DIRECT — scriptet kan ikke koere)'
-  try {
-    const u = new URL(raa)
-    const ref = /postgres\.([a-z0-9]{20})/.exec(decodeURIComponent(u.username))?.[1]
-      ?? /(?:^|\.)([a-z0-9]{20})\.supabase\./.exec(u.hostname)?.[1]
-      ?? '(ingen supabase-ref i strengen)'
-    return `${u.hostname}:${u.port || '5432'}${u.pathname} · ref ${ref}`
-  } catch { return '(ulaeselig DATABASE_URL_DIRECT)' }
+/**
+ * Hvem er vi FAKTISK forbundet til?
+ *
+ * En tidligere udgave laeste `DATABASE_URL_DIRECT` og skrev den ud. Det
+ * er ikke det samme spoergsmaal: `forbindelse()` i db/client.ts vaelger
+ * `DATABASE_URL`, naar `NEXT_RUNTIME` eller `VERCEL` er sat
+ * (db/client.ts:32, 51-55), saa udskriften kunne navngive én base, mens
+ * tallene kom fra en anden. Og et stagingtal, der staar under et
+ * produktionsnavn, er vaerre end intet tal.
+ *
+ * Derfor spoerges SERVEREN — samme greb som `scripts/cloud/app-op.sh`.
+ */
+async function hvilkenBase(tx: Tx): Promise<string> {
+  const svar = (await tx.execute(sql`select current_database() as d,
+    coalesce(inet_server_addr()::text, 'loopback') as a,
+    inet_server_port() as p,
+    current_setting('transaction_read_only') as ro`)
+  ) as unknown as { d: string; a: string; p: number; ro: string }[]
+  const r = svar[0]
+  return `${r?.d} paa ${r?.a}:${r?.p} · read_only=${r?.ro}`
 }
 
 /** Grundlaget er soegningens eget — ikke en afskrift. */
@@ -102,13 +108,13 @@ const taelKilde = async (tx: Tx, hvorNoget: ReturnType<typeof and>) => {
 }
 
 async function koer() {
-  console.log(`\n══ Datagrundlag ══`)
-  console.log(`  base:        ${hvilkenBase()}`)
-  console.log(`  kilde-slug:  ${KILDE}`)
-  console.log(`  transaktion: repeatable read · READ ONLY (haandhaevet af serveren)`)
-  console.log(`  grundlag:    hvor({}) og udenDubletter() IMPORTERET fra lib/soeg.ts\n`)
-
   await db.transaction(async (tx) => {
+    // Navngivningen sker INDE i transaktionen, saa den beskriver praecis
+    // den forbindelse, tallene kommer fra — ikke en miljoevariabel.
+    console.log(`\n══ Datagrundlag ══`)
+    console.log(`  base:        ${await hvilkenBase(tx)}`)
+    console.log(`  kilde-slug:  ${KILDE}`)
+    console.log(`  grundlag:    hvor({}) og udenDubletter() IMPORTERET fra lib/soeg.ts\n`)
     // ── 1 · Fordelingen af vaerelsestal, MAALT ────────────────
     // Det er en ANTAGELSE, at alle home-raekker har rooms = null.
     // Antagelsen bygger paa, at `listings.rooms` kun skrives fra
@@ -211,16 +217,23 @@ async function koer() {
               is not distinct from round(${listings.rentMonthly} / 10000.0))`))
 
     console.log(`══ 3 · Dedup paa access-noeglen — KANDIDATOPTAELLINGER ══`)
-    console.log(`  a) NYT match kan opstaa:            ${nytMatch}`)
-    console.log(`     · deler opgang, areal og husleje med en anden kildes annonce,`)
-    console.log(`       som HAR et vaerelsestal. Stemmer tallene, bliver de dubletter.`)
-    console.log(`     · SAA forsvinder ÉN af de to — og rangeringen afgoer hvem.`)
-    console.log(`       Kilden indgaar ikke i valget, saa det kan vaere modparten.`)
-    console.log(`       Tallet er altsaa beroerte PAR, ikke skjulte home-annoncer.`)
-    console.log(`  b) EKSISTERENDE match kan SPLITTES: ${splittes}`)
-    console.log(`     · deler noeglen i dag, fordi begge er '?'. Faar den ene et tal`)
-    console.log(`       og den anden ikke — eller faar de forskellige tal — skilles`)
-    console.log(`       de ad, og en bolig kommer FREM.`)
+    console.log(`  ENHEDEN ER ${KILDE}-RAEKKER, IKKE PAR. Begge tal er`)
+    console.log(`  \`count(*)\` over raekker med mindst én modpart (\`exists\`), saa en`)
+    console.log(`  raekke med TO modparter taeller ÉN gang. De er hverken et antal`)
+    console.log(`  par, et antal skjulte annoncer eller et antal boliger.\n`)
+    console.log(`  a) ${KILDE}-raekker der kan faa et NYT match:  ${nytMatch}`)
+    console.log(`     · deler opgang, areal og husleje med mindst én anden kildes`)
+    console.log(`       annonce, som HAR et vaerelsestal. Stemmer tallene, bliver de`)
+    console.log(`       dubletter.`)
+    console.log(`     · SAA forsvinder ÉN af hvert par — og rangeringen afgoer hvem.`)
+    console.log(`       Kilden indgaar ikke i valget, saa det kan vaere modparten,`)
+    console.log(`       der skjules. Tallet siger intet om retningen.`)
+    console.log(`  b) ${KILDE}-raekker i et match der kan SPLITTES: ${splittes}`)
+    console.log(`     · deler noeglen i dag, fordi begge er '?'. Faar de forskellige`)
+    console.log(`       tal — eller faar den ene et og den anden ikke — skilles de ad.`)
+    console.log(`     · Tallet er IKKE antallet af boliger, der kommer frem. Hvor`)
+    console.log(`       mange der bliver synlige, afhaenger af, hvor mange raekker`)
+    console.log(`       hver noegle samler, og hvem der er repraesentant i dag.`)
     console.log(`  · De to traekker hver sin vej. Et uaendret nettotal kan daekke`)
     console.log(`    over, at det ikke er de samme boliger, der vises.\n`)
 
@@ -257,12 +270,20 @@ async function koer() {
     const medVaerelseskrav = Number(alarm?.n ?? 0)
     console.log(`══ 6 · Uden for visningen: BOLIGALARMEN ══`)
     console.log(`  bekraeftede gemte soegninger med vaerelseskrav: ${medVaerelseskrav}`)
+    console.log(`  · DET ER ET ANTAL SOEGNINGER — ikke et antal beroerte soegninger,`)
+    console.log(`    og slet ikke et antal mails. Ingen af delene er maalt her.`)
     console.log(`  · \`matchAlarmer\` bruger hvor() (lib/alarm.ts:95), og hvor() har`)
     console.log(`    \`gte(listings.rooms, f.vaerelserMin)\` (lib/soeg.ts:137). En`)
-    console.log(`    home-raekke uden vaerelsestal kan i dag ALDRIG ramme en soegning`)
-    console.log(`    med vaerelseskrav. Faar den et tal, kan den.`)
-    console.log(`  · scripts/import.ts matcher OG SENDER i samme koersel. Det er den`)
-    console.log(`    eneste virkning her, der ikke kan kaldes tilbage.\n`)
+    console.log(`    ${KILDE}-raekke uden vaerelsestal kan i dag ALDRIG opfylde det led.`)
+    console.log(`    Faar den et tal, kan den — men det AABNER kun ÉT led af mange.`)
+    console.log(`  · Et traef kraever ogsaa: at boligen er NY efter soegningens egne`)
+    console.log(`    regler (first_seen_at, kildens dato og indkoeringsvagten pr.`)
+    console.log(`    kilde), at ALLE soegningens oevrige kriterier passer, og at`)
+    console.log(`    afsendelsesbetingelserne holder. Intet af det er opgjort her.`)
+    console.log(`  · Det er naevnt, fordi det er den eneste virkning uden for`)
+    console.log(`    visningen: scripts/import.ts matcher OG SENDER i samme koersel,`)
+    console.log(`    og en mail kan ikke kaldes tilbage. En egentlig opgoerelse`)
+    console.log(`    kraever sin egen maaling.\n`)
 
     // ── 7 · Eksempler ────────────────────────────────────────
     // `distinct on (l.id)` — ellers er en raekke med to modparter to
