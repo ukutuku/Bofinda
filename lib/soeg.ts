@@ -1489,6 +1489,23 @@ export async function hentBolig(id: string) {
       total: listings.totalMonthly,
       poster: listings.totalMonthlyComponents,
       indflytning: listings.moveInCost,
+      /**
+       * Depositum og forudbetalt leje HVER FOR SIG.
+       *
+       * Kolonnerne har været der siden 0015; de var bare ikke med her, og
+       * boligsiden regnede derfor et restbeløb ud af `move_in_cost` og
+       * skrev, at kilden ikke oplyste fordelingen. Det var forkert to
+       * gange: flere adaptere gemmer netop de to felter (alabu, birch,
+       * cej, laros), og for Propstep og LokalBolig LÆSER adapteren dem
+       * fra kilden og bruger dem til at regne summen — den gemmer dem
+       * bare ikke. Kilden oplyste altså fordelingen; det var os, der ikke
+       * bar den videre.
+       *
+       * Muren gælder kontaktfelterne, ikke økonomien. De to her er
+       * almindelige oplysninger om boligen på linje med huslejen.
+       */
+      depositum: listings.deposit,
+      forudbetalt: listings.prepaidRent,
       ansoegning: listings.applicationType,
       faciliteter: listings.amenities,
       beskrivelse: listings.description,
