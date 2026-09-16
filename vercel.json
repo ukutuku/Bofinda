@@ -1,0 +1,7 @@
+{
+  "git": {
+    "deploymentEnabled": {
+      "claude/supply-depositum-propstep-lokalbolig": false
+    }
+  }
+}
