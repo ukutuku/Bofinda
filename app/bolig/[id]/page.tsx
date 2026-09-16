@@ -335,9 +335,20 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
                 </ul>
                 {b.indflytning == null && (
                   <p className="oek-note" data-note="uden-total">
-                    Vi kender ikke den samlede indflytningspris. Det, der står
-                    her, er ikke hele det, der skal betales — første måneds
-                    husleje kommer oveni. Spørg udlejeren om den samlede pris.
+                    {/* Her stod «det, der står her, er ikke hele det, der skal
+                        betales — første måneds husleje kommer oveni». Ingen af
+                        de to udsagn følger af, at totalen mangler. Vi ved ikke,
+                        om beløbene er hele regningen, og vi ved ikke, om
+                        udlejeren opkræver første måneds husleje ved
+                        indflytning. Det var samme fejl som den, blokken lige
+                        var blevet rettet for: en påstand uden belæg, skrevet
+                        med sikker stemme.
+
+                        Det eneste, en manglende total dokumenterer, er at
+                        totalen mangler. Resten er et spørgsmål til udlejeren. */}
+                    Vi kender ikke den samlede indflytningspris. Her vises de
+                    beløb, vi har oplysninger om. Spørg udlejeren, hvad der
+                    samlet skal betales ved indflytning.
                   </p>
                 )}
                 {manglende.length > 0 && (

@@ -225,8 +225,24 @@ try {
         tjek(m.total == null, `${n}: der vises ingen samlet pris`, m.total ?? '(ingen)')
         tjek(m.overskrift === 'Ved indflytning',
           `${n}: overskriften lover ikke en total`, `«${m.overskrift}»`)
-        tjek(m.noteUdenTotal != null && /ikke hele det, der skal betales/.test(m.noteUdenTotal),
-          `${n}: der står, at beløbene ikke er hele regningen`, m.noteUdenTotal ?? '(ingen)')
+        // Påstanden er, at der står, hvad der FAKTISK er tilfældet — at vi
+        // ikke kender den samlede pris — og ikke hvad der kunne følge af
+        // det. Prøven krævede før ordene «ikke hele det, der skal
+        // betales»; den låste altså en formulering fast, som en manglende
+        // total ikke dokumenterer, og ville have holdt teksten på plads,
+        // hvis nogen forsøgte at rette den.
+        tjek(m.noteUdenTotal != null
+          && /Vi kender ikke den samlede indflytningspris/.test(m.noteUdenTotal),
+          `${n}: der står, at den samlede pris er ukendt`, m.noteUdenTotal ?? '(ingen)')
+        // Og den må ikke påstå det, vi ikke har belæg for. To udsagn, der
+        // ikke følger af et manglende felt: at beløbene ikke er hele
+        // regningen, og at første måneds husleje kommer oveni.
+        tjek(!/ikke hele det, der skal betales|kommer oveni/i.test(m.noteUdenTotal ?? ''),
+          `${n}: noten udleder ikke noget af, at totalen mangler`,
+          m.noteUdenTotal ?? '(ingen)')
+        // Noten skal føre videre til den, der kan svare.
+        tjek(/[Ss]pørg udlejeren/.test(m.noteUdenTotal ?? ''),
+          `${n}: og den siger, hvem man spørger`, m.noteUdenTotal ?? '(ingen)')
         tjek(!m.poster.some((x) => x.startsWith('Første måneds husleje=')),
           `${n}: husleje og aconto står ikke som dele af en total, vi ikke har`,
           m.poster.join(' · '))
