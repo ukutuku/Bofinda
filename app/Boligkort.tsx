@@ -8,6 +8,8 @@ import type { Bolig, Filtre, Gruppe, Visning } from '../lib/soeg'
 import { availabilityFor, gruppeUrl } from '../lib/soeg'
 import type { Availability, Gruppesammenfatning } from '../lib/availability'
 import { billedUrl, breddeTilladt } from '../lib/billede'
+import type { Favoritstatus } from '../lib/favoritter'
+import { Favoritknap } from './Favoritknap'
 import { eltilstand, type Eltilstand } from '../lib/eloplysning'
 // Typens navn kommer ÉT sted fra. Kortet og filtrene sagde før hver sit
 // om `andet`, og `villa` fandtes kun i den ene liste. Se lib/boligtype.ts.
@@ -143,7 +145,12 @@ function Kilder({ navn, ogsaa }: { navn: string; ogsaa: string[] }) {
 
 // ─── Kortet ────────────────────────────────────────────────────
 
-export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: number }) {
+export function Kort({ b, nu, position, favorit }: {
+  b: Bolig; nu: Date; position?: number
+  /** Udeladt = ingen knap. Saa er kortet praecis som foer — det er dét,
+   *  proeverne i scripts/test-soegning.ts renderer. */
+  favorit?: Favoritstatus
+}) {
   // Availability fra DOMÆNET — aldrig fra legacy ledigFra/ansoegning, og
   // aldrig fra Date.now(): referenceNow kommer eksplicit fra siden.
   const avail = availabilityFor(b, nu)
@@ -223,6 +230,12 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
   ].filter(Boolean) as string[]
 
   return (
+    // Hylsteret findes KUN for at give knappen noget at ligge oven paa.
+    // Linket nedenfor er uroert — `a.kort[data-bolig]` er stadig den
+    // selektor, impression-maalingen i app/Maaling.tsx bygger paa, og
+    // knappen er en soeskende, ikke et barn: en <button> inde i et <a> er
+    // ugyldig HTML, og saa kan et klik aktivere linket alligevel.
+    <div className="kort-hylster">
     <a
       className={`kort${forside ? '' : ' uden-billede'}`}
       href={`/bolig/${b.id}`}
@@ -376,6 +389,10 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
         </div>
       </div>
     </a>
+    {favorit && (
+      <Favoritknap listingId={b.id} status={favorit} adresse={vist} />
+    )}
+    </div>
   )
 }
 
@@ -391,7 +408,15 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
 //  Er aconto-posterne ikke ens, står de slet ikke.
 // ═══════════════════════════════════════════════════════════════
 
-export function Gruppekort({ g, nu, position, filtre }: { g: Gruppe; nu: Date; position?: number; filtre?: Filtre }) {
+export function Gruppekort({ g, nu, position, filtre, favorit }: {
+  g: Gruppe; nu: Date; position?: number
+  /** Soegningens filtre baeres med over i `gruppeUrl`, saa /gruppe viser
+   *  de samme boliger, som kortet talte. */
+  filtre?: Filtre
+  /** Udeladt = ingen knap. Saa er kortet praecis som foer — det er dét,
+   *  proeverne i scripts/test-soegning.ts renderer. */
+  favorit?: Favoritstatus
+}) {
   const { noegle: n, repraesentant: r } = g
   const nyligt = nu.getTime() - g.nyesteMarkedet.getTime() < 1000 * 60 * 60 * 24 * 3
 
@@ -462,6 +487,7 @@ export function Gruppekort({ g, nu, position, filtre }: { g: Gruppe; nu: Date; p
   ].filter(Boolean) as string[]
 
   return (
+    <div className="kort-hylster">
     <a
       className={`kort gruppekort${forside ? '' : ' uden-billede'}`}
       href={gruppeUrl(r.id, filtre)}
@@ -617,6 +643,10 @@ export function Gruppekort({ g, nu, position, filtre }: { g: Gruppe; nu: Date; p
         </div>
       </div>
     </a>
+    {favorit && (
+      <Favoritknap listingId={r.id} status={favorit} adresse={n.vej} />
+    )}
+    </div>
   )
 }
 
@@ -677,8 +707,15 @@ function Ellinje({ tilstand }: { tilstand: Eltilstand | null }) {
  * lib/soeg — og saa spoergsmaalet «bliver position 40 nogensinde set?»
  * kan besvares. Uden den er en impression bare et tal uden sted.
  */
-export function Visningskort({ v, nu, position, filtre }: { v: Visning; nu: Date; position?: number; filtre?: Filtre }) {
+export function Visningskort({ v, nu, position, filtre, favorit }: {
+  v: Visning; nu: Date; position?: number
+  filtre?: Filtre
+  favorit?: Favoritstatus
+}) {
+  // Begge props gaar videre uroert. `filtre` bruges kun af gruppekortet
+  // (det bygger /gruppe-adressen); favoritstatus gaelder begge korttyper,
+  // for en gruppe gemmes paa repraesentantens bolig-id.
   return v.slags === 'gruppe'
-    ? <Gruppekort g={v.gruppe} nu={nu} position={position} filtre={filtre} />
-    : <Kort b={v.bolig} nu={nu} position={position} />
+    ? <Gruppekort g={v.gruppe} nu={nu} position={position} filtre={filtre} favorit={favorit} />
+    : <Kort b={v.bolig} nu={nu} position={position} favorit={favorit} />
 }

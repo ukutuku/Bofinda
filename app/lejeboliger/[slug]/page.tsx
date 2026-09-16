@@ -4,6 +4,7 @@ import { cache } from 'react'
 import { findOmraade, naboer, statistik, type Omraade } from '../../../lib/omraade'
 import { antalBoliger, soegGrupperet, type Soegeparametre } from '../../../lib/soeg'
 import { Visningskort, kr } from '../../Boligkort'
+import { favoritIder, statusFor } from '../../../lib/favoritter'
 import { Sider, sideUrl } from '../../Sider'
 
 /** Kort pr. side — samme tal som søgesiden. */
@@ -142,6 +143,7 @@ export default async function Side({ params, searchParams }: {
   // til én forespørgsel.
   const { visninger, kortIAlt, komplet } = await sideudsnit(o.slags, o.vaerdi, side)
   const nabo = await naboer(o)
+  const favkontekst = await favoritIder()
   // Kort er ikke boliger: ens boliger paa samme vej staar som ét kort.
   const vist = antalBoliger(visninger)
   const { sider, forHoej } = udenForRaekkevidde(kortIAlt, side)
@@ -213,6 +215,10 @@ export default async function Side({ params, searchParams }: {
       ) : visninger.length === 0 ? (
         <div className="tom"><p>Ingen boliger lige nu.</p></div>
       ) : (
+        /* Listen brydes efter SIN egen bredde, ikke efter vinduets:
+           `.listeomraade` BAERER `container-type: inline-size`, og
+           `.liste` er gitteret indeni. Begge lag skal blive — kortenes
+           brydning ligger i `@container`, aldrig i `@media`. */
         <div className="listeomraade">
           <div className="liste">
             {visninger.map((v) => (
@@ -221,6 +227,11 @@ export default async function Side({ params, searchParams }: {
                 filtre={filterFor(o.slags, o.vaerdi)}
                 key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
                 v={v}
+                // Repraesentantens id er det, kortet gemmer — samme id som
+                // kortets `data-bolig`. Ét opslag pr. request bag
+                // `favoritIder()`, afledt her pr. kort.
+                favorit={statusFor(favkontekst,
+                  v.slags === 'gruppe' ? v.gruppe.repraesentant.id : v.bolig.id)}
               />
             ))}
           </div>

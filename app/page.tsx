@@ -10,6 +10,7 @@ import { redirect } from 'next/navigation'
 import { facetterCached, forsidetalCached } from './cache'
 import { GemSoegning } from './GemSoegning'
 import { Visningskort, kr } from './Boligkort'
+import { favoritIder, statusFor } from '../lib/favoritter'
 import { Landkort, type Maerke } from './Landkort'
 import { Hastighedspunkt } from './Hastighed'
 import { Maaling } from './Maaling'
@@ -374,6 +375,10 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   //
   // `spor()` kaster ikke og skriver i after(), altsaa efter svaret. Uden
   // samtykke sker der ingenting overhovedet.
+  // Ét opslag for hele siden — `favoritIder` er cache()'et pr. request,
+  // saa 48 kort koster én forespoergsel, ikke 48. Er ingen logget ind,
+  // spoerges der slet ikke.
+  const favkontekst = await favoritIder()
   const mt = await maalingstilstand()
   const visningId = crypto.randomUUID()
   // Byen gemmes KUN, hvis vi selv kender den. `fac` er hentet i forvejen,
@@ -1169,6 +1174,15 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                   // Side 2 begynder derfor paa 49. Sidelokal position kan
                   // altid genskabes som `position - (side-1)*48`.
                   position={(side - 1) * PR_SIDE + i + 1}
+                  // Favoritstatus kommer fra ÉT opslag for hele siden
+                  // (`favkontekst` ovenfor) og gives videre til begge
+                  // korttyper. For en gruppe gemmes den paa
+                  // repraesentantens bolig-id. Gruppekortet linker til
+                  // `/gruppe?b=<id>` og ikke til boligsiden — men det er
+                  // det SAMME id, gruppeadressen bygges af, og det samme,
+                  // favoritlisten viser. Ét hjerte pr. kort, ét id bag.
+                  favorit={statusFor(favkontekst,
+                    v.slags === 'gruppe' ? v.gruppe.repraesentant.id : v.bolig.id)}
                 />
               ))}
             </div>

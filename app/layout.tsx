@@ -24,15 +24,22 @@ export default function Layout({ children }: { children: ReactNode }) {
       <body>
         {/* ── Brandbjælken ──────────────────────────────────────
             Mockuppens bjælke: wordmark til venstre, menuen ved siden af,
-            handlingen yderst til højre. Undertitlen er væk — den stod som
+            handlingerne yderst til højre. Undertitlen er væk — den stod som
             en 11,5 px linje under mærket og gjorde wordmarket til en
             billedtekst i stedet for et logo.
 
             KUN DESTINATIONER, DER FINDES. Referencen viser «Priser»,
             «Inbox», «Log ind» og «Kom i gang». Priser og Inbox har
-            produktet ikke; login hører til PR #3 og er ikke på denne
-            gren. En menu, der lover sider, vi ikke har, er en tom knap i
-            en situation, hvor nogen leder efter noget. */}
+            produktet ikke, og de står derfor ikke her. «Min side» gør:
+            brugerområdet kom med PR #3, og er det eneste sted, man kan
+            nå sine favoritter og gemte søgninger. Havde bjælken kun
+            handlingen, ville adgangen til det kun findes i sidefoden —
+            og så ville den i praksis ikke findes.
+
+            «Min side» ligger i `.tophandlinger` og IKKE i `.topnav`,
+            fordi menuen skjules under 720 px til fordel for handlingen.
+            Lå linket i menuen, forsvandt brugerområdet fra toppen på en
+            telefon, uden at noget så forkert ud. */}
         <header className="top">
           <div className="ramme toplinje">
             <a className="maerke" href="/">BOFINDA</a>
@@ -41,6 +48,12 @@ export default function Layout({ children }: { children: ReactNode }) {
               <a href="/udlejer">For udlejere</a>
             </nav>
             <div className="tophandlinger">
+              {/* Linket er STATISK tekst med vilje. Skulle toppen vise, om
+                  man er logget ind, skulle layoutet laese cookies — og saa
+                  blev hver eneste side dynamisk, ogsaa /privatliv, som i dag
+                  praerenderes. Login-status staar paa Min side, hvor den
+                  betyder noget. */}
+              <a className="topmin" href="/min-side">Min side</a>
               <a className="nav-primaer" href="/udlejer/opret">Opret annonce</a>
             </div>
           </div>
@@ -53,6 +66,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="ramme">{children}</div>
         <footer className="sidefod">
           <div className="ramme">
+            <a href="/min-side">Min side</a>
             <a href="/udlejer">Udlej din bolig</a>
             <a href="/privatliv">Privatlivspolitik</a>
             {/* Tilbagetrækning skal være lige så let som at sige ja. */}

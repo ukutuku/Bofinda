@@ -1,4 +1,5 @@
 import { Kort, kr } from '../Boligkort'
+import { favoritIder, statusFor } from '../../lib/favoritter'
 import {
   filtreFraParametre, gruppenoegleFra, gruppenoegleFraBolig, hentGruppe, type Soegeparametre,
 } from '../../lib/soeg'
@@ -44,6 +45,10 @@ export default async function Side(
   // Gamle nøglelinks bruger også postnr/værelser, men til selve nøglen.
   // Kun id-linkene læser derfor parametrene som søgefiltre.
   const boliger = n ? await hentGruppe(n, b ? filtreFraParametre(sp) : undefined) : []
+  // Efter hinanden, ikke i Promise.all: samtidige kæder pipelines gennem
+  // Supavisor i transaction mode. Opslaget er cachet pr. request og
+  // spørger slet ikke, når ingen er logget ind.
+  const favkontekst = await favoritIder()
 
   if (!n || boliger.length === 0) {
     return (
@@ -120,7 +125,9 @@ export default async function Side(
 
       <div className="listeomraade">
         <div className="liste">
-          {boliger.map((b) => <Kort key={b.id} b={b} nu={nu} />)}
+          {boliger.map((b) => (
+            <Kort key={b.id} b={b} nu={nu} favorit={statusFor(favkontekst, b.id)} />
+          ))}
         </div>
       </div>
     </div>

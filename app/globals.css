@@ -332,7 +332,14 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
    Ingen pladsholder og intet eksempelbillede: vi opfinder ikke data,
    heller ikke billeddata. Mangler kilden billeder, staar det i
    stedlinjen — det er en oplysning, ikke en dekoration. */
-.kort.uden-billede .kort-krop { padding: 16px 17px 14px; }
+/* Uden foto er kroppen kortets oeverste flade, og favoritknappen
+   ligger oven i DEN — 44 px ind fra kanten. Derfor 52 px til hoejre i
+   stedet for 17: overskriften ville ellers loebe ind under hjertet.
+   Det er den samme reservation, det gamle vandrette kort havde paa
+   hver krop; her behoeves den kun, naar der ikke er et foto at laegge
+   knappen paa. `.kort-maerkater.i-krop` staar inde i kroppen og er
+   daekket af den samme polstring. */
+.kort.uden-billede .kort-krop { padding: 16px 52px 14px 17px; }
 
 /* FORHOLDET BOR PAA RAMMEN, IKKE PAA BILLEDET.
    Det stod foer paa `img`, og dér var det uden virkning i den sidestillede
@@ -378,8 +385,14 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
    Referencen laegger status oeverst til venstre PAA billedet. Uden et
    foto er der ingen flade at ligge paa, og saa staar de oeverst i
    kroppen — samme maerkater, ét sted i koden. */
+/* `right: 52px` og ikke 10: favoritknappen ligger i samme hjoerne,
+   `top: 10px; right: 10px` og 34 px bred, altsaa 44 px ind fra kanten.
+   Maerkaterne stopper 8 px foer den. Tallet staar HER og kun her — en
+   modregel laengere nede i filen ville vaere to svar paa «hvor holder
+   maerkatraekken op», og de to ville drive fra hinanden.
+   `.i-krop` nedenfor saetter `right: auto` og roeres ikke. */
 .kort-maerkater {
-  position: absolute; left: 10px; top: 10px; right: 10px;
+  position: absolute; left: 10px; top: 10px; right: 52px;
   display: flex; flex-wrap: wrap; gap: 5px; pointer-events: none;
 }
 .kort-maerkater .maerkat { box-shadow: 0 1px 3px rgba(20,22,26,.16); }
@@ -2333,6 +2346,20 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
 .formok { color: var(--accent); background: var(--accent-lys); border-radius: var(--r-s);
   padding: 9px 12px; font-size: 13.5px; margin: 12px 0 0; line-height: 1.5; }
 
+/* Bekraeftelseslinket kunne ikke veksles. Staar OVER formularerne, ikke
+   inde i én af dem: den vej videre kan vaere begge to — log ind, hvis
+   kontoen allerede er bekraeftet, ellers opret igen for et nyt link. */
+.kontoenkelt { max-width: 420px; }
+.kontoglemt { margin-top: 12px; text-align: center; }
+.kontoglemt a { color: var(--daempet); text-decoration: underline; }
+.kontoglemt a:hover { color: var(--accent); }
+.kontook { border-left: 3px solid var(--accent); margin-bottom: 16px; }
+.kontook p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.55; }
+.kontook p:last-child { margin-bottom: 0; }
+.kontofejl { border-left: 3px solid var(--vaek); margin-bottom: 16px; }
+.kontofejl p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.55; }
+.kontofejl p:last-child { margin-bottom: 0; }
+
 /* Trinbjælken. Trinnene kan klikkes frit — man skal kunne gå tilbage og
    rette noget uden at miste det, man allerede har skrevet. */
 .trinbjaelke { list-style: none; display: flex; gap: 6px; margin: 0 0 16px; padding: 0; flex-wrap: wrap; }
@@ -2781,4 +2808,162 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
   .oekonomi-linje { margin-top: 9px; gap: 3px 14px; }
   .fakta { margin-top: 8px; }
   .kort-fod { padding-top: 8px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BRUGEROMRÅDET
+   Ingen nye farver og ingen ny formsprog — alt hentes fra de
+   variabler, resten af siden allerede bruger.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Hylsteret om et boligkort ──────────────────────────────────
+   Findes KUN for at give favoritknappen noget at ligge oven paa.
+   Knappen er en <button>, og en <button> inde i kortets <a> er ugyldig
+   HTML — derfor er de to soeskende, ikke far og barn.
+   Hylsteret er posten i `.liste` praecis som kortet var foer, saa
+   afstandene er uaendrede. `.liste` er nu et GITTER med
+   `align-items: start`; hylsteret er gittercellen, og `flex: 1` paa
+   kortet fylder den ud, saa kortet er lige saa hoejt som foer. */
+.kort-hylster { position: relative; display: flex; flex-direction: column; }
+.kort-hylster > .kort { flex: 1; }
+
+/* Pladsen til knappen reserveres ALTID, ogsaa naar den ikke vises.
+   Saa flytter der sig ingenting, naar man logger ind eller ud.
+
+   HVOR pladsen ligger, foelger kortet — og kortet er lavet om.
+   Foer var kortet vandret med billedet i venstre spalte og `.kort-krop`
+   oeverst til hoejre; dér laa hjertet oven i kroppen, og reglen var
+   `.kort-krop { padding-right: 44px }`. Det nye kort er LODRET: fotoet
+   ligger oeverst i fuld bredde, hjertet ligger PAA fotoet, og kroppen
+   staar nedenunder med hele bredden. En blank `padding-right: 44px`
+   ville dér klemme pris, indflytningspris og fod ind mod midten paa
+   hvert eneste kort for at holde en plads, der ikke bliver brugt —
+   knappen er ikke flyttet, den blev aldrig fjernet, og det er
+   polstringen, der skal passe til den nye form.
+
+   Det, der FAKTISK ligger i hjertets hjoerne paa det nye kort, er
+   maerkatraekken paa fotoet — og uden foto er det kroppens egen
+   oeverste linje. Begge steder er pladsen reserveret DÉR, hvor reglen
+   i forvejen staar, saa der kun er ét svar pr. sted:
+   `.kort-maerkater { right: 52px }` og
+   `.kort.uden-billede .kort-krop { padding: 16px 52px 14px 17px }`,
+   begge oppe i kortafsnittet. En modregel her ville vaere det samme
+   svar skrevet to gange. Skal knappen flytte sig, er det de to tal
+   plus `top`/`right` nedenfor, der skal foelges ad. */
+
+.favoritknap {
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  width: 34px; height: 34px; padding: 0;
+  display: grid; place-items: center;
+  border: 1px solid var(--linje); border-radius: 999px;
+  background: var(--kort); color: var(--svag);
+  cursor: pointer; line-height: 0;
+  transition: color .14s, border-color .14s, background .14s, transform .16s ease;
+}
+.favoritknap:hover { color: var(--accent); border-color: var(--accent); }
+.favoritknap:disabled { cursor: progress; opacity: .65; }
+/* Tilstanden staar i FORMEN (fyldt hjerte) og i RAMMEN — ikke i
+   farven alene. Et graatonet display giver det samme svar. */
+.favoritknap.er-gemt {
+  color: var(--accent); border-color: var(--accent);
+  background: var(--accent-lys); box-shadow: inset 0 0 0 1px var(--accent);
+}
+.favoritknap.fejlede { color: var(--vaek); border-color: var(--vaek); background: var(--vaek-lys); }
+.favoritknap:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.favoritknap-login { text-decoration: none; }
+
+/* ── Genindsat ved integrationen ────────────────────────────────
+   `.raek1` blev slettet fra denne fil i 4a1d2af (designloeftet), men
+   `app/udlejer/boliger/page.tsx` bruger den stadig — den side er ikke
+   en del af redesignet. Uden reglen falder «Mine annoncer»-kortets
+   oeverste raekke fra flex til blokstabling, og maerkatet («udgivet» /
+   «vises ikke») ryger ned under adressen i stedet for ud til hoejre.
+   Reglerne er ordret dem, der stod paa main. */
+.raek1 { display: flex; justify-content: space-between; gap: 14px; align-items: baseline; }
+@media (max-width: 560px) {
+  .raek1 { flex-direction: column; align-items: flex-start; gap: 7px; }
+}
+
+/* ── Hjertet skal foelge kortet ─────────────────────────────────
+   Det her er et INTEGRATIONSFUND: hver side er rigtig alene.
+   Redesignet gav `.kort:hover` et loeft paa 2 px; favoritknappen kom
+   fra brugeromraadet og er absolut placeret paa `.kort-hylster`, som
+   ligger UDEN OM kortet og derfor ikke loefter sig. Sat sammen glider
+   kortet op under et hjerte, der bliver staaende.
+   Knappen kan ikke flyttes ind i kortet — en <button> i et <a> er
+   ugyldig HTML, og det er hele grunden til, at hylsteret findes. Saa
+   foelger hjertet med i stedet, med samme varighed og samme kurve. */
+.kort-hylster:hover .favoritknap { transform: translateY(-2px); }
+@media (prefers-reduced-motion: reduce) {
+  .kort-hylster:hover .favoritknap { transform: none; }
+}
+
+/* Boligsidens overskriftsrække: knappen ved siden af h1. */
+.hoved-titel { display: flex; align-items: flex-start; gap: 12px; }
+.hoved-titel h1 { flex: 1; min-width: 0; }
+.hoved-titel .favoritknap { position: static; flex: none; margin-top: 4px; }
+
+/* ── Min side ─────────────────────────────────────────────────── */
+.minside { max-width: 780px; }
+.minside h1 { margin: 0 0 6px; }
+.minside-top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; margin-bottom: 22px; flex-wrap: wrap;
+}
+.minside-hvem { margin: 0; font-size: 13px; color: var(--daempet); }
+.minside .manchet { margin: 0 0 20px; color: var(--daempet); max-width: 58ch; }
+.knaplink {
+  display: inline-block; text-decoration: none; font-size: 13px;
+  padding: 6px 12px; border: 1px solid var(--linje); border-radius: var(--r-s);
+}
+
+.gemte-liste { list-style: none; margin: 0; padding: 0; display: flex;
+  flex-direction: column; gap: 10px; }
+.gemt-bolig, .gemt-soegning {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--linje-svag);
+}
+.gemte-liste > li:last-child { border-bottom: none; }
+.gemt-krop { min-width: 0; flex: 1; }
+.gemt-krop .adresse { font-weight: 600; color: var(--tekst); text-decoration: none; }
+a.adresse:hover { text-decoration: underline; }
+.gemt-krop .sted { font-size: 12.5px; color: var(--daempet); margin-top: 2px; }
+.gemt-hoejre { display: flex; align-items: center; gap: 10px; flex: none; }
+.gemt-pris { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gemt-pris small { font-weight: 400; color: var(--daempet); font-size: 11px; }
+
+/* En bolig, kilden har taget ned, bliver STAAENDE. Den daempes, men
+   den skjules ikke — hun har selv lagt den der. */
+.utilgaengelig .adresse { color: var(--daempet); }
+.gemt-status {
+  margin: 6px 0 0; font-size: 12.5px; line-height: 1.5;
+  color: var(--advarsel); background: var(--advarsel-lys);
+  border-radius: var(--r-s); padding: 7px 10px;
+}
+.gemt-status strong { color: inherit; }
+
+.tom-boks {
+  border: 1px dashed var(--linje); border-radius: var(--r);
+  padding: 20px 22px; color: var(--daempet); font-size: 14px;
+}
+.tom-boks p { margin: 0 0 8px; }
+.tom-boks p:last-child { margin-bottom: 0; }
+.tom-boks strong { color: var(--tekst); }
+
+.topmin {
+  margin-left: auto; font-size: 13px; color: var(--daempet);
+  text-decoration: none; align-self: center;
+}
+.topmin:hover { color: var(--accent); }
+/* I den nye brandbjaelke ligger «Min side» i `.tophandlinger`, som selv
+   baerer `margin-left: auto`. Bliver den staaende ogsaa paa linket,
+   skubbes «Min side» vaek fra «Opret annonce», som den hoerer sammen
+   med. Den ydre gruppe holder hoejrestillingen; linket lader vaere.
+   Ligger linket i stedet direkte i toplinjen — som paa grenen, den kom
+   fra — gaelder reglen ovenfor uaendret. */
+.tophandlinger .topmin { margin-left: 0; font-size: 14.5px; }
+
+@media (max-width: 560px) {
+  .gemt-bolig, .gemt-soegning { flex-direction: column; gap: 10px; }
+  .gemt-hoejre { width: 100%; justify-content: space-between; }
 }
