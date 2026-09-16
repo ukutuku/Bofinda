@@ -1,0 +1,580 @@
+  testbase: PGlite, 21 migrationer, ingen forbindelse ud af processen
+
+
+══ usynlige tegn må ikke overleve som vejnavn ══
+  ✓ zero-width space bliver tom
+  ✓ BOM bliver tom
+  ✓ blødt bindestreg bliver tomt
+  ✓ retningsmarkør bliver tom
+  ✓ NBSP bliver tom (trim tog den i forvejen)
+  ✓ tegn inde i et ord fjernes
+  ✓ et rigtigt vejnavn røres ikke
+  ✓ bindestreg i vejnavn overlever
+
+══ adressefelter der ville ødelægge nøglen ══
+  ✓ almindelig adresse går igennem
+  ✓ Ø som vejnavn går igennem (ét bogstav, æøå)
+  ✓ Østerbrogade går igennem
+  ✓ 🏠 afvises som vejnavn
+  ✓ --- afvises som vejnavn
+  ✓ ... afvises som vejnavn
+  ✓ kyrillisk vejnavn afvises (tomt i nøglen)
+  ✓ husnr 56 B går igennem
+  ✓ husnr - afvises
+  ✓ husnr . afvises
+  ✓ husnr "ukendt" afvises
+  ✓ dør tv går igennem
+  ✓ dør t.v. går igennem
+  ✓ dør 3 går igennem
+  ✓ dør a går igennem
+  ✓ tom dør går igennem
+  ✓ dør - afvises
+  ✓ dør "for enden af gangen" afvises
+
+══ hvilke kilder cron'en kalder ══
+  ✓ cron kalder præcis de elleve kilder, vi tror  — findbolig, propstep, dacas, lokalbolig, balder, home, cej, heimstaden, birch, laros, alabu
+  ✓ heimstaden er med i cron'en — men budgettet står stadig lavt
+  ✓ ingen testkilder i automatiske kørsler  — findbolig, propstep, dacas, lokalbolig, balder, home, cej, heimstaden, birch, laros, alabu
+  ✓ præmis: findKilde kan stadig slå en kilde op ved navn
+  ✓ alabu er med i cron'en efter godkendt måling 7/9
+
+══ rettigheder i public ══
+  ✓ intet i public er åbent for anon eller authenticated
+  ✓ host_blocks har RLS — spærretabellen må ikke kunne skrives udefra  — {"rls":true}
+
+══ ingen bolig må have billeder på en ukendt vært ══
+  ⊘ ingen aktiv bolig har billeder på en ukendt vært  — kræver rigtige data (npm run test:prod)
+
+══ ingen enkelt kilde må tage hele forsiden ══
+  ⊘ ingen kilde har alle 48 kort på forsiden  — kræver rigtige data (npm run test:prod)
+
+══ byen udledes af postnummeret ══
+  ⊘ 2200 giver et bynavn  — kræver rigtige data (npm run test:prod)
+  ✓ et ukendt postnummer giver null
+
+══ grøn total kræver el-forbehold ══
+
+══ kalenderdag: døgnskift i Europe/Copenhagen ══
+  ✓ isoDato: rigtig dag accepteres
+  ✓ isoDato afviser «2026-02-31»
+  ✓ isoDato afviser «2026-13-01»
+  ✓ isoDato afviser «2026-09-05T00:00:00Z»
+  ✓ isoDato afviser «i morgen»
+  ✓ isoDato afviser «05-09-2026»
+  ✓ kalenderdag: 22:30Z den 4. ER den 5. i Danmark (sommertid)  — 2026-09-05
+  ✓ 5. sep. @ 23:59:59 dansk, stadig d. 4.: senere  — senere
+  ✓ 5. sep. @ 00:00:01 dansk — dagen ER begyndt, UTC siger stadig d. 4.: nu  — nu
+  ✓ 5. sep. @ midt paa dagen: nu  — nu
+  ✓ 5. sep. @ 23:59:59 dansk, sidste sekund af d. 5.: nu  — nu
+  ✓ 1. dec. (vintertid) @ 22:59:59Z: senere  — senere
+  ✓ 1. dec. (vintertid) @ 23:00:01Z: nu  — nu
+
+══ availability_facts: parseren ══
+  ✓ round-trip: false OVERLEVER  — false
+  ✓ round-trip: eksplicit null bevares
+  ✓ round-trip: fravaerende nøgle forbliver fravaerende
+  ✓ round-trip: datoen er kalenderdag
+[fakta] misdannet felt i availability_facts: sourceAvailabilityDate = "2026-02-31" — hele objektet kasseres
+  ✓ misdannet KENDT felt kasserer hele objektet (fail closed)
+[fakta] misdannet felt i availability_facts: rentalAvailableNow = "ja" — hele objektet kasseres
+  ✓ misdannet boolean kasserer også
+[fakta] ukendt nøgle i availability_facts (ignoreres): rentalAvailbleNow
+  ✓ ukendt nøgle (typo) vælter IKKE objektet
+[fakta] availability_facts er ikke et objekt: string
+[fakta] availability_facts er ikke et objekt: object
+  ✓ ikke-objekt giver null
+
+══ balder: acquisition_date som kalenderdag ══
+  ✓ fortidig dato læses
+  ✓ dagens dato læses
+  ✓ fremtidig dato læses
+  ✓ eksplicit null bevares som null
+  ✓ misdannet dato udelades — opfindes ikke
+  ✓ rawStatus er kildens eget ord
+
+══ home: flip-punktet, konstrueret ══
+  ✓ flip: dato i går   + true → nu  — nu
+  ✓ flip: dato i dag   + true → nu  — nu
+  ✓ flip: dato i morgen + true → conflict  — conflict
+  ✓ flip: dato i går   + false → conflict  — conflict
+  ✓ flip: dato i dag   + false → conflict  — conflict
+  ✓ flip: dato i morgen + false → senere  — senere
+
+══ dacas: datoen har tidsevidens ══
+  ✓ dacas fortidig dato → nu
+  ✓ dacas dags dato → nu
+  ✓ dacas fremtidig dato → senere
+  ✓ dacas «Snarest» uden dato → stadig nu, gennem teksten
+  ✓ dacas tekstdato giver IKKE evidens gennem overtagelsestekst
+
+══ home.dk: ledigdato bundet til sagens id ══
+  ✓ præmis: naboens dato står FØRST i den flade liste
+  ✓ ledigdatoen er sagens egen, ikke naboens  — 2026-10-01
+  ✓ … og lejen er sagens egen  — 1200000
+
+══ kortet følger domænet, ikke legacy ══
+  ✓ timing fra domænet: «kan overtages fra», ikke legacy «ledig nu»
+  ✓ ventelistemærkat kun fra domænet — legacy application_type ignoreres
+  ✓ unknown har ORD, ikke tomhed
+  ✓ Snarest vises evidensnært, ikke som klassifikationen
+
+══ gruppekortet sammenfatter som tællinger ══
+  ✓ A: 1 nu + 2 senere → tællinger, ikke én status
+  ✓ B: unknown forsvinder ikke ud af en blandet linje
+  ✓ C: delvis reserveret vises som «1 af 3 reserveret»
+  ✓ D: blandet ansøgning vises som tal
+  ✓ E: forskellige datoer → «tidligst fra», aldrig som alles dato
+  ✓ … og ens datoer → «kan overtages fra»
+  ✓ alle nu → én status er ærlig
+
+══ availability: de syv kilder ══
+  ✓ A balder Ledig + dato i fortiden  — marked paa_markedet · timing nu
+  ✓ B balder Ledig + dato i fremtiden  — marked paa_markedet · timing senere
+  ✓ C balder Reserveret uden dato  — marked reserveret · timing unknown
+  ✓ D propstep Available + dato fra 2002  — marked paa_markedet · timing unknown
+  ✓ E propstep Reserved  — marked reserveret · timing unknown
+  ✓ F propstep Unknown  — marked unknown · timing unknown · ansøgning unknown
+  ✓ G propstep uden ansøgningsform  — ansøgning unknown
+  ✓ H home nu-boolean + dato passeret  — timing nu
+  ✓ I home falsk boolean + dato i fremtiden  — timing senere
+  ✓ J home KONFLIKT: boolean sand, dato i fremtiden  — timing conflict
+  ✓ home bopælskrav  — adgang bopaelskrav
+  ✓ K findbolig Regular  — timing unknown · ansøgning normal
+  ✓ L findbolig WaitingList  — timing unknown · ansøgning venteliste
+  ✓ M dacas Snarest  — timing nu
+  ✓ N lokalbolig tomt + uafklaret dato  — marked unknown · timing unknown · ansøgning unknown
+  ✓ O native dato passeret  — timing nu · ansøgning unknown
+  ✓ P native dato i fremtiden  — timing senere · ansøgning unknown
+  ✓ to enige signaler → én konklusion, to spor  — nu · 2 spor
+  ✓ … og ingen uenighed noteres
+  ✓ konflikten viser begge modstridende signaler  — ── kan_ikke_overtages_nu ── | sourceAvailabilityDate = 2026-12-01 → home.datofelt (overtagelse) → kan_ikke_overtages_nu | ── kan_overtages_nu ── | rentalAvailableNow = true → home.direkteSignaler.rentalAvailableNow.sand → kan_overtages_nu
+
+  evidensspor, konflikt:
+      ── kan_ikke_overtages_nu ──
+      sourceAvailabilityDate = 2026-12-01 → home.datofelt (overtagelse) → kan_ikke_overtages_nu
+      ── kan_overtages_nu ──
+      rentalAvailableNow = true → home.direkteSignaler.rentalAvailableNow.sand → kan_overtages_nu
+  evidensspor, normal (to enige signaler):
+      sourceAvailabilityDate = 2026-09-01 → home.datofelt (overtagelse) → kan_overtages_nu
+      rentalAvailableNow = true → home.direkteSignaler.rentalAvailableNow.sand → kan_overtages_nu
+
+
+══ Dacas: «Snarest» er ikke en dato ══
+  ✓ præmis: siden kunne overhovedet parses
+  ✓ «Snarest» giver INGEN dato  — undefined · undefined
+  ✓ «Snarest» giver samme svar uanset systemtid
+  ✓ ordet bevares som takeoverText  — Snarest
+  ✓ en rigtig dato parses stadig  — 2026-11-01T00:00:00.000Z
+  ✓ … og den er den samme uanset systemtid
+
+══ «kilden skriver» og native ══
+  ✓ native, samme form som i produktionen: ingen linje  — ingen linje
+  ✓ importeret med reel afvigelse: linjen står  — linjen står
+  ✓ native uden afvigelse: ingen linje  — ingen linje
+
+══ billedforbeholdet følger billederne ══
+  ✓ enkeltkort, forbehold + billede: linjen står  — linjen står
+  ✓ enkeltkort, intet forbehold: ingen linje  — ingen linje
+  ✓ gruppekort, forbehold + billede: linjen står  — linjen står
+  ✓ gruppekort, intet forbehold: ingen linje  — ingen linje
+  ✓ enkeltkort, forbehold men INTET billede: ingen linje  — ingen linje
+
+══ forbeholdet må ikke skubbe teksten en række ned ══
+  ✓ prøvens præmis: tag-tælleren finder kortets felter  — kort-billedblok|kort-krop
+  ✓ enkeltkort: forbeholdet er ikke et gitterfelt for sig  — kort-billedblok | kort-krop
+  ✓ enkeltkort: samme gitterfelter med og uden forbehold
+  ✓ enkeltkort: linjen står stadig, inde i billedfeltet
+  ✓ gruppekort: forbeholdet er ikke et gitterfelt for sig  — kort-billedblok | kort-krop
+  ✓ gruppekort: samme gitterfelter med og uden forbehold
+  ✓ gruppekort: linjen står stadig, inde i billedfeltet
+
+══ ukendt total → ingen el-linje ══
+  ✓ enkeltkort, ingen total: ingen el-linje
+  ✓ enkeltkort, ingen total: men manglen siges
+  ✓ gruppekort, ingen total: ingen el-linje
+  ✓ gruppekort, ingen total: men manglen siges
+  ✓ gruppekort, ingen total, samlet aconto: ingen el-linje
+  ✓ gruppekort, ingen total, samlet aconto: men manglen siges
+  ✓ præmis: med kendt total kommer el-linjen stadig
+  ✓ udledningen: klump uden navngiven post → ukendt-daekning
+  ✓ udledningen: udspecificeret uden el → ikke-med
+  ✓ udledningen: egen måler slår klumpen
+  ✓ udledningen: el oplyst → ingen linje
+  ✓ enkeltkort, samlet aconto: siger IKKE "El indgår ikke"
+  ✓ enkeltkort, samlet aconto: siger at beløbet er samlet
+  ✓ gruppekort, én med samlet aconto: siger IKKE "El indgår ikke"
+  ✓ gruppekort, én med samlet aconto: siger at beløbet er samlet
+  ✓ enkeltkort, el ukendt: udspecificeret → "El indgår ikke"
+  ✓ enkeltkort, el ukendt: grøn total
+  ✓ enkeltkort, el ukendt: og el gjort rede for
+  ✓ gruppekort, én uden el: udspecificeret → "El indgår ikke"
+  ✓ gruppekort, én uden el: grøn total
+  ✓ gruppekort, én uden el: og el gjort rede for
+  ✓ gruppekort, alle uden el: udspecificeret → "El indgår ikke"
+  ✓ gruppekort, alle uden el: grøn total
+  ✓ gruppekort, alle uden el: og el gjort rede for
+  ✓ enkeltkort med el: ingen el-linje
+  ✓ gruppekort hvor alle har el: ingen el-linje
+  ✓ gruppekort med egen elmåler: kildens egen formulering
+
+══ manglende allowlist-post må ikke ødelægge layoutet ══
+  ✓ prøvens præmis: den fremmede vært er IKKE tilladt
+  ✓ prøvens præmis: den tilladte vært ER tilladt
+  ✓ enkeltkort, fremmed vært: klassen uden-billede sættes
+  ✓ enkeltkort, fremmed vært: og der tegnes intet billede
+  ✓ gruppekort, fremmed vært: klassen uden-billede sættes
+  ✓ gruppekort, fremmed vært: og der tegnes intet billede
+  ✓ enkeltkort, tilladt vært: INGEN uden-billede
+  ✓ enkeltkort, tilladt vært: og billedet tegnes
+  ✓ gruppekort, tilladt vært: INGEN uden-billede
+  ✓ gruppekort, tilladt vært: og billedet tegnes
+
+══ alle felter kom i basen ══
+  ✓ depositum  — 2500000
+  ✓ forudbetalt  — 2000000
+  ✓ indflytningspris  — 5885000
+  ✓ øvrig aconto  — 15000
+  ✓ etage og dør
+  ✓ udlejerens egen tekst
+  ✓ faciliteterne kom med  — ["elevator","altan"]
+
+══ gem uden ændringer — rækken skal være identisk ══
+  ✓ 38 kolonner uændret
+  ✓ billederne er der stadig  — 2 af 2
+
+══ mærkatet skal følge søgningen ══
+  ✓ alene: mærkatet siger udgivet
+  ✓ alene: og hun ER i søgningen
+
+══ faciliteterne skal nå frem til filtrene ══
+  ✓ elevator-filteret finder hende
+  ✓ grundlaget ændrer sig IKKE af et facilitetsfilter  — tier 0 vs 0
+  ⊘ men søgningen gør — filteret udelukker stadig de ukendte  — kræver rigtige data (npm run test:prod)
+  ✓ hendes elevator tælles med i grundlaget
+  ✓ kaeledyr: de tre grupper dækker alle boliger  — 0 + 1 + 0 = 1, i alt 1
+  ✓ kaeledyr: grundlaget beskriver samme sæt  — 1 mod 1
+  ✓ kaeledyr: linjens tal er det målte  — 0 mod 0
+  ✓ kaeledyr: grundlagets tavse er de målte tavse  — 0 mod 0
+  ✓ elevator: de tre grupper dækker alle boliger  — 1 + 0 + 0 = 1, i alt 1
+  ✓ elevator: grundlaget beskriver samme sæt  — 1 mod 1
+  ✓ elevator: linjens tal er det målte  — 1 mod 1
+  ✓ elevator: grundlagets tavse er de målte tavse  — 0 mod 0
+  ✓ udeplads: de tre grupper dækker alle boliger  — 1 + 0 + 0 = 1, i alt 1
+  ✓ udeplads: grundlaget beskriver samme sæt  — 1 mod 1
+  ✓ udeplads: linjens tal er det målte  — 1 mod 1
+  ✓ udeplads: grundlagets tavse er de målte tavse  — 0 mod 0
+
+══ b.billeder skal tælle visbare billeder ══
+  ✓ 20 billeder på en ikke-tilladt vært → billeder = 0  — 0
+  ✓ … og forsiden er null  — null
+  ✓ … og kortet SIGER "ingen billeder"
+  ✓ blandede værter → kun de tilladte tælles  — 3
+  ✓ … og forsiden er en tilladt URL  — https://app.propstep.com/api/image/find-public/ok0.jpg
+  ✓ … og kortet siger IKKE "ingen billeder"
+
+══ billedrækkefølgen skal overleve ══
+  ✓ gemt i den rækkefølge de blev sendt
+  ✓ kortets forside er det første billede
+  ✓ efter ombytning står de i den nye rækkefølge
+  ✓ og kortets forside følger med  — https://app.propstep.com/api/image/find-public/2.jpg
+  ✓ position er 0,1,2 … og ikke huller
+  ✓ udeplads-filteret finder hende (altan)
+  ✓ kæledyrsfilteret gør IKKE — hun sagde det ikke
+  ✓ med dublet: mærkatet siger IKKE udgivet  — dublet
+  ✓ med dublet: den peger på den rigtige annonce
+  ✓ med dublet: og begrundelsen passer — flere billeder
+  ✓ med dublet: hun er FAKTISK ude af søgningen
+  ✓ rival med billeder vi ikke kan vise taber valget  — udgivet
+  ✓ … og så er HUN i søgningen
+  ✓ uden dublet: mærkatet siger udgivet igen
+  ✓ uden dublet: og hun er i søgningen igen
+
+══ grundlaget under "Fuld økonomi kendt" ══
+  ✓ linjens tre tal er de målte  — 1/1/1 mod 1/1/1
+  ✓ grundlaget ændrer sig ikke af filteret  — 1 mod 1
+
+══ tavse kilder ══
+  ⊘ der findes tavse kilder at nævne  — kræver rigtige data (npm run test:prod)
+  ⊘ de dækker et positivt antal boliger  — kræver rigtige data (npm run test:prod)
+  ✓ vores egen kilde nævnes ikke, heller ikke når den ER tavs
+  ✓ ingen af de nævnte oplyser faciliteter nogen steder
+
+══ gruppering: ejeren skal skille udlejere ad ══
+  ✓ to udlejere på samme vej → to kort  — 2 kort
+  ✓ … og ingen af dem er en gruppe  — bolig,bolig
+  ✓ samme udlejer med fem → ét kort med fem adresser  — 1 gruppe(r) med fem
+  ✓ … og den anden udlejer står stadig for sig  — 2 kort i alt
+
+══ en ny kildes bagkatalog må ikke tage forsiden ══
+  ✓ den indkørte kildes bolig er med i søgningen
+  ✓ … og den står FØR den nye kildes bagkatalog  — indkørt på 7, bagkatalog på 10, 9, 8
+  ✓ ingen datoløs bagkatalogbolig står før en med en dato  — første datoløse på 8, sidste med dato på 7
+  ✓ en udlejerannonce regnes IKKE som bagkatalog  — hun på 6, bagkatalog på 10
+
+══ availability_facts: snapshot og fuld pipeline ══
+  ✓ import A: facten står der
+  ✓ import B: facten er VÆK — snapshot, ikke merge  — {}
+  ✓ import B: {} og ikke NULL — behandlet, kilden gav intet
+  ✓ NULL betyder «aldrig høstet» og kan skelnes fra {}
+  ✓ deposit/prepaidRent: kildens beløb overlever pipeline → base  — {"d":4950000,"f":1650000}
+  ✓ deposit/prepaidRent: felter kilden ikke længere giver, bliver null  — {"d":null,"f":null}
+  ✓ pipeline balder: Ledig + fremtidig dato → på markedet, senere  — paa_markedet · senere
+  ✓ pipeline findbolig: WaitingList → venteliste  — venteliste
+  ✓ pipeline propstep: Available + 2002-dato → på markedet, timing UNKNOWN  — paa_markedet · unknown
+  ✓ pipeline dacas: Snarest → timing nu, INGEN dato opstod  — nu
+  ✓ pipeline native: udlejerens ledigFra er facten  — 2026-12-01
+  ✓ pipeline native: → timing senere (ledig 1. dec.)  — senere
+
+══ cej: allowlist — persondata må aldrig slippe igennem ══
+  ✓ cej laes: økonomi i øre — leje, aconto, depositum, forudbetalt  — [1650000,91000,4950000,1650000]
+  ✓ cej laes: kun egen vært overlever, plantegning holdes ude  — ["https://boligio-media-production.s3.eu-central-1.amazonaws.com/x/1.jpg"]
+  ✓ cej laes: status og date-only dato som fakta  — {"rawStatus":"available","sourceAvailabilityDate":"2026-10-01"}
+  ✓ cej laes: eksplicit null-dato bevares som null
+  ✓ cej laes: misdannet dato udelades — kan ikke være en kalenderdag
+  ✓ cej laes: rækkehus oversættes, så det ikke ender som «hus»
+  ✓ cej laes: facilitetsord på dansk, samlet udeplads-ord  — ["elevator","kæledyr tilladt","altan eller terrasse","opvaskemaskine"]
+  ✓ cej forbehold: alle tre målte varianter fanges
+  ✓ cej forbehold: AI-sætningen alene er IKKE forbeholdet
+  ✓ cej forbehold: almindelig beskrivelse udløser intet
+  ✓ cej persondata: præmis — fixturen BÆRER faktisk persondataene
+  ✓ cej persondata: RawListing er rent
+  ✓ cej persondata: normaliseret bolig er ren
+  ✓ cej persondata: databaserækken er ren
+  ✓ cej persondata: intet persondata i konsollen under skrivningen
+  ✓ cej billeder: listen overlever adapter → normaliser → ingest  — ["https://boligio-media-production.s3.eu-central-1.amazonaws.com/x/1.jpg"]
+  ✓ cej billeder: værten er allowlistet — proxyen serverer
+  ✓ cej billeder: fremmed vært afvises af proxyen
+  ✓ cej økonomi: depositum og forudbetalt står i rækken  — [4950000,1650000]
+  ✓ cej parser: .r()-formen parses — den streamede chunk
+  ✓ cej parser: .p()-formen parses — den inlinede værdi, fejlen fra 7. sep.
+  ✓ cej parser: de to former giver PRÆCIS samme searchResponse
+  ✓ cej parser: den tomme pladsholder "searchResponse":{} accepteres ALDRIG
+  ✓ cej parser: den ventende .n()-form alene er ikke data
+  ✓ cej parser: .r()-fejlgrenen — værdipladsen er ikke et objekt — giver null
+  ✓ cej parser: .p()-fejlgrenen giver null, og pladsholderen foran narrer den ikke
+  ✓ cej parser: en FREMMED deferred nøgle i .p()-form tages ikke for vores
+  ✓ cej parser: enkelt-citattegn i kaldelisten læses også
+  ✓ cej parser: HTML uden chunken giver null — ingen gæt
+  ✓ cej discover: tre sider hentes, og sidste side i .p()-form taber ingen boliger  — [5,3]
+  ✓ cej discover: økonomi, billeder og availability overlever .p()-formen uændret  — [1650000,1,"available"]
+  ✓ cej pages: en manglende sideliste KASTER — 32 er ikke et katalog  — cej: pages-kontrakten kunne ikke valideres (undefined) — gaetter ikke paa antal sider
+  ✓ cej pages: pages som streng i stedet for liste KASTER  — cej: pages-kontrakten kunne ikke valideres ("?offset=32") — gaetter ikke paa antal sider
+  ✓ cej pages: en TOM sideliste KASTER — ingen sider er ikke «én side»  — cej: pages-kontrakten kunne ikke valideres ([]) — gaetter ikke paa antal sider
+  ✓ cej pages: et ikke-streng-element KASTER i stedet for at blive filtreret væk  — cej: pages-kontrakten kunne ikke valideres (["",42]) — gaetter ikke paa antal sider
+  ✓ cej pages: 66 boliger på ÉN side modsiger sig selv og KASTER  — cej: payloaden siger 66 boliger, men side 1 baerer 1 og pages har 1 side — pagineringskontrakten holder ikke
+  ✓ cej pages: over sideloftet KASTER stadig  — cej: 31 sider — over loftet paa 30, noget er galt
+  ✓ cej pages: et ægte ét-sides katalog er stadig lovligt
+
+══ heimstaden: liste + detalje — naboer må ikke smitte ══
+  ✓ heimstaden liste: adresse, leje i øre, m2, koordinater  — ["Prøvevej 1, 2300 København S",1210000]
+  ✓ heimstaden liste: DD-MM-YYYY → kalenderdag som fakta  — {"rawStatus":"Klar til udlejning","sourceAvailabilityDate":"2026-11-01"}
+  ✓ heimstaden liste: «Ledig nu» → takeoverText, INGEN dato opstår  — {"rawStatus":"Klar til udlejning","takeoverText":"Ledig nu"}
+  ✓ heimstaden liste: misdannet dato udelades — hverken dato eller tekst
+  ✓ heimstaden liste: Studiebolig → studiebolig, ellers ingen type
+  ✓ heimstaden liste: kæledyr fra enheds-boolean, ejendomsliste røres ikke
+  ✓ heimstaden detalje: A/C-poster på hver sin akse, ukendt → other  — {"imageUrls":["https://boligspot.b-cdn.net/1001.jpg?quality=80","https://boligspot.b-cdn.net/1002.jpg?quality=80"],"utilitiesWater":26000,"utilitiesHeat":80000,"prepaidRent":1210000,"deposit":3630000,"utilitiesOther":5000,"moveInCost":6156000}
+  ✓ heimstaden detalje: depositum, forudbetalt og kildens indflytningspris  — [3630000,1210000,6156000]
+  ✓ heimstaden detalje: galleriet — kun slide-image, plantegning ude  — ["https://boligspot.b-cdn.net/1001.jpg?quality=80","https://boligspot.b-cdn.net/1002.jpg?quality=80"]
+  ✓ heimstaden NABOIMMUNITET: naboens billede og depositum smitter ikke
+  ✓ heimstaden billeder: værten er allowlistet — proxyen serverer
+
+══ heimstaden: detaljebudget fra env ══
+  ✓ budget: ingen env → standarden 25
+  ✓ budget: env=3 → 3
+  ✓ budget: env=0 → 0, og 0 betyder INGEN hentninger — ikke ubegrænset
+  ✓ budget: «-1» (negativ) afvises → standarden 25  — 25 · «-1» er ikke et helt, ikke-negativt tal
+  ✓ budget: «-25» (negativ) afvises → standarden 25  — 25 · «-25» er ikke et helt, ikke-negativt tal
+  ✓ budget: «2.5» (decimal) afvises → standarden 25  — 25 · «2.5» er ikke et helt, ikke-negativt tal
+  ✓ budget: «1e9» (eksponent) afvises → standarden 25  — 25 · «1e9» er ikke et helt, ikke-negativt tal
+  ✓ budget: «Infinity» (uendelig) afvises → standarden 25  — 25 · «Infinity» er ikke et helt, ikke-negativt tal
+  ✓ budget: «tre» (tekst) afvises → standarden 25  — 25 · «tre» er ikke et helt, ikke-negativt tal
+  ✓ budget: «3 boliger» (tekst efter tal) afvises → standarden 25  — 25 · «3 boliger» er ikke et helt, ikke-negativt tal
+  ✓ budget: «0x10» (hex) afvises → standarden 25  — 25 · «0x10» er ikke et helt, ikke-negativt tal
+  ✓ budget: absurd stort tal afvises
+  ✓ budget: adapteren uden env giver 25
+  ✓ budget: adapteren med env=3 giver 3
+  ✓ budget: adapteren med env=-1 falder tilbage til 25  — 25
+  ✓ budget: og den siger tydeligt, at værdien blev IGNORERET  — ["[heimstaden] HEIMSTADEN_DETALJEBUDGET IGNORERET: «-1» er ikke et helt, ikke-negativt tal. Bruger standarden 25."]
+  ✓ budget: env rører IKKE andre kilder
+  ✓ heimstaden signatur: ændret status udløser genhentning
+  ✓ heimstaden signatur: ændret overtagelse udløser genhentning
+  ✓ heimstaden signatur: ændret leje udløser genhentning
+  ✓ heimstaden signatur: uændret bolig giver samme signatur — ingen hentning
+  ✓ pipeline heimstaden: Klar til udlejning + fremtidig dato → på markedet, senere  — paa_markedet · senere
+  ✓ pipeline heimstaden: «Ledig nu» → timing nu, INGEN dato opstod  — nu
+
+══ birch: feed og faktatabel ══
+  ✓ birch feed: adresse, leje i øre (strengtal), m2, dato  — ["Arresøvej 5, st. 1, 8000 Aarhus",680000,{"rawStatus":"Ledig","sourceAvailabilityDate":"2027-02-01"}]
+  ✓ birch feed: status er kildens ord, misdannet dato udelades
+  ✓ birch feed: kun egen vært overlever i galleriet  — ["https://birchejendomme.dk/media/a/1.jpg?w=1600"]
+  ✓ birch feed: samlet udeplads-ord og parkering, ingen kæledyrspåstand
+  ✓ birch detalje: depositum-beløbet høstes, A/C-tekst giver INTET tal  — {"deposit":2040000}
+  ✓ birch detalje: side uden tabel giver tomt — ingen gæt
+  ✓ birch billeder: værten er allowlistet — proxyen serverer
+  ✓ pipeline birch: Ledig + fremtidig dato → på markedet, senere  — paa_markedet · senere
+
+══ værtsspærren: Retry-After, GREATEST og TTL ══
+  ✓ Retry-After: delta-sekunder læses
+  ✓ Retry-After: HTTP-dato læses som sekunder frem  — 3600
+  ✓ Retry-After: fortidig dato giver null — må ikke forkorte noget
+  ✓ Retry-After: vrøvl, tom og 0 giver null
+  ✓ spær: rækken skrives på (runner, host) med blocked_until i fremtiden  — [["localhost","spaerre-a.invalid"]]
+  ✓ spær: varigheden regnes af DATABASENS ur — ca. 2 timer  — 7200
+  ✓ GREATEST: en senere KORTERE blok forkorter ikke den lange  — 7200
+  ✓ GREATEST: en LÆNGERE blok forlænger — begge veje målt  — 10800
+  ✓ udløbet blok blokerer ikke
+  ✓ politeFetch: 503 kaster på UDLØSNINGSKALDET efter ét høfligt genforsøg  — VaertBlokeretFejl · 2 kald
+  ✓ politeFetch: kildens Retry-After (1 t) slår 30-min-standarden  — 3600
+  ✓ politeFetch: næste kald mod samme vært rører ikke netværket
+  ✓ politeFetch: spærren rammer kun den ene vært
+  ✓ runner-isolation: railway ser sin egen blok
+  ✓ runner-isolation: lokal-mac er IKKE blokeret af railways blok
+  ✓ runner-isolation: railway er stadig blokeret — præmissen holder
+  ✓ propagation: B har cachet «ikke blokeret»
+  ✓ propagation: B bruger sin friske cache indtil TTL udløber
+  ✓ propagation: B genindlæser fra DB og ser A’s blok  — Sun Sep 13 2026 23:15:56 GMT+0200 (Central European Summer Time)
+  ✓ propagation: B laver 0 HTTP-kald efter genindlæsningen  — 0
+  ✓ genstart: frisk proces uden cache ser blokken i basen
+
+══ detaljevagten: hent kun nyt, ændret og forfaldent ══
+[proeve-vagt-1789332356616] henter 3 af 3
+  ✓ vagt 1: første kørsel henter detaljer for alle nye  — 3 · {"kilde":"proeve-vagt-1789332356616","fundet":3,"nye":3,"opdaterede":0,"bekraeftede":0,"iTilbagetraekning":0,"afmeldte":0,"fejl":0,"status":"ok","noter":[]}
+  ✓ vagt 1: detaljefelt og bogføring på plads
+  ✓ vagt 2: kørsel straks efter henter 0 detaljer — alt bekræftes  — 3 · {"kilde":"proeve-vagt-1789332356616","fundet":3,"nye":0,"opdaterede":0,"bekraeftede":3,"iTilbagetraekning":0,"afmeldte":0,"fejl":0,"status":"ok","noter":[]}
+[proeve-vagt-1789332356616] henter 1 af 4
+  ✓ vagt 3: ny bolig → præcis én hentning
+[proeve-vagt-1789332356616] henter 1 af 4
+  ✓ vagt 4: ændret listefelt → præcis én hentning
+[proeve-vagt-1789332356616] henter 1 af 4
+  ✓ vagt 5: forfalden bolig → præcis én hentning
+[proeve-vagt-1789332356616] henter 2 af 9
+  ✓ vagt 6: budgettet håndhæves — 2 hentet, resten skrevet fra listen  — 8 · nye=5
+  ✓ vagt 6: overløbet står med detail_fetched_at NULL og uden detaljefelter  — [{"k":"v7","d":null},{"k":"v8","d":null},{"k":"v9","d":null}]
+[proeve-vagt-1789332356616] henter 2 af 9
+  ✓ vagt 7: næste kørsel samler overløbet op inden for budgettet  — {"kilde":"proeve-vagt-1789332356616","fundet":9,"nye":0,"opdaterede":3,"bekraeftede":6,"iTilbagetraekning":0,"afmeldte":0,"fejl":0,"status":"ok","noter":[]}
+[proeve-vagt-1789332356616] henter 1 af 9
+  ✓ vagt 7b: sidste efternøler hentet — ingen NULL tilbage
+[proeve-vagt-1789332356616] henter 3 af 12
+  ✓ vagt 8: værtsspærre stopper resten — 1 hentet, resten fra listen, 0 fejl, 0 afmeldt  — {"kilde":"proeve-vagt-1789332356616","fundet":12,"nye":3,"opdaterede":0,"bekraeftede":9,"iTilbagetraekning":0,"afmeldte":0,"fejl":0,"status":"ok","noter":["værtsspærre: vaerten proeve-vagt.invalid er spaerret til 2026-09-13T20:46 efter 429/503 — proeves igen ved en senere koersel — 2 detaljehentning(er) udskudt","AFMELDNING SPRUNGET OVER — værten spærrede midt i kørslen. Ingen boliger afmeldt."]}
+  ✓ vagt 8: spærren efterlod en note og INGEN tilbagetrækning
+  ✓ vagt 9: budget 0 — ren discovery-kørsel skriver nyt fra listen, 0 hentninger  — {"kilde":"proeve-vagt-1789332356616","fundet":13,"nye":1,"opdaterede":2,"bekraeftede":10,"iTilbagetraekning":0,"afmeldte":0,"fejl":0,"status":"ok","noter":[]}
+  ✓ negativt budget henter INGENTING — ikke alt på nær ét  — 0 hentninger · 4 nye
+  ✓ vagt 10: run-låsen — kørslen springes over, når en anden er i gang  — ["sprunget over: en anden kørsel er i gang (anden-proces, startet 2026-09-13 20:45)"]
+  ✓ vagt 10: taberen skriver INGEN crawl_runs-række (median urørt)  — 12 vs 12
+  ✓ vagt 10: rå dublet-INSERT afvises af det partielle unikke indeks (23505)  — 23505
+[proeve-vagt-1789332356616] henter 7 af 17
+  ✓ vagt 11.1: parløb — højst én vinder, ingen 23505 slipper ud  — skips=1 rækker=1 ok/ok
+  ✓ vagt 11.2: parløb — højst én vinder, ingen 23505 slipper ud  — skips=1 rækker=1 ok/ok
+  ✓ vagt 11.3: parløb — højst én vinder, ingen 23505 slipper ud  — skips=1 rækker=1 ok/ok
+  ✓ vagt 11.4: parløb — højst én vinder, ingen 23505 slipper ud  — skips=1 rækker=1 ok/ok
+  ✓ vagt 11.5: parløb — højst én vinder, ingen 23505 slipper ud  — skips=1 rækker=1 ok/ok
+  ✓ vagt 12: lease 29 min — stadig afvist, og rækken står stadig running  — 0 · running
+  ✓ vagt 13: lease 31 min — tilladt, og den strandede lukkes som failed  — 17 · failed
+[proeve-tyveri-1789332356888] henter 10 af 18
+[proeve-tyveri-1789332356888] LEASE TABT: kørslen varede længere end 30 minutter, og en anden proces lukkede den som strandet. Resultatet er ikke bogført på kørslen.
+  ✓ vagt 14: lease-tyveri — afmelding sprunget over  — ["AFMELDNING SPRUNGET OVER — leasen er tabt: kørslen varede længere end 30 minutter, og en anden proces overtog kilden. Ingen boliger afmeldt.","LEASE TABT: kørslen varede længere end 30 minutter, og en anden proces lukkede den som strandet. Resultatet er ikke bogført på kørslen."]
+  ✓ vagt 14: lease-tyveri — afslut overskriver ikke den lukkede række  — failed
+  ✓ vagt 14: tyvens note står stadig i basen — sporet er ikke slettet  — ["discovery fejlede: invalid input syntax ","stjålet af anden proces"]
+[proeve-hostspaerre-1789332356934] henter 10 af 19
+  ✓ vagt 15: værtsspærre midt i kørslen — 0 fejl, 0 afmeldt  — {"kilde":"proeve-hostspaerre-1789332356934","fundet":19,"nye":19,"opdaterede":0,"bekraeftede":0,"iTilbagetraekning":0,"afmeldte":0,"fejl":0,"status":"ok","noter":["værtsspærre: vaerten spaerret-vaert.invalid er spaerret til 2026-09-13T21:15 efter 429/503 — proeves igen ved en senere koersel — 10 detaljehentning(er) udskudt","AFMELDNING SPRUNGET OVER — værten spærrede midt i kørslen. Ingen boliger afmeldt."]}
+  ✓ vagt 15: udløsnings-boligen fik INGEN fetchFailure
+  ✓ vagt 16: næste kørsel springes over, fordi værten er spærret i BASEN  — ["sprunget over: værten spaerret-vaert.invalid er spærret til 2026-09-13 21:15"]
+  ✓ vagt 16: skippet bogføres på blok-rækken — «blokeret» ≠ «død»  — skip=1
+
+══ laros: liste, detalje, billeder og takt ══
+  ✓ laros liste: parkering og erhverv falder fra — 2 boliger af 4 kort  — 9001:lejlighed 9002:rækkehus
+  ✓ laros liste: adressen normaliseres til vaskeform  — Prøvevej 12, 3. tv., 8000 Aarhus C
+  ✓ laros liste: kortets tal i øre, m2 og værelser  — [950000,2850000,75,3]
+  ✓ laros liste: «Bolig» med etage → lejlighed; «Rækkehus» → rækkehus  — lejlighed · rækkehus
+  ✓ laros liste: LEDIG-dato som date-only faktum + rawStatus LEDIG  — {"rawStatus":"LEDIG","sourceAvailabilityDate":"2026-11-01"}
+  ✓ laros liste: kun boligbilleder fra hos.laros.dk — banneret på www.laros.dk falder fra  — ["https://hos.laros.dk/lejere/billeder/resize.php?ejd=60001&lm=9001&img=a&ext=jpg","https://hos.laros.dk/lejere/billeder/resize.php?ejd=60001&lm=9001&img=b&ext=jpg"]
+  ✓ laros liste: sourceUrl ender med skråstreg (kilden omdirigerer dertil)
+  ✓ laros detalje: aconto varme/vand, forudbetalt og kildens egen indflytningspris  — [50000,30000,950000,4830000]
+  ✓ laros detalje: galleriet erstatter kortbillederne — kun /lejere/billeder/, ikke bannere eller badges  — ["https://hos.laros.dk/lejere/billeder/60001/9001/a.jpg","https://hos.laros.dk/lejere/billeder/60001/9001/b.jpg","https://hos.laros.dk/lejere/billeder/60001/9001/c.jpg"]
+  ✓ laros detalje: BoligPortal-linket hentes ikke, delevenlig bliver et facilitetsord
+  ✓ laros detalje: grundlagets felter overlever (leje, depositum, adresse, dato)
+  ✓ pipeline laros: LEDIG + fremtidig dato → på markedet, senere  — paa_markedet · senere
+  ✓ pipeline laros: LEDIG + fortidig dato → kan overtages nu  — paa_markedet · nu
+  ✓ pipeline laros: ansøgning forbliver unknown, og der dokumenteres ingen adgangskrav
+  ✓ laros i basen: depositum, forudbetalt og indflytningspris står i rækken
+  ✓ laros i basen: total = husleje + varme + vand, komponenterne gemt  — 1030000 ["rent","heat","water"]
+  ✓ laros billeder: tre galleribilleder overlever til listing_images
+  ✓ laros billeder: hos.laros.dk er allowlistet — proxyen serverer
+  ✓ laros billeder: www.laros.dk er med vilje IKKE allowlistet (bannere, ikke boliger)
+  ✓ laros dedup: to kilder, samme enhed → én synlig repræsentant  — 1 synlige af 2
+  ✓ laros dedup: repræsentanten er den med billeder og total (Laros)
+  ✓ laros vagt: signatur ændres ved ny LEDIG-dato
+  ✓ laros vagt: signatur ændres ved ny leje eller nyt depositum
+  ✓ laros vagt: signatur er stabil for uændret bolig, og m2 er ikke med
+  ✓ laros vagt: adapteren erklærer listeGrundlag, budget og host
+  ✓ laros takt: www.laros.dk har mindst 20 sekunder mellem kald  — 20000
+  ✓ laros takt: andre værter er upåvirkede (standard 1 s)  — 1000
+  ✓ laros takt: to kald mod samme vært holder takten (≥ 400 ms målt)  — 401 ms
+  ✓ laros budget: standard 5 uden env
+  ✓ laros budget: env=3 → 3, og Heimstaden er upåvirket (25)
+  ✓ laros budget: -1 afvises → 5, og det siges højt  — ["[laros] LAROS_DETALJEBUDGET IGNORERET: «-1» er ikke et helt, ikke-negativt tal. Bruger standarden 5."]
+  ✓ laros cron: med i automatiske kørsler efter godkendt måling 7/9
+
+══ alabu: liste, detalje, nøgle, billeder og økonomi ══
+  ✓ alabu liste: 2 boliger af 3 — den uden postnummer falder fra  — 99-7-501,99-9-501
+  ✓ alabu nøgle: selskab-afdeling-lejemål — samme TenancyId i to afdelinger er to boliger
+  ✓ alabu liste: boligsiden linkes som ?ten=C_D_T
+  ✓ alabu liste: adresse af Street + Location + postnr + by  — Prøvegade 12, 3. tv, 9000 Aalborg · Prøvegade 28B, 9575 Terndrup
+  ✓ alabu liste: kildens tal i øre — netto husleje med ører, indskud som depositum  — [625050,2400000]
+  ✓ alabu liste: m2 rundes til heltal (84,6 → 85); værelser og koordinater følger med
+  ✓ alabu liste: etage/dør i Location → lejlighed; «28B» alene → ingen type
+  ✓ alabu liste: MoveInDate som date-only faktum; intet statusord opfindes  — {"sourceAvailabilityDate":"2026-12-01"}
+  ✓ alabu billeder: kun boligens egen mappe, sorteret efter SortOrder — afdelingsmappen falder fra på samme vært  — ["https://alabubolig.dk/Media/TempDepartmentImages/99_7_501/10.jpg","https://alabubolig.dk/Media/TempDepartmentImages/99_7_501/11.jpg"]
+  ✓ alabu billeder: bolig uden TenancyImages får INGEN billeder — afdelingsbilledet træder ikke i stedet
+  ✓ alabu persondata/støj: Description, telefon, mail, afdelings-URL og billednavne kommer ikke med
+  ✓ alabu detalje: aconto varme/vand ved navn; husleje og indskud fra listen bevares  — [56500,28500,null]
+  ✓ alabu detalje: Boligart «Etagebyggeri» → lejlighed; faciliteter som kildens egne ord
+  ✓ alabu detalje: plantegningen kommer sidst efter boligbillederne
+  ✓ alabu detalje: forudbetalt, indflytningspris og husdyrtekst opfindes/gemmes ikke
+  ✓ alabu detalje: «Rækkehuse - 1 plan» → rækkehus, og «Aconto el» er el — ikke uspecificeret  — ["rækkehus",15000,null]
+  ✓ alabu detalje: ukendt post → uspecificeret aconto (beløbet er kildens), og det siges højt  — ["[alabu] ukendt(e) post(er) i Rents: Antennebidrag — talt som uspecificeret aconto (utilitiesOther), ikke som varme/vand","[alabu] ukendt Boligart «Tæt-lav» — ingen type sat; foej den til BOLIGARTER, naar nogen har set, hvad den daekker","[alabu] 99-7-501: kilden oplyser «Forventet ventetid» (ca. 6 måneder) — ansoegningsaksen er ikke modelleret for Alabu; se lib/kildekontrakt.ts. Oplysningen gemmes ikke."]
+  ✓ alabu detalje: ukendt Boligart → typen fra listen står, og det siges højt
+  ✓ alabu detalje: «Forventet ventetid» gemmes ikke, men siges højt
+  ✓ alabu detalje: plantegning på fremmed vært falder fra
+  ✓ alabu detalje: advarsler siges én gang pr. nøgle, ikke ved hvert kald  — 3 første gang, 0 anden gang
+  ✓ pipeline alabu: fremtidig indflytningsdato → senere; markedsstatus forbliver unknown (intet statusord)  — unknown · senere
+  ✓ pipeline alabu: fortidig indflytningsdato → kan overtages nu  — nu
+  ✓ pipeline alabu: ansøgning unknown (kontaktformular er ikke en tildelingsregel), ingen adgangskrav dokumenteret
+  ✓ alabu i basen: total = husleje + varme + vand = 7.100,50 kr med komponenter; depositum står, forudbetalt og indflytningspris er null  — 710050 ["rent","heat","water"]
+  ✓ alabu i basen: koordinater fra kilden, m2 som heltal  — 57.0400000 85
+  ✓ alabu i basen: fra listen alene (ingen aconto endnu) er totalen null — ikke lig huslejen
+  ✓ alabu billeder: to boligbilleder + plantegning overlever til listing_images
+  ✓ alabu billeder: alabubolig.dk er allowlistet — proxyen serverer
+  ✓ alabu dedup: to kilder, samme enhed → én synlig repræsentant, og det er den med billeder og total  — 1 synlige af 2
+  ✓ alabu vagt: signatur ændres ved ny indflytningsdato, leje eller indskud
+  ✓ alabu vagt: stabil for uændret bolig; m2 og billeder er ikke med
+  ✓ alabu vagt: adapteren erklærer listeGrundlag, budget, vært og feed-type
+  ✓ alabu takt: standardtakten 1 s pr. kald (robots har ingen crawl-delay)  — 1000
+  ✓ alabu discover: ét listekald, 2 boliger med nøgle og boligside  — [{"externalKey":"99-7-501","url":"https://alabubolig.dk/se-og-soeg-bolig/soeg-ledig-lejebolig/?ten=99_7_501"},{"externalKey":"99-9-501","url":"https://alabubolig.dk/se-og-soeg-bolig/soeg-ledig-lejebolig/?ten=99_9_501"}]
+  ✓ alabu discover: listekaldet beder om JSON — værten forhandler ellers XML  — application/json
+  ✓ alabu vagt: listeGrundlag giver grundlaget fra cachen med signatur
+  ✓ alabu extract: detaljekaldet går til GetInfoForTenancy med de tre id'er og bærer aconto hjem  — https://alabubolig.dk/umbraco/api/AvailableTenanciesPage/GetInfoForTenancy?companyId=99&departmentId=7&tenancyId=501
+  ✓ alabu extract: en URL uden discover kaster i stedet for at gætte  — ikke i cachen: https://alabubolig.dk/ukendt (koer discover foerst)
+  ✓ politeFetch: uden egen Accept sendes standardhovedet stadig (Simply.com-reglen)  — text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+  ✓ politeFetch: et kald kan IKKE skifte User-Agent — vores navn er ikke en indstilling  — BofindaBot/1.0 (+https://bofinda.dk/bot; kontakt@bofinda.dk)
+  ✓ alabu budget: standard 30 uden env — hele udbuddet (22) i én kørsel
+  ✓ alabu budget: env=4 → 4, og Laros er upåvirket
+  ✓ alabu budget: «abc» afvises → 30, og det siges højt  — ["[alabu] ALABU_DETALJEBUDGET IGNORERET: «abc» er ikke et helt, ikke-negativt tal. Bruger standarden 30."]
+  ✓ alabu cron: med i automatiske kørsler efter godkendt måling 7/9
+
+══ alarmen følger availability-domænet ══
+  ✓ alarm UDEN availability-filter opfører sig som før — alle syv  — 7 træf
+  ✓ «kan overtages nu» matcher nu — ikke senere/unknown  — 1 træf
+  ✓ «kan overtages senere» matcher senere — ikke nu/unknown  — 1 træf
+  ✓ «venteliste» matcher venteliste — ikke normal, ikke unknown  — 1 træf
+  ✓ «reserveret» følger søgningens semantik  — 1 træf
+
+══ en udlejerannonce må ikke i en alarmmail ══
+  ✓ præmis: søgningen er ældre end boligen  — 2026-09-13T19:43:56.012Z < 2026-09-13T20:43:56.012Z
+  ✓ præmis: kilde-datoen er sat, så indkøringsvagten ikke afgør det
+  ✓ præmis: kriterierne rammer faktisk hendes bolig
+  ✓ native bolig er IKKE et alarmtræf
+
+  6 sprunget over — de måler det rigtige udbud og kan kun køre mod produktion: npm run test:prod
+
+  Alt bestod.

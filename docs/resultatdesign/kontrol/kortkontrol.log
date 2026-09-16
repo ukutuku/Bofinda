@@ -1,0 +1,140 @@
+
+390 px · med-kort — listeområde 0 px, liste 0 px, 42 kolonne(r) à 0 px, 42 kort (4 uden foto) · LISTEN ER SKJULT, kortet vises i stedet
+  ✓ listen skjules kun på smal skærm — 390 px
+  ✓ listen skjules kun, når kortet er valgt — med-kort
+  ✓ kortet fylder bredden i stedet — 346 px af 390
+  ✓ intet vandret overløb — 0 px
+
+390 px · uden-kort — listeområde 346 px, liste 346 px, 1 kolonne(r) à 346 px, 42 kort (4 uden foto)
+  ✓ højst to kolonner — 1
+  ✓ én kolonne på mobil — 1
+  ✓ intet vandret overløb — 0 px
+  ✓ intet barn bredere end sit kort
+  ✓ billedet fylder rammen præcist (38 fotos)
+  ✓ object-fit: cover på alle billeder
+  ✓ alle billeder er hentet — 0 tomme
+  ✓ kort uden foto strækkes ikke (0 blandede rækker) — 0 strakte
+  ✓ ingen afkortning i økonomi og forbehold
+  ✓ kortet er ét klikmål
+  ✓ højst én skillelinje per kort — 1
+  ✓ gruppelinket bærer filtrene videre — /gruppe?b=e683c71f-a686-4b54-b879-b94b6079a568&by=Attrapby
+  ✓ kortet kan fokuseres og viser en ring — 2px solid
+
+768 px · med-kort — listeområde 0 px, liste 0 px, 42 kolonne(r) à 0 px, 42 kort (4 uden foto) · LISTEN ER SKJULT, kortet vises i stedet
+  ✓ listen skjules kun på smal skærm — 768 px
+  ✓ listen skjules kun, når kortet er valgt — med-kort
+  ✓ kortet fylder bredden i stedet — 724 px af 768
+  ✓ intet vandret overløb — 0 px
+
+768 px · uden-kort — listeområde 724 px, liste 724 px, 2 kolonne(r) à 352 px, 42 kort (4 uden foto)
+  ✓ højst to kolonner — 2
+  ✓ intet vandret overløb — 0 px
+  ✓ intet barn bredere end sit kort
+  ✓ billedet fylder rammen præcist (38 fotos)
+  ✓ object-fit: cover på alle billeder
+  ✓ alle billeder er hentet — 0 tomme
+  ✓ kort uden foto strækkes ikke (4 blandede rækker) — 0 strakte
+  ✓ ingen afkortning i økonomi og forbehold
+  ✓ kortet er ét klikmål
+  ✓ højst én skillelinje per kort — 1
+  ✓ gruppelinket bærer filtrene videre — /gruppe?b=e683c71f-a686-4b54-b879-b94b6079a568&by=Attrapby
+  ✓ kortet kan fokuseres og viser en ring — 2px solid
+
+1100 px · med-kort — listeområde 680 px, liste 680 px, 2 kolonne(r) à 330 px, 42 kort (4 uden foto)
+  ✓ højst to kolonner — 2
+  ✓ intet vandret overløb — 0 px
+  ✓ intet barn bredere end sit kort
+  ✓ billedet fylder rammen præcist (38 fotos)
+  ✓ object-fit: cover på alle billeder
+  ✓ alle billeder er hentet — 0 tomme
+  ✓ kort uden foto strækkes ikke (4 blandede rækker) — 0 strakte
+  ✓ ingen afkortning i økonomi og forbehold
+  ✓ kortet er ét klikmål
+  ✓ højst én skillelinje per kort — 1
+  ✓ gruppelinket bærer filtrene videre — /gruppe?b=e683c71f-a686-4b54-b879-b94b6079a568&by=Attrapby
+
+1100 px · uden-kort — listeområde 1056 px, liste 1056 px, 2 kolonne(r) à 518 px, 42 kort (4 uden foto)
+  ✓ højst to kolonner — 2
+  ✓ intet vandret overløb — 0 px
+  ✓ intet barn bredere end sit kort
+  ✓ billedet fylder rammen præcist (38 fotos)
+  ✓ object-fit: cover på alle billeder
+  ✓ alle billeder er hentet — 0 tomme
+  ✓ kort uden foto strækkes ikke (4 blandede rækker) — 0 strakte
+  ✓ ingen afkortning i økonomi og forbehold
+  ✓ kortet er ét klikmål
+  ✓ højst én skillelinje per kort — 1
+  ✓ gruppelinket bærer filtrene videre — /gruppe?b=e683c71f-a686-4b54-b879-b94b6079a568&by=Attrapby
+  ✓ kortet kan fokuseres og viser en ring — 2px solid
+
+1440 px · med-kort — listeområde 730 px, liste 730 px, 2 kolonne(r) à 355 px, 42 kort (4 uden foto)
+  ✓ højst to kolonner — 2
+  ✓ intet vandret overløb — 0 px
+  ✓ intet barn bredere end sit kort
+  ✓ billedet fylder rammen præcist (38 fotos)
+  ✓ object-fit: cover på alle billeder
+  ✓ alle billeder er hentet — 0 tomme
+  ✓ kort uden foto strækkes ikke (4 blandede rækker) — 0 strakte
+  ✓ ingen afkortning i økonomi og forbehold
+  ✓ kortet er ét klikmål
+  ✓ højst én skillelinje per kort — 1
+  ✓ gruppelinket bærer filtrene videre — /gruppe?b=e683c71f-a686-4b54-b879-b94b6079a568&by=Attrapby
+
+1440 px · uden-kort — listeområde 1300 px, liste 1300 px, 2 kolonne(r) à 640 px, 42 kort (4 uden foto)
+  ✓ højst to kolonner — 2
+  ✓ intet vandret overløb — 0 px
+  ✓ intet barn bredere end sit kort
+  ✓ billedet fylder rammen præcist (38 fotos)
+  ✓ object-fit: cover på alle billeder
+  ✓ alle billeder er hentet — 0 tomme
+  ✓ kort uden foto strækkes ikke (4 blandede rækker) — 0 strakte
+  ✓ ingen afkortning i økonomi og forbehold
+  ✓ kortet er ét klikmål
+  ✓ højst én skillelinje per kort — 1
+  ✓ gruppelinket bærer filtrene videre — /gruppe?b=e683c71f-a686-4b54-b879-b94b6079a568&by=Attrapby
+  ✓ kortet kan fokuseres og viser en ring — 2px solid
+
+Gruppesiden /gruppe?b=e683c71f-a686-4b54-b879-b94b6079a568&by=Attrapby
+  ✓ gruppen viser sine enkelte boliger — 3 kort
+  ✓ gruppesiden har samme listeområde
+  ✓ brødkrummen fører til forsiden og til postnummeret — / · /?sted=9003
+
+Billedformater (600x900 stående · 1800x600 liggende)
+  ✓ smalt kort: begge prøveboliger står på siden — 2 af 2 fundet
+  ✓ smalt kort: stående foto nåede browseren — 400x600 → 0.67, ventet 0.67
+  ✓ smalt kort: 400x600 fylder rammen 344x194 — billede 344x194, cover
+  ✓ smalt kort: liggende foto nåede browseren — 400x133 → 3.01, ventet 3.00
+  ✓ smalt kort: 400x133 fylder rammen 344x194 — billede 344x194, cover
+  ✓ smalt kort: rammen har ÉN form — 1 forhold, spænd 0.00 — 1.77
+  ✓ bredt kort: begge prøveboliger står på siden — 2 af 2 fundet
+  ✓ bredt kort: stående foto nåede browseren — 400x600 → 0.67, ventet 0.67
+  ✓ bredt kort: 400x600 fylder rammen 240x240 — billede 240x240, cover
+  ✓ bredt kort: liggende foto nåede browseren — 400x133 → 3.01, ventet 3.00
+  ✓ bredt kort: 400x133 fylder rammen 240x240 — billede 240x240, cover
+  ✓ bredt kort: rammen har ÉN form — 1 forhold, spænd 0.00 — 1
+  · testdata gendannet (0 rækker peger stadig på form-*)
+
+Indflytningspris og billedforbehold
+  ✓ 390 px · begge prøveboliger står på siden — 2 af 2
+  ✓ 390 px · indflytningsprisen står og klippes ikke — indflytning 34.500 kr.
+  ✓ 390 px · billedforbeholdet står og klippes ikke — Udlejer oplyser: billederne kan være fra en anden bolig
+  ✓ 390 px · billedforbeholdet står ved sit foto — 0 px under billedet
+  ✓ 390 px · intet vandret overløb — 0 px
+  ✓ 768 px · begge prøveboliger står på siden — 2 af 2
+  ✓ 768 px · indflytningsprisen står og klippes ikke — indflytning 34.500 kr.
+  ✓ 768 px · billedforbeholdet står og klippes ikke — Udlejer oplyser: billederne kan være fra en anden bolig
+  ✓ 768 px · billedforbeholdet står ved sit foto — 0 px under billedet
+  ✓ 768 px · intet vandret overløb — 0 px
+  ✓ 1100 px · begge prøveboliger står på siden — 2 af 2
+  ✓ 1100 px · indflytningsprisen står og klippes ikke — indflytning 34.500 kr.
+  ✓ 1100 px · billedforbeholdet står og klippes ikke — Udlejer oplyser: billederne kan være fra en anden bolig
+  ✓ 1100 px · billedforbeholdet står ved sit foto — 8 px under billedet
+  ✓ 1100 px · intet vandret overløb — 0 px
+  ✓ 1440 px · begge prøveboliger står på siden — 2 af 2
+  ✓ 1440 px · indflytningsprisen står og klippes ikke — indflytning 34.500 kr.
+  ✓ 1440 px · billedforbeholdet står og klippes ikke — Udlejer oplyser: billederne kan være fra en anden bolig
+  ✓ 1440 px · billedforbeholdet står ved sit foto — 8 px under billedet
+  ✓ 1440 px · intet vandret overløb — 0 px
+  · testdata gendannet (0 rækker har stadig indflytning eller forbehold)
+
+✓ alle 114 kontroller bestået

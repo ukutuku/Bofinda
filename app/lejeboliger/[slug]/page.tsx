@@ -84,7 +84,7 @@ export async function generateMetadata(
     s.medianIndflytning != null
       ? `Typisk indflytningspris ${kr(s.medianIndflytning)} kr.`
       : null,
-    'Se den reelle månedlige udgift, ikke bare huslejen.',
+    'Se den månedlige betaling til udlejer, ikke bare huslejen.',
   ].filter(Boolean)
 
   // ── En side EFTER sidste gyldige side ───────────────────────────
@@ -152,13 +152,17 @@ export default async function Side({ params, searchParams }: {
 
   return (
     <div className="omraade">
-      <nav className="krumme">
-        <a href="/">Alle boliger</a>
-        <span>›</span>
-        <span>{o.navn}</span>
+      {/* Samme sti og sidetitel som resultat- og gruppesiden.
+          Omraadesidens tekst og tal er uroerte. */}
+      <nav className="broedkrumme" aria-label="Sti">
+        <a href="/">Forside</a>
+        <span aria-hidden="true">›</span>
+        <span aria-current="page">{o.navn}</span>
       </nav>
 
-      <h1>Lejeboliger {iOmraadet(o)}</h1>
+      <div className="sidetitel">
+        <h1>Lejeboliger {iOmraadet(o)}</h1>
+      </div>
 
       {/* Kun tal vi kan pege paa raekkerne bag. Ingen paastande om
           markedet, ingen "populaert omraade". */}
@@ -183,9 +187,9 @@ export default async function Side({ params, searchParams }: {
           )}
           {' '}
           {s.medTotal === s.antal
-            ? <>Alle {s.antal} oplyser aconto, så den reelle månedlige udgift kendes.</>
+            ? <>Alle {s.antal} oplyser aconto, så den samlede betaling til udlejer kendes.</>
             : s.medTotal === 0
-              ? <>Ingen af dem oplyser aconto, så den samlede månedlige udgift kendes ikke.</>
+              ? <>Ingen af dem oplyser aconto, så den samlede betaling til udlejer kendes ikke.</>
               : <><strong>{s.medTotal} af {s.antal}</strong> oplyser aconto. På resten kender
                 vi kun huslejen — spørg udlejeren om varme og vand.</>}
         </p>
@@ -209,14 +213,17 @@ export default async function Side({ params, searchParams }: {
       ) : visninger.length === 0 ? (
         <div className="tom"><p>Ingen boliger lige nu.</p></div>
       ) : (
-        <div className="liste">
-          {visninger.map((v) => (
-            <Visningskort
-              nu={nu}
-              key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
-              v={v}
-            />
-          ))}
+        <div className="listeomraade">
+          <div className="liste">
+            {visninger.map((v) => (
+              <Visningskort
+                nu={nu}
+                filtre={filterFor(o.slags, o.vaerdi)}
+                key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
+                v={v}
+              />
+            ))}
+          </div>
         </div>
       )}
 
