@@ -15,6 +15,7 @@
 import { hentBrugerStatus } from '../../lib/auth'
 import { erFavorit, fjernFavorit, gemFavorit } from '../../lib/favoritter'
 import { erBoligId } from '../../lib/gemoenske'
+import { ryddGemkvittering } from '../../lib/gemkvittering'
 
 export type Favoritsvar =
   | { gemt: boolean }
@@ -42,6 +43,13 @@ export async function skiftFavorit(listingId: string): Promise<Favoritsvar> {
   if (svar.slags !== 'ok') return { fejl: 'ikke-logget-ind' }
   const bruger = svar.bruger
 
+  // Kvitteringen fra hjerteklikket foer login beskriver den SENESTE
+  // favorithandling. Det her ER en nyere, saa den gamle besked ville
+  // svare paa noget, hun ikke laengere spoerger om: «Boligen findes ikke
+  // laengere» staaende paa Min side, lige efter hun har gemt en bolig
+  // med succes. Se lib/gemkvittering.ts.
+  await ryddGemkvittering()
+
   if (await erFavorit(bruger.id, listingId)) {
     await fjernFavorit(bruger.id, listingId)
     return { gemt: false }
@@ -56,6 +64,9 @@ export async function fjernFraMinSide(f: FormData): Promise<void> {
   if (!erBoligId(id)) return
   const svar = await hentBrugerStatus()
   if (svar.slags !== 'ok') return
+  // Samme grund som i `skiftFavorit`: en nyere favorithandling goer den
+  // gamle kvittering forkert.
+  await ryddGemkvittering()
   await fjernFavorit(svar.bruger.id, id)
   const { revalidatePath } = await import('next/cache')
   revalidatePath('/min-side')

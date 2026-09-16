@@ -35,7 +35,11 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '../db/client'
 import { favorites, listings, sources, users } from '../db/schema'
 import { erFavorit, gemOenske, hentFavoritter } from '../lib/favoritter'
-import { GEMUDFALD, GEM_PARAM, erBoligId, gemOenskeFra, gemudfaldFra } from '../lib/gemoenske'
+import {
+  GEMUDFALD, GEM_KNAEKKET, GEM_PARAM, erBoligId, feltvaerdiFor, gemOenskeFra,
+  gemudfaldFor, kvitteringsvaerdi, laesGemOenske,
+} from '../lib/gemoenske'
+import { maerkeFor } from '../lib/gemkvittering'
 import { Favoritknap } from '../app/Favoritknap'
 import { Konto } from '../app/udlejer/Konto'
 
@@ -117,14 +121,51 @@ async function koer() {
     // blive til to boliger — der tages den foerste.
     tjek('2G · flere vaerdier: den foerste vinder',
       gemOenskeFra([boligId, FALSK_ID]) === boligId)
-    tjek('2H · gemudfaldFra kender kun sine egne ord',
-      GEMUDFALD.every((u) => gemudfaldFra(u) === u) && gemudfaldFra('gemt!') === null,
-      GEMUDFALD.join(', '))
     // «Vi kunne ikke gemme den» skal kunne siges. Uden det udfald ville en
     // knaekket skrivning enten tie eller vaelte login — se noten i
     // lib/gemoenske.ts.
-    tjek('2I · der findes et udfald for en fejlet skrivning',
+    tjek('2H · der findes et udfald for en fejlet skrivning',
       GEMUDFALD.includes('ikke-gemt'))
+  }
+
+  // ═══ 2b · «Intet» og «ugyldigt» er to ting ═══
+  //
+  // FEJLEN, DER BLEV RETTET HER: `gemOenskeFra` gav null for begge, saa
+  // siden udelod det skjulte felt, og `login()` saa et helt almindeligt
+  // login. Et knaekket hjertelink forsvandt uden et ord, og udfaldet
+  // `ugyldigt-link` kunne ikke naas fra forloebet overhovedet.
+  console.log('\n══ 2b · et knaekket link er ikke det samme som intet link ══')
+  {
+    tjek('2b-A · et rigtigt id giver «id»',
+      laesGemOenske(boligId).slags === 'id', laesGemOenske(boligId).slags)
+    tjek('2b-B · en manglende parameter giver «intet»',
+      laesGemOenske(undefined).slags === 'intet' && laesGemOenske(null).slags === 'intet')
+    tjek('2b-C · noget ulaeseligt giver «ugyldigt», ikke «intet»',
+      laesGemOenske('abc').slags === 'ugyldigt', laesGemOenske('abc').slags)
+    // `?gem=` er en adresse, der HAR baaret et hjerteklik og tabt det.
+    // Det er ikke det samme som slet ingen parameter.
+    tjek('2b-D · en tom parameter er et tabt oenske, ikke intet oenske',
+      laesGemOenske('').slags === 'ugyldigt', laesGemOenske('').slags)
+    tjek('2b-E · en tom liste er «intet»', laesGemOenske([]).slags === 'intet')
+    tjek('2b-F · et File-felt er ugyldigt, ikke et kast',
+      laesGemOenske({ navn: 'fil' }).slags === 'ugyldigt')
+    // Mellemrum om id'et er ikke en fejl — det trimmes ét sted, her.
+    tjek('2b-G · mellemrum om id\'et aendrer ikke svaret',
+      laesGemOenske(`  ${boligId}  `).slags === 'id')
+
+    // Formularen skal baere maerket videre ved et ugyldigt oensket.
+    // Udelades feltet dér, er hele forskellen tabt igen.
+    tjek('2b-H · feltet baerer id\'et for et gyldigt oenske',
+      feltvaerdiFor(laesGemOenske(boligId)) === boligId)
+    tjek('2b-I · og MAERKET for et ugyldigt',
+      feltvaerdiFor(laesGemOenske('abc')) === GEM_KNAEKKET,
+      String(feltvaerdiFor(laesGemOenske('abc'))))
+    tjek('2b-J · intet oenske baerer intet felt',
+      feltvaerdiFor(laesGemOenske(undefined)) === null)
+    // Bindingen mellem de to: maerket maa ALDRIG kunne laeses som et
+    // bolig-id, ellers ville et knaekket link blive slaaet op i basen.
+    tjek('2b-K · maerket laeses selv som «ugyldigt»',
+      laesGemOenske(GEM_KNAEKKET).slags === 'ugyldigt' && !erBoligId(GEM_KNAEKKET))
   }
 
   // ═══ 3 · Formularen baerer oensket videre ═══
@@ -160,19 +201,29 @@ async function koer() {
     }))
     tjek('3E · oensket overlever en ny gengivelse af formularen',
       igen.includes(`value="${boligId}"`))
+
+    // Og det knaekkede link: feltet SKAL staa der, ellers ser `login()`
+    // et almindeligt login, og hun faar ingen forklaring.
+    const knaekket = renderToStaticMarkup(createElement(Konto as never, {
+      kontekst: 'bolig', gem: GEM_KNAEKKET,
+    }))
+    tjek('3F · et knaekket link baeres OGSAA med i formularen',
+      knaekket.includes(`name="${GEM_PARAM}"`)
+      && knaekket.includes(`value="${GEM_KNAEKKET}"`),
+      knaekket.includes(`name="${GEM_PARAM}"`) ? 'feltet er der' : 'FELTET MANGLER')
   }
 
   // ═══ 4 · Gemningen mod basen ═══
   console.log('\n══ 4 · gemOenske: idempotent, ejerskabet i behold ══')
   {
-    const u1 = await gemOenske(brugerA, boligId)
+    const u1 = await gemOenske(brugerA, laesGemOenske(boligId))
     tjek('4A · et gyldigt oenske gemmes', u1 === 'gemt', u1)
     tjek('4B · og boligen staar paa hendes liste', await erFavorit(brugerA, boligId))
 
     // Kernen i «brug ikke skiftFavorit»: en allerede gemt bolig skal
     // BLIVE gemt. Et skift ville fjerne den, og hun trykkede paa et tomt
     // hjerte for at gemme.
-    const u2 = await gemOenske(brugerA, boligId)
+    const u2 = await gemOenske(brugerA, laesGemOenske(boligId))
     tjek('4C · det samme oenske igen fjerner den IKKE', u2 === 'gemt', u2)
     tjek('4D · boligen er der stadig', await erFavorit(brugerA, boligId))
     const raekker = await db.select().from(favorites)
@@ -182,16 +233,20 @@ async function koer() {
     // En afmeldt bolig skal stadig kunne gemmes. Min side viser den med
     // «Ikke laengere tilgaengelig» — at afvise den ville skjule, at
     // kilden tog den ned.
-    const u3 = await gemOenske(brugerA, afmeldtId)
+    const u3 = await gemOenske(brugerA, laesGemOenske(afmeldtId))
     tjek('4F · en afmeldt bolig kan stadig gemmes', u3 === 'gemt', u3)
 
     // De to fejludfald er adskilte, fordi de siger noget forskelligt.
-    const u4 = await gemOenske(brugerA, FALSK_ID)
+    const u4 = await gemOenske(brugerA, laesGemOenske(FALSK_ID))
     tjek('4G · en bolig, der ikke findes, siges hoejt', u4 === 'ukendt-bolig', u4)
-    const u5 = await gemOenske(brugerA, 'ikke-et-id')
+    const u5 = await gemOenske(brugerA, laesGemOenske('ikke-et-id'))
     tjek('4H · et knaekket link siges hoejt', u5 === 'ugyldigt-link', u5)
-    const u6 = await gemOenske(brugerA, null)
-    tjek('4I · og et tomt oenske ogsaa', u6 === 'ugyldigt-link', u6)
+    // Maerket fra formularen ender som `ugyldigt-link`, uden en eneste
+    // undtagelse undervejs. Det er den regression, der holder fund 1
+    // lukket: naar maerket foerst baeres med, SKAL det give en besked.
+    const u6 = await gemOenske(brugerA, laesGemOenske(GEM_KNAEKKET))
+    tjek('4I · og formularens maerke for et knaekket link ogsaa',
+      u6 === 'ugyldigt-link', u6)
 
     // Intet af det maa have roert en anden brugers liste.
     tjek('4J · den anden bruger har intet faaet',
@@ -228,11 +283,18 @@ async function koer() {
     const side = udenKommentarer(
       readFileSync(new URL('../app/min-side/page.tsx', import.meta.url), 'utf8'))
 
-    const login = (() => {
-      const i = h.indexOf('export async function login(')
-      const j = h.indexOf('\nexport ', i + 1)
-      return i < 0 ? '' : h.slice(i, j < 0 ? undefined : j)
-    })()
+    /** Én funktions krop — fra dens navn til den naeste `export`. */
+    const krop = (t: string, navn: string) => {
+      const i = t.indexOf(navn)
+      if (i < 0) return ''
+      const j = t.indexOf('\nexport ', i + 1)
+      return t.slice(i, j < 0 ? undefined : j)
+    }
+    const login = krop(h, 'export async function login(')
+    const gemvej = krop(h, 'async function fuldfoerGemOenske(')
+    const udlog = krop(h, 'export async function logUd(')
+    const minsideH = udenKommentarer(
+      readFileSync(new URL('../app/min-side/handlinger.ts', import.meta.url), 'utf8'))
 
     tjek('5A · login() laeser gemmefeltet', login.includes('GEM_PARAM'), login ? '' : 'LOGIN BLEV IKKE FUNDET')
     tjek('5B · login() gennemfoerer oensket FOER omdirigeringen',
@@ -244,10 +306,82 @@ async function koer() {
       h.includes('hentBrugerStatus()') && !/gemOenske\([^)]*f\.get/.test(h))
 
     tjek('5E · Min side laeser oensket og sender det videre',
-      side.includes('gemOenskeFra(sp[GEM_PARAM])') && /<Konto[^>]*gem=\{oenske\}/s.test(side))
+      side.includes('laesGemOenske(sp[GEM_PARAM])')
+      && /<Konto[\s\S]*?gem=\{feltvaerdiFor\(oenske\)\}/.test(side),
+      side.includes('laesGemOenske(sp[GEM_PARAM])') ? '' : 'SIDEN LAESER IKKE OENSKET')
     // Siden er en GET. Den maa laese oensket, aldrig gemme det.
     tjek('5F · Min side gemmer ikke selv',
       !side.includes('gemFavorit(') && !side.includes('gemOenske('))
+    // Fund 1: den udloggede skal kunne SE, at linket knaekkede — foer hun
+    // bruger tid paa at logge ind for en bolig, der ikke kommer.
+    tjek('5G · Min side siger det med det samme ved et knaekket link',
+      /oenske\.slags === 'ugyldigt'/.test(side) && side.includes('Linket virkede ikke'))
+
+    // ── Fund 2: kvitteringen skal ryddes, ikke ventes ud ──────
+    //
+    // Hver af de fire veje herunder goer den gamle kvittering forkert.
+    // Falder én af dem fra, kan en besked fra ét forloeb staa som svar
+    // paa et andet — og det er ikke noget, en adfaerdsproeve faar oeje
+    // paa, medmindre den rammer netop det vindue.
+    tjek('5H · et login UDEN et oenske rydder den gamle kvittering',
+      /oenske\.slags === 'intet'/.test(gemvej)
+      && /'intet'[\s\S]{0,120}ryddGemkvittering\(\)/.test(gemvej),
+      gemvej ? '' : 'GEMVEJEN BLEV IKKE FUNDET')
+    tjek('5I · en udlogning rydder den',
+      udlog.includes('ryddGemkvittering()'), udlog ? '' : 'logUd BLEV IKKE FUNDET')
+    tjek('5J · en nyere favorithandling rydder den',
+      (minsideH.match(/ryddGemkvittering\(\)/g) ?? []).length === 2,
+      `${(minsideH.match(/ryddGemkvittering\(\)/g) ?? []).length} steder i min-side/handlinger.ts`)
+    // Kvitteringen skrives ÉT sted, med en ejer. Skrev `login()` selv i
+    // cookien, kunne den skrives uden — og saa er maerket ingenting vaerd.
+    tjek('5K · kvitteringen skrives med en ejer, og kun ét sted',
+      gemvej.includes('saetGemkvittering(udfald, ejer)')
+      && !h.includes('jar.set(GEMCOOKIE'))
+    tjek('5L · Min side laeser kvitteringen for DEN indloggede',
+      side.includes('laesGemkvittering(bruger.id)'))
+  }
+
+  // ═══ 6 · Kvitteringen taler kun til den, der lavede klikket ═══
+  //
+  // FEJLEN, DER BLEV RETTET HER: kvitteringen levede 30 sekunder og blev
+  // aldrig ryddet. Inden for det vindue kunne den samme bruger logge ud og
+  // ind igen UDEN et hjerteklik og faa «Boligen er gemt.» — og en ANDEN
+  // konto paa den samme maskine kunne faa den samme besked om en bolig,
+  // hun aldrig havde set.
+  //
+  // Der er to uafhaengige spaerringer. Sektion 5 maaler den foerste (den
+  // ryddes). Den her maaler den anden (den baerer, hvem den var til) — og
+  // den kan maales UDEN at vente et sekund, netop fordi den ikke hviler
+  // paa tid.
+  console.log('\n══ 6 · kvitteringen kan ikke tale til en fremmed konto ══')
+  {
+    const mA = maerkeFor(brugerA)
+    const mB = maerkeFor(brugerB)
+
+    tjek('6A · maerket er ikke bruger-id\'et', mA !== brugerA && !mA.includes(brugerA), mA)
+    tjek('6B · to konti faar hver sit maerke', mA !== mB && mB.length > 0)
+    tjek('6C · og den samme konto faar det samme hver gang', maerkeFor(brugerA) === mA)
+
+    const hendes = kvitteringsvaerdi('gemt', mA)
+    tjek('6D · hendes egen kvittering laeses', gemudfaldFor(hendes, mA) === 'gemt',
+      String(gemudfaldFor(hendes, mA)))
+    // KONTOSKIFTET. Ingen ventetid, intet vindue — den kan simpelthen
+    // ikke laeses af nogen anden.
+    tjek('6E · en ANDEN kontos kvittering laeses IKKE',
+      gemudfaldFor(hendes, mB) === null, String(gemudfaldFor(hendes, mB)))
+    tjek('6F · alle fire udfald baeres frem og tilbage',
+      GEMUDFALD.every((u) => gemudfaldFor(kvitteringsvaerdi(u, mA), mA) === u),
+      GEMUDFALD.join(', '))
+    tjek('6G · et ord, vi ikke kender, giver intet udfald',
+      gemudfaldFor(`gemt!:${mA}`, mA) === null)
+    // Den gamle form uden ejer — en cookie fra foer rettelsen, eller noget
+    // haandskrevet. Den vises ikke: en kvittering, vi ikke kan tilskrive
+    // nogen, er ikke et svar til nogen.
+    tjek('6H · den gamle form UDEN ejer vises ikke', gemudfaldFor('gemt', mA) === null)
+    tjek('6I · og en vaerdi uden udfald heller ikke', gemudfaldFor(`:${mA}`, mA) === null)
+    // Uden en konto er der ingen at vise noget for.
+    tjek('6J · uden et maerke laeses intet',
+      maerkeFor('') === '' && gemudfaldFor(kvitteringsvaerdi('gemt', ''), '') === null)
   }
 
   // ─── Ryd op ──────────────────────────────────────────────────

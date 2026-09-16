@@ -17,12 +17,14 @@
 //
 //  ═══ FILEN ER REN ═══
 //
-//  Ingen database, ingen next/headers, ingen React. `Konto` er en
-//  KLIENTKOMPONENT og importerer `GEM_PARAM` herfra — et vaerdi-import
-//  fra et modul, der traekker `postgres` med ind, vaeltede engang hele
-//  appen paa `Can't resolve 'net'`. Se noten om `lib/faciliteter.ts` i
-//  CLAUDE.md. Derfor ligger id-tjekket her og ikke i `lib/favoritter.ts`:
-//  et rent modul kan importeres af et databasemodul, aldrig omvendt.
+//  Ingen database, ingen next/headers, ingen React, ingen node:crypto.
+//  `Konto` er en KLIENTKOMPONENT og importerer `GEM_PARAM` herfra — et
+//  vaerdi-import fra et modul, der traekker `postgres` med ind, vaeltede
+//  engang hele appen paa `Can't resolve 'net'`. Se noten om
+//  `lib/faciliteter.ts` i CLAUDE.md. Derfor ligger id-tjekket her og ikke
+//  i `lib/favoritter.ts`: et rent modul kan importeres af et
+//  databasemodul, aldrig omvendt. Cookielaget bor i
+//  `lib/gemkvittering.ts`, som er serverens alene.
 //
 //  ═══ ET ID, ALDRIG EN HANDLING ═══
 //
@@ -52,25 +54,94 @@ export function erBoligId(v: unknown): v is string {
 }
 
 /**
+ * Oensket, som vi laeste det. TRE tilstande, ikke to.
+ *
+ * ═══ HVORFOR «INTET» OG «UGYLDIGT» IKKE MAA SLAAS SAMMEN ═══
+ *
+ * Foerste udgave gav `null` for begge. Foelgerne kunne foelges hele
+ * vejen: `min-side/page.tsx` fik null, udelod derfor det skjulte felt i
+ * formularen, `login()` saa ingen `gem`-vaerdi og behandlede forloebet
+ * som et helt almindeligt login — og hun landede paa Min side uden sin
+ * bolig og uden et ord om hvorfor. Udfaldet `ugyldigt-link` fandtes i
+ * koden og kunne ikke naas fra forloebet.
+ *
+ * Forskellen er ikke teknisk, den er brugerens:
+ *
+ *   · `intet`      hun loggede ind. Der er intet at fortaelle.
+ *   · `ugyldigt`   hun trykkede paa et hjerte, og linket knaekkede
+ *                  undervejs. Hun venter paa en bolig, der aldrig kommer.
+ *   · `id`         der er en bolig at gemme.
+ *
+ * Det er den samme regel som forbeholdet om el: «el er ikke med» og «vi
+ * ved ikke hvad der er i tallet» er to udsagn, og kun det ene kan
+ * aflaeses. Et fravaer og en fejl ser ens ud i en `null`, og netop derfor
+ * maa de ikke dele den.
+ */
+export type Gemoenske =
+  | { slags: 'intet' }
+  | { slags: 'ugyldigt' }
+  | { slags: 'id'; id: string }
+
+/**
  * Oensket fra en klientvaerdi — en URL-parameter eller et formularfelt.
  *
- * `searchParams` giver `string | string[] | undefined`. Er der flere,
- * tages den FOERSTE: `?gem=a&gem=b` er ét hjerteklik, der er blevet
- * duplikeret undervejs, ikke en anmodning om at gemme to boliger. Og et
- * gaet paa hvilken hun mente, ville vaere et gaet.
+ * `searchParams` giver `string | string[] | undefined`; `FormData.get`
+ * giver `string | File | null`. Begge ender her, saa formen laeses ét
+ * sted.
  *
- * Kender vi ikke formen, er svaret null — aldrig vaerdien selv, aldrig
- * et kast. En knaekket adresse maa ikke kunne vaelte login.
+ * Er der flere, tages den FOERSTE: `?gem=a&gem=b` er ét hjerteklik, der
+ * er blevet duplikeret undervejs, ikke en anmodning om at gemme to
+ * boliger. Og et gaet paa hvilken hun mente, ville vaere et gaet.
+ *
+ * Kun `undefined` og `null` er «intet» — altsaa at parameteren eller
+ * feltet slet ikke var der. Alt andet, ogsaa den tomme streng, er et
+ * oenske, vi ikke kunne laese: `?gem=` er en adresse, der HAR baaret et
+ * hjerteklik og tabt det.
+ *
+ * Der kastes aldrig. En knaekket adresse maa ikke kunne vaelte login.
  */
+export function laesGemOenske(v: unknown): Gemoenske {
+  const raa = Array.isArray(v) ? v[0] : v
+  if (raa === undefined || raa === null) return { slags: 'intet' }
+  const t = typeof raa === 'string' ? raa.trim() : raa
+  return erBoligId(t) ? { slags: 'id', id: t } : { slags: 'ugyldigt' }
+}
+
+/** Id'et alene, naar det er dét, kalderen skal bruge. Afledt, ikke en kopi. */
 export function gemOenskeFra(v: unknown): string | null {
-  const foerste = Array.isArray(v) ? v[0] : v
-  return erBoligId(foerste) ? foerste : null
+  const o = laesGemOenske(v)
+  return o.slags === 'id' ? o.id : null
+}
+
+/**
+ * Maerket, formularen baerer for et oenske, vi ikke kunne laese.
+ *
+ * ═══ HVORFOR IKKE BARE SENDE DEN RAA VAERDI VIDERE ═══
+ *
+ * Fordi siden allerede HAR svaret. At sende den ulaeselige tekst med i
+ * POST'en ville stille det samme spoergsmaal to gange — én gang i
+ * `page.tsx` og én gang i `login()` — og det er netop den form, fem af
+ * fejlene i CLAUDE.md's tabel har. Det ville desuden baere en vilkaarlig
+ * lang fremmed streng ind i et skjult felt og videre til serveren, uden
+ * at nogen har brug for indholdet. Vi baerer KONKLUSIONEN, ikke
+ * spoergsmaalet.
+ *
+ * Maerket er med vilje ikke et bolig-id, saa den samme `laesGemOenske`
+ * klassificerer det som `ugyldigt` uden en eneste undtagelse undervejs.
+ * Proeven laaser den binding fast.
+ */
+export const GEM_KNAEKKET = 'knaekket'
+
+/** Hvad LOGIN-formularen skal baere — eller null, hvis der intet er at baere. */
+export function feltvaerdiFor(o: Gemoenske): string | null {
+  if (o.slags === 'id') return o.id
+  return o.slags === 'ugyldigt' ? GEM_KNAEKKET : null
 }
 
 /**
  * Hvad serveren naaede at goere med oensket.
  *
- * Tre udfald, fordi de kraever hver sin besked — og fordi «intet skete»
+ * Fire udfald, fordi de kraever hver sin besked — og fordi «intet skete»
  * ikke maa se ud som «det lykkedes»:
  *
  *   · `gemt`           boligen ligger nu paa hendes liste
@@ -99,13 +170,6 @@ export function gemOenskeFra(v: unknown): string | null {
 export const GEMUDFALD = ['gemt', 'ukendt-bolig', 'ugyldigt-link', 'ikke-gemt'] as const
 export type Gemudfald = (typeof GEMUDFALD)[number]
 
-/** Kender vi ikke ordet, er der intet udfald at vise — aldrig et gaet. */
-export function gemudfaldFra(v: unknown): Gemudfald | null {
-  return typeof v === 'string' && (GEMUDFALD as readonly string[]).includes(v)
-    ? (v as Gemudfald)
-    : null
-}
-
 /**
  * Udfaldet baeres i en cookie, SERVEREN satte — ikke i adressen.
  *
@@ -114,8 +178,8 @@ export function gemudfaldFra(v: unknown): Gemudfald | null {
  * en bolig lige blev gemt. En kvittering er en oplysning om, hvad
  * serveren gjorde, saa den skal komme fra serveren.
  *
- * Cookien er HttpOnly, baerer kun HVAD der skete — aldrig hvilken bolig
- * eller hvem — og er derfor hverken en session eller et bevis paa adgang.
+ * Cookien er HttpOnly og baerer aldrig hvilken bolig det drejede sig om.
+ * Den er hverken en session eller et bevis paa adgang.
  */
 export const GEMCOOKIE = 'bofinda_gemoenske'
 
@@ -129,7 +193,49 @@ export const GEMCOOKIE = 'bofinda_gemoenske'
  * KORTERE end kvitteringen efter et kodeskift (120 s). Den her handler om
  * det ene klik, hun lige lavede, og en besked om en bolig, der stadig
  * staar to minutter senere, kan naa at blive et svar paa et andet
- * spoergsmaal — det skete i proeven, hvor sektion 7's besked stod og
- * lignede et svar i sektion 8.
+ * spoergsmaal.
+ *
+ * ═══ MEN TIDEN ER IKKE SPAERRINGEN ═══
+ *
+ * Levetiden er en oprydning, ikke en sikring. Det maalte problem var, at
+ * kvitteringen overlevede baade en udlogning og det naeste almindelige
+ * login — inden for de 30 sekunder kunne en ANDEN konto logge ind paa den
+ * samme maskine og faa «Boligen er gemt.» om en bolig, hun aldrig havde
+ * set. En spaerring, der bestaar i at vente, er ingen spaerring; se
+ * `gemudfaldFor` nedenfor og `ryddGemkvittering` i lib/gemkvittering.ts.
  */
 export const GEMUDFALDSSEK = 30
+
+/**
+ * Cookiens vaerdi: udfaldet OG et maerke for den, den blev sat til.
+ *
+ * Maerket er ikke bruger-id'et, men en envejsafledning af det — se
+ * `maerkeFor` i lib/gemkvittering.ts. Cookien navngiver altsaa stadig
+ * ingen; kun serveren, som kender den nuvaerende brugers id, kan afgoere,
+ * om kvitteringen er hendes.
+ */
+export function kvitteringsvaerdi(udfald: Gemudfald, maerke: string): string {
+  return `${udfald}:${maerke}`
+}
+
+/**
+ * Udfaldet i cookien — men kun hvis det tilhoerer den, der kigger.
+ *
+ * Passer maerket ikke, findes der intet udfald at vise. Det er den anden
+ * af to uafhaengige spaerringer mod en misvisende kvittering: den foerste
+ * er, at den ryddes ved udlogning, ved et login uden oenske og ved enhver
+ * nyere favorithandling. Overlever en cookie alligevel en vej, vi ikke
+ * har taenkt paa, kan den stadig ikke tale til en fremmed konto.
+ *
+ * En vaerdi uden maerke — den gamle form, eller noget haandskrevet —
+ * giver null. Det er den sikre vej: en kvittering, vi ikke kan tilskrive
+ * nogen, vises ikke.
+ */
+export function gemudfaldFor(raa: unknown, maerke: string): Gemudfald | null {
+  if (typeof raa !== 'string' || maerke === '') return null
+  const skille = raa.indexOf(':')
+  if (skille <= 0) return null
+  if (raa.slice(skille + 1) !== maerke) return null
+  const udfald = raa.slice(0, skille)
+  return (GEMUDFALD as readonly string[]).includes(udfald) ? (udfald as Gemudfald) : null
+}

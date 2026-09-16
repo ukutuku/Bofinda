@@ -29,7 +29,7 @@ import { cache } from 'react'
 import { db } from '../db/client'
 import { favorites, listings, sources } from '../db/schema'
 import { hentBrugerId } from './auth'
-import { gemOenskeFra, type Gemudfald } from './gemoenske'
+import { type Gemoenske, type Gemudfald } from './gemoenske'
 
 /** Hvad et boligkort skal vide for at tegne knappen. */
 export type Favoritstatus =
@@ -101,14 +101,22 @@ export async function gemFavorit(brugerId: string, listingId: string): Promise<v
  *
  * `brugerId` kommer fra kalderens verificerede session, aldrig fra
  * klienten — som alt andet i denne fil.
+ *
+ * ═══ DEN TAGER DET LAESTE OENSKE, IKKE DEN RAA VAERDI ═══
+ *
+ * `laesGemOenske` koeres ét sted, i den handling der modtog formularen.
+ * Gjorde den det OGSAA her, ville formen blive laest to gange, og de to
+ * laesninger kunne drive fra hinanden — praecis den fejlform, CLAUDE.md's
+ * tabel samler seks tilfaelde af. Kalderen skal desuden kunne skelne
+ * «intet oenske» fra «ugyldigt oenske» FOER den spoerger basen: det
+ * foerste er et almindeligt login, der intet skal sige.
  */
-export async function gemOenske(brugerId: string, oenske: unknown): Promise<Gemudfald> {
-  const id = gemOenskeFra(oenske)
-  if (!id) return 'ugyldigt-link'
+export async function gemOenske(brugerId: string, oenske: Gemoenske): Promise<Gemudfald> {
+  if (oenske.slags !== 'id') return 'ugyldigt-link'
   const [r] = await db.select({ id: listings.id }).from(listings)
-    .where(eq(listings.id, id)).limit(1)
+    .where(eq(listings.id, oenske.id)).limit(1)
   if (!r) return 'ukendt-bolig'
-  await gemFavorit(brugerId, id)
+  await gemFavorit(brugerId, oenske.id)
   return 'gemt'
 }
 

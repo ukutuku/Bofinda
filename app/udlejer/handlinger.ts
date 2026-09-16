@@ -15,9 +15,8 @@ import { byForPostnr } from '../../lib/omraade'
 import { redirect } from 'next/navigation'
 import { adgangstoken, hentBrugerStatus, hentUdlejer, supabase } from '../../lib/auth'
 import { gemOenske } from '../../lib/favoritter'
-import {
-  GEMCOOKIE, GEMUDFALDSSEK, GEM_PARAM, type Gemudfald,
-} from '../../lib/gemoenske'
+import { GEM_PARAM, type Gemudfald, laesGemOenske } from '../../lib/gemoenske'
+import { ryddGemkvittering, saetGemkvittering } from '../../lib/gemkvittering'
 import { billedUrl } from '../../lib/billede'
 import {
   fjernBolig, genudgivBolig, opdaterBolig, opretBolig, renTekst,
@@ -145,13 +144,22 @@ const TILMELDT = 'Kan adressen bruges til en ny konto, har vi sendt et link til 
  */
 async function fuldfoerGemOenske(raa: FormDataEntryValue | null): Promise<void> {
   // «Intet felt» og «et felt, der ikke er et bolig-id» er IKKE det samme.
-  // Det foerste er et almindeligt login og skal tie. Det andet er et
-  // hjerteklik, der knaekkede undervejs, og hun skal have det at vide —
-  // ellers staar hun paa Min side uden sin bolig og uden en forklaring.
-  // Derfor er det kun det tomme felt, der returnerer her; selve
-  // valideringen hoerer til i `gemOenske`, hvor den bor.
-  const tekst = typeof raa === 'string' ? raa.trim() : ''
-  if (tekst === '') return
+  // Formen laeses ét sted — her — og resultatet baeres videre; `gemOenske`
+  // spoerger ikke om den igen.
+  const oenske = laesGemOenske(raa)
+
+  // ═══ ET LOGIN UDEN OENSKE ER IKKE «INGENTING SKETE» ═══
+  //
+  // Det er et NYT forloeb, og en kvittering fra det forrige ville laese
+  // som svaret paa dette. Maalt: hun logger ind med et hjerteklik, logger
+  // ud, og det naeste login inden for de 30 sekunder — hendes eget eller
+  // en anden kontos paa den samme maskine — fik «Boligen er gemt.» om en
+  // bolig, der intet havde med det login at goere. Derfor ryddes den her,
+  // og ikke bare naar den udloeber. Se lib/gemkvittering.ts.
+  if (oenske.slags === 'intet') {
+    await ryddGemkvittering()
+    return
+  }
 
   // ═══ INTET HERINDE MAA KUNNE VAELTE LOGIN ═══
   //
@@ -165,28 +173,39 @@ async function fuldfoerGemOenske(raa: FormDataEntryValue | null): Promise<void> 
   // Hun bad om to ting: at komme ind, og at faa boligen gemt. Fejler
   // den anden, skal den foerste stadig lykkes — og hun skal have det at
   // vide.
+  let ejer = ''
   let udfald: Gemudfald = 'ikke-gemt'
   try {
     const svar = await hentBrugerStatus()
     // Kan kontoen ikke bindes — konflikt eller ubekraeftet mail — gemmes
     // der intet, og der saettes INGEN kvittering. Min side viser sin egen
     // forklaring, og en besked om en gemt bolig oven i den ville love
-    // noget, der ikke skete.
-    if (svar.slags !== 'ok') return
-    udfald = await gemOenske(svar.bruger.id, tekst)
+    // noget, der ikke skete. Den gamle ryddes, saa den ikke staar tilbage
+    // som svar paa et forloeb, der aldrig naaede sin bolig.
+    if (svar.slags !== 'ok') {
+      await ryddGemkvittering()
+      return
+    }
+    ejer = svar.bruger.id
+    // Et ugyldigt oenske ender her som `ugyldigt-link` — ét sted at
+    // afgoere det, i stedet for én prøve her og én i `gemOenske`.
+    udfald = await gemOenske(ejer, oenske)
     revalidatePath('/min-side')
   } catch {
     // `udfald` staar allerede paa 'ikke-gemt'. Fejlen slugges IKKE i
     // tavshed — den bliver til den besked, hun laeser paa Min side.
   }
 
-  // Ogsaa den her uden for kastevejen: kan kvitteringen ikke saettes, er
-  // det stadig bedre at lande paa Min side uden besked end at se en
-  // fejlside efter et login, der lykkedes.
-  try {
-    const jar = await cookies()
-    jar.set(GEMCOOKIE, udfald, { ...BASISCOOKIE, maxAge: GEMUDFALDSSEK })
-  } catch { /* uden kvittering, men inde */ }
+  // Kunne vi ikke afgoere HVEM det skete for, saettes ingen kvittering.
+  // En kvittering uden ejer er praecis den, der kan tale til en fremmed
+  // konto, og det er den, hele oevelsen handler om at fjerne. Hun er inde
+  // — Min side siger saa ingenting om boligen, hvilket er ubehageligt,
+  // men sandt.
+  if (!ejer) {
+    await ryddGemkvittering()
+    return
+  }
+  await saetGemkvittering(udfald, ejer)
 }
 
 export async function login(k: Kontekst, _forrige: Svar, f: FormData): Promise<Svar> {
@@ -218,6 +237,10 @@ export async function logUd(k: Kontekst) {
   const kontekst = kontekstFra(k)
   const sb = await supabase()
   await sb.auth.signOut()
+  // Kvitteringen hoerte til den, der lige gik. Bliver den liggende, er
+  // den naeste, der logger ind paa maskinen — hende selv eller en anden
+  // konto — den foerste til at laese den. Se lib/gemkvittering.ts.
+  await ryddGemkvittering()
   redirect(vejFor(kontekst).efterLogud)
 }
 
@@ -465,6 +488,9 @@ export async function gemNyKode(
   // baerer kun HVAD der skete — ikke hvem.
   const jar = await cookies()
   jar.set(KVITTERINGSCOOKIE, kvittering, { ...BASISCOOKIE, maxAge: KVITTERINGSSEK })
+  // Samme grund som i `logUd`: sessionen er lukket her, og en gemmekvittering
+  // fra foer maa ikke moede den naeste, der logger ind.
+  await ryddGemkvittering()
 
   redirect(vejFor(kontekst).efterLogud)
 }

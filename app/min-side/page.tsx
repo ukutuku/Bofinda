@@ -22,7 +22,8 @@ import { hentBrugerStatus } from '../../lib/auth'
 import { cookies } from 'next/headers'
 import { KVITTERINGSCOOKIE, LINKFEJL, kvitteringFra } from '../../lib/kontovej'
 import { hentFavoritter, type GemtBolig } from '../../lib/favoritter'
-import { GEMCOOKIE, GEM_PARAM, gemOenskeFra, gemudfaldFra } from '../../lib/gemoenske'
+import { GEM_PARAM, type Gemudfald, feltvaerdiFor, laesGemOenske } from '../../lib/gemoenske'
+import { laesGemkvittering } from '../../lib/gemkvittering'
 import { beskrivFiltre } from '../../lib/alarm'
 import { kr } from '../Boligkort'
 import { Konto } from '../udlejer/Konto'
@@ -119,10 +120,13 @@ export default async function Side(
   // En GET maa ikke aendre noget: mailscannere, forhaandsvisninger og et
   // genindlaes henter den her side, og en gemning som bivirkning ville
   // betyde, at en fremmed maskine kunne fylde hendes liste.
-  const oenske = gemOenskeFra(sp[GEM_PARAM])
-  // Og hvad serveren saa faktisk naaede at goere. Fra en cookie, den selv
-  // satte — ikke fra adressen, af samme grund som kvitteringen ovenfor.
-  const gemudfald = gemudfaldFra(krukke.get(GEMCOOKIE)?.value)
+  //
+  // Laesningen har TRE udfald, ikke to. «Ingen parameter» og «en
+  // parameter, vi ikke kunne laese» maa ikke se ens ud: den anden er et
+  // hjerteklik, der knaekkede undervejs, og hun skal have det at vide i
+  // stedet for at vente paa en bolig, der aldrig kommer. Se
+  // `laesGemOenske` i lib/gemoenske.ts.
+  const oenske = laesGemOenske(sp[GEM_PARAM])
 
   // ── Kontoen kunne ikke bindes ────────────────────────────────
   // Hun ER logget ind. At vise login-formularen ville se ud som en fejl
@@ -178,12 +182,32 @@ export default async function Side(
       <div className="minside">
         <h1>Min side</h1>
         <p className="manchet">
-          {oenske
+          {oenske.slags === 'id'
             ? 'Log ind, så gemmer vi boligen på din liste med det samme. '
             : 'Log ind for at se dine gemte boliger og dine gemte søgninger. '}
           Gemte boliger følger din konto, så de er der også på telefonen.
         </p>
-        <Konto kontekst="bolig" linkfejl={linkfejl} kvittering={kvittering} gem={oenske} />
+
+        {/* Et knaekket hjertelink siges her — FOER hun logger ind. Hun
+            trykkede paa et hjerte og venter paa en bolig; at lade hende
+            skrive mail og kode foerst og saa opdage, at der intet var at
+            gemme, er at bruge hendes tid paa vores fejl. Maerket foelger
+            alligevel med i formularen, saa `login()` ogsaa siger det
+            bagefter — hun skal ikke tro, boligen kom med. */}
+        {oenske.slags === 'ugyldigt' && (
+          <div className="blok kontofejl" role="status">
+            <p><strong>Linket virkede ikke.</strong></p>
+            <p>
+              Adressen bar ikke en bolig, vi kan genkende, så der er ikke noget
+              at gemme. Log ind herunder, gå tilbage til boligen og tryk på
+              hjertet igen.
+            </p>
+          </div>
+        )}
+        <Konto
+          kontekst="bolig" linkfejl={linkfejl} kvittering={kvittering}
+          gem={feltvaerdiFor(oenske)}
+        />
         <p className="note">
           Har du allerede en boligbesked, men ingen konto? Opret kontoen med
           den samme mailadresse — så samles dine gemte søgninger her.
@@ -191,6 +215,16 @@ export default async function Side(
       </div>
     )
   }
+
+  // ÉT udfald at vise, beregnet ét sted. Kvitteringen er, hvad serveren
+  // GJORDE — og den laeses kun, hvis den blev sat til hende; se
+  // `gemudfaldFor`. Det ugyldige oenske i adressen er derimod noget, vi
+  // kan se uden at have gjort noget, og det gaelder ogsaa, naar hun
+  // allerede er logget ind og aabner et knaekket hjertelink. Kvitteringen
+  // vinder, naar begge findes: den fortaeller om en handling, det andet
+  // kun om en adresse.
+  const gemudfald: Gemudfald | null = (await laesGemkvittering(bruger.id))
+    ?? (oenske.slags === 'ugyldigt' ? 'ugyldigt-link' : null)
 
   // Efter hinanden, ikke i Promise.all — se noten i app/page.tsx om
   // pipelinede saetninger gennem transaction-pooleren.

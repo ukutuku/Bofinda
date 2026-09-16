@@ -36,13 +36,26 @@ const TEKST: Record<Kontekst, { hvorfor: string }> = {
 export function Konto({ kontekst, linkfejl = false, kvittering = null, gem = null }: {
   kontekst: Kontekst
   /**
-   * Bolig-id'et fra et hjerteklik, hun lavede foer hun havde en konto.
+   * Hjerteklikket, hun lavede foer hun havde en konto.
    *
-   * Det kommer fra siden, som har valideret det med `gemOenskeFra`, og
-   * baeres videre som et skjult felt i LOGIN-formularen. Hele pointen er,
-   * at det foelger med i den POST, hun selv sender: `login()` gemmer
-   * boligen dér, saa gemningen aldrig bliver en bivirkning af at LAESE
-   * en side.
+   * Vaerdien kommer fra siden, som har laest adressen med
+   * `laesGemOenske` og oversat svaret med `feltvaerdiFor`. Den er derfor
+   * ét af tre:
+   *
+   *   · et bolig-id      der er en bolig at gemme
+   *   · `GEM_KNAEKKET`   der VAR et hjerteklik, og linket knaekkede
+   *   · null             hun logger bare ind; feltet udelades
+   *
+   * Det midterste er hele forskellen. Udelod vi feltet ogsaa dér, ville
+   * `login()` se et almindeligt login, og hun ville lande paa Min side
+   * uden sin bolig og uden en forklaring — det var den maalte fejl. Der
+   * baeres et MAERKE og ikke den ulaeselige tekst: siden har allerede
+   * svaret paa spoergsmaalet, og at stille det igen i POST'en ville vaere
+   * to udtryk om det samme.
+   *
+   * Feltet er et skjult felt i LOGIN-formularen. Hele pointen er, at det
+   * foelger med i den POST, hun selv sender: `login()` gemmer boligen
+   * dér, saa gemningen aldrig bliver en bivirkning af at LAESE en side.
    *
    * ═══ HVORFOR DET IKKE STAAR I «OPRET KONTO» ═══
    *
