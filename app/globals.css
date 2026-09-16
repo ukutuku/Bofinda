@@ -2961,7 +2961,17 @@ a.adresse:hover { text-decoration: underline; }
    med. Den ydre gruppe holder hoejrestillingen; linket lader vaere.
    Ligger linket i stedet direkte i toplinjen — som paa grenen, den kom
    fra — gaelder reglen ovenfor uaendret. */
-.tophandlinger .topmin { margin-left: 0; font-size: 14.5px; }
+.tophandlinger .topmin {
+  margin-left: 0; font-size: 14.5px;
+  /* «Min side» er to ord, og under 720 px er `.topnav` skjult, saa
+     `.tophandlinger` baerer maerket, dette link OG «Opret annonce».
+     Uden `nowrap` braekker linket i to linjer paa en smal telefon og
+     goer bjaelken 23 px hoejere end den skal vaere. Maalt paa 320 px:
+     45 px hoej mod en linjehoejde paa 22. `.nav-primaer` har den
+     allerede af samme grund. Der er plads nok — linket slutter paa
+     158 af 320 px — det er klemningen, ikke bredden, der braekker det. */
+  white-space: nowrap;
+}
 
 @media (max-width: 560px) {
   .gemt-bolig, .gemt-soegning { flex-direction: column; gap: 10px; }

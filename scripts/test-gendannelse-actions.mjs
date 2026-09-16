@@ -101,6 +101,49 @@ if (!DBURL) {
   }
 }
 
+// ─── Bygget maa ikke baere en anden Auth-adresse ───────────────
+//
+// `NEXT_PUBLIC_*` bages ind i bundtet ved BYG, ikke ved start. Bygger man
+// med scripts/cloud/byg.sh — som saetter NEXT_PUBLIC_SUPABASE_URL til
+// testaktivserveren, saa Landkort ikke henter fra OpenStreetMap — er den
+// adresse laast fast, og attrapporten nedenfor bliver ignoreret. Saa gaar
+// `getUser()` til aktivserveren, `harAuthSession()` er falsk, og /nulstil
+// viser «linket er ikke gyldigt» i stedet for formularen. Proeven doer i
+// et 30-sekunders timeout paa `#nulstil-kode` uden at sige hvorfor.
+//
+// Det tog en fejlsoegning at finde. Nu siger den det selv.
+{
+  const { readdirSync, readFileSync, statSync } = await import('node:fs')
+  const { join } = await import('node:path')
+  const bagt = []
+  const gaa = (d, dybde = 0) => {
+    if (dybde > 4) return
+    let poster
+    try { poster = readdirSync(d) } catch { return }
+    for (const n of poster) {
+      const sti = join(d, n)
+      let st
+      try { st = statSync(sti) } catch { continue }
+      if (st.isDirectory()) gaa(sti, dybde + 1)
+      else if (n.endsWith('.js')) {
+        let t
+        try { t = readFileSync(sti, 'utf8') } catch { continue }
+        const m = t.match(/https?:\/\/127\.0\.0\.1:(\d+)["'`][^"'`]{0,40}/g)
+        if (m) for (const x of m) if (!bagt.includes(x)) bagt.push(x)
+      }
+    }
+  }
+  gaa('.next/server/app/auth')
+  if (bagt.length) {
+    console.log('\n  ⚠ PRØVEN KØRTE IKKE — bygget bærer en indbagt loopback-adresse:')
+    for (const x of bagt.slice(0, 4)) console.log(`      ${x}`)
+    console.log('    NEXT_PUBLIC_* bages ind ved byg. Attrappen nedenfor ville blive')
+    console.log('    ignoreret, og fejlen ville se ud som et timeout på #nulstil-kode.')
+    console.log('    Byg med «npm run build» uden NEXT_PUBLIC_SUPABASE_URL sat.\n')
+    process.exit(2)
+  }
+}
+
 const { default: postgres } = await import('postgres')
 const sql = postgres(DBURL, { ssl: false, max: 1, onnotice: () => {} })
 
