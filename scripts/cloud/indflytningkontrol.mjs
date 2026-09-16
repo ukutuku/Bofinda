@@ -132,10 +132,18 @@ try {
       total: blok.querySelector('.oek-tal2')?.textContent?.trim() ?? null,
       poster: [...blok.querySelectorAll('.oek-poster li')]
         .map((li) => `${li.querySelector('span')?.textContent?.trim()}=${li.querySelector('b')?.textContent?.trim()}`),
+      // Beloebene som TAL. Uden dem kan proeven ikke se, om det, der
+      // staar paa skaermen, gaar op — og det var praecis det, den ikke
+      // kunne foer: den laeste etiketterne og aldrig summen.
+      beloeb: [...blok.querySelectorAll('.oek-poster li b')]
+        .map((e) => Number((e.textContent ?? '').replace(/\./g, '').replace(/[^\d]/g, ''))),
+      totalTal: Number((blok.querySelector('.oek-tal2')?.textContent ?? '')
+        .replace(/\./g, '').replace(/[^\d]/g, '')) || null,
       depositum: post('depositum'),
       forudbetalt: post('forudbetalt'),
       noteMangler: note('mangler'),
       noteUdenTotal: note('uden-total'),
+      noteIkkeOpdeling: note('ikke-opdeling'),
       tekst: blok.textContent.replace(/\s+/g, ' ').trim(),
       overloeb: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       klippet: [...blok.querySelectorAll('.oek-poster span, .oek-poster b, .oek-etiket, .oek-tal2')]
@@ -216,8 +224,48 @@ try {
         tjek(m.total?.startsWith((s.indflytning / KR).toLocaleString('da-DK')),
           `${n}: indflytningsprisen står uændret`,
           `«${m.total}» — ventet «${(s.indflytning / KR).toLocaleString('da-DK')} kr.»`)
-        tjek(m.poster.some((x) => x.startsWith('Første måneds husleje=')),
-          `${n}: opdelingen af totalen er bevaret`, m.poster.join(' · '))
+        // ── Tallene paa skaermen skal gaa op ────────────────────
+        //  Den her linje er grunden til, at afsnittet blev skrevet om.
+        //  Proeven kraevede FOER, at «Første måneds husleje» stod som
+        //  post under totalen — den haandhaevede altsaa selve fejlen.
+        //  Maalt paa «begge»: totalen stod som 55.000, mens de fire
+        //  viste poster summerede til 57.000. Etiketterne blev laest,
+        //  summen aldrig.
+        //
+        //  Posterne er ikke en opdeling af totalen og behoever ikke gaa
+        //  op i den — men de maa ALDRIG overstige den. Goer de det, har
+        //  siden lagt noget til, kilden ikke har sagt.
+        const sum = m.beloeb.reduce((a2, v) => a2 + v, 0)
+        tjek(m.totalTal != null && sum <= m.totalTal,
+          `${n}: de viste beløb overstiger ikke den oplyste total`,
+          `${sum} ≤ ${m.totalTal}`)
+
+        // ── Maanedsbeloeb hoerer ikke til her ───────────────────
+        //  Husleje og aconto stod som indflytningsposter alene fordi
+        //  `move_in_cost` fandtes. Ingen kolonne siger, at de er med i
+        //  den: den MAANEDLIGE total har `total_monthly_components`,
+        //  indflytningsprisen har ingen tilsvarende. De staar i
+        //  maanedsblokken, hvor deres rolle er dokumenteret.
+        tjek(!m.poster.some((x) => /^Første måneds husleje=|^Aconto=/.test(x)),
+          `${n}: husleje og aconto står ikke som indflytningsposter`,
+          m.poster.join(' · ') || '(ingen poster)')
+
+        // ── Og der staar, at det ikke er en opdeling ────────────
+        const harPoster = s.depositum != null || s.forudbetalt != null
+        tjek((m.noteIkkeOpdeling != null) === harPoster,
+          `${n}: forbeholdet om sammensætningen står ${harPoster ? 'når der vises beløb' : 'ikke uden beløb'}`,
+          m.noteIkkeOpdeling ?? '(ingen)')
+        if (harPoster) {
+          tjek(/ikke\s+en opdeling/.test(m.noteIkkeOpdeling ?? ''),
+            `${n}: og det står, at beløbene ikke er en opdeling af totalen`,
+            m.noteIkkeOpdeling ?? '(ingen)')
+          // «Vi ved ikke», ikke «kilden oplyser ikke» — samme regel som
+          // resten af blokken.
+          tjek(/^Vi ved ikke, hvordan den samlede pris er sammensat/.test(m.noteIkkeOpdeling ?? ''),
+            `${n}: forbeholdet handler om vores viden, ikke om kilden`,
+            m.noteIkkeOpdeling ?? '(ingen)')
+        }
+
         tjek(m.noteUdenTotal == null,
           `${n}: ingen note om en manglende total, når totalen står`)
       } else {

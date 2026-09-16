@@ -72,7 +72,10 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
     .map((x) => ({ lille: billedUrl(x.url, 800), stor: billedUrl(x.url, 1600) }))
     .filter((x): x is { lille: string; stor: string } => !!x.lille && !!x.stor)
 
-  const acontoIalt = b.total != null && b.leje != null ? b.total - b.leje : null
+  // `acontoIalt` er vaek. Den havde to forbrugere: restbeloebet
+  // «Depositum og forudbetalt leje» (fjernet i 5bab5c7) og
+  // «Aconto»-linjen i indflytningsblokken (fjernet her). Maanedsblokken
+  // viser de navngivne poster hver for sig og har aldrig brugt summen.
 
   // ── Indflytning: OPLYSTE beloeb, aldrig udledte ──────────────
   //
@@ -311,17 +314,32 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
                   <div className="oek-etiket">Ved indflytning</div>
                 )}
                 <ul className="oek-poster">
-                  {/* Husleje og aconto er en opdeling AF totalen og staar
-                      derfor kun, naar totalen staar. Uden den ville de to
-                      linjer paastaa noget om en sum, vi ikke har. */}
-                  {b.indflytning != null && b.leje != null && (
-                    <li><span>Første måneds husleje</span><b>{kr(b.leje)}</b></li>
-                  )}
-                  {b.indflytning != null && acontoIalt != null && acontoIalt > 0 && (
-                    <li><span>Aconto</span><b>{kr(acontoIalt)}</b></li>
-                  )}
-                  {/* Hver for sig, og hver for sig betinget: mangler det
-                      ene, staar det andet stadig. */}
+                  {/* ── Husleje og aconto staar IKKE her ──────────────
+                      De stod her paa betingelsen `b.indflytning != null`
+                      — altsaa alene fordi feltet fandtes. Ingen kolonne
+                      siger, hvad `move_in_cost` daekker.
+
+                      Sammenlign med den MAANEDLIGE total: den har
+                      `total_monthly_components`, en liste over de poster,
+                      den bestaar af, haandhaevet af check-constraint'en
+                      `listing_total_monthly_honest`. Indflytningsprisen
+                      har ingen tilsvarende kolonne, og sammensaetningen
+                      er forskellig fra kilde til kilde: Propstep og
+                      LokalBolig laegger leje + aconto + depositum +
+                      forudbetalt sammen, mens balder gemmer kildens
+                      `combined_upfront_payment`, dacas, heimstaden og
+                      laros kildens egen «Indflytningspris», og findbolig
+                      ganger maanedsantal op. Rækken siger ikke hvilken.
+
+                      MAALT paa proevens «begge»-tilfaelde: totalen stod
+                      som 55.000, mens de fire viste poster summerede til
+                      57.000. De 2.000 var acontoen, som siden selv havde
+                      lagt til. Tallene modsagde hinanden paa skaermen.
+
+                      Huslejen og acontoen staar i maanedsblokken ovenfor,
+                      hvor deres rolle ER dokumenteret. De hoerer foerst
+                      til her, den dag en kolonne siger, at de er med i
+                      indflytningsprisen. */}
                   {harDepositum && (
                     <li data-post="depositum">
                       <span>Depositum</span><b>{kr(b.depositum)}</b>
@@ -333,6 +351,18 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
                     </li>
                   )}
                 </ul>
+                {b.indflytning != null && (harDepositum || harForudbetalt) && (
+                  <p className="oek-note" data-note="ikke-opdeling">
+                    {/* Uden den her linje ville to beloeb under en total
+                        laese som en opdeling af den — og de gaar ikke op,
+                        fordi vi ikke ved, hvad totalen bestaar af. Det er
+                        ikke et forbehold om kilden, men om os: vi har
+                        ingen oplysning om sammensaetningen. */}
+                    Vi ved ikke, hvordan den samlede pris er sammensat.
+                    Beløbene herover er dem, vi har oplysninger om — ikke
+                    en opdeling af de {kr(b.indflytning)} kr.
+                  </p>
+                )}
                 {b.indflytning == null && (
                   <p className="oek-note" data-note="uden-total">
                     {/* Her stod «det, der står her, er ikke hele det, der skal
