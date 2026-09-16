@@ -29,6 +29,7 @@ import { cache } from 'react'
 import { db } from '../db/client'
 import { favorites, listings, sources } from '../db/schema'
 import { hentBrugerId } from './auth'
+import { gemOenskeFra, type Gemudfald } from './gemoenske'
 
 /** Hvad et boligkort skal vide for at tegne knappen. */
 export type Favoritstatus =
@@ -71,6 +72,44 @@ export async function gemFavorit(brugerId: string, listingId: string): Promise<v
   await db.insert(favorites)
     .values({ userId: brugerId, listingId })
     .onConflictDoNothing({ target: [favorites.userId, favorites.listingId] })
+}
+
+/**
+ * Gennemfoer et ventende gemmeoenske — hjerteklikket fra foer login.
+ *
+ * ═══ HVORFOR DEN IKKE ER `skiftFavorit` ═══
+ *
+ * `skiftFavorit` slaar TIL ELLER FRA. Havde hun boligen gemt i forvejen
+ * — fra telefonen, fra en anden fane, fra i gaar — ville et gennemfoert
+ * oenske FJERNE den. Hun trykkede paa et tomt hjerte og ville have
+ * boligen gemt; at logge ind maa ikke kunne koste hende en favorit.
+ * Derfor `gemFavorit`, som er idempotent i kraft af
+ * `unique(user_id, listing_id)`, og som derfor ogsaa taaler et
+ * dobbeltklik paa login-knappen.
+ *
+ * ═══ EN BOLIG, DER IKKE FINDES, SKAL SIGES HOEJT ═══
+ *
+ * Fremmednoeglen ville kaste, og en kastende server action midt i et
+ * login ville se ud som «login fejlede» for hende — mens hun faktisk ER
+ * logget ind. Opslaget herunder er derfor ikke pynt: det er forskellen
+ * paa en besked og en fejlside.
+ *
+ * Status tjekkes IKKE. En bolig kan vaere afmeldt, mellem hjerteklikket
+ * og login, og den skal stadig kunne gemmes — Min side viser den med
+ * «Ikke laengere tilgaengelig», som enhver anden afmeldt favorit. At
+ * afvise den her ville skjule, at kilden tog den ned.
+ *
+ * `brugerId` kommer fra kalderens verificerede session, aldrig fra
+ * klienten — som alt andet i denne fil.
+ */
+export async function gemOenske(brugerId: string, oenske: unknown): Promise<Gemudfald> {
+  const id = gemOenskeFra(oenske)
+  if (!id) return 'ugyldigt-link'
+  const [r] = await db.select({ id: listings.id }).from(listings)
+    .where(eq(listings.id, id)).limit(1)
+  if (!r) return 'ukendt-bolig'
+  await gemFavorit(brugerId, id)
+  return 'gemt'
 }
 
 /**

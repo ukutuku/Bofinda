@@ -14,14 +14,13 @@
 
 import { hentBrugerStatus } from '../../lib/auth'
 import { erFavorit, fjernFavorit, gemFavorit } from '../../lib/favoritter'
+import { erBoligId } from '../../lib/gemoenske'
 
 export type Favoritsvar =
   | { gemt: boolean }
   | { fejl: 'ikke-logget-ind' }
   | { fejl: 'konto-konflikt' }
   | { fejl: 'ugyldig' }
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * Slå favorit til eller fra.
@@ -32,7 +31,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
  * paastaar «den var ikke gemt», maa ikke kunne slette noget.
  */
 export async function skiftFavorit(listingId: string): Promise<Favoritsvar> {
-  if (!UUID.test(listingId)) return { fejl: 'ugyldig' }
+  if (!erBoligId(listingId)) return { fejl: 'ugyldig' }
   const svar = await hentBrugerStatus()
   // En afvist binding er ikke det samme som «ikke logget ind». Skelnes de
   // ikke, faar hun beskeden «log ind» hver gang hun trykker paa hjertet —
@@ -54,7 +53,7 @@ export async function skiftFavorit(listingId: string): Promise<Favoritsvar> {
 /** Fjern fra Min side. Idempotent — knappen maa gerne trykkes to gange. */
 export async function fjernFraMinSide(f: FormData): Promise<void> {
   const id = String(f.get('bolig') ?? '')
-  if (!UUID.test(id)) return
+  if (!erBoligId(id)) return
   const svar = await hentBrugerStatus()
   if (svar.slags !== 'ok') return
   await fjernFavorit(svar.bruger.id, id)

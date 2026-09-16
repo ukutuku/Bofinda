@@ -22,6 +22,7 @@ import { hentBrugerStatus } from '../../lib/auth'
 import { cookies } from 'next/headers'
 import { KVITTERINGSCOOKIE, LINKFEJL, kvitteringFra } from '../../lib/kontovej'
 import { hentFavoritter, type GemtBolig } from '../../lib/favoritter'
+import { GEMCOOKIE, GEM_PARAM, gemOenskeFra, gemudfaldFra } from '../../lib/gemoenske'
 import { beskrivFiltre } from '../../lib/alarm'
 import { kr } from '../Boligkort'
 import { Konto } from '../udlejer/Konto'
@@ -110,7 +111,18 @@ export default async function Side(
   // logget ud og afvist binding. Hentede vi den kun paa den ene vej,
   // ville beskeden afhaenge af, hvilken gren hun faldt i, og netop det
   // var fejlen: den forsvandt for den indloggede.
-  const kvittering = kvitteringFra((await cookies()).get(KVITTERINGSCOOKIE)?.value)
+  const krukke = await cookies()
+  const kvittering = kvitteringFra(krukke.get(KVITTERINGSCOOKIE)?.value)
+
+  // Hjerteklikket fra foer login. Siden GEMMER ikke — den baerer kun
+  // oensket videre til login-formularen, hvor `login()` gennemfoerer det.
+  // En GET maa ikke aendre noget: mailscannere, forhaandsvisninger og et
+  // genindlaes henter den her side, og en gemning som bivirkning ville
+  // betyde, at en fremmed maskine kunne fylde hendes liste.
+  const oenske = gemOenskeFra(sp[GEM_PARAM])
+  // Og hvad serveren saa faktisk naaede at goere. Fra en cookie, den selv
+  // satte — ikke fra adressen, af samme grund som kvitteringen ovenfor.
+  const gemudfald = gemudfaldFra(krukke.get(GEMCOOKIE)?.value)
 
   // ── Kontoen kunne ikke bindes ────────────────────────────────
   // Hun ER logget ind. At vise login-formularen ville se ud som en fejl
@@ -166,10 +178,12 @@ export default async function Side(
       <div className="minside">
         <h1>Min side</h1>
         <p className="manchet">
-          Log ind for at se dine gemte boliger og dine gemte søgninger.
+          {oenske
+            ? 'Log ind, så gemmer vi boligen på din liste med det samme. '
+            : 'Log ind for at se dine gemte boliger og dine gemte søgninger. '}
           Gemte boliger følger din konto, så de er der også på telefonen.
         </p>
-        <Konto kontekst="bolig" linkfejl={linkfejl} kvittering={kvittering} />
+        <Konto kontekst="bolig" linkfejl={linkfejl} kvittering={kvittering} gem={oenske} />
         <p className="note">
           Har du allerede en boligbesked, men ingen konto? Opret kontoen med
           den samme mailadresse — så samles dine gemte søgninger her.
@@ -213,6 +227,27 @@ export default async function Side(
       {/* ── Gemte boliger ────────────────────────────────────── */}
       <section className="blok">
         <h2>Gemte boliger</h2>
+
+        {/* Udfaldet af hjerteklikket fra foer login. Den staar HER og ikke
+            i toppen, fordi det er listen herunder, den handler om — og
+            fordi de to fejludfald ellers ville laese som en fejl paa hele
+            siden. «gemt» siges ogsaa hoejt: hun trykkede paa et hjerte paa
+            en anden side, og et svar er bedre end at lade hende lede. */}
+        {gemudfald === 'gemt' && (
+          <p className="formok" role="status">Boligen er gemt.</p>
+        )}
+        {gemudfald === 'ukendt-bolig' && (
+          <p className="formfejl" role="status">
+            Boligen findes ikke længere, så den blev ikke gemt.
+          </p>
+        )}
+        {gemudfald === 'ugyldigt-link' && (
+          <p className="formfejl" role="status">
+            Linket virkede ikke, så boligen blev ikke gemt. Prøv at trykke
+            på hjertet igen.
+          </p>
+        )}
+
         {boliger.length === 0 ? (
           <div className="tom-boks">
             <p><strong>Du har ikke gemt nogen boliger endnu.</strong></p>

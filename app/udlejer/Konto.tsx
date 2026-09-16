@@ -14,6 +14,7 @@
 import Link from 'next/link'
 import { useActionState } from 'react'
 import { K_PARAM, type Kontekst, type Kvittering } from '../../lib/kontovej'
+import { GEM_PARAM } from '../../lib/gemoenske'
 import { Kvitteringsblok } from './Kvitteringsblok'
 import { login, tilmeld, type Svar } from './handlinger'
 
@@ -32,8 +33,26 @@ const TEKST: Record<Kontekst, { hvorfor: string }> = {
   },
 }
 
-export function Konto({ kontekst, linkfejl = false, kvittering = null }: {
+export function Konto({ kontekst, linkfejl = false, kvittering = null, gem = null }: {
   kontekst: Kontekst
+  /**
+   * Bolig-id'et fra et hjerteklik, hun lavede foer hun havde en konto.
+   *
+   * Det kommer fra siden, som har valideret det med `gemOenskeFra`, og
+   * baeres videre som et skjult felt i LOGIN-formularen. Hele pointen er,
+   * at det foelger med i den POST, hun selv sender: `login()` gemmer
+   * boligen dér, saa gemningen aldrig bliver en bivirkning af at LAESE
+   * en side.
+   *
+   * ═══ HVORFOR DET IKKE STAAR I «OPRET KONTO» ═══
+   *
+   * En ny konto er ikke aktiv, foer hun har trykket i bekraeftelsesmailen
+   * — dobbelt opt-in. Der er altsaa ingen session at gemme paa, naar den
+   * formular sendes, og et felt dér ville love noget, forloebet ikke kan
+   * holde. Oensket overlever i adressen, mens hun opretter kontoen;
+   * gemmes gjort det efter login.
+   */
+  gem?: string | null
   /** Bekræftelseslinket kunne ikke veksles. Se app/auth/callback/route.ts. */
   linkfejl?: boolean
   /**
@@ -77,6 +96,13 @@ export function Konto({ kontekst, linkfejl = false, kvittering = null }: {
       <div className="kontogitter">
         <form className="blok kontoform" action={indAction}>
           <h2>Log ind</h2>
+          {/* Oensket kommer fra PROPPEN, ikke fra handlingens svar. Det er
+              det, der goer, at et mislykket loginforsoeg ikke koster hende
+              hjerteklikket: `login()` returnerer `{fejl}` UDEN at
+              omdirigere, adressen beholder sit `?gem=`, og feltet her
+              gengives med den samme vaerdi. Laa det i `ind`, ville det
+              vaere vaek netop naar hun har brug for at proeve igen. */}
+          {gem && <input type="hidden" name={GEM_PARAM} value={gem} />}
           <label htmlFor="ind-mail">Mailadresse</label>
           <input id="ind-mail" name="mail" type="email" required autoComplete="email" />
           <label htmlFor="ind-kode">Adgangskode</label>

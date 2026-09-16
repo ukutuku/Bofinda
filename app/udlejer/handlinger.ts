@@ -13,7 +13,9 @@ import { cookies } from 'next/headers'
 import { FACILITETER } from '../../lib/faciliteter'
 import { byForPostnr } from '../../lib/omraade'
 import { redirect } from 'next/navigation'
-import { adgangstoken, hentUdlejer, supabase } from '../../lib/auth'
+import { adgangstoken, hentBrugerStatus, hentUdlejer, supabase } from '../../lib/auth'
+import { gemOenske } from '../../lib/favoritter'
+import { GEMCOOKIE, GEMUDFALDSSEK, GEM_PARAM } from '../../lib/gemoenske'
 import { billedUrl } from '../../lib/billede'
 import {
   fjernBolig, genudgivBolig, opdaterBolig, opretBolig, renTekst,
@@ -114,6 +116,50 @@ const TILMELDT = 'Kan adressen bruges til en ny konto, har vi sendt et link til 
   + 'så log ind i stedet. Er mailen ikke dukket op om et par minutter, så kig i spam og '
   + 'udfyld formularen igen — så sender vi linket på ny.'
 
+/**
+ * Gennemfoer det hjerteklik, hun lavede FOER hun havde en konto.
+ *
+ * ═══ HVORFOR DET SKER HER OG IKKE PAA MIN SIDE ═══
+ *
+ * Det oplagte ville vaere at lade `/min-side?gem=<id>` gemme boligen, naar
+ * siden laeses. Det maa den ikke: en GET skal kunne hentes af en
+ * mailscanner, en forhaandsvisning eller et genindlaes uden at aendre
+ * noget — samme regel som afmeldingslinket og bekraeftelseslinket, hvor
+ * GET viser en knap og POST udfoerer. Oensket baeres derfor med i
+ * login-formularen og gemmes her, i den handling brugeren selv sendte.
+ *
+ * ═══ IDENTITETEN ═══
+ *
+ * `hentBrugerStatus()` er det samme opslag, Min side selv bruger: den
+ * verificerer sessionen hos Auth-serveren og binder kontoen. Der laeses
+ * ikke et bruger-id fra formularen noget sted. Kaldes den her, lige efter
+ * `signInWithPassword`, ser den den nye session — cookies sat i en server
+ * action er synlige for de naeste laesninger i samme handling.
+ *
+ * Kan kontoen ikke bindes — konflikt eller ubekraeftet mail — gemmes der
+ * intet, og der saettes INGEN kvittering. Min side viser i det tilfaelde
+ * sin egen forklaring, og en besked om en gemt bolig oven i den ville
+ * love noget, der ikke skete.
+ */
+async function fuldfoerGemOenske(raa: FormDataEntryValue | null): Promise<void> {
+  // «Intet felt» og «et felt, der ikke er et bolig-id» er IKKE det samme.
+  // Det foerste er et almindeligt login og skal tie. Det andet er et
+  // hjerteklik, der knaekkede undervejs, og hun skal have det at vide —
+  // ellers staar hun paa Min side uden sin bolig og uden en forklaring.
+  // Derfor er det kun det tomme felt, der returnerer her; selve
+  // valideringen hoerer til i `gemOenske`, hvor den bor.
+  const tekst = typeof raa === 'string' ? raa.trim() : ''
+  if (tekst === '') return
+
+  const svar = await hentBrugerStatus()
+  if (svar.slags !== 'ok') return
+
+  const udfald = await gemOenske(svar.bruger.id, tekst)
+  revalidatePath('/min-side')
+  const jar = await cookies()
+  jar.set(GEMCOOKIE, udfald, { ...BASISCOOKIE, maxAge: GEMUDFALDSSEK })
+}
+
 export async function login(k: Kontekst, _forrige: Svar, f: FormData): Promise<Svar> {
   const kontekst = kontekstFra(k)
   const sb = await supabase()
@@ -128,6 +174,9 @@ export async function login(k: Kontekst, _forrige: Svar, f: FormData): Promise<S
     }, rute(kontekst))
     return { fejl: oversaet(error.message) }
   }
+  // Hjerteklikket fra foer login. FOER omdirigeringen: sker det bagefter,
+  // sker det ikke — `redirect()` kaster.
+  await fuldfoerGemOenske(f.get(GEM_PARAM))
   // Raekken, der syr det anonyme forloeb sammen med det indloggede: den
   // baerer BAADE anonymous_id og user_id. Brugerraekken hentes ikke her —
   // hentUdlejer() koster et Supabase-kald, og id'et kommer med paa de
