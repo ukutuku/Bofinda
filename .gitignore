@@ -1,4 +1,10 @@
-node_modules/
+# UDEN skråstreg. Med «node_modules/» matcher mønstret kun en MAPPE, og
+# en symlink til et andet sted på maskinen slipper forbi — det skete i
+# 2dcc26d, hvor en integrations-worktree havde node_modules som symlink
+# til hovedrepoet, og «git add -A» sneg den absolutte sti
+# /home/user/Bofinda/node_modules ind i versionsstyringen. Uden skråstreg
+# dækker mønstret mappe, fil og symlink, i alle niveauer.
+node_modules
 .next/
 .env
 .env.local
