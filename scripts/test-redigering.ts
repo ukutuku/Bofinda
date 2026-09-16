@@ -587,7 +587,8 @@ async function main() {
   const hfUden = noeglerISag(HF_FLAD, '177P000001')
   tjek('en sag uden stats giver tom liste, ikke et kast',
     hfUden.stats.length === 0 && hfUden.offer.length === 0)
-  tjek('… og den taelles stadig som en sag', hfUden.id === '177P000001')
+  tjek('… og den har ingen beløbsformede felter at rapportere',
+    hfUden.beloebsformede.length === 0, hfUden.beloebsformede.join(','))
 
   // Sagstypen kan ses paa sagsnummeret (adapterens eget hoved), og de to
   // typer har dokumenteret forskellig dataform — derfor skal BEGGE maales.
@@ -741,6 +742,40 @@ async function main() {
     naboSag.prepaidRent === 1430000, String(naboSag.prepaidRent))
   tjek('værelsestallet er SAGENS 2 — ikke naboens 7',
     naboSag.rooms === 2, String(naboSag.rooms))
+
+  // ── Hele vejen gennem normaliseringen ────────────────────────
+  // Proeverne ovenfor stopper ved adapterens RawListing. Det er ikke nok
+  // til at sige, at felterne NAAR frem: `normaliser` er det lag, der
+  // oversaetter til raekken, og det er dér `?? null` kunne komme til at
+  // sluge et oplyst nul. Den her proever kaeden paa den RIGTIGE
+  // kildeproeve, saa paastanden om ende-til-ende har en roed linje bag sig.
+  const HJEM_VASK: VasketAdresse = {
+    street: 'Ørestads Boulevard', houseNumber: '34A', floor: '4', door: null,
+    postalCode: '2300', city: 'København S',
+    unitAddressUuid: crypto.randomUUID(), accessAddressUuid: null,
+    addressMatchLevel: 'unit', lat: null, lng: null,
+  }
+  const pNorm = await normaliser(pSag, HJEM_VASK)
+  tjek('normaliseret: værelser, depositum og forudbetalt når frem i øre',
+    pNorm.rooms === 2 && pNorm.deposit === 4290000 && pNorm.prepaidRent === 1430000,
+    `${pNorm.rooms} / ${pNorm.deposit} / ${pNorm.prepaidRent}`)
+  tjek('normaliseret: indflytningsprisen er STADIG ikke regnet af delene',
+    pNorm.moveInCost === null, String(pNorm.moveInCost))
+  // Projektsagen har ingen aconto, saa der er ingen total at vise. Vi
+  // gaetter ikke en total ud af huslejen alene.
+  tjek('normaliseret: uden aconto er der ingen total',
+    pNorm.totalMonthly === null, String(pNorm.totalMonthly))
+
+  // Et oplyst nul skal ogsaa overleve normaliseringen — `?? null` lader
+  // 0 passere, men det er praecis den slags, der stille kunne aendre sig.
+  const nulNorm = await normaliser(nulSag, HJEM_VASK)
+  tjek('normaliseret: et oplyst nul er stadig 0, ikke null',
+    nulNorm.deposit === 0 && nulNorm.prepaidRent === 0 && nulNorm.rooms === 0,
+    `${nulNorm.deposit} / ${nulNorm.prepaidRent} / ${nulNorm.rooms}`)
+  const tomNorm = await normaliser(tomSag, HJEM_VASK)
+  tjek('normaliseret: manglende felter er null, ikke 0',
+    tomNorm.deposit === null && tomNorm.prepaidRent === null && tomNorm.rooms === null,
+    `${tomNorm.deposit} / ${tomNorm.prepaidRent} / ${tomNorm.rooms}`)
 
   // ── UI læser DOMÆNET — aldrig legacy ─────────────────────────
   // Fixturerne er bygget så legacy og domæne SIGER NOGET FORSKELLIGT.
