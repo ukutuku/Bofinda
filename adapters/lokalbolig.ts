@@ -145,7 +145,11 @@ const ukendteTyper = new Set<string>()
 
 // ─── Allowlisten ───────────────────────────────────────────────
 
-function laesBolig(html: string, url: string): RawListing | null {
+/**
+ * Parsningen af en boligside, uden netvaerk. Eksporteret KUN til proeven:
+ * den skal kunne koere mod en frossen payload.
+ */
+export function laesBolig(html: string, url: string): RawListing | null {
   const hele = flight(html)
   const i = hele.indexOf(GRAENSE)
   const s = i > 0 ? hele.slice(0, i) : hele
@@ -255,6 +259,15 @@ function laesBolig(html: string, url: string): RawListing | null {
     rentMonthly: leje != null ? kronerTilOere(leje) : undefined,
     utilitiesOther: aconto,
     moveInCost,
+    // Kildens EGNE beloeb, hver for sig. Kilden regner i KRONER — det er
+    // derfor `moveInCost` ovenfor konverterer SUMMEN — saa hvert beloeb
+    // konverteres her ÉN gang, praecis som `rentMonthly` lige over.
+    // Uafhaengigt af `moveInCost`: den kraever alle tre beloeb, men et
+    // depositum er en oplysning i sig selv, ogsaa naar de andre mangler.
+    // Et oplyst NUL overlever: `tal()` giver 0 videre (Number.isFinite),
+    // og kronerTilOere(0) er 0 — ikke «ikke oplyst».
+    deposit: depositum != null ? kronerTilOere(depositum) : undefined,
+    prepaidRent: forudbetalt != null ? kronerTilOere(forudbetalt) : undefined,
     lat,
     lng,
     sourceCreatedAt: tekst(s, 'createdDate'),
