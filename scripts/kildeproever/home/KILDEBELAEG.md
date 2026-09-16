@@ -20,10 +20,21 @@ De to `*-nuxt-minimal.json` er reducerede kopier af de hentede Nuxt-arrays. Sage
 
 Disse filer er begrænsede parserprøver, ikke komplette Nuxt-hydreringsdata eller fulde annoncefixtures. De dokumenterer ikke billeder, availability, adresse, status, øvrige nøgler eller alle mulige sager. De kan bruges som input til adapterens sagsparser med et separat gittergrundlag eller i den nye feltmåling, hvis den har en offline-indgang.
 
-## Næste ændring
+## Status: udført
 
-Supply kan nu implementere de tre felter på sagens eget id-bundne offer/stats-objekt. Genbrug den eksisterende kronerTilOere-konvertering. Bevar nul og manglende værdier forskelligt; opfind ikke værdier.
+Afsnittet herunder var pakkens overlevering til Supply. Arbejdet er gjort i
+samme ændring som denne fil, og teksten står i datid, så den ikke læses som
+en åben opgave:
 
-Brug disse observationer til regressionstests for begge sagstyper. Tilføj særskilte, klart syntetiske tilfælde for manglende/nul-værdier og en nabosag med andre værdier. Lad ikke en testsyntese blive beskrevet som en ekstra kildeobservation.
+- De tre felter blev implementeret på sagens eget id-bundne `offer`/`stats`
+  (`adapters/home.ts`), med genbrug af den eksisterende `kronerTilOere`.
+- Nul og manglende værdi holdes adskilt: `amount: 0` giver `0`, et
+  fraværende eller `null` felt giver `undefined`. Ingen værdier er opfundet.
+- Der beregnes ingen samlet indflytningspris af delbeløbene.
+- Observationerne herover bruges som regressionsprøver for begge sagstyper,
+  suppleret med klart syntetiske tilfælde for nul, manglende felter og en
+  nabosag med andre værdier. De syntetiske tilfælde er mærket som sådan i
+  prøvefilen og er ikke kildeobservationer.
 
-Ingen produktionsimport, push eller deployment er udført eller godkendt med denne pakke.
+Ingen produktionsimport, push eller deployment blev udført eller godkendt med
+denne pakke.
