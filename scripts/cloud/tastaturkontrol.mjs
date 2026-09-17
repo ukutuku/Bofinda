@@ -79,15 +79,94 @@ import postgres from 'postgres'
 import { mkdirSync } from 'node:fs'
 
 const BASE = process.env.BOFINDA_APP_BASE ?? 'http://127.0.0.1:3100'
-const VAERT = new URL(BASE).hostname
+const MAILATTRAP = process.env.BOFINDA_MAILATTRAP ?? 'http://127.0.0.1:55434'
 const UD = process.argv[2] ?? null
 if (UD) mkdirSync(UD, { recursive: true })
+
+// ═══ VAERN ═══════════════════════════════════════════════════════
+//
+//  Proeven INDSENDER en formular og SLETTER raekker bagefter. Begge dele
+//  er harmloese mod en attrapbase paa loopback og uacceptable mod alt
+//  andet. Vaernene staar derfor foerst, de spoerger om det FAKTISKE —
+//  ikke om formen paa en streng — og de afviser med exit 2 i stedet for
+//  at maale videre.
+//
+//  Fire ting skal holde, og de daekker hver sin vej udenom:
+//    1. appadressen er loopback          (ellers maales en fremmed app)
+//    2. basen SIGER selv, hvem den er    (en URL kan pege ét sted og ramme et andet)
+//    3. appen laeser SAMME base          (ellers sletter vi i én base og maaler i en anden)
+//    4. mailen gaar til en lokal attrap  (ellers kan en indsendelse sende rigtig post)
+const LOOPBACK = ['127.0.0.1', 'localhost', '[::1]']
+const doed = (m) => { console.error(`FEJL: ${m}`); process.exit(2) }
+
+{
+  let u
+  try { u = new URL(BASE) } catch { doed(`BOFINDA_APP_BASE er ikke en URL: ${BASE}`) }
+  if (!LOOPBACK.includes(u.hostname)) {
+    doed(`appadressen peger paa ${u.hostname} — proeven koerer kun mod loopback.`)
+  }
+}
+const VAERT = new URL(BASE).hostname
+
 if (!process.env.DATABASE_URL) {
-  console.error('FEJL: DATABASE_URL mangler — proeven kan ikke vaelge data eller rydde op.')
-  process.exit(2)
+  doed('DATABASE_URL mangler — proeven kan ikke vaelge data eller rydde op.')
+}
+{
+  const u = new URL(process.env.DATABASE_URL)
+  if (!LOOPBACK.includes(u.hostname) || u.port !== '55432' || u.pathname !== '/bofinda_test') {
+    doed(`DATABASE_URL peger paa ${u.hostname}:${u.port}${u.pathname} — ikke den isolerede testbase.`)
+  }
 }
 
 const sql = postgres(process.env.DATABASE_URL, { ssl: false, max: 1, onnotice: () => {} })
+
+// Ikke kun formen paa strengen: SPOERG basen, hvem den er. Samme vaern
+// som scripts/cloud/app-op.sh bruger, af samme grund.
+{
+  const [id] = await sql`select current_database() d, inet_server_addr()::text a,
+    inet_server_port() p, current_user u`
+  if (id.d !== 'bofinda_test' || Number(id.p) !== 55432) {
+    await sql.end()
+    doed(`forbundet til ${id.d} paa ${id.a ?? 'loopback'}:${id.p} — ikke testbasen.`)
+  }
+  console.log(`base: ${id.d} paa ${id.a ?? 'loopback'}:${id.p} som ${id.u}`)
+}
+
+// Og laeser APPEN den samme base? Et id herfra er en tilfaeldig uuid;
+// svarer appen 200 paa den, har den rækken. Gør den ikke, maaler vi ét
+// sted og sletter et andet — den fejl er tavs og dyr.
+{
+  const [b] = await sql`select id, city from listings where status = 'active' limit 1`
+  if (!b) { await sql.end(); doed('ingen aktive boliger i basen — der er intet at maale paa.') }
+  const r = await fetch(`${BASE}/bolig/${b.id}`).catch((e) => ({ ok: false, status: String(e) }))
+  if (!r.ok) {
+    await sql.end()
+    doed(`appen paa ${BASE} kender ikke bolig ${b.id} (svar ${r.status}) — den laeser en ANDEN base.`)
+  }
+  const html = await r.text()
+  if (b.city && !html.includes(b.city)) {
+    await sql.end()
+    doed(`appen svarede 200 paa bolig ${b.id}, men uden «${b.city}» — samme base kan ikke bekraeftes.`)
+  }
+  console.log(`appen: ${BASE} serverer bolig ${b.id} fra samme base`)
+}
+
+// Mailattrappen. Uden den kan en indsendelse i vaerste fald naa en
+// rigtig indbakke — og i bedste fald maaler proeven en spaerring i
+// stedet for et forloeb.
+{
+  let u
+  try { u = new URL(MAILATTRAP) } catch { await sql.end(); doed(`BOFINDA_MAILATTRAP er ikke en URL`) }
+  if (!LOOPBACK.includes(u.hostname)) {
+    await sql.end(); doed(`mailattrappen peger paa ${u.hostname} — kun loopback.`)
+  }
+  const r = await fetch(`${MAILATTRAP}/sund`).catch(() => null)
+  if (!r?.ok) {
+    await sql.end()
+    doed(`mailattrappen svarer ikke paa ${MAILATTRAP} — start miljoeet med scripts/cloud/app-op.sh.`)
+  }
+  console.log(`mail: attrap paa ${MAILATTRAP}`)
+}
 // Byen skal have MANGE maerker, ellers maaler «kortet kan springes over»
 // ingenting: med tre maerker er 44 stop og 3 stop lige gode.
 const [by] = await sql`
@@ -106,6 +185,28 @@ console.log(`maaler paa «${by.navn}» — ${by.n} placerede boliger\n`)
 const br = await pw.chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM ?? '/opt/pw-browsers/chromium',
 })
+
+// ── Luk altid ned ───────────────────────────────────────────────
+//
+//  Browseren og forbindelsen skal lukkes ogsaa naar noget kaster. Ikke
+//  et try/finally om hele koerslen: en top-level `await`, der kaster,
+//  bliver en unhandled rejection, og den fanges kun her. Foer stod en
+//  afbrudt koersel tilbage med en Chromium og en aaben forbindelse —
+//  og et forkert exitnummer oveni.
+let lukket = false
+const lukNed = async () => {
+  if (lukket) return
+  lukket = true
+  await sql.end().catch(() => {})
+  await br.close().catch(() => {})
+}
+for (const slags of ['uncaughtException', 'unhandledRejection']) {
+  process.on(slags, async (e) => {
+    console.error(`\nAFBRUDT (${slags}):`, e)
+    await lukNed()
+    process.exit(1)
+  })
+}
 
 let fejl = 0
 const tjek = (ok, navn, note = '') => {
@@ -226,6 +327,16 @@ for (const s of SCENARIER) {
     }
 
     const maerker = await p.locator('.leaflet-marker-icon').count()
+    // Er listen overhovedet fremme? Under 900 px er listen og kortet
+    // hinandens alternativer, og med kortet valgt er listen
+    // `display: none`. Saa er der intet at fremhaeve — og maerkerne maa
+    // derfor hverken vaere knapper eller ligge i tabulatorraekkefoelgen.
+    // Kravene er ikke de samme paa de to sider af den graense, og en
+    // proeve, der maalte det samme begge steder, ville kraeve noget
+    // forkert det ene sted.
+    const listeFremme = await p.evaluate(() =>
+      [...document.querySelectorAll('a.kort[data-bolig]')].some((e) => e.checkVisibility()))
+    console.log(`  · listen er ${listeFremme ? 'FREMME' : 'skjult'} — maerkerne maales derefter`)
     if (!maerker) {
       tjek(false, 'kort · der er maerker at maale paa', 'ingen maerker tegnet')
     } else {
@@ -332,37 +443,71 @@ for (const s of SCENARIER) {
       await p.evaluate(() => window.scrollTo(0, 0))
       await p.waitForTimeout(250)
 
-      // 1c3 · hjaelpelinjen: bundet til maerket OG synlig ved fokus
-      const hjaelp = await p.evaluate((f) => {
-        const m = document.querySelector('.leaflet-marker-icon')
-        m.focus()
-        const id = m.getAttribute('aria-describedby')
-        const h = id ? document.getElementById(id) : null
-        return {
-          id, findes: !!h,
-          synlig: h ? new Function('el', `return (${f})(el)`)(h) : false,
-          tekst: (h?.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 70),
-        }
-      }, I_SYNE)
-      tjek(hjaelp.findes && /piletast/i.test(hjaelp.tekst),
-        'kort · maerket peger paa en linje, der siger, hvordan man naar de andre',
-        `«${hjaelp.tekst}»`)
-      tjek(hjaelp.synlig, 'kort · den linje kan ogsaa SES, naar fokus er i kortet')
+      if (listeFremme) {
+        // 1c3 · hjaelpelinjen: bundet til maerket OG synlig ved fokus
+        const hjaelp = await p.evaluate((f) => {
+          const m = document.querySelector('.leaflet-marker-icon')
+          m.focus()
+          const id = m.getAttribute('aria-describedby')
+          const h = id ? document.getElementById(id) : null
+          return {
+            id, findes: !!h,
+            synlig: h ? new Function('el', `return (${f})(el)`)(h) : false,
+            tekst: (h?.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 70),
+          }
+        }, I_SYNE)
+        tjek(hjaelp.findes && /piletast/i.test(hjaelp.tekst),
+          'kort · maerket peger paa en linje, der siger, hvordan man naar de andre',
+          `«${hjaelp.tekst}»`)
+        tjek(hjaelp.synlig, 'kort · den linje kan ogsaa SES, naar fokus er i kortet')
 
-      // 1c4 · piletasterne flytter mellem maerkerne
-      const pil = await (async () => {
-        await p.locator('.leaflet-marker-icon').first().focus()
-        const a = await p.evaluate(() => document.activeElement?.dataset?.maerke ?? null)
-        await p.keyboard.press('ArrowRight'); await p.waitForTimeout(150)
-        const b2 = await p.evaluate(() => ({
-          id: document.activeElement?.dataset?.maerke ?? null,
-          tab: document.activeElement?.tabIndex,
-        }))
-        return { a, b2 }
-      })()
-      tjek(pil.a != null && pil.b2.id != null && pil.a !== pil.b2.id && pil.b2.tab === 0,
-        'kort · piletast flytter til naeste maerke',
-        `${pil.a} → ${pil.b2.id} (tabIndex ${pil.b2.tab})`)
+        // 1c4 · piletasterne flytter mellem maerkerne
+        const pil = await (async () => {
+          await p.locator('.leaflet-marker-icon').first().focus()
+          const a = await p.evaluate(() => document.activeElement?.dataset?.maerke ?? null)
+          await p.keyboard.press('ArrowRight'); await p.waitForTimeout(150)
+          const b2 = await p.evaluate(() => ({
+            id: document.activeElement?.dataset?.maerke ?? null,
+            tab: document.activeElement?.tabIndex,
+          }))
+          return { a, b2 }
+        })()
+        tjek(pil.a != null && pil.b2.id != null && pil.a !== pil.b2.id && pil.b2.tab === 0,
+          'kort · piletast flytter til naeste maerke',
+          `${pil.a} → ${pil.b2.id} (tabIndex ${pil.b2.tab})`)
+      } else {
+        // Uden en liste: ingen knap, intet tabulatorstop, ingen
+        // piletast-hjaelp — men oplysningen skal stadig kunne laeses.
+        const uden = await p.evaluate(() => {
+          const els = [...document.querySelectorAll('.leaflet-marker-icon')]
+          return {
+            roller: [...new Set(els.map((e) => e.getAttribute('role')))],
+            medTabindex: els.filter((e) => e.hasAttribute('tabindex')).length,
+            medBeskrivelse: els.filter((e) => e.hasAttribute('aria-describedby')).length,
+            navne: els.filter((e) => (e.getAttribute('aria-label') || '').length > 3).length,
+            hjaelp: !!document.querySelector('.korthjaelp'),
+            antal: els.length,
+          }
+        })
+        tjek(uden.roller.length === 1 && uden.roller[0] === 'img',
+          'kort · uden en liste fremstaar maerket ikke som en knap',
+          `roller: ${JSON.stringify(uden.roller)}`)
+        tjek(uden.medTabindex === 0, 'kort · uden en liste ligger maerkerne ikke i tabulatorraekkefoelgen',
+          `${uden.medTabindex} af ${uden.antal} har tabindex`)
+        tjek(uden.navne === uden.antal,
+          'kort · men oplysningen kan stadig laeses — hvert maerke har sit navn',
+          `${uden.navne} af ${uden.antal}`)
+        tjek(uden.medBeskrivelse === 0 && !uden.hjaelp,
+          'kort · og der loves ingen piletaster, hvor der intet er at flytte mellem')
+        // Tabulering maa ikke kunne lande i maerkerne overhovedet.
+        await p.evaluate(() => document.body.focus())
+        let ramt = 0
+        for (let i = 0; i < 40; i++) {
+          await p.keyboard.press('Tab')
+          if (await p.evaluate(() => !!document.activeElement?.closest?.('.leaflet-marker-pane'))) ramt++
+        }
+        tjek(ramt === 0, 'kort · 40 tabulaturtryk rammer ikke ét eneste maerke', `${ramt} ramt`)
+      }
 
       // 1d · en opdatering af valget maa ikke rive det fokuserede maerke ned
       //
@@ -393,8 +538,13 @@ for (const s of SCENARIER) {
         tjek(efterOpdatering.samme,
           'kort · en opdatering af valget tegner ikke maerket forfra',
           efterOpdatering.samme ? 'samme element' : 'elementet blev erstattet')
-        tjek(efterOpdatering.harFokus,
-          'kort · og fokus bliver staaende paa det maerke, der havde det')
+        // Fokus kan kun bevares paa noget, der KAN have fokus. Uden en
+        // liste er maerket ikke fokuserbart, og saa maaler den her
+        // ingenting — den ville vaere groen per definition.
+        if (listeFremme) {
+          tjek(efterOpdatering.harFokus,
+            'kort · og fokus bliver staaende paa det maerke, der havde det')
+        }
       }
 
       // 1e · Enter og Mellemrum gør det samme som et klik
@@ -432,15 +582,16 @@ for (const s of SCENARIER) {
         && a.efter.valgt === b.efter.valgt
       tjek(klik.efter.valgt != null, 'kort · et klik vaelger boligen',
         JSON.stringify(klik.efter))
-      tjek(ens(enter, klik), 'kort · Enter goer det samme som et klik',
-        `Enter: ${JSON.stringify(enter.efter)} · klik: ${JSON.stringify(klik.efter)}`)
-      tjek(ens(mellem, klik), 'kort · Mellemrum goer det samme som et klik',
-        `Mellemrum: ${JSON.stringify(mellem.efter)}`)
-      tjek(enter.listeSynlig ? enter.paaBoligkort : (enter.fokus !== 'BODY' && enter.haenger),
-        enter.listeSynlig
-          ? 'kort · Enter giver fokus til boligkortet i listen'
-          : 'kort · Enter beholder fokus paa maerket, naar listen ikke er fremme',
-        `fokus paa ${enter.tag}, liste fremme: ${enter.listeSynlig}`)
+      if (listeFremme) {
+        tjek(ens(enter, klik), 'kort · Enter goer det samme som et klik',
+          `Enter: ${JSON.stringify(enter.efter)} · klik: ${JSON.stringify(klik.efter)}`)
+        tjek(ens(mellem, klik), 'kort · Mellemrum goer det samme som et klik',
+          `Mellemrum: ${JSON.stringify(mellem.efter)}`)
+      }
+      if (enter.listeSynlig) {
+        tjek(enter.paaBoligkort, 'kort · Enter giver fokus til boligkortet i listen',
+          `fokus paa ${enter.tag}`)
+      }
     }
     if (UD) await p.screenshot({ path: `${UD}/kort-${s.w}.png` })
     await c.close()
@@ -542,7 +693,9 @@ for (const s of SCENARIER) {
     await c.close()
   }
 
-  // Svaret: fejl og kvittering. Laeses af URL'en — intet indsendes her.
+  // Svaret: fejl og kvittering. En VISNINGSPROEVE — adressen saettes
+  // direkte, og der indsendes ingenting. Den siger, at markuppen er
+  // rigtig; at forloebet virker, maales i sidste afsnit.
   for (const [slags, rolle] of [['ugyldig-mail', 'alert'], ['sendt', 'status']]) {
     const { c, p } = await aabn(s, `/?sted=${STED}&vaerelser=2&gemt=${slags}`)
     await p.waitForTimeout(700)
@@ -558,17 +711,17 @@ for (const s of SCENARIER) {
       }
     }, I_SYNE)
     if (!m) { tjek(false, `gem · svaret «${slags}» vises`); await c.close(); continue }
-    tjek(m.iSyne, `gem · «${slags}» kan SES ved indlaesning`)
-    tjek(m.harFokus, `gem · fokus staar paa «${slags}»`)
+    tjek(m.iSyne, `visning · «${slags}» kan SES ved indlaesning`)
+    tjek(m.harFokus, `visning · fokus staar paa «${slags}»`)
     // Den RIGTIGE rolle, ikke «en eller anden». `aria-live="off"` ville
     // ellers kunne baere linjen igennem.
-    tjek(m.rolle === rolle, `gem · «${slags}» har rollen «${rolle}»`,
+    tjek(m.rolle === rolle, `visning · «${slags}» har rollen «${rolle}»`,
       `role=${m.rolle} aria-live=${m.live}`)
     if (slags === 'ugyldig-mail') {
-      tjek(m.formular, 'gem · formularen kan stadig bruges efter en fejl')
+      tjek(m.formular, 'visning · formularen kan stadig bruges efter en fejl')
       tjek(!!m.filtre && m.filtre.includes('vaerelser'),
-        'gem · filtrene er bevaret efter en fejl', String(m.filtre).slice(0, 60))
-      tjek(/vaerelser=2/.test(p.url()), 'gem · filtrene staar stadig i adressen')
+        'visning · filtrene er bevaret efter en fejl', String(m.filtre).slice(0, 60))
+      tjek(/vaerelser=2/.test(p.url()), 'visning · filtrene staar stadig i adressen')
     }
     if (UD) await p.screenshot({ path: `${UD}/gem-${slags}-${s.w}.png` })
     await c.close()
@@ -667,6 +820,61 @@ for (const s of SCENARIER) {
   }
 }
 
+// ── 4b · SKIFTET mellem mobil- og desktopbredde ─────────────────
+//
+//  Graensen er ikke en indstilling, man vaelger én gang. Man drejer
+//  telefonen, aabner en delt skaerm, zoomer. Maerkerne skal foelge med i
+//  BEGGE retninger — og desktopens tastaturaktivering skal stadig virke
+//  bagefter. Maales i ÉN fane, hvor bredden skifter under foedderne paa
+//  siden; to separate faner ville aldrig se selve skiftet.
+console.log('\n═══ skift mellem mobil- og desktopbredde ═══')
+{
+  const { c, p } = await aabn({ w: 390, h: 844, dpr: 1 }, `/?sted=${STED}&kort=1`)
+  await p.waitForTimeout(2200)
+  const maal = () => p.evaluate(() => {
+    const els = [...document.querySelectorAll('.leaflet-marker-icon')]
+    return {
+      antal: els.length,
+      roller: [...new Set(els.map((e) => e.getAttribute('role')))],
+      medTabindex: els.filter((e) => e.hasAttribute('tabindex')).length,
+      indgange: els.filter((e) => e.tabIndex === 0 && e.hasAttribute('tabindex')).length,
+      navne: els.filter((e) => (e.getAttribute('aria-label') || '').length > 3).length,
+      hjaelp: !!document.querySelector('.korthjaelp'),
+      listeFremme: [...document.querySelectorAll('a.kort[data-bolig]')].some((e) => e.checkVisibility()),
+    }
+  })
+  const mobil = await maal()
+  tjek(!mobil.listeFremme && mobil.roller.length === 1 && mobil.roller[0] === 'img'
+    && mobil.medTabindex === 0 && mobil.navne === mobil.antal && !mobil.hjaelp,
+  'skift · 390 px: oplysning, ikke knap', JSON.stringify(mobil))
+
+  await p.setViewportSize({ width: 1440, height: 900 })
+  await p.waitForTimeout(900)
+  const desktop = await maal()
+  tjek(desktop.listeFremme && desktop.roller.length === 1 && desktop.roller[0] === 'button'
+    && desktop.medTabindex === desktop.antal && desktop.indgange === 1 && desktop.hjaelp,
+  'skift · → 1440 px: knapper igen, med præcis ÉN indgang', JSON.stringify(desktop))
+
+  // Og virker tastaturet saa? Det er hele pointen med at skifte tilbage.
+  await p.locator('.leaflet-marker-icon[tabindex="0"]').first().focus()
+  await p.keyboard.press('Enter')
+  await p.waitForTimeout(1000)
+  const virker = await p.evaluate(() => ({
+    fremhaevet: [...document.querySelectorAll('.fremhaevet')].map((e) => e.id),
+    paaBoligkort: !!document.activeElement?.matches?.('a.kort[data-bolig]'),
+  }))
+  tjek(virker.fremhaevet.length > 0 && virker.paaBoligkort,
+    'skift · og Enter virker stadig efter skiftet', JSON.stringify(virker))
+
+  await p.setViewportSize({ width: 390, height: 844 })
+  await p.waitForTimeout(900)
+  const tilbage = await maal()
+  tjek(!tilbage.listeFremme && tilbage.roller[0] === 'img' && tilbage.medTabindex === 0,
+    'skift · → 390 px igen: tilbage til oplysning', JSON.stringify(tilbage))
+  if (UD) await p.screenshot({ path: `${UD}/skift-tilbage-390.png` })
+  await c.close()
+}
+
 // ── 5 · BOLIGSIDENS KORT: ingen knap uden en handling ───────────
 console.log('\n═══ boligsidens kort ═══')
 if (!bolig) {
@@ -679,7 +887,7 @@ if (!bolig) {
     const e = document.querySelector('.leaflet-marker-icon')
     if (!e) return null
     return {
-      rolle: e.getAttribute('role'), tab: e.tabIndex,
+      rolle: e.getAttribute('role'), harTabindex: e.hasAttribute('tabindex'),
       navn: e.getAttribute('aria-label'),
       hjaelp: !!document.querySelector('.korthjaelp'),
     }
@@ -689,9 +897,9 @@ if (!bolig) {
     // Her er der ingen liste at pege paa. Et tabulatorstop med
     // `role="button"`, hvor Enter intet goer, er praecis den fejl, hele
     // aendringen handler om — saa maerket maa ikke vaere en knap.
-    tjek(m.rolle == null && m.tab !== 0,
+    tjek(m.rolle === 'img' && !m.harTabindex,
       'boligside · maerket er ikke en knap, for der er ingen liste at vise noget i',
-      `role=${m.rolle} tabIndex=${m.tab}`)
+      `role=${m.rolle} tabindex-attribut: ${m.harTabindex}`)
     tjek(!!m.navn && !/vis (den|boligen) i listen/i.test(m.navn),
       'boligside · maerket lover ikke en liste, der ikke findes', `«${m.navn}»`)
     tjek(!m.hjaelp, 'boligside · der staar ingen piletast-hjaelp, hvor der intet er at flytte mellem')
@@ -699,93 +907,140 @@ if (!bolig) {
   await c.close()
 }
 
-// ── 6 · INDSENDELSE MED SIMULERET MAIL ──────────────────────────
-console.log('\n═══ indsendelse med simuleret mailafsendelse ═══')
+// ── 6 · FORMULARREGRESSIONEN: fejl → rettelse → succes ──────────
+//
+//  Hele forloebet gennem den RIGTIGE serverhandling, med mailen fanget
+//  af attrappen paa loopback. Det er forskellen fra foer: dengang kunne
+//  proeven kun vise, at afsendelsen blev SPAERRET (appen koerte uden
+//  noegle), og kvitteringen, rydningen af udkastet og fokus paa «Tjek
+//  din mail» var aldrig maalt paa andet end en URL-parameter.
+//
+//  Et direkte besoeg paa `?gemt=sendt` staar stadig laengere oppe. Det
+//  er en VISNINGSPROEVE — den siger, at markuppen er rigtig, ikke at
+//  forloebet virker.
+console.log('\n═══ formularregression: fejl → rettelse → succes ═══')
 {
-  // Ny adresse for hver koersel. Ellers kan en raekke fra en tidligere
-  // koersel goere udfaldet til `for-hurtigt` — og saa maaler proeven
-  // ratebegraensningen i stedet for mailspaerringen.
+  // Egen adresse pr. koersel: en efterladt raekke fra en tidligere
+  // koersel maa ikke kunne goere udfaldet til `for-hurtigt`.
   const MAIL = `tastaturproeve-${Date.now()}@eksempel.invalid`
   const NAVN = 'Proevens eget navn paa soegningen'
-  const [{ n: foer }] = await sql`select count(*)::int n from saved_searches`
+  const [{ n: foerBrugere }] = await sql`select count(*)::int n from users`
+  const [{ n: foerSoegninger }] = await sql`select count(*)::int n from saved_searches`
+  await fetch(`${MAILATTRAP}/post`, { method: 'DELETE' })
   const s = SCENARIER[0]
   const { c, p } = await aabn(s, `/?sted=${STED}&vaerelser=2`)
   try {
+    const svarNu = async () => p.evaluate((f) => {
+      const e = document.querySelector('.gem-svar')
+      return {
+        findes: !!e,
+        rolle: e?.getAttribute('role') ?? null,
+        iSyne: e ? new Function('el', `return (${f})(el)`)(e) : false,
+        harFokus: !!e && (document.activeElement === e || e.contains(document.activeElement)),
+        tekst: (e?.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 60),
+        formular: !!document.querySelector('form.gem'),
+        navn: document.querySelector('#gem-navn')?.value ?? null,
+        mail: document.querySelector('#gem-mail')?.value ?? null,
+        filtre: document.querySelector('form.gem input[name="filtre"]')?.value ?? null,
+      }
+    }, I_SYNE)
+    const indsend = async () => {
+      await p.locator('form.gem button[type="submit"]').click()
+      await p.waitForURL(/[?&]gemt=/, { timeout: 20000 }).catch(() => {})
+      await p.waitForSelector('.gem-svar', { timeout: 20000 }).catch(() => {})
+      await p.waitForTimeout(600)
+    }
+
+    // ── 1 · FEJL. `anna@mail` slipper forbi browserens egen
+    //        type=email-kontrol (den kraever ikke et punktum efter @) og
+    //        afvises af serveren. Altsaa en rigtig serverfejl.
     await p.fill('form.gem input[name="navn"]', NAVN)
-    await p.fill('form.gem input[name="mail"]', MAIL)
-    await p.locator('form.gem button[type="submit"]').click()
-    // Vent paa SVARET, ikke paa uret. Adressen skifter, foer siden bag
-    // den er gengivet.
-    await p.waitForURL(/[?&]gemt=/, { timeout: 20000 }).catch(() => {})
-    await p.waitForSelector('.gem-svar', { timeout: 20000 }).catch(() => {})
-    await p.waitForTimeout(400)
-    const u = new URL(p.url())
-    const slags = u.searchParams.get('gemt')
-    // PRÆCIS `spaerret`. `ugyldig-mail`, `for-mange` og `for-hurtigt`
-    // vender tilbage FOER `sendMail` og beviser intet om spaerringen.
-    tjek(slags === 'spaerret',
-      'indsendelse · afsendelsen blev spaerret, foer der blev kaldt ud',
-      `gemt=${slags}`)
-    tjek(u.searchParams.get('vaerelser') === '2' && u.searchParams.get('sted') === by.navn,
-      'indsendelse · filtrene er bevaret i adressen', u.search)
-    const m = await p.evaluate((f) => {
-      const e = document.querySelector('.gem-svar'); if (!e) return null
-      return {
-        iSyne: new Function('el', `return (${f})(el)`)(e),
-        harFokus: document.activeElement === e || e.contains(document.activeElement),
-        tekst: (e.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 70),
-      }
-    }, I_SYNE)
-    tjek(!!m?.iSyne, 'indsendelse · svaret kan SES')
-    tjek(!!m?.harFokus, 'indsendelse · fokus staar paa svaret', `«${m?.tekst ?? ''}»`)
+    await p.fill('form.gem input[name="mail"]', 'anna@mail')
+    await indsend()
+    const fejlUdfald = new URL(p.url()).searchParams.get('gemt')
+    tjek(fejlUdfald === 'ugyldig-mail', 'forloeb · serveren afviser den ugyldige adresse',
+      `gemt=${fejlUdfald}`)
+    const f1 = await svarNu()
+    tjek(f1.findes && f1.rolle === 'alert' && f1.iSyne && f1.harFokus,
+      'forloeb · fejlen er i syne, har rollen «alert» og fokus', JSON.stringify({
+        rolle: f1.rolle, iSyne: f1.iSyne, harFokus: f1.harFokus, tekst: f1.tekst,
+      }))
+    tjek(f1.formular, 'forloeb · formularen staar der stadig, saa fejlen kan rettes')
+    tjek(f1.navn === NAVN && f1.mail === 'anna@mail',
+      'forloeb · begge felter bar det indtastede med over',
+      JSON.stringify({ navn: f1.navn, mail: f1.mail }))
+    tjek(!!f1.filtre && f1.filtre.includes('vaerelser') && /vaerelser=2/.test(p.url()),
+      'forloeb · filtrene er bevaret — baade i feltet og i adressen')
+    const efterFejl = await (await fetch(`${MAILATTRAP}/post`)).json()
+    tjek(efterFejl.length === 0, 'forloeb · en afvist adresse sender ingen mail',
+      `${efterFejl.length} i attrappen`)
+    const [{ n: brugereEfterFejl }] = await sql`select count(*)::int n from users`
+    tjek(brugereEfterFejl === foerBrugere,
+      'forloeb · en afvist adresse opretter ingen bruger', `${brugereEfterFejl} mod ${foerBrugere}`)
 
-    // Fejlen skal kunne RETTES, ikke skrives forfra. React kalder selv
-    // `form.reset()` efter en indsendelse, saa det indtastede kan kun
-    // overleve som indholdsattribut — det er derfor det baeres tilbage.
-    const felter = await p.evaluate(() => ({
-      navn: document.querySelector('#gem-navn')?.value ?? null,
-      mail: document.querySelector('#gem-mail')?.value ?? null,
-      invalid: document.querySelector('#gem-mail')?.getAttribute('aria-invalid'),
-    }))
-    tjek(felter.navn === NAVN && felter.mail === MAIL,
-      'indsendelse · det indtastede staar der stadig, saa fejlen kan rettes',
-      JSON.stringify(felter))
-    const kage = (await p.context().cookies()).find((k) => k.name === 'bofinda_gemudkast')
-    tjek(!!kage && kage.httpOnly === true,
-      'indsendelse · udkastet ligger i en httpOnly-cookie, ikke i adressen',
-      kage ? `maxAge-ish udloeb om ${Math.round((kage.expires * 1000 - Date.now()) / 1000)} s` : 'ingen cookie')
-    tjek(!/[?&](mail|navn)=/.test(p.url()),
-      'indsendelse · hverken mail eller navn staar i adressen', p.url().split('?')[1] ?? '')
-
-    // ANDEN indsendelse. Omdirigeringen fra en server action er en BLOED
-    // navigation: komponenten genmonteres ikke, og en fokuseffekt med
-    // en tom afhaengighedsliste ville ikke koere igen. Maalt foer
-    // rettelsen: fokus blev staaende paa «Send mig besked».
-    await p.evaluate(() => window.scrollTo(0, 0))
+    // ── 2 · RETTELSEN. Kun mailfeltet roeres — navnet skal overleve.
     await p.fill('form.gem input[name="mail"]', MAIL)
-    await p.locator('form.gem button[type="submit"]').click()
-    await p.waitForTimeout(4000)
-    const m2 = await p.evaluate((f) => {
-      const e = document.querySelector('.gem-svar'); if (!e) return null
-      return {
-        iSyne: new Function('el', `return (${f})(el)`)(e),
-        harFokus: document.activeElement === e || e.contains(document.activeElement),
-      }
-    }, I_SYNE)
-    tjek(!!m2?.harFokus && !!m2?.iSyne,
-      'indsendelse · ogsaa ANDEN indsendelse flytter fokus til svaret',
-      JSON.stringify(m2))
-    if (UD) await p.screenshot({ path: `${UD}/indsendelse.png` })
+    await indsend()
+    const okUdfald = new URL(p.url()).searchParams.get('gemt')
+    tjek(okUdfald === 'sendt', 'forloeb · rettelsen gaar igennem', `gemt=${okUdfald}`)
+    const f2 = await svarNu()
+    tjek(f2.findes && f2.rolle === 'status' && f2.iSyne && f2.harFokus,
+      'forloeb · kvitteringen er i syne, har rollen «status» og fokus', JSON.stringify({
+        rolle: f2.rolle, iSyne: f2.iSyne, harFokus: f2.harFokus, tekst: f2.tekst,
+      }))
+    tjek(!f2.formular, 'forloeb · formularen er vaek, naar der ikke er mere at goere')
+    tjek(/vaerelser=2/.test(p.url()) && new URL(p.url()).searchParams.get('sted') === by.navn,
+      'forloeb · filtrene er stadig i adressen efter succes', p.url().split('?')[1] ?? '')
+
+    // ── 3 · MAILEN. Præcis én, til præcis den adresse, i attrappen.
+    const post = await (await fetch(`${MAILATTRAP}/post`)).json()
+    tjek(post.length === 1, 'forloeb · der blev sendt PRAECIS én mail', `${post.length} i attrappen`)
+    tjek(post[0]?.til?.includes(MAIL),
+      'forloeb · og den gik til den rettede adresse', JSON.stringify(post[0]?.til))
+    tjek(typeof post[0]?.tekst === 'string' && post[0].tekst.includes('/bekraeft/'),
+      'forloeb · mailen baerer bekraeftelseslinket — dobbelt tilmelding er intakt')
+
+    // ── 4 · UDKASTET er ryddet, naar der ikke er mere at rette.
+    const kager = await p.context().cookies()
+    const udkast = kager.find((k) => k.name === 'bofinda_gemudkast')
+    tjek(!udkast, 'forloeb · udkastcookien er ryddet ved succes',
+      udkast ? `staar endnu: ${udkast.value.slice(0, 30)}` : 'vaek')
+
+    // ── 5 · Raekken er der, og den er UBEKRAEFTET.
+    const [r] = await sql`select s.id, s.confirmed_at from saved_searches s
+      join users u on u.id = s.user_id where u.email = ${MAIL}`
+    tjek(!!r && r.confirmed_at === null,
+      'forloeb · soegningen er gemt som UBEKRAEFTET, som dobbelt tilmelding kraever',
+      r ? `confirmed_at=${r.confirmed_at}` : 'ingen raekke')
+    if (UD) await p.screenshot({ path: `${UD}/forloeb-kvittering.png` })
+  } catch (e) {
+    // Afsnittet skal kunne MELDE, at det ikke kunne gennemfoeres — ikke
+    // rive hele koerslen ned. Mod kode uden rettelserne findes
+    // formularen ikke efter en fejl, og saa gaar `p.fill` i timeout;
+    // uden den her stoppede koerslen dér, og resten af afsnittet stod
+    // hverken groent eller roedt. Det gjorde en «foer»-log ulaeselig
+    // som bevis.
+    tjek(false, 'forloeb · afsnittet kunne gennemfoeres',
+      String(e).split('\n')[0].slice(0, 140))
   } finally {
     await c.close().catch(() => {})
-    const slettet = await sql`delete from users where email = ${MAIL} returning id`
-    const [{ n: efter }] = await sql`select count(*)::int n from saved_searches`
-    tjek(efter === foer, 'indsendelse · proevens raekker er ryddet op igen',
-      `${slettet.length} bruger(e) slettet, ${efter} soegninger tilbage (var ${foer})`)
+    // KUN proevens egne raekker. Adressen er unik for denne koersel, og
+    // der slettes paa den — ikke paa et postnummer, en kilde eller et
+    // tidsrum, som kunne tage en andens raekke med.
+    const brugere = await sql`select id from users where email = ${MAIL}`
+    for (const u of brugere) {
+      await sql`delete from saved_searches where user_id = ${u.id}`
+      await sql`delete from users where id = ${u.id}`
+    }
+    await fetch(`${MAILATTRAP}/post`, { method: 'DELETE' }).catch(() => {})
+    const [{ n: efterBrugere }] = await sql`select count(*)::int n from users`
+    const [{ n: efterSoegninger }] = await sql`select count(*)::int n from saved_searches`
+    tjek(efterBrugere === foerBrugere && efterSoegninger === foerSoegninger,
+      'forloeb · proevens egne raekker er ryddet op igen — og kun dem',
+      `brugere ${foerBrugere}→${efterBrugere}, soegninger ${foerSoegninger}→${efterSoegninger}`)
   }
 }
 
-await sql.end()
-await br.close()
+await lukNed()
 console.log(`\n${fejl === 0 ? '✓ alt groent' : `✗ ${fejl} fejlede`}`)
 process.exit(fejl === 0 ? 0 : 1)

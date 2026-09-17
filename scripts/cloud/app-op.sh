@@ -64,6 +64,25 @@ if ! curl -sf --noproxy '*' -m 3 "http://127.0.0.1:$BOFINDA_AKTIVPORT/sund" >/de
   done
 fi
 
+# Mailattrappen. Den skal køre FØR appen, for appen får dens adresse med
+# som miljøvariabel — og en adresse til noget, der ikke svarer, ville
+# gøre en afsendelse til en timeout i stedet for en mail.
+mkdir -p "$BOFINDA_LOG"
+if ! curl -sf --noproxy '*' -m 3 "http://127.0.0.1:$BOFINDA_MAILPORT/sund" >/dev/null; then
+  echo "→ starter mailattrappen"
+  BOFINDA_MAILPORT=$BOFINDA_MAILPORT nohup node scripts/cloud/mailattrap.mjs \
+    > "$BOFINDA_LOG/mailattrap.log" 2>&1 &
+  for _ in $(seq 1 20); do
+    curl -sf --noproxy '*' -m 1 "http://127.0.0.1:$BOFINDA_MAILPORT/sund" >/dev/null && break
+    sleep 0.5
+  done
+fi
+if ! curl -sf --noproxy '*' -m 3 "http://127.0.0.1:$BOFINDA_MAILPORT/sund" >/dev/null; then
+  echo "FEJL: mailattrappen svarer ikke på 127.0.0.1:$BOFINDA_MAILPORT." >&2
+  echo "      Appen startes IKKE: uden den ville en afsendelse gå ud af maskinen." >&2
+  exit 1
+fi
+
 mkdir -p "$BOFINDA_LOG"
 TILSTAND_KOMMANDO=$([ "$TILSTAND" = produktion ] && echo start || echo dev)
 
@@ -86,11 +105,23 @@ fi
 echo "→ starter appen ($TILSTAND) på http://127.0.0.1:$BOFINDA_APPPORT"
 
 # ── Miljøet for netop denne proces ──────────────────────────────
-# Ingen produktionshemmeligheder. Ingen RESEND_API_KEY: alarmmail hører
-# ikke til her, og en halvt konfigureret afsender er værre end ingen.
-# Supabase-nøglen er en ATTRAP — login, Storage og mail er IKKE
-# produktionsverificeret i dette miljø, og må ikke omtales som om de er.
+# Ingen produktionshemmeligheder. Supabase-nøglen er en ATTRAP — login,
+# Storage og mail er IKKE produktionsverificeret i dette miljø, og må
+# ikke omtales som om de er.
+#
+# MAILEN GÅR TIL LOOPBACK OG INGEN ANDRE STEDER. `MAIL_API_BASE` peger
+# på attrappen, og `lib/mail.ts` AFVISER enhver værdi, der ikke er
+# loopback — den falder ikke tilbage til Resend. Nøglen og afsenderen er
+# attrapper; de skal være sat, fordi `maaSendeTil` kræver det, men de
+# bruges kun til at komme forbi den dør, ikke til at nå nogen.
+#
+# Før kørte miljøet UDEN nøgle, så afsendelsen fejlede. Det så sikkert
+# ud og var det på en dårlig måde: prøven kunne kun måle, at forløbet
+# ikke kunne gennemføres — aldrig at det virkede.
 env -u VERCEL -u VERCEL_ENV \
+  MAIL_API_BASE="http://127.0.0.1:$BOFINDA_MAILPORT/emails" \
+  RESEND_API_KEY="attrap_kun_til_cloudtest" \
+  ALARM_AFSENDER="Bofinda testmiljoe <ingen-svar@bofinda.invalid>" \
   DATABASE_URL="$URL" \
   DATABASE_URL_DIRECT="$URL" \
   BILLED_HEMMELIGHED="$BOFINDA_BILLED_HEMMELIGHED" \

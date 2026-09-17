@@ -137,6 +137,24 @@ export function Landkort({
   const [synlig, setSynlig] = useState(false)
   /** Kortet er bygget og laget er der. Se noten ved tegne-effekten. */
   const [klar, setKlar] = useState(false)
+  /**
+   * Er der en liste at pege paa LIGE NU?
+   *
+   * `pegerTilListe` siger, om SIDEN har en liste. Det er ikke det samme
+   * som, om den er fremme: under 900 px er listen og kortet hinandens
+   * alternativer, og med kortet valgt er `.listeomraade` `display: none`.
+   * Boligkortene staar i markuppen, men de tegnes ikke — og et element,
+   * der ikke tegnes, kan hverken faa fokus eller rulles hen til.
+   *
+   * Maalt paa den rigtige ting, ikke paa en bredde: `checkVisibility()`
+   * paa et boligkort. En medieforespoergsel skrevet af i JavaScript ville
+   * vaere det samme svar to steder, og de to ville drive fra hinanden
+   * foerste gang nogen rettede i CSS'en.
+   */
+  const [listeFremme, setListeFremme] = useState(false)
+  /** `tegn()` og lytterne kaldes uden for renderen og ser ikke `useState`. */
+  const listeRef = useRef(false)
+  listeRef.current = listeFremme
   const [valgt, setValgt] = useState<string | null>(null)
   /** id → mærkets DOM-element. Bruges til klasse, tabIndex og fokus. */
   const elementer = useRef(new Map<string, HTMLElement>())
@@ -260,12 +278,71 @@ export function Landkort({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maerker, klar])
 
+  // ── Er listen fremme? Maalt nu, og igen naar bredden skifter ──
+  //
+  //  Skiftet mellem mobil- og desktopbredde er en rigtig vej: man
+  //  drejer telefonen, aabner en delt skaerm, eller zoomer. Maerkerne
+  //  skal skifte med — fra knapper til noget, man kan laese, og tilbage
+  //  igen. Uden lytteren ville en bruger, der drejede telefonen, sidde
+  //  med 44 knapper, der ikke kunne goere noget.
+  useEffect(() => {
+    if (!pegerTilListe) { setListeFremme(false); return }
+    const maal = () => setListeFremme(
+      [...document.querySelectorAll('a.kort[data-bolig]')].some((e) => e.checkVisibility()),
+    )
+    maal()
+    window.addEventListener('resize', maal, { passive: true })
+    return () => window.removeEventListener('resize', maal)
+  }, [pegerTilListe, maerker, klar])
+
+  // ── Knap eller oplysning — sat paa de maerker, der allerede staar ──
+  //
+  //  Attributterne skiftes paa de elementer, der er der; der tegnes
+  //  ingenting om. Ellers ville en resize rive det fokuserede maerke ud
+  //  af dokumentet.
+  useEffect(() => {
+    const liste = [...elementer.current.values()]
+    if (!liste.length) return
+    for (const el of liste) saetRolle(el, listeFremme)
+    if (listeFremme && !liste.some((el) => el.tabIndex === 0)) {
+      // Ét sted ind i gruppen. Uden den her ville hele kortet vaere ude
+      // af tabulatorraekkefoelgen efter et skift tilbage til desktop.
+      liste[0]!.tabIndex = 0
+    }
+  }, [listeFremme, maerker, klar])
+
   // ── Valget er en klasse, ikke en gentegning ──────────────────
   useEffect(() => {
     for (const [id, el] of elementer.current) {
       el.querySelector('.maerke-boble')?.classList.toggle('valgt', id === valgt)
     }
   }, [valgt])
+
+  /**
+   * Knap eller oplysning.
+   *
+   * MED en liste er maerket en knap: `role="button"`, ét stop i
+   * tabulatorraekkefoelgen for hele gruppen, og en beskrivelse af
+   * piletasterne.
+   *
+   * UDEN en liste kan et tryk ikke goere noget — og saa maa det hverken
+   * fremstaa som en knap eller ligge i tabulatorraekkefoelgen. Men
+   * oplysningen skal blive: `role="img"` med det samme `aria-label`
+   * goer maerket til noget, der kan LAESES — «Prøvevej 1 — 5 boliger» —
+   * i stedet for noget, der lover en handling, der ikke findes.
+   * `title` staar uroert, saa musen ogsaa faar den.
+   */
+  function saetRolle(el: HTMLElement, interaktiv: boolean) {
+    if (interaktiv) {
+      el.setAttribute('role', 'button')
+      el.setAttribute('aria-describedby', HJAELP_ID)
+      if (el.tabIndex !== 0) el.tabIndex = -1
+    } else {
+      el.setAttribute('role', 'img')
+      el.removeAttribute('aria-describedby')
+      el.removeAttribute('tabindex')
+    }
+  }
 
   /** Flytter roving-tabindex og fokus til mærke nr. `j` (med ombrydning). */
   function flytTil(j: number) {
@@ -308,7 +385,12 @@ export function Landkort({
         // ingen ulempe.
         icon: ikon, title: navnFor(mk), keyboard: false,
       })
-        .on('click', () => { if (pegerTilListe) aktiver(mk.id, false) })
+        // Museklikket er UAENDRET, ogsaa uden en synlig liste. `vaelg`
+        // finder saa ingen synlig raekke at rulle hen til, praecis som
+        // foer — men markeringen paa kortet og maalingen af klikket er
+        // den samme. Det er tastaturet og rollen, der skulle rettes,
+        // ikke hvad musen goer.
+        .on('click', () => aktiver(mk.id, false))
         // `add` og ikke `getElement()` lige efter `addTo`.
         //
         // `Map.addLayer` venter paa `whenReady`, og kortet er IKKE klart,
@@ -326,13 +408,15 @@ export function Landkort({
           if (!el) return
           el.setAttribute('aria-label', navnFor(mk))
           el.dataset.maerke = mk.id
-          // Uden en liste at pege paa er maerket ikke en knap, og saa
-          // skal det hverken hedde en eller kunne faa fokus.
-          if (!pegerTilListe) return
-          el.setAttribute('role', 'button')
-          el.setAttribute('aria-describedby', HJAELP_ID)
-          el.tabIndex = -1
+          saetRolle(el, listeRef.current)
+          elementer.current.set(mk.id, el)
+          // Uden en liste er maerket ikke en knap — men lytteren bliver
+          // siddende. Bredden kan skifte, mens maerket staar der, og en
+          // lytter, der skulle saettes paa igen ved hver resize, ville
+          // vaere en vej til at glemme den. Den spoerger i stedet paa
+          // tilstanden, hver gang der trykkes.
           el.addEventListener('keydown', (t: KeyboardEvent) => {
+            if (!listeRef.current) return
             if (t.key === 'Enter' || t.key === ' ' || t.key === 'Spacebar') {
               // Mellemrum ruller siden, hvis vi ikke stopper den. En knap,
               // der ruller i stedet for at virke, er ikke en knap.
@@ -348,7 +432,6 @@ export function Landkort({
               t.preventDefault(); flytTil(maerker.length - 1)
             }
           })
-          elementer.current.set(mk.id, el)
         })
         .addTo(g)
     })
@@ -365,11 +448,16 @@ export function Landkort({
     // stedet. Ellers ville fokus falde til <body>, altsaa til toppen af
     // dokumentet, og hun skulle tabulere hele siden igennem igen. Er
     // fokus ikke i kortet, roeres det ikke.
-    const tilbage = havdeFokus ? elementer.current.get(havdeFokus) : undefined
-    const indgang = tilbage ?? elementer.current.values().next().value
-    if (indgang) {
-      indgang.tabIndex = 0
-      if (havdeFokus) indgang.focus({ preventScroll: true })
+    // Kun naar maerkerne ER knapper. Uden en liste ligger de ikke i
+    // tabulatorraekkefoelgen, og en indgang til en gruppe, der ikke kan
+    // aktiveres, er praecis det stop, hele aendringen fjerner.
+    if (listeRef.current) {
+      const tilbage = havdeFokus ? elementer.current.get(havdeFokus) : undefined
+      const indgang = tilbage ?? elementer.current.values().next().value
+      if (indgang) {
+        indgang.tabIndex = 0
+        if (havdeFokus) indgang.focus({ preventScroll: true })
+      }
     }
   }
 
@@ -408,7 +496,7 @@ export function Landkort({
           maerket, og den bliver SYNLIG, saa snart fokus er i kortet, saa
           en seende tastaturbruger uden skaermlaeser ogsaa faar den.
           Ét sted, to veje ud — ikke to tekster. */}
-      {pegerTilListe && (
+      {listeFremme && (
         <p className="korthjaelp" id={HJAELP_ID}>
           Brug piletasterne til at skifte mellem mærkerne.
           Tryk for at fremhæve boligen i listen.
