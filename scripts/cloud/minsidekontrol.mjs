@@ -16,7 +16,36 @@
 //
 //  Prøven starter appen selv, på en ledig port, med den isolerede
 //  testbase og en falsk Auth-attrap. Den rører aldrig en app, den ikke
-//  selv har startet, og den rydder kun sine egne rækker op.
+//  selv har startet.
+//
+//  ═══ TRE SPÆRRINGER, OG DEN TREDJE ER DEN VIGTIGE ═══
+//
+//  Prøven SKRIVER. Derfor tre lag, i den rækkefølge:
+//
+//      1  DATABASE_URL'ens FORM      loopback, 55432, bofinda_test
+//      2  bygget                     ingen indbagt Auth-adresse
+//      3  den FAKTISKE forbindelse   basen SPØRGES, hvem den er
+//
+//  Kun den tredje er et bevis. En URL kan pege på det rigtige og
+//  alligevel ramme noget andet — en tunnel, en videresendelse, en
+//  omdirigering — og så er de to første linjer noget, ingen burde stole
+//  på. Derfor `current_database()`, `inet_server_addr()` og
+//  `inet_server_port()` FØR første skrivning, ligesom
+//  `scripts/cloud/app-op.sh`, `rooms-repraesentant.ts` og
+//  `tastaturkontrol.mjs` gør det.
+//
+//  ═══ OPRYDNINGEN RAMMER KUN DENNE KØRSELS EGNE RÆKKER ═══
+//
+//  Identiteterne er unikke pr. kørsel — kilde-slug, mailadresse og
+//  auth-uuid bærer alle et løbenummer — og oprydningen sletter på de
+//  ID'er, kørslen selv har oprettet. Den ryddede før på
+//  `slug like 'minside-kontrol-%'` og en FAST mailadresse, og begge dele
+//  ville ramme en anden kørsel af den samme prøve. Der ryddes heller
+//  ikke længere NOGET, før der er skrevet: en prøve, der begynder med at
+//  slette, kan ikke vide, hvis rækker den sletter.
+//
+//  Afsnit 0 efterviser begge dele med en stand-in, der ligner en anden
+//  kørsel til forveksling.
 //
 //  ═══ INTET GÅR UD AF MASKINEN ═══
 //
@@ -28,6 +57,7 @@
 //  den ene rute svarer 404 med vilje.
 // ═══════════════════════════════════════════════════════════════
 import net from 'node:net'
+import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -47,7 +77,10 @@ const skaermIdx = args.indexOf('--skaerm')
 const SKAERMMAPPE = skaermIdx >= 0 ? args[skaermIdx + 1] : null
 if (SKAERMMAPPE) mkdirSync(SKAERMMAPPE, { recursive: true })
 
-// ─── Vagt 1: isoleret base ─────────────────────────────────────
+// ─── Vagt 1: DATABASE_URL'ens FORM ─────────────────────────────
+// Formen alene er ikke et bevis — se vagt 3. Den er her, fordi en
+// åbenlyst forkert URL skal afvises, før der overhovedet åbnes en
+// forbindelse til den.
 const DBURL = process.env.DATABASE_URL ?? ''
 if (!DBURL) {
   console.log('\n  ⚠ PRØVEN KØRTE IKKE — der er ingen DATABASE_URL.\n')
@@ -100,47 +133,209 @@ if (!DBURL) {
 const { default: postgres } = await import('postgres')
 const sql = postgres(DBURL, { ssl: false, max: 4, onnotice: () => {} })
 
-// ─── Grundlaget ────────────────────────────────────────────────
-const STEMPEL = Date.now()
-const MAERKE = `minside-kontrol-${STEMPEL}`
+// ─── Vagt 3: DEN FAKTISKE FORBINDELSE ──────────────────────────
+//
+// Ikke formen på strengen: SPØRG basen, hvem den er, og lad SVARET
+// afgøre. En loopback-adresse i URL'en, der i virkeligheden ender et
+// andet sted, fanges her og ingen andre steder.
+//
+// ═══ HVORFOR PRÆDIKATET STÅR FOR SIG ═══
+//
+// Der findes ingen fremmed base at forbinde til for at prøve linjen
+// udefra, så prædikatet skilles fra kaldet og prøves med SIMULEREDE
+// værdier — samme greb som `scripts/cloud/rooms-adressevagt.ts` bruger
+// mod `erIsoleret` i `rooms-repraesentant.ts`. Afsnit 0 gør begge dele:
+// simulerede værdier mod prædikatet, OG en rigtig forbindelse til en
+// rigtig forkert base på den samme klynge.
+//
+// ═══ DEN SAMME VAGT FINDES TRE STEDER ═══
+//
+// `rooms-repraesentant.ts` (tsx), `tastaturkontrol.mjs` (node) og her.
+// Det er ét udtryk på tre steder, og CLAUDE.md's regel siger ét sted.
+// De to andre kan ikke importeres herfra: den ene er TypeScript, den
+// anden har sideeffekter i modultoppen. Den rigtige rettelse er ét delt
+// modul, alle tre importerer — den hører ikke til i denne afgrænsede
+// rettelse, men ændres den ene, skal de to andre med.
+
+/**
+ * De adresser, en isoleret testforbindelse må komme fra.
+ *
+ * NULL fra `inet_server_addr()` betyder unix-domæne-socket. Den er per
+ * definition lokal og kan ikke nå en fremmed vært, så den godkendes.
+ */
+const LOKALE_ADRESSER = new Set(['loopback', '127.0.0.1', '::1'])
+
+/**
+ * `127.0.0.1/32` → `127.0.0.1`.
+ *
+ * `inet_server_addr()` er af typen `inet` og bærer præfikslængden med,
+ * når den castes til text. Masken hører til typen, ikke til værten —
+ * uden strippet ville hver eneste adresse se forkert ud, og vagten være
+ * en linje, ingen turde stole på.
+ */
+const udenPraefiks = (a) => String(a).split('/')[0] ?? String(a)
+
+/** Navn OG port OG vært. Alle tre, ellers er det ikke testbasen. */
+const erIsoleret = (d, a, p) =>
+  d === 'bofinda_test' && Number(p) === 55432 && LOKALE_ADRESSER.has(udenPraefiks(a))
+
+// Rækkefølgen mellem vagten og første skrivning er selve pointen, og den
+// måles i afsnit 0 frem for at blive påstået. Flytter nogen vagten ned
+// under såningen — eller lægger nogen en oprydning over den — bliver 0I
+// rød. Tælleren sættes af `skriv()` og af `ryd()`/`rydFremmed()`, så den
+// dækker BÅDE skrivninger og sletninger. Kravet er «før første skrivning
+// eller sletning», og en tæller, der kun så den ene slags, ville svare
+// på et snævrere spørgsmål end det, der blev stillet.
+let trin = 0, vagtTrin = null, skrivTrin = null
+const noterSkrivning = () => { if (skrivTrin == null) skrivTrin = ++trin }
+
+// ─── Afbrydelse: hovedstrømmen skal STOPPE med at skrive ───────
+//
+// Et SIGINT afslutter ikke `try`-blokken. Rydder signalhåndteringen op
+// med det samme, vælger `ryd()` sine rækker, MENS såningen stadig
+// indsætter nye — og så fejler `delete from sources` på
+// `listings_source_id_sources_id_fk`, som er `on delete no action`.
+// Fejlen blev slugt, processen afsluttede 130, og kilden plus de
+// boliger, der nåede at komme til, stod tilbage i 9904 uden for ethvert
+// spor. Vinduet er smalt — nogle titals millisekunder — men det er
+// præcis dét, en oprydning skal kunne tåle.
+//
+// Derfor: flaget stopper hovedstrømmen ved næste skrivning, og
+// oprydningen venter på, at der er ro, før den vælger noget.
+let afbrudt = null
+let iLuften = 0
+const stopHvisAfbrudt = () => { if (afbrudt) throw new Error(`afbrudt (${afbrudt})`) }
+
+/**
+ * ALLE skrivninger går herigennem.
+ *
+ * Tre ting ét sted: tælleren til 0I, afbrydelsesflaget, og hvor mange
+ * skrivninger der er i luften. En ny indsættelse kan ikke tilføjes uden
+ * at blive talt med — det var indvendingen mod en tæller, hver kalder
+ * selv skulle huske at røre.
+ */
+const skriv = async (fn) => {
+  stopHvisAfbrudt()
+  noterSkrivning()
+  iLuften++
+  try { return await fn() } finally { iLuften-- }
+}
+
+/** Venter på, at hovedstrømmen holder op med at skrive. */
+const roligt = async (frist = 5000) => {
+  const slut = Date.now() + frist
+  while (iLuften > 0 && Date.now() < slut) await vent(40)
+  return iLuften === 0
+}
+
+/** Spørger basen, hvem den er. Kaldes FØR første skrivning. */
+const hvemErBasen = async (klient) => {
+  const [r] = await klient`select current_database() d,
+    coalesce(inet_server_addr()::text, 'loopback') a,
+    inet_server_port() p, current_user u`
+  return { d: String(r.d), a: String(r.a), p: Number(r.p), u: String(r.u) }
+}
+
+const IDENT = await hvemErBasen(sql).catch((e) => {
+  console.log(`\n  ⚠ PRØVEN KØRTE IKKE — kunne ikke spørge basen: ${e.message}\n`)
+  process.exit(2)
+})
+if (!erIsoleret(IDENT.d, IDENT.a, IDENT.p)) {
+  console.log(`\n  ⚠ PRØVEN KØRTE IKKE — forbundet til ${IDENT.d} på ${IDENT.a}:${IDENT.p}.`)
+  console.log('    Kravet er databasen bofinda_test, porten 55432 OG en lokal adresse')
+  console.log('    (loopback, 127.0.0.1 eller ::1). Prøven SKRIVER.\n')
+  await sql.end()
+  process.exit(2)
+}
+vagtTrin = ++trin
+
+// ─── Grundlaget: UNIKKE identiteter pr. kørsel ─────────────────
+//
+// Løbenummeret er tid PLUS en uuid-stump. Tiden alene er ikke nok: to
+// kørsler startet i det samme millisekund ville få den samme, og så er
+// «unik pr. kørsel» en antagelse i stedet for en egenskab.
+const LOEB = `${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`
+const MAERKE = `minside-kontrol-${LOEB}`
 const POSTNR = '9904'
-const BRUGER_ID = '55555555-2222-4333-8444-777777777777'
-const MAIL = 'minside-kontrol@invalid.test'
-const KODE = 'kontrolkode-til-min-side-42'
-const VORES = `slug like 'minside-kontrol-%'`
+const BRUGER_ID = randomUUID()
+const MAIL = `minside-kontrol-${LOEB}@invalid.test`
+const KODE = `kontrolkode-${LOEB}`
 
 // Værten ER i TILLADTE_VAERTER, så `billedUrl()` udsteder en signeret
 // adresse. Bytes'ene kommer aldrig derfra — se ruten i browseren.
 const VAERT = 'https://app.propstep.com'
 const UTILLADT = 'https://ikke-en-tilladt-vaert.invalid'
 
+// ─── Sporet: præcis det, DENNE kørsel har oprettet ─────────────
+//
+// Oprydningen sletter herfra og intet andet sted. Den brugte før
+// `slug like 'minside-kontrol-%'` og en fast mailadresse — to mønstre,
+// der matcher enhver anden kørsel af den samme prøve lige så godt som
+// denne. Sporet fyldes UNDERVEJS, så en såning, der brækker halvvejs,
+// stadig har noget at rydde op efter. Se `ryd()` og afsnit 0.
+const spor = { kilder: [], boliger: [], brugere: [], authBrugere: [] }
+
+/**
+ * Oprydningen. Kun ID'er fra `spor` og kørslens egen identitet.
+ *
+ * `MAIL` og `BRUGER_ID` bærer løbenummeret, så de ER kørslens egne, og
+ * de står med fordi `users`-rækken skabes af `bindKonto` ved login —
+ * brækker prøven mellem login og opsamlingen, er ID'et ikke i sporet
+ * endnu, mens rækken er der.
+ *
+ * Rækkefølgen er eksplicit frem for at hvile på cascade: barnetabellerne
+ * først. En oprydning, der forudsætter en fremmednøgles opførsel, går i
+ * stykker den dag nøglen ændres, og gør det tavst.
+ */
 const ryd = async () => {
-  await sql`delete from saved_searches where user_id in (select id from users where email = ${MAIL})`
-  await sql`delete from favorites where user_id in (select id from users where email = ${MAIL})`
-  await sql.unsafe(
-    `delete from listings where source_id in (select id from sources where ${VORES})`)
-  await sql.unsafe(`delete from sources where ${VORES}`)
+  // Også en SLETNING tæller som «første skrivning» for 0I. Lægger nogen
+  // en oprydning over vagten, er det netop den ødelæggende vej.
+  noterSkrivning()
+  const brugere = spor.brugere.length ? spor.brugere : null
+  if (brugere) {
+    await sql`delete from saved_searches where user_id in ${sql(brugere)}`
+    await sql`delete from favorites where user_id in ${sql(brugere)}`
+  }
+  await sql`delete from saved_searches where user_id in (
+    select id from users where email = ${MAIL} or auth_user_id = ${BRUGER_ID})`
+  await sql`delete from favorites where user_id in (
+    select id from users where email = ${MAIL} or auth_user_id = ${BRUGER_ID})`
+  if (spor.kilder.length) {
+    // Boligerne slettes på KILDENS id, ikke kun på de bolig-id'er, der
+    // nåede at komme i sporet. En bolig under en kilde, DENNE kørsel har
+    // oprettet, kan kun være denne kørsels — og så er der ingen luge
+    // mellem `insert ... returning` og `spor.boliger.push()`, hvor en
+    // række kan blive hængende. `listings.source_id` er `on delete no
+    // action`, så en overset bolig ville ellers have blokeret sletningen
+    // af kilden og efterladt begge dele.
+    await sql`delete from listing_images where listing_id in (
+      select id from listings where source_id in ${sql(spor.kilder)})`
+    await sql`delete from listings where source_id in ${sql(spor.kilder)}`
+  }
+  if (spor.boliger.length) {
+    await sql`delete from listing_images where listing_id in ${sql(spor.boliger)}`
+    await sql`delete from listings where id in ${sql(spor.boliger)}`
+  }
+  if (spor.kilder.length) await sql`delete from sources where id in ${sql(spor.kilder)}`
+  if (brugere) await sql`delete from users where id in ${sql(brugere)}`
   await sql`delete from users where email = ${MAIL} or auth_user_id = ${BRUGER_ID}`
+  if (spor.authBrugere.length) {
+    await sql`delete from auth.users where id in ${sql(spor.authBrugere)}`
+  }
   await sql`delete from auth.users where id = ${BRUGER_ID}`
+  spor.kilder.length = 0; spor.boliger.length = 0
+  spor.brugere.length = 0; spor.authBrugere.length = 0
 }
 
-// Fremmede rækker i prøvens postnummer betyder, at den ville blande sig
-// med noget, den ikke rydder op. Kontrollen går FORUD for oprydningen.
-{
-  const fremmede = await sql.unsafe(`
-    select coalesce(s.slug, '(uden kilde)') as slug, count(*)::int as n
-      from listings l left join sources s on s.id = l.source_id
-     where l.postal_code = '${POSTNR}'
-       and l.source_id not in (select id from sources where ${VORES})
-     group by 1 order by 2 desc`)
-  if (fremmede.length) {
-    const i = fremmede.reduce((a, r) => a + r.n, 0)
-    console.log(`\n  ⚠ PRØVEN KØRTE IKKE — ${i} fremmede rækker i ${POSTNR}:`)
-    for (const r of fremmede.slice(0, 6)) console.log(`      ${r.n} · ${r.slug}`)
-    await sql.end(); process.exit(2)
-  }
+/** Hvor mange rækker kørslen har tilbage i basen. 0 = ryddet helt. */
+const voresRaekker = async () => {
+  const [r] = await sql`select
+    (select count(*)::int from sources where slug = ${MAERKE})
+    + (select count(*)::int from listings where external_key like ${`${MAERKE}-%`})
+    + (select count(*)::int from users where email = ${MAIL})
+    + (select count(*)::int from auth.users where id = ${BRUGER_ID}) as n`
+  return Number(r.n)
 }
-await ryd()
 
 /**
  * Boligerne. Hver række er ét af de tilfælde, opgaven beder om at se:
@@ -171,39 +366,124 @@ const RAEKKER = [
     billeder: ['e1.jpg'], status: 'delisted' },
 ]
 
-const [kilde] = await sql`
-  insert into sources (slug, name, source_type)
-  values (${MAERKE}, 'Prøvekilde Min side', 'spider') returning id`
-const kildeId = kilde.id
+/**
+ * Sår kørslens eget grundlag. Hver indsættelse noteres i `spor`, FØR
+ * den næste sker — brækker såningen halvvejs, rydder `finally` det op,
+ * der allerede står i basen.
+ */
+const saa = async () => {
+  const [kilde] = await skriv(() => sql`
+    insert into sources (slug, name, source_type)
+    values (${MAERKE}, 'Prøvekilde Min side', 'spider') returning id`)
+  spor.kilder.push(kilde.id)
 
-const ider = {}
-for (const r of RAEKKER) {
-  const [l] = await sql`
+  const ud = {}
+  for (const r of RAEKKER) {
+    const [l] = await skriv(() => sql`
+      insert into listings (source_id, source_type, external_key, source_url, status,
+        address_raw, street, house_number, postal_code, city,
+        property_type, size_m2, rooms, rent_monthly, utilities_electricity,
+        total_monthly, total_monthly_components,
+        address_match_level, unit_address_uuid)
+      values (${kilde.id}, 'spider', ${`${MAERKE}-${r.n}`},
+        ${`https://eksempel.invalid/${r.n}`}, ${r.status},
+        ${`${r.vej} ${r.husnr}, ${POSTNR} Kontrolby`}, ${r.vej}, ${r.husnr}, ${POSTNR}, 'Kontrolby',
+        ${r.type}, ${r.m2}, ${r.vaer}, ${r.leje}, ${r.el ?? null},
+        ${r.total}, ${r.poster},
+        'unit', ${`intern:v3:minside:${MAERKE}-${r.n}`})
+      returning id`)
+    spor.boliger.push(l.id)
+    ud[r.n] = l.id
+    let pos = 0
+    for (const f of [...(r.utilladteBilleder ?? []).map((f) => `${UTILLADT}/${r.n}/${f}`),
+                     ...r.billeder.map((f) => `${VAERT}/${r.n}/${f}`)]) {
+      const i = pos++
+      await skriv(() => sql`insert into listing_images (listing_id, external_url, position)
+        values (${l.id}, ${f}, ${i})`)
+    }
+  }
+  // `public.users` sås IKKE. Bindingen skal ske for rigtigt i
+  // `bindKonto` ved første login, præcis som for en ny bruger.
+  await skriv(() => sql`insert into auth.users (id, email) values (${BRUGER_ID}, ${MAIL})`)
+  spor.authBrugere.push(BRUGER_ID)
+  return ud
+}
+
+// ─── Stand-in'en: «en anden kørsel» ────────────────────────────
+//
+// Den ligner denne prøves egne rækker til forveksling — samme
+// slug-præfiks, samme mail-præfiks, samme postnummer — og den må
+// overleve `ryd()`. Gør den ikke det, rammer oprydningen bredt igen.
+const FLOEB = `${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`
+const FREMMED = { slug: `minside-kontrol-${FLOEB}`, mail: `minside-kontrol-${FLOEB}@invalid.test`,
+  auth: randomUUID(), kilde: null, bolig: null, bruger: null }
+
+const saaFremmed = async () => {
+  const [k] = await skriv(() => sql`insert into sources (slug, name, source_type)
+    values (${FREMMED.slug}, 'En ANDEN kørsels kilde', 'spider') returning id`)
+  FREMMED.kilde = k.id
+  const [l] = await skriv(() => sql`
     insert into listings (source_id, source_type, external_key, source_url, status,
       address_raw, street, house_number, postal_code, city,
-      property_type, size_m2, rooms, rent_monthly, utilities_electricity,
-      total_monthly, total_monthly_components,
-      address_match_level, unit_address_uuid)
-    values (${kildeId}, 'spider', ${`${MAERKE}-${r.n}`},
-      ${`https://eksempel.invalid/${r.n}`}, ${r.status},
-      ${`${r.vej} ${r.husnr}, ${POSTNR} Kontrolby`}, ${r.vej}, ${r.husnr}, ${POSTNR}, 'Kontrolby',
-      ${r.type}, ${r.m2}, ${r.vaer}, ${r.leje}, ${r.el ?? null},
-      ${r.total}, ${r.poster},
-      'unit', ${`intern:v3:minside:${MAERKE}-${r.n}`})
-    returning id`
-  ider[r.n] = l.id
-  let pos = 0
-  for (const f of r.utilladteBilleder ?? []) {
-    await sql`insert into listing_images (listing_id, external_url, position)
-      values (${l.id}, ${`${UTILLADT}/${r.n}/${f}`}, ${pos++})`
-  }
-  for (const f of r.billeder) {
-    await sql`insert into listing_images (listing_id, external_url, position)
-      values (${l.id}, ${`${VAERT}/${r.n}/${f}`}, ${pos++})`
-  }
+      property_type, size_m2, rooms, rent_monthly, total_monthly,
+      total_monthly_components, address_match_level, unit_address_uuid)
+    values (${k.id}, 'spider', ${`${FREMMED.slug}-staar-fast`},
+      ${`https://eksempel.invalid/${FREMMED.slug}`}, 'active',
+      ${`Fremmedvej 99, ${POSTNR} Kontrolby`}, 'Fremmedvej', '99', ${POSTNR}, 'Kontrolby',
+      'lejlighed', 80, 3, 1000000, 1100000, ${['rent', 'heat']},
+      'unit', ${`intern:v3:minside:${FREMMED.slug}`})
+    returning id`)
+  FREMMED.bolig = l.id
+  await skriv(() => sql`insert into auth.users (id, email)
+    values (${FREMMED.auth}, ${FREMMED.mail})`)
+  const [u] = await skriv(() => sql`insert into users (email, role, auth_user_id)
+    values (${FREMMED.mail}, 'tenant', ${FREMMED.auth}) returning id`)
+  FREMMED.bruger = u.id
+  await skriv(() => sql`insert into favorites (user_id, listing_id) values (${u.id}, ${l.id})`)
+  await skriv(() => sql`insert into saved_searches (user_id, name, criteria, confirmed_at)
+    values (${u.id}, 'En anden kørsels søgning', ${sql.json({ by: 'Kontrolby' })}, now())`)
 }
-await sql`insert into auth.users (id, email) values (${BRUGER_ID}, ${MAIL})`
-console.log(`\n  · sået: ${RAEKKER.length} boliger i ${POSTNR}, konto ${MAIL}`)
+
+/**
+ * Tæller stand-in'ens SYV kendsgerninger. 7 = alt står der, 0 = alt væk.
+ *
+ * `auth.users` og bindingen står med, og det er ikke pynt:
+ * `users_auth_user_id_fkey` er `on delete set null` (0013). Ryddede
+ * nogen bredt i `auth.users`, ville den anden kørsels `users`-række
+ * BLIVE stående og bare miste sin login-binding — lydløst. En optælling
+ * uden de to led ville melde «alt står der» om en konto, der ikke
+ * længere kan logge ind.
+ */
+const FREMMEDE_FAKTA = 7
+const fremmedeRaekker = async () => {
+  const [r] = await sql`select
+    (select count(*)::int from sources where id = ${FREMMED.kilde})
+    + (select count(*)::int from listings where id = ${FREMMED.bolig})
+    + (select count(*)::int from users where id = ${FREMMED.bruger})
+    + (select count(*)::int from favorites where user_id = ${FREMMED.bruger})
+    + (select count(*)::int from saved_searches where user_id = ${FREMMED.bruger})
+    + (select count(*)::int from auth.users where id = ${FREMMED.auth})
+    + (select count(*)::int from users
+        where id = ${FREMMED.bruger} and auth_user_id = ${FREMMED.auth}) as n`
+  return Number(r.n)
+}
+
+const rydFremmed = async () => {
+  noterSkrivning()
+  if (FREMMED.bruger) {
+    await sql`delete from saved_searches where user_id = ${FREMMED.bruger}`
+    await sql`delete from favorites where user_id = ${FREMMED.bruger}`
+  }
+  if (FREMMED.bolig) {
+    await sql`delete from listing_images where listing_id = ${FREMMED.bolig}`
+    await sql`delete from listings where id = ${FREMMED.bolig}`
+  }
+  if (FREMMED.kilde) await sql`delete from sources where id = ${FREMMED.kilde}`
+  if (FREMMED.bruger) await sql`delete from users where id = ${FREMMED.bruger}`
+  await sql`delete from auth.users where id = ${FREMMED.auth}`
+}
+
+let ider = {}
 
 // ─── Op med attrappen og appen ─────────────────────────────────
 const ledigPort = () => new Promise((ok) => {
@@ -227,7 +507,47 @@ const luk = () => {
   boern.length = 0
 }
 process.on('exit', luk)
-process.on('SIGINT', () => { luk(); process.exit(130) })
+
+/**
+ * ÉN oprydning, som alle veje venter på.
+ *
+ * Ikke «første kalder rydder, resten går videre»: den form kostede en
+ * måling i `tastaturkontrol.mjs`, hvor det andet kalds `process.exit()`
+ * nåede at slukke, før det førstes oprydning var færdig. Her holdes
+ * arbejdet i én promise, så den anden kalder venter på den samme.
+ *
+ * Fejl LOGGES. En oprydning, der siger den ryddede op og ikke gjorde
+ * det, er samme fejlklasse som en knap, der ikke virker.
+ */
+let rydning = null
+const rydAlt = () => (rydning ??= (async () => {
+  await ryd().catch((e) => console.log(`  ⚠ oprydningen fejlede: ${e.message}`))
+  await rydFremmed().catch((e) => console.log(`  ⚠ stand-in'en blev ikke ryddet: ${e.message}`))
+})())
+
+// Et Ctrl-C er også en afbrydelse, og prøven har skrevet i basen. Uden
+// de her to overlevede kørslens rækker et afbrudt forløb, og det næste
+// menneske, der kiggede i 9904, fandt boliger, ingen kunne gøre rede for.
+//
+// RÆKKEFØLGEN ER IKKE LIGEGYLDIG: signalet standser ikke `try`-blokken.
+// Flaget sættes først, så hovedstrømmen kaster ved sin næste skrivning;
+// derefter ventes der på, at der ikke er flere skrivninger i luften; og
+// FØRST DA vælger oprydningen sine rækker. Ryddede den med det samme,
+// ville såningen nå at indsætte boliger efter, at `ryd()` havde valgt
+// sine — og `delete from sources` ville fejle på fremmednøglen og
+// efterlade både kilden og de nye boliger.
+for (const [signal, kode] of [['SIGINT', 130], ['SIGTERM', 143]]) {
+  process.on(signal, async () => {
+    if (afbrudt) return          // det andet Ctrl-C venter på det første
+    afbrudt = signal
+    console.log(`\n  AFBRUDT (${signal}) — stopper og rydder op efter det, kørslen selv oprettede`)
+    luk()
+    if (!await roligt()) console.log('  ⚠ der blev stadig skrevet — rydder op alligevel')
+    await rydAlt()
+    await sql.end().catch(() => {})
+    process.exit(kode)
+  })
+}
 
 const naaet = async (url, n = 90) => {
   for (let i = 0; i < n; i++) { try { await fetch(url); return true } catch { await vent(400) } }
@@ -244,6 +564,89 @@ const attrapfoto = (tekst, farve) => `<svg xmlns="http://www.w3.org/2000/svg" wi
 const FARVER = ['#5b6b7a', '#6f6152', '#4f6b5d', '#6b5566', '#586b78', '#6b5f4c', '#55606b']
 
 try {
+  // ═══ 0 · Spærringerne og oprydningen ═══════════════════════════
+  //
+  // De her linjer måler prøvens EGNE værn. De står først, fordi et værn,
+  // ingen har set fejle, ikke er et værn.
+  console.log('\n══ 0 · spærringerne ══')
+
+  tjek('0A · den faktiske forbindelse er efterprøvet, ikke kun URL\'en',
+    erIsoleret(IDENT.d, IDENT.a, IDENT.p),
+    `${IDENT.d} på ${IDENT.a}:${IDENT.p} som ${IDENT.u}`)
+
+  // KERNEN: en RIGTIG forkert base. `postgres` ligger på den samme
+  // klynge, på den samme port, på den samme loopback-adresse — og
+  // rollen kan forbinde til den. Alt er altså rigtigt undtagen navnet,
+  // og det er præcis den slags nærtræffer, en URL-kontrol ikke ser.
+  {
+    const u = new URL(DBURL)
+    const forkert = postgres(
+      `${u.protocol}//${u.username}:${u.password}@${u.hostname}:${u.port}/postgres?sslmode=disable`,
+      { ssl: false, max: 1, onnotice: () => {}, connect_timeout: 8 })
+    try {
+      const id = await hvemErBasen(forkert)
+      tjek('0B · en RIGTIG forkert base kunne nås (ellers måler 0C intet)',
+        id.d === 'postgres', `${id.d} på ${id.a}:${id.p}`)
+      tjek('0C · og vagten afviser den', !erIsoleret(id.d, id.a, id.p),
+        `${id.d} på ${id.a}:${id.p}`)
+    } finally { await forkert.end().catch(() => {}) }
+  }
+
+  // De led, der ikke kan prøves med en rigtig forbindelse: der findes
+  // ingen fremmed VÆRT at forbinde til herfra. Simulerede værdier mod
+  // prædikatet — samme greb som `rooms-adressevagt.ts`.
+  tjek('0D · det FAKTISKE format 127.0.0.1/32 godkendes',
+    erIsoleret('bofinda_test', '127.0.0.1/32', 55432))
+  // IPv6-loopback. Unix-socket prøves IKKE: over en socket giver BÅDE
+  // `inet_server_addr()` OG `inet_server_port()` null, så den tuple kan
+  // basen ikke producere, og prøven ville påstå noget, den ikke måler.
+  // 'loopback' bliver stående i `LOKALE_ADRESSER`, fordi de to søsterfiler
+  // har den — men den er dækning, ikke en nået sti her: URL'en er TCP.
+  tjek('0D · ::1/128 godkendes', erIsoleret('bofinda_test', '::1/128', 55432))
+  tjek('0E · FREMMED vært afvises trods korrekt navn OG port',
+    !erIsoleret('bofinda_test', '10.0.0.5/32', 55432), '10.0.0.5/32')
+  tjek('0E · offentlig adresse afvises',
+    !erIsoleret('bofinda_test', '203.0.113.9/32', 55432))
+  tjek('0F · forkert port afvises', !erIsoleret('bofinda_test', '127.0.0.1/32', 5432))
+  tjek('0G · forkert databasenavn afvises', !erIsoleret('postgres', '127.0.0.1/32', 55432))
+  // En nærtræffer må ikke slippe igennem på præfiksstripningen.
+  tjek('0H · 127.0.0.10 afvises — den er ikke loopback',
+    !erIsoleret('bofinda_test', '127.0.0.10/32', 55432))
+
+  // ── Rækkefølgen ────────────────────────────────────────────
+  // Vagten skal fyre FØR første skrivning. Det er ikke en påstand her;
+  // de to trin tælles, og flytter nogen vagten ned under såningen,
+  // bliver linjen rød.
+  await saaFremmed()
+  tjek('0I · vagten kørte FØR første skrivning',
+    vagtTrin != null && skrivTrin != null && vagtTrin < skrivTrin,
+    `vagt=${vagtTrin} første skrivning=${skrivTrin}`)
+
+  // ── Oprydningen rammer kun kørslens egne rækker ────────────
+  console.log('\n══ 0 · oprydningen ══')
+  tjek('0J · stand-in\'en ligner en anden kørsel af DENNE prøve',
+    FREMMED.slug.startsWith('minside-kontrol-')
+    && FREMMED.mail.startsWith('minside-kontrol-'),
+    `${FREMMED.slug} · ${FREMMED.mail}`)
+  tjek(`0K · og den står i basen med alle ${FREMMEDE_FAKTA} kendsgerninger`,
+    await fremmedeRaekker() === FREMMEDE_FAKTA,
+    `${await fremmedeRaekker()} af ${FREMMEDE_FAKTA}`)
+
+  ider = await saa()
+  tjek('0L · kørslens eget grundlag står der', await voresRaekker() > 0,
+    `${await voresRaekker()} rækker`)
+
+  await ryd()
+  tjek('0M · ryd() fjerner ALT kørslens eget', await voresRaekker() === 0,
+    `${await voresRaekker()} tilbage`)
+  const overlevede = await fremmedeRaekker()
+  tjek('0N · og lader den anden kørsels rækker stå', overlevede === FREMMEDE_FAKTA,
+    overlevede === FREMMEDE_FAKTA ? `${FREMMEDE_FAKTA} af ${FREMMEDE_FAKTA}`
+      : `KUN ${overlevede} AF ${FREMMEDE_FAKTA} TILBAGE`)
+
+  // Og så det rigtige grundlag til resten af prøven.
+  ider = await saa()
+
   start('node', ['scripts/favorit-attrap.mjs'], {
     ATTRAP_PORT: String(ATTRAP),
     ATTRAP_BRUGER_ID: BRUGER_ID, ATTRAP_MAIL: MAIL, ATTRAP_KODE: KODE,
@@ -327,37 +730,43 @@ try {
   const [bruger] = await sql`select id from users where email = ${MAIL}`
   tjek('1B · kontoen blev bundet ved første login', Boolean(bruger?.id))
   if (!bruger?.id) throw new Error('ingen brugerrække — resten kan ikke måles')
+  // Rækken er skabt af `bindKonto`, ikke af prøven. Den skal i sporet
+  // med det samme, ellers har oprydningen kun mailen at gå efter.
+  spor.brugere.push(bruger.id)
 
   for (const r of RAEKKER) {
-    await sql`insert into favorites (user_id, listing_id) values (${bruger.id}, ${ider[r.n]})`
+    await skriv(() => sql`insert into favorites (user_id, listing_id)
+      values (${bruger.id}, ${ider[r.n]})`)
   }
-  // «Forsvundet» kan kun opstå, hvis nogen sletter en bolig DIREKTE i
-  // basen — fremmednøglen er `on delete cascade`. Tilstanden findes
-  // alligevel i koden, og den skal kunne ses. Her fremstilles den
-  // præcis sådan: spærringen løftes, rækken slettes, spærringen sættes
-  // tilbage. Det sker kun i den isolerede testbase.
-  await sql.unsafe(`alter table favorites drop constraint if exists favorites_listing_id_listings_id_fk`)
-  const FORSVUNDET = '99999999-2222-4333-8444-888888888888'
-  await sql`insert into favorites (user_id, listing_id) values (${bruger.id}, ${FORSVUNDET})`
+  // «Forsvundet» prøves IKKE her. Tilstanden kan kun opstå, hvis nogen
+  // sletter en bolig direkte i basen — fremmednøglen er `on delete
+  // cascade` — og prøven fremstillede den før ved at droppe og sætte
+  // nøglen tilbage. Det er en ændring af det FÆLLES skema for at måle
+  // én visning, og brækkede kørslen imellem de to, stod basen uden
+  // fremmednøgle til den næste. Dækningen ligger i afsnit 10H i
+  // `scripts/test-brugeromraade.ts`, hvor kortet gengives isoleret med
+  // status 'forsvundet' — samme spørgsmål, ingen fælles skade.
+  // Afmeldte boliger prøves stadig her, i afsnit 5.
 
   // Gemte søgninger i alle tre tilstande. De betyder ikke det samme —
   // en ubekræftet varsler INTET, og en afmeldt heller ikke — og siden
   // skal kunne skelne dem. Uden dem står afsnittet tomt, og så er
   // «læses som en helhed» ikke prøvet på noget.
-  await sql`insert into saved_searches (user_id, name, criteria, confirmed_at)
+  await skriv(() => sql`insert into saved_searches (user_id, name, criteria, confirmed_at)
     values (${bruger.id}, '3 vær. i Kontrolby',
-      ${sql.json({ by: 'Kontrolby', vaerelserMin: 3 })}, now())`
-  await sql`insert into saved_searches (user_id, name, criteria)
+      ${sql.json({ by: 'Kontrolby', vaerelserMin: 3 })}, now())`)
+  await skriv(() => sql`insert into saved_searches (user_id, name, criteria)
     values (${bruger.id}, 'Billige boliger i 9904',
-      ${sql.json({ postnr: POSTNR, prisMax: 1000000 })})`
-  await sql`insert into saved_searches (user_id, name, criteria, confirmed_at, unsubscribed_at)
-    values (${bruger.id}, 'Rækkehuse', ${sql.json({ typer: ['raekkehus'] })}, now(), now())`
+      ${sql.json({ postnr: POSTNR, prisMax: 1000000 })})`)
+  await skriv(() => sql`insert into saved_searches
+    (user_id, name, criteria, confirmed_at, unsubscribed_at)
+    values (${bruger.id}, 'Rækkehuse', ${sql.json({ typer: ['raekkehus'] })}, now(), now())`)
 
   await p.reload({ waitUntil: 'networkidle' })
   await afvisBanner(p)
   const kort = p.locator('.gemte-kort > .gemt-kort')
   tjek('1C · alle gemte boliger står som kort',
-    await kort.count() === RAEKKER.length + 1, `${await kort.count()} kort`)
+    await kort.count() === RAEKKER.length, `${await kort.count()} kort`)
   tjek('1D · intet forlod maskinen under kontrollen', udefra() === 0, `${udefra()} forsøg`)
 
   // ═══ 2 · Layoutet ved tre bredder ══════════════════════════════
@@ -526,8 +935,11 @@ try {
       }
       return ud
     })
-    tjek('4E · der ER grønne totaler at måle på', groenneKort.length >= 4,
-      `${groenneKort.length}`)
+    // Udledt af grundlaget, ikke et løst gulv: et gulv på fire tålte, at
+    // ét af de fem grønne kort faldt lydløst ud af målingen.
+    const ventedeGroenne = RAEKKER.filter((r) => r.total != null).length
+    tjek('4E · alle kort med kendt total er grønne',
+      groenneKort.length === ventedeGroenne, `${groenneKort.length} af ${ventedeGroenne}`)
     // Af de fem grønne har KUN «Fejlvej 11» el som navngiven post.
     // Resten skal have linjen — ellers står et grønt tal uden at el er
     // gjort rede for, og det er fejlen fra de 171 gruppekort.
@@ -537,8 +949,10 @@ try {
       udenLinje.join(' | ') || 'ingen')
   }
 
-  // ═══ 5 · Afmeldt og forsvundet ═════════════════════════════════
-  console.log('\n══ 5 · afmeldt og forsvundet ══')
+  // ═══ 5 · Afmeldt ═══════════════════════════════════════════════
+  // «Forsvundet» hører ikke til her — se noten ved såningen. Den er
+  // dækket af afsnit 10H i scripts/test-brugeromraade.ts.
+  console.log('\n══ 5 · afmeldt ══')
   {
     const a = kortFor('afmeldt')
     tjek('5A · afmeldt: kortet er mærket', await a.evaluate((x) => x.classList.contains('utilgaengelig')))
@@ -546,13 +960,6 @@ try {
       (await a.innerText()).includes('Ikke længere tilgængelig'))
     tjek('5A · afmeldt: boligsiden kan stadig åbnes',
       await a.locator(`a.adresse[href="/bolig/${ider.afmeldt}"]`).count() === 1)
-
-    const v = p.locator('.gemt-kort:has-text("Boligen findes ikke længere")')
-    tjek('5B · forsvundet: kortet siger det', await v.count() === 1)
-    tjek('5B · forsvundet: der er ikke et link til en side, der ikke findes',
-      await v.locator('a[href^="/bolig/"]').count() === 0)
-    tjek('5B · forsvundet: men den kan stadig fjernes',
-      await v.locator('button.gemt-fjern').count() === 1)
   }
 
   // ═══ 6 · Tastatur og fokus ═════════════════════════════════════
@@ -662,20 +1069,39 @@ try {
   if (SKAERMMAPPE) console.log(`\n  · skærmbilleder i ${SKAERMMAPPE}`)
 
   await c1.close()
+
+  // ═══ 8 · Oprydningen, efter en hel kørsel ══════════════════════
+  //
+  // Afsnit 0 målte oprydningen på et grundlag, prøven lige havde sået.
+  // Her måles den på et grundlag, der har været HELE vejen igennem:
+  // login har skabt en `users`-række, browseren har fjernet en favorit,
+  // og der er kommet gemte søgninger til. Det er dét grundlag, en
+  // afbrudt kørsel ville efterlade.
+  console.log('\n══ 8 · oprydningen efter kørslen ══')
+  await ryd()
+  tjek('8A · kørslens egne rækker er væk', await voresRaekker() === 0,
+    `${await voresRaekker()} tilbage`)
+  {
+    const [r] = await sql`select count(*)::int n from favorites where user_id = ${bruger.id}`
+    tjek('8B · også favoritterne og de gemte søgninger', Number(r.n) === 0, `${r.n} tilbage`)
+  }
+  const staar = await fremmedeRaekker()
+  tjek('8C · og den anden kørsels rækker står der endnu', staar === FREMMEDE_FAKTA,
+    staar === FREMMEDE_FAKTA ? `${FREMMEDE_FAKTA} af ${FREMMEDE_FAKTA}`
+      : `KUN ${staar} AF ${FREMMEDE_FAKTA} TILBAGE`)
+  await rydFremmed()
+  tjek('8D · stand-in\'en er ryddet bagefter', await fremmedeRaekker() === 0)
 } catch (e) {
   console.log(`\n  ✗ PRØVEN BRØD SAMMEN — ${e.message}`)
   fejl++
 } finally {
   luk()
-  // RÆKKKEFØLGEN ER IKKE LIGEGYLDIG. Oprydningen skal komme FØRST:
-  // spærringen kan ikke sættes tilbage, så længe den forældreløse
-  // «forsvundet»-række står der, og et mislykket forsøg her ville
-  // efterlade basen uden fremmednøgle til næste kørsel — hvilket den
-  // gjorde, første gang prøven brød sammen undervejs.
-  await ryd().catch(() => {})
-  await sql.unsafe(`alter table favorites add constraint favorites_listing_id_listings_id_fk
-    foreign key (listing_id) references public.listings(id) on delete cascade`)
-    .catch(() => { console.log('  ⚠ fremmednøglen på favorites.listing_id kunne ikke sættes tilbage') })
+  // Oprydningen kører, uanset hvor kørslen brækkede — også midt i
+  // såningen. `spor` bærer kun det, der faktisk nåede at blive skrevet,
+  // og boligerne slettes desuden på kildens id, så der ikke er en luge
+  // mellem indsættelsen og sporet. SAMME ene oprydning som
+  // signalvejen — der er ikke to.
+  await rydAlt()
   await sql.end()
 }
 
