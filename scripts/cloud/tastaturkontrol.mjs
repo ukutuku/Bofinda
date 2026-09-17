@@ -76,7 +76,9 @@
 // ═══════════════════════════════════════════════════════════════
 import pw from 'playwright-core'
 import postgres from 'postgres'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 
 const BASE = process.env.BOFINDA_APP_BASE ?? 'http://127.0.0.1:3100'
 const MAILATTRAP = process.env.BOFINDA_MAILATTRAP ?? 'http://127.0.0.1:55434'
@@ -85,19 +87,60 @@ if (UD) mkdirSync(UD, { recursive: true })
 
 // ═══ VAERN ═══════════════════════════════════════════════════════
 //
-//  Proeven INDSENDER en formular og SLETTER raekker bagefter. Begge dele
-//  er harmloese mod en attrapbase paa loopback og uacceptable mod alt
+//  Proeven INDSENDER en formular og SLETTER raekker. Begge dele er
+//  harmloese mod en attrapbase paa loopback og uacceptable mod alt
 //  andet. Vaernene staar derfor foerst, de spoerger om det FAKTISKE —
 //  ikke om formen paa en streng — og de afviser med exit 2 i stedet for
 //  at maale videre.
 //
-//  Fire ting skal holde, og de daekker hver sin vej udenom:
-//    1. appadressen er loopback          (ellers maales en fremmed app)
-//    2. basen SIGER selv, hvem den er    (en URL kan pege ét sted og ramme et andet)
-//    3. appen laeser SAMME base          (ellers sletter vi i én base og maaler i en anden)
-//    4. mailen gaar til en lokal attrap  (ellers kan en indsendelse sende rigtig post)
-const LOOPBACK = ['127.0.0.1', 'localhost', '[::1]']
+//  ── HVORFOR PROEVEN EJER APPEN ───────────────────────────────
+//
+//  Foer maalte den mod «den app, der nu tilfaeldigvis svarede paa
+//  porten», og efterviste kun, at en mailattrap FANDTES. Ingen af
+//  delene siger, at DEN app bruger attrappen, eller at den laeser vores
+//  base. En fremmed app paa 3100 — en anden gren, en gammel proces, et
+//  helt andet projekt — ville blive maalt som vores, og formularen
+//  ville blive indsendt ind i den.
+//
+//  Nu starter proeven appen selv:
+//
+//    1. `app-ned.sh` stopper KUN vores egne kendetegn (den scanner
+//       /proc efter «next … -p 3100», aktiver.mjs og mailattrap.mjs).
+//       En fremmed proces roeres ikke.
+//    2. Svarer porten stadig, er den fremmedes — og saa afvises der.
+//    3. `app-op.sh` starter appen med den verificerede base, attrappen
+//       og en ATTRAPNOEGLE. Begge scripts er de eksisterende; der er
+//       ikke bygget en ny opstartsvej ved siden af.
+//    4. Miljoeet efterproeves paa den kørende proces gennem
+//       /proc/<pid>/environ. Det er ikke et endpoint — ingenting
+//       udstilles paa nettet — og det er det eneste sted, hvor det
+//       FAKTISKE miljoe staar.
+//
+//  ── OG LAESER APPEN DEN SAMME BASE? ──────────────────────────
+//
+//  Et opslag paa en bolig, der findes i forvejen, beviser ingenting: en
+//  KOPI af testdata har de samme id'er. Proeven skriver derfor en
+//  raekke, der ikke kan findes i nogen kopi — egen kilde, eget
+//  vejnavn, oprettet i dette sekund — og forlanger at faa den serveret
+//  tilbage. Bagefter slettes den igen.
+//
+//  Kilden er proevens EGEN med sin egen slug, og `source_created_at`
+//  staar null. Det er reglen fra CLAUDE.md: en proeve maa ikke laane en
+//  rigtig kildes historik, for saa arver den kildens kørsler og
+//  slipper forbi alarmens indkoeringsvagt.
+const LOOPBACK = ['127.0.0.1', 'localhost', '[::1]', '::1']
 const doed = (m) => { console.error(`FEJL: ${m}`); process.exit(2) }
+
+/** `inet_server_addr()` svarer `127.0.0.1/32`. Masken skal af, foer der
+ *  sammenlignes — ellers ville enhver adresse se forkert ud, og
+ *  kontrollen ville vaere en linje, ingen turde stole paa. */
+export function loopbackAdresse(raa) {
+  if (raa == null) return { ok: false, adresse: null, grund: 'ingen adresse fra serveren' }
+  const a = String(raa).trim().replace(/\/(32|128)$/, '')
+  return LOOPBACK.includes(a)
+    ? { ok: true, adresse: a }
+    : { ok: false, adresse: a, grund: `${a} er ikke loopback` }
+}
 
 {
   let u
@@ -107,6 +150,7 @@ const doed = (m) => { console.error(`FEJL: ${m}`); process.exit(2) }
   }
 }
 const VAERT = new URL(BASE).hostname
+const APPPORT = new URL(BASE).port || '80'
 
 if (!process.env.DATABASE_URL) {
   doed('DATABASE_URL mangler — proeven kan ikke vaelge data eller rydde op.')
@@ -120,55 +164,137 @@ if (!process.env.DATABASE_URL) {
 
 const sql = postgres(process.env.DATABASE_URL, { ssl: false, max: 1, onnotice: () => {} })
 
-// Ikke kun formen paa strengen: SPOERG basen, hvem den er. Samme vaern
-// som scripts/cloud/app-op.sh bruger, af samme grund.
+// Ikke kun formen paa strengen: SPOERG basen, hvem den er — og LAD
+// SVARET AFGOERE. Adressen kommer fra den FAKTISKE forbindelse, saa en
+// loopback-adresse i URL'en, der i virkeligheden ender et andet sted
+// (en tunnel, en videresendelse), fanges her og ikke senere.
 {
   const [id] = await sql`select current_database() d, inet_server_addr()::text a,
     inet_server_port() p, current_user u`
-  if (id.d !== 'bofinda_test' || Number(id.p) !== 55432) {
+  const adr = loopbackAdresse(id.a)
+  if (id.d !== 'bofinda_test' || Number(id.p) !== 55432 || !adr.ok) {
     await sql.end()
-    doed(`forbundet til ${id.d} paa ${id.a ?? 'loopback'}:${id.p} — ikke testbasen.`)
+    doed(`forbindelsen er ${id.d} paa ${adr.adresse ?? '?'}:${id.p}`
+      + `${adr.ok ? '' : ` — ${adr.grund}`} — ikke den isolerede testbase.`)
   }
-  console.log(`base: ${id.d} paa ${id.a ?? 'loopback'}:${id.p} som ${id.u}`)
+  console.log(`base: ${id.d} paa ${adr.adresse}:${id.p} som ${id.u} (adressen efterprøvet)`)
 }
 
-// Og laeser APPEN den samme base? Et id herfra er en tilfaeldig uuid;
-// svarer appen 200 paa den, har den rækken. Gør den ikke, maaler vi ét
-// sted og sletter et andet — den fejl er tavs og dyr.
+// ── Appen: stop vores egen, afvis en fremmed, start vores ────────
+const TESTROD = process.env.BOFINDA_TEST_ROD ?? '/var/lib/bofinda-test'
+const TILSTAND = process.env.BOFINDA_APP_TILSTAND ?? 'dev'
+const koer = (kmd, args) => {
+  const r = spawnSync(kmd, args, { encoding: 'utf8' })
+  return { kode: r.status, ud: `${r.stdout ?? ''}${r.stderr ?? ''}`.trim() }
+}
+const svarerPort = async () => {
+  try { await fetch(BASE, { signal: AbortSignal.timeout(2500) }); return true } catch { return false }
+}
+
 {
-  const [b] = await sql`select id, city from listings where status = 'active' limit 1`
-  if (!b) { await sql.end(); doed('ingen aktive boliger i basen — der er intet at maale paa.') }
-  const r = await fetch(`${BASE}/bolig/${b.id}`).catch((e) => ({ ok: false, status: String(e) }))
-  if (!r.ok) {
+  // 1 · Stop KUN vores egne. Scriptet scanner /proc efter vores egne
+  //     kendetegn og roerer ikke en fremmed proces.
+  koer('bash', ['scripts/cloud/app-ned.sh'])
+  await new Promise((r) => setTimeout(r, 1200))
+
+  // 2 · Svarer porten stadig, er den ikke vores.
+  if (await svarerPort()) {
     await sql.end()
-    doed(`appen paa ${BASE} kender ikke bolig ${b.id} (svar ${r.status}) — den laeser en ANDEN base.`)
+    doed(`noget svarer allerede paa ${BASE}, og det er ikke en proces, dette miljoe har startet.`
+      + `\n      Proeven indsender en formular — den goer det ikke ind i en app, den ikke kender.`
+      + `\n      Stop den, eller frigiv port ${APPPORT}.`)
   }
-  const html = await r.text()
-  if (b.city && !html.includes(b.city)) {
+
+  // 3 · Start vores egen, med de eksisterende scripts.
+  const op = koer('bash', ['scripts/cloud/app-op.sh', ...(TILSTAND === 'produktion' ? ['--produktion'] : [])])
+  if (op.kode !== 0) {
     await sql.end()
-    doed(`appen svarede 200 paa bolig ${b.id}, men uden «${b.city}» — samme base kan ikke bekraeftes.`)
+    doed(`app-op.sh fejlede (${op.kode}):\n${op.ud.split('\n').slice(-8).join('\n')}`)
   }
-  console.log(`appen: ${BASE} serverer bolig ${b.id} fra samme base`)
+  console.log(`app: startet af proeven (${TILSTAND}) paa ${BASE}`)
 }
 
-// Mailattrappen. Uden den kan en indsendelse i vaerste fald naa en
-// rigtig indbakke — og i bedste fald maaler proeven en spaerring i
-// stedet for et forloeb.
+// 4 · Og hvad koerer den saa med? Aflaest paa PROCESSEN, ikke paa et
+//     endpoint: der udstilles ingenting, og det er det eneste sted,
+//     hvor det faktiske miljoe staar.
+let apppid = null
+{
+  try { apppid = readFileSync(`${TESTROD}/app.pid`, 'utf8').trim() } catch { /* under */ }
+  if (!apppid) { await sql.end(); doed(`fandt ingen ${TESTROD}/app.pid — appens miljoe kan ikke efterproeves.`) }
+  let miljoe
+  try {
+    miljoe = Object.fromEntries(readFileSync(`/proc/${apppid}/environ`, 'utf8')
+      .split('\0').filter(Boolean)
+      .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]))
+  } catch (e) {
+    await sql.end()
+    doed(`kunne ikke laese /proc/${apppid}/environ (${e.message}) — appens miljoe kan ikke efterproeves.`)
+  }
+  const krav = []
+  if (miljoe.DATABASE_URL !== process.env.DATABASE_URL) {
+    krav.push('appen koerer med en ANDEN DATABASE_URL end proeven')
+  }
+  const m = miljoe.MAIL_API_BASE
+  if (!m) krav.push('appen har ingen MAIL_API_BASE — en indsendelse ville gaa til Resend')
+  else {
+    try {
+      const mu = new URL(m)
+      if (!LOOPBACK.includes(mu.hostname)) krav.push(`MAIL_API_BASE peger paa ${mu.hostname}, ikke loopback`)
+    } catch { krav.push('MAIL_API_BASE er ikke en URL') }
+  }
+  if (!miljoe.RESEND_API_KEY) krav.push('ingen RESEND_API_KEY — afsendelsen ville blive spaerret i stedet for maalt')
+  if (!miljoe.ALARM_AFSENDER) krav.push('ingen ALARM_AFSENDER')
+  if (krav.length) { await sql.end(); doed(`appens miljoe holder ikke:\n      · ${krav.join('\n      · ')}`) }
+  console.log(`app-miljoe: samme DATABASE_URL · mail → ${m} · attrapnoegle sat`)
+}
+
+// 5 · Mailattrappen svarer — og den er paa loopback.
 {
   let u
-  try { u = new URL(MAILATTRAP) } catch { await sql.end(); doed(`BOFINDA_MAILATTRAP er ikke en URL`) }
+  try { u = new URL(MAILATTRAP) } catch { await sql.end(); doed('BOFINDA_MAILATTRAP er ikke en URL') }
   if (!LOOPBACK.includes(u.hostname)) {
     await sql.end(); doed(`mailattrappen peger paa ${u.hostname} — kun loopback.`)
   }
   const r = await fetch(`${MAILATTRAP}/sund`).catch(() => null)
-  if (!r?.ok) {
-    await sql.end()
-    doed(`mailattrappen svarer ikke paa ${MAILATTRAP} — start miljoeet med scripts/cloud/app-op.sh.`)
-  }
+  if (!r?.ok) { await sql.end(); doed(`mailattrappen svarer ikke paa ${MAILATTRAP}.`) }
   console.log(`mail: attrap paa ${MAILATTRAP}`)
 }
-// Byen skal have MANGE maerker, ellers maaler «kortet kan springes over»
-// ingenting: med tre maerker er 44 stop og 3 stop lige gode.
+
+// 6 · LAESER APPEN DEN SAMME BASE? Ikke «findes boligen» — den findes
+//     ogsaa i en kopi, med samme id. En raekke, der blev til for et
+//     sekund siden, findes kun det ene sted.
+{
+  const slug = `tastaturproeve-${randomUUID().slice(0, 8)}`
+  const vej = `Proevevej ${randomUUID().slice(0, 8)}`
+  const [kilde] = await sql`
+    insert into sources (slug, name, source_type) values (${slug}, ${slug}, 'spider')
+    returning id`
+  let boligId = null
+  try {
+    const [b] = await sql`
+      insert into listings (source_id, source_type, external_key, source_url, address_raw,
+                            street, postal_code, city, status, source_created_at)
+      values (${kilde.id}, 'spider', ${slug}, ${'https://eksempel.invalid/' + slug},
+              ${vej + ' 1, 9999 Proevestad'}, ${vej}, '9999', 'Proevestad', 'active', null)
+      returning id`
+    boligId = b.id
+    const r = await fetch(`${BASE}/bolig/${boligId}`).catch((e) => ({ ok: false, status: String(e) }))
+    const html = r.ok ? await r.text() : ''
+    if (!r.ok || !html.includes(vej)) {
+      await sql`delete from listings where id = ${boligId}`
+      await sql`delete from sources where id = ${kilde.id}`
+      await sql.end()
+      doed(`appen serverede ikke den raekke, proeven lige skrev (svar ${r.status}).`
+        + `\n      Den laeser en ANDEN base — eller en kopi. Der skrives ikke videre.`)
+    }
+    console.log(`base-bevis: appen serverede «${vej}», skrevet for et oejeblik siden`)
+  } finally {
+    if (boligId) await sql`delete from listings where id = ${boligId}`
+    await sql`delete from sources where id = ${kilde.id}`
+  }
+}
+
+// ── Data at maale paa ────────────────────────────────────────────
 const [by] = await sql`
   select city as navn, count(*)::int as n from listings
   where status = 'active' and city is not null and lat is not null
@@ -176,8 +302,8 @@ const [by] = await sql`
 const [bolig] = await sql`
   select id from listings where status = 'active' and lat is not null limit 1`
 if (!by || by.n < 20) {
-  console.error(`FEJL: ingen by med mindst 20 placerede boliger (bedste: ${by?.navn ?? 'ingen'} ${by?.n ?? 0}).`)
-  await sql.end(); process.exit(2)
+  await sql.end()
+  doed(`ingen by med mindst 20 placerede boliger (bedste: ${by?.navn ?? 'ingen'} ${by?.n ?? 0}).`)
 }
 const STED = encodeURIComponent(by.navn)
 console.log(`maaler paa «${by.navn}» — ${by.n} placerede boliger\n`)
@@ -199,6 +325,10 @@ const lukNed = async () => {
   lukket = true
   await sql.end().catch(() => {})
   await br.close().catch(() => {})
+  // Proeven startede appen; saa rydder den den ogsaa op. Scriptet
+  // stopper kun vores egne kendetegn, saa en fremmed proces, der maatte
+  // vaere startet imens, roeres ikke.
+  koer('bash', ['scripts/cloud/app-ned.sh'])
 }
 for (const slags of ['uncaughtException', 'unhandledRejection']) {
   process.on(slags, async (e) => {
@@ -209,7 +339,9 @@ for (const slags of ['uncaughtException', 'unhandledRejection']) {
 }
 
 let fejl = 0
+let koert = 0
 const tjek = (ok, navn, note = '') => {
+  koert++
   if (!ok) fejl++
   console.log(`  ${ok ? '✓' : '✗'} ${navn}${note ? '  — ' + note : ''}`)
 }
@@ -1042,5 +1174,9 @@ console.log('\n═══ formularregression: fejl → rettelse → succes ══
 }
 
 await lukNed()
-console.log(`\n${fejl === 0 ? '✓ alt groent' : `✗ ${fejl} fejlede`}`)
+// Tallet staar HER og skal ikke taelles i loggen bagefter. En optaelling
+// med `grep -c ✓` tager afslutningslinjen med og giver én for meget —
+// den fejl stod i en aflevering, foer linjen fandtes.
+console.log(`\n${koert} kontroller koert · ${koert - fejl} groenne · ${fejl} roede`)
+console.log(fejl === 0 ? 'ALT GROENT' : 'NOGET FEJLEDE')
 process.exit(fejl === 0 ? 0 : 1)
