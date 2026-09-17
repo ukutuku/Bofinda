@@ -217,21 +217,33 @@ function stopEgne() {
     // gruppe pid'en er i lige nu — og pid'en er netop identitetsproevet
     // ovenfor. Det noterede tal bruges som krydstjek, saa en uenighed
     // bliver sagt hoejt i stedet for at gaa ubemaerket forbi.
+    // ═══ ALDRIG ET GRUPPESIGNAL UDEN BEKRAEFTET EJERSKAB ═══
+    //
+    // Tre ting skal passe, og alle tre paa én gang:
+    //   1. en gruppe blev REGISTRERET af denne koersel (r.pgid),
+    //   2. processen er STADIG i den gruppe (kernen spoerges nu), og
+    //   3. gruppen er ikke vores egen.
+    //
+    // Punkt 1 kan `app-op.sh` ikke laengere svare tvetydigt paa: den
+    // skriver kun en gruppe, kernen selv har bekraeftet som processens
+    // egen, og fejler ellers foer sundhedskontrollen. Punkt 2 og 3 er den
+    // anden spaerring, saa et forkert tal ikke kan komme igennem ad en vej,
+    // vi ikke har taenkt paa.
+    //
+    // Passer det ikke, sendes der til PID'EN alene — den er
+    // identitetsproevet paa sin kommandolinje ovenfor. Det siges hoejt,
+    // for en proceskaede kan have en underproces, pid-signalet ikke naar.
     const nu = pgidAf(r.pid)
-    if (r.pgid != null && nu != null && nu !== r.pgid) {
-      console.error(`  · ${r.navn}: noteret gruppe ${r.pgid}, men pid ${r.pid} er nu i ${nu}`
-        + ` — den levende gruppe bruges`)
-    }
-    // Vores EGEN gruppe rammes aldrig. Sker det alligevel, at appen ligger
-    // i den, er der intet gruppesignal at sende: saa stoppes pid'en alene,
-    // og det siges, saa en efterladt underproces ikke bliver en tavs rest.
-    const gruppe = nu != null && nu !== EGEN_PGID ? nu : null
-    if (!gruppe) {
-      console.error(`  · ${r.navn}: pid ${r.pid} ligger i VORES egen gruppe (${EGEN_PGID})`
-        + ` — kun pid'en stoppes, og en underproces kan overleve`)
+    const ejerskab = r.pgid != null && nu === r.pgid && r.pgid !== EGEN_PGID
+    if (!ejerskab) {
+      const hvorfor = r.pgid == null ? 'ingen gruppe blev registreret'
+        : r.pgid === EGEN_PGID ? `gruppen ${r.pgid} er VORES egen`
+          : `gruppen ${r.pgid} passer ikke — pid ${r.pid} er nu i ${nu ?? '?'}`
+      console.error(`  · ${r.navn}: ${hvorfor} — kun pid'en stoppes,`
+        + ` og en underproces kan overleve`)
     }
     try {
-      if (gruppe) process.kill(-gruppe, 'SIGTERM')
+      if (ejerskab) process.kill(-r.pgid, 'SIGTERM')
       else process.kill(r.pid, 'SIGTERM')
     } catch { /* naaede at doe selv */ }
   }

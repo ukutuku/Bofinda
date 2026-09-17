@@ -171,6 +171,23 @@ for _ in $(seq 1 100); do
   kill -0 "$APPPID" 2>/dev/null || break
   sleep 0.05
 done
+if [ -z "$APPPGID" ]; then
+  echo "FEJL: app-processen fik aldrig sin egen procesgruppe." >&2
+  echo "      Uden den kan ingen rydde op efter den uden at ramme andre," >&2
+  echo "      så opstarten fortsætter IKKE til sundhedskontrollen." >&2
+  echo "      Der stoppes KUN pid $APPPID. Ligger der en underproces under" >&2
+  echo "      den, kan den overleve og holde port $BOFINDA_APPPORT — den" >&2
+  echo "      skal i så fald stoppes i hånden med scripts/cloud/app-ned.sh." >&2
+  echo "      Det er med vilje: gruppen er her kalderens egen, og den må" >&2
+  echo "      aldrig rammes." >&2
+  # KUN pid'en, netop derfor.
+  kill -TERM "$APPPID" 2>/dev/null || true
+  # Ingen pid-filer. En tom app.pgid ville se ud som et ejerskab, vi ikke
+  # har — og en app.pid uden en bekræftet gruppe er ikke nok til at rydde
+  # op efter en proceskæde.
+  rm -f "$BOFINDA_TEST_ROD/app.pid" "$BOFINDA_TEST_ROD/app.pgid"
+  exit 1
+fi
 echo "$APPPGID" > "$BOFINDA_TEST_ROD/app.pgid"
 for _ in $(seq 1 60); do
   # Døde vores egen proces, er der ingen grund til at vente på et svar —
