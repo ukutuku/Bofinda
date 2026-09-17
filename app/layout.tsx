@@ -22,6 +22,17 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <html lang="da" className={sans.variable}>
       <body>
+        {/* ── Samtykkebanneret staar FOERST i markuppen ─────────
+            Det ligger visuelt fast i bunden, men det hoerer foerst i
+            tabulatorraekkefoelgen. Laa det sidst — som det gjorde —
+            skulle man 106 tryk gennem hele resultatsiden for at naa
+            «Kun det noedvendige»; kortets maerker alene var 46 af dem.
+            Et banner, der beder om et svar, maa ikke vaere det svaereste
+            paa siden at naa.
+
+            Bagud var det altid ét Shift+Tab vaek. Det er ikke godt nok:
+            forlaens er den retning, man tabulerer i. */}
+        <Samtykke />
         {/* ── Brandbjælken ──────────────────────────────────────
             Mockuppens bjælke: wordmark til venstre, menuen ved siden af,
             handlingerne yderst til højre. Undertitlen er væk — den stod som
@@ -76,7 +87,6 @@ export default function Layout({ children }: { children: ReactNode }) {
               kilden eller direkte hos udlejeren.</span>
           </div>
         </footer>
-        <Samtykke />
       </body>
     </html>
   )
