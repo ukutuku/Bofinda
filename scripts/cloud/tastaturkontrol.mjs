@@ -77,7 +77,8 @@
 import pw from 'playwright-core'
 import postgres from 'postgres'
 import { mkdirSync, readFileSync } from 'node:fs'
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
+import { connect as netConnect } from 'node:net'
 import { randomUUID } from 'node:crypto'
 
 const BASE = process.env.BOFINDA_APP_BASE ?? 'http://127.0.0.1:3100'
@@ -104,17 +105,32 @@ if (UD) mkdirSync(UD, { recursive: true })
 //
 //  Nu starter proeven appen selv:
 //
-//    1. `app-ned.sh` stopper KUN vores egne kendetegn (den scanner
-//       /proc efter «next … -p 3100», aktiver.mjs og mailattrap.mjs).
-//       En fremmed proces roeres ikke.
-//    2. Svarer porten stadig, er den fremmedes — og saa afvises der.
-//    3. `app-op.sh` starter appen med den verificerede base, attrappen
-//       og en ATTRAPNOEGLE. Begge scripts er de eksisterende; der er
-//       ikke bygget en ny opstartsvej ved siden af.
-//    4. Miljoeet efterproeves paa den kørende proces gennem
+//    1. PORTENE SES EFTER FOERST, og der stoppes ingenting.
+//       Er en af dem optaget, afvises der — punktum.
+//    2. Ellers startes testaktiverne og mailattrappen af proeven, som
+//       NOTERER deres pid, og `app-op.sh` starter selve appen og
+//       skriver sin pid og procesgruppe. Scriptene er de eksisterende;
+//       der er ikke bygget en ny opstartsvej ved siden af.
+//    3. Miljoeet efterproeves paa den kørende proces gennem
 //       /proc/<pid>/environ. Det er ikke et endpoint — ingenting
 //       udstilles paa nettet — og det er det eneste sted, hvor det
 //       FAKTISKE miljoe staar.
+//    4. Oprydningen rammer KUN de pid'er og procesgrupper, denne
+//       koersel selv noterede, og kun hvis processens egen kommandolinje
+//       stadig passer paa det, vi startede.
+//
+//  ── HVORFOR IKKE `app-ned.sh` FOERST ─────────────────────────
+//
+//  Det gjorde den, og det var forkert. `app-ned.sh` scanner /proc efter
+//  «next dev -p 3100» og «next start -p 3100» — et MOENSTER, ikke et
+//  ejerskab. En anden sessions Next-app paa samme port har nøjagtig den
+//  kommandolinje, og den ville altsaa blive STOPPET, et sekund foer
+//  kontrollen naaede at afvise den. Afvisningen ville melde det rigtige
+//  og have gjort det forkerte.
+//
+//  Scriptet er ikke aendret — som operatoerens vaerktoej er den brede
+//  scanning rigtig nok, naar et menneske ved, hvad der koerer. Det er
+//  kontrollen, der ikke maa bruge den: den ved det ikke.
 //
 //  ── OG LAESER APPEN DEN SAMME BASE? ──────────────────────────
 //
@@ -129,7 +145,61 @@ if (UD) mkdirSync(UD, { recursive: true })
 //  rigtig kildes historik, for saa arver den kildens kørsler og
 //  slipper forbi alarmens indkoeringsvagt.
 const LOOPBACK = ['127.0.0.1', 'localhost', '[::1]', '::1']
-const doed = (m) => { console.error(`FEJL: ${m}`); process.exit(2) }
+
+/**
+ * Det, DENNE koersel har startet. Intet andet roeres.
+ *
+ * `pgid` er procesgruppen, naar vi kender den: `next` er en kaede af
+ * processer, og en TERM til toppen efterlader serveren koerende.
+ * `kendetegn` er en streng, processens egen kommandolinje skal
+ * indeholde, foer vi sender noget som helst — en pid kan vaere genbrugt
+ * af noget helt andet, mens vi maalte.
+ *
+ * Registeret staar HER, foer det foerste vaern, saa oprydningen ogsaa
+ * gaelder, hvis noget falder mellem appstarten og browserstarten.
+ */
+const startet = []
+let sqlRef = null
+let browserRef = null
+let lukket = false
+
+const kommandolinje = (pid) => {
+  try { return readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0').join(' ') } catch { return null }
+}
+
+function stopEgne() {
+  for (const r of [...startet].reverse()) {
+    const cmd = kommandolinje(r.pid)
+    if (!cmd) continue                              // allerede vaek
+    if (!cmd.includes(r.kendetegn)) {
+      // Pid'en er genbrugt af noget andet. Saa er den ikke vores mere.
+      console.error(`  · ${r.navn}: pid ${r.pid} er ikke vores laengere — roeres ikke`)
+      continue
+    }
+    try {
+      if (r.pgid) process.kill(-r.pgid, 'SIGTERM')
+      else process.kill(r.pid, 'SIGTERM')
+    } catch { /* naaede at doe selv */ }
+  }
+  startet.length = 0
+}
+
+/** Alt det, koerslen selv har rejst — ogsaa naar den falder undervejs. */
+const ryd = async () => {
+  if (lukket) return
+  lukket = true
+  if (sqlRef) await sqlRef.end().catch(() => {})
+  if (browserRef) await browserRef.close().catch(() => {})
+  stopEgne()
+}
+const doed = async (m) => { console.error(`FEJL: ${m}`); await ryd(); process.exit(2) }
+for (const slags of ['uncaughtException', 'unhandledRejection']) {
+  process.on(slags, async (e) => {
+    console.error(`\nAFBRUDT (${slags}):`, e)
+    await ryd()
+    process.exit(1)
+  })
+}
 
 /** `inet_server_addr()` svarer `127.0.0.1/32`. Masken skal af, foer der
  *  sammenlignes — ellers ville enhver adresse se forkert ud, og
@@ -144,25 +214,26 @@ export function loopbackAdresse(raa) {
 
 {
   let u
-  try { u = new URL(BASE) } catch { doed(`BOFINDA_APP_BASE er ikke en URL: ${BASE}`) }
+  try { u = new URL(BASE) } catch { await doed(`BOFINDA_APP_BASE er ikke en URL: ${BASE}`) }
   if (!LOOPBACK.includes(u.hostname)) {
-    doed(`appadressen peger paa ${u.hostname} — proeven koerer kun mod loopback.`)
+    await doed(`appadressen peger paa ${u.hostname} — proeven koerer kun mod loopback.`)
   }
 }
 const VAERT = new URL(BASE).hostname
 const APPPORT = new URL(BASE).port || '80'
 
 if (!process.env.DATABASE_URL) {
-  doed('DATABASE_URL mangler — proeven kan ikke vaelge data eller rydde op.')
+  await doed('DATABASE_URL mangler — proeven kan ikke vaelge data eller rydde op.')
 }
 {
   const u = new URL(process.env.DATABASE_URL)
   if (!LOOPBACK.includes(u.hostname) || u.port !== '55432' || u.pathname !== '/bofinda_test') {
-    doed(`DATABASE_URL peger paa ${u.hostname}:${u.port}${u.pathname} — ikke den isolerede testbase.`)
+    await doed(`DATABASE_URL peger paa ${u.hostname}:${u.port}${u.pathname} — ikke den isolerede testbase.`)
   }
 }
 
 const sql = postgres(process.env.DATABASE_URL, { ssl: false, max: 1, onnotice: () => {} })
+sqlRef = sql
 
 // Ikke kun formen paa strengen: SPOERG basen, hvem den er — og LAD
 // SVARET AFGOERE. Adressen kommer fra den FAKTISKE forbindelse, saa en
@@ -173,62 +244,110 @@ const sql = postgres(process.env.DATABASE_URL, { ssl: false, max: 1, onnotice: (
     inet_server_port() p, current_user u`
   const adr = loopbackAdresse(id.a)
   if (id.d !== 'bofinda_test' || Number(id.p) !== 55432 || !adr.ok) {
-    await sql.end()
-    doed(`forbindelsen er ${id.d} paa ${adr.adresse ?? '?'}:${id.p}`
+    await doed(`forbindelsen er ${id.d} paa ${adr.adresse ?? '?'}:${id.p}`
       + `${adr.ok ? '' : ` — ${adr.grund}`} — ikke den isolerede testbase.`)
   }
   console.log(`base: ${id.d} paa ${adr.adresse}:${id.p} som ${id.u} (adressen efterprøvet)`)
 }
 
-// ── Appen: stop vores egen, afvis en fremmed, start vores ────────
+// ── Appen: se efter foerst, stop aldrig noget fremmed ───────────
 const TESTROD = process.env.BOFINDA_TEST_ROD ?? '/var/lib/bofinda-test'
 const TILSTAND = process.env.BOFINDA_APP_TILSTAND ?? 'dev'
 const koer = (kmd, args) => {
   const r = spawnSync(kmd, args, { encoding: 'utf8' })
   return { kode: r.status, ud: `${r.stdout ?? ''}${r.stderr ?? ''}`.trim() }
 }
-const svarerPort = async () => {
-  try { await fetch(BASE, { signal: AbortSignal.timeout(2500) }); return true } catch { return false }
-}
+
+/** Portene kommer fra miljoe.sh — ét sted, ogsaa naar de laeses fra node. */
+const PORTE = (() => {
+  const r = koer('bash', ['-c',
+    '. scripts/cloud/miljoe.sh; printf "%s %s %s" "$BOFINDA_APPPORT" "$BOFINDA_AKTIVPORT" "$BOFINDA_MAILPORT"'])
+  const [a, b, c] = (r.ud || '').split(/\s+/).map(Number)
+  return {
+    app: a || Number(APPPORT), aktiv: b || 55433, mail: c || 55434,
+  }
+})()
+
+/** Lytter nogen? TCP og ikke HTTP: en proces, der binder porten uden at
+ *  tale HTTP, optager den lige saa fuldt. */
+const portOptaget = (port) => new Promise((svar) => {
+  const s = netConnect({ port, host: '127.0.0.1' })
+  const luk = (v) => { s.destroy(); svar(v) }
+  s.on('connect', () => luk(true))
+  s.on('error', () => luk(false))
+  setTimeout(() => luk(false), 1500)
+})
 
 {
-  // 1 · Stop KUN vores egne. Scriptet scanner /proc efter vores egne
-  //     kendetegn og roerer ikke en fremmed proces.
-  koer('bash', ['scripts/cloud/app-ned.sh'])
-  await new Promise((r) => setTimeout(r, 1200))
-
-  // 2 · Svarer porten stadig, er den ikke vores.
-  if (await svarerPort()) {
-    await sql.end()
-    doed(`noget svarer allerede paa ${BASE}, og det er ikke en proces, dette miljoe har startet.`
-      + `\n      Proeven indsender en formular — den goer det ikke ind i en app, den ikke kender.`
-      + `\n      Stop den, eller frigiv port ${APPPORT}.`)
+  // 1 · SE EFTER FOERST. Der stoppes ingenting, foer vi ved, at intet
+  //     fremmed er i vejen — for vi kan ikke se forskel paa en anden
+  //     sessions Next-app og vores egen paa andet end, hvem der startede
+  //     den, og den viden har vi kun om det, vi selv starter.
+  for (const [navn, port] of [['appen', PORTE.app], ['testaktiverne', PORTE.aktiv], ['mailattrappen', PORTE.mail]]) {
+    if (await portOptaget(port)) {
+      await doed(`port ${port} (${navn}) er optaget, og proeven har ikke startet det, der lytter.`
+        + `\n      Den stopper det IKKE: en anden sessions app paa samme port har den samme`
+        + `\n      kommandolinje som vores, og et moenster er ikke et ejerskab.`
+        + `\n      Er det dette miljoes egen rest, saa stop den selv: scripts/cloud/app-ned.sh`)
+    }
   }
 
-  // 3 · Start vores egen, med de eksisterende scripts.
+  // 2 · Testaktiverne og mailattrappen startes af PROEVEN, saa vi kender
+  //     deres pid. `app-op.sh` ser dem sunde og starter dem ikke igen.
+  const rejs = async (navn, sti, port, sundhed, ekstra = {}) => {
+    const b = spawn('node', [sti], {
+      detached: true, stdio: 'ignore', env: { ...process.env, ...ekstra },
+    })
+    b.unref()
+    // `detached` goer barnet til leder af sin egen procesgruppe, saa
+    // pid'en ER pgid'en. Et evt. barnebarn ryger med.
+    startet.push({ navn, pid: b.pid, pgid: b.pid, kendetegn: sti })
+    for (let i = 0; i < 40; i++) {
+      const r = await fetch(`http://127.0.0.1:${port}${sundhed}`).catch(() => null)
+      if (r?.ok) return true
+      await new Promise((r2) => setTimeout(r2, 250))
+    }
+    return false
+  }
+  if (!await rejs('testaktiverne', 'scripts/cloud/aktiver.mjs', PORTE.aktiv, '/sund',
+    { BOFINDA_AKTIVPORT: String(PORTE.aktiv) })) {
+    await doed('testaktiverne svarede ikke — billederne ville vaere en tavs mangel.')
+  }
+  if (!await rejs('mailattrappen', 'scripts/cloud/mailattrap.mjs', PORTE.mail, '/sund',
+    { BOFINDA_MAILPORT: String(PORTE.mail) })) {
+    await doed('mailattrappen svarede ikke — en indsendelse maa ikke kunne gaa ud af maskinen.')
+  }
+
+  // 3 · Og selve appen, med det eksisterende script.
   const op = koer('bash', ['scripts/cloud/app-op.sh', ...(TILSTAND === 'produktion' ? ['--produktion'] : [])])
   if (op.kode !== 0) {
-    await sql.end()
-    doed(`app-op.sh fejlede (${op.kode}):\n${op.ud.split('\n').slice(-8).join('\n')}`)
+    await doed(`app-op.sh fejlede (${op.kode}):\n${op.ud.split('\n').slice(-8).join('\n')}`)
   }
-  console.log(`app: startet af proeven (${TILSTAND}) paa ${BASE}`)
+  // Pid OG procesgruppe, skrevet af app-op.sh. Uden gruppen overlever
+  // `next`s underprocesser en TERM til toppen.
+  let apid = null, apgid = null
+  try { apid = readFileSync(`${TESTROD}/app.pid`, 'utf8').trim() } catch { /* under */ }
+  try { apgid = readFileSync(`${TESTROD}/app.pgid`, 'utf8').trim() } catch { /* under */ }
+  if (!apid) await doed(`fandt ingen ${TESTROD}/app.pid — saa kan proeven hverken efterproeve eller rydde op efter appen.`)
+  startet.push({
+    navn: 'appen', pid: Number(apid), pgid: apgid ? Number(apgid) : null,
+    kendetegn: `-p ${PORTE.app}`,
+  })
+  console.log(`app: startet af proeven (${TILSTAND}) paa ${BASE} — pid ${apid}, gruppe ${apgid ?? '?'}`)
 }
 
 // 4 · Og hvad koerer den saa med? Aflaest paa PROCESSEN, ikke paa et
 //     endpoint: der udstilles ingenting, og det er det eneste sted,
 //     hvor det faktiske miljoe staar.
-let apppid = null
 {
-  try { apppid = readFileSync(`${TESTROD}/app.pid`, 'utf8').trim() } catch { /* under */ }
-  if (!apppid) { await sql.end(); doed(`fandt ingen ${TESTROD}/app.pid — appens miljoe kan ikke efterproeves.`) }
+  const apppid = startet.find((x) => x.navn === 'appen')?.pid
   let miljoe
   try {
     miljoe = Object.fromEntries(readFileSync(`/proc/${apppid}/environ`, 'utf8')
       .split('\0').filter(Boolean)
       .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]))
   } catch (e) {
-    await sql.end()
-    doed(`kunne ikke laese /proc/${apppid}/environ (${e.message}) — appens miljoe kan ikke efterproeves.`)
+    await doed(`kunne ikke laese /proc/${apppid}/environ (${e.message}) — appens miljoe kan ikke efterproeves.`)
   }
   const krav = []
   if (miljoe.DATABASE_URL !== process.env.DATABASE_URL) {
@@ -244,19 +363,17 @@ let apppid = null
   }
   if (!miljoe.RESEND_API_KEY) krav.push('ingen RESEND_API_KEY — afsendelsen ville blive spaerret i stedet for maalt')
   if (!miljoe.ALARM_AFSENDER) krav.push('ingen ALARM_AFSENDER')
-  if (krav.length) { await sql.end(); doed(`appens miljoe holder ikke:\n      · ${krav.join('\n      · ')}`) }
+  if (krav.length) await doed(`appens miljoe holder ikke:\n      · ${krav.join('\n      · ')}`)
   console.log(`app-miljoe: samme DATABASE_URL · mail → ${m} · attrapnoegle sat`)
 }
 
 // 5 · Mailattrappen svarer — og den er paa loopback.
 {
   let u
-  try { u = new URL(MAILATTRAP) } catch { await sql.end(); doed('BOFINDA_MAILATTRAP er ikke en URL') }
-  if (!LOOPBACK.includes(u.hostname)) {
-    await sql.end(); doed(`mailattrappen peger paa ${u.hostname} — kun loopback.`)
-  }
+  try { u = new URL(MAILATTRAP) } catch { await doed('BOFINDA_MAILATTRAP er ikke en URL') }
+  if (!LOOPBACK.includes(u.hostname)) await doed(`mailattrappen peger paa ${u.hostname} — kun loopback.`)
   const r = await fetch(`${MAILATTRAP}/sund`).catch(() => null)
-  if (!r?.ok) { await sql.end(); doed(`mailattrappen svarer ikke paa ${MAILATTRAP}.`) }
+  if (!r?.ok) await doed(`mailattrappen svarer ikke paa ${MAILATTRAP}.`)
   console.log(`mail: attrap paa ${MAILATTRAP}`)
 }
 
@@ -283,8 +400,7 @@ let apppid = null
     if (!r.ok || !html.includes(vej)) {
       await sql`delete from listings where id = ${boligId}`
       await sql`delete from sources where id = ${kilde.id}`
-      await sql.end()
-      doed(`appen serverede ikke den raekke, proeven lige skrev (svar ${r.status}).`
+      await doed(`appen serverede ikke den raekke, proeven lige skrev (svar ${r.status}).`
         + `\n      Den laeser en ANDEN base — eller en kopi. Der skrives ikke videre.`)
     }
     console.log(`base-bevis: appen serverede «${vej}», skrevet for et oejeblik siden`)
@@ -302,8 +418,7 @@ const [by] = await sql`
 const [bolig] = await sql`
   select id from listings where status = 'active' and lat is not null limit 1`
 if (!by || by.n < 20) {
-  await sql.end()
-  doed(`ingen by med mindst 20 placerede boliger (bedste: ${by?.navn ?? 'ingen'} ${by?.n ?? 0}).`)
+  await doed(`ingen by med mindst 20 placerede boliger (bedste: ${by?.navn ?? 'ingen'} ${by?.n ?? 0}).`)
 }
 const STED = encodeURIComponent(by.navn)
 console.log(`maaler paa «${by.navn}» — ${by.n} placerede boliger\n`)
@@ -311,32 +426,7 @@ console.log(`maaler paa «${by.navn}» — ${by.n} placerede boliger\n`)
 const br = await pw.chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM ?? '/opt/pw-browsers/chromium',
 })
-
-// ── Luk altid ned ───────────────────────────────────────────────
-//
-//  Browseren og forbindelsen skal lukkes ogsaa naar noget kaster. Ikke
-//  et try/finally om hele koerslen: en top-level `await`, der kaster,
-//  bliver en unhandled rejection, og den fanges kun her. Foer stod en
-//  afbrudt koersel tilbage med en Chromium og en aaben forbindelse —
-//  og et forkert exitnummer oveni.
-let lukket = false
-const lukNed = async () => {
-  if (lukket) return
-  lukket = true
-  await sql.end().catch(() => {})
-  await br.close().catch(() => {})
-  // Proeven startede appen; saa rydder den den ogsaa op. Scriptet
-  // stopper kun vores egne kendetegn, saa en fremmed proces, der maatte
-  // vaere startet imens, roeres ikke.
-  koer('bash', ['scripts/cloud/app-ned.sh'])
-}
-for (const slags of ['uncaughtException', 'unhandledRejection']) {
-  process.on(slags, async (e) => {
-    console.error(`\nAFBRUDT (${slags}):`, e)
-    await lukNed()
-    process.exit(1)
-  })
-}
+browserRef = br
 
 let fejl = 0
 let koert = 0
@@ -1173,7 +1263,7 @@ console.log('\n═══ formularregression: fejl → rettelse → succes ══
   }
 }
 
-await lukNed()
+await ryd()
 // Tallet staar HER og skal ikke taelles i loggen bagefter. En optaelling
 // med `grep -c ✓` tager afslutningslinjen med og giver én for meget —
 // den fejl stod i en aflevering, foer linjen fandtes.
