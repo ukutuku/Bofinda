@@ -138,9 +138,40 @@ env -u VERCEL -u VERCEL_ENV \
 
 APPPID=$!
 echo "$APPPID" > "$BOFINDA_TEST_ROD/app.pid"
-# Procesgruppen, ikke kun pid'en: `next dev` er en kæde af fire
-# processer, og en TERM til toppen efterlader serveren kørende.
-ps -o pgid= -p "$APPPID" 2>/dev/null | tr -d ' ' > "$BOFINDA_TEST_ROD/app.pgid" || true
+
+# ── Procesgruppen, UDEN kapløb ──────────────────────────────────
+# Procesgruppen og ikke kun pid'en: `next` er en kæde af processer, og
+# en TERM til toppen efterlader serveren kørende. Underprocessen hedder
+# oven i købet `next-server (v15.x)`, så dens kommandolinje bærer ikke
+# porten — kun gruppen kan nå den.
+#
+# MEN GRUPPEN MÅ IKKE AFLÆSES FOR TIDLIGT. `setsid` kalder setsid(2)
+# FØRST efter sin egen exec, og indtil da ligger barnet i DENNE skals
+# procesgruppe — som er kalderens. Et `ps` umiddelbart efter kunne
+# derfor nå at notere kalderens gruppe som «appens», og en oprydning,
+# der sendte TERM til den gruppe, ville ramme den, der startede os, i
+# stedet for appen. Målt med samme konstruktion: 0 af 300 i tomgang,
+# 39 af 200 under CPU-belastning.
+#
+# En sessionsleder er altid leder af sin egen procesgruppe, så den
+# rigtige gruppe er kendetegnet ved pgid == pid. Der ventes derfor, til
+# kernen selv siger det. Gør den ikke det, har vi ingen gruppe at stå
+# inde for — og så stoppes appen igen frem for at køre videre uden ejer.
+#
+# Aflæst i /proc og ikke med `ps`: oplysningen er den samme, og den
+# kræver ikke procps i billedet. `sed 's/^.*) //'` er grådig og skærer
+# derfor forbi det SIDSTE ')', så et procesnavn med en parentes i ikke
+# forskyder felterne.
+pgid_af() { sed 's/^.*) //' "/proc/$1/stat" 2>/dev/null | awk '{ print $3 }'; }
+EGEN_PGID=$(pgid_af $$)
+APPPGID=""
+for _ in $(seq 1 100); do
+  p=$(pgid_af "$APPPID" || true)
+  if [ -n "$p" ] && [ "$p" = "$APPPID" ] && [ "$p" != "$EGEN_PGID" ]; then APPPGID="$p"; break; fi
+  kill -0 "$APPPID" 2>/dev/null || break
+  sleep 0.05
+done
+echo "$APPPGID" > "$BOFINDA_TEST_ROD/app.pgid"
 for _ in $(seq 1 60); do
   # Døde vores egen proces, er der ingen grund til at vente på et svar —
   # og et svar ville i så fald komme fra nogen anden.

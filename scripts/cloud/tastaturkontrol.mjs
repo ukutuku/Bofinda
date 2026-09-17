@@ -76,7 +76,7 @@
 // ═══════════════════════════════════════════════════════════════
 import pw from 'playwright-core'
 import postgres from 'postgres'
-import { mkdirSync, readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { spawn, spawnSync } from 'node:child_process'
 import { connect as netConnect } from 'node:net'
 import { randomUUID } from 'node:crypto'
@@ -161,12 +161,48 @@ const LOOPBACK = ['127.0.0.1', 'localhost', '[::1]', '::1']
 const startet = []
 let sqlRef = null
 let browserRef = null
-let lukket = false
 
 const kommandolinje = (pid) => {
   try { return readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0').join(' ') } catch { return null }
 }
 
+/**
+ * Procesgruppen, som den ER LIGE NU — ikke som den var, da vi noterede
+ * den. Femte felt i /proc/<pid>/stat. Den groedige `.*)` skaerer forbi
+ * det SIDSTE ')', saa et procesnavn med en parentes i ikke forskyder
+ * felterne.
+ */
+const pgidAf = (pid) => {
+  try {
+    const r = readFileSync(`/proc/${pid}/stat`, 'utf8').replace(/^.*\) /, '').split(' ')
+    const n = Number(r[2])
+    return Number.isFinite(n) && n > 0 ? n : null
+  } catch { return null }
+}
+/** Vores egen gruppe. Den maa aldrig blive maal for et signal. */
+const EGEN_PGID = pgidAf('self')
+
+/**
+ * Stop det, og KUN det, denne koersel selv rejste.
+ *
+ * Tre ting skal passe, foer et GRUPPEsignal sendes:
+ *
+ *   1. processens egen kommandolinje passer paa det, vi startede —
+ *      ellers er pid'en genbrugt af noget andet,
+ *   2. dens gruppe er STADIG den, vi noterede — en gruppe, der har
+ *      flyttet sig, er ikke laengere den, vi stod inde for, og
+ *   3. gruppen er ikke vores egen.
+ *
+ * Punkt 2 og 3 er der, fordi pgid'en kommer fra en fil, `app-op.sh`
+ * skrev. Skrev den ved et kapløb KALDERENS gruppe, ville et gruppesignal
+ * ramme kontrollen selv og lade appen leve — praecis modsat hensigten.
+ * `app-op.sh` er rettet, saa den ikke kan skrive andet end en gruppe, den
+ * selv har oprettet; vagten her er den anden spaerring, saa fejlen ikke
+ * kan komme tilbage ad en vej, vi ikke har taenkt paa.
+ *
+ * Passer gruppen ikke, opgives oprydningen ikke — der sendes til
+ * PID'EN alene, som stadig er identitetsproevet i punkt 1.
+ */
 function stopEgne() {
   for (const r of [...startet].reverse()) {
     const cmd = kommandolinje(r.pid)
@@ -176,21 +212,71 @@ function stopEgne() {
       console.error(`  · ${r.navn}: pid ${r.pid} er ikke vores laengere — roeres ikke`)
       continue
     }
+    // Gruppen tages fra den LEVENDE proces, ikke fra det, vi noterede.
+    // En fil kan vaere skrevet i et kapløb; kernen lyver ikke om, hvilken
+    // gruppe pid'en er i lige nu — og pid'en er netop identitetsproevet
+    // ovenfor. Det noterede tal bruges som krydstjek, saa en uenighed
+    // bliver sagt hoejt i stedet for at gaa ubemaerket forbi.
+    const nu = pgidAf(r.pid)
+    if (r.pgid != null && nu != null && nu !== r.pgid) {
+      console.error(`  · ${r.navn}: noteret gruppe ${r.pgid}, men pid ${r.pid} er nu i ${nu}`
+        + ` — den levende gruppe bruges`)
+    }
+    // Vores EGEN gruppe rammes aldrig. Sker det alligevel, at appen ligger
+    // i den, er der intet gruppesignal at sende: saa stoppes pid'en alene,
+    // og det siges, saa en efterladt underproces ikke bliver en tavs rest.
+    const gruppe = nu != null && nu !== EGEN_PGID ? nu : null
+    if (!gruppe) {
+      console.error(`  · ${r.navn}: pid ${r.pid} ligger i VORES egen gruppe (${EGEN_PGID})`
+        + ` — kun pid'en stoppes, og en underproces kan overleve`)
+    }
     try {
-      if (r.pgid) process.kill(-r.pgid, 'SIGTERM')
+      if (gruppe) process.kill(-gruppe, 'SIGTERM')
       else process.kill(r.pid, 'SIGTERM')
     } catch { /* naaede at doe selv */ }
   }
   startet.length = 0
 }
 
-/** Alt det, koerslen selv har rejst — ogsaa naar den falder undervejs. */
-const ryd = async () => {
-  if (lukket) return
-  lukket = true
-  if (sqlRef) await sqlRef.end().catch(() => {})
-  if (browserRef) await browserRef.close().catch(() => {})
-  stopEgne()
+/**
+ * Alt det, koerslen selv har rejst — ogsaa naar den falder undervejs.
+ *
+ * ÉN oprydning, som ALLE venter paa. Ikke «foerste kalder rydder, resten
+ * gaar videre»: den form kostede en maaling. Et SIGINT startede
+ * oprydningen, `browser.close()` fik den ventende Playwright-handling til
+ * at kaste, `uncaughtException` kaldte `ryd()` igen — og fordi den bare
+ * returnerede med det samme, naaede dens `process.exit()` at slukke os,
+ * FOER den foerste oprydning var naaet til `stopEgne()`. App, aktiver og
+ * attrap blev staaende paa deres porte.
+ *
+ * Derfor holdes selve arbejdet i én promise: den anden kalder venter paa
+ * den samme oprydning i stedet for at loebe forbi den.
+ */
+let rydning = null
+/** En oprydning maa ikke kunne haenge paa noget, der ikke svarer. */
+const medFrist = (p, ms) => p == null
+  ? Promise.resolve()
+  : Promise.race([
+    Promise.resolve(p).catch(() => {}),
+    new Promise((r) => { const t = setTimeout(r, ms); t.unref?.() }),
+  ])
+const ryd = () => {
+  if (!rydning) {
+    rydning = (async () => {
+      // PROCESSERNE FOERST. De er det eneste, der kan blive liggende og
+      // spaerre en port; browseren og databaseforbindelsen doer med os.
+      //
+      // Foer stod de to lukninger foerst, og det kostede en maaling: et
+      // SIGINT midt i browserarbejdet fik `browser.close()` til ikke at
+      // svare, og dermed stod den mellem afbrydelsen og oprydningen.
+      // Appen, testaktiverne og mailattrappen blev staaende paa deres
+      // porte, mens kontrollen meldte, at den ryddede op.
+      stopEgne()
+      await medFrist(sqlRef?.end(), 5000)
+      await medFrist(browserRef?.close(), 5000)
+    })()
+  }
+  return rydning
 }
 const doed = async (m) => { console.error(`FEJL: ${m}`); await ryd(); process.exit(2) }
 for (const slags of ['uncaughtException', 'unhandledRejection']) {
@@ -198,6 +284,17 @@ for (const slags of ['uncaughtException', 'unhandledRejection']) {
     console.error(`\nAFBRUDT (${slags}):`, e)
     await ryd()
     process.exit(1)
+  })
+}
+// Et Ctrl-C er ogsaa en afbrydelse. Uden de her to overlevede app,
+// testaktiver og mailattrap et afbrudt forloeb, og naeste koersel blev
+// afvist af portvagten, indtil et menneske ryddede op i haanden.
+// SAMME `ryd()` som alle andre veje — der er ikke to oprydninger.
+for (const [signal, kode] of [['SIGINT', 130], ['SIGTERM', 143]]) {
+  process.on(signal, async () => {
+    console.error(`\nAFBRUDT (${signal}) — rydder op efter det, koerslen selv startede`)
+    await ryd()
+    process.exit(kode)
   })
 }
 
@@ -319,20 +416,46 @@ const portOptaget = (port) => new Promise((svar) => {
   }
 
   // 3 · Og selve appen, med det eksisterende script.
+  //
+  // ═══ EJERSKABET REGISTRERES, OGSAA NAAR OPSTARTEN FEJLER ═══
+  //
+  // `app-op.sh` starter appen loesrevet (setsid) og venter derefter paa,
+  // at den svarer. Falder den ventetid igennem — en timeout, eller
+  // processen doer undervejs — melder scriptet fejl, mens appen godt kan
+  // koere videre og holde porten. Foer laeste vi foerst pid-filerne EFTER
+  // exitkoden var godkendt, saa netop dér stod appen tilbage uden ejer:
+  // den blev ikke ryddet op, og naeste koersel blev afvist af portvagten,
+  // indtil et menneske greb ind.
+  //
+  // Derfor to ting, i den raekkefoelge:
+  //
+  //   · de gamle filer FJERNES foerst. En fil fra i gaar er ikke et bevis
+  //     paa, at DENNE koersel ejer noget — og et forkert ejerskab er
+  //     farligere end intet.
+  //   · filerne laeses BAGEFTER, uanset exitkoden, og findes de, er de
+  //     skrevet af netop det scriptkald, vi lige lavede. Ejerskabet er
+  //     dermed registreret, foer fejlen faar lov at afslutte forloebet.
+  for (const f of ['app.pid', 'app.pgid']) {
+    try { rmSync(`${TESTROD}/${f}`) } catch { /* fandtes ikke */ }
+  }
   const op = koer('bash', ['scripts/cloud/app-op.sh', ...(TILSTAND === 'produktion' ? ['--produktion'] : [])])
+
+  // Pid OG procesgruppe, skrevet af app-op.sh. Uden gruppen overlever
+  // `next`s underprocesser en TERM til toppen. Gruppen er én, scriptet
+  // selv har set kernen bekraefte — se noten i app-op.sh.
+  let apid = null, apgid = null
+  try { apid = readFileSync(`${TESTROD}/app.pid`, 'utf8').trim() } catch { /* ikke naaet */ }
+  try { apgid = readFileSync(`${TESTROD}/app.pgid`, 'utf8').trim() } catch { /* ikke naaet */ }
+  if (apid) {
+    startet.push({
+      navn: 'appen', pid: Number(apid), pgid: apgid ? Number(apgid) : null,
+      kendetegn: `-p ${PORTE.app}`,
+    })
+  }
   if (op.kode !== 0) {
     await doed(`app-op.sh fejlede (${op.kode}):\n${op.ud.split('\n').slice(-8).join('\n')}`)
   }
-  // Pid OG procesgruppe, skrevet af app-op.sh. Uden gruppen overlever
-  // `next`s underprocesser en TERM til toppen.
-  let apid = null, apgid = null
-  try { apid = readFileSync(`${TESTROD}/app.pid`, 'utf8').trim() } catch { /* under */ }
-  try { apgid = readFileSync(`${TESTROD}/app.pgid`, 'utf8').trim() } catch { /* under */ }
   if (!apid) await doed(`fandt ingen ${TESTROD}/app.pid — saa kan proeven hverken efterproeve eller rydde op efter appen.`)
-  startet.push({
-    navn: 'appen', pid: Number(apid), pgid: apgid ? Number(apgid) : null,
-    kendetegn: `-p ${PORTE.app}`,
-  })
   console.log(`app: startet af proeven (${TILSTAND}) paa ${BASE} — pid ${apid}, gruppe ${apgid ?? '?'}`)
 }
 
