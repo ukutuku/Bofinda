@@ -3,6 +3,8 @@ import { spor } from '../lib/maaling-server'
 import { antalFiltre } from '../lib/maalingsoeg'
 import type { Filtre, Soegeparametre } from '../lib/soeg'
 import { filtreFraParametre, harFiltre } from '../lib/soeg'
+import { laesUdkast, saetUdkast } from '../lib/gemudkast'
+import { GemSvar } from './GemSvar'
 
 // ═══════════════════════════════════════════════════════════════
 //  «Få besked om nye boliger som disse»
@@ -35,9 +37,24 @@ function navngiv(f: Filtre): string {
   return d.join(' ') || 'alle boliger'
 }
 
-export function GemSoegning({ sp }: { sp: Soegeparametre }) {
+/** Ledeteksternes id'er. Ét sted, saa <label for> og <input id> ikke
+ *  kan drive fra hinanden — og saa fejlbeskeden kan pege paa feltet. */
+const ID_NAVN = 'gem-navn'
+const ID_MAIL = 'gem-mail'
+const ID_SVAR = 'gem-svar'
+
+/**
+ * `svar` er en PROP og ikke `sp.gemt`.
+ *
+ * Det er ikke kosmetik. `gemt` er et svar paa EN indsendelse, ikke en
+ * del af soegningen — og hver eneste adresse paa siden bygges af `sp`:
+ * sidetal, sortering, filterchips, kortvalg. Stod den i `sp`, hang
+ * beskeden ved i hvert klik bagefter, og fokus ville blive revet ned til
+ * den igen og igen. Derfor tages den ud af `sp` ét sted, i app/page.tsx,
+ * og gives herind som det, den er.
+ */
+export async function GemSoegning({ sp, svar }: { sp: Soegeparametre; svar: string | null }) {
   const f = filtreFraParametre(sp)
-  const svar = typeof sp.gemt === 'string' ? sp.gemt : null
 
   async function gem(formData: FormData) {
     'use server'
@@ -65,6 +82,14 @@ export function GemSoegning({ sp }: { sp: Soegeparametre }) {
         },
       }, '/')
     }
+    // Det indtastede baeres over omdirigeringen, saa en fejl kan RETTES
+    // og ikke kun skrives forfra. `navn` tages RAAT fra formularen og
+    // ikke fra variablen ovenfor: den falder tilbage til det maskinskrevne
+    // navn, og saa ville et bevidst tomt felt komme tilbage udfyldt.
+    await saetUdkast(r.slags === 'sendt' ? null : {
+      navn: String(formData.get('navn') ?? ''),
+      mail,
+    })
     const { redirect } = await import('next/navigation')
     const q = new URLSearchParams(
       Object.entries(sp).flatMap(([k, v]) =>
@@ -74,75 +99,121 @@ export function GemSoegning({ sp }: { sp: Soegeparametre }) {
     redirect(`/?${q}`)
   }
 
-  if (svar) {
-    const [slags, ekstra] = svar.split(':')
-    return (
-      <div className={`gem-svar ${slags === 'sendt' ? 'ok' : 'advarsel'}`}>
-        {slags === 'sendt' ? (
-          <>
-            <strong>Tjek din mail.</strong> Vi har sendt et link, du skal trykke på,
-            før vi begynder at sende. Uden det sker der ingenting — sådan sikrer vi,
-            at ingen kan tilmelde en anden persons adresse.
-          </>
-        ) : slags === 'ugyldig-mail' ? (
-          <><strong>Den mailadresse ser ikke rigtig ud.</strong> Prøv igen.</>
-        ) : slags === 'for-mange' ? (
-          <>
-            <strong>Du har allerede ubekræftede søgninger.</strong> Find
-            bekræftelsesmailen i din indbakke, eller vent til de udløber.
-          </>
-        ) : slags === 'for-hurtigt' ? (
-          <>
-            <strong>Vi har lige sendt dig en mail.</strong> Vent {ekstra} min.,
-            hvis du vil have en ny.
-          </>
-        ) : (
-          <>
-            <strong>Vi kunne ikke sende bekræftelsen.</strong> Bofinda er under
-            indkøring og sender kun til udvalgte adresser endnu. Prøv igen senere.
-          </>
-        )}
-      </div>
-    )
-  }
+  const [slags, ekstra] = (svar ?? '').split(':')
+  // KUN «sendt» er faerdigt. Alt andet er noget, brugeren kan goere om —
+  // en tastefejl i mailen, en ventetid, en spaerret afsendelse — og saa
+  // skal formularen blive staaende. Foer blev den erstattet af beskeden,
+  // saa den eneste vej tilbage var at finde boksen igen og skrive alt
+  // forfra. Filtrene foelger med i omdirigeringen og staar uroerte i
+  // `sp`, saa soegningen er den samme, naar hun proever igen.
+  const faerdig = slags === 'sendt'
+  const fejl = svar != null && !faerdig
+  // Netop denne fejl handler om FELTET og kobles til det. De andre
+  // handler om kontoen eller om afsendelsen, og et `aria-invalid` paa
+  // mailfeltet ville pege paa noget, der ikke er noget i vejen med.
+  const mailFejl = slags === 'ugyldig-mail'
+
+  // Kun ved en fejl. Ellers kunne et to minutter gammelt udkast dukke op
+  // paa en helt almindelig visning af siden — og `cookies()` ville goere
+  // gengivelsen dynamisk uden grund.
+  const udkast = fejl ? await laesUdkast() : null
+
+  const besked = svar == null ? null : (
+    <GemSvar id={ID_SVAR} fejl={fejl}>
+      {faerdig ? (
+        <>
+          <strong>Tjek din mail.</strong> Vi har sendt et link, du skal trykke på,
+          før vi begynder at sende. Uden det sker der ingenting — sådan sikrer vi,
+          at ingen kan tilmelde en anden persons adresse.
+        </>
+      ) : mailFejl ? (
+        <><strong>Den mailadresse ser ikke rigtig ud.</strong> Prøv igen.</>
+      ) : slags === 'for-mange' ? (
+        <>
+          <strong>Du har allerede ubekræftede søgninger.</strong> Find
+          bekræftelsesmailen i din indbakke, eller vent til de udløber.
+        </>
+      ) : slags === 'for-hurtigt' ? (
+        <>
+          <strong>Vi har lige sendt dig en mail.</strong> Vent {ekstra} min.,
+          hvis du vil have en ny.
+        </>
+      ) : (
+        <>
+          <strong>Vi kunne ikke sende bekræftelsen.</strong> Bofinda er under
+          indkøring og sender kun til udvalgte adresser endnu. Prøv igen senere.
+        </>
+      )}
+    </GemSvar>
+  )
+
+  if (faerdig) return besked
 
   if (!harFiltre(f)) {
     return (
-      <div className="gem-tom">
-        Filtrér først — så kan du få besked, når der kommer nye boliger, der matcher.
-      </div>
+      <>
+        {besked}
+        <div className="gem-tom">
+          Filtrér først — så kan du få besked, når der kommer nye boliger, der matcher.
+        </div>
+      </>
     )
   }
 
   return (
-    <form className="gem" action={gem}>
-      <input type="hidden" name="filtre" value={JSON.stringify(f)} />
-      <div className="gem-hoved">
-        <div>
-          <strong>Få besked om nye boliger som disse</strong>
-          <div className="gem-filtre">{beskrivFiltre(f as unknown as Record<string, unknown>)}</div>
+    <>
+      {besked}
+      <form className="gem" action={gem}>
+        <input type="hidden" name="filtre" value={JSON.stringify(f)} />
+        <div className="gem-hoved">
+          <div>
+            <strong>Få besked om nye boliger som disse</strong>
+            <div className="gem-filtre">{beskrivFiltre(f as unknown as Record<string, unknown>)}</div>
+          </div>
         </div>
-      </div>
-      <div className="gem-raek">
-        <input
-          type="text" name="navn" maxLength={80}
-          placeholder="Navn på søgningen" defaultValue={navngiv(f)}
-          aria-label="Navn på søgningen"
-        />
-        <input
-          type="email" name="mail" required maxLength={200}
-          placeholder="din@mail.dk" aria-label="Din mailadresse"
-        />
-        <button type="submit">Send mig besked</button>
-      </div>
-      <p className="gem-vilkaar">
-        Vi gemmer <strong>din mailadresse</strong> og <strong>de filtre, du ser
-        ovenfor</strong> — intet andet. Vi bruger dem udelukkende til at sende dig
-        besked, når en ny bolig matcher. Ingen konto, ingen adgangskode.
-        {' '}Du får først mail, når du har trykket på linket i bekræftelsesmailen,
-        og hver besked har et afmeldingslink, der virker uden login.
-        {' '}<a href="/privatliv">Sådan behandler vi dine oplysninger</a>.
-      </p>
-    </form>
+        {/* Ledeteksten er en <label>, der BLIVER STAAENDE. Den var en
+            placeholder, og en placeholder er ikke en ledetekst: den
+            forsvinder ved foerste tastetryk. Maalt efter udfyldning stod
+            der to felter side om side — «2+ vær. i Attrapby» og «abc» —
+            uden nogen angivelse af, hvad de var.
+            `aria-label` er VAEK begge steder. To kilder til det samme
+            navn er to steder at rette; nu staar navnet ét sted, og det er
+            det samme, brugeren kan se. */}
+        <div className="gem-raek">
+          <div className="gem-felt">
+            <label htmlFor={ID_NAVN}>Navn på søgningen</label>
+            <input
+              id={ID_NAVN} type="text" name="navn" maxLength={80}
+              defaultValue={udkast?.navn ?? navngiv(f)}
+            />
+          </div>
+          <div className="gem-felt">
+            <label htmlFor={ID_MAIL}>Din mailadresse</label>
+            {/* `aria-invalid` ja, `aria-describedby` nej.
+                Beskeden faar fokus ved indlaesning og bliver laest op
+                dér. Pegede feltet ogsaa paa den, ville praecis samme
+                saetning blive laest igen, saa snart man tabulerede ind i
+                feltet — og i de skaermlaesere, der alligevel annoncerer
+                et `role="alert"` ved indlaesning, en tredje gang.
+                Ét sted at sige det, ikke tre. */}
+            <input
+              id={ID_MAIL} type="email" name="mail" required maxLength={200}
+              placeholder="din@mail.dk"
+              defaultValue={udkast?.mail ?? ''}
+              aria-invalid={mailFejl || undefined}
+            />
+          </div>
+          <button type="submit">Send mig besked</button>
+        </div>
+        <p className="gem-vilkaar">
+          Vi gemmer <strong>din mailadresse</strong> og <strong>de filtre, du ser
+          ovenfor</strong> — intet andet. Vi bruger dem udelukkende til at sende dig
+          besked, når en ny bolig matcher. Ingen konto, ingen adgangskode.
+          {' '}Du får først mail, når du har trykket på linket i bekræftelsesmailen,
+          og hver besked har et afmeldingslink, der virker uden login.
+          {' '}<a href="/privatliv">Sådan behandler vi dine oplysninger</a>.
+        </p>
+      </form>
+    </>
   )
 }

@@ -12,6 +12,7 @@ import { GemSoegning } from './GemSoegning'
 import { Visningskort, kr } from './Boligkort'
 import { favoritIder, statusFor } from '../lib/favoritter'
 import { Landkort, type Maerke } from './Landkort'
+import { Sorteringsmenu } from './Sorteringsmenu'
 import { Hastighedspunkt } from './Hastighed'
 import { Maaling } from './Maaling'
 import { Filterdialog, Filterknap } from './Filterdialog'
@@ -94,6 +95,11 @@ function kortLink(sp: Soegeparametre, vaelg: 'ja' | 'nej'): string {
   return s ? `/?${s}` : '/'
 }
 
+/** Springlinkets maal. Ét sted: `href="#…"` og `id="…"` er to halvdele
+ *  af den samme streng, og skrives de af i haanden, kan den ene doebes
+ *  om uden en fejl nogen steder — linket flytter bare ikke fokus mere. */
+const EFTER_KORTET = 'efter-kortet'
+
 /** Første værdi af en URL-parameter — til formularens defaultValue. */
 const en = (v: string | string[] | undefined) => Array.isArray(v) ? v[0] : v
 
@@ -149,7 +155,7 @@ function referrerVaert(referer: string | null, egen: string | undefined): string
 }
 
 export default async function Side({ searchParams }: { searchParams: Promise<Soegeparametre> }) {
-  const sp = await searchParams
+  const raaParametre = await searchParams
 
   // ── ÉN ADRESSE PR. SØGNING ───────────────────────────────────
   // En GET-formular sender ALLE sine felter, også de tomme. Med
@@ -171,7 +177,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   {
     const rent = new URLSearchParams()
     let snavs = false
-    for (const [k, v] of Object.entries(sp)) {
+    for (const [k, v] of Object.entries(raaParametre)) {
       for (const x of Array.isArray(v) ? v : v == null ? [] : [v]) {
         if (x === '' || (k === 'sorter' && x === 'nyeste')) { snavs = true; continue }
         rent.append(k, x)
@@ -182,6 +188,31 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
       redirect(q ? `/?${q}` : '/')
     }
   }
+
+  // ── `gemt` er et SVAR, ikke en del af søgningen ───────────────
+  //
+  //  Hver eneste adresse på siden bygges af `sp`: sidetal (`sideUrl`),
+  //  sortering og filterchips (`udenNavne`) og kortvalget (`kortLink`).
+  //  Alle tre kopierer hver parameter, de ikke udtrykkeligt smider væk —
+  //  så `gemt=ugyldig-mail` hang ved i hvert klik bagefter, og beskeden
+  //  om en indsendelse, der var overstået for længst, stod på side 2, 3
+  //  og 4. Med fokusstyringen i GemSvar ville den oven i købet rive
+  //  fokus til sig hver gang.
+  //
+  //  Den tages ud ÉT sted — her — og gives videre som det, den er: et
+  //  svar på én indsendelse. Så kan ingen af de tre adressebyggere
+  //  komme til at bære den med, og ingen af dem behøver at vide, at den
+  //  findes. Normaliseringen ovenfor kører FØR, så den stadig ser hele
+  //  adressen og ikke omdirigerer beskeden væk.
+  //
+  //  Den renset udgave hedder `sp` — altsaa dét, resten af siden ser.
+  //  Det er med vilje: var den renset udgave den med det saerlige navn,
+  //  skulle hver ny adressebygger HUSKE at bruge den, og den, der glemte
+  //  det, ville faa noget, der virkede lige indtil nogen gemte en
+  //  soegning. Den raa findes kun her.
+  const svarPaaGem = typeof raaParametre.gemt === 'string' ? raaParametre.gemt : null
+  const sp: Soegeparametre = { ...raaParametre, gemt: undefined }
+
   // Samme parsing som gem-formularen bruger. Se noten i lib/soeg.ts.
   const f = filtreFraParametre(sp)
   const kilderValgt = f.kilder
@@ -495,6 +526,24 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
     return `/?${q}`
   })()
   const lukFiltre = soegeUrlUden('/', sp, ['flere'])
+
+  /* Sidetallene og gem-boksen. Trukket ud, fordi de er springlinkets
+     maal: med et kort paa siden pakkes de i en navngivet gruppe, uden
+     kort staar de, hvor de altid har staaet. ÉT sted, to indpakninger
+     — ikke to kopier af det samme.
+
+     Gem-boksen stod FOER resultathovedet og skubbede baade antallet og
+     det foerste boligkort ned. Den svarer paa et spoergsmaal, man
+     foerst stiller, naar man har SET resultatet — «det her vil jeg have
+     besked om» — saa den hoerer til efter listen. Paa forsiden er den
+     stadig stoej: uden filtre gemmes en soegning ikke, jf. `harFiltre`. */
+  const efterKortet = (
+    <>
+      {/* Forrige · sidetal · Naeste. Almindelige links; se app/Sider.tsx. */}
+      <Sider basis="/" sp={sp} side={side} sider={sider} komplet={komplet} />
+      {soegt && <GemSoegning sp={sp} svar={svarPaaGem} />}
+    </>
+  )
   // «Ryd filtre» rydder FILTRENE og beholder området — det er det, der
   // står på knappen. Chippernes «Ryd alle» rydder også området. To
   // etiketter, to udfald, begge sande.
@@ -947,8 +996,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
               <span className="titeltal">({sum.antal.toLocaleString('da-DK')})</span>
             </h1>
             {visninger.length > 0 && (
-              <details className="sortering">
-                <summary>Sortér: {SORTERINGSNAVN[f.sorter ?? 'nyeste'].kort}</summary>
+              <Sorteringsmenu etiket={<>Sortér: {SORTERINGSNAVN[f.sorter ?? 'nyeste'].kort}</>}>
                 <nav aria-label="Sortering" className="sortering-valg">
                   {SORTERINGSVALG.map((v) => {
                     const valgt = (f.sorter ?? 'nyeste') === v
@@ -964,7 +1012,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                     )
                   })}
                 </nav>
-              </details>
+              </Sorteringsmenu>
             )}
           </div>
           <div className="soegepanel">
@@ -1191,7 +1239,13 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           {kortVises && (
             <aside className="kortspalte">
               <div className="kortboks">
-                <Landkort maerker={maerker} />
+                {/* `springTil` giver kortet et springlink. Uden det skal
+                    den, der tabulerer, forbi kortets egne kontroller for
+                    at naa videre — og foer roving-tabindex forbi hvert
+                    eneste maerke. Maalt: 48 stop i kortspalten. */}
+                <Landkort
+                  maerker={maerker} springTil={EFTER_KORTET} pegerTilListe
+                />
               </div>
               {/* Kilde-oplysning, ikke en fejlmelding: det er kilden der
                   ikke oplyser placeringen, ikke boligen der mangler noget.
@@ -1211,19 +1265,30 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         </>
       )}
 
-      {/* Forrige · sidetal · Naeste. Almindelige links; se app/Sider.tsx. */}
-      <Sider basis="/" sp={sp} side={side} sider={sider} komplet={komplet} />
-
-      {/* ── Gem soegningen ────────────────────────────────────
-          Stod FOER resultathovedet og skubbede baade antallet og det
-          foerste boligkort ned. Boksen svarer paa et spoergsmaal, man
-          foerst stiller, naar man har SET resultatet — «det her vil jeg
-          have besked om» — saa den hoerer til efter listen. Formularen,
-          dens server action og dens skjulte felter er uroerte; kun
-          pladsen paa siden er en anden.
-          Paa forsiden er den stadig stoej: uden filtre gemmes en
-          soegning ikke, jf. `harFiltre`. */}
-      {soegt && <GemSoegning sp={sp} />}
+      {/* ── Springlinkets maal ────────────────────────────────
+          Det var en TOM div paa nul pixel uden navn. Fokus landede et
+          sted, der hverken kunne ses eller hoeres: en skaermlaeser havde
+          intet at laese op, og laa maalet allerede i billedet, rullede
+          siden heller ikke. Man kunne ikke afgoere, om linket gjorde
+          noget.
+          Nu er maalet det, der FAKTISK kommer efter kortet — sidetallene
+          og gem-boksen — og gruppen har et navn, der siger det. Det er
+          ogsaa aerligere: en gruppe med indhold kan hedde noget, en tom
+          div kan ikke.
+          Kun naar der ER et kort at springe over. Uden kort er der intet
+          spring, og saa skal indholdet ikke pakkes ind i en gruppe, der
+          lover et.
+          `tabIndex={-1}` er det, der giver den fokus — uden den flytter
+          browseren kun rullepositionen, og naeste Tab ville begynde
+          forfra i toppen af siden. */}
+      {kortVises ? (
+        <div
+          id={EFTER_KORTET} tabIndex={-1} className="efterkort"
+          role="group" aria-label="Efter kortet"
+        >
+          {efterKortet}
+        </div>
+      ) : efterKortet}
 
       {/* ── Talstriben — EFTER boligerne ──────────────────────
           Den stod mellem søgefeltet og det første boligkort og fyldte

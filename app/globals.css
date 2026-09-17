@@ -50,15 +50,25 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+
+/* ── Bjaelkens hoejde staar ÉT sted ───────────────────────────────
+   Tre ting afhaenger af den, og alle tre var skrevet af i haanden:
+   bjaelkens egen `min-height`, `scroll-padding-top` (som skal holde et
+   ankerspring fri af den) og kortspaltens klaebeafstand. De var
+   allerede drevet fra hinanden: kommentaren herunder sagde 62 px,
+   bjaelken var 72, og scroll-padding stod paa 74 og 68.
+   Nu er raekkens hoejde tallet, og de andre er afledt af det.
+   `--bjaelke` regnes paa brugsstedet, saa medieforespoergslen under
+   den ogsaa slaar igennem paa den afledte vaerdi. */
+:root { --bjaelke-raekke: 72px; --bjaelke: calc(var(--bjaelke-raekke) + 1px); }
+@media (max-width: 720px) { :root { --bjaelke-raekke: 60px; } }
+
 /* ── Den klaebende bjaelke maa ikke daekke det, man springer hen til ──
-   `header.top` er `position: sticky` i 62 px hoejde (56 px under 560 px).
    Uden den her lander et ankerspring — og browserens egen scroll til et
    fokuseret element — under bjaelken, og maalet er usynligt netop naar
    man har bedt om at se det. Det gaelder baade tastaturets Tab og et
-   `#id`-link, og det koster ingenting paa sider uden anker.
-   Vaerdien er bjaelkens hoejde plus lidt luft, ikke et rundt tal. */
-html { scroll-padding-top: 74px; }
-@media (max-width: 560px) { html { scroll-padding-top: 68px; } }
+   `#id`-link, og det koster ingenting paa sider uden anker. */
+html { scroll-padding-top: calc(var(--bjaelke) + 1px); }
 body {
   background: var(--bg);
   color: var(--tekst);
@@ -129,7 +139,7 @@ header.top {
   position: sticky; top: 0; z-index: 40;
 }
 header.top .ramme.toplinje {
-  padding: 0 22px; min-height: 72px;
+  padding: 0 22px; min-height: var(--bjaelke-raekke);
   display: flex; align-items: center; gap: 34px;
 }
 /* Wordmarket ALENE. Undertitlen stod som en 11,5 px linje under og gjorde
@@ -156,7 +166,9 @@ header.top .ramme.toplinje {
 .tophandlinger .nav-primaer:hover { background: var(--accent-mrk); color: #fff; }
 
 @media (max-width: 720px) {
-  header.top .ramme.toplinje { min-height: 60px; gap: 14px; }
+  /* Hoejden kommer fra `--bjaelke-raekke` ovenfor — kun mellemrummet
+     staar her. Stod tallet ogsaa her, ville det vaere to steder igen. */
+  header.top .ramme.toplinje { gap: 14px; }
   .maerke { font-size: 19px; }
   /* Menuen viger foer handlingen: «Opret annonce» er det, bjaelken er
      der for, og den skal kunne rammes med en tommelfinger. */
@@ -1033,13 +1045,29 @@ footer.bund {
 .gem-raek input:focus {
   outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-lys);
 }
-.gem-raek button { flex: 0 0 auto; }
+/* ── Ledeteksten over feltet ──────────────────────────────────
+   Den var en placeholder, og en placeholder er ikke en ledetekst: den
+   forsvinder ved foerste tastetryk. Maalt efter udfyldning stod der to
+   felter side om side — «2+ vær. i Attrapby» og «abc» — uden nogen
+   angivelse af, hvad de var. Feltet og teksten er nu ét lodret par;
+   knappen saettes i bund, saa den flugter med felterne og ikke med
+   deres ledetekster. */
+.gem-felt { display: flex; flex-direction: column; gap: 4px; flex: 1 1 190px; min-width: 0; }
+.gem-felt label { font-size: 12px; font-weight: 600; color: var(--daempet); line-height: 1.3; }
+.gem-raek .gem-felt input { flex: 0 0 auto; width: 100%; }
+.gem-raek { align-items: flex-end; }
+.gem-raek button { flex: 0 0 auto; align-self: flex-end; }
 .gem-vilkaar {
   font-size: 12px; color: var(--svag); line-height: 1.55; margin: 11px 0 0; max-width: 82ch;
 }
 .gem-vilkaar strong { color: var(--daempet); font-weight: 600; }
 .gem-vilkaar a { color: var(--accent); }
 .gem-svar { font-size: 14px; line-height: 1.55; }
+/* Beskeden faar fokus ved indlaesning (se app/GemSvar.tsx), og saa skal
+   den ogsaa SES at have det. `:focus` og ikke `:focus-visible`: fokus
+   saettes af os, ikke af et tastetryk, og saa er der ingen browser til
+   at afgoere, om det var «synligt nok». */
+.gem-svar:focus { outline: 2px solid var(--accent); outline-offset: 3px; }
 .gem-svar.ok { border-color: var(--accent); background: var(--accent-lys); }
 .gem-svar.advarsel { border-color: #e8d9b8; background: var(--advarsel-lys); color: var(--advarsel); }
 .afmeld .kriterier {
@@ -2120,13 +2148,86 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
   gap: 24px; align-items: start;
 }
 .udenkort { display: block; }
-.kortspalte { position: sticky; top: 16px; }
+/* Kortspalten klaeber UNDER bjaelken, ikke bag den.
+   Med `top: 16px` parkerede spalten 57 px oppe bag den klaebende
+   bjaelke, saa snart siden var rullet: maalt ved scrollY 400 laa
+   kortets overkant paa y=16 og bjaelkens underkant paa y=73. Det
+   ramte baade Leaflets zoomknapper (y=27) og springlinket (y=25) —
+   `elementFromPoint` paa linkets midte svarede «nav-primaer», altsaa
+   knappen i bjaelken. En fokuseret kontrol, der ligger HELT bag noget
+   andet, er WCAG 2.4.11 om igen. */
+.kortspalte { position: sticky; top: calc(var(--bjaelke) + 16px); }
 .kortboks {
   height: calc(100vh - 150px); min-height: 340px; max-height: 720px;
   border: 1px solid var(--linje); border-radius: 14px; overflow: hidden;
   background: var(--linje-svag);
 }
 .landkort-flade { width: 100%; height: 100%; }
+/* ── Springlinket over kortet ─────────────────────────────────
+   Skjult indtil det har fokus — den klassiske form. Det er den vej ud
+   af kortet, der ikke kraever, at man ved, at piletasterne flytter
+   mellem maerkerne. `position: absolute` og ikke `fixed`: det hoerer til
+   kortet, ikke til vinduet, og skal ligge oven paa kortets egen
+   oeverste kant, naar det springer frem. */
+.springkort {
+  /* z-index OVER Leaflets egne lag. Foerste udgave havde 40, og det er
+     UNDER flisepanelet: `.leaflet-pane` er 400 og `.leaflet-control` er
+     800, og de ligger i samme stablingskontekst som linket. Linket blev
+     altsaa tegnet BAG kortet — usynligt, selv med fokus. Prøven meldte
+     groent, fordi `checkVisibility()` ikke ved noget om, hvad der ligger
+     oven paa; det var et skaermbillede, der fangede det.
+     Til hoejre og ikke til venstre: zoomknapperne staar i venstre
+     hjoerne, og et springlink maa ikke daekke en kontrol. */
+  position: absolute; z-index: 1100; right: 8px; top: 8px;
+  padding: 9px 14px; min-height: 44px; display: inline-flex; align-items: center;
+  background: var(--kort); color: var(--accent); font-size: 13.5px; font-weight: 600;
+  border: 1px solid var(--accent); border-radius: var(--r-s); text-decoration: none;
+  transform: translateY(calc(-100% - 16px)); opacity: 0;
+  pointer-events: none;
+}
+.springkort:focus {
+  transform: none; opacity: 1; pointer-events: auto;
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+/* Kortboksen er springlinkets ramme. `overflow: hidden` staar allerede
+   der; linket ligger derfor INDE i boksen, naar det springer frem.
+   `z-index: 0` er ikke pynt: den danner en stablingskontekst, saa
+   springlinkets 1100 er LUKKET INDE i kortet. Uden den slap tallet ud i
+   rodkonteksten under 900 px — dér er `.kortspalte` `position: static`,
+   og saa var der ingen kontekst mellem linket og <html> — og linket
+   ville blive tegnet oven paa baade bjaelken (40) og samtykkeboksen
+   (60). Inde i kortet slaar 1100 stadig Leaflets 400 og 800. */
+.kortboks { position: relative; z-index: 0; }
+
+/* ── Hjaelpelinjen i kortet ───────────────────────────────────
+   Skjult for oejet, indtil fokus er i kortet — og altid til stede for
+   skaermlaeseren gennem maerkernes `aria-describedby`.
+
+   Placeringen er valgt af to ting, den IKKE maa daekke: zoomknapperne
+   i oeverste venstre hjoerne (de fylder ned til ca. 72 px) og
+   krediteringen i nederste hoejre. Den sidste er ikke en smagssag —
+   OpenStreetMaps Tile Usage Policy kraever, at krediteringen er synlig
+   og aldrig skjult, og den regel staar i CLAUDE.md. Derfor oeverst,
+   under knapperne, og aldrig i bunden.
+
+   `visibility` og ikke `display`: et element, `aria-describedby` peger
+   paa, skal blive i tilgaengelighedstraeet, ogsaa naar oejet ikke skal
+   se det. `display: none` ville tage beskrivelsen fra maerket. */
+.korthjaelp {
+  position: absolute; z-index: 1100; left: 8px; right: 8px; top: 80px;
+  margin: 0; padding: 9px 12px;
+  background: var(--kort); border: 1px solid var(--linje); border-radius: var(--r-s);
+  box-shadow: 0 4px 14px #102e2518;
+  font-size: 12.5px; line-height: 1.45; color: var(--tekst);
+  opacity: 0; pointer-events: none; transition: opacity .12s linear;
+}
+.kortboks:focus-within .korthjaelp { opacity: 1; }
+/* Springlinkets maal. Det indeholder sidetallene og gem-boksen, saa
+   det fylder det, de fylder — ingen ekstra plads.
+   Ringen er med vilje: en tastaturbruger uden skaermlaeser skal kunne
+   SE, at springet skete, og hvor hun landede. Den staar kun, mens
+   gruppen har fokus, og forsvinder ved naeste Tab. */
+.efterkort:focus { outline: 2px solid var(--accent); outline-offset: 5px; border-radius: 4px; }
 /* Ingen af resultaterne har koordinater. En OPLYSNING om kilden, ikke
    en fejlmelding om boligen: boligerne står i listen, fuldt ud. */
 .kortmangler {

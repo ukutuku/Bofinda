@@ -214,7 +214,7 @@ export default function Side() {
       </p>
 
       <h2>Cookies</h2>
-      <p>Vi bruger cookies til fire ting og ikke andet:</p>
+      <p>Vi bruger cookies til fem ting og ikke andet:</p>
       <ul>
         <li>at holde dig logget ind, hvis du er udlejer</li>
         <li>at huske, om du har sagt ja eller nej til statistik</li>
@@ -222,6 +222,12 @@ export default function Side() {
         <li>
           holdnummeret, hvis du deltager i en brugertest. Den udløber efter
           fire timer
+        </li>
+        <li>
+          at bære det, du lige har skrevet i «Få besked om nye boliger», med
+          tilbage til formularen, hvis noget gik galt — så du kan rette det i
+          stedet for at skrive det hele igen. Den indeholder kun det, du selv
+          har tastet, og den udløber efter to minutter
         </li>
       </ul>
       <p>
