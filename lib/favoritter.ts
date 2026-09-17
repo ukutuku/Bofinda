@@ -24,12 +24,17 @@
 //  skrivning og hver sletning baerer `user_id` i sin egen WHERE.
 // ═══════════════════════════════════════════════════════════════
 
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { cache } from 'react'
 import { db } from '../db/client'
 import { favorites, listings, sources } from '../db/schema'
 import { hentBrugerId } from './auth'
 import { type Gemoenske, type Gemudfald } from './gemoenske'
+// Billedernes allowlist skrives ikke af i SQL her. `VISBAR_VAERT` er det
+// ene udtryk, soegesiden taeller og vaelger forsidebilleder med; en kopi
+// ville vaere praecis den form for dobbelthed, CLAUDE.md samler seks
+// tilfaelde af — to rigtige udtryk, der driver fra hinanden.
+import { VISBAR_VAERT } from './soeg'
 
 /** Hvad et boligkort skal vide for at tegne knappen. */
 export type Favoritstatus =
@@ -139,7 +144,22 @@ export async function erFavorit(brugerId: string, listingId: string): Promise<bo
   return Boolean(r)
 }
 
-/** Én gemt bolig, som Min side viser den. */
+/**
+ * Én gemt bolig, som Min side viser den.
+ *
+ * ═══ HVORFOR DER IKKE ER ÉT `pris`-FELT ═══
+ *
+ * Feltet hed foer `pris` og blev udregnet som `total ?? leje`. Udtrykket
+ * er rigtigt — det er det samme som `PRIS` i lib/soeg.ts — men det
+ * kastede SVARET vaek: modtageren kunne ikke laengere se, om tallet var
+ * hele beloebet til udlejeren eller bare huslejen. Kommentaren lovede at
+ * «kortet siger selv hvilken af delene det er», og det kunne kortet ikke,
+ * for det havde kun ét tal. Begge dele baeres derfor hver for sig, og
+ * kortet skelner dem med ord — som soegekortet goer.
+ *
+ * Felterne herunder er VISNINGSFELTER. De laeses af Min side og ingen
+ * andre steder; ingen af dem aendrer, hvad der gemmes eller fjernes.
+ */
 export interface GemtBolig {
   listingId: string
   gemtDen: Date
@@ -148,7 +168,35 @@ export interface GemtBolig {
   postnr: string | null
   by: string | null
   kilde: string | null
-  pris: number | null
+
+  // ── Hvad boligen ER ────────────────────────────────────────
+  // Null = ikke oplyst. Kortet udelader leddet; en pladsholder som
+  // «— vaer.» ville vaere et opdigtet tal.
+  type: string | null
+  vaerelser: number | null
+  areal: number | null
+
+  // ── Oekonomien ─────────────────────────────────────────────
+  /** Huslejen alene. */
+  leje: number | null
+  /** Husleje + den aconto, kilden opkraever. Null = ikke kendt. */
+  total: number | null
+  // Til `eltilstand()`. El-forbeholdet stilles ÉT sted for alle tre
+  // korttyper — se `Ellinje` i app/Boligkort.tsx. Uden de tre felter
+  // kunne Min side vise en groen total uden at goere rede for el, og
+  // det er praecis den fejl, der stod paa 171 gruppekort.
+  el: number | null
+  elEgenMaaler: boolean | null
+  poster: string[] | null
+
+  // ── Billedet ───────────────────────────────────────────────
+  /** Kildens egen URL paa foerste VISBARE billede. Null = intet. */
+  forside: string | null
+  /** Antal billeder vi faktisk kan vise. Samme filter som `forside`. */
+  billeder: number
+  /** Kilden tager forbehold for, at billederne kan vaere af en anden bolig. */
+  billedforbehold: boolean
+
   /** Er den til at leje endnu? Se noten ved `tilgaengelig`. */
   status: 'aktiv' | 'afmeldt' | 'forsvundet'
 }
@@ -183,8 +231,31 @@ export async function hentFavoritter(brugerId: string): Promise<GemtBolig[]> {
       postnr: listings.postalCode,
       by: listings.city,
       kilde: sources.name,
+      type: listings.propertyType,
+      vaerelser: listings.rooms,
+      areal: listings.sizeM2,
       leje: listings.rentMonthly,
       total: listings.totalMonthly,
+      el: listings.utilitiesElectricity,
+      elEgenMaaler: listings.electricityOwnMeter,
+      poster: listings.totalMonthlyComponents,
+      billedforbehold: listings.imagesMayDiffer,
+      // Kun billeder vi FAKTISK kan vise, og forsidebilledet som
+      // `position` bestemmer det. Ordret de to underforespoergsler fra
+      // `KOLONNER` i lib/soeg.ts, med det samme `VISBAR_VAERT`:
+      // taellingen og billedet skal svare paa det samme spoergsmaal, og
+      // kortet skal ikke kunne skrive «3 billeder» over et tomt felt.
+      //
+      // Noeglen er `favorites.listingId` og ikke `listings.id`: joinet er
+      // et LEFT JOIN, saa `listings.id` er null for en bolig, der er
+      // forsvundet under os — og en underforespoergsel paa null ville
+      // vaere en stille null frem for et aerligt nul.
+      billeder: sql<number>`(select count(*)::int from listing_images i
+        where i.listing_id = ${favorites.listingId} and ${VISBAR_VAERT})`,
+      forside: sql<string | null>`(
+        select i.external_url from listing_images i
+        where i.listing_id = ${favorites.listingId} and ${VISBAR_VAERT}
+        order by i.position limit 1)`,
       listingStatus: listings.status,
     })
     .from(favorites)
@@ -200,9 +271,21 @@ export async function hentFavoritter(brugerId: string): Promise<GemtBolig[]> {
     postnr: r.postnr,
     by: r.by,
     kilde: r.kilde,
-    // Samme udtryk som `PRIS` i lib/soeg.ts: totalen naar vi har den,
-    // ellers huslejen. Kortet siger selv hvilken af delene det er.
-    pris: r.total ?? r.leje,
+    type: r.type,
+    vaerelser: r.vaerelser,
+    areal: r.areal,
+    // Huslejen og totalen hver for sig. Se noten paa `GemtBolig`.
+    leje: r.leje,
+    total: r.total,
+    el: r.el,
+    elEgenMaaler: r.elEgenMaaler,
+    poster: r.poster,
+    forside: r.forside,
+    billeder: r.billeder ?? 0,
+    // `imagesMayDiffer` er NOT NULL i skemaet, men joinet er et LEFT
+    // JOIN: er boligen forsvundet, er hele raekken null. Fravaer af en
+    // bolig er ikke et forbehold.
+    billedforbehold: r.billedforbehold ?? false,
     status: r.adresse == null ? 'forsvundet'
       : r.listingStatus === 'active' ? 'aktiv' : 'afmeldt',
   }))

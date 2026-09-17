@@ -21,12 +21,13 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { eq, inArray } from 'drizzle-orm'
 import { db } from '../db/client'
-import { favorites, listings, savedSearches, sources, users } from '../db/schema'
+import { favorites, listingImages, listings, savedSearches, sources, users } from '../db/schema'
 import {
   aktiveBlandt, erFavorit, favoritIder, fjernFavorit, gemFavorit,
-  hentFavoritter, statusFor,
+  hentFavoritter, statusFor, type GemtBolig,
 } from '../lib/favoritter'
 import { Favoritknap } from '../app/Favoritknap'
+import { Gemtkort } from '../app/min-side/Gemtkort'
 
 let fejl = 0
 function tjek(navn: string, ok: boolean, note = '') {
@@ -295,6 +296,169 @@ async function koer() {
     await db.delete(listings).where(eq(listings.id, forsvinder))
     tjek('9 · favoritten fulgte med boligen ned (on delete cascade)',
       !(await erFavorit(brugerA, forsvinder)))
+  }
+
+  // ═══ 10 · Min sides gemte-kort ═════════════════════════════════
+  // Kortet gengives med RIGTIGE raekker fra `hentFavoritter`, ikke med
+  // et haandskrevet objekt: saa proever de her linjer ogsaa, at
+  // forespoergslen faktisk leverer de felter, kortet tegner. Et
+  // konstrueret objekt ville bestaa, selv om SQL'en holdt op med at
+  // hente billedet.
+  console.log('\n══ 10 · gemte-kortet paa Min side ══')
+  {
+    const kort = (b: GemtBolig) => renderToStaticMarkup(createElement(Gemtkort, { b }))
+    const raekkeFor = async (id: string) => {
+      const l = await hentFavoritter(brugerA)
+      return l.find((x) => x.listingId === id)!
+    }
+
+    // ── 10A · Billedet kommer fra basen, og kun fra tilladte vaerter ──
+    // To billeder, hvor det FOERSTE ligger uden for allowlisten. Vaelger
+    // forespoergslen bare `position 0`, faar kortet en URL, `billedUrl`
+    // afviser — og saa staar der et tomt 16:9-felt paa et kort, der
+    // ogsaa paastaar «2 billeder». Taellingen og billedet skal svare paa
+    // det samme spoergsmaal.
+    await db.insert(listingImages).values([
+      { listingId: bolig1, externalUrl: 'https://ikke-tilladt.invalid/a.jpg', position: 0 },
+      { listingId: bolig1, externalUrl: 'https://app.propstep.com/b.jpg', position: 1 },
+      { listingId: bolig1, externalUrl: 'https://app.propstep.com/c.jpg', position: 2 },
+    ])
+    await gemFavorit(brugerA, bolig1)
+    const medFoto = await raekkeFor(bolig1)
+    tjek('10A · forsidebilledet springer den utilladte vaert over',
+      medFoto.forside === 'https://app.propstep.com/b.jpg', String(medFoto.forside))
+    tjek('10A · og taellingen taeller kun de visbare',
+      medFoto.billeder === 2, String(medFoto.billeder))
+
+    const mF = kort(medFoto)
+    tjek('10A · kortet tegner billedet', mF.includes('<img') && mF.includes('/api/billede'))
+    tjek('10A · og siger det rigtige antal', mF.includes('>2 billeder<'))
+    tjek('10A · uden «uden-foto», for der ER et foto', !mF.includes('uden-foto'))
+
+    // ── 10B · Klassen og billedet er ÉN beregning ─────────────────
+    // Ligger vaerten uden for allowlisten, giver `billedUrl()` null.
+    // Afgjorde den raa URL klassen og `billedUrl()` billedet, ville
+    // feltet staa tomt i stedet for at falde tilbage — det er
+    // Dacas-fejlen i visuel form, og den fejler ingen steder.
+    const kunUtilladt: GemtBolig = { ...medFoto,
+      forside: 'https://ikke-tilladt.invalid/a.jpg', billeder: 1 }
+    const kU = kort(kunUtilladt)
+    tjek('10B · utilladt vaert: feltet falder tilbage',
+      kU.includes('uden-foto') && !kU.includes('<img'),
+      kU.includes('<img') ? 'BILLEDE UDEN TILLADT VAERT' : '')
+    tjek('10B · og fallback\'et siger hvad det er', kU.includes('Intet billede'))
+    // Modstykket: proeven maa ikke kunne bestaas ved at saette
+    // «uden-foto» paa alting.
+    tjek('10B · praemis: med en tilladt vaert er klassen der IKKE',
+      !mF.includes('uden-foto'))
+
+    // ── 10C · Husleje og total kan ikke forveksles ────────────────
+    // `hentFavoritter` bar foer ét sammenfaldet `pris`-felt, og kortet
+    // skrev «kr/md» uden at sige hvad tallet var. De to udsagn er ikke
+    // det samme, og forskellen er hele projektets loefte.
+    const kunLeje = kort({ ...medFoto, total: null, leje: 900000 })
+    tjek('10C · uden total staar huslejen som HUSLEJE',
+      kunLeje.includes('kr/md i husleje') && !kunLeje.includes('til udlejer'))
+    tjek('10C · og den er ikke groen', kunLeje.includes('gemt-pris kun-leje'))
+    tjek('10C · manglen siges hoejt',
+      kunLeje.includes('Udlejer oplyser ikke aconto'))
+
+    const medTotal = kort({ ...medFoto, total: 1000000, leje: 900000,
+      poster: ['rent', 'heat', 'water'] })
+    tjek('10C · med total staar «til udlejer»',
+      medTotal.includes('kr/md til udlejer') && !medTotal.includes('i husleje'))
+    tjek('10C · og prisen er groen', /class="gemt-pris"/.test(medTotal))
+    tjek('10C · og saa staar forbeholdet om aconto IKKE',
+      !medTotal.includes('Udlejer oplyser ikke aconto'))
+
+    // ── 10D · En groen total uden el-rede er forbudt ──────────────
+    // Samme regel som paa de to soegekort, og nu med en tredje kaldere
+    // af `Ellinje`. Den fejl stod paa 171 gruppekort, foer nogen saa den.
+    const ELTEKST = /El indgår ikke|el afregnes direkte|ét samlet beløb/
+    for (const [navn, html] of [
+      ['udspecificeret uden el', medTotal],
+      ['samlet klump', kort({ ...medFoto, total: 1000000, poster: ['rent', 'other'] })],
+      ['egen maaler', kort({ ...medFoto, total: 1000000, elEgenMaaler: true,
+        poster: ['rent', 'other'] })],
+    ] as const) {
+      const groen = /class="gemt-pris"/.test(html)
+      tjek(`10D · ${navn}: prisen er groen`, groen)
+      tjek(`10D · ${navn}: og el er gjort rede for`, !groen || ELTEKST.test(html),
+        groen && !ELTEKST.test(html) ? 'GRØN UDEN EL-LINJE' : '')
+    }
+    // Og den maa ikke skrives paa alting: er el en navngiven post,
+    // skal linjen VAERE der ikke.
+    tjek('10D · el oplyst → ingen el-linje',
+      !ELTEKST.test(kort({ ...medFoto, total: 1030000, el: 30000,
+        poster: ['rent', 'heat', 'water', 'electricity'] })))
+    // Uden total er der intet tal at tage forbehold for, og to forbehold
+    // oven i hinanden hjaelper ingen.
+    tjek('10D · ukendt total → slet ingen el-linje', !ELTEKST.test(kunLeje))
+
+    // ── 10E · Ukendt maa ikke se kendt ud ─────────────────────────
+    const uoplyst = kort({ ...medFoto, type: null, vaerelser: null, areal: null,
+      leje: null, total: null })
+    tjek('10E · ingen pladsholder for vaerelser',
+      !uoplyst.includes('vær.') && !uoplyst.includes('—'))
+    tjek('10E · ingen pladsholder for areal', !uoplyst.includes('m²'))
+    tjek('10E · og prisen staar som ord, ikke som tom etiket',
+      uoplyst.includes('Prisen er ikke oplyst') && !uoplyst.includes('kr/md'))
+    // Modstykket: er de oplyst, SKAL de staa — ellers kunne 10E bestaas
+    // ved at udelade dem altid.
+    tjek('10E · praemis: oplyste tal staar i overskriften',
+      mF.includes('3 vær.') && mF.includes('70 m²') && mF.includes('Lejlighed'))
+
+    // ── 10F · Billedet og adressen aabner den gemte bolig ─────────
+    const href = `href="/bolig/${bolig1}"`
+    tjek('10F · adressen er et link til netop den bolig',
+      new RegExp(`<a class="adresse" ${href}`).test(mF))
+    tjek('10F · billedet peger samme sted',
+      new RegExp(`${href}[^>]*class="gemt-fotolink"`).test(mF))
+    // Billedlinket er en genvej for musen. Det maa ikke blive et ekstra
+    // tabstop eller en anden stemme for skaermlaeseren.
+    tjek('10F · billedlinket er hverken tabstop eller dublet for oplaesning',
+      /aria-hidden="true"[^>]*tabindex="-1"|tabindex="-1"[^>]*aria-hidden="true"/.test(mF))
+
+    // ── 10G · Fjern ──────────────────────────────────────────────
+    // En rigtig knap i en rigtig formular: tastatur virker af sig selv,
+    // og der er ingen JavaScript at fejle.
+    tjek('10G · Fjern er en submit-knap', /<button[^>]*type="submit"/.test(mF))
+    const navn = /aria-label="([^"]*)"/.exec(mF.slice(mF.indexOf('gemt-fjern')))?.[1] ?? ''
+    tjek('10G · navnet siger HVILKEN bolig', navn.includes('Prøvevej 1'), navn)
+    tjek('10G · og den synlige tekst staar foerst i navnet',
+      navn.startsWith('Fjern'), navn)
+    tjek('10G · bolig-id\'et foelger med i formularen',
+      mF.includes(`name="bolig" value="${bolig1}"`))
+
+    // ── 10H · Afmeldt og forsvundet ──────────────────────────────
+    const afm = kort({ ...medFoto, status: 'afmeldt' })
+    tjek('10H · afmeldt: kortet er daempet', afm.includes('gemt-kort utilgaengelig'))
+    tjek('10H · afmeldt: der staar hvad der skete',
+      afm.includes('Ikke længere tilgængelig'))
+    tjek('10H · afmeldt: boligsiden kan stadig aabnes', afm.includes(href))
+
+    const vaek = kort({ ...medFoto, status: 'forsvundet', adresse: null, postnr: null,
+      by: null, type: null, vaerelser: null, areal: null, leje: null, total: null,
+      forside: null, billeder: 0 })
+    tjek('10H · forsvundet: der staar at boligen er vaek',
+      vaek.includes('Boligen findes ikke længere') && vaek.includes('Annoncen er væk'))
+    tjek('10H · forsvundet: intet link til en side, der ikke findes',
+      !vaek.includes('/bolig/'))
+    tjek('10H · forsvundet: ingen oekonomi at paastaa noget om',
+      !vaek.includes('kr/md') && !vaek.includes('Prisen er ikke oplyst'))
+    tjek('10H · forsvundet: men den kan stadig fjernes',
+      vaek.includes('gemt-fjern'))
+
+    // ── 10I · Billedforbeholdet ──────────────────────────────────
+    // Det handler om det, man kigger paa. Uden et billede er der intet
+    // at tage forbehold for.
+    tjek('10I · forbeholdet staar ved billedet',
+      kort({ ...medFoto, billedforbehold: true }).includes('kan være fra en anden bolig'))
+    tjek('10I · men ikke naar der ikke er et billede',
+      !kort({ ...medFoto, billedforbehold: true, forside: null, billeder: 0 })
+        .includes('kan være fra en anden bolig'))
+
+    await db.delete(listingImages).where(eq(listingImages.listingId, bolig1))
   }
 
   // ─── Oprydning ───────────────────────────────────────────────

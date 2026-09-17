@@ -21,14 +21,13 @@ import { savedSearches } from '../../db/schema'
 import { hentBrugerStatus } from '../../lib/auth'
 import { cookies } from 'next/headers'
 import { KVITTERINGSCOOKIE, LINKFEJL, kvitteringFra } from '../../lib/kontovej'
-import { hentFavoritter, type GemtBolig } from '../../lib/favoritter'
+import { hentFavoritter } from '../../lib/favoritter'
 import { GEM_PARAM, type Gemudfald, feltvaerdiFor, laesGemOenske } from '../../lib/gemoenske'
 import { laesGemkvittering } from '../../lib/gemkvittering'
 import { beskrivFiltre } from '../../lib/alarm'
-import { kr } from '../Boligkort'
+import { Gemtkort, dato } from './Gemtkort'
 import { Konto } from '../udlejer/Konto'
 import { Kvitteringsblok } from '../udlejer/Kvitteringsblok'
-import { fjernFraMinSide } from './handlinger'
 import { logUd } from '../udlejer/handlinger'
 
 export const dynamic = 'force-dynamic'
@@ -38,61 +37,6 @@ export const metadata: Metadata = {
   description: 'Dine gemte boliger og gemte søgninger.',
   // Et personligt område hører ikke til i et søgeresultat.
   robots: { index: false, follow: false },
-}
-
-const dato = (d: Date) =>
-  d.toLocaleDateString('da-DK', { day: 'numeric', month: 'short', year: 'numeric' })
-
-// ─── Gemt bolig ────────────────────────────────────────────────
-
-function Boligrække({ b }: { b: GemtBolig }) {
-  const utilgaengelig = b.status !== 'aktiv'
-  return (
-    <li className={`gemt-bolig${utilgaengelig ? ' utilgaengelig' : ''}`}>
-      <div className="gemt-krop">
-        {b.status === 'forsvundet' ? (
-          <div className="adresse">Boligen findes ikke længere</div>
-        ) : (
-          <a className="adresse" href={`/bolig/${b.listingId}`}>{b.adresse}</a>
-        )}
-        <div className="sted">
-          {b.postnr} {b.by}
-          {b.kilde && <> · {b.kilde}</>}
-          <> · gemt {dato(b.gemtDen)}</>
-        </div>
-
-        {/* En bolig, der er taget ned, forsvinder ikke fra listen. Hun har
-            selv lagt den der; forsvandt den af sig selv, kunne hun ikke
-            vide, om hun kom til at fjerne den. Der staar hvad der skete,
-            og hun kan stadig fjerne den selv. */}
-        {b.status === 'afmeldt' && (
-          <p className="gemt-status">
-            <strong>Ikke længere tilgængelig.</strong> Kilden har taget annoncen
-            ned, siden du gemte den. Boligsiden kan stadig åbnes.
-          </p>
-        )}
-        {b.status === 'forsvundet' && (
-          <p className="gemt-status">
-            <strong>Annoncen er væk.</strong> Vi har ikke længere oplysninger om
-            den. Du kan fjerne den fra listen.
-          </p>
-        )}
-      </div>
-
-      <div className="gemt-hoejre">
-        {b.pris != null && !utilgaengelig && (
-          <div className="gemt-pris">{kr(b.pris)} <small>kr/md</small></div>
-        )}
-        <form action={fjernFraMinSide}>
-          <input type="hidden" name="bolig" value={b.listingId} />
-          <button className="nulstil" type="submit"
-            aria-label={b.adresse ? `Fjern ${b.adresse} fra gemte` : 'Fjern fra gemte'}>
-            Fjern
-          </button>
-        </form>
-      </div>
-    </li>
-  )
 }
 
 // ─── Siden ─────────────────────────────────────────────────────
@@ -234,6 +178,11 @@ export default async function Side(
     .orderBy(desc(savedSearches.createdAt))
 
   const aktive = boliger.filter((b) => b.status === 'aktiv').length
+  // De to tilstande, der betyder «der kommer ingen post». De taelles
+  // hver for sig, fordi de ikke betyder det samme: den ene venter paa
+  // hende, den anden er noget, hun selv har slaaet fra.
+  const venter = soegninger.filter((s) => s.unsubscribedAt == null && s.confirmedAt == null).length
+  const afmeldte = soegninger.filter((s) => s.unsubscribedAt != null).length
 
   return (
     <div className="minside">
@@ -260,7 +209,22 @@ export default async function Side(
 
       {/* ── Gemte boliger ────────────────────────────────────── */}
       <section className="blok">
-        <h2>Gemte boliger</h2>
+        {/* Overskriften og optaellingen er ÉN raekke. Tallet er et svar
+            paa overskriften — «Gemte boliger: 3» — og ikke en note under
+            den. Og det taeller BOLIGER, ikke kort: hvert kort er én
+            bolig her, men linjen skal laese ens med soegesidens, hvor et
+            gruppekort daekker flere. */}
+        <div className="blok-hoved">
+          <h2>Gemte boliger</h2>
+          {boliger.length > 0 && (
+            <p className="grundlag">
+              {boliger.length} {boliger.length === 1 ? 'bolig' : 'boliger'}
+              {/* Kun naar de to tal er forskellige. «3 boliger · 3 kan
+                  stadig lejes» ville vaere stoej om noget selvfoelgeligt. */}
+              {aktive !== boliger.length && <> · {aktive} kan stadig lejes</>}
+            </p>
+          )}
+        </div>
 
         {/* Udfaldet af hjerteklikket fra foer login. Den staar HER og ikke
             i toppen, fordi det er listen herunder, den handler om — og
@@ -300,21 +264,30 @@ export default async function Side(
             <p><a href="/">Find boliger</a></p>
           </div>
         ) : (
-          <>
-            <p className="grundlag">
-              {boliger.length} {boliger.length === 1 ? 'bolig' : 'boliger'} gemt
-              {aktive !== boliger.length && <> · {aktive} kan stadig lejes</>}
-            </p>
-            <ul className="gemte-liste">
-              {boliger.map((b) => <Boligrække key={b.listingId} b={b} />)}
-            </ul>
-          </>
+          <ul className="gemte-liste gemte-kort">
+            {boliger.map((b) => <Gemtkort key={b.listingId} b={b} />)}
+          </ul>
         )}
       </section>
 
       {/* ── Gemte søgninger ──────────────────────────────────── */}
       <section className="blok">
-        <h2>Gemte søgninger</h2>
+        {/* Samme hoved som ovenfor, saa de to afsnit laeses som ét
+            omraade og ikke som to sider, der er lagt sammen.
+            De tre tilstande taelles hver for sig og kun naar de findes:
+            en ubekraeftet soegning varsler INTET, og en afmeldt heller
+            ikke — at skrive «2 søgninger» og lade det staa ville vaere
+            det samme som at love hende post, hun ikke faar. */}
+        <div className="blok-hoved">
+          <h2>Gemte søgninger</h2>
+          {soegninger.length > 0 && (
+            <p className="grundlag">
+              {soegninger.length} {soegninger.length === 1 ? 'søgning' : 'søgninger'}
+              {venter > 0 && <> · {venter} mangler bekræftelse</>}
+              {afmeldte > 0 && <> · {afmeldte} afmeldt</>}
+            </p>
+          )}
+        </div>
         {soegninger.length === 0 ? (
           <div className="tom-boks">
             <p><strong>Du har ingen gemte søgninger.</strong></p>
@@ -325,7 +298,7 @@ export default async function Side(
             <p><a href="/">Søg efter boliger</a></p>
           </div>
         ) : (
-          <ul className="gemte-liste">
+          <ul className="gemte-liste gemte-soegninger">
             {soegninger.map((s) => {
               // Tre tilstande, og de betyder ikke det samme. En ubekræftet
               // søgning varsler INTET — det er den dobbelte tilmelding, og

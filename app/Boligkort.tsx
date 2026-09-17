@@ -20,6 +20,23 @@ import { stort, typeord } from '../lib/boligtype'
 export const kr = (oere: number | null) =>
   oere == null ? null : (oere / 100).toLocaleString('da-DK', { maximumFractionDigits: 0 })
 
+/**
+ * Kildens adressestreng uden ", postnr by" til sidst.
+ *
+ * Strengen baerer stedet med hos de fleste kilder, og kortene viser
+ * postnummer og by for sig. Uden trimningen staar der «Proevevej 1, 2200
+ * Koebenhavn N · 2200 Koebenhavn N».
+ *
+ * Eksporteret, fordi Min sides gemte-kort skal skaere PRAECIS det samme
+ * af: to trimninger, der driver fra hinanden, ville betyde at den samme
+ * bolig staar med to forskellige adresser to steder paa sitet — og begge
+ * udtryk ville se rigtige ud hver for sig.
+ */
+export const udenSted = (adresse: string, postnr: string | null, by: string | null) =>
+  adresse
+    .replace(new RegExp(`,?\\s*${postnr ?? ''}\\s*${by ?? ''}\\s*$`, 'i'), '')
+    .replace(/,\s*$/, '').trim()
+
 const MDR = ['januar','februar','marts','april','maj','juni',
              'juli','august','september','oktober','november','december']
 
@@ -182,9 +199,7 @@ export function Kort({ b, nu, position, favorit }: {
   const aconto = (b.poster ?? []).filter((p) => p !== 'rent').map((p) => POSTNAVN[p] ?? p)
   const vist = parsetAdresse(b)
   // Kildens streng baerer ofte postnr og by med. Vi viser dem én gang.
-  const raaUdenSted = b.adresse
-    .replace(new RegExp(`,?\\s*${b.postnr ?? ''}\\s*${b.by ?? ''}\\s*$`, 'i'), '')
-    .replace(/,\s*$/, '').trim()
+  const raaUdenSted = udenSted(b.adresse, b.postnr, b.by)
   // ALDRIG paa vores egne annoncer. Linjen betyder "kilden skrev noget
   // andet, end vi kunne parse" — men for en udlejerannonce ER udlejeren
   // kilden, og `address_raw` er ikke hendes tekst: VI bygger den af hendes
@@ -688,7 +703,15 @@ function Billedforbehold() {
   )
 }
 
-function Ellinje({ tilstand }: { tilstand: Eltilstand | null }) {
+/**
+ * El-forbeholdet. Eksporteret, fordi den nu har TRE kaldere: enkeltkortet,
+ * gruppekortet og Min sides gemte-kort. Reglen i CLAUDE.md er ikke, at de
+ * tre skal «holdes ens» — det er, at spoergsmaalet besvares ét sted og
+ * bruges derfra. Foerste gang de to foerste drev fra hinanden, stod der
+ * baade «Udlejer oplyser ikke aconto» og en el-linje om den aconto paa 47
+ * gruppekort.
+ */
+export function Ellinje({ tilstand }: { tilstand: Eltilstand | null }) {
   if (tilstand == null || tilstand === 'med') return null
   return (
     <div className="el">

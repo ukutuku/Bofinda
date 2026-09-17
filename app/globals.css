@@ -3005,7 +3005,12 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
 .hoved-titel .favoritknap { position: static; flex: none; margin-top: 4px; }
 
 /* ── Min side ─────────────────────────────────────────────────── */
-.minside { max-width: 780px; }
+/* Bredere end 780 px, fordi gemte boliger nu staar i to spalter. To
+   kort à ~420 px er den stoerrelse, soegesidens kort ogsaa har ved
+   kortvisning — den samme bolig skal ikke skifte format, fordi hun
+   gemte den. Prosablokkene faar hver deres loft nedenfor; en linje paa
+   880 px er ikke til at laese. */
+.minside { max-width: 880px; }
 .minside h1 { margin: 0 0 6px; }
 .minside-top {
   display: flex; justify-content: space-between; align-items: flex-start;
@@ -3018,34 +3023,244 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
   padding: 6px 12px; border: 1px solid var(--linje); border-radius: var(--r-s);
 }
 
+/* ── Afsnittets hoved ──────────────────────────────────────────
+   Overskrift og optaelling paa én linje. Tallet er svaret paa
+   overskriften, ikke en note under den — og de to afsnit paa siden faar
+   den samme grammatik, saa de laeses som ét omraade.
+   `align-items: baseline`, saa tallet staar paa overskriftens grundlinje
+   og ikke midt i den. */
+.blok-hoved {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  justify-content: space-between; gap: 4px 16px; margin-bottom: 15px;
+}
+.blok-hoved h2 { margin: 0; }
+.blok-hoved .grundlag {
+  margin: 0; font-size: 13px; color: var(--daempet);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Listerne ─────────────────────────────────────────────────
+   `.gemte-liste` er faellesskallen for begge afsnit — og selektoren,
+   favoritregressionen laeser listen med. Gitteret ligger paa
+   `.gemte-kort`, saa gemte soegninger beholder deres enkeltspalte. */
 .gemte-liste { list-style: none; margin: 0; padding: 0; display: flex;
   flex-direction: column; gap: 10px; }
-.gemt-bolig, .gemt-soegning {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--linje-svag);
+
+/* To spalter paa skaerm, én paa telefon. Bruddet gaar ved 620 px —
+   samme sted som soegelistens kort — og `1fr 1fr` frem for auto-fit,
+   saa et ulige antal kort ikke braekker gitteret om paa sidste raekke.
+   `align-items: stretch` er standard og er dét, der giver ens hoeje
+   kort: foden lander i bunden af hvert kort, ikke under sin egen tekst. */
+.gemte-liste.gemte-kort {
+  display: grid; grid-template-columns: 1fr; gap: 16px;
 }
-.gemte-liste > li:last-child { border-bottom: none; }
-.gemt-krop { min-width: 0; flex: 1; }
-.gemt-krop .adresse { font-weight: 600; color: var(--tekst); text-decoration: none; }
-a.adresse:hover { text-decoration: underline; }
-.gemt-krop .sted { font-size: 12.5px; color: var(--daempet); margin-top: 2px; }
-.gemt-hoejre { display: flex; align-items: center; gap: 10px; flex: none; }
-.gemt-pris { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.gemt-pris small { font-weight: 400; color: var(--daempet); font-size: 11px; }
+@media (min-width: 620px) {
+  .gemte-liste.gemte-kort { grid-template-columns: 1fr 1fr; }
+}
+
+/* KORTET BRYDER EFTER SIN EGEN BREDDE, IKKE EFTER VINDUETS.
+   Samme regel som søgelistens kort, og af samme grund: ved to spalter
+   er kortet 329 px bredt på en 768 px skærm, og en medieforespørgsel
+   ser kun de 768. Containeren står her, så en fremtidig brydning i
+   kortet kan spørge kortet og ikke skærmen — det var netop dén fejl,
+   der lod adresserne brække ét ord per linje på søgesiden. */
+.gemt-kort {
+  container-type: inline-size; container-name: gemtkort;
+  display: flex; flex-direction: column; min-width: 0;
+  background: var(--kort); border: 1px solid var(--linje);
+  border-radius: var(--r); overflow: hidden;
+  box-shadow: var(--skygge-flad);
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.gemt-kort:hover { border-color: #d6cfc0; box-shadow: var(--skygge-loeft); }
+@media (prefers-reduced-motion: reduce) { .gemt-kort { transition: none; } }
+/* Fokusringen skal ses OM kortet, naar adressen inde i det har fokus.
+   Ellers staar en 2 px ring om en 14 px tekstlinje midt i et kort, og
+   det er ikke til at se, hvor man er. `:focus-within` og ikke `:focus`,
+   fordi ringen hoerer til kortet og fokus til linket. */
+.gemt-kort:focus-within { border-color: var(--accent); }
+
+/* ── Billedfeltet ─────────────────────────────────────────────
+   Det staar ALTID, og det har altid samme forhold — det er dét, der
+   giver gitteret ens kort og en rolig kant ned gennem spalterne.
+
+   Baggrunden ER fallback'et: et fladt sandfarvet felt med et hus-omrids
+   og et ord. Den ligger under billedet, ikke i stedet for det, og
+   daekker derfor to tilfaelde med én mekanisme — billedet der aldrig
+   fandtes, og billedet der fejler undervejs. Et `img` med tom `alt`
+   tegner ingenting ved en fejlet hentning, og saa staar feltet tilbage.
+   Ingen JavaScript, ingen `onError`, intet eksempelfoto. */
+.gemt-foto {
+  position: relative; aspect-ratio: 16 / 9;
+  background: var(--linje-svag); flex: none;
+}
+.gemt-fotolink { display: block; width: 100%; height: 100%; }
+.gemt-foto img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.gemt-foto.uden-foto {
+  display: flex; align-items: center; justify-content: center;
+}
+/* Hus-omridset. Stort, meget svagt og bag teksten — et tegn paa, at
+   feltet er tomt med vilje, ikke en knap og ikke et billede der
+   indlaeses. Samme ikon som noegletallene bruger. */
+.gemt-foto.uden-foto::before {
+  content: ''; position: absolute; width: 46px; height: 46px;
+  top: 50%; left: 50%; transform: translate(-50%, calc(-50% - 11px));
+  background: var(--svag); opacity: .22;
+  -webkit-mask: var(--ikon-hus) center/contain no-repeat;
+  mask: var(--ikon-hus) center/contain no-repeat;
+}
+.gemt-intetfoto {
+  position: relative; margin-top: 42px;
+  font-size: 12px; color: var(--svag); letter-spacing: .01em;
+}
+.gemt-antal {
+  position: absolute; left: 9px; bottom: 9px;
+  background: rgba(20,22,26,.66); backdrop-filter: blur(3px); color: #fff;
+  font-size: 11px; font-weight: 560; padding: 3px 9px; border-radius: var(--r-pille);
+}
+
+/* ── Kortets krop ─────────────────────────────────────────────
+   `flex: 1` + foden med `margin-top: auto`: foden staar i bunden af
+   kortet, ogsaa naar nabokortet er hoejere. Uden det flyder «gemt den»
+   op under en kort adresse, og de to spalter faar hver sin fodlinje. */
+.gemt-indhold {
+  display: flex; flex-direction: column; flex: 1; min-width: 0;
+  padding: 15px 16px 13px;
+}
+.gemt-overskrift {
+  margin: 0; font-size: 16.5px; font-weight: 690;
+  letter-spacing: -0.02em; line-height: 1.3;
+}
+/* Adressen er indgangen til boligen — den skal kunne laeses som et link,
+   ikke som graa brødtekst. `.adresse` har en global regel med
+   `color: var(--daempet)`; her er den kortets handling. */
+.gemt-kort .adresse {
+  display: inline-block; margin: 4px 0 0;
+  font-size: 14px; font-weight: 560; line-height: 1.4;
+  color: var(--tekst); text-decoration: none;
+}
+.gemt-kort .adresse:hover { text-decoration: underline; }
+.gemt-sted { margin: 2px 0 0; font-size: 12.5px; color: var(--daempet); }
+
+.gemt-oekonomi { margin-top: 12px; }
+/* Skellet mellem huslejen og hele beloebet til udlejeren siges med ORD.
+   Farven er det andet lag, ikke det foerste: en groen total og en sort
+   husleje kan skelnes paa afstand, men det er etiketten, der er
+   oplysningen. */
+.gemt-pris {
+  margin: 0; font-size: 21px; font-weight: 720; letter-spacing: -0.032em;
+  color: var(--accent); line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.gemt-pris small {
+  font-size: 12.5px; font-weight: 530; color: var(--daempet);
+  letter-spacing: 0; margin-left: 2px;
+}
+.gemt-pris.kun-leje { color: var(--tekst); }
+/* Et beloeb, vi ikke har, staar som ord i normal stoerrelse — et stort
+   tomt tal ville trække blikket til noget, der ikke er der. */
+.gemt-pris.ingen-pris {
+  font-size: 13.5px; font-weight: 500; letter-spacing: 0;
+  color: var(--daempet);
+}
+.gemt-kort .ukendt {
+  display: block; margin: 8px 0 0; flex-basis: auto;
+  background: var(--advarsel-lys); color: var(--advarsel);
+  font-size: 12.5px; line-height: 1.45; padding: 7px 11px;
+  border-radius: var(--r-s);
+}
+.gemt-kort .el {
+  flex-basis: auto; margin: 7px 0 0;
+  font-size: 12px; color: var(--svag); line-height: 1.45;
+}
+.gemt-kort .billedforbehold { margin: 7px 0 0; font-size: 11.5px; }
 
 /* En bolig, kilden har taget ned, bliver STAAENDE. Den daempes, men
-   den skjules ikke — hun har selv lagt den der. */
+   den skjules ikke — hun har selv lagt den der. Fotoet daempes med, saa
+   forskellen ses i skimningen og ikke foerst i statusboksen. */
 .utilgaengelig .adresse { color: var(--daempet); }
+.gemt-kort.utilgaengelig { background: #fcfbf9; }
+.gemt-kort.utilgaengelig .gemt-foto img { opacity: .55; }
+.gemt-kort.utilgaengelig .gemt-pris { color: var(--daempet); }
 .gemt-status {
-  margin: 6px 0 0; font-size: 12.5px; line-height: 1.5;
+  margin: 10px 0 0; font-size: 12.5px; line-height: 1.5;
   color: var(--advarsel); background: var(--advarsel-lys);
   border-radius: var(--r-s); padding: 7px 10px;
 }
 .gemt-status strong { color: inherit; }
 
+/* ── Foden ────────────────────────────────────────────────────
+   «Gemt den», kilden og Fjern. Baggrundsstof om kortet, ikke om
+   boligen — derfor nederst, i mindste vaegt og over en skillelinje.
+   `margin-top: auto` skubber den til bunden af kortet. */
+/* FODEN BRÆKKER IKKE — TEKSTEN GØR.
+   `flex-wrap: wrap` lod formularen falde ned på sin egen linje, så snart
+   «gemt den · kilde» blev for lang, og så stod en 64 px knap i venstre
+   hjørne med et tomt felt ved siden af. Rettet med `nowrap` og en
+   sporlinje, der må krympe (`min-width: 0`): teksten ombrydes inde i sin
+   egen spalte, og knappen bliver liggende til højre, lodret centreret
+   mod tekstblokken. Målt ved 390 px, hvor foden er 262 px bred: 184 px
+   til teksten, som bruger to linjer, og knappen står hvor den plejer.
+   Alternativet — en knap i fuld bredde — blev prøvet og forkastet: otte
+   brede knapper ned gennem siden trækker blikket til «Fjern» frem for
+   til boligerne, og handlingen skal være sekundær. */
+.gemt-fod {
+  margin-top: auto; padding-top: 11px;
+  border-top: 1px solid var(--linje-svag);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: nowrap;
+}
+.gemt-spor { margin: 0; font-size: 12px; color: var(--svag); min-width: 0; }
+/* Fjern er en rigtig knap i en formular: tastatur virker af sig selv,
+   og der er ingen JavaScript at fejle. 44 px hoej, som resten af
+   projektets handlinger — ogsaa naar den er sekundaer. */
+.gemt-fjern {
+  font-size: 13px; font-weight: 560; padding: 8px 15px; min-height: 44px;
+  display: inline-flex; align-items: center; flex: none;
+}
+.gemt-kort .adresse:focus-visible,
+.gemt-fjern:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+  border-radius: var(--r-s);
+}
+
+/* ── Gemte søgninger ──────────────────────────────────────────
+   Samme kortsprog som boligerne — ramme, radius og en fod — men i én
+   spalte: en soegning er en linje tekst, ikke et billede. */
+.gemte-soegninger { gap: 12px; }
+/* Samme brydning som boligkortenes fod, og af samme grund: teksten
+   ombrydes i sin egen spalte, og handlingen bliver liggende til højre.
+   Stod der `wrap`, faldt «Afmeld» ned under teksten og venstrestillet på
+   en telefon — en knap, der er faldet af, midt i et afsnit der ellers
+   læser som kort. */
+.gemt-soegning {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  flex-wrap: nowrap; gap: 14px; padding: 14px 16px;
+  background: var(--kort); border: 1px solid var(--linje);
+  border-radius: var(--r);
+}
+.gemt-krop { min-width: 0; flex: 1; }
+.gemt-krop .adresse {
+  margin: 0; font-size: 15px; font-weight: 620;
+  color: var(--tekst); text-decoration: none;
+}
+a.adresse:hover { text-decoration: underline; }
+.gemt-krop .sted { font-size: 12.5px; color: var(--daempet); margin-top: 3px; }
+.gemt-hoejre { display: flex; align-items: center; gap: 10px; flex: none; }
+.gemt-hoejre .knaplink {
+  min-height: 44px; display: inline-flex; align-items: center;
+}
+.gemt-hoejre .knaplink:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.gemt-soegning.utilgaengelig { background: #fcfbf9; }
+
 .tom-boks {
   border: 1px dashed var(--linje); border-radius: var(--r);
   padding: 20px 22px; color: var(--daempet); font-size: 14px;
+  max-width: 62ch;
 }
 .tom-boks p { margin: 0 0 8px; }
 .tom-boks p:last-child { margin-bottom: 0; }
@@ -3074,7 +3289,4 @@ a.adresse:hover { text-decoration: underline; }
   white-space: nowrap;
 }
 
-@media (max-width: 560px) {
-  .gemt-bolig, .gemt-soegning { flex-direction: column; gap: 10px; }
-  .gemt-hoejre { width: 100%; justify-content: space-between; }
-}
+
