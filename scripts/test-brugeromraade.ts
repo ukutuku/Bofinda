@@ -332,7 +332,11 @@ async function koer() {
 
     const mF = kort(medFoto)
     tjek('10A · kortet tegner billedet', mF.includes('<img') && mF.includes('/api/billede'))
-    tjek('10A · og siger det rigtige antal', mF.includes('>2 billeder<'))
+    // Tælleren siger nu HVOR I RÆKKEN vi er, ikke bare hvor mange der er:
+    // «1/2». Påstanden er lige så eksakt som før — det er stadig en
+    // tekstknude, der skal stå ordret — men den måler nu også, at
+    // udgangspunktet er billede ét.
+    tjek('10A · og tælleren siger 1 af 2', mF.includes('>1/2<'), mF.match(/gemt-antal">([^<]*)/)?.[1])
     tjek('10A · uden «uden-foto», for der ER et foto', !mF.includes('uden-foto'))
 
     // ── 10B · Klassen og billedet er ÉN beregning ─────────────────

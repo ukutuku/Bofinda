@@ -837,7 +837,8 @@ try {
       await medFoto.locator('.gemt-foto img').count() === 1)
     tjek('3A · og billedet er faktisk tegnet',
       await medFoto.locator('.gemt-foto img').evaluate((i) => i.naturalWidth > 0))
-    tjek('3A · med antallet på', (await medFoto.locator('.gemt-antal').innerText()).includes('3 billeder'))
+    tjek('3A · med tælleren på', (await medFoto.locator('.gemt-antal').innerText()).includes('1/3'),
+      await medFoto.locator('.gemt-antal').innerText())
 
     for (const [navn, n] of [['ingen billedrække', 'uoplyst'], ['vært uden for allowlisten', 'utilladt']]) {
       const k = kortFor(n)
@@ -882,6 +883,40 @@ try {
     tjek('3B · og kilden uden billeder siger noget ANDET',
       (await kortFor('uoplyst').locator('.gemt-intetfoto').innerText()).trim() === 'Intet billede',
       await kortFor('uoplyst').locator('.gemt-intetfoto').innerText())
+  }
+
+  // ═══ 3D · Billedbladring på et gemt kort ══════════════════════
+  //
+  // Gemte boliger bruger SAMME krog som søgekortene — `useBladring` i
+  // app/Billedbladring.tsx. Feltet er et andet, og det er hele grunden
+  // til, at det måles her også: pilene ligger inde i `.gemt-foto`, ikke
+  // som søskende til et link, og de må ikke blive et ekstra tabstop
+  // mellem adressen og Fjern.
+  {
+    const medFoto = kortFor('total')
+    tjek('3D · kortet med tre billeder har to pile',
+      await medFoto.locator('.bladrepil').count() === 2,
+      `${await medFoto.locator('.bladrepil').count()}`)
+    tjek('3D · og kortet med ét billede har ingen',
+      await kortFor('afmeldt').locator('.bladrepil').count() === 0)
+    const foer = p.url()
+    await medFoto.locator('.bladrepil-naeste').click()
+    await vent(1400)
+    tjek('3D · et pileklik skifter billede',
+      (await medFoto.locator('.gemt-antal').innerText()).startsWith('2/'),
+      await medFoto.locator('.gemt-antal').innerText())
+    tjek('3D · og åbner IKKE boligen', p.url() === foer, p.url().replace(B, ''))
+    tjek('3D · der er stadig præcis ét billede i feltet',
+      await medFoto.locator('.gemt-foto img').count() === 1)
+    // Og designet er urørt: feltet har stadig sit forhold.
+    const f = await medFoto.locator('.gemt-foto').evaluate((x) => {
+      const r = x.getBoundingClientRect()
+      return { forhold: r.width / r.height, touch: getComputedStyle(x).touchAction }
+    })
+    tjek('3D · billedfeltet har stadig 16:9', Math.abs(f.forhold - 16 / 9) < 0.02,
+      f.forhold.toFixed(3))
+    tjek('3D · og den lodrette rulning og zoom er browserens',
+      /pan-y/.test(f.touch) && /pinch-zoom/.test(f.touch), f.touch)
   }
 
   // ═══ 4 · Husleje, total og det ukendte ═════════════════════════
@@ -977,6 +1012,14 @@ try {
       }
     })
 
+    // ── TASTATURTILSTAND FØRST ────────────────────────────────
+    // `:focus-visible` er netop IKKE en ring efter et museklik — det er
+    // hele pointen med den. Afsnit 3D klikker på en pil, og browseren
+    // skifter derved til musetilstand; en programmatisk `.focus()`
+    // bagefter giver da ingen ring, og 6A ville måle «0px» om en side,
+    // hvor ringen virker fint for den, der bruger tastatur. Ét Tab
+    // sætter tilstanden tilbage, og så måler linjen det, den siger.
+    await p.keyboard.press('Tab')
     // Fra adressen på første kort: tab skal nå Fjern på samme kort.
     await kortFor('total').locator('a.adresse').focus()
     const paaAdresse = await synligRing()
@@ -987,6 +1030,12 @@ try {
     const efter = await synligRing()
     tjek('6B · billedlinket er ikke et ekstra tabstop',
       !efter?.klasse?.includes('gemt-fotolink'), efter?.klasse ?? '(intet)')
+    // Pilene ligger i `.gemt-foto`, altså FØR adressen i DOM-orden. Havde
+    // de ligget efter, ville de skubbe sig ind mellem adressen og Fjern —
+    // og så skulle en tastaturbruger forbi to billedknapper for at nå
+    // handlingen på hvert eneste kort.
+    tjek('6B · og pilene skubber sig ikke ind mellem adressen og Fjern',
+      !efter?.klasse?.includes('bladrepil'), efter?.klasse ?? '(intet)')
     tjek('6B · næste stop er Fjern på samme kort',
       efter?.klasse?.includes('gemt-fjern'), efter?.klasse ?? '(intet)')
     tjek('6B · og Fjern har en synlig fokusring', efter?.ring === true, efter?.bredde)

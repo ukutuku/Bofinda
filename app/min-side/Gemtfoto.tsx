@@ -31,9 +31,13 @@
 //  forbeholdets «indgaar ikke» og «vi ved ikke hvad der er i tallet».
 // ═══════════════════════════════════════════════════════════════
 
-import { useEffect, useRef, useState } from 'react'
+import {
+  BILLEDE_FEJLEDE, Bladrepile, INTET_BILLEDE, useBladring,
+} from '../Billedbladring'
 
-export function Gemtfoto({ foto, srcSet, sizes, href, antal }: {
+export function Gemtfoto({ boligId, foto, srcSet, sizes, href, antal, etiket }: {
+  /** Boligen, de øvrige billeder hentes for. */
+  boligId: string
   /** Den signerede proxy-adresse, eller null naar der ikke er et billede
    *  vi kan vise. Beregnes ÉT sted i `Gemtkort` og bruges baade til
    *  klassen og til billedet. */
@@ -42,47 +46,46 @@ export function Gemtfoto({ foto, srcSet, sizes, href, antal }: {
   sizes?: string
   href: string | null
   antal: number
+  /** Navngiver boligen i pilenes etiketter. */
+  etiket: string
 }) {
-  const [fejlet, setFejlet] = useState(false)
-  const ref = useRef<HTMLImageElement>(null)
-
-  // `onError` alene er ikke nok, og grunden er tidslig: siden gengives
-  // paa serveren, browseren henter billedet med det samme, og
-  // hentningen kan vaere fejlet FOER React har hydreret og sat sin
-  // lytter paa. Saa fyrer `onError` aldrig, og feltet staar tilbage med
-  // Chromes eget brudt-billede-ikon — netop dét, vi maalte i et
-  // skaermbillede, foer den her linje kom til.
-  //
-  // `complete` er true ogsaa for en FEJLET hentning; det er
-  // `naturalWidth === 0`, der skiller de to. Er billedet stadig
-  // undervejs — eller ikke begyndt, fordi det er `loading="lazy"` og
-  // uden for skaermen — er `complete` false, og saa er `onError` den,
-  // der svarer. De to daekker hver sin halvdel af det samme spoergsmaal.
-  useEffect(() => {
-    const i = ref.current
-    if (i && i.complete && i.naturalWidth === 0) setFejlet(true)
-  }, [])
-
-  const vis = Boolean(foto) && !fejlet
+  // Tilstanden, hentningen, svirpet og eftersynet ved montering ligger i
+  // `useBladring` — det samme sted, søgekortene spørger. Noten ovenfor om
+  // `onError` og hydrering gælder stadig; den er bare flyttet derhen,
+  // hvor svaret gives, så de to flader ikke kan drive fra hinanden.
+  const b = useBladring({ boligId, forside: foto, forsideSrcSet: srcSet, sizes, antal })
+  const vis = Boolean(foto) && !b.fejlet
 
   return (
-    <div className={`gemt-foto${vis ? '' : ' uden-foto'}`}>
+    <div className={`gemt-foto${vis ? '' : ' uden-foto'}`} {...b.flade}>
       {vis && href ? (
         /* Linket er en genvej for musen. Adressen i kroppen er den
            rigtige indgang: den har teksten, den har fokusringen, og den
            er ét tabstop. To links til det samme sted ville laese som to
-           forskellige boliger for en skaermlaeser. */
-        <a href={href} aria-hidden="true" tabIndex={-1} className="gemt-fotolink">
+           forskellige boliger for en skaermlaeser.
+           PILENE LIGGER UDEN FOR DET: et fokuserbart element inde i et
+           `aria-hidden`-undertrae er skjult for skaermlaeseren og
+           naabart med Tab paa én gang. */
+        <a href={href} aria-hidden="true" tabIndex={-1} className="gemt-fotolink"
+          {...b.linkvagt}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img ref={ref} src={foto!} srcSet={srcSet} sizes={sizes} alt="" loading="lazy"
-            onError={() => setFejlet(true)} />
-          {antal > 1 && <span className="gemt-antal">{antal} billeder</span>}
+          <img src={b.src} srcSet={b.srcSet} sizes={sizes} alt="" loading="lazy"
+            {...b.billedvagt} />
+          {b.taeller && <span className="gemt-antal">{b.taeller}</span>}
         </a>
       ) : (
         <span className="gemt-intetfoto">
-          {fejlet ? 'Billedet kunne ikke hentes' : 'Intet billede'}
+          {b.fejlet ? BILLEDE_FEJLEDE : INTET_BILLEDE}
         </span>
       )}
+      {/* PILENE BLIVER, OGSÅ NÅR ET BILLEDE FEJLEDE.
+          Stod der `vis &&`, ville ét billede, der ikke kunne hentes,
+          fjerne både billedet OG vejen videre — og så var kortet låst
+          fast på præcis det billede, der ikke virker. Betingelsen er
+          derfor, om der ER noget at bladre i: `taeller` er tom ved ét
+          billede og ved intet billede, og det er det rigtige svar begge
+          steder. */}
+      {b.taeller && <Bladrepile b={b} etiket={etiket} />}
     </div>
   )
 }

@@ -10,6 +10,7 @@ import type { Availability, Gruppesammenfatning } from '../lib/availability'
 import { billedUrl, breddeTilladt } from '../lib/billede'
 import type { Favoritstatus } from '../lib/favoritter'
 import { Favoritknap } from './Favoritknap'
+import { Bladrekort } from './Bladrekort'
 import { eltilstand, type Eltilstand } from '../lib/eloplysning'
 // Typens navn kommer ÉT sted fra. Kortet og filtrene sagde før hver sit
 // om `andet`, og `villa` fandtes kun i den ene liste. Se lib/boligtype.ts.
@@ -251,53 +252,28 @@ export function Kort({ b, nu, position, favorit }: {
     // knappen er en soeskende, ikke et barn: en <button> inde i et <a> er
     // ugyldig HTML, og saa kan et klik aktivere linket alligevel.
     <div className="kort-hylster">
-    <a
-      className={`kort${forside ? '' : ' uden-billede'}`}
+    {/* Skallen tegner linket, billedfeltet og pilene. Pilene ER uden for
+        linket — se noten i app/Bladrekort.tsx. Kroppen herunder er
+        stadig serverkode; den kommer ind som `children`. */}
+    <Bladrekort
+      klasse={`kort${forside ? '' : ' uden-billede'}`}
       href={`/bolig/${b.id}`}
-      // Landkortet peger paa kortet med id'et og laeser data-bolig, naar
-      // musen er over. De to skal vaere den samme noegle som maerket.
       id={`kort-${b.id}`}
-      data-bolig={b.id}
-      data-kilde={b.kilde}
-      data-position={position}
+      data={{ bolig: b.id, kilde: b.kilde, position }}
+      billede={forside ? {
+        boligId: b.id,
+        forside,
+        srcSet: breddeTilladt(b.forside!, 800)
+          ? `${forside} 400w, ${billedUrl(b.forside!, 800)} 800w`
+          : undefined,
+        sizes: breddeTilladt(b.forside!, 800)
+          ? '(max-width: 620px) calc(100vw - 44px), 50vw' : undefined,
+        antal: b.billeder,
+      } : null}
+      maerkat={nymaerkat}
+      forbehold={b.billedforbehold ? <Billedforbehold /> : null}
+      etiket={vist}
     >
-      {/* Billedet og forbeholdet er ÉT gitterfelt. Var forbeholdet et felt
-          for sig, skubbede det kroppen en raekke ned — se .kort-billedblok
-          i globals.css. */}
-      {forside && (
-        <div className="kort-billedblok">
-          <div className="kort-billede">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {/* 800 tilbydes KUN, hvis vaerten maa levere den. `billedUrl`
-                skaerer stille ned til naermeste tilladte bredde i
-                BREDDER_PR_VAERT — den returnerer ikke null og fejler ikke.
-                Uden vagten ville en vaert med et loft paa 400 faa den
-                SAMME fil udpeget som baade «400w» og «800w», og browseren
-                ville straekke 400 px op paa en taet skaerm. En deskriptor,
-                der lyver om filens bredde, er vaerre end ingen deskriptor.
-
-                I dag er ingen vaert under 800 — `lokalbolig.io` er skaaret
-                ned fra 1600 til 400 og 800 — saa vagten aendrer intet nu.
-                Den staar, fordi srcset'en og ruten skal svare paa det
-                samme spoergsmaal ét sted: naeste gang en vaert beder om
-                mindre, foelger kortet med af sig selv. */}
-            <img src={forside}
-              srcSet={breddeTilladt(b.forside!, 800)
-                ? `${forside} 400w, ${billedUrl(b.forside!, 800)} 800w`
-                : undefined}
-              sizes={breddeTilladt(b.forside!, 800)
-                ? '(max-width: 620px) calc(100vw - 44px), 50vw' : undefined}
-              alt="" loading="lazy" />
-            {/* Ét maerkat paa fotoet. Uden et foto er der ingen flade
-                at ligge paa, og saa staar det oeverst i kroppen — samme
-                udtryk, ét sted i koden. */}
-            {nymaerkat && <div className="kort-maerkater">{nymaerkat}</div>}
-            {b.billeder > 1 && <span className="kort-antal">{b.billeder} billeder</span>}
-          </div>
-          {b.billedforbehold && <Billedforbehold />}
-        </div>
-      )}
-
       <div className="kort-krop">
         {!forside && nymaerkat && (
           <div className="kort-maerkater i-krop">{nymaerkat}</div>
@@ -403,7 +379,7 @@ export function Kort({ b, nu, position, favorit }: {
           <Kilder navn={b.kildeNavn} ogsaa={b.ogsaaHos} />
         </div>
       </div>
-    </a>
+    </Bladrekort>
     {favorit && (
       <Favoritknap listingId={b.id} status={favorit} adresse={vist} />
     )}
@@ -503,50 +479,30 @@ export function Gruppekort({ g, nu, position, filtre, favorit }: {
 
   return (
     <div className="kort-hylster">
-    <a
-      className={`kort gruppekort${forside ? '' : ' uden-billede'}`}
+    {/* GRUPPEKORTETS BILLEDER ER REPRÆSENTANTENS, OG KUN HANS.
+        `boligId` er `r.id` — den bolig, forsiden hører til. Gruppens
+        øvrige medlemmer har deres egne billeder, og at blande dem ville
+        vise en bolig, kortet ikke handler om. Det er samme regel som
+        billedforbeholdet nedenfor, der også kun er repræsentantens. */}
+    <Bladrekort
+      klasse={`kort gruppekort${forside ? '' : ' uden-billede'}`}
       href={gruppeUrl(r.id, filtre)}
       id={`kort-${r.id}`}
-      data-bolig={r.id}
-      data-kilde={r.kilde}
-      data-position={position}
-      data-gruppe="1"
-      data-gruppe-antal={g.antal}
+      data={{ bolig: r.id, kilde: r.kilde, position, gruppe: '1', gruppeAntal: g.antal }}
+      billede={forside ? {
+        boligId: r.id,
+        forside,
+        srcSet: breddeTilladt(r.forside!, 800)
+          ? `${forside} 400w, ${billedUrl(r.forside!, 800)} 800w`
+          : undefined,
+        sizes: breddeTilladt(r.forside!, 800)
+          ? '(max-width: 620px) calc(100vw - 44px), 50vw' : undefined,
+        antal: r.billeder,
+      } : null}
+      maerkat={nymaerkat}
+      forbehold={r.billedforbehold ? <Billedforbehold /> : null}
+      etiket={`${n.vej}, ${n.postnr} ${r.by}`}
     >
-      {/* Billedet og forbeholdet er ÉT gitterfelt. Var forbeholdet et felt
-          for sig, skubbede det kroppen en raekke ned — se .kort-billedblok
-          i globals.css. */}
-      {forside && (
-        <div className="kort-billedblok">
-          <div className="kort-billede">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {/* 800 tilbydes KUN, hvis vaerten maa levere den. `billedUrl`
-                skaerer stille ned til naermeste tilladte bredde i
-                BREDDER_PR_VAERT — den returnerer ikke null og fejler ikke.
-                Uden vagten ville en vaert med et loft paa 400 faa den
-                SAMME fil udpeget som baade «400w» og «800w», og browseren
-                ville straekke 400 px op paa en taet skaerm. En deskriptor,
-                der lyver om filens bredde, er vaerre end ingen deskriptor.
-
-                I dag er ingen vaert under 800 — `lokalbolig.io` er skaaret
-                ned fra 1600 til 400 og 800 — saa vagten aendrer intet nu.
-                Den staar, fordi srcset'en og ruten skal svare paa det
-                samme spoergsmaal ét sted: naeste gang en vaert beder om
-                mindre, foelger kortet med af sig selv. */}
-            <img src={forside}
-              srcSet={breddeTilladt(r.forside!, 800)
-                ? `${forside} 400w, ${billedUrl(r.forside!, 800)} 800w`
-                : undefined}
-              sizes={breddeTilladt(r.forside!, 800)
-                ? '(max-width: 620px) calc(100vw - 44px), 50vw' : undefined}
-              alt="" loading="lazy" />
-            {nymaerkat && <div className="kort-maerkater">{nymaerkat}</div>}
-          </div>
-          {/* Repraesentantens forbehold: det er HANS billede, kortet viser. */}
-          {r.billedforbehold && <Billedforbehold />}
-        </div>
-      )}
-
       <div className="kort-krop">
         {!forside && nymaerkat && (
           <div className="kort-maerkater i-krop">{nymaerkat}</div>
@@ -657,7 +613,7 @@ export function Gruppekort({ g, nu, position, filtre, favorit }: {
           <Kilder navn={r.kildeNavn} ogsaa={g.alleOgsaaAndetsteds ? r.ogsaaHos : []} />
         </div>
       </div>
-    </a>
+    </Bladrekort>
     {favorit && (
       <Favoritknap listingId={r.id} status={favorit} adresse={n.vej} />
     )}

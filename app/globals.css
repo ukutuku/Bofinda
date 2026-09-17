@@ -374,9 +374,17 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 /* Fotoet naar kortets kant: ingen egen radius, kortets `overflow:
    hidden` klipper hjoernerne. 16/9 som i referencen — et 4/3-billede
    over en 286 px spalte blev 215 px hoejt og skubbede oekonomien ned. */
+/* FORHOLDET STÅR ÉT STED.
+   Billedfeltet og pilestriben skal have præcis samme højde: pilene er
+   søskende til kortets link og måler sig mod hylsteret, så de kan ikke
+   arve feltets ramme. Stod tallet to steder, ville en ændring af det ene
+   lægge pilene ved siden af det, de handler om — og begge erklæringer
+   ville se rigtige ud hver for sig. Det er den fejlform, CLAUDE.md
+   samler seks tilfælde af. */
+.kort-hylster, .kort { --kort-forhold: 16 / 9; }
 .kort-billede {
   background: var(--linje-svag); position: relative;
-  border-radius: 0; overflow: hidden; aspect-ratio: 16/9;
+  border-radius: 0; overflow: hidden; aspect-ratio: var(--kort-forhold);
 }
 /* Billedet trækkes ganske lidt op i kontrast ved hover — kortet
    reagerer som ét element, ikke som en ramme med et billede i. */
@@ -388,6 +396,81 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
   position: absolute; left: 9px; bottom: 9px;
   background: rgba(20,22,26,.66); backdrop-filter: blur(3px); color: #fff;
   font-size: 11px; font-weight: 560; padding: 3px 9px; border-radius: var(--r-pille);
+}
+
+/* ═══ BILLEDBLADRING ═══════════════════════════════════════════
+   Pilene, den lodrette rulning og reserven, når et billede fejler.
+
+   ── PILENE LIGGER UDEN FOR KORTETS LINK ──
+   På søgekortet er `.bladrepile` en SØSKENDE til `a.kort`, ikke et barn:
+   en <button> i et <a> er ugyldig HTML, og `kortkontrol.mjs` afviser
+   hvert fokuserbart element inde i linket. Derfor har de heller ikke
+   billedfeltet som forælder og kan ikke bruge `inset: 0` — de måler sig
+   mod `.kort-hylster` og får SAMME forhold som feltet, så de lander
+   præcis oven på det. Ændres `.kort-billede`s `aspect-ratio`, skal den
+   her med i samme ændring; de svarer på det samme spørgsmål.
+   På Gemte boliger ligger de derimod inde i `.gemt-foto`, som selv er
+   `position: relative` med forholdet — der er `inset: 0` det rigtige. */
+.bladrepile {
+  position: absolute; inset: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 8px;
+  /* Fladen må ikke æde klik. Kun knapperne tager imod; resten går
+     igennem til linket nedenunder, så et almindeligt billedklik stadig
+     åbner annoncen. */
+  pointer-events: none;
+}
+.kort-hylster > .bladrepile { inset: 0 0 auto 0; aspect-ratio: var(--kort-forhold); }
+
+/* 44 × 44 px. Det er gulvet for en handling i dette projekt, og det
+   gælder også en knap, der skal være diskret: diskret er en farve, ikke
+   en størrelse. Baggrunden er mørk nok til, at den hvide pil holder
+   kontrast over et lyst foto — målt som sammensat farve mod hvidt. */
+.bladrepil {
+  pointer-events: auto;
+  width: 44px; height: 44px; min-width: 44px; padding: 0;
+  display: grid; place-items: center;
+  border: 1px solid rgba(255,255,255,.34);
+  border-radius: var(--r-pille);
+  background: rgba(18,20,24,.55);
+  backdrop-filter: blur(3px);
+  color: #fff; cursor: pointer; line-height: 0;
+  transition: background .14s ease, border-color .14s ease;
+}
+.bladrepil:hover {
+  background: rgba(18,20,24,.78);
+  border-color: rgba(255,255,255,.6);
+}
+.bladrepil:focus-visible {
+  outline: 2px solid #fff; outline-offset: 2px;
+  background: rgba(18,20,24,.82);
+}
+/* Mens de øvrige billeder hentes. Ikke skjult: en knap, der forsvinder
+   under fingeren, er værre end en, der venter. */
+.bladrepil:disabled { opacity: .5; cursor: progress; }
+@media (prefers-reduced-motion: reduce) { .bladrepil { transition: none; } }
+
+/* ── LODRET RULNING ER BRUGERENS, VANDRET ER VORES ──
+   `pan-y` siger til browseren: behold den lodrette panorering, og send
+   det vandrette til JavaScript. Det er dét, der gør, at en swipe kan
+   skifte billede UDEN at `preventDefault` nogen sinde bliver kaldt — og
+   uden den ville en skrå bevægelse kunne låse siden fast under fingeren. */
+/* `pinch-zoom` SKAL MED. `pan-y` alene tager knib-zoom fra brugeren på
+   hvert eneste boligfoto — og et foto er netop det, man zoomer på. Med
+   begge beholder browseren både den lodrette panorering og zoomen, og
+   kun det vandrette svirp når JavaScript. */
+.kort-billede, .gemt-foto { touch-action: pan-y pinch-zoom; }
+
+/* ── RESERVEN, NÅR ET BILLEDE FEJLER ──
+   Billedet bliver stående i DOM'en: `.kort-billede` skal indeholde
+   præcis ét <img>, og både `fotokontrol.mjs` og `kortkontrol.mjs` måler
+   rammen mod dét ene billede. Det TEGNES bare ikke, og rammens egen
+   flade — den, der altid har været der — er reserven. */
+.kort-billede.billede-fejlede img { visibility: hidden; }
+.billede-fejl {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  padding: 0 12px; text-align: center;
+  font-size: 12px; color: var(--svag);
 }
 .kort-krop {
   padding: 15px 16px 14px; min-width: 0;

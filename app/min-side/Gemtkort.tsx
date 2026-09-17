@@ -80,6 +80,7 @@ export function Gemtkort({ b }: { b: GemtBolig }) {
           `Gemtfoto` er en klientkomponent af én grund: en hentning, der
           fejler, kan kun ses i browseren. Se noten i filen. */}
       <Gemtfoto
+        boligId={b.listingId}
         foto={foto}
         srcSet={foto && breddeTilladt(b.forside!, 800)
           ? `${foto} 400w, ${billedUrl(b.forside!, 800)} 800w`
@@ -93,6 +94,7 @@ export function Gemtkort({ b }: { b: GemtBolig }) {
           ? '(max-width: 619px) calc(100vw - 94px), 406px' : undefined}
         href={forsvundet ? null : href}
         antal={b.billeder}
+        etiket={adresse ?? 'boligen'}
       />
 
       <div className="gemt-indhold">

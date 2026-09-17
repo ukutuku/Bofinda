@@ -26,7 +26,7 @@
 //    npm test
 // ═══════════════════════════════════════════════════════════════
 
-import { and, eq, sql as dsql } from 'drizzle-orm'
+import { and, eq, inArray, sql as dsql } from 'drizzle-orm'
 import { db, luk } from '../db/client'
 import { alertMatches, crawlRuns, fetchFailures, hostBlocks, listingImages, listings, savedSearches, sources, users } from '../db/schema'
 import { matchAlarmer } from '../lib/alarm'
@@ -74,6 +74,7 @@ import { tjekRettigheder } from './tjek-rettigheder'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Gruppekort, Kort } from '../app/Boligkort'
+import { GET as boligbilleder } from '../app/api/boligbilleder/route'
 import { billedUrl, TILLADTE_VAERTER } from '../lib/billede'
 import { eltilstand } from '../lib/eloplysning'
 import type { Bolig, Filtre, Gruppe } from '../lib/soeg'
@@ -1109,11 +1110,23 @@ async function main() {
     const html = start >= 0 ? raaHtml.slice(start) : raaHtml
     const boern: string[] = []
     let dybde = 0
+    let aabnet = false
     for (const m of html.matchAll(/<(\/?)([a-z][a-z0-9]*)([^>]*)>/g)) {
       const attr = m[3] ?? ''
-      if (m[1] === '/') { dybde--; continue }
+      if (m[1] === '/') {
+        dybde--
+        // TAELLEREN STOPPER, NAAR LINKET LUKKER.
+        // Uden den her linje talte den videre efter `</a>` og tog
+        // kortets SOESKENDE med — favoritknappen og billedpilene, som
+        // begge ligger uden for linket med vilje, fordi en <button> i et
+        // <a> er ugyldig HTML. De er ikke gitterfelter i kortet, og
+        // praemissen handler om kortets felter. Uden stoppet maalte den
+        // noget andet end det, den siger.
+        if (aabnet && dybde === 0) break
+        continue
+      }
       if (dybde === 1) boern.push(/class="([^"]*)"/.exec(attr)?.[1] ?? '')
-      if (!TOMME_TAGS.has(m[2]!) && !attr.trimEnd().endsWith('/')) dybde++
+      if (!TOMME_TAGS.has(m[2]!) && !attr.trimEnd().endsWith('/')) { dybde++; aabnet = true }
     }
     return boern
   }
@@ -1287,6 +1300,179 @@ async function main() {
   ] as const) {
     tjek(`${navn}: INGEN uden-billede`, !/uden-billede/.test(html))
     tjek(`${navn}: og billedet tegnes`, /<img[^>]+\/api\/billede/.test(html))
+  }
+
+  // ── Billedbladring ──────────────────────────────────────────
+  //
+  // Pilene skifter billedet INDE i kortets link, men ligger UDEN FOR det:
+  // en <button> i et <a> er ugyldig HTML, og browserne håndterer det
+  // forskelligt — nogle aktiverer linket alligevel. Det er den samme
+  // grund, favoritknappen ligger som søskende, og
+  // `scripts/cloud/kortkontrol.mjs` afviser hvert fokuserbart element
+  // inde i `a.kort`. Den kontrol kræver en kørende app; her måles det
+  // samme på markuppen, så `npm test` også fanger det.
+  console.log('\n══ billedbladring ══')
+  {
+    /** Alt fra `<a class="kort` til og med det første `</a>`. */
+    const iLinket = (html: string) => {
+      const a = html.indexOf('<a class="kort')
+      if (a < 0) return ''
+      // UDEN SELVE <a …>-TAGGEN. Med den matchede vagten nedenfor
+      // kortets eget link og var roed, uanset hvad der laa inde i det.
+      const krop = html.indexOf('>', a) + 1
+      const slut = html.indexOf('</a>', krop)
+      return slut < 0 ? '' : html.slice(krop, slut)
+    }
+    const FOKUSERBART = /<(?:a|button|input|select|textarea)\b|\stabindex=|role="button"/
+
+    for (const [navn, lav] of [
+      ['enkeltkort', (o: Record<string, unknown>) =>
+        vis(createElement(Kort, { nu: KORTNU, b: bolig({ forside: TILLADT, ...o }) }))],
+      ['gruppekort', (o: Record<string, unknown>) =>
+        vis(createElement(Gruppekort, { nu: KORTNU, g: gruppe({}, { forside: TILLADT, ...o }) }))],
+    ] as const) {
+      const flere = lav({ billeder: 8 })
+      const ét = lav({ billeder: 1 })
+
+      tjek(`${navn}: med flere billeder er der to pile`,
+        (flere.match(/class="bladrepil /g) ?? []).length === 2,
+        String((flere.match(/class="bladrepil /g) ?? []).length))
+      tjek(`${navn}: og en tæller, der siger 1 af 8`, flere.includes('>1/8<'),
+        /kort-antal">([^<]*)/.exec(flere)?.[1] ?? '(ingen)')
+
+      // KERNEN: pilene må ikke ligge i linket.
+      tjek(`${navn}: pilene ligger UDEN FOR kortets link`,
+        !iLinket(flere).includes('bladrepil') && flere.includes('bladrepil'),
+        iLinket(flere).includes('bladrepil') ? 'KNAP INDE I <a>' : '')
+      tjek(`${navn}: og der er intet fokuserbart inde i linket overhovedet`,
+        !FOKUSERBART.test(iLinket(flere)),
+        FOKUSERBART.exec(iLinket(flere))?.[0] ?? '')
+
+      // Ét billede: ingen pile, ingen tæller. En «1/1» er ikke en
+      // oplysning, og en pil, der ikke fører nogen steder hen, er værre
+      // end ingen pil.
+      tjek(`${navn}: ét billede giver ingen pile`, !ét.includes('bladrepil'))
+      tjek(`${navn}: og ingen tæller`, !ét.includes('kort-antal'))
+
+      // Præcis ét <img> i billedfeltet. Billedet skiftes med `src`, ikke
+      // ved at stable slides: `kortkontrol.mjs` afviser et barn, der er
+      // bredere end kortet, og `fotokontrol.mjs` måler rammen mod det
+      // FØRSTE img — to ville måle det forkerte.
+      tjek(`${navn}: præcis ét billede i feltet`,
+        (flere.match(/<img/g) ?? []).length === 1,
+        String((flere.match(/<img/g) ?? []).length))
+
+      // En vært uden for allowlisten: intet billede OG ingen pile. Uden
+      // den sidste halvdel ville kortet tilbyde at bladre i noget, der
+      // ikke kan vises.
+      const fremmed = navn === 'enkeltkort'
+        ? vis(createElement(Kort, { nu: KORTNU, b: bolig({ forside: FREMMED, billeder: 20 }) }))
+        : vis(createElement(Gruppekort, { nu: KORTNU, g: gruppe({}, { forside: FREMMED, billeder: 20 }) }))
+      tjek(`${navn}: fremmed vært giver hverken billede eller pile`,
+        !/<img/.test(fremmed) && !fremmed.includes('bladrepil'))
+
+      // Ingen automatisk rotation: markuppen må ikke bære en varighed
+      // eller et interval, og komponenten må ikke have en timer.
+      tjek(`${navn}: ingen autorotation i markuppen`,
+        !/animation|data-interval|autoplay/i.test(flere))
+    }
+
+    // Kilden selv: der er ingen timer nogen steder i bladringen.
+    const kildeBladring = readFileSync('app/Billedbladring.tsx', 'utf8')
+    tjek('bladringen har ingen timer — ingen automatisk rotation',
+      !/setInterval|setTimeout/.test(kildeBladring),
+      (/setInterval|setTimeout/.exec(kildeBladring) ?? [])[0] ?? '')
+    // ── DEN LODRETTE RULNING ER BRUGERENS ────────────────────
+    // Svirpet maa ALDRIG kalde preventDefault paa en touch-haendelse: saa
+    // ville en skraa bevaegelse kunne laase siden fast under fingeren.
+    // Maalt paa selve touch-haandtererne, ikke paa hele filen —
+    // `linkvagt` kalder preventDefault paa et KLIK, og det er rigtigt:
+    // det er dét, der forhindrer, at et svirp ogsaa aabner annoncen.
+    const fladen = kildeBladring.slice(
+      kildeBladring.indexOf('    flade: {'), kildeBladring.indexOf('    linkvagt: {'))
+    tjek('præmis: touch-håndtererne blev faktisk fundet',
+      fladen.includes('onTouchStart') && fladen.includes('onTouchMove')
+      && fladen.includes('onTouchEnd'), `${fladen.length} tegn`)
+    // Noterne skaeres fra foerst. Kommentaren ved `onTouchMove` forklarer
+    // netop, at der ALDRIG kaldes preventDefault — og uden det her ville
+    // proeven vaere roed paa sin egen begrundelse.
+    const udenNoter = fladen.replace(/\/\/[^\n]*/g, '')
+    tjek('og de blokerer aldrig den lodrette rulning',
+      !udenNoter.includes('preventDefault'))
+    // Og browseren faar det udtrykkeligt at vide i CSS'en.
+    tjek('billedfladerne overlader den lodrette panorering til browseren',
+      /\.kort-billede,\s*\.gemt-foto\s*\{[^}]*touch-action:\s*pan-y/
+        .test(readFileSync('app/globals.css', 'utf8')))
+  }
+
+  // ── Ruten, der leverer billede 2..N ─────────────────────────
+  //
+  // Kortet baerer forsiden og ET ANTAL, som foer. Resten hentes her,
+  // foerste gang nogen vil bladre. Proeven gaar paa det, der kan gaa
+  // galt, naar en rute tager et bolig-id imod: at den svarer med en
+  // ANDEN boligs billeder, at den glemmer vaertsfilteret, eller at
+  // raekkefoelgen ikke er kildens.
+  console.log('\n══ /api/boligbilleder ══')
+  {
+    const [k] = await db.insert(sources)
+      .values({ slug: `billedrute-${Date.now()}`, name: 'Prøvekilde billedrute', sourceType: 'spider' })
+      .returning()
+    const lavBolig = async (noegle: string) => {
+      const [r] = await db.insert(listings).values({
+        sourceId: k!.id, sourceType: 'spider', externalKey: `billedrute-${noegle}-${Date.now()}`,
+        sourceUrl: `https://eksempel.invalid/${noegle}`, status: 'active',
+        addressRaw: `Billedvej ${noegle}, 9100 Prøveby`, street: 'Billedvej', houseNumber: noegle,
+        postalCode: '9100', city: 'Prøveby', addressMatchLevel: 'unit',
+        unitAddressUuid: `intern:v3:billedrute:${noegle}-${Date.now()}`,
+      }).returning()
+      return r!.id
+    }
+    const vores = await lavBolig('1')
+    const naboen = await lavBolig('2')
+    // Rækkefølgen i basen er MED VILJE en anden end `position`: svaret
+    // skal komme i kildens orden, ikke i indsættelsens.
+    await db.insert(listingImages).values([
+      { listingId: vores, externalUrl: `${VIST_VAERT}/tredje.jpg`, position: 2 },
+      { listingId: vores, externalUrl: `${SKJULT_VAERT}/skjult.jpg`, position: 1 },
+      { listingId: vores, externalUrl: `${VIST_VAERT}/foerste.jpg`, position: 0 },
+      { listingId: naboen, externalUrl: `${VIST_VAERT}/naboens.jpg`, position: 0 },
+    ])
+
+    const kald = async (id: string) => {
+      const r = await boligbilleder(new Request(`http://proeve.invalid/api/boligbilleder?b=${id}`))
+      return { status: r.status, krop: await r.json() as { billeder?: { lille: string }[] } }
+    }
+
+    const svar = await kald(vores)
+    tjek('ruten svarer 200 for en kendt bolig', svar.status === 200, String(svar.status))
+    const url = (svar.krop.billeder ?? []).map((b) => decodeURIComponent(b.lille))
+    tjek('kun de VISBARE billeder kommer med', url.length === 2, `${url.length}`)
+    tjek('og værten uden for allowlisten er sorteret fra',
+      !url.some((u) => u.includes(new URL(SKJULT_VAERT).host)),
+      url.join(' | '))
+    tjek('rækkefølgen er kildens position, ikke indsættelsens',
+      url[0]!.includes('foerste.jpg') && url[1]!.includes('tredje.jpg'),
+      url.map((u) => u.split('/').pop()?.split('&')[0]).join(' → '))
+    tjek('adresserne går gennem den signerede proxy',
+      url.every((u) => u.startsWith('/api/billede?')), url[0] ?? '')
+
+    // KERNEN FOR GRUPPEKORTET: naboens billede må ALDRIG være med. Et
+    // gruppekort nøgler på repræsentantens id, og blandede billeder ville
+    // vise en bolig, kortet ikke handler om.
+    tjek('naboens billede er IKKE med',
+      !url.some((u) => u.includes('naboens.jpg')), url.join(' | '))
+    const naboSvar = await kald(naboen)
+    tjek('præmis: naboen har sit eget billede, så prøven ovenfor måler noget',
+      (naboSvar.krop.billeder ?? []).length === 1
+      && decodeURIComponent(naboSvar.krop.billeder![0]!.lille).includes('naboens.jpg'))
+
+    tjek('et ugyldigt id afvises uden at røre basen', (await kald('ikke-et-uuid')).status === 400)
+    tjek('et ukendt id giver 404, ikke en tom liste',
+      (await kald('00000000-0000-4000-8000-000000000000')).status === 404)
+
+    await db.delete(listingImages).where(inArray(listingImages.listingId, [vores, naboen]))
+    await db.delete(listings).where(inArray(listings.id, [vores, naboen]))
+    await db.delete(sources).where(eq(sources.id, k!.id))
   }
 
   try {
