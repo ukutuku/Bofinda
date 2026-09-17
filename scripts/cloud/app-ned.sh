@@ -41,7 +41,7 @@ for d in /proc/[0-9]*; do
   cmd=$(cat "$d/cmdline" 2>/dev/null | tr '\0' ' ') || continue
   [ -n "$cmd" ] || continue
   for m in "next dev -p $BOFINDA_APPPORT" "next start -p $BOFINDA_APPPORT" \
-           "scripts/cloud/aktiver.mjs"; do
+           "scripts/cloud/aktiver.mjs" "scripts/cloud/mailattrap.mjs"; do
     case "$cmd" in *"$m"*) mine="$mine $pid" ;; esac
   done
 done
@@ -52,7 +52,7 @@ done
 # 3 · Efterprøv. En nedtagning, der ikke kan bevise sit resultat, er
 #     præcis den fejl, der kostede en falsk grøn browserkontrol.
 sleep 1
-for p in "$BOFINDA_APPPORT" "$BOFINDA_AKTIVPORT"; do
+for p in "$BOFINDA_APPPORT" "$BOFINDA_AKTIVPORT" "$BOFINDA_MAILPORT"; do
   if node -e '
     import("node:net").then(({ default: net }) => {
       const s = net.connect(Number(process.argv[1]), "127.0.0.1")
@@ -65,4 +65,4 @@ for p in "$BOFINDA_APPPORT" "$BOFINDA_AKTIVPORT"; do
   fi
 done
 rm -f "$BOFINDA_TEST_ROD/app.pid"
-echo "✓ app og testaktiver stoppet ($stoppet processer). Basen kører videre — brug db-ned.sh"
+echo "✓ app, testaktiver og mailattrap stoppet ($stoppet processer). Basen kører videre — brug db-ned.sh"
