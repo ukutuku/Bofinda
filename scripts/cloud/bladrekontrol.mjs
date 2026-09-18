@@ -370,6 +370,75 @@ try {
     const y = boks.y + boks.height / 2
     const midt = { x: boks.x + boks.width / 2, y }
     const foerUrl = s.url()
+    const boligId = await kort.locator('a.kort').getAttribute('data-bolig')
+    const maal = await kort.locator('a.kort').getAttribute('href')
+
+    // ── ET TOUCHPUNKT SKAL SIGTES, IKKE REGNES UD I BLINDE ─────
+    // `boundingBox()` er viewport-relativ i DET ØJEBLIK, den læses, og
+    // CDP sender touchpunktet i de samme koordinater. Ruller siden
+    // bagefter — eller ruller man til toppen og læser en boks, der nu
+    // ligger under skærmkanten — peger tallene et andet sted hen end
+    // dér, fingeren skulle lande.
+    //
+    // Det var fejlen ved 390 px: `scrollTo(0, 0)` lagde kortet 793 px
+    // nede i en 844 px høj viewport, 80 % nede i boksen blev y = 948,
+    // `elementFromPoint` svarede INTET, og trykket ramte ingenting.
+    // Kontrollen var rød om produktet — og grøn ved 768 og 1440 px,
+    // hvor viewporten er 1000 px høj og kortet ligger højere. En prøve,
+    // der er grøn, fordi punktet tilfældigvis lander, måler ingenting.
+    //
+    // `sigt()` ruller fladen ind i billedet, læser boksen DEREFTER og
+    // svarer med alt, der skal efterprøves, FØR der trykkes.
+    const sigt = async (andelY) => {
+      const flade = kort.locator('.kort-billede')
+      await flade.scrollIntoViewIfNeeded()
+      await vent(400)
+      const b = await flade.boundingBox()
+      if (!b) return { ok: false, grund: 'billedfladen har ingen boks' }
+      const px = b.x + b.width * 0.5
+      const py = b.y + b.height * andelY
+      const d = await s.evaluate(([x2, y2, id]) => {
+        const vw = window.innerWidth, vh = window.innerHeight
+        const skala = window.visualViewport?.scale ?? 1
+        const inde = x2 >= 0 && y2 >= 0 && x2 < vw && y2 < vh
+        const navngiv = (e) => !e ? 'INTET'
+          : e.tagName.toLowerCase() + (typeof e.className === 'string' && e.className.trim()
+            ? '.' + e.className.trim().split(/\s+/).join('.') : '')
+        if (!inde) {
+          return { vw, vh, skala, inde, traf: '(ikke målt — punktet er uden for viewporten)',
+            iFlade: false, sammeKort: false, link: null, paaPil: false, paaKnap: false }
+        }
+        const e = document.elementFromPoint(x2, y2)
+        const hyl = e?.closest('.kort-hylster') ?? null
+        const a = e?.closest('a.kort') ?? null
+        return {
+          vw, vh, skala, inde, traf: navngiv(e),
+          // Fladen skal være DEN, prøven måler på, og den skal ligge
+          // under kortets eget link. En pil og et hjerte ligger uden
+          // for linket; et dækkende element — en klæbende bjælke, et
+          // banner — ligger uden for kortet. Alle tre fanges her.
+          iFlade: !!e?.closest('.kort-billede'),
+          sammeKort: hyl?.querySelector('a.kort')?.getAttribute('data-bolig') === id,
+          link: a?.getAttribute('href') ?? null,
+          paaPil: !!e?.closest('.bladrepil'),
+          paaKnap: !!e?.closest('button'),
+        }
+      }, [px, py, boligId])
+      return { ok: true, x: px, y: py, b, ...d }
+    }
+    // Rammer punktet det, vi tror? Ét udtryk, brugt af begge prøver.
+    const rammerKortet = (g) => !!g.ok && g.inde && g.iFlade && g.sammeKort
+      && g.link === maal && !g.paaPil && !g.paaKnap
+    const sigtelinje = (hvad, g) => console.log(
+      `    · ${bredde} px · ${hvad}: viewport ${g.vw}×${g.vh}`
+      + ` · skala ${Number(g.skala).toFixed(2)}`
+      + ` · punkt (${Math.round(g.x)}, ${Math.round(g.y)})`
+      + ` · traf ${g.traf} · link ${g.link ?? '(intet)'} · forventet ${maal}`)
+    const sigtenote = (g) => g.ok
+      ? `(${Math.round(g.x)}, ${Math.round(g.y)}) i ${g.vw}×${g.vh} · traf ${g.traf}`
+        + `${g.paaPil ? ' · PÅ EN PIL' : ''}${g.paaKnap ? ' · PÅ EN KNAP' : ''}`
+        + `${g.inde ? '' : ' · UDEN FOR VIEWPORTEN'}`
+      : g.grund
 
     // 1 · Vandret svirp skifter billede uden at åbne annoncen.
     // Der svirpes MELLEM pilene: de er 44 px brede og ligger 8 px inde
@@ -402,12 +471,15 @@ try {
     //     erklæringen; det her er målingen af, at browseren faktisk gør
     //     det. Zoomen sættes tilbage bagefter, så de næste målinger
     //     starter et kendt sted.
-    await s.evaluate(() => window.scrollTo(0, 0))
-    await vent(400)
-    const kortEfterRul = await kort.locator('.kort-billede').boundingBox()
-    const knibMidt = kortEfterRul
-      ? { x: kortEfterRul.x + kortEfterRul.width / 2, y: kortEfterRul.y + kortEfterRul.height / 2 }
-      : midt
+    //     Knibet skal ske OVER det kort, prøven undersøger. Her stod
+    //     `scrollTo(0, 0)` og en boks læst BAGEFTER — samme fejl som
+    //     ved trykket nedenfor, blot uden en synlig konsekvens: et knib
+    //     uden for kortet zoomer stadig siden, så prøven var grøn.
+    const knibSigte = await sigt(0.5)
+    if (knibSigte.ok) sigtelinje('knibpunkt', knibSigte)
+    tjek(`5 · ${bredde} px: knibpunktet ligger over det kort, prøven undersøger`,
+      rammerKortet(knibSigte), sigtenote(knibSigte))
+    const knibMidt = knibSigte.ok ? { x: knibSigte.x, y: knibSigte.y } : midt
     const zoomFoer = await zoom(s)
     await knib(ts, knibMidt)
     await vent(800)
@@ -419,13 +491,26 @@ try {
     // 4 · Et almindeligt tryk åbner det rigtige mål. Gruppekort peger på
     //     /gruppe, enkeltkort på /bolig/<id> — begge dele er rigtigt, og
     //     prøven læser kortets eget link frem for at gætte.
-    await s.evaluate(() => window.scrollTo(0, 0))
-    await vent(500)
-    const maal = await kort.locator('a.kort').getAttribute('href')
-    const trykBoks = await kort.locator('.kort-billede').boundingBox()
-    await tryk(ts, trykBoks.x + trykBoks.width * 0.5, trykBoks.y + trykBoks.height * 0.8)
-    await s.waitForLoadState('networkidle').catch(() => {})
-    await vent(1200)
+    //     Punktet sigtes EFTER zoomnulstillingen og efterprøves, før
+    //     der trykkes. Uden de to prøver ville et tryk på ingenting se
+    //     ud som et produkt, der ikke åbner annoncen — og det var
+    //     præcis det, den røde kontrol påstod.
+    const trykSigte = await sigt(0.8)
+    if (trykSigte.ok) sigtelinje('trykpunkt', trykSigte)
+    tjek(`5 · ${bredde} px: trykpunktet ligger inden for viewporten`,
+      !!trykSigte.ok && trykSigte.inde, sigtenote(trykSigte))
+    tjek(`5 · ${bredde} px: og rammer billedfladen under kortets eget link`,
+      rammerKortet(trykSigte), sigtenote(trykSigte))
+    // Stadig rigtigt touchinput gennem browserens egen inputkø. Et
+    // `click()` eller en `goto()` ville springe træfprøven, linkvagten
+    // og det syntetiske klik over — altså netop dét, kontrollen måler.
+    if (trykSigte.ok) {
+      await tryk(ts, trykSigte.x, trykSigte.y)
+      await s.waitForLoadState('networkidle').catch(() => {})
+      await vent(1200)
+    }
+    console.log(`    · ${bredde} px · destination: forventet ${maal}`
+      + ` · faktisk ${s.url().replace(BASE, '')}`)
     tjek(`5 · ${bredde} px: et almindeligt tryk åbner det rigtige mål`,
       s.url().endsWith(maal) || s.url().includes(maal.split('?')[0]),
       `${s.url().replace(BASE, '')} · ventet ${maal}`)
