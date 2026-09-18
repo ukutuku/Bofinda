@@ -448,6 +448,31 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 /* Mens de øvrige billeder hentes. Ikke skjult: en knap, der forsvinder
    under fingeren, er værre end en, der venter. */
 .bladrepil:disabled { opacity: .5; cursor: progress; }
+
+/* ── NÅR LISTEN IKKE KUNNE HENTES ──────────────────────────────
+   Diskret: ét lille felt midt på billedet, i samme sprog som pilene, og
+   med en vej ud. Den er ikke en advarsel om boligen — den handler om
+   vores egen hentning — så den låner ikke advarselsfarven. */
+.bladrefejl {
+  pointer-events: auto;
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  margin: 0; max-width: calc(100% - 120px);
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  background: rgba(18,20,24,.78); backdrop-filter: blur(3px);
+  color: #fff; font-size: 12px; line-height: 1.35; text-align: center;
+  padding: 9px 12px; border-radius: var(--r-s);
+}
+/* 44 px høj som pilene: det er gulvet for en handling i dette projekt,
+   og en knap i en fejlbesked er ikke mindre en handling end de andre. */
+.bladreigen {
+  min-height: 44px; padding: 6px 14px;
+  display: inline-flex; align-items: center;
+  font-size: 13px; font-weight: 560; white-space: nowrap;
+  border: 1px solid rgba(255,255,255,.55); border-radius: var(--r-s);
+  background: transparent; color: #fff; cursor: pointer;
+}
+.bladreigen:hover { background: rgba(255,255,255,.16); border-color: #fff; }
+.bladreigen:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .bladrepil { transition: none; } }
 
 /* ── LODRET RULNING ER BRUGERENS, VANDRET ER VORES ──

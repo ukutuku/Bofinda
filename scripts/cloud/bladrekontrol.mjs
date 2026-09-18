@@ -20,6 +20,7 @@
 import { chromium } from 'playwright-core'
 import { mkdirSync, readdirSync, statSync } from 'node:fs'
 import postgres from 'postgres'
+import { knib, nulstilZoom, svirp, touchsession, tryk, zoom } from './touch.mjs'
 
 const UD = process.argv[2] || null
 if (UD) mkdirSync(UD, { recursive: true })
@@ -318,7 +319,9 @@ try {
   for (const bredde of [390, 768, 1440]) {
     const mobil = bredde === 390
     const { c, p: s } = await nyKontekst(bredde, mobil ? 844 : 1000,
-      mobil ? { hasTouch: true, isMobile: true } : { hasTouch: true })
+      // `isMobile` giver mobil-viewporten OG den visuelle viewport, som
+      // knib-zoom måles på. `deviceScaleFactor: 2` er en telefons.
+      mobil ? { hasTouch: true, isMobile: true, deviceScaleFactor: 2 } : { hasTouch: true })
     await s.goto(SOEG, { waitUntil: 'networkidle' })
     await s.afvisBanner()
     await vent(1000)
@@ -351,71 +354,83 @@ try {
       tjek(`5 · ${bredde} px: ingen vandret rulning`, !m.vandret)
     }
 
-    // ── Svirp ──────────────────────────────────────────────────
+    // ── SYNTETISKE HÆNDELSER MÅLER IKKE ET TOUCHFORLØB ─────────
+    // Her stod `dispatchEvent(new TouchEvent(…))` og et `mouse.wheel`.
+    // Det første er en DOM-hændelse, JavaScript selv laver: den springer
+    // træfprøven, `touch-action`, gestus-genkendelsen, rulningen og det
+    // syntetiske klik over, så den kan kun vise, at VORES lyttere sidder
+    // rigtigt. Det andet er et musehjul og har aldrig været en touchprøve.
+    // Nu går alt gennem browserens egen inputkø — se scripts/cloud/touch.mjs.
+    const ts = await touchsession(s)
     const kort = s.locator('.kort-hylster:has(.bladrepil)').first()
     await kort.scrollIntoViewIfNeeded()
+    await vent(600)
     const boks = await kort.locator('.kort-billede').boundingBox()
-    const t0 = await kort.locator('.kort-antal').innerText()
-    const foerUrl = s.url()
     const y = boks.y + boks.height / 2
-    // INTET VÆKKE-TRYK. Et tryk på billedet ÅBNER annoncen — det er dét,
-    // 3E måler, at det skal. Svirpets eget `touchstart` udløser
-    // hentningen, og `gaa()` venter på den, så bladringen sker, når
-    // listen lander. Prøven skal derfor bare give den tid.
-    // Vandret svirp: fra højre mod venstre = næste.
-    await s.evaluate(([x0, x1, yy]) => {
-      const el = document.elementFromPoint(x0, yy)
-      const lav = (type, cx) => new TouchEvent(type, {
-        bubbles: true, cancelable: true,
-        touches: type === 'touchend' ? [] : [new Touch({ identifier: 1, target: el, clientX: cx, clientY: yy })],
-        changedTouches: [new Touch({ identifier: 1, target: el, clientX: cx, clientY: yy })],
-      })
-      el.dispatchEvent(lav('touchstart', x0))
-      el.dispatchEvent(lav('touchmove', x0 - 20))
-      el.dispatchEvent(lav('touchmove', x1))
-      el.dispatchEvent(lav('touchend', x1))
-      // KOORDINATERNE ER IKKE TILFÆLDIGE. Pilene er 44 px brede og ligger
-      // 8 px inde fra hver kant — et svirp, der starter 20 px fra kanten,
-      // rammer KNAPPEN, og `elementFromPoint` giver da et element uden
-      // for billedfladen. Så hørte håndtereren intet, og prøven meldte
-      // «svirpet virker ikke», selv om det gjorde. Der svirpes derfor
-      // mellem pilene, som en tommel ville gøre det.
-    }, [boks.x + boks.width * 0.75, boks.x + boks.width * 0.25, y])
+    const midt = { x: boks.x + boks.width / 2, y }
+    const foerUrl = s.url()
+
+    // 1 · Vandret svirp skifter billede uden at åbne annoncen.
+    // Der svirpes MELLEM pilene: de er 44 px brede og ligger 8 px inde
+    // fra hver kant, så et svirp, der starter ved kanten, ville lande på
+    // en knap — som en tommel også ville.
+    const t0 = await kort.locator('.kort-antal').innerText()
+    await svirp(ts, { x: boks.x + boks.width * 0.78, y }, { x: boks.x + boks.width * 0.22, y })
     await vent(1800)
-    tjek(`5 · ${bredde} px: et svirp skifter billede`,
+    tjek(`5 · ${bredde} px: vandret swipe (rigtigt touch) skifter billede`,
       (await kort.locator('.kort-antal').innerText()) !== t0,
       `${t0} → ${await kort.locator('.kort-antal').innerText()}`)
     tjek(`5 · ${bredde} px: og åbner IKKE annoncen`, s.url() === foerUrl,
       s.url().replace(BASE, ''))
 
-    // ── Lodret rulning virker stadig ───────────────────────────
-    // Et LODRET svirp over billedet må ikke skifte billede, og siden skal
-    // stadig kunne rulle. Hjulet måler rulningen; det lodrette svirp
-    // måler, at retningslåsen vælger rigtigt.
+    // 2 · Lodret fingerbevægelse over billedet ruller siden — og skifter
+    //     ikke billede. Det er retningslåsen OG `touch-action: pan-y`,
+    //     der prøves her, og kun rigtigt touchinput kan vise begge dele:
+    //     en syntetisk hændelse ruller ingenting.
     const t1 = await kort.locator('.kort-antal').innerText()
-    await s.evaluate(([x, yy]) => {
-      const el = document.elementFromPoint(x, yy)
-      const lav = (type, cy) => new TouchEvent(type, {
-        bubbles: true, cancelable: true,
-        touches: type === 'touchend' ? [] : [new Touch({ identifier: 2, target: el, clientX: x, clientY: cy })],
-        changedTouches: [new Touch({ identifier: 2, target: el, clientX: x, clientY: cy })],
-      })
-      el.dispatchEvent(lav('touchstart', yy))
-      el.dispatchEvent(lav('touchmove', yy - 25))
-      el.dispatchEvent(lav('touchmove', yy - 120))
-      el.dispatchEvent(lav('touchend', yy - 120))
-    }, [boks.x + boks.width / 2, y])
+    const y0 = await s.evaluate(() => window.scrollY)
+    await svirp(ts, { x: midt.x, y: y + 60 }, { x: midt.x, y: y - 120 })
     await vent(900)
-    tjek(`5 · ${bredde} px: et LODRET svirp skifter ikke billede`,
+    const y1 = await s.evaluate(() => window.scrollY)
+    tjek(`5 · ${bredde} px: lodret fingerbevægelse RULLER siden`, y1 > y0, `${y0} → ${y1}`)
+    tjek(`5 · ${bredde} px: og skifter ikke billede`,
       (await kort.locator('.kort-antal').innerText()) === t1,
       `${t1} → ${await kort.locator('.kort-antal').innerText()}`)
 
-    const y0 = await s.evaluate(() => window.scrollY)
-    await s.mouse.move(boks.x + boks.width / 2, y)
-    await s.mouse.wheel(0, 400)
+    // 3 · Knib-zoom er bevaret. `touch-action: pan-y pinch-zoom` er
+    //     erklæringen; det her er målingen af, at browseren faktisk gør
+    //     det. Zoomen sættes tilbage bagefter, så de næste målinger
+    //     starter et kendt sted.
+    await s.evaluate(() => window.scrollTo(0, 0))
+    await vent(400)
+    const kortEfterRul = await kort.locator('.kort-billede').boundingBox()
+    const knibMidt = kortEfterRul
+      ? { x: kortEfterRul.x + kortEfterRul.width / 2, y: kortEfterRul.y + kortEfterRul.height / 2 }
+      : midt
+    const zoomFoer = await zoom(s)
+    await knib(ts, knibMidt)
+    await vent(800)
+    const zoomEfter = await zoom(s)
+    tjek(`5 · ${bredde} px: knib-zoom er bevaret`, zoomEfter > zoomFoer * 1.3,
+      `${zoomFoer.toFixed(2)} → ${zoomEfter.toFixed(2)}`)
+    await nulstilZoom(ts, knibMidt)
+
+    // 4 · Et almindeligt tryk åbner det rigtige mål. Gruppekort peger på
+    //     /gruppe, enkeltkort på /bolig/<id> — begge dele er rigtigt, og
+    //     prøven læser kortets eget link frem for at gætte.
+    await s.evaluate(() => window.scrollTo(0, 0))
     await vent(500)
-    const y1 = await s.evaluate(() => window.scrollY)
-    tjek(`5 · ${bredde} px: siden ruller stadig lodret over billedet`, y1 > y0, `${y0} → ${y1}`)
+    const maal = await kort.locator('a.kort').getAttribute('href')
+    const trykBoks = await kort.locator('.kort-billede').boundingBox()
+    await tryk(ts, trykBoks.x + trykBoks.width * 0.5, trykBoks.y + trykBoks.height * 0.8)
+    await s.waitForLoadState('networkidle').catch(() => {})
+    await vent(1200)
+    tjek(`5 · ${bredde} px: et almindeligt tryk åbner det rigtige mål`,
+      s.url().endsWith(maal) || s.url().includes(maal.split('?')[0]),
+      `${s.url().replace(BASE, '')} · ventet ${maal}`)
+    await s.goBack({ waitUntil: 'networkidle' }).catch(() => {})
+    await s.afvisBanner()
+    await vent(700)
 
     if (UD) {
       await s.evaluate(() => window.scrollTo(0, 0))
@@ -475,6 +490,115 @@ try {
     }
     await c.close()
   }
+
+  // ═══ 7 · Når listen ikke kan hentes ════════════════════════════
+  //
+  // Ruten kan svare nej. Før blev kortet lukket for resten af sin
+  // levetid, mens pile og tæller blev stående og lovede otte billeder —
+  // en knap, der ikke virker, er værre end ingen knap.
+  console.log('\n══ 7 · fejl, besked og prøv igen ══')
+  {
+    // Det FØRSTE kald fejler, resten går igennem. Ruten afvises i
+    // browseren, så appen og basen er urørte.
+    let kald = 0
+    const { c, p: s } = await nyKontekst(1440, 1000)
+    await s.route('**/api/boligbilleder*', (rute) => {
+      kald++
+      return kald === 1 ? rute.fulfill({ status: 503, body: 'nej' }) : rute.continue()
+    })
+    await s.goto(SOEG, { waitUntil: 'networkidle' })
+    await s.afvisBanner()
+    await vent(900)
+    const kort = s.locator('.kort-hylster:has(.bladrepil)').first()
+    await kort.scrollIntoViewIfNeeded()
+    await vent(600)
+
+    const url0 = s.url()
+    const t0 = await kort.locator('.kort-antal').innerText()
+    // Favoritten skal være upåvirket hele vejen. Uden login er hjertet
+    // et LINK til Min side; det er dets adresse og tilstand, der måles.
+    const hjerteFoer = await kort.locator('.favoritknap').getAttribute('href')
+      ?? await kort.locator('.favoritknap').getAttribute('aria-pressed')
+
+    await kort.locator('.bladrepil-naeste').click()
+    await vent(1400)
+    tjek('7A · en fejlet hentning siger det — diskret og på kortet',
+      await kort.locator('.bladrefejl').count() === 1)
+    tjek('7B · og der er en udtrykkelig vej til at prøve igen',
+      await kort.locator('.bladreigen').count() === 1)
+    tjek('7C · billedet står stadig, og annoncen blev ikke åbnet',
+      s.url() === url0 && (await kort.locator('.kort-billede img').count()) === 1,
+      s.url().replace(BASE, ''))
+    tjek('7D · der prøves IKKE igen af sig selv', kald === 1, `${kald} kald`)
+    // Et sekund mere uden at nogen rører noget: stadig ét kald.
+    await vent(1500)
+    tjek('7E · heller ikke efter halvanden sekund', kald === 1, `${kald} kald`)
+
+    // Knappen er en handling som alle andre i projektet.
+    const knap = await kort.locator('.bladreigen').boundingBox()
+    tjek('7F · «Prøv igen» er mindst 44 px høj', (knap?.height ?? 0) >= 44,
+      `${Math.round(knap?.width ?? 0)}×${Math.round(knap?.height ?? 0)}`)
+    if (UD) await kort.screenshot({ path: `${UD}/bladring-fejl-og-proev-igen.png` })
+
+    await kort.locator('.bladreigen').click()
+    await vent(1600)
+    tjek('7G · det brugerinitierede forsøg lykkes', kald === 2, `${kald} kald`)
+    tjek('7H · og beskeden forsvinder igen',
+      await kort.locator('.bladrefejl').count() === 0)
+
+    await kort.locator('.bladrepil-naeste').click()
+    await vent(1400)
+    tjek('7I · derefter kan kortet bladre',
+      (await kort.locator('.kort-antal').innerText()) !== t0,
+      `${t0} → ${await kort.locator('.kort-antal').innerText()}`)
+    tjek('7J · uden at åbne annoncen', s.url() === url0, s.url().replace(BASE, ''))
+    const hjerteEfter = await kort.locator('.favoritknap').getAttribute('href')
+      ?? await kort.locator('.favoritknap').getAttribute('aria-pressed')
+    tjek('7K · og favoritten er urørt', hjerteEfter === hjerteFoer,
+      `${hjerteFoer} → ${hjerteEfter}`)
+    await c.close()
+  }
+
+  // ═══ 8 · Et svar med nul eller ét billede ══════════════════════
+  //
+  // SQL-tallet på kortet kan være forældet. Svarer ruten med ét billede,
+  // er det ikke en fejl — og så skal tælleren og pilene holde op med at
+  // love mere i stedet for at blive stående.
+  console.log('\n══ 8 · ruten svarer «der er ikke mere» ══')
+  {
+    const { c, p: s } = await nyKontekst(1440, 1000)
+    await s.route('**/api/boligbilleder*', (rute) =>
+      rute.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ billeder: [{ lille: '/api/billede?x', stor: null }] }) }))
+    await s.goto(SOEG, { waitUntil: 'networkidle' })
+    await s.afvisBanner()
+    await vent(900)
+    // KORTET PINDES TIL SIN EGEN ID, ikke til «det første med pile».
+    // Playwright genopløser en locator ved hver brug, og dét er præcis
+    // det, prøven her måler væk: når pilene forsvinder fra kortet,
+    // holder `:has(.bladrepil)` op med at matche det, og `.first()`
+    // ville pege videre på NÆSTE kort — som selvfølgelig har to pile.
+    // Så ville en rigtig rettelse blive målt som en fejl.
+    const id = await s.locator('.kort-hylster:has(.bladrepil) a.kort').first().getAttribute('id')
+    const kort = s.locator(`.kort-hylster:has(a.kort[id="${id}"])`)
+    await kort.scrollIntoViewIfNeeded()
+    await vent(500)
+    tjek('8A · præmis: kortet lovede flere, før ruten svarede',
+      /^1\/[2-9]/.test(await kort.locator('.kort-antal').innerText()),
+      await kort.locator('.kort-antal').innerText())
+    await kort.locator('.bladrepil-naeste').click()
+    await vent(1500)
+    tjek('8B · pilene forsvinder fra DET kort', await kort.locator('.bladrepil').count() === 0,
+      `${await kort.locator('.bladrepil').count()} pile · ${id}`)
+    tjek('8C · og tælleren lover ikke længere flere',
+      await kort.locator('.kort-antal').count() === 0)
+    tjek('8D · det er IKKE en fejlbesked — ruten svarede jo',
+      await kort.locator('.bladrefejl').count() === 0)
+    tjek('8E · forsiden står der endnu',
+      await kort.locator('.kort-billede img').count() === 1)
+    await c.close()
+  }
+
 } catch (e) {
   console.log(`\n  ✗ PRØVEN BRØD SAMMEN — ${e.message}`)
   fejl++

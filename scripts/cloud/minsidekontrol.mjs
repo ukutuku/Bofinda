@@ -61,6 +61,7 @@ import { randomUUID } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { knib, nulstilZoom, svirp, touchsession, tryk, zoom } from './touch.mjs'
 
 const PW = process.env.PLAYWRIGHT_MODUL ?? 'playwright-core'
 const { chromium } = await import(PW).then((m) => m.default ?? m)
@@ -679,8 +680,11 @@ try {
     if (await k.count()) { await k.first().click().catch(() => {}); await vent(350) }
   }
 
-  const nyKontekst = async (bredde, hoejde) => {
-    const c = await browser.newContext({ viewport: { width: bredde, height: hoejde } })
+  const nyKontekst = async (bredde, hoejde, ekstra = {}) => {
+    // `ekstra` er til touchkonteksten i 3E: `hasTouch` giver browseren
+    // en berøringsskærm, og `isMobile` giver den visuelle viewport, som
+    // knib-zoom overhovedet kan måles på.
+    const c = await browser.newContext({ viewport: { width: bredde, height: hoejde }, ...ekstra })
     // Intet forlader maskinen. Alt der ikke er loopback, afvises.
     let udefra = 0, afvist = 0
     await c.route('**/*', async (rute) => {
@@ -917,6 +921,168 @@ try {
       f.forhold.toFixed(3))
     tjek('3D · og den lodrette rulning og zoom er browserens',
       /pan-y/.test(f.touch) && /pinch-zoom/.test(f.touch), f.touch)
+  }
+
+  // ═══ 3E · Gemte boliger på 390 px — browserens EGEN touch ══════
+  //
+  // ═══ HVORFOR DET HER AFSNIT IKKE KUNNE SPRINGES OVER ═══
+  //
+  // Søgekortene og de gemte kort spørger den SAMME krog, men de tegner
+  // hver sit felt: pilene ligger inde i `.gemt-foto` her og som søskende
+  // til linket der, og fotolinket er et andet element end kortlinket.
+  // `touch-action`, træfprøven og det syntetiske klik afgøres af det
+  // felt, fingeren faktisk rammer — så en måling på søgesiden svarer
+  // ikke for den her.
+  //
+  // Alt herunder går gennem browserens inputkø (CDP `Input.dispatch-
+  // TouchEvent`), ikke gennem `dispatchEvent(new TouchEvent(…))`. Se
+  // noten i scripts/cloud/touch.mjs for forskellen.
+  {
+    const { c: cm, p: m } = await nyKontekst(390, 844,
+      { hasTouch: true, isMobile: true, deviceScaleFactor: 2 })
+    await logInd(m)
+    const mKort = (n) => m.locator(`.gemt-kort:has(a.adresse[href="/bolig/${ider[n]}"])`)
+    const kort = mKort('total')
+    const ts = await touchsession(m)
+
+    tjek('3E · præmis: det gemte kort er der på 390 px',
+      await kort.count() === 1)
+    await kort.scrollIntoViewIfNeeded()
+    await vent(600)
+    tjek('3E · præmis: og det lover tre billeder',
+      (await kort.locator('.gemt-antal').innerText()).startsWith('1/3'),
+      await kort.locator('.gemt-antal').innerText())
+    tjek('3E · ingen vandret rulning på 390 px',
+      await m.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth))
+
+    const boks = await kort.locator('.gemt-foto').boundingBox()
+    const y = boks.y + boks.height / 2
+    const urlFoer = m.url()
+    const gemteFoer = await m.locator('.gemt-kort').count()
+
+    // 1 · Vandret svirp skifter billede — mellem pilene, som en tommel
+    //     også ville ramme ved siden af.
+    const t0 = await kort.locator('.gemt-antal').innerText()
+    await svirp(ts, { x: boks.x + boks.width * 0.78, y }, { x: boks.x + boks.width * 0.22, y })
+    await vent(1800)
+    tjek('3E · vandret swipe (rigtigt touch) skifter billede',
+      (await kort.locator('.gemt-antal').innerText()) !== t0,
+      `${t0} → ${await kort.locator('.gemt-antal').innerText()}`)
+    tjek('3E · og åbner IKKE boligen', m.url() === urlFoer, m.url().replace(B, ''))
+    tjek('3E · og fjerner ikke boligen fra Gemte boliger',
+      await m.locator('.gemt-kort').count() === gemteFoer,
+      `${gemteFoer} → ${await m.locator('.gemt-kort').count()}`)
+
+    // 2 · Lodret fingerbevægelse over billedet ruller siden og skifter
+    //     ikke billede. Retningslåsen OG `touch-action: pan-y` prøves
+    //     her; en syntetisk hændelse ruller ingenting og kan derfor
+    //     hverken bekræfte eller afkræfte det.
+    const t1 = await kort.locator('.gemt-antal').innerText()
+    const y0 = await m.evaluate(() => window.scrollY)
+    tjek('3E · præmis: siden KAN rulles',
+      await m.evaluate(() => document.documentElement.scrollHeight > window.innerHeight + 100))
+    await svirp(ts, { x: boks.x + boks.width / 2, y: y + 60 }, { x: boks.x + boks.width / 2, y: y - 120 })
+    await vent(900)
+    const y1 = await m.evaluate(() => window.scrollY)
+    tjek('3E · lodret fingerbevægelse RULLER siden', y1 > y0, `${y0} → ${y1}`)
+    tjek('3E · og skifter ikke billede',
+      (await kort.locator('.gemt-antal').innerText()) === t1,
+      `${t1} → ${await kort.locator('.gemt-antal').innerText()}`)
+
+    // 3 · Knib-zoom er bevaret. Erklæringen er `pinch-zoom` i
+    //     `touch-action`; det her er målingen af, at browseren gør det.
+    await kort.scrollIntoViewIfNeeded()
+    await vent(500)
+    const kb = await kort.locator('.gemt-foto').boundingBox()
+    const knibMidt = { x: kb.x + kb.width / 2, y: kb.y + kb.height / 2 }
+    const zoomFoer = await zoom(m)
+    await knib(ts, knibMidt)
+    await vent(800)
+    const zoomEfter = await zoom(m)
+    tjek('3E · knib-zoom er bevaret', zoomEfter > zoomFoer * 1.3,
+      `${zoomFoer.toFixed(2)} → ${zoomEfter.toFixed(2)}`)
+    await nulstilZoom(ts, knibMidt)
+
+    // 4 · Et almindeligt tryk åbner boligen. Målet læses af fotolinkets
+    //     eget `href` — prøven gætter ikke.
+    await kort.scrollIntoViewIfNeeded()
+    await vent(500)
+    const maal = await kort.locator('a.gemt-fotolink').getAttribute('href')
+    const tb = await kort.locator('.gemt-foto').boundingBox()
+    await tryk(ts, tb.x + tb.width * 0.5, tb.y + tb.height * 0.75)
+    await m.waitForLoadState('networkidle').catch(() => {})
+    await vent(1200)
+    tjek('3E · et almindeligt tryk åbner det rigtige mål',
+      m.url().endsWith(maal), `${m.url().replace(B, '')} · ventet ${maal}`)
+
+    // 5 · Den fastlåste fejltilstand — på DEN HER flade.
+    //     Kortet hentes forfra, så tilstanden er urørt, og det første
+    //     kald afvises i browseren. Appen og basen er ikke rørt.
+    let kald = 0
+    await m.route('**/api/boligbilleder*', (rute) => {
+      kald++
+      return kald === 1 ? rute.fulfill({ status: 503, body: 'nej' }) : rute.continue()
+    })
+    await m.goto(`${B}/min-side`, { waitUntil: 'networkidle' })
+    await afvisBanner(m)
+    await vent(800)
+    await kort.scrollIntoViewIfNeeded()
+    await vent(500)
+    const t2 = await kort.locator('.gemt-antal').innerText()
+    await kort.locator('.bladrepil-naeste').click()
+    await vent(1500)
+    tjek('3E · en fejlet hentning siger det — også på et gemt kort',
+      await kort.locator('.bladrefejl').count() === 1)
+    tjek('3E · med en udtrykkelig vej til at prøve igen',
+      await kort.locator('.bladreigen').count() === 1)
+    tjek('3E · og der prøves IKKE igen af sig selv', kald === 1, `${kald} kald`)
+    await vent(1500)
+    tjek('3E · heller ikke efter halvanden sekund', kald === 1, `${kald} kald`)
+    await kort.locator('.bladreigen').click()
+    await vent(1600)
+    tjek('3E · det brugerinitierede forsøg lykkes', kald === 2, `${kald} kald`)
+    tjek('3E · beskeden forsvinder igen',
+      await kort.locator('.bladrefejl').count() === 0)
+    await kort.locator('.bladrepil-naeste').click()
+    await vent(1400)
+    tjek('3E · og derefter kan kortet bladre',
+      (await kort.locator('.gemt-antal').innerText()) !== t2,
+      `${t2} → ${await kort.locator('.gemt-antal').innerText()}`)
+    tjek('3E · uden at åbne boligen', m.url().endsWith('/min-side'),
+      m.url().replace(B, ''))
+    tjek('3E · og uden at fjerne den fra Gemte boliger',
+      await m.locator('.gemt-kort').count() === gemteFoer,
+      `${gemteFoer} → ${await m.locator('.gemt-kort').count()}`)
+
+    // 6 · Ruten svarer «der er ikke mere». SQL-tallet på kortet kan være
+    //     forældet; så skal pilene og tælleren holde op med at love mere
+    //     i stedet for at blive stående. Det er ikke en fejlbesked —
+    //     ruten svarede jo.
+    await m.unroute('**/api/boligbilleder*')
+    await m.route('**/api/boligbilleder*', (rute) =>
+      rute.fulfill({ status: 200, contentType: 'application/json',
+        body: JSON.stringify({ billeder: [{ lille: '/api/billede?x', stor: null }] }) }))
+    await m.goto(`${B}/min-side`, { waitUntil: 'networkidle' })
+    await afvisBanner(m)
+    await vent(800)
+    await kort.scrollIntoViewIfNeeded()
+    await vent(500)
+    tjek('3E · præmis: kortet lovede flere, før ruten svarede',
+      (await kort.locator('.gemt-antal').innerText()).startsWith('1/3'),
+      await kort.locator('.gemt-antal').innerText())
+    await kort.locator('.bladrepil-naeste').click()
+    await vent(1500)
+    tjek('3E · pilene forsvinder fra det gemte kort',
+      await kort.locator('.bladrepil').count() === 0,
+      `${await kort.locator('.bladrepil').count()} pile`)
+    tjek('3E · og tælleren lover ikke længere flere',
+      await kort.locator('.gemt-antal').count() === 0)
+    tjek('3E · det er IKKE en fejlbesked — ruten svarede jo',
+      await kort.locator('.bladrefejl').count() === 0)
+    tjek('3E · og forsiden står der endnu',
+      await kort.locator('.gemt-foto img').count() === 1)
+    if (SKAERMMAPPE) await m.screenshot({ path: `${SKAERMMAPPE}/minside-390-bladring.png` })
+    await cm.close()
   }
 
   // ═══ 4 · Husleje, total og det ukendte ═════════════════════════

@@ -64,8 +64,13 @@ export interface Bladring {
   srcSet: string | undefined
   /** Kunne det viste billede ikke hentes? Så skal fladen vise sin reserve. */
   fejlet: boolean
+  /** Kunne LISTEN over de øvrige billeder ikke hentes? Så vises en
+   *  diskret besked med en vej til at prøve igen — se `Bladrepile`. */
+  hentefejl: boolean
   henter: boolean
   gaa: (retning: number) => void
+  /** Kaldes KUN af et menneske. Der er ingen automatisk gentagelse. */
+  proevIgen: () => void
   /** Sættes på billedfladen: forhåndshentning og swipe. */
   flade: {
     onFocus: () => void
@@ -98,15 +103,33 @@ export function useBladring({ boligId, forside, forsideSrcSet, sizes, antal }: {
   const [liste, setListe] = useState<Bladrebillede[] | null>(null)
   const [henter, setHenter] = useState(false)
   const [fejlede, setFejlede] = useState<ReadonlySet<number>>(() => new Set())
-  // Hentningen må kun ske én gang pr. kort. `useRef` og ikke `useState`:
-  // to hurtige svirp skal ikke kunne udløse to kald, og en tilstand, der
-  // først er sat efter næste tegning, er for langsom til det.
+  // To samtidige kald må ikke blive til to hentninger. `useRef` og ikke
+  // `useState`: to hurtige svirp skal ikke kunne udløse to kald, og en
+  // tilstand, der først er sat efter næste tegning, er for langsom til
+  // det. Vagten er UÆNDRET af rettelsen nedenfor.
   const igang = useRef<Promise<Bladrebillede[] | null> | null>(null)
-  // Slog hentningen fejl, prøves den ikke igen. Uden det fyrede hvert
-  // eneste hover, hvert svirp og hvert pileklik et nyt kald mod en rute,
-  // der lige har sagt nej — og tælleren blev ved med at love billeder,
-  // der ikke kunne nås.
-  const opgivet = useRef(false)
+
+  // ═══ TO GRUNDE TIL AT DER IKKE KOM EN LISTE ═══
+  //
+  // De så ens ud og blev behandlet ens — ét `opgivet`-flag, der lukkede
+  // kortet for resten af dets levetid, mens pile og tæller blev stående
+  // og lovede billeder, ingen kunne nå. Det er samme fejlform som en
+  // knap, der ikke virker: værre end ingen knap, fordi den bruges.
+  //
+  // De er ikke det samme spørgsmål:
+  //
+  //   `hentefejl`   netværket eller ruten svarede ikke. Det kan gå væk
+  //                 igen, og brugeren skal have det at vide OG en vej
+  //                 til at prøve igen. Aldrig af sig selv — en
+  //                 gentagelsesløkke mod en rute, der siger nej, er
+  //                 præcis dét, det gamle flag var sat for at undgå.
+  //
+  //   `ingenFlere`  ruten SVAREDE, og der er ikke mere at bladre i.
+  //                 Antallet fra SQL var forældet. Så er det rigtige
+  //                 ikke en fejlbesked, men at pilene og tælleren
+  //                 holder op med at love noget.
+  const [hentefejl, setHentefejl] = useState(false)
+  const [ingenFlere, setIngenFlere] = useState(false)
   // Har hun FAKTISK bladret? Naboerne hentes først da. Hover er en
   // hensigt om at kunne bladre, ikke en bladring — og to fulde billeder
   // pr. kort, man stryger musen hen over, er præcis det, kravet om
@@ -116,28 +139,47 @@ export function useBladring({ boligId, forside, forsideSrcSet, sizes, antal }: {
   const roer = useRef<{ x: number; y: number; laast: null | 'x' | 'y' } | null>(null)
   const billedref = useRef<HTMLImageElement | null>(null)
 
-  const kanBladre = Boolean(forside) && antal > 1
+  // `ingenFlere` er rutens svar og vinder over SQL-tallet: kortet må
+  // ikke blive ved med at tilbyde en bladring, der ikke fører nogen
+  // steder hen.
+  const kanBladre = Boolean(forside) && antal > 1 && !ingenFlere
 
   const hent = useCallback((): Promise<Bladrebillede[] | null> => {
     if (liste) return Promise.resolve(liste)
-    if (!kanBladre || opgivet.current) return Promise.resolve(null)
+    if (!kanBladre) return Promise.resolve(null)
+    // Samtidighedsvagten. Den er der stadig: et svirp og et pileklik i
+    // samme øjeblik deler den samme ene hentning.
     if (igang.current) return igang.current
     setHenter(true)
+    setHentefejl(false)
     igang.current = fetch(`/api/boligbilleder?b=${encodeURIComponent(boligId)}`)
-      .then((r) => (r.ok ? r.json() : null))
+      // Et svar, der ikke er 2xx, er en fejl — ikke et tomt resultat.
+      // `null` herfra ville ikke være til at skelne fra «boligen har
+      // ingen flere billeder», og de to skal ikke se ens ud.
+      .then((r) => { if (!r.ok) throw new Error(`rute svarede ${r.status}`); return r.json() })
       .then((d: { billeder?: Bladrebillede[] } | null) => {
         const b = d?.billeder
-        if (!Array.isArray(b) || b.length < 2) { opgivet.current = true; return null }
+        if (!Array.isArray(b)) throw new Error('uventet svar')
+        // Ruten svarede, og der er intet eller ét billede. Ikke en fejl:
+        // tælleren og pilene holder op med at love mere.
+        if (b.length < 2) { setIngenFlere(true); return null }
         setListe(b)
         return b
       })
-      // Netværket kan fejle. Forsiden står der stadig, og kortet er
-      // stadig et link til boligen — vi siger det ikke højt, fordi det
-      // ikke er en oplysning om boligen.
-      .catch(() => { opgivet.current = true; return null })
+      .catch(() => { setHentefejl(true); return null })
       .finally(() => { setHenter(false); igang.current = null })
     return igang.current
   }, [boligId, kanBladre, liste])
+
+  /**
+   * Prøv igen — KUN når et menneske beder om det.
+   *
+   * Der er ingen timer og ingen gentagelsesløkke. Knappen i
+   * fejlbeskeden kalder den her, og et pileklik gør det samme: begge er
+   * en handling, brugeren har foretaget. `igang`-vagten gør, at to
+   * hurtige tryk stadig kun bliver til ét kald.
+   */
+  const proevIgen = useCallback(() => { void hent() }, [hent])
 
   const gaa = useCallback((retning: number) => {
     if (!kanBladre) return
@@ -220,8 +262,10 @@ export function useBladring({ boligId, forside, forsideSrcSet, sizes, antal }: {
     src,
     srcSet,
     fejlet: fejlede.has(nr),
+    hentefejl,
     henter,
     gaa,
+    proevIgen,
     flade: {
       // INGEN FORHENTNING PÅ HOVER.
       // Den var der, og den kostede mere, end den gav: at stryge musen
@@ -298,6 +342,24 @@ export function Bladrepile({ b, etiket }: { b: Bladring; etiket: string }) {
   if (!b.taeller) return null
   return (
     <div className="bladrepile" aria-hidden={false}>
+      {/* ── NÅR LISTEN IKKE KUNNE HENTES ──────────────────────
+          Diskret, og med en vej ud. Før stod pilene og tælleren og lovede
+          otte billeder, mens hvert tryk stille gjorde ingenting for
+          resten af kortets levetid — en knap, der ikke virker, er værre
+          end ingen knap.
+          `role="status"` og ikke `alert`: det er en oplysning om kortet,
+          ikke noget, der skal afbryde oplæsningen af siden.
+          Knappen prøver igen ÉN gang pr. tryk. Der er ingen timer. */}
+      {b.hentefejl && (
+        <p className="bladrefejl" role="status">
+          <span>Billederne kunne ikke hentes</span>
+          <button type="button" className="bladreigen"
+            onClick={b.proevIgen} aria-busy={b.henter || undefined}
+            aria-label={`Prøv igen at hente billeder af ${etiket}`}>
+            Prøv igen
+          </button>
+        </p>
+      )}
       {/* IKKE `disabled` MENS DER HENTES.
           En knap, der slår sig selv fra midt i et tastetryk, mister
           fokus til <body> — og så er tastaturbrugeren smidt ud af

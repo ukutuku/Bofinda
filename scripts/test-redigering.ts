@@ -74,6 +74,7 @@ import { tjekRettigheder } from './tjek-rettigheder'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Gruppekort, Kort } from '../app/Boligkort'
+import { type Bladring, Bladrepile } from '../app/Billedbladring'
 import { GET as boligbilleder } from '../app/api/boligbilleder/route'
 import { billedUrl, TILLADTE_VAERTER } from '../lib/billede'
 import { eltilstand } from '../lib/eloplysning'
@@ -1403,6 +1404,59 @@ async function main() {
     tjek('billedfladerne overlader den lodrette panorering til browseren',
       /\.kort-billede,\s*\.gemt-foto\s*\{[^}]*touch-action:\s*pan-y/
         .test(readFileSync('app/globals.css', 'utf8')))
+  
+    // ── DEN FASTLAASTE FEJLTILSTAND ─────────────────────────────
+    //
+    // Fejlbeskeden kan ikke naas ved at gengive et kort: den findes
+    // foerst, naar en hentning i BROWSEREN er fejlet, og et kort
+    // gengivet paa serveren har ingen. Browserproeverne maaler forloebet
+    // (bladrekontrol 7, minsidekontrol 3E); KONTRAKTEN maales her, fordi
+    // den er det, de to flader deler, og fordi npm test koerer uden
+    // browser.
+    //
+    // Hvorfor den findes: foer stod pilene og taelleren og lovede otte
+    // billeder, mens hvert tryk stille gjorde ingenting for resten af
+    // kortets levetid. En knap, der ikke virker, er vaerre end ingen
+    // knap — den bruges netop i den situation, hvor noget er galt.
+    {
+      const grund = {
+        nr: 0, antal: 8, taeller: '1/8', src: TILLADT, srcSet: undefined,
+        fejlet: false, hentefejl: false, henter: false,
+        gaa: () => {}, proevIgen: () => {},
+        flade: { onFocus: () => {}, onTouchStart: () => {}, onTouchMove: () => {}, onTouchEnd: () => {} },
+        linkvagt: { onClickCapture: () => {} },
+        billedvagt: { ref: { current: null }, onError: () => {}, onLoad: () => {} },
+      } as unknown as Bladring
+      const pile = (o: Partial<Bladring>) =>
+        vis(createElement(Bladrepile, { b: { ...grund, ...o } as Bladring, etiket: 'Testvej 1, 2. tv' }))
+
+      const rask = pile({})
+      tjek('bladrepile: uden fejl staar der ingen besked',
+        !rask.includes('bladrefejl') && !rask.includes('bladreigen'))
+
+      const syg = pile({ hentefejl: true })
+      tjek('bladrepile: en fejlet hentning SIGER det', syg.includes('bladrefejl'))
+      tjek('bladrepile: og giver en udtrykkelig vej til at proeve igen',
+        syg.includes('class="bladreigen"') && syg.includes('>Prøv igen<'))
+      tjek('bladrepile: knappen navngiver boligen for en skaermlaeser',
+        syg.includes('Testvej 1, 2. tv'))
+      tjek('bladrepile: pilene bliver staaende — kortet laases ikke',
+        (syg.match(/class="bladrepil /g) ?? []).length === 2,
+        String((syg.match(/class="bladrepil /g) ?? []).length))
+
+      // Ruten svarede «der er ikke mere»: saa er der intet at bladre i,
+      // og saa staar der HELLER ingen fejlbesked — der var jo ingen fejl.
+      // Taelleren er hookens ene udtryk for «kan der bladres», og den er
+      // tom baade ved ét billede og efter et saadant svar.
+      tjek('bladrepile: uden taeller er hele feltet vaek — ogsaa beskeden',
+        pile({ taeller: '', hentefejl: true }) === '')
+
+      // Ingen automatisk gentagelse. Knappen er det eneste, der proever
+      // igen, og den kraever et menneske.
+      tjek('bladringen proever aldrig igen af sig selv',
+        !/setInterval|setTimeout/.test(kildeBladring)
+        && /proevIgen = useCallback/.test(kildeBladring))
+    }
   }
 
   // ── Ruten, der leverer billede 2..N ─────────────────────────
