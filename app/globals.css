@@ -435,7 +435,7 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
   background: rgba(18,20,24,.55);
   backdrop-filter: blur(3px);
   color: #fff; cursor: pointer; line-height: 0;
-  transition: background .14s ease, border-color .14s ease;
+  transition: background .14s ease, border-color .14s ease, opacity .12s ease;
 }
 .bladrepil:hover {
   background: rgba(18,20,24,.78);
@@ -444,6 +444,67 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 .bladrepil:focus-visible {
   outline: 2px solid #fff; outline-offset: 2px;
   background: rgba(18,20,24,.82);
+}
+
+/* ── PÅ EN COMPUTER VISES PILENE FØRST VED HOVER ───────────────
+   Diskret på en skærm med mus, uændret på en berøringsskærm. Valget
+   træffes på `hover` og `pointer` — altså på hvad pegeenheden KAN,
+   ikke på hvor bred skærmen er. En smal browser på en bærbar har
+   stadig en mus, og en bred tablet har stadig ingen hover; en
+   breddegrænse ville ramme dem begge forkert.
+
+   HVORFOR `:has()`. Pilene er søskende til `a.kort` og ligger altså
+   UDEN FOR billedfeltet i DOM'en — se noten ved `.bladrepile`. Ingen
+   kombinator går fra et barnebarn til en onkel, så «vis pilene, når
+   billedet er hovered» kan kun skrives på den fælles forælder.
+   De øvrige led er ikke dubletter. Fire ting ligger OVEN PÅ billedet
+   uden at være inde i det: pilene selv, hjertet, fejlbeskeden og dens
+   «Prøv igen». Pegeren, der rører en af dem, har forladt
+   `.kort-billede` — og uden leddet ville pilene blinke væk, mens
+   brugeren stadig ser sig selv pege på billedet. Målt: uden
+   `.favoritknap:hover` slukkede pilene, når musen kom hen over
+   hjertet i øverste højre hjørne. Alle led står i ÉN `:has()`, så de
+   ikke kan skride fra hinanden.
+   Tælleren og mærkatet står IKKE på listen, og det er ikke en
+   forglemmelse: de ligger inde i `.kort-billede` og er dækket af
+   det første led. Efterprøvet, ikke formodet.
+   På Gemte boliger ligger pilene INDE i `.gemt-foto`, som selv ER
+   billedfladen. Der rækker et almindeligt `:hover`.
+
+   `@supports` er ikke pynt. Uden den ville en browser uden `:has()`
+   kassere afsløringsreglen som ugyldig, beholde `opacity: 0` og
+   efterlade pilene usynlige for altid — en skjult knap, ingen kan
+   finde. Kan browseren ikke `:has()`, laves der intet om.
+
+   `:focus` og ikke `:focus-visible`. Tastaturbrugeren er dækket af
+   dem begge. Men en pil, der lige er KLIKKET på, beholder fokus, når
+   musen flytter sig væk, og `:focus-visible` matcher ikke efter et
+   klik — så ville der stå en fokuseret, USYNLIG knap tilbage, som et
+   Enter ville aktivere. Ringen tegnes stadig kun af `:focus-visible`
+   ovenfor; det her handler alene om at kunne SE den knap, der har
+   fokus.
+
+   FOKUS VISER BEGGE PILE, ikke kun den ene. Derfor står `:focus` også
+   inde i `:has()`. Uden det led målte vi `[1, 0]`: den, der tabber hen
+   til «forrige», kunne ikke se, at der også er en «næste». Musen viser
+   parret; tastaturet skal vise det samme. Den frittstående
+   `.bladrepil:focus` bliver stående som garantien for, at en
+   fokuseret knap aldrig kan være usynlig — også hvis den en dag
+   sidder i en anden beholder end de to her.
+
+   Kun `.bladrepil` dæmpes. Tælleren, hjertet, fejlbeskeden og «Prøv
+   igen» er deres egne klasser og er uberørte — en besked, man skal
+   finde med musen, er ingen besked. */
+@supports selector(:has(*)) {
+  @media (hover: hover) and (pointer: fine) {
+    .bladrepil { opacity: 0; }
+    .kort-hylster:has(.kort-billede:hover, .favoritknap:hover,
+                      .bladrepil:hover, .bladrefejl:hover,
+                      .bladrepil:focus) .bladrepil,
+    .gemt-foto:hover .bladrepil,
+    .gemt-foto:has(.bladrepil:focus) .bladrepil,
+    .bladrepil:focus { opacity: 1; }
+  }
 }
 /* Her stod `.bladrepil:disabled`. Den regel kunne aldrig fyre: pilene
    saettes ALDRIG disabled — komponenten siger det udtrykkeligt og
