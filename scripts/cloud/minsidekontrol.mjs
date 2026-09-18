@@ -62,6 +62,7 @@ import { spawn } from 'node:child_process'
 import { mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { knib, nulstilZoom, svirp, touchsession, tryk, zoom } from './touch.mjs'
+import { fokusinfo, scriptetRute } from './fokus.mjs'
 
 const PW = process.env.PLAYWRIGHT_MODUL ?? 'playwright-core'
 const { chromium } = await import(PW).then((m) => m.default ?? m)
@@ -1038,9 +1039,20 @@ try {
     tjek('3E · og der prøves IKKE igen af sig selv', kald === 1, `${kald} kald`)
     await vent(1500)
     tjek('3E · heller ikke efter halvanden sekund', kald === 1, `${kald} kald`)
+    // FOKUS FØRST, OG MÅL FØR KLIKKET.
+    // Playwrights `click()` giver knappen fokus, FØR klikhændelsen —
+    // og på Gemte boliger bobler `focusin` op i billedfladen. Uden den
+    // her linje kunne prøven ikke skelne: før rettelsen var det
+    // fokusset, der sendte genforsøget af sted, og kaldtælleren blev 2
+    // uanset om klikket gjorde noget. «Det brugerinitierede forsøg
+    // lykkes» var altså grønt på et forkert grundlag.
+    await kort.locator('.bladreigen').focus()
+    await vent(500)
+    tjek('3E · fokus ALENE prøver ikke igen', kald === 1, `${kald} kald`)
     await kort.locator('.bladreigen').click()
     await vent(1600)
-    tjek('3E · det brugerinitierede forsøg lykkes', kald === 2, `${kald} kald`)
+    tjek('3E · det brugerinitierede forsøg lykkes — og det var KLIKKET',
+      kald === 2, `${kald} kald`)
     tjek('3E · beskeden forsvinder igen',
       await kort.locator('.bladrefejl').count() === 0)
     await kort.locator('.bladrepil-naeste').click()
@@ -1081,8 +1093,244 @@ try {
       await kort.locator('.bladrefejl').count() === 0)
     tjek('3E · og forsiden står der endnu',
       await kort.locator('.gemt-foto img').count() === 1)
+    // Klikket gav pilen fokus, og et øjeblik efter fandtes pilen ikke
+    // længere. Der er ingen fejl i forløbet — ruten svarede pænt — og
+    // derfor kan fejlbeskedens knap ikke være det eneste, fokusvagten
+    // spørger efter.
+    const f3e = await fokusinfo(m)
+    tjek('3E · fokus faldt ikke til <body>, da pilen forsvandt under den',
+      f3e.klasse !== '(body)', f3e.klasse)
+    tjek('3E · den gik til adressen — kortets egen indgang',
+      f3e.klasse === 'adresse' && f3e.kort === `/bolig/${ider.total}`,
+      `${f3e.klasse} · ${f3e.kort}`)
     if (SKAERMMAPPE) await m.screenshot({ path: `${SKAERMMAPPE}/minside-390-bladring.png` })
     await cm.close()
+  }
+
+  // ═══ 3F · Fokus- og genforsøgsforløbet på Gemte boliger ════════
+  //
+  // ═══ DÉT ER HER, VAGTEN ER DET ENESTE VÆRN ═══
+  //
+  // På søgekortet ligger pilene UDEN FOR linket, og billedfladen har
+  // ingen fokuserbare børn — `focusin` når aldrig derind. Her er det
+  // omvendt: `Bladrepile` ligger INDE i `.gemt-foto`, som bærer
+  // `flade.onFocus`, og `focusin` bobler. Et tabstop hen til «Prøv
+  // igen» ramte derfor `hent()`, før brugeren havde aktiveret noget —
+  // og et fingertryk på billedet gjorde det samme.
+  //
+  // Svaret er FORSINKET med vilje. Uden ventetiden findes der intet
+  // øjeblik at aflæse fokus i, mens hentningen er undervejs, og prøven
+  // ville kun kunne måle et resultat.
+  {
+    const { c: cf, p: m } = await nyKontekst(390, 844,
+      { hasTouch: true, isMobile: true, deviceScaleFactor: 2 })
+    await logInd(m)
+    const kort = m.locator(`.gemt-kort:has(a.adresse[href="/bolig/${ider.total}"])`)
+    let r = await scriptetRute(m, ['fejl', 'ok'])
+    await m.goto(`${B}/min-side`, { waitUntil: 'networkidle' })
+    await afvisBanner(m)
+    await vent(800)
+    await kort.scrollIntoViewIfNeeded()
+    await vent(500)
+    const gemteFoer = await m.locator('.gemt-kort').count()
+
+    await kort.locator('.bladrepil-naeste').click()
+    await vent(1400)
+    tjek('3F · præmis: hentningen fejlede, og beskeden står',
+      await kort.locator('.bladrefejl').count() === 1
+      && await kort.locator('.bladreigen').count() === 1)
+    tjek('3F · præmis: ét kald er brugt', r.kald === 1, `${r.kald} kald`)
+
+    // ── TAB IND I BLADRINGEN MÅ IKKE PRØVE IGEN ────────────────
+    // Der tabbes BAGLÆNS fra adressen, så alle tre stop inde i fladen
+    // rammes: næste-pilen, forrige-pilen og «Prøv igen». Alle tre bobler
+    // `focusin` op i `.gemt-foto`.
+    await kort.locator('a.adresse').focus()
+    const stop = []
+    for (let i = 0; i < 3; i++) {
+      await m.keyboard.press('Shift+Tab')
+      await vent(250)
+      stop.push((await fokusinfo(m)).klasse)
+    }
+    tjek('3F · Shift+Tab går gennem begge pile og «Prøv igen»',
+      stop.join(' → ') === 'bladrepil bladrepil-naeste → bladrepil bladrepil-foer → bladreigen',
+      stop.join(' → '))
+    tjek('3F · og INGEN af de tre tabstop har prøvet igen', r.kald === 1, `${r.kald} kald`)
+
+    // ── EN ALMINDELIG BERØRING PÅ BILLEDET HELLER IKKE ─────────
+    // Bevægelsen er lodret: den ruller siden i stedet for at blive et
+    // svirp. Et svirp ER en bladringshandling og må gerne prøve igen.
+    const ts = await touchsession(m)
+    const boks = await kort.locator('.gemt-foto').boundingBox()
+    const my = boks.y + boks.height / 2
+    await svirp(ts, { x: boks.x + boks.width / 2, y: my + 50 },
+      { x: boks.x + boks.width / 2, y: my - 90 })
+    await vent(900)
+    tjek('3F · en lodret fingerbevægelse over billedet prøver ikke igen',
+      r.kald === 1, `${r.kald} kald`)
+    tjek('3F · og beskeden står der endnu',
+      await kort.locator('.bladrefejl').count() === 1)
+
+    // ── ENTER ER DET, DER PRØVER IGEN ──────────────────────────
+    await m.evaluate(() => window.scrollTo(0, 0))
+    await kort.scrollIntoViewIfNeeded()
+    await vent(400)
+    await kort.locator('.bladreigen').focus()
+    tjek('3F · præmis: fokus står på «Prøv igen»',
+      (await fokusinfo(m)).klasse === 'bladreigen', (await fokusinfo(m)).klasse)
+    await m.keyboard.press('Enter')
+    await vent(350)
+    tjek('3F · Enter starter genforsøget', r.kald === 2, `${r.kald} kald`)
+
+    const under = await fokusinfo(m)
+    tjek('3F · knappen står der stadig, mens der hentes',
+      await kort.locator('.bladreigen').count() === 1)
+    tjek('3F · og den har stadig fokus — på DET kort',
+      under.klasse === 'bladreigen' && under.kort === `/bolig/${ider.total}`,
+      `${under.klasse} · ${under.kort}`)
+    tjek('3F · og den siger, at den er i gang', under.busy === 'true', String(under.busy))
+
+    await vent(2200)
+    tjek('3F · beskeden forsvinder, når hentningen lykkes',
+      await kort.locator('.bladrefejl').count() === 0)
+    const efter = await fokusinfo(m)
+    tjek('3F · og fokus er ført til næste-pilen på samme kort',
+      efter.klasse === 'bladrepil bladrepil-naeste' && efter.kort === `/bolig/${ider.total}`,
+      `${efter.klasse} · ${efter.kort}`)
+    tjek('3F · fokus faldt altså ALDRIG til <body>', efter.klasse !== '(body)', efter.klasse)
+    const t0 = await kort.locator('.gemt-antal').innerText()
+    await m.keyboard.press('Enter')
+    await vent(900)
+    tjek('3F · og et tryk mere bladrer',
+      (await kort.locator('.gemt-antal').innerText()) !== t0,
+      `${t0} → ${await kort.locator('.gemt-antal').innerText()}`)
+    tjek('3F · boligen blev aldrig åbnet', m.url().endsWith('/min-side'), m.url().replace(B, ''))
+    tjek('3F · og ingen bolig faldt ud af Gemte boliger',
+      await m.locator('.gemt-kort').count() === gemteFoer,
+      `${gemteFoer} → ${await m.locator('.gemt-kort').count()}`)
+
+    // ═══ 3G · Endnu en fejl, Mellemrum, og intet fokustyveri ════
+    await m.unroute('**/api/boligbilleder*')
+    r = await scriptetRute(m, ['fejl', 'fejl', 'ok'])
+    await m.goto(`${B}/min-side`, { waitUntil: 'networkidle' })
+    await afvisBanner(m)
+    await vent(800)
+    await kort.scrollIntoViewIfNeeded()
+    await vent(500)
+
+    await kort.locator('.bladrepil-naeste').click()
+    await vent(1400)
+    tjek('3G · præmis: første hentning fejlede', r.kald === 1
+      && await kort.locator('.bladreigen').count() === 1, `${r.kald} kald`)
+
+    await kort.locator('.bladreigen').focus()
+    await m.keyboard.press('Space')
+    await vent(350)
+    tjek('3G · Mellemrum prøver også igen', r.kald === 2, `${r.kald} kald`)
+    // Dobbeltkaldsvagten er den samme `igang`-ref som før rettelsen.
+    await m.keyboard.press('Space')
+    await m.keyboard.press('Enter')
+    await vent(400)
+    tjek('3G · to tryk mere under hentningen bliver ikke til flere kald',
+      r.kald === 2, `${r.kald} kald`)
+
+    await vent(2200)
+    tjek('3G · forsøget fejlede igen, og beskeden står stadig',
+      await kort.locator('.bladrefejl').count() === 1)
+    const andenFejl = await fokusinfo(m)
+    tjek('3G · fokus er stadig på knappen — hun blev ikke smidt ud',
+      andenFejl.klasse === 'bladreigen' && andenFejl.kort === `/bolig/${ider.total}`,
+      `${andenFejl.klasse} · ${andenFejl.kort}`)
+    tjek('3G · og knappen er ikke længere «i gang»',
+      andenFejl.busy !== 'true', String(andenFejl.busy))
+
+    // Hun går selv videre, mens tredje forsøg er undervejs. Fokus må
+    // ikke springe tilbage, fordi et svar tilfældigvis lander: det sted,
+    // hun selv har valgt, er hendes.
+    await m.keyboard.press('Enter')
+    await vent(300)
+    tjek('3G · tredje forsøg går af sted', r.kald === 3, `${r.kald} kald`)
+    // FORBI pilene, helt ud til adressen. Stoppede hun på næste-pilen,
+    // ville hun stå præcis dér, hvor en fokustyveri-fejl ville flytte
+    // hende hen — og så kunne prøven ikke længere fejle, uanset hvad
+    // koden gjorde. Målet skal være et element, kodens fokusflytning
+    // aldrig kunne vælge her.
+    await m.keyboard.press('Tab')
+    await m.keyboard.press('Tab')
+    await m.keyboard.press('Tab')
+    await vent(200)
+    const valgt = await fokusinfo(m)
+    tjek('3G · præmis: hun står nu et sted, koden aldrig ville vælge',
+      valgt.klasse === 'adresse', valgt.klasse)
+    await vent(2400)
+    const tilSidst = await fokusinfo(m)
+    tjek('3G · svaret landede, og fokus blev IKKE flyttet fra hende',
+      tilSidst.klasse === valgt.klasse && tilSidst.kort === valgt.kort,
+      `${valgt.klasse} → ${tilSidst.klasse}`)
+    tjek('3G · beskeden er væk, for hentningen lykkedes',
+      await kort.locator('.bladrefejl').count() === 0)
+
+    // ═══ 3H · Når hele feltet forsvinder ved et lykket genforsøg ═
+    // Ruten svarer, at der kun er ét billede: pile OG tæller går med
+    // beskeden. Næste-pilen — det normale mål — findes ikke længere, og
+    // fokus skal til noget, der bliver stående. På et gemt kort er det
+    // adressen; fotolinket er `aria-hidden` og må aldrig blive målet.
+    await m.unroute('**/api/boligbilleder*')
+    r = await scriptetRute(m, ['fejl', 'tom'])
+    await m.goto(`${B}/min-side`, { waitUntil: 'networkidle' })
+    await afvisBanner(m)
+    await vent(800)
+    await kort.scrollIntoViewIfNeeded()
+    await vent(500)
+    await kort.locator('.bladrepil-naeste').click()
+    await vent(1400)
+    tjek('3H · præmis: første hentning fejlede', r.kald === 1
+      && await kort.locator('.bladreigen').count() === 1, `${r.kald} kald`)
+    await kort.locator('.bladreigen').focus()
+    await m.keyboard.press('Enter')
+    await vent(2400)
+    tjek('3H · hele bladringen forsvandt — ruten sagde jo, der ikke er mere',
+      await kort.locator('.bladrepil').count() === 0
+      && await kort.locator('.gemt-antal').count() === 0
+      && await kort.locator('.bladrefejl').count() === 0)
+    const tilAdressen = await fokusinfo(m)
+    tjek('3H · og fokus faldt ikke til <body>',
+      tilAdressen.klasse !== '(body)', tilAdressen.klasse)
+    tjek('3H · den gik til adressen — kortets egen indgang',
+      tilAdressen.klasse === 'adresse' && tilAdressen.kort === `/bolig/${ider.total}`,
+      `${tilAdressen.klasse} · ${tilAdressen.kort}`)
+    tjek('3H · boligen blev ikke åbnet', m.url().endsWith('/min-side'), m.url().replace(B, ''))
+
+    // ═══ 3I · Den ANDEN vej tilbage: en bladringshandling ═══════
+    // Krav 1 nævner to veje ud af fejltilstanden — «Prøv igen» ELLER en
+    // bladringshandling. Alt ovenfor bruger knappen. Her bruges et
+    // vandret svirp, så begge veje er målt og ikke kun den ene.
+    await m.unroute('**/api/boligbilleder*')
+    r = await scriptetRute(m, ['fejl', 'ok'])
+    await m.goto(`${B}/min-side`, { waitUntil: 'networkidle' })
+    await afvisBanner(m)
+    await vent(800)
+    await kort.scrollIntoViewIfNeeded()
+    await vent(500)
+    await kort.locator('.bladrepil-naeste').click()
+    await vent(1400)
+    const t3i = await kort.locator('.gemt-antal').innerText()
+    tjek('3I · præmis: hentningen fejlede, og beskeden står', r.kald === 1
+      && await kort.locator('.bladrefejl').count() === 1, `${r.kald} kald`)
+    const b3i = await kort.locator('.gemt-foto').boundingBox()
+    const y3i = b3i.y + b3i.height / 2
+    await svirp(ts, { x: b3i.x + b3i.width * 0.78, y: y3i },
+      { x: b3i.x + b3i.width * 0.22, y: y3i })
+    await vent(2600)
+    tjek('3I · et vandret svirp prøver igen — uden at «Prøv igen» blev rørt',
+      r.kald === 2, `${r.kald} kald`)
+    tjek('3I · og beskeden forsvandt, fordi det lykkedes',
+      await kort.locator('.bladrefejl').count() === 0)
+    tjek('3I · og kortet bladrede',
+      (await kort.locator('.gemt-antal').innerText()) !== t3i,
+      `${t3i} → ${await kort.locator('.gemt-antal').innerText()}`)
+    tjek('3I · boligen blev ikke åbnet', m.url().endsWith('/min-side'), m.url().replace(B, ''))
+    await cf.close()
   }
 
   // ═══ 4 · Husleje, total og det ukendte ═════════════════════════

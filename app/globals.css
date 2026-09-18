@@ -445,9 +445,13 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
   outline: 2px solid #fff; outline-offset: 2px;
   background: rgba(18,20,24,.82);
 }
-/* Mens de øvrige billeder hentes. Ikke skjult: en knap, der forsvinder
-   under fingeren, er værre end en, der venter. */
-.bladrepil:disabled { opacity: .5; cursor: progress; }
+/* Her stod `.bladrepil:disabled`. Den regel kunne aldrig fyre: pilene
+   saettes ALDRIG disabled — komponenten siger det udtrykkeligt og
+   begrunder det, for en knap, der slaar sig selv fra midt i et
+   tastetryk, mister fokus til <body>. En doed regel, der beskriver
+   praecis den tilstand, koden forbyder, er en invitation til at
+   indfoere den; derfor er den vaek. Travlheden siges med `aria-busy`
+   — se `.bladreigen[aria-busy]` nedenfor. */
 
 /* ── NÅR LISTEN IKKE KUNNE HENTES ──────────────────────────────
    Diskret: ét lille felt midt på billedet, i samme sprog som pilene, og
@@ -473,6 +477,19 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 }
 .bladreigen:hover { background: rgba(255,255,255,.16); border-color: #fff; }
 .bladreigen:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+/* Knappen bliver staaende under genforsoeget — den maa ikke forsvinde
+   under fokus. Saa skal det ogsaa kunne SES, at der sker noget; teksten
+   laver sig ikke om, for knappens navn skal vaere det samme for den, der
+   laeser med. Det her er den SYNLIGE kanal; hjaelpemidlet har sin egen,
+   live-omraadet i `Bladrepile` — se app/Billedbladring.tsx. Begge to
+   afledes af den samme `henter`.
+   PILENE faar med vilje ingen tilsvarende regel, selv om de ogsaa
+   baerer `aria-busy`. Knappen skal vise det, fordi den BLIVER staaende
+   og fordi brugeren lige har trykket paa den; pilenes hentning er i
+   praksis under et sekund, og en daempning der ville vaere en
+   designaendring paa den lykkelige vej. Det er et valg, ikke en
+   forglemmelse. */
+.bladreigen[aria-busy='true'] { opacity: .62; cursor: progress; }
 @media (prefers-reduced-motion: reduce) { .bladrepil { transition: none; } }
 
 /* ── LODRET RULNING ER BRUGERENS, VANDRET ER VORES ──

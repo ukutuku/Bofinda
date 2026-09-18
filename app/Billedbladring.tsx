@@ -39,6 +39,23 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 export const INTET_BILLEDE = 'Intet billede'
 export const BILLEDE_FEJLEDE = 'Billedet kunne ikke hentes'
 
+/**
+ * De to tekster om LISTEN — ikke om det viste billede.
+ *
+ * `BILLEDE_FEJLEDE` ovenfor handler om ét billede, der ikke kunne
+ * tegnes. De her handler om hentningen af de øvrige. Forskellen er
+ * ikke ordkløveri: det ene felt viser sin reserve, det andet tilbyder
+ * at prøve igen.
+ *
+ * `LISTEN_FEJLEDE` siges TO steder — i den synlige besked og i det,
+ * hjælpemidlet får at vide — og to afskrifter ville drive fra hinanden.
+ * `PROEVER_IGEN` siges kun ét sted: den synlige tekst skifter ikke
+ * under et genforsøg. Den er en konstant, fordi `npm test` sammenligner
+ * live-området MOD den i stedet for at skrive teksten af.
+ */
+export const LISTEN_FEJLEDE = 'Billederne kunne ikke hentes'
+export const PROEVER_IGEN = 'Prøver igen …'
+
 export interface Bladrebillede {
   /** 400 px — den, kortet viser. */
   lille: string
@@ -46,12 +63,61 @@ export interface Bladrebillede {
   stor: string | null
 }
 
+/**
+ * Hvem beder om listen?
+ *
+ *   'forhaand'  fokus eller en berøring. Det er en HENSIGT om at kunne
+ *               bladre, ikke en handling — og efter en fejlet hentning
+ *               gør den derfor ingenting. Ellers ville et tryk med
+ *               fingeren eller et tabstop hen til «Prøv igen» starte
+ *               genforsøget, før brugeren havde bedt om det, og knappen
+ *               ville forsvinde under hende.
+ *   'handling'  et pileklik, et svirp eller «Prøv igen». Et menneske
+ *               har bedt om det, og så prøves der igen — også efter en
+ *               fejl. Det er den ENESTE vej tilbage fra fejltilstanden.
+ *
+ * Skellet er ikke kosmetisk: det er forskellen på en gentagelse, som
+ * brugeren har valgt, og en, der sker af sig selv.
+ */
+type Anledning = 'forhaand' | 'handling'
+
 /** Så lang en vandret bevægelse skal der til, før det er et svirp. */
 const SVIRP = 40
 /** Under så mange px er retningen ikke afgjort endnu. */
 const RETNING = 8
 /** Hvor længe efter et svirp et klik stadig regnes som en del af det. */
 const EFTERSVIRP = 500
+/**
+ * Hvor længe en hentning må være undervejs, før den regnes som fejlet.
+ *
+ * ═══ HVORFOR DER SKAL VÆRE EN GRÆNSE ═══
+ *
+ * Uden den er der ét udfald, der hverken bliver til et svar eller til en
+ * fejl: forbindelsen tages imod, og der kommer aldrig noget. `.catch`
+ * fyrer ikke, `.finally` fyrer ikke, og `igang` bliver stående — så
+ * «Prøv igen» står med fokus og `aria-busy`, og hvert eneste tryk bliver
+ * slugt af samtidighedsvagten. Det er nøjagtig den knap, der ikke
+ * virker, som hele forløbet her findes for at fjerne; den var bare
+ * usynlig før, fordi beskeden blev ryddet med det samme.
+ *
+ * Grænsen er ikke en gentagelse. Den gør et hængende kald til en
+ * almindelig fejl, brugeren selv kan svare på.
+ *
+ * ═══ PRISEN, SAGT HØJT ═══
+ *
+ * Den rammer HVER hentning, også den første på et kort, hvor intet er
+ * gået galt. Et svar, der er længere undervejs end grænsen, kasseres —
+ * og så står der «Billederne kunne ikke hentes» om en hentning, der
+ * ville være lykkedes et øjeblik senere.
+ *
+ * Tallet er et skøn, ikke en måling af produktionen. Det, der ER målt,
+ * er ruten selv: 7-31 ms på loopback med den isolerede testbase. Tyve
+ * sekunder er tre størrelsesordener over det, så et svar, der er
+ * længere undervejs, er i praksis ikke på vej. Og byttet går den rigtige
+ * vej: en for tidlig fejl er en tilstand med en synlig vej ud, mens et
+ * hængende kald ikke er nogen tilstand overhovedet.
+ */
+const HENTEFRIST = 20_000
 
 export interface Bladring {
   /** 0-baseret indeks på det viste billede. */
@@ -71,6 +137,20 @@ export interface Bladring {
   gaa: (retning: number) => void
   /** Kaldes KUN af et menneske. Der er ingen automatisk gentagelse. */
   proevIgen: () => void
+  /**
+   * De to refs, fokusoverdragelsen har brug for. De sættes af
+   * `Bladrepile`, og hooken læser dem — se `foerBeskedenForsvinder`.
+   * Hooken skal eje flytningen, fordi den er den eneste, der ved, om
+   * hentningen lykkedes, OG hvor meget der forsvinder; komponenten ville
+   * først opdage det, når knappen allerede var væk og fokus faldet til
+   * <body>.
+   */
+  fokus: {
+    /** «Prøv igen»-knappen. */
+    knap: React.RefObject<HTMLButtonElement | null>
+    /** Næste-pilen: dét, brugeren bad om, og dér fokus normalt føres hen. */
+    naeste: React.RefObject<HTMLButtonElement | null>
+  }
   /** Sættes på billedfladen: forhåndshentning og swipe. */
   flade: {
     onFocus: () => void
@@ -86,6 +166,49 @@ export interface Bladring {
     onError: () => void
     onLoad: () => void
   }
+}
+
+/**
+ * Kortets egen indgang: det første link på kortet, som ikke er skjult
+ * for skærmlæseren.
+ *
+ * Bruges, når fokusmålet selv er på vej ud. Svarer ruten, at der ikke er
+ * mere at bladre i, forsvinder beskeden, begge pile og tælleren på én
+ * gang, og næste-pilen — det normale mål — er væk sammen med resten.
+ * Fokus skal et sted hen, der bliver stående. Den er også reserven, hvis
+ * pile-ref'en mod forventning ikke er sat.
+ *
+ * Den SØGES i DOM'en frem for at være skrevet af på hver flade. Søgekortet
+ * og et gemt kort har hver sin indgang (`a.kort` og `a.adresse`), og to
+ * afskrifter af «hvad hedder kortets indgang her» ville drive fra hinanden
+ * første gang en flade fik et led mere. To ting springes over:
+ *
+ *   `aria-hidden`  fotolinket på Gemte boliger er skjult for skærmlæseren
+ *                  MED VILJE — adressen i kroppen er den rigtige indgang.
+ *                  At føre fokus derind ville sætte oplæsningen i et
+ *                  undertræ, den har fået at vide ikke findes.
+ *   `tabindex<0`   samme link, set fra tastaturet.
+ *
+ * ═══ KUN LINKS — ALDRIG EN KNAP ═══
+ *
+ * Fokus flyttes midt i et forløb, hvor brugeren lige har trykket. Et
+ * gentaget eller fastholdt Enter rammer så det, fokus landede på. Et
+ * link fører til kortets egen bolig — det sted, kortet handler om, og
+ * altid noget, hun kan gå tilbage fra. En knap på et kort er derimod
+ * «Fjern» eller hjertet, og et Enter dér gør noget, hun ikke har bedt
+ * om, og som ikke er til at fortryde med Tilbage. Findes der intet
+ * link, flyttes der ikke: hellere lade browseren om fokus end trykke
+ * på noget for hende.
+ */
+function kortetsEgenKontrol(fra: HTMLElement): HTMLElement | null {
+  const kort = fra.closest('.kort-hylster, .gemt-kort')
+  if (!kort) return null
+  for (const k of kort.querySelectorAll<HTMLElement>('a[href]')) {
+    if (k.tabIndex < 0) continue
+    if (k.closest('[aria-hidden="true"]')) continue
+    return k
+  }
+  return null
 }
 
 export function useBladring({ boligId, forside, forsideSrcSet, sizes, antal }: {
@@ -138,21 +261,85 @@ export function useBladring({ boligId, forside, forsideSrcSet, sizes, antal }: {
   const svirpet = useRef(0)
   const roer = useRef<{ x: number; y: number; laast: null | 'x' | 'y' } | null>(null)
   const billedref = useRef<HTMLImageElement | null>(null)
+  const fokusknap = useRef<HTMLButtonElement | null>(null)
+  const fokusnaeste = useRef<HTMLButtonElement | null>(null)
 
   // `ingenFlere` er rutens svar og vinder over SQL-tallet: kortet må
   // ikke blive ved med at tilbyde en bladring, der ikke fører nogen
   // steder hen.
   const kanBladre = Boolean(forside) && antal > 1 && !ingenFlere
 
-  const hent = useCallback((): Promise<Bladrebillede[] | null> => {
+  /**
+   * Fokus må ikke falde til <body>, når «Prøv igen» forsvinder.
+   *
+   * Kaldes SYNKRONT i det øjeblik, hentningen er lykkedes, og FØR
+   * tilstanden, der fjerner knappen, sættes. Rækkefølgen er hele
+   * pointen: mens knappen stadig står i DOM'en, kan vi både aflæse, om
+   * den har fokus, og flytte det et sted hen. Gjorde vi det bagefter —
+   * i en effekt — ville browseren allerede have flyttet fokus til
+   * <body>, og «havde knappen fokus?» kunne ikke længere besvares.
+   *
+   * Der flyttes KUN, hvis knappen faktisk har fokus. Er brugeren gået
+   * videre af sig selv, er et fokusspring et overgreb: hun ville miste
+   * det sted, hun selv har valgt, fordi et svar tilfældigvis landede.
+   */
+  const foerBeskedenForsvinder = useCallback((altForsvinder: boolean) => {
+    const anker = fokusknap.current ?? fokusnaeste.current
+    const aktiv = document.activeElement
+    if (!anker || !aktiv) return
+    // ═══ HVAD ER DET, DER FORSVINDER? ═══
+    //
+    // Ved et tomt svar ryger HELE feltet: beskeden, begge pile og
+    // tælleren, for `ingenFlere` slukker `kanBladre`. Ellers er det kun
+    // beskeden og dens knap.
+    //
+    // Spørgsmålet er det samme begge gange — står fokus i noget, der om
+    // et øjeblik ikke findes? — men «noget» er ikke det samme, og de to
+    // svar udledes derfor af det SAMME `altForsvinder`. Spurgte vi kun
+    // efter knappen, ville en bruger, der havde tabbet videre til en
+    // pil, blive efterladt på <body>, når pilen forsvandt under hende.
+    // Og det kan ske UDEN en fejl overhovedet: et pileklik på et kort
+    // med et forældet SQL-antal er nok.
+    const paaVej = altForsvinder ? anker.closest('.bladrepile') : fokusknap.current
+    // Er hun gået ud af det, der forsvinder, flyttes der ikke. Det sted,
+    // hun selv har valgt, er hendes.
+    //
+    // Der spørges IKKE om `:focus-visible`. Et museklik giver også
+    // knappen fokus, og lod vi den gruppe falde igennem, ville fokus
+    // ende på <body>, så det næste Tab startede forfra i dokumentet.
+    // Hun har i forvejen mistet rulningen med Mellemrum i det øjeblik,
+    // hun klikkede på knappen; at lade fokus blive i kortet tager intet
+    // fra hende og giver tastaturet tilbage, hvis hun skifter.
+    if (!paaVej || !paaVej.contains(aktiv)) return
+    // Normalt bliver pilene stående, og næste-pilen fører videre i det,
+    // hun var i gang med. Forsvinder feltet, må målet være noget, der
+    // bliver stående — kortets egen indgang. Den er OGSÅ reserven, hvis
+    // pile-ref'en mod forventning ikke er sat: en fokusflytning, der
+    // stille ikke sker, er præcis den fejl, det hele handler om.
+    const maal = (altForsvinder ? null : fokusnaeste.current) ?? kortetsEgenKontrol(anker)
+    maal?.focus()
+  }, [])
+
+  const hent = useCallback((anledning: Anledning): Promise<Bladrebillede[] | null> => {
     if (liste) return Promise.resolve(liste)
     if (!kanBladre) return Promise.resolve(null)
+    // ── EFTER EN FEJL PRØVER KUN ET MENNESKE IGEN ──────────────
+    // Fokus og berøring er en hensigt, ikke en handling. Uden den her
+    // linje ville et tabstop hen til «Prøv igen» — knappen ligger inde i
+    // billedfladen på Gemte boliger, og `focusin` bobler — starte
+    // genforsøget, FØR brugeren havde aktiveret noget. Og et fingertryk
+    // på billedet ville gøre det samme. Begge dele er den automatiske
+    // gentagelse, vi netop har fjernet, bare udløst af noget andet.
+    if (hentefejl && anledning !== 'handling') return Promise.resolve(null)
     // Samtidighedsvagten. Den er der stadig: et svirp og et pileklik i
-    // samme øjeblik deler den samme ene hentning.
+    // samme øjeblik deler den samme ene hentning, og to hurtige tryk på
+    // «Prøv igen» bliver til ét kald.
     if (igang.current) return igang.current
     setHenter(true)
-    setHentefejl(false)
-    igang.current = fetch(`/api/boligbilleder?b=${encodeURIComponent(boligId)}`)
+    const afbryd = new AbortController()
+    const frist = setTimeout(() => afbryd.abort(), HENTEFRIST)
+    igang.current = fetch(`/api/boligbilleder?b=${encodeURIComponent(boligId)}`,
+      { signal: afbryd.signal })
       // Et svar, der ikke er 2xx, er en fejl — ikke et tomt resultat.
       // `null` herfra ville ikke være til at skelne fra «boligen har
       // ingen flere billeder», og de to skal ikke se ens ud.
@@ -160,30 +347,44 @@ export function useBladring({ boligId, forside, forsideSrcSet, sizes, antal }: {
       .then((d: { billeder?: Bladrebillede[] } | null) => {
         const b = d?.billeder
         if (!Array.isArray(b)) throw new Error('uventet svar')
+        const tomtSvar = b.length < 2
+        // BESKEDEN RYDDES FØRST HER — ikke ved hentningens start.
+        // Ryddede vi den, når kaldet gik af sted, ville «Prøv igen»
+        // blive fjernet i samme øjeblik, brugeren aktiverede den, og
+        // fokus faldt til <body> midt i hendes egen handling. Knappen
+        // står derfor hele vejen og siger `aria-busy` imens.
+        foerBeskedenForsvinder(tomtSvar)
+        setHentefejl(false)
         // Ruten svarede, og der er intet eller ét billede. Ikke en fejl:
         // tælleren og pilene holder op med at love mere.
-        if (b.length < 2) { setIngenFlere(true); return null }
+        if (tomtSvar) { setIngenFlere(true); return null }
         setListe(b)
         return b
       })
+      // Endnu en fejl — også den, `HENTEFRIST` udløser: beskeden og
+      // knappen bliver stående, og fokus er urørt, så et nyt tryk på
+      // Enter eller Mellemrum prøver igen.
       .catch(() => { setHentefejl(true); return null })
-      .finally(() => { setHenter(false); igang.current = null })
+      .finally(() => { clearTimeout(frist); setHenter(false); igang.current = null })
     return igang.current
-  }, [boligId, kanBladre, liste])
+  }, [boligId, foerBeskedenForsvinder, hentefejl, kanBladre, liste])
 
   /**
    * Prøv igen — KUN når et menneske beder om det.
    *
-   * Der er ingen timer og ingen gentagelsesløkke. Knappen i
-   * fejlbeskeden kalder den her, og et pileklik gør det samme: begge er
+   * Der er ingen gentagelsesløkke, og ingen timer kalder hentningen.
+   * Knappen i fejlbeskeden kalder den her, og et pileklik gør det
+   * samme — og et svirp gennem `gaa()`: alle tre er
    * en handling, brugeren har foretaget. `igang`-vagten gør, at to
    * hurtige tryk stadig kun bliver til ét kald.
    */
-  const proevIgen = useCallback(() => { void hent() }, [hent])
+  const proevIgen = useCallback(() => { void hent('handling') }, [hent])
 
   const gaa = useCallback((retning: number) => {
     if (!kanBladre) return
-    void hent().then((b) => {
+    // Et pileklik og et svirp ER en bladringshandling: de prøver igen
+    // efter en fejl, præcis som «Prøv igen».
+    void hent('handling').then((b) => {
       const i = b?.length ?? 0
       if (i < 2) return
       setHarBladret(true)
@@ -266,6 +467,7 @@ export function useBladring({ boligId, forside, forsideSrcSet, sizes, antal }: {
     henter,
     gaa,
     proevIgen,
+    fokus: { knap: fokusknap, naeste: fokusnaeste },
     flade: {
       // INGEN FORHENTNING PÅ HOVER.
       // Den var der, og den kostede mere, end den gav: at stryge musen
@@ -277,12 +479,12 @@ export function useBladring({ boligId, forside, forsideSrcSet, sizes, antal }: {
       // gælder ét kort ad gangen. Prisen er, at det FØRSTE pileklik på
       // et kort venter på ét kald; `gaa()` venter på det, og på
       // loopback er det ikke til at måle.
-      onFocus: () => { void hent() },
+      onFocus: () => { void hent('forhaand') },
       onTouchStart: (e) => {
         const t = e.touches[0]
         if (!t) return
         roer.current = { x: t.clientX, y: t.clientY, laast: null }
-        void hent()
+        void hent('forhaand')
       },
       onTouchMove: (e) => {
         const r = roer.current
@@ -347,13 +549,47 @@ export function Bladrepile({ b, etiket }: { b: Bladring; etiket: string }) {
           otte billeder, mens hvert tryk stille gjorde ingenting for
           resten af kortets levetid — en knap, der ikke virker, er værre
           end ingen knap.
-          `role="status"` og ikke `alert`: det er en oplysning om kortet,
-          ikke noget, der skal afbryde oplæsningen af siden.
-          Knappen prøver igen ÉN gang pr. tryk. Der er ingen timer. */}
+          Knappen prøver igen ÉN gang pr. tryk, og intet prøver igen af
+          sig selv. Filens ene timer er `HENTEFRIST`, og den henter
+          ikke — den afbryder.
+
+          ═══ KNAPPEN BLIVER STÅENDE, MENS DER HENTES ═══
+
+          Beskeden ryddes først, når svaret er der — se `hent()`. Den
+          knap, brugeren lige har trykket på, må ikke forsvinde under
+          hende: det ville smide fokus til <body> midt i hendes egen
+          handling, og et nyt Enter ville ramme ingenting. Står den,
+          virker både Enter og Mellemrum igen, hvis forsøget fejler.
+
+          Den SYNLIGE tekst skifter ikke, og knappens navn gør heller
+          ikke: et navn, der laver sig om under fingeren på den, der
+          læser med, er værre end intet. At der sker noget, siges to
+          andre steder — `aria-busy` på knappen og live-området
+          nedenfor. */}
+      {/* ── HJÆLPEMIDLETS EGEN KANAL ──────────────────────────
+          Live-området står ALTID — også når der intet er at sige.
+          Grunden er, at et område, der indsættes sammen med sin tekst,
+          typisk ikke bliver annonceret: det skal findes, før indholdet
+          ændrer sig. Og fordi teksten skifter ved hvert skridt —
+          «Prøver igen …» og tilbage til beskeden — bliver også ANDEN
+          fejl annonceret. Sattes `role="status"` derimod på den synlige
+          besked, ville den være uændret ved hvert nyt forsøg, og et
+          uændret live-område siger ingenting.
+
+          Det ligger heller ikke omkring knappen længere. `role="status"`
+          er implicit `aria-atomic`, så et skift i knappens `aria-busy`
+          fik hele beskeden OG knappens navn læst op igen — midt i den
+          handling, brugeren var i gang med.
+
+          Teksterne er de samme konstanter, som den synlige besked
+          bruger. Ét udtryk, to kanaler. */}
+      <span className="skjult-for-oejet" role="status">
+        {b.hentefejl ? (b.henter ? PROEVER_IGEN : LISTEN_FEJLEDE) : ''}
+      </span>
       {b.hentefejl && (
-        <p className="bladrefejl" role="status">
-          <span>Billederne kunne ikke hentes</span>
-          <button type="button" className="bladreigen"
+        <p className="bladrefejl">
+          <span>{LISTEN_FEJLEDE}</span>
+          <button type="button" className="bladreigen" ref={b.fokus.knap}
             onClick={b.proevIgen} aria-busy={b.henter || undefined}
             aria-label={`Prøv igen at hente billeder af ${etiket}`}>
             Prøv igen
@@ -374,7 +610,7 @@ export function Bladrepile({ b, etiket }: { b: Bladring; etiket: string }) {
           <path d="M15 5 8 12l7 7" />
         </svg>
       </button>
-      <button type="button" className="bladrepil bladrepil-naeste"
+      <button type="button" className="bladrepil bladrepil-naeste" ref={b.fokus.naeste}
         onClick={() => b.gaa(1)} aria-busy={b.henter || undefined}
         aria-label={`Næste billede af ${etiket}`}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"

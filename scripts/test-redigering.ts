@@ -74,7 +74,7 @@ import { tjekRettigheder } from './tjek-rettigheder'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Gruppekort, Kort } from '../app/Boligkort'
-import { type Bladring, Bladrepile } from '../app/Billedbladring'
+import { type Bladring, Bladrepile, LISTEN_FEJLEDE, PROEVER_IGEN } from '../app/Billedbladring'
 import { GET as boligbilleder } from '../app/api/boligbilleder/route'
 import { billedUrl, TILLADTE_VAERTER } from '../lib/billede'
 import { eltilstand } from '../lib/eloplysning'
@@ -1378,11 +1378,30 @@ async function main() {
         !/animation|data-interval|autoplay/i.test(flere))
     }
 
-    // Kilden selv: der er ingen timer nogen steder i bladringen.
+    // ── INGEN AUTOMATIK — OG PRAECIST HVAD DET BETYDER ─────────
+    //
+    // Proeven forbood foer ENHVER timer. Det var praecist nok, saa laenge
+    // der ikke var nogen — men det er ikke det, reglen handler om.
+    // Reglen er, at intet maa rotere eller proeve igen af sig selv.
+    //
+    // Der er nu ÉN `setTimeout` i filen, og den goer det modsatte: den
+    // afbryder et kald, der haenger, saa det bliver til en fejl, brugeren
+    // selv kan svare paa. Uden den stod «Proev igen» med fokus og
+    // aria-busy og gjorde ingenting, fordi samtidighedsvagten slugte
+    // hvert tryk — den knap, der ikke virker.
+    //
+    // Proeven maaler derfor det, reglen faktisk siger: ingen
+    // `setInterval` overhovedet, praecis én `setTimeout`, og den skal
+    // afbryde — ikke hente.
     const kildeBladring = readFileSync('app/Billedbladring.tsx', 'utf8')
-    tjek('bladringen har ingen timer — ingen automatisk rotation',
-      !/setInterval|setTimeout/.test(kildeBladring),
-      (/setInterval|setTimeout/.exec(kildeBladring) ?? [])[0] ?? '')
+    tjek('bladringen har ingen automatisk rotation',
+      !/setInterval/.test(kildeBladring),
+      (/setInterval/.exec(kildeBladring) ?? [])[0] ?? '')
+    const timerlinjer = kildeBladring.split('\n')
+      .filter((l) => /set(?:Timeout|Interval)\(/.test(l) && !l.trimStart().startsWith('//'))
+    tjek('og den ene timer, der findes, AFBRYDER — den henter ikke',
+      timerlinjer.length === 1 && /abort\(\)/.test(timerlinjer[0] ?? ''),
+      timerlinjer.map((l) => l.trim()).join(' · ') || '(ingen)')
     // ── DEN LODRETTE RULNING ER BRUGERENS ────────────────────
     // Svirpet maa ALDRIG kalde preventDefault paa en touch-haendelse: saa
     // ville en skraa bevaegelse kunne laase siden fast under fingeren.
@@ -1400,6 +1419,19 @@ async function main() {
     const udenNoter = fladen.replace(/\/\/[^\n]*/g, '')
     tjek('og de blokerer aldrig den lodrette rulning',
       !udenNoter.includes('preventDefault'))
+    // ── EN PIL SLAAR ALDRIG SIG SELV FRA ───────────────────────
+    // En knap, der bliver `disabled` midt i et tastetryk, mister fokus
+    // til <body> — og saa er tastaturbrugeren smidt ud af kortet, netop
+    // fordi hun brugte knappen. Komponenten siger det; CSS'en maa ikke
+    // sige noget andet. Der stod en `.bladrepil:disabled`, som aldrig
+    // kunne fyre, og en doed regel for praecis den tilstand, koden
+    // forbyder, er en invitation til at indfoere den.
+    tjek('pilene saettes aldrig disabled',
+      !/className="bladrepil[^"]*"[^>]*\sdisabled/.test(kildeBladring)
+      && !/<button[^>]*\sdisabled[^>]*className="bladrepil/.test(kildeBladring))
+    tjek('og CSS\'en har ingen regel for den tilstand',
+      !/\.bladrepil:disabled\s*\{/.test(readFileSync('app/globals.css', 'utf8')))
+
     // Og browseren faar det udtrykkeligt at vide i CSS'en.
     tjek('billedfladerne overlader den lodrette panorering til browseren',
       /\.kort-billede,\s*\.gemt-foto\s*\{[^}]*touch-action:\s*pan-y/
@@ -1423,6 +1455,7 @@ async function main() {
         nr: 0, antal: 8, taeller: '1/8', src: TILLADT, srcSet: undefined,
         fejlet: false, hentefejl: false, henter: false,
         gaa: () => {}, proevIgen: () => {},
+        fokus: { knap: { current: null }, naeste: { current: null } },
         flade: { onFocus: () => {}, onTouchStart: () => {}, onTouchMove: () => {}, onTouchEnd: () => {} },
         linkvagt: { onClickCapture: () => {} },
         billedvagt: { ref: { current: null }, onError: () => {}, onLoad: () => {} },
@@ -1444,6 +1477,26 @@ async function main() {
         (syg.match(/class="bladrepil /g) ?? []).length === 2,
         String((syg.match(/class="bladrepil /g) ?? []).length))
 
+      // ── HJAELPEMIDLETS EGEN KANAL ─────────────────────────────
+      // Live-omraadet skal staa, OGSAA naar der intet er at sige. Et
+      // omraade, der indsaettes sammen med sin tekst, bliver typisk ikke
+      // annonceret — og en besked, der er uaendret ved anden fejl,
+      // bliver det heller ikke. Teksten skal derfor skifte ved hvert
+      // skridt, og den maa ikke ligge om knappen: role=status er
+      // implicit atomisk, saa et skift i knappens aria-busy ville faa
+      // hele beskeden OG knappens navn laest op igen.
+      const live = /<span class="skjult-for-oejet" role="status">([^<]*)<\/span>/
+      tjek('bladrepile: live-omraadet staar, ogsaa naar der intet er sket',
+        live.test(rask), live.exec(rask)?.[1] === '' ? '(tomt)' : live.exec(rask)?.[1] ?? 'MANGLER')
+      tjek('bladrepile: ved fejl siger det det samme som beskeden',
+        live.exec(syg)?.[1] === LISTEN_FEJLEDE, live.exec(syg)?.[1] ?? 'MANGLER')
+      tjek('bladrepile: og under genforsoeget siger det noget ANDET',
+        live.exec(pile({ hentefejl: true, henter: true }))?.[1] === PROEVER_IGEN,
+        live.exec(pile({ hentefejl: true, henter: true }))?.[1] ?? 'MANGLER')
+      tjek('bladrepile: knappens aria-busy ligger IKKE i live-omraadet',
+        !/role="status"[^>]*>[^<]*<button/.test(syg)
+        && !/<p class="bladrefejl" role="status"/.test(syg))
+
       // Ruten svarede «der er ikke mere»: saa er der intet at bladre i,
       // og saa staar der HELLER ingen fejlbesked — der var jo ingen fejl.
       // Taelleren er hookens ene udtryk for «kan der bladres», og den er
@@ -1451,11 +1504,60 @@ async function main() {
       tjek('bladrepile: uden taeller er hele feltet vaek — ogsaa beskeden',
         pile({ taeller: '', hentefejl: true }) === '')
 
-      // Ingen automatisk gentagelse. Knappen er det eneste, der proever
-      // igen, og den kraever et menneske.
+      // Ingen automatisk gentagelse. Et menneske er det eneste, der
+      // proever igen — maalt paa, at ingen timer kalder hentningen.
       tjek('bladringen proever aldrig igen af sig selv',
-        !/setInterval|setTimeout/.test(kildeBladring)
+        !/set(?:Timeout|Interval)\([^\n]*hent\(/.test(kildeBladring)
         && /proevIgen = useCallback/.test(kildeBladring))
+    }
+
+    // ── FOKUS- OG GENFORSOEGSFORLOEBET ──────────────────────────
+    //
+    // Selve forloebet kan kun maales i en browser: hvor fokus staar
+    // midt i en hentning, hvad der sker naar knappen fjernes, og om et
+    // tabstop udloeser et kald. Det ligger i bladrekontrol 9-11 og
+    // minsidekontrol 3F-3H. Her maales de fire STRUKTURELLE traek, som
+    // forloebet hviler paa — de kan brydes ved en uopmaerksom
+    // omskrivning, og saa er browserproeven det eneste, der opdager det.
+    {
+      const iHent = kildeBladring.slice(
+        kildeBladring.indexOf('const hent = useCallback'),
+        kildeBladring.indexOf('const proevIgen'))
+      tjek('praemis: hentningen blev fundet', iHent.includes('fetch('),
+        `${iHent.length} tegn`)
+
+      // 1 · Hensigt og handling er to forskellige ting.
+      tjek('hent skelner mellem en hensigt og en handling',
+        /\(anledning: Anledning\)/.test(iHent))
+      tjek('og en hensigt proever ikke igen efter en fejl',
+        /if \(hentefejl && anledning !== 'handling'\) return/.test(iHent))
+
+      // 2 · Fokus og beroering er hensigter; pil, svirp og knap er
+      //     handlinger. Maalt paa selve `flade`-objektet, saa en
+      //     kommentar ikke kan goere proeven groen.
+      // SAMME SLICE SOM OVENFOR. Den blev udregnet to gange, tredive
+      // linjer fra hinanden — to udtryk for det samme spoergsmaal, som
+      // projektets egen regel forbyder. `udenNoter` er den, der allerede
+      // er skaaret for kommentarer, saa en note ikke kan goere proeven groen.
+      tjek('fokus og beroering beder kun paa forhaand',
+        udenNoter.includes("hent('forhaand')") && !udenNoter.includes("hent('handling')"))
+      tjek('men et pileklik og «Proev igen» er handlinger',
+        /void hent\('handling'\)\.then/.test(kildeBladring)
+        && /proevIgen = useCallback\(\(\) => \{ void hent\('handling'\) \}/.test(kildeBladring))
+
+      // 3 · Beskeden ryddes FOERST naar svaret er der. Ryddedes den ved
+      //     hentningens start, ville «Proev igen» forsvinde under den
+      //     finger, der lige havde trykket paa den.
+      tjek('beskeden ryddes ikke, naar kaldet gaar af sted',
+        iHent.indexOf('setHentefejl(false)') > iHent.indexOf('fetch('),
+        `fetch ved ${iHent.indexOf('fetch(')}, rydning ved ${iHent.indexOf('setHentefejl(false)')}`)
+
+      // 4 · Og fokus flyttes FOER rydningen — ikke i en effekt bagefter,
+      //     hvor knappen allerede ville vaere vaek og fokus faldet til
+      //     <body>.
+      tjek('og fokus flyttes, mens knappen stadig findes',
+        iHent.indexOf('foerBeskedenForsvinder(') > -1
+        && iHent.indexOf('foerBeskedenForsvinder(') < iHent.indexOf('setHentefejl(false)'))
     }
   }
 
