@@ -234,10 +234,27 @@ export default function Side() {
         en boligbesked kræver det ikke.
       </p>
       <p>
-        Adgangskoden håndteres af vores databehandler Supabase Auth.{' '}
-        <strong>Vores egen kode hverken ser eller gemmer den</strong>, og vi
-        kan ikke slå den op — hverken for dig eller for andre. Har du glemt
-        den, sætter du en ny gennem linket på loginsiden.
+        Adgangskoden vælger du selv, og den <strong>går gennem vores egen
+        server</strong>: du skriver den i formularen, formularen sendes til
+        os, og vores server sender den videre til vores databehandler
+        Supabase Auth, der står for selve kontoen. Vælger du en ny
+        adgangskode, tjekker vores server undervejs, at den er lang nok — og
+        at de to felter er ens, dér hvor du skriver den to gange. Ved et
+        almindeligt login sender den den bare videre.
+      </p>
+      <p>
+        Vi skriver den ingen steder: hverken i vores egne tabeller, i en
+        cookie eller i vores statistik. Går et login galt, registrerer vi
+        kun hvilken <em>slags</em> fejl det var — «forkert login»,
+        «for mange forsøg» — aldrig hvad du skrev.
+      </p>
+      <p>
+        Supabase Auth gemmer den ikke som tekst, men som et hash: et aftryk,
+        der ikke kan regnes tilbage til adgangskoden. Aftrykket ligger i den
+        samme database som resten af vores data og følger med, når vi tager
+        en sikkerhedskopi. <strong>Vi kan derfor ikke slå din adgangskode
+        op</strong> — hverken for dig eller for andre. Har du glemt den,
+        sætter du en ny gennem «Glemt adgangskode?» på loginsiden.
       </p>
       <p>Har du en konto, gemmer vi:</p>
       <ul>
@@ -246,7 +263,11 @@ export default function Side() {
           et internt bruger-id og en markering af, om kontoen er oprettet som
           boligsøgende eller som udlejer
         </li>
-        <li>tidspunktet, kontoen blev oprettet</li>
+        <li>
+          tidspunktet, vi første gang oprettede en række om dig. Det er, da du
+          oprettede kontoen — eller da du oprettede en boligbesked, hvis du
+          havde en først
+        </li>
         <li>
           for hver bolig, du gemmer: hvilken bolig det er, og hvornår du
           gemte den. Ikke hvad du har set på, og ikke hvor længe
@@ -259,20 +280,28 @@ export default function Side() {
         andens.
       </p>
       <p>
-        Du kan fjerne en gemt bolig igen med «Fjern» på Min side, og du kan
-        afmelde en gemt søgning med linket samme sted. Vil du have hele
-        kontoen slettet, skriver du til{' '}
-        <a href="mailto:info@bofinda.dk">info@bofinda.dk</a>.
+        Du kan fjerne en gemt bolig igen med «Fjern» på Min side; rækken
+        slettes, den bliver ikke bare skjult. Og du kan afmelde en gemt
+        søgning med «Afmeld» samme sted — så holder beskederne op med det
+        samme, og selve søgningen slettes 90 dage efter, som beskrevet
+        ovenfor.
+      </p>
+      <p>
+        <strong>Der er ingen knap, der sletter hele kontoen.</strong> Vil du
+        have den slettet, beder du om det ved at skrive til{' '}
+        <a href="mailto:info@bofinda.dk">info@bofinda.dk</a> — det er den
+        samme vej som de øvrige rettigheder længere nede på siden.
       </p>
       <p>
         Havde du en boligbesked i forvejen og opretter en konto med den
         samme mailadresse, samles de to, så søgningerne står på Min side.
-        Det sker kun, når mailadressen er bekræftet — ellers ville en
-        fremmed kunne overtage dine søgninger ved at skrive din adresse.
+        Det sker kun, når Auth-serveren melder mailadressen bekræftet —
+        ellers ville en fremmed kunne overtage dine søgninger ved at skrive
+        din adresse.
       </p>
 
       <h2>Cookies</h2>
-      <p>Vi bruger cookies til syv ting og ikke andet:</p>
+      <p>Vi bruger cookies til otte ting og ikke andet:</p>
       <ul>
         <li>
           at holde dig logget ind, når du har en konto. Det er den samme
@@ -300,6 +329,15 @@ export default function Side() {
           og derefter logget ind. Den bærer ikke hvilken bolig det var, og
           den udløber efter 30 sekunder
         </li>
+        <li>
+          at binde linket i en mail til den browser, der bad om det. Opretter
+          du en konto eller beder om en ny adgangskode, lægger vores
+          Supabase-klient en tilfældig værdi i din browser, som skal være der,
+          når du trykker på linket — ellers kan en anden ikke bruge linket i
+          din mail. Den fjernes, når du har trykket; fuldfører du aldrig
+          forløbet, bliver den liggende, og dens udløbstid er lang (400 dage).
+          Det er tre cookies om det samme, og de indeholder ikke noget om dig
+        </li>
       </ul>
       <p>
         Ingen af dem bruges til markedsføring, og ingen af dem deles med
@@ -326,8 +364,13 @@ export default function Side() {
         kontaktvej har ingen funktion.
       </p>
       <p>
-        Oplysningerne slettes, når du fjerner annoncen eller din konto. Du kan
-        til enhver tid rette dem under Mine annoncer.
+        Fjerner du annoncen, kan en besøgende ikke længere få oplysningerne
+        udleveret: forespørgslen kræver, at annoncen er aktiv. Men{' '}
+        <strong>værdierne bliver stående</strong> — det er dem, annoncen får
+        igen, hvis du udgiver den på ny. Vil du have dem væk, rydder du
+        felterne under Mine annoncer, hvor du også til enhver tid kan rette
+        dem; eller du beder os om det på{' '}
+        <a href="mailto:info@bofinda.dk">info@bofinda.dk</a>.
       </p>
       <p>
         For boliger, vi henter fra andre portaler, viser vi ikke
