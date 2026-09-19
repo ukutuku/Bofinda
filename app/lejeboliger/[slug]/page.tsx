@@ -6,6 +6,7 @@ import { antalBoliger, soegGrupperet, type Soegeparametre } from '../../../lib/s
 import { Visningskort, kr } from '../../Boligkort'
 import { favoritIder, statusFor } from '../../../lib/favoritter'
 import { Sider, sideUrl } from '../../Sider'
+import { returVaerdi } from '../../../lib/retur'
 
 /** Kort pr. side — samme tal som søgesiden. */
 const PR_SIDE = 48
@@ -136,6 +137,12 @@ export default async function Side({ params, searchParams }: {
   // giver 404 og kommer heller ikke i sitemap'et.
   if (!o) notFound()
 
+  // Returadressen til DENNE områdeside. Bygges af områdets egen slug —
+  // `o.slug`, ikke `slug` fra adressen — så det, der bæres videre, er en
+  // slug, `findOmraade` har genkendt. `returUrl` prøver den mod formen
+  // fra lib/slug.ts igen ved læsningen. Se lib/retur.ts.
+  const retur = returVaerdi(`/lejeboliger/${o.slug}`, sp)
+
   // Efter hinanden, ikke i Promise.all — se noten i app/page.tsx.
   const s = await statistik(o)
   const nu = nuFor()
@@ -225,6 +232,7 @@ export default async function Side({ params, searchParams }: {
               <Visningskort
                 nu={nu}
                 filtre={filterFor(o.slags, o.vaerdi)}
+                retur={retur}
                 key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
                 v={v}
                 // Repraesentantens id er det, kortet gemmer — samme id som

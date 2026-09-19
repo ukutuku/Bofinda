@@ -303,20 +303,41 @@ for (const bredde of BREDDER) {
   if (!href) { prøve(false, 'et gruppekort at navigere fra'); }
   else {
     await p.goto(APP + href, { waitUntil: 'networkidle' })
-    const g = await p.evaluate(() => ({
+    const led = () => p.evaluate(() => ({
       kort: document.querySelectorAll('.liste a.kort').length,
       omraade: !!document.querySelector('.listeomraade'),
       titel: document.querySelector('h1')?.textContent?.trim() ?? '',
-      // Brødkrummen fører til POSTNUMMERET, ikke til den søgning man kom
+      // Andet led fører til POSTNUMMERET, ikke til den søgning man kom
       // fra: `/?sted=9003`. Det er med vilje — byen kan skifte navn i
       // kildernes data, postnummeret gør ikke.
       tilbage: [...document.querySelectorAll('.broedkrumme a')].map((a) => a.getAttribute('href')),
+      foersteNavn: document.querySelector('.broedkrumme a')?.textContent?.trim() ?? '',
     }))
+    const g = await led()
     console.log(`\nGruppesiden ${href}`)
     prøve(g.kort > 1, 'gruppen viser sine enkelte boliger', `${g.kort} kort`)
     prøve(g.omraade, 'gruppesiden har samme listeområde')
-    prøve(g.tilbage.includes('/') && g.tilbage.some((h) => h.startsWith('/?sted=')),
-      'brødkrummen fører til forsiden og til postnummeret', g.tilbage.join(' · '))
+    prøve(g.tilbage.some((h) => h.startsWith('/?sted=9')),
+      'brødkrummen fører til postnummeret', g.tilbage.join(' · '))
+
+    // FØRSTE led er den søgning, hun kom fra — med filtre, sortering og
+    // liste-/kortvalg. Før stod der `/`, og det nulstillede søgningen.
+    // Adressen bæres i `fra` og GENOPBYGGES på gruppesiden, så den her
+    // sammenligning går gennem hele kæden: kortets href → siden → linket.
+    const baaret = new URL(href, APP).searchParams.get('fra')
+    prøve(baaret === '/?sted=Attrapby&kort=0',
+      'gruppekortet bærer hele søgningen med, ikke kun filtrene', String(baaret))
+    prøve(g.tilbage[0] === '/?sted=Attrapby&kort=0'
+      && g.foersteNavn.includes('Tilbage til søgeresultaterne'),
+      'og brødkrummen fører tilbage til den', `${g.tilbage[0]} · «${g.foersteNavn}»`)
+
+    // MODSTYKKET: uden en returadresse må der ikke opfindes en søgning.
+    // Uden den her ville «skriv altid en søgning» bestå prøven ovenfor.
+    await p.goto(APP + href.split('&fra=')[0], { waitUntil: 'networkidle' })
+    const u = await led()
+    prøve(u.tilbage[0] === '/' && u.foersteNavn === 'Forside',
+      'uden returadresse står der «Forside» og fører til forsiden',
+      `${u.tilbage[0]} · «${u.foersteNavn}»`)
   }
   await c.close()
 }

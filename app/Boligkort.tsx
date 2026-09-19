@@ -8,6 +8,7 @@ import type { Bolig, Filtre, Gruppe, Visning } from '../lib/soeg'
 import { availabilityFor, gruppeUrl } from '../lib/soeg'
 import type { Availability, Gruppesammenfatning } from '../lib/availability'
 import { billedUrl, breddeTilladt } from '../lib/billede'
+import { medRetur } from '../lib/retur'
 import type { Favoritstatus } from '../lib/favoritter'
 import { Favoritknap } from './Favoritknap'
 import { Bladrekort } from './Bladrekort'
@@ -163,11 +164,15 @@ function Kilder({ navn, ogsaa }: { navn: string; ogsaa: string[] }) {
 
 // ─── Kortet ────────────────────────────────────────────────────
 
-export function Kort({ b, nu, position, favorit }: {
+export function Kort({ b, nu, position, favorit, retur }: {
   b: Bolig; nu: Date; position?: number
   /** Udeladt = ingen knap. Saa er kortet praecis som foer — det er dét,
    *  proeverne i scripts/test-soegning.ts renderer. */
   favorit?: Favoritstatus
+  /** Returadressen til den soegning, kortet staar i. Udeladt = ingen —
+   *  og saa er linket bit for bit det, det altid har vaeret. Vaerdien
+   *  bygges ÉT sted, `returVaerdi` i lib/retur.ts. */
+  retur?: string | null
 }) {
   // Availability fra DOMÆNET — aldrig fra legacy ledigFra/ansoegning, og
   // aldrig fra Date.now(): referenceNow kommer eksplicit fra siden.
@@ -257,7 +262,7 @@ export function Kort({ b, nu, position, favorit }: {
         stadig serverkode; den kommer ind som `children`. */}
     <Bladrekort
       klasse={`kort${forside ? '' : ' uden-billede'}`}
-      href={`/bolig/${b.id}`}
+      href={medRetur(`/bolig/${b.id}`, retur)}
       id={`kort-${b.id}`}
       data={{ bolig: b.id, kilde: b.kilde, position }}
       billede={forside ? {
@@ -399,7 +404,7 @@ export function Kort({ b, nu, position, favorit }: {
 //  Er aconto-posterne ikke ens, står de slet ikke.
 // ═══════════════════════════════════════════════════════════════
 
-export function Gruppekort({ g, nu, position, filtre, favorit }: {
+export function Gruppekort({ g, nu, position, filtre, favorit, retur }: {
   g: Gruppe; nu: Date; position?: number
   /** Soegningens filtre baeres med over i `gruppeUrl`, saa /gruppe viser
    *  de samme boliger, som kortet talte. */
@@ -407,6 +412,10 @@ export function Gruppekort({ g, nu, position, filtre, favorit }: {
   /** Udeladt = ingen knap. Saa er kortet praecis som foer — det er dét,
    *  proeverne i scripts/test-soegning.ts renderer. */
   favorit?: Favoritstatus
+  /** Returadressen. Den haenges PAA `gruppeUrl`, som er uroert: de to
+   *  svarer paa hvert sit spoergsmaal — hvilke boliger hoerer til i
+   *  gruppen, og hvor kom hun fra. Se lib/retur.ts. */
+  retur?: string | null
 }) {
   const { noegle: n, repraesentant: r } = g
   const nyligt = nu.getTime() - g.nyesteMarkedet.getTime() < 1000 * 60 * 60 * 24 * 3
@@ -486,7 +495,7 @@ export function Gruppekort({ g, nu, position, filtre, favorit }: {
         billedforbeholdet nedenfor, der også kun er repræsentantens. */}
     <Bladrekort
       klasse={`kort gruppekort${forside ? '' : ' uden-billede'}`}
-      href={gruppeUrl(r.id, filtre)}
+      href={medRetur(gruppeUrl(r.id, filtre), retur)}
       id={`kort-${r.id}`}
       data={{ bolig: r.id, kilde: r.kilde, position, gruppe: '1', gruppeAntal: g.antal }}
       billede={forside ? {
@@ -686,15 +695,19 @@ export function Ellinje({ tilstand }: { tilstand: Eltilstand | null }) {
  * lib/soeg — og saa spoergsmaalet «bliver position 40 nogensinde set?»
  * kan besvares. Uden den er en impression bare et tal uden sted.
  */
-export function Visningskort({ v, nu, position, filtre, favorit }: {
+export function Visningskort({ v, nu, position, filtre, favorit, retur }: {
   v: Visning; nu: Date; position?: number
   filtre?: Filtre
   favorit?: Favoritstatus
+  retur?: string | null
 }) {
-  // Begge props gaar videre uroert. `filtre` bruges kun af gruppekortet
+  // Alle props gaar videre uroert. `filtre` bruges kun af gruppekortet
   // (det bygger /gruppe-adressen); favoritstatus gaelder begge korttyper,
-  // for en gruppe gemmes paa repraesentantens bolig-id.
+  // for en gruppe gemmes paa repraesentantens bolig-id; og `retur` er
+  // den samme vaerdi for hvert kort paa siden — den beskriver siden,
+  // ikke kortet.
   return v.slags === 'gruppe'
-    ? <Gruppekort g={v.gruppe} nu={nu} position={position} filtre={filtre} favorit={favorit} />
-    : <Kort b={v.bolig} nu={nu} position={position} favorit={favorit} />
+    ? <Gruppekort g={v.gruppe} nu={nu} position={position} filtre={filtre}
+        favorit={favorit} retur={retur} />
+    : <Kort b={v.bolig} nu={nu} position={position} favorit={favorit} retur={retur} />
 }

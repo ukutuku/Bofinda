@@ -26,6 +26,7 @@ import {
   soegeUrlSorteret, soegeUrlUden,
 } from '../lib/filterpanel'
 import { Sider, sideUrl } from './Sider'
+import { returVaerdi } from '../lib/retur'
 
 export const dynamic = 'force-dynamic'
 
@@ -215,6 +216,16 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
 
   // Samme parsing som gem-formularen bruger. Se noten i lib/soeg.ts.
   const f = filtreFraParametre(sp)
+  // Returadressen til DENNE søgning. Regnes ÉN gang for hele siden —
+  // den beskriver siden, ikke det enkelte kort — og bæres med over i
+  // kortenes links, så vejen tilbage findes, når hun står på en bolig
+  // eller en boliggruppe. `sp` er den rensede udgave; `gemt` er allerede
+  // taget ud ovenfor og må ikke bæres med. Se lib/retur.ts.
+  //
+  // Den skrives ALDRIG på `/` selv: hver adressebygger på siden kopierer
+  // enhver parameter, den ikke udtrykkeligt smider væk, og så ville
+  // `fra` hænge ved i hvert klik bagefter — præcis `gemt`-fælden.
+  const retur = returVaerdi('/', sp)
   const kilderValgt = f.kilder
 
   // Har hun soegt? Uden filtre er det forsiden, med filtre er det
@@ -1216,6 +1227,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                 <Visningskort
                   nu={nu}
                   filtre={f}
+                  retur={retur}
                   key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
                   v={v}
                   // Global plads i HELE resultatsaettet, ikke paa siden.

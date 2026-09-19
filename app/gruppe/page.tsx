@@ -3,6 +3,7 @@ import { favoritIder, statusFor } from '../../lib/favoritter'
 import {
   filtreFraParametre, gruppenoegleFra, gruppenoegleFraBolig, hentGruppe, type Soegeparametre,
 } from '../../lib/soeg'
+import { RETUR_PARAM, returUrl } from '../../lib/retur'
 import { spor } from '../../lib/maaling-server'
 
 export const dynamic = 'force-dynamic'
@@ -42,6 +43,15 @@ export default async function Side(
   const b = Array.isArray(sp.b) ? sp.b[0] : sp.b
   const n = b ? await gruppenoegleFraBolig(b.trim()) : gruppenoegleFra(sp)
   const nu = new Date()
+  // Vejen tilbage til den søgning, hun kom fra. Den GENOPBYGGES af
+  // `returUrl` — adressen i `?fra=` ekkoes aldrig, og er den ikke til at
+  // genkende, er der ingen returvej, og siden står som før. Se
+  // lib/retur.ts.
+  //
+  // Den gives UÆNDRET videre til kortene herunder. Pakkede gruppesiden
+  // sin egen adresse ind i sig selv, ville strengen vokse for hvert hop,
+  // og boligsidens returvej ville føre hertil i stedet for til listen.
+  const tilbage = returUrl(sp[RETUR_PARAM])
   // Gamle nøglelinks bruger også postnr/værelser, men til selve nøglen.
   // Kun id-linkene læser derfor parametrene som søgefiltre.
   const boliger = n ? await hentGruppe(n, b ? filtreFraParametre(sp) : undefined) : []
@@ -59,7 +69,11 @@ export default async function Side(
             ? 'De boliger, linket peger på, er ikke længere til leje hos kilden.'
             : 'Linket er ufuldstændigt.'}
         </p>
-        <p className="note"><a href="/">← Til boligsøgningen</a></p>
+        <p className="note">
+          <a href={tilbage ?? '/'}>
+            {tilbage ? '← Tilbage til søgeresultaterne' : '← Til boligsøgningen'}
+          </a>
+        </p>
       </div>
     )
   }
@@ -89,7 +103,13 @@ export default async function Side(
           sted, man kom fra — ikke som en tredje slags side. Adresserne
           og teksten er uaendrede. */}
       <nav className="broedkrumme" aria-label="Sti">
-        <a href="/">Forside</a>
+        {/* Det første led er HENDES søgning, når vi har den — med
+            filtre, sortering og liste-/kortvalg. Har vi den ikke (et
+            delt link, et bogmærke), står der «Forside» og fører til
+            forsiden, præcis som før. Et link, der lover at føre tilbage
+            og i stedet nulstiller søgningen, ville være den samme slags
+            usandhed som en total, der lader som om aconto er kendt. */}
+        <a href={tilbage ?? '/'}>{tilbage ? '← Tilbage til søgeresultaterne' : 'Forside'}</a>
         <span aria-hidden="true">›</span>
         <a href={`/?sted=${encodeURIComponent(n.postnr)}`}>{n.postnr} {boliger[0]!.by}</a>
         <span aria-hidden="true">›</span>
@@ -125,8 +145,13 @@ export default async function Side(
 
       <div className="listeomraade">
         <div className="liste">
+          {/* Den GENOPBYGGEDE adresse gives videre, ikke den rå fra
+              URL'en. Så er der ingen streng i sidens markup, som en
+              fremmed har skrevet — kun den, vi selv har bygget af en
+              literal sti og de nøgler, hvidlisten navngiver. */}
           {boliger.map((b) => (
-            <Kort key={b.id} b={b} nu={nu} favorit={statusFor(favkontekst, b.id)} />
+            <Kort key={b.id} b={b} nu={nu} favorit={statusFor(favkontekst, b.id)}
+              retur={tilbage} />
           ))}
         </div>
       </div>

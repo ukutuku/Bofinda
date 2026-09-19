@@ -13,6 +13,7 @@ import { Landkort } from '../../Landkort'
 import { Favoritknap } from '../../Favoritknap'
 import { favoritIder, statusFor } from '../../../lib/favoritter'
 import { maalingstilstand, spor } from '../../../lib/maaling-server'
+import { RETUR_PARAM, returUrl } from '../../../lib/retur'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,8 +62,19 @@ const datoIso = (iso: string) => {
   return `${dag}. ${MDR_ISO[md! - 1]} ${aar}`
 }
 
-export default async function Side({ params }: { params: Promise<{ id: string }> }) {
+export default async function Side({ params, searchParams }: {
+  params: Promise<{ id: string }>
+  // Kun til returadressen. Siden er i forvejen `force-dynamic`, saa den
+  // koster ingen gengivelsesstrategi.
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   const { id } = await params
+  // Vejen tilbage til den soegning, hun kom fra. GENOPBYGGET, aldrig
+  // ekkoet: `returUrl` parser vaerdien og bygger et nyt svar af en
+  // literal sti og de noegler, hvidlisten navngiver. Er der ingen — et
+  // delt link, et bogmaerke, en soegemaskine — er den null, og stien
+  // staar praecis som foer. Se lib/retur.ts.
+  const tilbage = returUrl((await searchParams)[RETUR_PARAM])
   const b = await hentBolig(id)
   // ReferenceNow: ét eksplicit nu pr. request. Availability kommer fra
   // DOMÆNET — aldrig fra legacy ledigFra/ansoegning.
@@ -207,21 +219,28 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
           Referencens broedkrumme: forsiden, byen, og «Denne bolig» som
           det sted, man staar.
 
-          DER STAAR «FORSIDE», FORDI LINKET FOERER TIL FORSIDEN. Det hed
-          «Tilbage til soegeresultater», men `/` uden parametre er ikke
-          den soegning, hun kom fra — filtre, sortering og sidetal er
-          vaek. Et link, der lover at foere tilbage og i stedet nulstiller
-          soegningen, er den samme slags usandhed som en total, der lader
-          som om aconto er kendt: den opdages foerst, naar nogen har brugt
-          den. Navnet siger nu, hvad linket goer.
+          NAVNET FOELGER LINKET, IKKE OMVENDT. Det hed engang «Tilbage
+          til soegeresultater» og pegede paa `/` — og `/` uden parametre
+          er ikke den soegning, hun kom fra: filtre, sortering og sidetal
+          var vaek. Et link, der lover at foere tilbage og i stedet
+          nulstiller soegningen, er den samme slags usandhed som en
+          total, der lader som om aconto er kendt. Derfor blev det
+          doebt om til «Forside», som var sandt om det, linket gjorde.
+
+          Nu FOERER det tilbage, naar vi har adressen — den baeres med
+          fra kortet og genopbygges her — og saa maa navnet ogsaa sige
+          det. Har vi den ikke, staar der «Forside» og peger paa
+          forsiden, noejagtig som foer. Praemissen er fjernet, ikke
+          beslutningen omgjort.
 
           Byen peger paa soegesiden med `sted` — samme parameter som
           filterbjaelken bruger, saa dét link rammer noejagtig den
           soegning, navnet lover. Ikke omraadesiden: den findes kun over
           `MINDST_BOLIGER`, og et link, der kan give 404, er ikke en sti. */}
       <nav className="detalje-sti" aria-label="Sti">
-        <a className="sti-tilbage" href="/">
-          <span aria-hidden="true">←</span> Forside
+        <a className="sti-tilbage" href={tilbage ?? '/'}>
+          <span aria-hidden="true">←</span>{' '}
+          {tilbage ? 'Tilbage til søgeresultaterne' : 'Forside'}
         </a>
         {b.by && (
           <>
