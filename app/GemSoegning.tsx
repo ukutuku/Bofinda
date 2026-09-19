@@ -205,12 +205,23 @@ export async function GemSoegning({ sp, svar }: { sp: Soegeparametre; svar: stri
           </div>
           <button type="submit">Send mig besked</button>
         </div>
+        {/* Ingen «intet andet». Der gemmes mere end mailen og filtrene —
+            navnet paa soegningen og tidsstemplerne — og et loefte, der
+            udelader dem, er ikke mindre forkert af at vaere kort. Listen
+            her skal kunne holdes op mod /privatliv og passe. */}
         <p className="gem-vilkaar">
-          Vi gemmer <strong>din mailadresse</strong> og <strong>de filtre, du ser
-          ovenfor</strong> — intet andet. Vi bruger dem udelukkende til at sende dig
+          Vi gemmer <strong>din mailadresse</strong>, <strong>de filtre, du ser
+          ovenfor</strong> og <strong>et navn til søgningen</strong> — det du selv
+          skriver, eller et, vi laver af filtrene. Dertil tidspunktet for
+          oprettelsen og for hver besked, vi sender. Vi bruger det til at sende dig
           besked, når en ny bolig matcher. Ingen konto, ingen adgangskode.
-          {' '}Du får først mail, når du har trykket på linket i bekræftelsesmailen,
-          og hver besked har et afmeldingslink, der virker uden login.
+          {/* «Du faar foerst mail» modsagde sig selv: bekraeftelsesmailen
+              ER en mail, og den kommer foer trykket. Det, der er sandt, er
+              at BOLIGBESKEDERNE venter — `matchAlarmer` filtrerer paa
+              `confirmed_at`. */}
+          {' '}Vi sender først boligbeskeder, når du har trykket på linket i
+          bekræftelsesmailen, og hver besked har et afmeldingslink, der virker
+          uden login.
           {' '}<a href="/privatliv">Sådan behandler vi dine oplysninger</a>.
         </p>
       </form>

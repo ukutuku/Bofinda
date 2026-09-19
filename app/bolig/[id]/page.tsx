@@ -5,6 +5,7 @@ import {
 } from '../../../lib/soeg'
 import { forklar } from '../../../lib/availability'
 import { billedUrl } from '../../../lib/billede'
+import { siden } from '../../../lib/dato'
 import { eltilstand } from '../../../lib/eloplysning'
 import { erEgenAnnonce, kildeetiket } from '../../../lib/kilde'
 import { Galleri } from './Galleri'
@@ -28,17 +29,6 @@ const MDR = ['januar', 'februar', 'marts', 'april', 'maj', 'juni',
 
 const dato = (d: Date | null) =>
   d ? `${d.getDate()}. ${MDR[d.getMonth()]} ${d.getFullYear()}` : null
-
-function siden(d: Date): string {
-  const min = Math.round((Date.now() - d.getTime()) / 60000)
-  if (min < 60) return `${min} min. siden`
-  const t = Math.round(min / 60)
-  if (t < 24) return `${t} ${t === 1 ? 'time' : 'timer'} siden`
-  const dg = Math.round(t / 24)
-  if (dg < 31) return `${dg} ${dg === 1 ? 'dag' : 'dage'} siden`
-  const m = Math.round(dg / 30)
-  return `${m} ${m === 1 ? 'måned' : 'måneder'} siden`
-}
 
 const TYPENAVN: Record<string, string> = {
   lejlighed: 'Lejlighed', raekkehus: 'Rækkehus', hus: 'Hus',

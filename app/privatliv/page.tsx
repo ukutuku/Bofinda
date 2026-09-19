@@ -46,21 +46,31 @@ export default function Side() {
           de søgekriterier, du har valgt (postnummer, by, pris, værelser,
           areal, kilde)
         </li>
+        <li>
+          et navn til søgningen, så du kan kende den igen — det du selv
+          skriver i feltet, eller et, vi laver af kriterierne, hvis du lader
+          det stå tomt
+        </li>
         <li>tidspunktet for oprettelsen og for hver besked, vi sender</li>
       </ul>
       <p>
-        Vi beder ikke om navn, telefonnummer eller adresse. En boligbesked
-        opretter <strong>ingen brugerkonto</strong> — du skal hverken vælge
-        en adgangskode eller logge ind for at få besked. Vil du derudover
-        gemme boliger, kan du oprette en konto; det er et andet forløb, og
-        det er beskrevet under <a href="#konto">Din konto og dine gemte
-        boliger</a>.
+        Vi beder ikke om dit navn, dit telefonnummer eller din adresse. En
+        boligbesked opretter <strong>ingen brugerkonto</strong> — du skal
+        hverken vælge en adgangskode eller logge ind for at få besked. Vil
+        du derudover gemme boliger, kan du oprette en konto; det er et andet
+        forløb, og det er beskrevet under <a href="#konto">Din konto og dine
+        gemte boliger</a>.
       </p>
       <p>
         Bruger du kun boligsøgningen uden at oprette en alarm, og uden at
-        sige ja til statistik, behandler vi ingen personoplysninger om dig.
-        Siger du ja til statistik, gemmer vi to tilfældige numre i din
-        browser — se afsnittet nedenfor.
+        sige ja til statistik, <strong>registrerer vi ingenting om dit
+        besøg</strong>. Vores egen kode henter aldrig din IP-adresse.
+        At siden overhovedet kan vises, kræver dog, at din forespørgsel når
+        de servere, der leverer den, og dér kan leverandørerne have
+        IP-adressen i deres egne driftslogs. Det er teknisk drift og noget
+        andet end den besøgsstatistik, du selv vælger til; IP-adressen
+        indgår ikke i statistikken. Siger du ja til statistik, gemmer vi to
+        tilfældige numre i din browser — se afsnittet nedenfor.
       </p>
 
       <h2>Formål og retsgrundlag</h2>
@@ -163,10 +173,11 @@ export default function Side() {
       </ul>
       <p>
         Skriver du et bynavn, vi ikke kender, gemmer vi ikke det, du skrev —
-        kun at søgningen gjaldt et sted, vi ikke kender. Vores leverandører
-        kan have din IP-adresse i deres egne driftslogs i kort tid, men vi
-        henter den ikke ind i vores statistik og bruger den ikke til at
-        genkende dig.
+        kun at søgningen gjaldt et sted, vi ikke kender. Som beskrevet
+        ovenfor kan vores leverandører have din IP-adresse i deres egne
+        driftslogs; hvor længe, er deres opbevaring og ikke noget, vi
+        fastsætter. Vi henter den ikke ind i vores statistik og bruger den
+        ikke til at genkende dig.
       </p>
 
       <h3>Genkendelse på tværs af besøg</h3>

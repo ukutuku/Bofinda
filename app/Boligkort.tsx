@@ -8,6 +8,7 @@ import type { Bolig, Filtre, Gruppe, Visning } from '../lib/soeg'
 import { availabilityFor, gruppeUrl } from '../lib/soeg'
 import type { Availability, Gruppesammenfatning } from '../lib/availability'
 import { billedUrl, breddeTilladt } from '../lib/billede'
+import { siden } from '../lib/dato'
 import { kildeetiket } from '../lib/kilde'
 import { medRetur } from '../lib/retur'
 import type { Favoritstatus } from '../lib/favoritter'
@@ -92,19 +93,6 @@ function gruppeOvertagelse(g: Gruppesammenfatning): string {
   if (t.conflict) dele.push(`${t.conflict} med modstridende oplysninger`)
   if (t.unknown) dele.push(`${t.unknown} uden afklaret overtagelse`)
   return dele.join(' · ')
-}
-
-/** "for 3 timer siden". Bygget paa first_seen_at — hvornaar VI saa den. */
-function siden(d: Date): string {
-  const min = Math.round((Date.now() - d.getTime()) / 60000)
-  if (min < 1) return 'lige nu'
-  if (min < 60) return `for ${min} min. siden`
-  const t = Math.round(min / 60)
-  if (t < 24) return `for ${t} ${t === 1 ? 'time' : 'timer'} siden`
-  const dg = Math.round(t / 24)
-  if (dg < 31) return `for ${dg} ${dg === 1 ? 'dag' : 'dage'} siden`
-  const m = Math.round(dg / 30)
-  return `for ${m} ${m === 1 ? 'måned' : 'måneder'} siden`
 }
 
 /** Adressen som VI har forstaaet den — af de parsede felter, ikke af

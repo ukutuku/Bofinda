@@ -45,3 +45,45 @@ const FORMAT = new Intl.DateTimeFormat('en-CA', {
 export function kalenderdag(t: Date): IsoDate {
   return FORMAT.format(t) as IsoDate
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  «for 3 timer siden» — ÉT sted.
+//
+//  Funktionen fandtes to gange, ordret ens paa naer to ting: kortets
+//  udgave skrev «for … siden» og havde et «lige nu», mens boligsidens
+//  skrev «3 timer siden» uden «for». Paa boligsiden blev det til
+//  «oprettet … 6 dage siden», som mangler et ord for at vaere dansk.
+//
+//  «lige nu» daekker de foerste ~30 sekunder, ikke det foerste minut:
+//  `min` er allerede afrundet, saa 29 sek. giver «lige nu» og 30 sek.
+//  giver «for 1 min. siden». Maalt, ikke laest.
+//
+//  Det er moenstret fra CLAUDE.md: to udtryk for ét spoergsmaal, begge
+//  naesten rigtige, drevet fra hinanden. Svaret regnes nu ét sted, og
+//  begge sider afleder det derfra.
+//
+//  Den ligger HER og ikke i en komponent, fordi filen er ren — ingen
+//  database, ingen React, ingen next/headers — og derfor kan deles af
+//  baade kortet og boligsiden uden at traekke noget med sig.
+//
+//  `Date.now()` staar inde i funktionen, som den gjorde begge steder
+//  foer. Availability-laget faar sit `referenceNow` udefra; det her er
+//  en visningsstreng ved siden af, og den maa ikke skifte betydning,
+//  fordi den flyttede fil.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Hvor laenge siden var det? Som en dansk saetning, der kan staa efter
+ * et udsagnsord: «annonceret for 3 timer siden», «set af os lige nu».
+ */
+export function siden(d: Date): string {
+  const min = Math.round((Date.now() - d.getTime()) / 60000)
+  if (min < 1) return 'lige nu'
+  if (min < 60) return `for ${min} min. siden`
+  const t = Math.round(min / 60)
+  if (t < 24) return `for ${t} ${t === 1 ? 'time' : 'timer'} siden`
+  const dg = Math.round(t / 24)
+  if (dg < 31) return `for ${dg} ${dg === 1 ? 'dag' : 'dage'} siden`
+  const m = Math.round(dg / 30)
+  return `for ${m} ${m === 1 ? 'måned' : 'måneder'} siden`
+}
