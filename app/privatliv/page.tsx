@@ -63,8 +63,9 @@ export default function Side() {
       </p>
       <p>
         Bruger du kun boligsøgningen uden at oprette en alarm, og uden at
-        sige ja til statistik, <strong>registrerer vi ingenting om dit
-        besøg</strong>. Vores egen kode henter aldrig din IP-adresse.
+        sige ja til statistik, <strong>registrerer vi ingen
+        besøgsstatistik</strong>. Vores egen kode henter aldrig din
+        IP-adresse.
         At siden overhovedet kan vises, kræver dog, at din forespørgsel når
         de servere, der leverer den, og dér kan leverandørerne have
         IP-adressen i deres egne driftslogs. Det er teknisk drift og noget
@@ -125,9 +126,11 @@ export default function Side() {
       </p>
       <p>
         <strong>Vi måler ikke, før du har sagt ja.</strong> Har du ikke
-        taget stilling, eller har du sagt nej, registrerer vi ingenting om
-        dit besøg — hverken med eller uden numre — og vi gemmer intet i din
-        browser.
+        taget stilling, eller har du sagt nej, registrerer vi ingen
+        besøgsstatistik — hverken med eller uden numre. Før du vælger,
+        gemmer vi ikke engang dit valg; siger du nej, husker vi selve
+        svaret i en nødvendig cookie, så vi ikke spørger igen ved hvert
+        besøg. Den indeholder kun dit valg.
       </p>
 
       <Valg />
@@ -175,8 +178,7 @@ export default function Side() {
         Skriver du et bynavn, vi ikke kender, gemmer vi ikke det, du skrev —
         kun at søgningen gjaldt et sted, vi ikke kender. Som beskrevet
         ovenfor kan vores leverandører have din IP-adresse i deres egne
-        driftslogs; hvor længe, er deres opbevaring og ikke noget, vi
-        fastsætter. Vi henter den ikke ind i vores statistik og bruger den
+        driftslogs. Vi henter den ikke ind i vores statistik og bruger den
         ikke til at genkende dig.
       </p>
 
