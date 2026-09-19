@@ -45,7 +45,7 @@ if (slug) {
 const ryddet = await ryd()
 if (ryddet.ubekraeftede || ryddet.afmeldte || ryddet.forgamle || ryddet.foraeldreloese) {
   ud(`[oprydning] ${ryddet.ubekraeftede} ubekræftede · ${ryddet.afmeldte} afmeldte `
-    + `· ${ryddet.forgamle} for gamle · ${ryddet.foraeldreloese} brugere uden søgning`)
+    + `· ${ryddet.forgamle} for gamle · ${ryddet.foraeldreloese} overflødige alarmbrugere`)
 }
 
 // Analytics-retention koerer med her, ikke i sin egen cron: timekoerslen
