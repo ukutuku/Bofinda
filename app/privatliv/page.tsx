@@ -330,13 +330,10 @@ export default function Side() {
           den udløber efter 30 sekunder
         </li>
         <li>
-          at binde linket i en mail til den browser, der bad om det. Opretter
-          du en konto eller beder om en ny adgangskode, lægger vores
-          Supabase-klient en tilfældig værdi i din browser, som skal være der,
-          når du trykker på linket — ellers kan en anden ikke bruge linket i
-          din mail. Den fjernes, når du har trykket; fuldfører du aldrig
-          forløbet, bliver den liggende, og dens udløbstid er lang (400 dage).
-          Det er tre cookies om det samme, og de indeholder ikke noget om dig
+          Ved oprettelse af en konto eller nulstilling af adgangskoden bruger
+          vi nødvendige cookies til at knytte maillinket til den browser, hvor
+          du startede forløbet. De bruges ikke til statistik eller
+          markedsføring og har en udløbstid på op til 400 dage.
         </li>
       </ul>
       <p>
