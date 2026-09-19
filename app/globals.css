@@ -873,16 +873,36 @@ footer.bund {
    Referencens fanerække. Her er det ankerlinks, og listen bygges af
    de samme betingelser som afsnittene — se `afsnit` i page.tsx.
    Den ruller vandret i sin EGEN kasse paa smalle skaerme; siden selv
-   maa ikke kunne rulle vandret. */
+   maa ikke kunne rulle vandret.
+
+   Skillelinjen er en INDVENDIG skygge, ikke en kant, og fanerne har
+   ingen negativ margin. Det er den samme streg og den samme hoejde som
+   foer — men uden det lodrette overloeb, der gav en scrollbar.
+
+   Maalt foer: fanens border-box var 47,47 px, mens `margin-bottom: -1px`
+   goer flexlinjen 46,47 px. Fanen stod altsaa 1 px uden for sin egen
+   beholder, og `overflow-x: auto` tvinger `overflow-y` til `auto` (en
+   ikke-`visible` vaerdi paa den ene akse tvinger den anden), saa
+   scrollHeight 47 > clientHeight 46 blev til en rigtig scrollbar.
+
+   En indvendig skygge tegnes SAMMEN med baggrunden, altsaa foer
+   boernene — noejagtig som kanten blev — saa den aktive fanes 2 px
+   stadig daekker stregen, hvor fanen staar. Totalhoejden er uaendret:
+   46 + 1 px kant foer, 47 px indhold nu.
+
+   `overflow-y` bliver staaende paa `auto`. Den skal ikke saettes til
+   `hidden`: er der foerst ikke noget at rulle, tegnes ingen scrollbar,
+   og `hidden` ville klippe fokusringen den dag en VANDRET scrollbar
+   aeder af hoejden. */
 .afsnitsnav {
   display: flex; gap: 4px; margin: 26px 0 4px;
-  border-bottom: 1px solid var(--linje);
+  box-shadow: inset 0 -1px 0 var(--linje);
   overflow-x: auto; scrollbar-width: thin;
 }
 .afsnitsnav a {
   flex: none; padding: 11px 14px 12px; color: var(--daempet);
   font-size: 14.5px; font-weight: 560; text-decoration: none;
-  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
+  border-bottom: 2px solid transparent; white-space: nowrap;
 }
 .afsnitsnav a:hover { color: var(--accent); border-bottom-color: #cfe0d9; }
 .afsnitsnav a:focus-visible {
@@ -3143,7 +3163,12 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
 /* Mobil: synlige afsnitslinks uden skjulte faner og mindre luft
    mellem oplysningerne. Ingen prisforbehold eller filtre skjules. */
 @media (max-width: 680px) {
-  .afsnitsnav { flex-wrap: wrap; gap: 6px; overflow-x: visible; border: 0; margin-top: 20px; }
+  /* Ingen skillelinje her: fanerne er chips med egen ramme. `border: 0`
+     stod her, dengang linjen var en kant. */
+  .afsnitsnav {
+    flex-wrap: wrap; gap: 6px; overflow-x: visible; box-shadow: none;
+    margin-top: 20px;
+  }
   .detalje { padding-bottom: 20px; }
   body > .ramme { padding-bottom: 28px; }
   .filterpost .afkryds-linje { min-height: 44px; }
