@@ -228,7 +228,12 @@ async function koer() {
     console.log('\n  ── ryddet ──')
     tjek('5 · reelt overfloedig alarmbrugerraekke slettet',
       !(await findes(overfloedig)))
-    tjek('5 · og talt i foraeldreloese', (r1.svar!.foraeldreloese ?? 0) >= 1,
+    // PRAECIS én. Et `>= 1` var groent paa den gamle kode med
+    // foraeldreloese=6, mens fem konti blev slettet — altsaa et tal, der
+    // gav tryghed uden at kunne skelne oprydning fra hærværk. Efter
+    // trin 1-3 er `gBruger` ogsaa uden soegning, men hun har en konto;
+    // den eneste reelt overfloedige er `overfloedig`.
+    tjek('5 · og talt som PRAECIS én overfloedig', r1.svar!.foraeldreloese === 1,
       `foraeldreloese=${r1.svar!.foraeldreloese}`)
 
     console.log('\n  ── frister paa saved_searches (uaendrede) ──')
