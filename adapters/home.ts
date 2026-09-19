@@ -25,6 +25,34 @@
 //  Kilden oplyser den ikke, og et tal, vi selv har lagt sammen, ville se
 //  lige saa sikkert ud som et oplyst.
 //
+//  ── DEPOSITUM, FORUDBETALT LEJE OG VAERELSER — MAALT ─────────
+//  Feltnavnene er talt paa TO hentede detaljesider 15. sep. 2026, én af
+//  hver sagstype. Belaegget ligger i scripts/kildeproever/home/ med url,
+//  tidspunkt, SHA-256 af baade siden og payloaden, og de reducerede
+//  Nuxt-arrays med ORIGINALE indekser:
+//
+//    deposit      offer.rentalSecurityDeposit.amount    kroner
+//    prepaidRent  offer.rentalPricePrePaid.amount       kroner
+//    rooms        stats.rooms                           antal
+//
+//  Alle tre laeses fra SAGENS EGET id-bundne objekt, som alt andet her.
+//  Det er ikke pedanteri: den flade Nuxt-serialisering goer en forkert
+//  noegle DOBBELT tavs — rammer man et navn, kilden ikke har, giver
+//  `los()` undefined og feltet forsvinder uden en fejl; rammer man et
+//  navn i en NABOSAGS projektion, faar man et rigtigt udseende tal fra
+//  en anden bolig. Begge fejl har filen allerede haft (se `d[121]`
+//  ovenfor og id-bindingen i `laesSag`).
+//
+//  Indtil maalingen forelaa, stod felterne usatte med vilje. Kilde-
+//  undersoegelsen 3. sep. (CLAUDE.md) havde set beloebene paa den
+//  RENDEREDE side, men ikke i payloaden, og et feltnavn maa ikke
+//  gaettes. `scripts/home-felter.ts` taeller noeglerne, hvis det skal
+//  goeres igen — for en tredje sagstype, eller hvis kilden laegger om.
+//
+//  FAELDE, som har kostet tid: `room: 'vaerelse'` i TYPER nedenfor er en
+//  boligTYPE-oversaettelse, ikke et antal — den slaas op mod `type`.
+//  Vaerelsestallet er `stats.rooms` og intet andet.
+//
 //  ── Om billederne ────────────────────────────────────────────
 //  De ligger IKKE paa home.dk, og der er TO vaerter, ikke én. Hvilken
 //  foelger sagstypen, og det kan ses paa sagsnummeret:
@@ -56,10 +84,10 @@ const LISTE = `${ORIGIN}/til-leje/lejlighed/region-hovedstaden/koebenhavn-kommun
 /** Loft. Uden det kan en aendret paginering koere i ring. */
 const MAKS_SIDER = 60
 
-type Flad = unknown[]
-type Ukendt = Record<string, unknown>
+export type Flad = unknown[]
+export type Ukendt = Record<string, unknown>
 
-async function hentNuxt(url: string): Promise<Flad> {
+export async function hentNuxt(url: string): Promise<Flad> {
   const res = await politeFetch(url, 3, { headers: { Accept: 'text/html' } })
   if (!res.ok) throw new Error(`home ${url} gav ${res.status}`)
   const m = /<script type="application\/json"[^>]*id="__NUXT_DATA__"[^>]*>(.*?)<\/script>/s
@@ -69,7 +97,7 @@ async function hentNuxt(url: string): Promise<Flad> {
 }
 
 /** Ét opslag, derefter kun struktureI rekursion. Se noten i hovedet. */
-function los(d: Flad, i: unknown, dyb = 0): unknown {
+export function los(d: Flad, i: unknown, dyb = 0): unknown {
   if (dyb > 10) return null
   const v = typeof i === 'number' && Number.isInteger(i) && i >= 0 && i < d.length ? d[i] : i
   if (Array.isArray(v)) return v.map((x) => los(d, x, dyb + 1))
@@ -91,7 +119,7 @@ const oere = (v: unknown): number | undefined => {
 }
 
 /** Alle objekter i payloaden der har et bestemt felt. */
-const medFelt = (d: Flad, felt: string): Ukendt[] =>
+export const medFelt = (d: Flad, felt: string): Ukendt[] =>
   d.filter((x): x is Ukendt =>
     !!x && typeof x === 'object' && !Array.isArray(x) && felt in (x as Ukendt))
 
@@ -172,18 +200,31 @@ export function laesSag(d: Flad, g: Gitterrække, url: string): RawListing {
   const avail = (sag['availability'] ?? {}) as Ukendt
   const ledig = tekst(avail['rentalAvailableFrom'])
 
+  // Vaerelsestallet fra SAGENS EGET stats-objekt — samme id-binding som
+  // tilbuddet, billederne og ledigdatoen. Arealet laeses fra gitterets
+  // `stats.floorArea`; rummene staar ved siden af det paa detaljesiden.
+  const stats = (sag['stats'] ?? {}) as Ukendt
+
   return {
     externalKey: g.id,
     sourceUrl: url,
     address: g.adresse,
     postalCode: g.postnr,
     sizeM2: g.areal,
+    rooms: tal(stats['rooms']),
     propertyType: g.type,
     availableFrom: ledig ? ledig.slice(0, 10) : undefined,
     rentMonthly: leje,
     // ÉT samlet beloeb. Kilden siger ikke hvad det daekker, saa det er
     // uspecificeret rest — ikke varme, ikke vand, ikke el.
     utilitiesOther: oere(tilbud['rentalUtilitiesPerMonth']),
+    // Kildens EGNE beloeb, hver for sig. `oere()` bevarer forskellen paa
+    // et oplyst nul (amount: 0 -> 0) og et fravaerende felt (-> undefined):
+    // «udlejer opkraever intet» og «udlejer oplyser intet» er to udsagn.
+    // Summen regnes ALDRIG: `moveInCost` er kildens eget tal eller intet,
+    // og home.dk oplyser den ikke — se noten i hovedet og i lib/adapter.ts.
+    deposit: oere(tilbud['rentalSecurityDeposit']),
+    prepaidRent: oere(tilbud['rentalPricePrePaid']),
     amenities: [],
     imageUrls: fraSagen.length ? fraSagen : g.billeder,
     // Hvad kilden SAGDE, fra sagens EGET availability-objekt (samme

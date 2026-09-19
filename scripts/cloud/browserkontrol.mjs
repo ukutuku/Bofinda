@@ -151,13 +151,24 @@ console.log('\n═══ Mobil 390×844 ═══')
     deviceScaleFactor: 2,
   })
   const s = await c.newPage()
-  for (const [navn, sti] of [['forside', '/'], ['filtreret', '/?postnr=9001'],
-    ['arealfilter', '/?areal=100']]) {
+  // `kort=0` paa de filtrerede: under 901 px er kort og liste et SKIFT, og
+  // listen er nu standarden paa mobil, saa `&kort=0` er ikke laengere
+  // noedvendigt her — men det bliver staaende, fordi disse tre maalinger
+  // handler om LISTEN og skal bede udtrykkeligt om den. Tidligere var
+  // kortet standard, `.liste` var skjult, og `scrollIntoViewIfNeeded()`
+  // ventede tyve sekunder paa et element, der aldrig blev synligt, og
+  // KASTEDE saa i stedet for at melde ✗. Vagten nedenfor bliver ogsaa.
+  for (const [navn, sti] of [['forside', '/'], ['filtreret', '/?postnr=9001&kort=0'],
+    ['arealfilter', '/?areal=100&kort=0']]) {
     await s.goto(BASE + sti, { waitUntil: 'networkidle', timeout: 90_000 })
     const m = await maal(s)
     // Rul til listen. Uden det viser alle tre skærmbilleder den samme
     // hero-sektion, og de tre sider kan ikke skelnes fra hinanden.
-    await s.locator('.liste').first().scrollIntoViewIfNeeded()
+    // Ikke-fatal: en skjult liste skal melde ✗, ikke vaelte hele
+    // kontrollen med en TimeoutError efter tyve sekunder.
+    const synlig = await s.locator('.liste').first().isVisible().catch(() => false)
+    kraev(synlig, `${navn}: listen er synlig`, synlig ? 'ja' : 'skjult — kortvisningen er valgt')
+    if (synlig) await s.locator('.liste').first().scrollIntoViewIfNeeded().catch(() => {})
     await s.waitForTimeout(600)
     await s.screenshot({ path: `${UD}/mobil-${navn}.png` })
     kraev(m.kort > 0, `${navn}: kort renderet`, `${m.kort} kort`)
@@ -213,9 +224,23 @@ kraev(await taelHaendelser() === 0, 'udgangspunkt: tabellen er tom')
   const { c } = await kontekst({ viewport: { width: 1280, height: 900 } })
   const s = await c.newPage()
   await s.goto(BASE + '/', { waitUntil: 'networkidle' })
+  // VENT PAA BANNERET, spoerg ikke bare efter det.
+  //
+  // `Samtykke` er en klientkomponent: den saetter `aaben` i en
+  // `useEffect`, saa banneret findes foerst EFTER hydrering.
+  // `networkidle` siger kun, at netvaerket er faldet til ro — ikke at
+  // React er kommet igennem. Kontrollen taltes derfor foer banneret
+  // fandtes; med brugeromraadets klientkomponenter paa hvert kort blev
+  // hydreringen tung nok til, at den tabte hver gang (maalt: 0 af 5 foer
+  // hydrering, 5 af 5 efter). Det var altid et kaploeb — det blev bare
+  // synligt nu.
   const knap = s.getByRole('button', { name: /Tillad statistik/i })
-  const fandt = await knap.count() > 0
-  kraev(fandt, 'samtykkebanneret er på skærmen')
+  let fandt = false
+  try {
+    await knap.waitFor({ state: 'visible', timeout: 20000 })
+    fandt = true
+  } catch { /* fandt forbliver falsk, og kontrollen bliver roed */ }
+  kraev(fandt, 'samtykkebanneret er på skærmen (efter hydrering)')
   if (fandt) {
     await knap.click()
     await s.waitForTimeout(1200)

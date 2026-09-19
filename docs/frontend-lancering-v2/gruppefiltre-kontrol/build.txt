@@ -1,0 +1,49 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> build
+> NODE_EXTRA_CA_CERTS=./certs/rapidssl-tls-rsa-ca-g1.pem next build
+
+   ▲ Next.js 15.5.24
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 3.7s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/7) ...
+   Generating static pages (1/7) 
+   Generating static pages (3/7) 
+   Generating static pages (5/7) 
+ ✓ Generating static pages (7/7)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+┌ ƒ /                                    2.68 kB         105 kB
+├ ○ /_not-found                            992 B         104 kB
+├ ƒ /afmeld/[token]                        149 B         103 kB
+├ ƒ /api/afmeld                            149 B         103 kB
+├ ƒ /api/billede                           149 B         103 kB
+├ ƒ /api/maaling                           149 B         103 kB
+├ ƒ /bekraeft/[token]                      149 B         103 kB
+├ ƒ /bolig/[id]                             3 kB         106 kB
+├ ƒ /forsoeg/[kode]                        149 B         103 kB
+├ ƒ /go/[id]                               149 B         103 kB
+├ ƒ /gruppe                                149 B         103 kB
+├ ƒ /lejeboliger/[slug]                    149 B         103 kB
+├ ○ /privatliv                           1.17 kB         104 kB
+├ ƒ /sitemap.xml                           149 B         103 kB
+├ ƒ /udlejer                             1.06 kB         104 kB
+├ ƒ /udlejer/boliger                       149 B         103 kB
+├ ƒ /udlejer/boliger/[id]                  120 B         108 kB
+└ ƒ /udlejer/opret                         120 B         108 kB
++ First Load JS shared by all             103 kB
+  ├ chunks/255-c5a697ddbf82d774.js       46.4 kB
+  ├ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB
+  └ other shared chunks (total)          1.97 kB
+
+
+ƒ Middleware                             34.7 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

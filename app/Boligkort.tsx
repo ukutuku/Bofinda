@@ -4,16 +4,39 @@
 //  igennem begge steder.
 // ═══════════════════════════════════════════════════════════════
 
-import type { Bolig, Gruppe, Visning } from '../lib/soeg'
+import type { Bolig, Filtre, Gruppe, Visning } from '../lib/soeg'
 import { availabilityFor, gruppeUrl } from '../lib/soeg'
 import type { Availability, Gruppesammenfatning } from '../lib/availability'
-import { billedUrl } from '../lib/billede'
+import { billedUrl, breddeTilladt } from '../lib/billede'
+import type { Favoritstatus } from '../lib/favoritter'
+import { Favoritknap } from './Favoritknap'
+import { Bladrekort } from './Bladrekort'
 import { eltilstand, type Eltilstand } from '../lib/eloplysning'
+// Typens navn kommer ÉT sted fra. Kortet og filtrene sagde før hver sit
+// om `andet`, og `villa` fandtes kun i den ene liste. Se lib/boligtype.ts.
+import { stort, typeord } from '../lib/boligtype'
 
 // ─── Formatering ───────────────────────────────────────────────
 
 export const kr = (oere: number | null) =>
   oere == null ? null : (oere / 100).toLocaleString('da-DK', { maximumFractionDigits: 0 })
+
+/**
+ * Kildens adressestreng uden ", postnr by" til sidst.
+ *
+ * Strengen baerer stedet med hos de fleste kilder, og kortene viser
+ * postnummer og by for sig. Uden trimningen staar der «Proevevej 1, 2200
+ * Koebenhavn N · 2200 Koebenhavn N».
+ *
+ * Eksporteret, fordi Min sides gemte-kort skal skaere PRAECIS det samme
+ * af: to trimninger, der driver fra hinanden, ville betyde at den samme
+ * bolig staar med to forskellige adresser to steder paa sitet — og begge
+ * udtryk ville se rigtige ud hver for sig.
+ */
+export const udenSted = (adresse: string, postnr: string | null, by: string | null) =>
+  adresse
+    .replace(new RegExp(`,?\\s*${postnr ?? ''}\\s*${by ?? ''}\\s*$`, 'i'), '')
+    .replace(/,\s*$/, '').trim()
 
 const MDR = ['januar','februar','marts','april','maj','juni',
              'juli','august','september','oktober','november','december']
@@ -118,21 +141,6 @@ const POSTNAVN: Record<string, string> = {
   electricity: 'el', other: 'øvrig aconto',
 }
 
-/** Kilderne gemmer typen uden danske bogstaver. Ental og flertal. */
-const TYPEORD: Record<string, [string, string]> = {
-  lejlighed: ['lejlighed', 'lejligheder'],
-  raekkehus: ['rækkehus', 'rækkehuse'],
-  hus: ['hus', 'huse'],
-  villa: ['villa', 'villaer'],
-  vaerelse: ['værelse', 'værelser'],
-}
-/** Kender vi ikke typen — eller er den blandet i en gruppe — siger vi "bolig",
- *  ikke noget vi ikke ved. */
-function typeord(t: string | null, flertal = false): string | null {
-  if (!t) return flertal ? 'boliger' : null
-  const par = TYPEORD[t]
-  return par ? par[flertal ? 1 : 0] : t
-}
 
 const areal = (min: number | null, max: number | null) =>
   min == null ? null : min === max ? <><b>{min}</b> m²</> : <><b>{min}–{max}</b> m²</>
@@ -155,7 +163,12 @@ function Kilder({ navn, ogsaa }: { navn: string; ogsaa: string[] }) {
 
 // ─── Kortet ────────────────────────────────────────────────────
 
-export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: number }) {
+export function Kort({ b, nu, position, favorit }: {
+  b: Bolig; nu: Date; position?: number
+  /** Udeladt = ingen knap. Saa er kortet praecis som foer — det er dét,
+   *  proeverne i scripts/test-soegning.ts renderer. */
+  favorit?: Favoritstatus
+}) {
   // Availability fra DOMÆNET — aldrig fra legacy ledigFra/ansoegning, og
   // aldrig fra Date.now(): referenceNow kommer eksplicit fra siden.
   const avail = availabilityFor(b, nu)
@@ -164,19 +177,30 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
   // maerkat der siger "ny" om en annonce fra juli er en loegn.
   const paaMarkedet = b.hosKilden ?? b.foerstSet
   const nyligt = Date.now() - paaMarkedet.getTime() < 1000 * 60 * 60 * 24 * 3
-  const fakta = [
-    b.areal != null ? <><b>{b.areal}</b> m²</> : null,
-    b.vaerelser != null ? <><b>{b.vaerelser}</b> {b.vaerelser === 1 ? 'værelse' : 'værelser'}</> : null,
-    typeord(b.type),
-    overtagelsesTekst(avail),
-  ].filter(Boolean)
+  // ── Overskriften ────────────────────────────────────────────
+  // Boligtype, vaerelser, areal — ét led, ikke tre chips. Det er svaret
+  // paa «hvad er det her», og det er dét, en der leder efter bolig
+  // skimmer efter. Adressen staar under som sted; den afgoer foerst
+  // noget, naar de tre tal passer.
+  //
+  // Manglende dele udelades. «Lejlighed» alene er et rigtigt svar; en
+  // pladsholder som «— vaer.» ville vaere et opdigtet.
+  const overskrift = [
+    // Stort forbogstav: typen ER overskriften og står først i linjen.
+    // På gruppekortet står antallet først, og dér bliver ordet med småt.
+    b.type ? stort(typeord(b.type)!) : null,
+    // «vær.» og ikke «vaerelser»: er boligtypen selv `vaerelse`, staar der
+    // ellers «Vaerelse · 5 vaerelser» — det samme ord om to forskellige
+    // ting i den samme linje. Forkortelsen er den, danske boligannoncer
+    // bruger, og den kan ikke forveksles med typen.
+    b.vaerelser != null ? `${b.vaerelser} vær.` : null,
+    b.areal != null ? `${b.areal} m²` : null,
+  ].filter(Boolean).join(' · ')
 
   const aconto = (b.poster ?? []).filter((p) => p !== 'rent').map((p) => POSTNAVN[p] ?? p)
   const vist = parsetAdresse(b)
   // Kildens streng baerer ofte postnr og by med. Vi viser dem én gang.
-  const raaUdenSted = b.adresse
-    .replace(new RegExp(`,?\\s*${b.postnr ?? ''}\\s*${b.by ?? ''}\\s*$`, 'i'), '')
-    .replace(/,\s*$/, '').trim()
+  const raaUdenSted = udenSted(b.adresse, b.postnr, b.by)
   // ALDRIG paa vores egne annoncer. Linjen betyder "kilden skrev noget
   // andet, end vi kunne parse" — men for en udlejerannonce ER udlejeren
   // kilden, og `address_raw` er ikke hendes tekst: VI bygger den af hendes
@@ -198,62 +222,98 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
   // manglende allowlist-post fejler ikke, den oedelaegger layoutet.
   const forside = b.forside && billedUrl(b.forside, 400)
 
+  // ── Ét maerkat, ikke fire ────────────────────────────────────
+  // Kortet bar op til fire mærkater oven på fotoet: «ny», «venteliste»,
+  // «reserveret» og «bopælspligt». Fire farvede piller over et billede er
+  // ikke et hierarki, det er et slagsmål om opmærksomhed.
+  //
+  // Kun «ny» bliver på fotoet. Den er tidsbestemt og gælder få kort ad
+  // gangen, så den betyder noget, netop fordi den er sjælden.
+  //
+  // De tre andre BLIVER — som ord i metalinjen under adressen. Det er
+  // ikke en nedtoning af oplysningen, det er en flytning af den: at
+  // skjule «reserveret» for at få færre mærkater ville være projektets
+  // egen ærlighedsregel vendt på hovedet. En bolig, der ser ledig ud og
+  // ikke er det, er samme fejl som en total, der lader som om aconto er
+  // kendt.
+  const nymaerkat = nyligt
+    ? <span className="maerkat m-ny">ny {siden(paaMarkedet)}</span>
+    : null
+  const status = [
+    avail.ansoegning.status === 'venteliste' ? 'venteliste' : null,
+    avail.marked.status === 'reserveret' ? 'reserveret' : null,
+    avail.adgang.krav.includes('bopaelskrav') ? 'bopælspligt' : null,
+  ].filter(Boolean) as string[]
+
   return (
-    <a
-      className={`kort${forside ? '' : ' uden-billede'}`}
+    // Hylsteret findes KUN for at give knappen noget at ligge oven paa.
+    // Linket nedenfor er uroert — `a.kort[data-bolig]` er stadig den
+    // selektor, impression-maalingen i app/Maaling.tsx bygger paa, og
+    // knappen er en soeskende, ikke et barn: en <button> inde i et <a> er
+    // ugyldig HTML, og saa kan et klik aktivere linket alligevel.
+    <div className="kort-hylster">
+    {/* Skallen tegner linket, billedfeltet og pilene. Pilene ER uden for
+        linket — se noten i app/Bladrekort.tsx. Kroppen herunder er
+        stadig serverkode; den kommer ind som `children`. */}
+    <Bladrekort
+      klasse={`kort${forside ? '' : ' uden-billede'}`}
       href={`/bolig/${b.id}`}
-      // Landkortet peger paa kortet med id'et og laeser data-bolig, naar
-      // musen er over. De to skal vaere den samme noegle som maerket.
       id={`kort-${b.id}`}
-      data-bolig={b.id}
-      data-kilde={b.kilde}
-      data-position={position}
+      data={{ bolig: b.id, kilde: b.kilde, position }}
+      billede={forside ? {
+        boligId: b.id,
+        forside,
+        srcSet: breddeTilladt(b.forside!, 800)
+          ? `${forside} 400w, ${billedUrl(b.forside!, 800)} 800w`
+          : undefined,
+        sizes: breddeTilladt(b.forside!, 800)
+          ? '(max-width: 620px) calc(100vw - 44px), 50vw' : undefined,
+        antal: b.billeder,
+      } : null}
+      maerkat={nymaerkat}
+      forbehold={b.billedforbehold ? <Billedforbehold /> : null}
+      etiket={vist}
     >
-      {/* Billedet og forbeholdet er ÉT gitterfelt. Var forbeholdet et felt
-          for sig, skubbede det kroppen en raekke ned — se .kort-billedblok
-          i globals.css. */}
-      {forside && (
-        <div className="kort-billedblok">
-          <div className="kort-billede">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={forside} alt="" loading="lazy" />
-            {b.billeder > 1 && <span className="kort-antal">{b.billeder} billeder</span>}
-          </div>
-          {b.billedforbehold && <Billedforbehold />}
-        </div>
-      )}
-
       <div className="kort-krop">
-        <div className="raek1">
-          <div>
-            <div className="adresse">{vist}</div>
-            <div className="sted">
-              {b.postnr} {b.by}
-              {b.match === 'access' && ' · uden etage/dør'}
-              {b.billeder === 0 && ' · ingen billeder'}
-            </div>
-            {parsningTabteNoget && (
-              <div className="afvig">kilden skriver: {raaUdenSted}</div>
-            )}
-          </div>
-          <div className="hoejre">
-            {avail.ansoegning.status === 'venteliste'
-              && <span className="maerkat m-vent">venteliste</span>}
-            {avail.marked.status === 'reserveret'
-              && <span className="maerkat m-vent">reserveret</span>}
-            {avail.adgang.krav.includes('bopaelskrav')
-              && <span className="maerkat m-kilde">bopælspligt</span>}
-            {nyligt && <span className="maerkat m-ny">ny {siden(paaMarkedet)}</span>}
-            {/* Boligen vises én gang, selv om flere kilder annoncerer den.
-                Så skal kortet også sige, hvem der har den — ikke lade som
-                om den kun findes ét sted. */}
-            <Kilder navn={b.kildeNavn} ogsaa={b.ogsaaHos} />
-          </div>
+        {!forside && nymaerkat && (
+          <div className="kort-maerkater i-krop">{nymaerkat}</div>
+        )}
+        <div className="kort-titel">
+          {/* Overskriften er hvad boligen ER. Adressen er hvor den er, og
+              den staar under — et sted afgoer foerst noget, naar
+              stoerrelsen passer. Er typen ukendt og arealet uoplyst,
+              staar der kun det, vi ved; en pladsholder ville vaere et
+              opdigtet tal. */}
+          <h3 className="kort-overskrift">{overskrift || 'Bolig'}</h3>
+          {/* Adresse OG by paa én linje, som i referencen. De stod paa
+              hver sin, og den anden bar en naal foran sig — to linjer og
+              et ikon om ét sted. Forbeholdene om adressen («uden
+              etage/dør») og om billederne er flyttet til metalinjen; de
+              handler om, hvad vi VED, ikke om hvor boligen er. */}
+          <p className="adresse">{vist} · {b.postnr} {b.by}</p>
+          {parsningTabteNoget && (
+            <div className="afvig">kilden skriver: {raaUdenSted}</div>
+          )}
         </div>
 
-        <div className="fakta">
-          {fakta.map((f, i) => <span key={i}>{i > 0 && ' · '}{f}</span>)}
-        </div>
+        {/* ── Metalinjen ────────────────────────────────────────
+            Overtagelsen og de statusord, der foer var farvede maerkater
+            paa fotoet. Samme oplysninger, mindre stoej: en linje graa
+            tekst i stedet for tre piller oven paa et billede.
+            Overtagelsen staar foerst — den er domaenets svar og findes
+            paa hver bolig; statusordene er undtagelser. */}
+        <p className="kort-meta">
+          {[
+            overtagelsesTekst(avail),
+            ...status,
+            // Forbehold om DATAENE, ikke om boligen. «uden etage/dør»
+            // siger, at adressen er matchet paa opgangsniveau; «ingen
+            // billeder» at kilden ikke har nogen. Begge hoerer til her
+            // sammen med det oevrige, vi ved og ikke ved.
+            b.match === 'access' ? 'uden etage/dør' : null,
+            b.billeder === 0 ? 'ingen billeder' : null,
+          ].filter(Boolean).join(' · ')}
+        </p>
 
         {/* Det store tal er alt, hvad der betales TIL UDLEJEREN — husleje
             plus den aconto, kilden opkraever. Etiketten sagde foer "i alt",
@@ -273,8 +333,18 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
             </div>
           )}
 
+          {/* Indflytningsprisen er sidens ANDET beloeb, ikke en note.
+              Den stod som 13,5 px graa tekst ved siden af en 27 px groen
+              total og forsvandt i den — og det er netop det tal, der
+              afgoer, om boligen overhovedet kan betales. Egen klasse,
+              egen stoerrelse og en lodret streg imellem, saa de to kan
+              skelnes paa et blik uden at vaere lige tunge.
+              `.total` bliver staaende paa alderslinjen nedenfor; de to
+              delte klasse foer, og et beloeb og en dato vejer ikke ens. */}
           {b.indflytning != null && (
-            <div className="total">indflytning <b>{kr(b.indflytning)} kr.</b></div>
+            <div className="kort-indflytning">
+              indflytning <b>{kr(b.indflytning)} kr.</b>
+            </div>
           )}
 
           {b.total == null && (
@@ -287,8 +357,11 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
             </span>
           )}
           <Ellinje tilstand={eltilstand(b)} />
+          {/* Egen klasse, saa den kan saettes ned i vaegt uden at tage
+              indflytningsprisen med: begge var `.total`, og alderen paa en
+              annonce vejer ikke det samme som et beloeb, hun skal betale. */}
           {!nyligt && (
-            <div className="total">
+            <div className="total set-linje">
               {b.hosKilden ? `annonceret ${siden(b.hosKilden)}` : `set ${siden(b.foerstSet)}`}
             </div>
           )}
@@ -298,8 +371,19 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
             <div className="poster">{['husleje', ...aconto].join(' + ')}</div>
           )}
         </div>
+
+        {/* Kortets fod, som referencens «Fra BoligPortal». Boligen vises
+            én gang, selv om flere kilder annoncerer den — saa skal kortet
+            ogsaa sige, hvem der har den. */}
+        <div className="kort-fod">
+          <Kilder navn={b.kildeNavn} ogsaa={b.ogsaaHos} />
+        </div>
       </div>
-    </a>
+    </Bladrekort>
+    {favorit && (
+      <Favoritknap listingId={b.id} status={favorit} adresse={vist} />
+    )}
+    </div>
   )
 }
 
@@ -315,7 +399,15 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
 //  Er aconto-posterne ikke ens, står de slet ikke.
 // ═══════════════════════════════════════════════════════════════
 
-export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?: number }) {
+export function Gruppekort({ g, nu, position, filtre, favorit }: {
+  g: Gruppe; nu: Date; position?: number
+  /** Soegningens filtre baeres med over i `gruppeUrl`, saa /gruppe viser
+   *  de samme boliger, som kortet talte. */
+  filtre?: Filtre
+  /** Udeladt = ingen knap. Saa er kortet praecis som foer — det er dét,
+   *  proeverne i scripts/test-soegning.ts renderer. */
+  favorit?: Favoritstatus
+}) {
   const { noegle: n, repraesentant: r } = g
   const nyligt = nu.getTime() - g.nyesteMarkedet.getTime() < 1000 * 60 * 60 * 24 * 3
 
@@ -323,13 +415,31 @@ export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?
   // tællinger, aldrig som én status for alle. Aldrig legacy ledigMin/Max.
   const ledig = gruppeOvertagelse(g.availability)
 
-  // Typen staar allerede i underlinjen ("3 ledige raekkehuse") — den skal
-  // ikke ogsaa staa her.
-  const fakta = [
-    areal(g.arealMin, g.arealMax),
-    <><b>{n.vaerelser}</b> {n.vaerelser === 1 ? 'værelse' : 'værelser'}</>,
-    ledig,
-  ].filter(Boolean)
+  // ── Gruppens overskrift ─────────────────────────────────────
+  // Samme form som enkeltkortet — antal og type, vaerelser, areal — saa
+  // de to korttyper laeser ens i den samme liste. Forskellen er, at
+  // gruppens tal ER gruppens: antallet foran, og arealet som et spaend,
+  // naar medlemmerne ikke er ens.
+  //
+  // «vær.» og ikke «vaerelser»: er gruppens type `vaerelse`, staar der
+  // ellers «4 vaerelser · 5 vaerelser» — fire udlejede vaerelser med fem
+  // rum i hvert, men det samme ord om to forskellige ting. Forkortelsen
+  // kan ikke forveksles med typen. Vaerelsestallet er en noegledel i
+  // grupperingen, saa alle medlemmer har det samme; tallet gaelder den
+  // enkelte bolig, arealet er et spaend over dem alle.
+  const overskrift = [
+    `${g.antal} ${typeord(g.type, true)}`,
+    // «hver» er ikke pynt. Er gruppens type `vaerelse`, staar der ellers
+    // «5 vaerelser · 3 vaer.» — fem udlejede vaerelser med tre rum i
+    // hvert, og forkortelsen alene baerer ikke forskellen. Ordet siger,
+    // at tallet gaelder PER BOLIG, mens antallet foran er gruppens og
+    // arealet et spaend over dem alle. Vaerelsestallet ER en noegledel i
+    // grupperingen, saa alle medlemmer har det samme; «hver» er
+    // efterproevet, ikke et forbehold.
+    `${n.vaerelser} vær. hver`,
+    g.arealMin == null ? null
+      : g.arealMin === g.arealMax ? `${g.arealMin} m²` : `${g.arealMin}–${g.arealMax} m²`,
+  ].filter(Boolean).join(' · ')
   const av = g.availability
   // Blandet ansøgningsform/marked vises som tal — unknown forsvinder
   // aldrig ud af en blandet linje.
@@ -353,59 +463,69 @@ export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?
   const SPREDT = 1.25
   const spredt = g.prisMax > g.prisMin * SPREDT
 
+  // Ét maerkat, som paa enkeltkortet. «ny bolig», ikke «ny» — det er én
+  // i gruppen, der er kommet til. De tre statusord staar i metalinjen;
+  // se noten paa enkeltkortet om hvorfor de BLIVER.
+  const nymaerkat = nyligt
+    ? <span className="maerkat m-ny">ny bolig {siden(g.nyesteMarkedet)}</span>
+    : null
+  // Kun naar det gaelder HELE gruppen. Repraesentanten maa ikke tale for
+  // de andre — det er den samme regel som for kildemaerkaterne.
+  const status = [
+    alleVenteliste ? 'venteliste' : null,
+    alleReserveret ? 'reserveret' : null,
+    alleBopael ? 'bopælspligt' : null,
+  ].filter(Boolean) as string[]
+
   return (
-    <a
-      className={`kort gruppekort${forside ? '' : ' uden-billede'}`}
-      href={gruppeUrl(r.id)}
+    <div className="kort-hylster">
+    {/* GRUPPEKORTETS BILLEDER ER REPRÆSENTANTENS, OG KUN HANS.
+        `boligId` er `r.id` — den bolig, forsiden hører til. Gruppens
+        øvrige medlemmer har deres egne billeder, og at blande dem ville
+        vise en bolig, kortet ikke handler om. Det er samme regel som
+        billedforbeholdet nedenfor, der også kun er repræsentantens. */}
+    <Bladrekort
+      klasse={`kort gruppekort${forside ? '' : ' uden-billede'}`}
+      href={gruppeUrl(r.id, filtre)}
       id={`kort-${r.id}`}
-      data-bolig={r.id}
-      data-kilde={r.kilde}
-      data-position={position}
-      data-gruppe="1"
-      data-gruppe-antal={g.antal}
+      data={{ bolig: r.id, kilde: r.kilde, position, gruppe: '1', gruppeAntal: g.antal }}
+      billede={forside ? {
+        boligId: r.id,
+        forside,
+        srcSet: breddeTilladt(r.forside!, 800)
+          ? `${forside} 400w, ${billedUrl(r.forside!, 800)} 800w`
+          : undefined,
+        sizes: breddeTilladt(r.forside!, 800)
+          ? '(max-width: 620px) calc(100vw - 44px), 50vw' : undefined,
+        antal: r.billeder,
+      } : null}
+      maerkat={nymaerkat}
+      forbehold={r.billedforbehold ? <Billedforbehold /> : null}
+      etiket={`${n.vej}, ${n.postnr} ${r.by}`}
     >
-      {/* Billedet og forbeholdet er ÉT gitterfelt. Var forbeholdet et felt
-          for sig, skubbede det kroppen en raekke ned — se .kort-billedblok
-          i globals.css. */}
-      {forside && (
-        <div className="kort-billedblok">
-          <div className="kort-billede">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={forside} alt="" loading="lazy" />
-            <span className="kort-antal">{g.antal} boliger</span>
-          </div>
-          {/* Repraesentantens forbehold: det er HANS billede, kortet viser. */}
-          {r.billedforbehold && <Billedforbehold />}
-        </div>
-      )}
-
       <div className="kort-krop">
-        <div className="raek1">
-          <div>
-            <div className="adresse">{n.vej}</div>
-            <div className="sted">
-              {n.postnr} {r.by} · {g.antal} {typeord(g.type, true)}
-            </div>
-          </div>
-          <div className="hoejre">
-            {/* "ny bolig", ikke "ny": det er én i gruppen, der er kommet
-                til — ikke dem alle. */}
-            {nyligt && <span className="maerkat m-ny">ny bolig {siden(g.nyesteMarkedet)}</span>}
-            {alleVenteliste && <span className="maerkat m-vent">venteliste</span>}
-            {alleReserveret && <span className="maerkat m-vent">reserveret</span>}
-            {alleBopael && <span className="maerkat m-kilde">bopælspligt</span>}
-            {/* Kun naar det gaelder hele gruppen — ellers ville
-                repraesentanten tale for de andre. */}
-            <Kilder navn={r.kildeNavn} ogsaa={g.alleOgsaaAndetsteds ? r.ogsaaHos : []} />
-          </div>
+        {!forside && nymaerkat && (
+          <div className="kort-maerkater i-krop">{nymaerkat}</div>
+        )}
+        <div className="kort-titel">
+          {/* Samme form som enkeltkortet: hvad det ER, saa hvor det er.
+              Antallet staar foran, saa kortet ikke kan laeses som én
+              bolig — og arealet er et spaend, naar medlemmerne er
+              forskellige. */}
+          <h3 className="kort-overskrift">{overskrift}</h3>
+          <p className="adresse">{n.vej} · {n.postnr} {r.by}</p>
         </div>
 
-        <div className="fakta">
-          {fakta.map((f, i) => <span key={i}>{i > 0 && ' · '}{f}</span>)}
-        </div>
+        {/* Metalinjen som paa enkeltkortet: overtagelsen og de statusord,
+            der gaelder HELE gruppen. */}
+        <p className="kort-meta">{[ledig, ...status].join(' · ')}</p>
+
         {/* Blandet ansøgningsform/markedsstatus vises som TAL — kortet må
             ikke lade en delmængdes status tale for hele gruppen, og
-            unknown forsvinder aldrig ud af en blandet linje. */}
+            unknown forsvinder aldrig ud af en blandet linje. Derfor staar
+            de HER og ikke som statusord ovenfor: «venteliste» om en
+            gruppe, hvor kun tre af otte er paa venteliste, ville vaere
+            repraesentanten, der talte for de andre. */}
         {blandetAnsoegning && <div className="el">{blandetAnsoegning}</div>}
         {delvisReserveret && <div className="el">{delvisReserveret}</div>}
 
@@ -442,7 +562,7 @@ export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?
           </div>
 
           {g.indflytningMin != null && (
-            <div className="total">
+            <div className="kort-indflytning">
               indflytning{' '}
               <b>
                 {g.indflytningMin === g.indflytningMax
@@ -486,8 +606,18 @@ export function Gruppekort({ g, nu, position }: { g: Gruppe; nu: Date; position?
             <div className="poster">{['husleje', ...aconto].join(' + ')}</div>
           )}
         </div>
+
+        {/* Kilderne kun naar det gaelder HELE gruppen — ellers ville
+            repraesentanten tale for de andre. */}
+        <div className="kort-fod">
+          <Kilder navn={r.kildeNavn} ogsaa={g.alleOgsaaAndetsteds ? r.ogsaaHos : []} />
+        </div>
       </div>
-    </a>
+    </Bladrekort>
+    {favorit && (
+      <Favoritknap listingId={r.id} status={favorit} adresse={n.vej} />
+    )}
+    </div>
   )
 }
 
@@ -529,7 +659,15 @@ function Billedforbehold() {
   )
 }
 
-function Ellinje({ tilstand }: { tilstand: Eltilstand | null }) {
+/**
+ * El-forbeholdet. Eksporteret, fordi den nu har TRE kaldere: enkeltkortet,
+ * gruppekortet og Min sides gemte-kort. Reglen i CLAUDE.md er ikke, at de
+ * tre skal «holdes ens» — det er, at spoergsmaalet besvares ét sted og
+ * bruges derfra. Foerste gang de to foerste drev fra hinanden, stod der
+ * baade «Udlejer oplyser ikke aconto» og en el-linje om den aconto paa 47
+ * gruppekort.
+ */
+export function Ellinje({ tilstand }: { tilstand: Eltilstand | null }) {
   if (tilstand == null || tilstand === 'med') return null
   return (
     <div className="el">
@@ -548,8 +686,15 @@ function Ellinje({ tilstand }: { tilstand: Eltilstand | null }) {
  * lib/soeg — og saa spoergsmaalet «bliver position 40 nogensinde set?»
  * kan besvares. Uden den er en impression bare et tal uden sted.
  */
-export function Visningskort({ v, nu, position }: { v: Visning; nu: Date; position?: number }) {
+export function Visningskort({ v, nu, position, filtre, favorit }: {
+  v: Visning; nu: Date; position?: number
+  filtre?: Filtre
+  favorit?: Favoritstatus
+}) {
+  // Begge props gaar videre uroert. `filtre` bruges kun af gruppekortet
+  // (det bygger /gruppe-adressen); favoritstatus gaelder begge korttyper,
+  // for en gruppe gemmes paa repraesentantens bolig-id.
   return v.slags === 'gruppe'
-    ? <Gruppekort g={v.gruppe} nu={nu} position={position} />
-    : <Kort b={v.bolig} nu={nu} position={position} />
+    ? <Gruppekort g={v.gruppe} nu={nu} position={position} filtre={filtre} favorit={favorit} />
+    : <Kort b={v.bolig} nu={nu} position={position} favorit={favorit} />
 }
