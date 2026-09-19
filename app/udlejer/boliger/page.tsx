@@ -6,6 +6,7 @@ import { KVITTERINGSCOOKIE, kvitteringFra } from '../../../lib/kontovej'
 import { fjern, genudgiv, logUd } from '../handlinger'
 import { Kvitteringsblok } from '../Kvitteringsblok'
 import { kr } from '../../Boligkort'
+import { erEgenAnnonce } from '../../../lib/kilde'
 import type { Repraesentant } from '../../../lib/soeg'
 
 /**
@@ -98,7 +99,11 @@ export default async function Side() {
                       <strong>Vises ikke i søgningen.</strong> Vi har fundet
                       en anden annonce for den samme bolig og viser den i
                       stedet: <a href={`/bolig/${synlig.af.id}`}>{synlig.af.adresse}</a>
-                      {' '}hos {synlig.af.kilde}.
+                      {/* «hos udlejeren selv», ikke «hos Bofinda»: den
+                          vindende annonce er heller ikke hentet nogen
+                          steder. Samme spørgsmål som kortets mærkat,
+                          men midt i en sætning — se lib/kilde.ts. */}
+                      {' '}hos {erEgenAnnonce(synlig.af) ? 'udlejeren selv' : synlig.af.kildeNavn}.
                     </p>
                     <p className="note">
                       Den blev valgt, fordi {grunden(b, synlig.af)}. Din annonce

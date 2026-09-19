@@ -8,6 +8,7 @@ import type { Bolig, Filtre, Gruppe, Visning } from '../lib/soeg'
 import { availabilityFor, gruppeUrl } from '../lib/soeg'
 import type { Availability, Gruppesammenfatning } from '../lib/availability'
 import { billedUrl, breddeTilladt } from '../lib/billede'
+import { kildeetiket } from '../lib/kilde'
 import { medRetur } from '../lib/retur'
 import type { Favoritstatus } from '../lib/favoritter'
 import { Favoritknap } from './Favoritknap'
@@ -150,11 +151,16 @@ const areal = (min: number | null, max: number | null) =>
  * Kildemærkaterne. Én bolig kan annonceres flere steder; vi viser den én
  * gang og navngiver dem alle. `ogsaaHos` er de ANDRE kilder med samme
  * enhedsadresse — se dedup i lib/soeg.ts.
+ *
+ * `navn` er IKKE altid `sources.name`. For en udlejerannonce er der
+ * ingen kilde, og så står der «Udlejeren selv» — afgjort ét sted, i
+ * `kildeetiket` i lib/kilde.ts, som boligsiden og Min side bruger med.
  */
 function Kilder({ navn, ogsaa }: { navn: string; ogsaa: string[] }) {
   if (!ogsaa?.length) return <span className="maerkat m-kilde">{navn}</span>
   return (
-    <span className="kilder" title={`Samme bolig annonceret hos ${[navn, ...ogsaa].join(' og ')}`}>
+    <span className="kilder"
+      title={`Samme bolig, annonceret flere steder: ${[navn, ...ogsaa].join(', ')}`}>
       {[navn, ...ogsaa].map((k) => (
         <span key={k} className="maerkat m-kilde">{k}</span>
       ))}
@@ -381,7 +387,7 @@ export function Kort({ b, nu, position, favorit, retur }: {
             én gang, selv om flere kilder annoncerer den — saa skal kortet
             ogsaa sige, hvem der har den. */}
         <div className="kort-fod">
-          <Kilder navn={b.kildeNavn} ogsaa={b.ogsaaHos} />
+          <Kilder navn={kildeetiket(b)} ogsaa={b.ogsaaHos} />
         </div>
       </div>
     </Bladrekort>
@@ -619,7 +625,7 @@ export function Gruppekort({ g, nu, position, filtre, favorit, retur }: {
         {/* Kilderne kun naar det gaelder HELE gruppen — ellers ville
             repraesentanten tale for de andre. */}
         <div className="kort-fod">
-          <Kilder navn={r.kildeNavn} ogsaa={g.alleOgsaaAndetsteds ? r.ogsaaHos : []} />
+          <Kilder navn={kildeetiket(r)} ogsaa={g.alleOgsaaAndetsteds ? r.ogsaaHos : []} />
         </div>
       </div>
     </Bladrekort>

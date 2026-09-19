@@ -3,6 +3,7 @@ import { favoritIder, statusFor } from '../../lib/favoritter'
 import {
   filtreFraParametre, gruppenoegleFra, gruppenoegleFraBolig, hentGruppe, type Soegeparametre,
 } from '../../lib/soeg'
+import { erEgenAnnonce } from '../../lib/kilde'
 import { RETUR_PARAM, returUrl } from '../../lib/retur'
 import { spor } from '../../lib/maaling-server'
 
@@ -136,7 +137,10 @@ export default async function Side(
         <h1>{n.vej}</h1>
         <p>
           <strong>{boliger.length} {ord}</strong> med {n.vaerelser}{' '}
-          {n.vaerelser === 1 ? 'værelse' : 'værelser'} fra {boliger[0]!.kildeNavn},{' '}
+          {n.vaerelser === 1 ? 'værelse' : 'værelser'}{' '}
+          {/* Samme spørgsmål som kortets mærkat, samme svar — men med
+              plads til en sætning. Se `kildeetiket` i lib/kilde.ts. */}
+          {erEgenAnnonce(boliger[0]!) ? 'fra udlejeren selv' : `fra ${boliger[0]!.kildeNavn}`},{' '}
           {prisMin === prisMax ? kr(prisMin) : `${kr(prisMin)}–${kr(prisMax)}`} kr/md{' '}
           {n.total ? 'til udlejer' : 'i husleje'}. Pris, areal og indflytningsdato
           kan variere — se hver enkelt nedenfor.

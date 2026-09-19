@@ -6,6 +6,7 @@ import {
 import { forklar } from '../../../lib/availability'
 import { billedUrl } from '../../../lib/billede'
 import { eltilstand } from '../../../lib/eloplysning'
+import { erEgenAnnonce, kildeetiket } from '../../../lib/kilde'
 import { Galleri } from './Galleri'
 import { Kontakt } from './Kontakt'
 import { Maaling } from '../../Maaling'
@@ -81,6 +82,10 @@ export default async function Side({ params, searchParams }: {
   const nu = new Date()
   const avail = b ? availabilityFor(b, nu) : null
   if (!b) notFound()
+
+  // Ét udtryk for «hvem har oprettet den», delt med begge korttyper,
+  // gruppesiden og Min side. Se lib/kilde.ts.
+  const egenAnnonce = erEgenAnnonce(b)
 
   const galleri = b.billeder
     .map((x) => ({ lille: billedUrl(x.url, 800), stor: billedUrl(x.url, 1600) }))
@@ -164,7 +169,7 @@ export default async function Side({ params, searchParams }: {
       timing_status: avail!.timing.status,
       ansoegning_status: avail!.ansoegning.status,
       marked_status: avail!.marked.status,
-      egen_annonce: b.egenAnnonce,
+      egen_annonce: egenAnnonce,
       total_kendt: b.total != null,
       antal_billeder: galleri.length,
     },
@@ -415,7 +420,7 @@ export default async function Side({ params, searchParams }: {
               </div>
             )}
 
-            {b.egenAnnonce ? (
+            {egenAnnonce ? (
               /* Udlejeren har oprettet annoncen her. Der er ingen ekstern
                  kilde at sende laeseren til — knappen linkede i ring.
                  Kontaktoplysningerne findes, men muren staar foran dem:
@@ -679,7 +684,7 @@ export default async function Side({ params, searchParams }: {
               )}
               {b.aabentHus && <><dt>Åbent hus</dt><dd>{dato(b.aabentHus)}</dd></>}
               <dt>Kilde</dt>
-              <dd>{b.egenAnnonce ? 'Udlejeren selv' : b.kildeNavn}</dd>
+              <dd>{kildeetiket(b)}</dd>
             </dl>
             {avail!.timing.status === 'conflict' && (
               /* Konflikten er et datakvalitetsfund og skjules ikke: begge

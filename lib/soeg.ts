@@ -272,7 +272,15 @@ export interface Repraesentant {
   adresse: string
   postnr: string | null
   by: string | null
-  kilde: string
+  /**
+   * Parret bæres videre RÅT, og svaret udledes hos den, der skriver
+   * sætningen. Der er ikke plads til det samme ord to steder: kortets
+   * mærkat hedder «Udlejeren selv», mens Mine annoncer skriver «… hos
+   * udlejeren selv» midt i en sætning. Ét spørgsmål, to tekster — se
+   * `erEgenAnnonce` og `kildeetiket` i lib/kilde.ts.
+   */
+  kildeNavn: string
+  kildetype: string | null
   billeder: number
   harTotal: boolean
 }
@@ -317,7 +325,13 @@ export async function repraesentantFor(ids: string[]): Promise<Map<string, Repra
       adresse: listings.addressRaw,
       postnr: listings.postalCode,
       by: listings.city,
-      kilde: sources.name,
+      // Hvem vandt — til linjen paa Mine annoncer: «… viser den i
+      // stedet: <adresse> hos X». Taber en udlejer til en ANDEN
+      // udlejerannonce, skrev `sources.name` «hos Bofinda» om en annonce,
+      // der ikke er hentet nogen steder. Typen foelger med, saa sidens
+      // egen saetning kan udlede svaret ét sted; se lib/kilde.ts.
+      kildeNavn: sources.name,
+      kildetype: listings.sourceType,
       billeder: sql<number>`(select count(*)::int from ${listingImages} i
         where i.listing_id = ${listings.id} and ${VISBAR_VAERT})`,
       harTotal: sql<boolean>`(${listings.totalMonthly} is not null)`,
@@ -332,7 +346,8 @@ export async function repraesentantFor(ids: string[]): Promise<Map<string, Repra
     const v = efterNoegle.get(t.noegle)
     if (v) svar.set(t.id, {
       id: v.id, adresse: v.adresse, postnr: v.postnr, by: v.by,
-      kilde: v.kilde, billeder: v.billeder, harTotal: v.harTotal,
+      kildeNavn: v.kildeNavn, kildetype: v.kildetype,
+      billeder: v.billeder, harTotal: v.harTotal,
     })
   }
   return svar
@@ -1528,7 +1543,16 @@ export async function hentBolig(id: string) {
       // Til visningen: en native bolig har ingen ekstern kilde at sende
       // laeseren hen til. Kontaktfelterne hentes stadig ALDRIG her — muren
       // staar i query'en, ikke i skabelonen.
-      egenAnnonce: sql<boolean>`(${listings.sourceType} = 'native')`,
+      //
+      // TYPEN baeres ud, ikke et praedikat. Der stod foer
+      // `sql`(${listings.sourceType} = 'native')`` her, og kortet havde
+      // SAMTIDIG `kildetype` — to udtryk for ét spoergsmaal, hvoraf
+      // kortets aldrig blev stillet. Svaret udledes nu ét sted,
+      // `erEgenAnnonce` i lib/kilde.ts, af det samme felt begge steder.
+      // Muren er urOErt: `harKontaktMail` og `harKontaktTlf` nedenfor er
+      // stadig SQL, og de svarer paa et andet spoergsmaal — om felterne
+      // overhovedet maa forlade databasen.
+      kildetype: listings.sourceType,
       // OM der er oplyst noget — ikke HVAD. Vaerdien hentes foerst, naar
       // et menneske trykker, saa den ikke ligger i sidens markup, hvor en
       // adresse-hoester kan laese den.

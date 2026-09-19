@@ -34,6 +34,7 @@ import { type Gemoenske, type Gemudfald } from './gemoenske'
 // ene udtryk, soegesiden taeller og vaelger forsidebilleder med; en kopi
 // ville vaere praecis den form for dobbelthed, CLAUDE.md samler seks
 // tilfaelde af — to rigtige udtryk, der driver fra hinanden.
+import { kildeetiket } from './kilde'
 import { VISBAR_VAERT } from './soeg'
 
 /** Hvad et boligkort skal vide for at tegne knappen. */
@@ -167,6 +168,15 @@ export interface GemtBolig {
   adresse: string | null
   postnr: string | null
   by: string | null
+  /**
+   * Hvem boligen kommer fra, som den skal STAA paa kortet.
+   *
+   * Ikke raat `sources.name`: for en udlejerannonce er der ingen kilde,
+   * og saa stod der «Bofinda» her, mens boligsiden sagde «Udlejeren
+   * selv» om den samme bolig. Svaret udledes ét sted — `kildeetiket` i
+   * lib/kilde.ts — og felterne herunder er i forvejen visningsfelter.
+   * Null naar boligen er slettet under os.
+   */
   kilde: string | null
 
   // ── Hvad boligen ER ────────────────────────────────────────
@@ -230,7 +240,8 @@ export async function hentFavoritter(brugerId: string): Promise<GemtBolig[]> {
       adresse: listings.addressRaw,
       postnr: listings.postalCode,
       by: listings.city,
-      kilde: sources.name,
+      kildeNavn: sources.name,
+      kildetype: listings.sourceType,
       type: listings.propertyType,
       vaerelser: listings.rooms,
       areal: listings.sizeM2,
@@ -270,7 +281,8 @@ export async function hentFavoritter(brugerId: string): Promise<GemtBolig[]> {
     adresse: r.adresse,
     postnr: r.postnr,
     by: r.by,
-    kilde: r.kilde,
+    kilde: r.kildeNavn == null ? null
+      : kildeetiket({ kildetype: r.kildetype, kildeNavn: r.kildeNavn }),
     type: r.type,
     vaerelser: r.vaerelser,
     areal: r.areal,
