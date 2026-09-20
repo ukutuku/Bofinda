@@ -119,6 +119,13 @@ try {
   const hvor = her?.hvor
   tjek(`prøven skriver i ${NAVN}`, hvor === NAVN, `current_database()=${hvor}`)
 
+  /** En lille aftale mellem to tråde: A venter, til B siger til. */
+  function aftale() {
+    let slip: () => void = () => {}
+    const naaet = new Promise<void>((r) => { slip = r })
+    return { naaet, slip }
+  }
+
   // ═══ A · TO SAMTIDIGE KOEB PAA SAMME KONTO ═══════════════
   console.log('\n══ A · to samtidige køb — kun én reservation ══')
   {
@@ -161,13 +168,6 @@ try {
   // SIGNALER i stedet for ventetider: en `sleep` ville måle en
   // rækkefølge, vi håber på, og være grøn den dag maskinen er hurtig.
 
-  /** En lille aftale mellem to tråde: A venter, til B siger til. */
-  function aftale() {
-    let slip: () => void = () => {}
-    const naaet = new Promise<void>((r) => { slip = r })
-    return { naaet, slip }
-  }
-
   console.log('\n══ B1 · reservationen er skrevet, mens skiftet kommer ══')
   {
     falsk.nulstil(); falsk.sessioner.clear()
@@ -181,18 +181,22 @@ try {
     // Den farligste rækkefølge, præcist stillet op:
     //  1 · købet committer sin reservation — og slipper dermed låsen
     //  2 · købet kalder Stripe, og HOLDER dér
-    //  3 · skiftet tager låsen, lukker reservationen, skriver GRATIS
-    //  4 · Stripe svarer, og købet står med en session i gratis tilstand
-    // Punkt 4 er hele prøven: sessionen må ikke blive betalbar.
-    const iStripe = aftale()      // købet er nået til Stripe
-    const maaFortsaette = aftale() // skiftet er færdigt
+    //  3 · skiftet tager låsen og ser en reservation UDEN sessions-id
+    //  4 · Stripe svarer, og der står en session, ingen forventede
+    //
+    // Prøven målte før, at skiftet gik IGENNEM, og at købet derefter
+    // udløb sin egen session. Det var for optimistisk: den gren
+    // hviler på, at `expire` LYKKES, og gør den ikke det, står man med
+    // gratis tilstand og en betalbar side. Det var gennemgangens
+    // scenarie C. Nu AFVISES skiftet i stedet, og det er den rigtige
+    // rækkefølge: først finde ud af, hvad der sker, så skrive.
+    const iStripe = aftale()
+    const maaFortsaette = aftale()
     const rigtig = (falsk.checkout as { sessions: { create: (p: unknown, o?: unknown) => Promise<unknown> } })
       .sessions.create
     ;(falsk.checkout as { sessions: { create: unknown } }).sessions.create =
       async (p: unknown, o?: unknown) => {
-        iStripe.slip()
-        await maaFortsaette.naaet
-        return rigtig(p, o)
+        iStripe.slip(); await maaFortsaette.naaet; return rigtig(p, o)
       }
 
     const koeb = startKoebFor(u, '/')
@@ -210,21 +214,28 @@ try {
 
     const [d] = await db.select({ t: drift.tilstand }).from(drift)
     const betalbare = [...falsk.sessioner.values()].filter((x) => x.status === 'open')
-    const aabne = await db.select({ id: checkoutForsoeg.id }).from(checkoutForsoeg)
-      .where(eq(checkoutForsoeg.status, 'aaben'))
     console.log(`     køb=${JSON.stringify(k)} · skift=${JSON.stringify(s)}`)
-    console.log(`     tilstand=${d?.t} · betalbare sessioner=${betalbare.length} · åbne rækker=${aabne.length}`)
+    console.log(`     tilstand=${d?.t} · betalbare sessioner=${betalbare.length}`)
 
-    tjek('skiftet gik igennem', s.ok, JSON.stringify(s))
-    tjek('  købet ender som gratis_tilstand, ikke som en gyldig url',
-      !k.ok && k.fejl === 'gratis_tilstand', JSON.stringify(k))
-    tjek('  ALDRIG gratis tilstand OG en betalbar session', betalbare.length === 0,
+    tjek('skiftet AFVISES — et tomt sessions-id er ikke bevis for, at intet kører',
+      !s.ok && s.fejl === 'aabne_koeb', JSON.stringify(s))
+    tjek('  købet lykkes, for skiftet vandt ikke', k.ok, JSON.stringify(k))
+    tjek('  ALDRIG gratis tilstand OG en betalbar session',
+      !(d?.t === 'gratis' && betalbare.length > 0),
       'det var hele grunden til vagten')
-    tjek('  købet udløb selv sin egen session hos Stripe',
+    tjek('  tilstanden er UROERT', d?.t === 'betaling', `tilstand=${d?.t}`)
+
+    // Og skiftet er ikke spærret for evigt: nu HAR rækken et
+    // sessions-id, og næste forsøg kan lukke den hos Stripe.
+    const s2 = await saetTilstand('gratis', admin, 'andet forsøg')
+    const [d2] = await db.select({ t: drift.tilstand }).from(drift)
+    const betalbare2 = [...falsk.sessioner.values()].filter((x) => x.status === 'open')
+    tjek('næste forsøg går igennem, når sessionen er kendt', s2.ok, JSON.stringify(s2))
+    tjek('  sessionen blev udløbet hos Stripe',
       falsk.antal('checkout.sessions.expire') === 1,
       `${falsk.antal('checkout.sessions.expire')} expire-kald`)
-    tjek('  og der er ingen åben reservation tilbage', aabne.length === 0)
-    tjek('  tilstanden er gratis', d?.t === 'gratis')
+    tjek('  og der er ingen betalbar session tilbage', betalbare2.length === 0)
+    tjek('  tilstanden er nu gratis', d2?.t === 'gratis')
   }
 
   console.log('\n══ B2 · skiftet holder låsen, mens købet forsøger ══')
@@ -262,6 +273,92 @@ try {
     const aabne = await db.select({ id: checkoutForsoeg.id }).from(checkoutForsoeg)
       .where(eq(checkoutForsoeg.status, 'aaben'))
     tjek('  ingen reservation blev efterladt', aabne.length === 0)
+  }
+
+  // ═══ B3 · SKIFTET MOEDER ET GENNEMFOERT KOEB ═════════════
+  console.log('\n══ B3 · gratis-skift mod et GENNEMFØRT køb ══')
+  {
+    falsk.nulstil(); falsk.sessioner.clear()
+    await db.delete(checkoutForsoeg)
+    await db.delete(subscriptions)
+    await db.update(drift).set({ tilstand: 'betaling' }).where(eq(drift.id, true))
+    const admin = await bruger('b3adm')
+    await db.update(users).set({ role: 'admin' }).where(eq(users.id, admin))
+    const u = await bruger('b3')
+    const k = await startKoebFor(u, '/')
+    tjek('købet lykkes', k.ok, JSON.stringify(k))
+
+    // Kassen gennemføres hos Stripe. Webhooken er IKKE ankommet.
+    const [r0] = await db.select({ sid: checkoutForsoeg.stripeSessionId })
+      .from(checkoutForsoeg).where(eq(checkoutForsoeg.userId, u))
+    const sess = falsk.sessioner.get(r0!.sid!)!
+    sess.status = 'complete'
+    sess.subscription = 'sub_b3'
+    sess.payment_status = 'paid'
+
+    const s = await saetTilstand('gratis', admin)
+    const [d] = await db.select({ t: drift.tilstand }).from(drift)
+    console.log(`     skift=${JSON.stringify(s)}`)
+    tjek('skiftet AFVISES — der er sandsynligvis betalt',
+      !s.ok && s.fejl === 'gennemfoerte_koeb', JSON.stringify(s))
+    tjek('  tilstanden er UROERT', d?.t === 'betaling', `tilstand=${d?.t}`)
+    tjek('  og vi opsagde hende ikke selv',
+      falsk.antal('subscriptions.cancel') === 0)
+  }
+
+  // ═══ B4 · SKIFT MOD ET KALD I LUFTEN, HVOR EXPIRE FEJLER ═
+  // Gennemgangens scenarie C, men paa RIGTIG Postgres og med den
+  // fejlende oprydning, deres probe efterlyste.
+  console.log('\n══ B4 · skift mod et kald i luften — og expire fejler ══')
+  {
+    falsk.nulstil(); falsk.sessioner.clear()
+    await db.delete(checkoutForsoeg)
+    await db.delete(subscriptions)
+    await db.update(drift).set({ tilstand: 'betaling' }).where(eq(drift.id, true))
+    const admin = await bruger('b4adm')
+    await db.update(users).set({ role: 'admin' }).where(eq(users.id, admin))
+    const u = await bruger('b4')
+
+    const iStripe = aftale()        // købet er nået ind i Stripe-kaldet
+    const maaFortsaette = aftale()  // skiftet er færdigt
+    const rigtig = (falsk.checkout as { sessions: { create: (p: unknown, o?: unknown) => Promise<unknown> } })
+      .sessions.create
+    ;(falsk.checkout as { sessions: { create: unknown } }).sessions.create =
+      async (p: unknown, o?: unknown) => {
+        iStripe.slip(); await maaFortsaette.naaet; return rigtig(p, o)
+      }
+
+    const koeb = startKoebFor(u, '/')
+    await iStripe.naaet
+    const laaste = await db.select({ id: checkoutForsoeg.id, sid: checkoutForsoeg.stripeSessionId })
+      .from(checkoutForsoeg).where(eq(checkoutForsoeg.status, 'aaben'))
+    tjek('reservationen er committet UDEN sessions-id',
+      laaste.length === 1 && laaste[0]!.sid === null,
+      `${laaste.length} åbne, session=${laaste[0]?.sid}`)
+
+    const s = await saetTilstand('gratis', admin, 'kapløb B4')
+    // Oprydningen fejler, NÅR kaldet lander.
+    falsk.fejlPaa.add('checkout.sessions.expire')
+    maaFortsaette.slip()
+    const k = await koeb
+    ;(falsk.checkout as { sessions: { create: unknown } }).sessions.create = rigtig
+
+    const [d] = await db.select({ t: drift.tilstand }).from(drift)
+    const betalbare = [...falsk.sessioner.values()].filter((x) => x.status === 'open')
+    const aabne = await db.select({ id: checkoutForsoeg.id }).from(checkoutForsoeg)
+      .where(eq(checkoutForsoeg.status, 'aaben'))
+    console.log(`     skift=${JSON.stringify(s)}`)
+    console.log(`     køb=${JSON.stringify(k)}`)
+    console.log(`     tilstand=${d?.t} · betalbare=${betalbare.length} · åbne=${aabne.length}`)
+
+    tjek('skiftet blev AFVIST, ikke meldt færdigt',
+      !s.ok && s.fejl === 'aabne_koeb', JSON.stringify(s))
+    tjek('  ALDRIG gratis tilstand OG en betalbar session',
+      !(d?.t === 'gratis' && betalbare.length > 0),
+      'det var hele grunden til vagten')
+    tjek('  tilstanden er betaling', d?.t === 'betaling', `tilstand=${d?.t}`)
+    tjek('  og reservationen står åben, så næste forsøg ser den',
+      aabne.length === 1, `${aabne.length} åbne`)
   }
 
   // ═══ C · SAMME HAENDELSE, TO SAMTIDIGE BEHANDLERE ════════

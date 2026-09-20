@@ -131,6 +131,45 @@ faktura, der med rette måtte registrere betalt adgang, samtidig skrev
 Adgangens monotoni og spejlingens rækkefølge er to forskellige
 spørgsmål, og de skal derfor beregnes hver for sig.
 
+### Rækkefølgen mellem hændelser
+
+`created` har **sekundopløsning**, og Stripes `EventBase` bærer intet
+andet ordningsfelt (`Events.d.ts`). To hændelser i samme sekund siger
+derfor ingenting om orden — og det gælder begge veje:
+
+* En faktura i samme sekund som sin checkout skal stadig kunne **skrive
+  spejlingen**. Derfor er tidsvagten `<=`.
+* En faktura i samme sekund som en **opsigelse** må ikke skrive
+  `canceled` tilbage til `active`. Derfor er der en **anden** vagt.
+
+`TERMINALE` er `canceled`, `incomplete_expired` og `expired`. En række i
+en af dem forlades kun af en hændelse, der selv er terminal. Køber
+kunden igen, får hun et nyt abonnements-id og dermed en ny række — en
+terminal række skal aldrig genoplives.
+
+De to vagter er adskilte, fordi de svarer på forskellige spørgsmål: den
+ene om **tid**, den anden om hvilke tilstande der overhovedet kan
+forlades. At bytte `<=` ud med `<` ville bare have byttet den ene fejl
+for den anden.
+
+**Adgangens monotoni er urørt af begge.** En gammel faktura registrerer
+stadig sin betalte periode.
+
+### Køen fortrænger ikke
+
+`behandlUbehandlede()` tog før «de 50 ældste ubehandlede». Det var nok
+til at spærre køen for altid: femoghalvtreds hændelser, hvis
+forudsætning aldrig kommer, blev valgt hver gang.
+
+Nu bærer hver hændelse en `naeste_forsoeg_at`, og kun de klare vælges —
+ældste først **blandt dem**. Trinene er 0 · 0 · 10 min · 10 min · 1 t ·
+… · 6 t. De to første venter ikke, så tilsynet kan gøre en hændelse
+færdig i samme kørsel, som forudsætningen ankom.
+
+**En betalingshændelse opgives aldrig.** Der er ingen «giv op efter
+fem» her — den prøves bare sjældnere, og den bliver stående i basen med
+sin fejl.
+
 ### Planstart, betalingsforsøg og betaling er tre ting
 
 | Begreb | Hvad det er | Giver adgang? |

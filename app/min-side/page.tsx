@@ -183,6 +183,7 @@ export default async function Side(
   const a = tilstand === 'betaling' ? await mitAbonnement() : null
   const abonnement = a && {
     status: a.status, fase: a.fase,
+    fornyelseStoppet: a.fornyelseStoppet,
     naeste: a.naeste,
     fornyesAt: a.fornyesAt ? a.fornyesAt.toLocaleString('da-DK') : null,
     adgangTil: a.adgangTil ? a.adgangTil.toLocaleString('da-DK') : null,

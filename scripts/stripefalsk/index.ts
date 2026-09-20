@@ -17,6 +17,11 @@
 //        · samme noegle + SAMME parametre → det FOERSTE svar afspilles;
 //          handlingen udfoeres ikke igen
 //        · samme noegle + ANDRE parametre → fejl, ikke et nyt svar
+//        · og RESULTATET KAN VAERE EN FEJL. Stripe gemmer ogsaa et
+//          HTTP 500-svar, naar udfoerelsen er paabegyndt. En
+//          valideringsfejl FOER udfoerelse er en anden situation og
+//          gemmes ikke. Attrappen skelner de to med `fejlPaa`
+//          (foer udfoerelse) og `gemtFejlPaa` (ukendt udfald).
 //      Netop den anden regel var det, der vaeltede genstarten af et
 //      koeb, da noeglen var `koeb:<bruger>:<pristype>`: en ny session
 //      efter en udloebet havde et nyt `expires_at`, altsaa andre
@@ -49,17 +54,35 @@ interface Fase {
   trial_end?: number
 }
 export interface Plan { id: string; phases: Fase[]; konfigureret: boolean; status: string }
-export interface Session { id: string; url: string; status: string; expires_at?: number }
+export interface Session {
+  id: string; url: string; status: string; expires_at?: number
+  /** Saettes naar kassen gennemfoeres. Stripes to akser, ikke én. */
+  subscription?: string
+  payment_status?: string
+}
 
 export interface Falsk {
   kald: Kald[]
-  /** Naeste kald til `metode` kaster. Sat af proeven. */
+  /**
+   * Naeste kald til `metode` afvises FOER udfoerelse. Intet gemmes
+   * under noeglen, og et genforsoeg med samme noegle udfoerer paa ny.
+   */
   fejlPaa: Set<string>
+  /**
+   * Naeste kald til `metode` giver 500 med UKENDT udfald. Svaret
+   * GEMMES under noeglen; hver senere afspilning kaster det samme
+   * uden at udfoere noget.
+   */
+  gemtFejlPaa: Set<string>
   planer: Map<string, Plan>
   sessioner: Map<string, Session>
   abonnementer: Map<string, { id: string; cancel_at_period_end?: boolean; schedule?: string }>
-  /** Noeglerne, Stripe ville have gemt. Proeven kan laese og toemme dem. */
-  noegler: Map<string, { fingeraftryk: string; svar: unknown }>
+  /**
+   * Noeglerne, Stripe ville have gemt. Proeven kan laese og toemme dem.
+   * En post baerer ENTEN et svar ELLER en fejl — Stripe gemmer begge
+   * dele, naar udfoerelsen er paabegyndt.
+   */
+  noegler: Map<string, { fingeraftryk: string; svar?: unknown; fejl?: Error }>
   nulstil: () => void
   sidste: (metode: string) => Kald | undefined
   antal: (metode: string) => number
@@ -79,6 +102,45 @@ export class Idempotensfejl extends Error {
   }
 }
 
+/**
+ * En fejl, Stripe afviste FOER udfoerelsen — en valideringsfejl.
+ *
+ * Intet skete. Svaret gemmes IKKE under idempotensnoeglen, og et
+ * genforsoeg med samme noegle udfoerer paa ny.
+ * SDK'ens modstykke: `StripeInvalidRequestError`, `type:
+ * 'invalid_request_error'` (Error.d.ts:104).
+ */
+export class FoerUdfoerelseFejl extends Error {
+  readonly type = 'invalid_request_error'
+  readonly statusCode = 400
+  constructor(metode: string) {
+    super(`falsk stripe: ${metode} afvist foer udfoerelse (validering)`)
+  }
+}
+
+/**
+ * En fejl med UKENDT udfald — udfoerelsen kan vaere paabegyndt.
+ *
+ * Her stod attrappen tidligere og paastod i sin egen kommentar, at
+ * «et kald, der fejlede, gemmes IKKE paa noeglen — Stripe gemmer kun
+ * et svar, der blev til noget». Det holder ikke: Stripe gemmer ogsaa
+ * et HTTP 500-svar, naar udfoerelsen er startet, og hver senere
+ * afspilning af noeglen giver den samme fejl uden at udfoere noget.
+ * En kalder, der bare proever igen med samme noegle, kommer derfor
+ * aldrig videre — og en kalder, der BLINDT skifter noegle, kan oprette
+ * det samme to gange.
+ *
+ * SDK'ens modstykke: `StripeAPIError`, `type: 'api_error'`
+ * (Error.d.ts:113).
+ */
+export class UkendtUdfaldFejl extends Error {
+  readonly type = 'api_error'
+  readonly statusCode = 500
+  constructor(metode: string) {
+    super(`falsk stripe: ${metode} gav 500 — udfoerelsen kan vaere paabegyndt`)
+  }
+}
+
 /** Sekunder i en `duration`. Kun de intervaller, modellen bruger. */
 function varighed(d: Fase['duration']): number | null {
   if (!d || typeof d.interval !== 'string') return null
@@ -93,10 +155,11 @@ function varighed(d: Fase['duration']): number | null {
 export function lavFalsk(): Falsk & Record<string, unknown> {
   const kald: Kald[] = []
   const fejlPaa = new Set<string>()
+  const gemtFejlPaa = new Set<string>()
   const planer = new Map<string, Plan>()
   const sessioner = new Map<string, Session>()
   const abonnementer = new Map<string, { id: string; cancel_at_period_end?: boolean; schedule?: string }>()
-  const noegler = new Map<string, { fingeraftryk: string; svar: unknown }>()
+  const noegler = new Map<string, { fingeraftryk: string; svar?: unknown; fejl?: Error }>()
   let n = 0
 
   const noegleAf = (o: unknown): string | null => {
@@ -124,15 +187,26 @@ export function lavFalsk(): Falsk & Record<string, unknown> {
       if (kendt) {
         kald.push({ metode, args, afspillet: true })
         if (kendt.fingeraftryk !== aftryk) throw new Idempotensfejl(noegle)
+        // Gemt FEJL afspilles som fejl. Det er hele pointen: noeglen er
+        // braendt, og et genforsoeg paa den kommer aldrig videre.
+        if (kendt.fejl) throw kendt.fejl
         return kendt.svar as T
       }
       kald.push({ metode, args })
       if (fejlPaa.has(metode)) {
         fejlPaa.delete(metode)
-        // Et kald, der fejlede, gemmes IKKE paa noeglen — Stripe gemmer
-        // kun et svar, der blev til noget. Derfor kan et genforsoeg med
-        // samme noegle lykkes.
-        throw new Error(`falsk stripe: ${metode} fejlede med vilje`)
+        // FOER UDFOERELSE. Intet skete, og intet gemmes paa noeglen.
+        // Et genforsoeg med samme noegle udfoerer paa ny.
+        throw new FoerUdfoerelseFejl(metode)
+      }
+      if (gemtFejlPaa.has(metode)) {
+        gemtFejlPaa.delete(metode)
+        // UDFOERELSEN BLEV PAABEGYNDT, og Stripe gemte sin 500 under
+        // noeglen. Den bliver liggende: hver senere afspilning giver
+        // den samme fejl UDEN at udfoere noget.
+        const f = new UkendtUdfaldFejl(metode)
+        noegler.set(noegle, { fingeraftryk: aftryk, fejl: f })
+        throw f
       }
       const svar = udfoer()
       noegler.set(noegle, { fingeraftryk: aftryk, svar })
@@ -141,14 +215,20 @@ export function lavFalsk(): Falsk & Record<string, unknown> {
     kald.push({ metode, args })
     if (fejlPaa.has(metode)) {
       fejlPaa.delete(metode)
-      throw new Error(`falsk stripe: ${metode} fejlede med vilje`)
+      throw new FoerUdfoerelseFejl(metode)
+    }
+    if (gemtFejlPaa.has(metode)) {
+      gemtFejlPaa.delete(metode)
+      throw new UkendtUdfaldFejl(metode)
     }
     return udfoer()
   }
 
   const f: Falsk & Record<string, unknown> = {
-    kald, fejlPaa, planer, sessioner, abonnementer, noegler,
-    nulstil: () => { kald.length = 0; fejlPaa.clear(); noegler.clear() },
+    kald, fejlPaa, gemtFejlPaa, planer, sessioner, abonnementer, noegler,
+    nulstil: () => {
+      kald.length = 0; fejlPaa.clear(); gemtFejlPaa.clear(); noegler.clear()
+    },
     sidste: (m: string) => [...kald].reverse().find((k) => k.metode === m),
     antal: (m: string) => kald.filter((k) => k.metode === m).length,
     udfoerte: (m: string) => kald.filter((k) => k.metode === m && !k.afspillet).length,
@@ -170,8 +250,19 @@ export function lavFalsk(): Falsk & Record<string, unknown> {
             return s
           }),
         retrieve: (id: string) =>
-          gennem('checkout.sessions.retrieve', [id], undefined,
-            () => sessioner.get(id) ?? null),
+          gennem('checkout.sessions.retrieve', [id], undefined, () => {
+            const s = sessioner.get(id)
+            if (!s) return null
+            // Stripe udloeber selv en session paa dens `expires_at`.
+            // Uden det her ville attrappen svare `open` for evigt, og
+            // en proeve, der flytter uret frem, ville maale noget,
+            // Stripe aldrig ville have svaret.
+            if (s.status === 'open' && s.expires_at !== undefined
+                && s.expires_at * 1000 <= Date.now()) {
+              s.status = 'expired'
+            }
+            return s
+          }),
         expire: (id: string) =>
           gennem('checkout.sessions.expire', [id], undefined, () => {
             const s = sessioner.get(id)

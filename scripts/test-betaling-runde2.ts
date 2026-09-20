@@ -249,46 +249,55 @@ async function koer() {
     await db.delete(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
   }
 
-  console.log('\n══ 3c · en OPGIVET plan bliver ved at staa i rapporten ══')
+  console.log('\n══ 3c · en plan, der ikke kan bekraeftes, STOPPER fornyelsen ══')
   {
+    // Her stod foer: «tilsynet advarer om abonnementet uden bekraeftet
+    // plan». Advarslen er ikke nok — det var tredje gennemgangs fund 4.
+    // En markering i VORES base stopper ingen opkraevning hos Stripe.
+    falsk.nulstil()
     const u = await bruger('3c'); const sub = `sub_${randomUUID()}`
+    const adgangTil = new Date(Date.now() + 86400000)
     await db.insert(subscriptions).values({
       userId: u, stripeSubscriptionId: sub, status: 'active',
-      adgangTil: new Date(Date.now() + 86400000),
-      planStatus: 'fejlet', planForsoeg: 5, oprettetAt: new Date(),
+      adgangTil, stripeScheduleId: `sub_sched_3c_${S}`,
+      planStatus: 'fejlet', planForsoeg: 5, planFejl: 'modelleret 500',
+      oprettetAt: new Date(),
     })
     const linjer = await betalingstilsyn(OPS)
-    tjek('tilsynet advarer om abonnementet uden bekraeftet plan',
-      linjer.some((l) => l.includes('INGEN bekræftet plan') && l.includes(sub)),
+    tjek('fornyelsen bliver STOPPET, ikke bare logget',
+      linjer.some((l) => l.includes('fornyelsen er STOPPET') && l.includes(sub)),
       JSON.stringify(linjer))
-    tjek('  og siger, at det fornyes til 9 kr./DAG indtil nogen griber ind',
-      linjer.some((l) => l.includes('9 kr./DAG')))
-    // Den forsvinder IKKE af sig selv: koer igen, den staar der stadig.
-    const igen = await betalingstilsyn(OPS)
-    tjek('  linjen staar i NAESTE koersel ogsaa',
-      igen.some((l) => l.includes('INGEN bekræftet plan')),
-      'en tavs raekke i basen stopper ingen opkraevning')
-    await db.delete(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
-  }
-
-  console.log('\n══ 3d · en introfaktura maa ikke afsluttes uden Stripe-opsaetning ══')
-  {
-    const u = await bruger('3d'); const sub = `sub_${randomUUID()}`
-    const kunde = `cus_3d_${S}`
-    await post(h('checkout.session.completed',
-      { subscription: sub, client_reference_id: u, customer: kunde }))
-    const f = faktura(sub, nu() + 86400, OPS.introPrisId, kunde)
-    const udfald = await behandl(f, null)
-    tjek('den svarer AFVENTER, ikke behandlet', udfald === 'afventer', `udfald=${udfald}`)
-    tjek('  men adgangen er skrevet — kunden HAR betalt', !!(await raekke(sub))?.adgang)
-    const [e] = await db.select({ b: stripeEvents.behandletAt })
-      .from(stripeEvents).where(eq(stripeEvents.id, f.id))
-    tjek('  og haendelsen er ikke markeret faerdig', e?.b === null)
-    // Med opsaetningen paa plads bliver den faerdig, og planen lagt.
-    const igen = await behandl(f, OPS)
+    tjek('  planen blev SLUPPET foerst (release), ikke cancel',
+      falsk.antal('subscriptionSchedules.release') === 1
+      && falsk.antal('subscriptions.cancel') === 0,
+      'en plan kan skrive opsigelsen om ved naeste faseskift')
+    const k = falsk.sidste('subscriptions.update')
+    tjek('  og cancel_at_period_end blev sat hos Stripe',
+      (k?.args[1] as { cancel_at_period_end?: boolean })?.cancel_at_period_end === true,
+      JSON.stringify(k?.args))
     const r = await raekke(sub)
-    tjek('  med opsaetning bliver den faerdig og planen lagt',
-      r?.planStatus === 'konfigureret', `udfald=${igen} planStatus=${r?.planStatus}`)
+    tjek('  KUNDENS BETALTE ADGANG ER UROERT',
+      r?.adgang?.getTime() === adgangTil.getTime(),
+      `adgang=${r?.adgang?.toISOString()}`)
+    const [sr] = await db.select({
+      stoppet: subscriptions.fornyelseStoppetAt,
+      grund: subscriptions.fornyelseStoppetGrund,
+      opsagt: subscriptions.cancelAtPeriodEnd,
+    }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+    tjek('  og det STAAR i basen med sin grund',
+      !!sr?.stoppet && !!sr.grund && sr.opsagt === true,
+      JSON.stringify(sr))
+
+    // Anden koersel: den stopper ikke igen, men tier heller ikke.
+    falsk.nulstil()
+    const igen = await betalingstilsyn(OPS)
+    tjek('naeste koersel stopper den ikke igen',
+      falsk.antal('subscriptions.update') === 0,
+      `${falsk.antal('subscriptions.update')} kald`)
+    tjek('  men den bliver ved at staa i rapporten',
+      igen.some((l) => l.includes('stoppet fornyelse og stadig')),
+      JSON.stringify(igen))
+    await db.delete(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
   }
 
   // ═══ FUND 4 · KOEBET ═════════════════════════════════════
@@ -392,9 +401,20 @@ async function koer() {
     const a = await startKoebFor(u, '/')
     tjek('foerste koeb lykkes', a.ok)
     // Reservationen udloeber. Stripe HUSKER stadig noeglen i 24 timer.
+    //
+    // BEGGE ure flyttes, og det er ikke pedanteri: sessionens
+    // `expires_at` ER reservationens `udloeber_at` — samme tal, sat i
+    // samme kald. Flyttede proeven kun vores eget, ville den maale en
+    // verden, der ikke kan opstaa: vores raekke udloebet, mens Stripes
+    // session stadig kan betales. Og netop dét er grunden til, at
+    // sweepet ikke laengere maa lukke en raekke, Stripe kender.
+    const sid4c = (await db.select({ sid: checkoutForsoeg.stripeSessionId })
+      .from(checkoutForsoeg).where(and(eq(checkoutForsoeg.userId, u),
+        eq(checkoutForsoeg.status, 'aaben'))))[0]!.sid!
     await db.update(checkoutForsoeg)
       .set({ udloeberAt: new Date(Date.now() - 60000) })
       .where(and(eq(checkoutForsoeg.userId, u), eq(checkoutForsoeg.status, 'aaben')))
+    falsk.sessioner.get(sid4c)!.expires_at = Math.floor((Date.now() - 60000) / 1000)
     const b = await startKoebFor(u, '/')
     tjek('et NYT koeb efter udloeb lykkes', b.ok, JSON.stringify(b))
     tjek('  og det fik sin EGEN session', a.ok && b.ok && a.url !== b.url)

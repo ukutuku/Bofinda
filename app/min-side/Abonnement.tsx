@@ -6,6 +6,7 @@ import { opsig } from '../abonnement/handlinger'
 export interface Abonnementsvisning {
   status: string
   fase: 'intro' | 'normal' | null
+  fornyelseStoppet?: boolean
   naeste:
     | { slags: 'beloeb'; oere: number }
     | { slags: 'fornyes_ikke' }
@@ -81,6 +82,23 @@ export function Abonnement({ start }: { start: Abonnementsvisning | null }) {
             <dd>
               Vi kan ikke bekræfte næste betaling lige nu. Det er en fejl
               hos os — skriv til info@bofinda.dk, hvis den bliver stående.
+            </dd>
+          </div>
+        )}
+        {/* Fornyelsen er stoppet AF OS, fordi vi ikke kunne bekræfte
+            overgangen til 349 kr. Hun skal vide det, og hun skal vide,
+            at hun beholder det, hun har betalt for. At tie om det ville
+            være samme fejl som at love «fornyes ikke» til en, hvis plan
+            bare ikke var bekræftet. */}
+        {a.fornyelseStoppet && (
+          <div>
+            <dt>Fornyelse stoppet</dt>
+            <dd>
+              Vi kunne ikke bekræfte overgangen til den normale pris, og
+              vi har derfor stoppet fornyelsen. <strong>Du beholder den
+              periode, du har betalt for</strong>, og der bliver ikke
+              trukket mere. Skriv til info@bofinda.dk, hvis du vil
+              fortsætte — så sætter vi det i gang igen.
             </dd>
           </div>
         )}

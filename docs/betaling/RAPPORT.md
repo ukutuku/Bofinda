@@ -13,7 +13,11 @@ efter anden gennemgangsrunde. Basis for hele arbejdet:
 |---|---|
 | `832d483` | Betalingsmodulet og den centrale adgangskontrol — første aflevering |
 | `fbfb4dc` | Første gennemgangs otte fund |
-| *denne* | Anden gennemgangs ni fund |
+| `0e75b1c` | Anden gennemgangs ni fund |
+| *denne* | Tredje gennemgangs seks fund |
+
+Historikken er ikke omskrevet undervejs. De tidligere revisioner står,
+som de blev afleveret.
 
 **Rettelse til den tidligere rapport.** Den sagde «to nye
 rettelsescommits». Det var forkert: patch-serien indeholdt den
@@ -24,8 +28,16 @@ rettelsescommit, ikke to. Gennemgangen havde ret.
 
 **Intet i dette modul er kørt mod Stripe.** Ikke mod produktion, og
 ikke mod sandbox. `api.stripe.com` er spærret i det miljø, modulet er
-bygget i (CONNECT svarer `000`), og der er ingen nøgler. Det står her
-særskilt, fordi det ikke ændrer sig af, at prøverne er grønne:
+bygget i, og der er ingen nøgler. Det står her særskilt, fordi det ikke
+ændrer sig af, at prøverne er grønne:
+
+> **Rettelse til forrige aflevering.** Stripe-adgangsloggen viste
+> `curl`-fejl 56, HTTP 403 ved tunnelen og HTTP-kode `000` — og sluttede
+> alligevel på `exitkode=0`. Nullet var ekkoets, ikke curls. En log, der
+> ser bestået ud på en måling, der mislykkedes, er værre end ingen log.
+> Nu står **kommandoens egen exitkode adskilt fra wrapperens** i hver
+> log, og `logs/06-stripe-adgang.log` skriver sin tolkning ud: om der
+> var forbindelse eller ikke.
 
 > **De lokale prøver kan ikke bevise, at Stripe accepterer vores
 > argumenter.** De beviser, at vores kode kalder det, vi siger den
@@ -74,7 +86,7 @@ rigtig PostgreSQL, men den har fanget en forskel før: en migration, der
 kørte dér, faldt på `drizzle-kit`.
 
 To veje, begge med deres egen kommando og exitkode i
-`logs/07-migrationer.log`:
+`logs/04-migrationer.log`:
 
 * **frisk** — tom base, Supabase-stubbe, derefter alle 26 migrationer
 * **opgradering** — journalen afkortet til 0024, migrér, gendan
@@ -118,8 +130,14 @@ det med det samme.
 
 | Kommando | Base | Hvad |
 |---|---|---|
-| `npm test` | PGlite | hele suiten, inkl. tre betalingsprøver |
+| `npm test` | PGlite | hele suiten, inkl. **fire** betalingsprøver |
 | `npm run test:kaploeb` | rigtig PostgreSQL, egen database | kapløbene |
+
+`scripts/test-betaling-runde3.ts` kører tredje rundes seks fund gennem
+de faktiske indgange. Kapløbsprøven har fået **B3** (gratis-skift mod et
+gennemført køb) og **B4** (skift mod et kald i luften, hvor oprydningen
+fejler) — netop det forløb, gennemgangen bad om at få målt på rigtig
+PostgreSQL.
 
 Kapløbene kan **ikke** køre under `npm test`. PGlite er én forbindelse i
 én proces: to «samtidige» transaktioner serialiseres, før de når
@@ -146,6 +164,45 @@ En kildetekstsøgning efter en vagts navn er stadig med ét sted
 (`test-betaling.ts` afsnit 9, kaldestederne), men den er
 **supplerende**: den kan ikke se, om vagten fyrer.
 
+## Tredje runde — hvad der blev rettet
+
+Seks fund, alle reproduceret mod `0e75b1c` med gennemgangens egen probe
+og derefter mod repoets arbejdstræ:
+
+| Fund | Kernen | Rettelsen |
+|---|---|---|
+| 1 | `complete` blev læst som «død betalingsside» | ny tilstand `gennemfoert`, som **spærrer** |
+| 2 | et tomt sessions-id blev læst som «intet kører» | uafklaret indtil reservationen udløber |
+| 3 | forsøg blev lukket på **kunde**-id | bundet på sessions-id og fakturaens metadata |
+| 4 | gemt 500 brændte nøglen; «fejlet» stoppede intet | afstem via `subscription.schedule`; **stop fornyelsen** |
+| 5 | `<=` lod samme sekund genoplive `canceled` | særskilt **terminalvagt**, tiden urørt |
+| 6 | de 50 ældste udsultede køen | `naeste_forsoeg_at` med tilbagetrækning |
+
+Tilstandsmodellen, de syv invarianter og bindingerne mellem forsøg,
+session, abonnement og driftsstatus står i
+[`docs/betaling/tilstande.md`](tilstande.md).
+
+### Det, der KRÆVEDE en beslutning
+
+Fund 4's anden halvdel kunne ikke løses med kode alene. En plan, der
+ikke kan bekræftes, betyder, at abonnementet fornyes til **introprisen
+hver dag** — og `plan_status = 'fejlet'` er en markering i vores base,
+ikke en handling hos Stripe.
+
+**Valgt:** slip planen og sæt `cancel_at_period_end`. Kunden beholder
+den periode, hun har betalt for; der kommer ingen opkrævning på vilkår,
+vi ikke kan levere.
+
+**Fravalgt:** lade den løbe videre til 9 kr./dag med en advarsel i
+loggen. Det er den nuværende adfærd, og det *er* en anden prismodel end
+den aftalte — bare en, ingen har besluttet.
+
+**Prismodellen er uændret:** 9 kr. for de første 24 timer, derefter
+349 kr. hver 28. dag. Det, der er ændret, er, hvad vi gør, når vi ikke
+kan levere den. Skal en kunde i den situation have et andet tilbud — en
+forlænget introperiode, en rabat — er det en produktbeslutning, ikke en
+kodeændring, og den er ikke taget her.
+
 ## Reproduktion før og efter
 
 Anden gennemgang kom med sin egen `probe.mjs` — en selvstændig harness
@@ -154,10 +211,12 @@ med en in-memory SQL-adapter og leverancens Stripe-erstatning. Den
 
 Begge retninger er kørt:
 
-| | Kilder | Exit 0 betyder |
+| Runde | Kilder | Exit 0 betyder |
 |---|---|---|
-| **før** | `fbfb4dc`, byte-verificeret mod git | alle ni fund reproducerer |
-| **efter** | repoets nuværende filer, assertionerne vendt om | alle ni fund er væk |
+| 2 · før | `fbfb4dc`, byte-verificeret mod git | alle ni fund reproducerer |
+| 2 · efter | repoets filer, assertionerne vendt om | alle ni fund er væk |
+| 3 · før | `0e75b1c`, byte-verificeret mod git (28 filer) | alle syv scenarier reproducerer |
+| 3 · efter | repoets filer, assertionerne vendt om | alle syv er væk |
 
 Efter-kørslen er **den samme harness**, ikke en ny. Tre ting er føjet
 til adapteren og intet andet: en transaktion, der kører sit

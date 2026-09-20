@@ -21,9 +21,19 @@ export const driftTilstandEnum = pgEnum('drift_tilstand', ['gratis', 'betaling']
 export const planStatusEnum = pgEnum('plan_status', [
   'mangler', 'oprettet', 'konfigureret', 'fejlet',
 ])
-/** Et paabegyndt Checkout-forloeb. */
+/**
+ * Et paabegyndt Checkout-forloeb.
+ *
+ * `gennemfoert` er den tilstand, der manglede: Stripe siger, at kassen
+ * er gennemfoert, og vi har IKKE bogfoert abonnementet endnu. Den
+ * spaerrer som `aaben`, men af modsat grund — `aaben` fordi sessionen
+ * KAN betales, `gennemfoert` fordi den maaske allerede ER det.
+ *
+ * `aaben` og `gennemfoert` er IKKE afgjorte. De tre andre er terminale.
+ * Se docs/betaling/tilstande.md.
+ */
 export const koebStatusEnum = pgEnum('koeb_status', [
-  'aaben', 'betalt', 'udloebet', 'afbrudt',
+  'aaben', 'gennemfoert', 'betalt', 'udloebet', 'afbrudt',
 ])
 
 // Hvor praecist adressen kunne slaas op i det officielle register.
@@ -140,6 +150,21 @@ export const subscriptions = pgTable('subscriptions', {
   planFejl: text('plan_fejl'),
   planForsoegtAt: timestamp('plan_forsoegt_at', { withTimezone: true }),
   planForsoeg: integer('plan_forsoeg').notNull().default(0),
+
+  /**
+   * Fornyelsen er STOPPET, fordi planen ikke kunne bekraeftes.
+   *
+   * En plan i `fejlet` stopper ingen opkraevning hos Stripe — det er en
+   * markering i VORES base. Uden en handling fornyes abonnementet til
+   * introprisen hver DAG, og en loglinje er ikke en beskyttelse.
+   * Naar fornyelsen naermer sig, og planen stadig ikke er bekraeftet,
+   * slippes planen og `cancel_at_period_end` saettes. Kunden beholder
+   * den periode, hun har betalt for; der kommer ingen opkraevning paa
+   * vilkaar, vi ikke kan levere. HER staar det, saa et menneske kan se
+   * det og lave det om.
+   */
+  fornyelseStoppetAt: timestamp('fornyelse_stoppet_at', { withTimezone: true }),
+  fornyelseStoppetGrund: text('fornyelse_stoppet_grund'),
 }, (t) => ({
   userIdx: index('sub_user_idx').on(t.userId),
   adgangIdx: index('sub_adgang_idx').on(t.userId, t.adgangTil),
@@ -163,8 +188,22 @@ export const checkoutForsoeg = pgTable('checkout_forsoeg', {
   stripeSessionId: text('stripe_session_id'),
   stripeCustomerId: text('stripe_customer_id'),
   prisId: text('pris_id').notNull(),
-  /** Sessionens status hos Stripe, som VI sidst fik den bekraeftet. */
+  /**
+   * Sessionens status hos Stripe (`open` · `complete` · `expired`),
+   * som VI sidst fik den bekraeftet.
+   */
   stripeStatus: text('stripe_status'),
+  /**
+   * Sessionens ANDEN akse: `unpaid` · `paid` · `no_payment_required`.
+   * `complete` betyder at kassen blev gennemfoert — IKKE at pengene er
+   * modtaget. At laese kun den foerste akse var tredje gennemgangs
+   * foerste fund.
+   */
+  stripePaymentStatus: text('stripe_payment_status'),
+  /** Abonnementet, sessionen blev til. Bindingen forsoeg → abonnement. */
+  stripeSubscriptionId: text('stripe_subscription_id'),
+  /** Hvornaar forsoeget blev afstemt med sit abonnement. */
+  afstemtAt: timestamp('afstemt_at', { withTimezone: true }),
   lukkeFejl: text('lukke_fejl'),
   lukkeForsoeg: integer('lukke_forsoeg').notNull().default(0),
   status: koebStatusEnum('status').notNull().default('aaben'),
@@ -173,6 +212,7 @@ export const checkoutForsoeg = pgTable('checkout_forsoeg', {
   lukketAt: timestamp('lukket_at', { withTimezone: true }),
 }, (t) => ({
   sessionIdx: index('checkout_session_idx').on(t.stripeSessionId),
+  subIdx: index('checkout_sub_idx').on(t.stripeSubscriptionId),
 }))
 
 /**
@@ -208,6 +248,15 @@ export const stripeEvents = pgTable('stripe_events', {
    * RAEKKER, ikke to BEHANDLERE.
    */
   paabegyndtAt: timestamp('paabegyndt_at', { withTimezone: true }),
+  /**
+   * Foer dette tidspunkt tages haendelsen ikke op igen.
+   *
+   * Uden den tog tilsynet altid de 50 AELDSTE ubehandlede, og
+   * femoghalvtreds haendelser, hvis forudsaetning aldrig kommer,
+   * spaerrede den 51., som var klar. Samme svar som `fetch_failures`:
+   * en naeste-forsoegstid med tilbagetraekning.
+   */
+  naesteForsoegAt: timestamp('naeste_forsoeg_at', { withTimezone: true }),
   /**
    * Selve haendelsen. Uden den kan INTET genbehandles: ruten svarede
    * 200 paa `afventer`, men der var ikke noget at koere om. En

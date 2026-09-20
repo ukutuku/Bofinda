@@ -38,6 +38,7 @@ export type Skiftesvar =
   | { ok: false; fejl: 'ikke_admin' }
   | { ok: false; fejl: 'levende_abonnementer'; antal: number; forklaring: string }
   | { ok: false; fejl: 'aabne_koeb'; antal: number; forklaring: string }
+  | { ok: false; fejl: 'gennemfoerte_koeb'; antal: number; forklaring: string }
   | { ok: false; fejl: 'ingen_raekke' }
 
 /** Er den VERIFICEREDE bruger admin? Rollen laeses i basen, ikke i en cookie. */
@@ -107,6 +108,13 @@ export async function saetTilstand(
     // lukkes derfor HOS STRIPE, foer tilstanden skrives: raekken
     // herhjemme er kun vores bogfoering af det.
     const l = await lukAlleAabneKoeb(tx)
+    // GENNEMFOERTE foerst. De er et andet problem end uafklarede, og
+    // de har et andet svar: her ER der maaske betalt, og udvejen er
+    // ikke at trykke igen — den er at se abonnementet i Stripe og tage
+    // stilling, praecis som ved et levende abonnement.
+    if (l.gennemfoerte > 0) {
+      return { slags: 'gennemfoert' as const, fra, antal: l.gennemfoerte, detaljer: l.detaljer }
+    }
     if (l.uafklarede > 0) {
       return { slags: 'uafklaret' as const, fra, antal: l.uafklarede, detaljer: l.detaljer }
     }
@@ -137,6 +145,22 @@ export async function saetTilstand(
         + 'varsel. Skift derefter tilstanden.',
     }
   }
+  if (r.slags === 'gennemfoert') {
+    const n = r.antal
+    return {
+      ok: false, fejl: 'gennemfoerte_koeb', antal: n,
+      forklaring:
+        `${n} ${n === 1 ? 'betaling er' : 'betalinger er'} GENNEMFØRT hos Stripe, `
+        + 'men er ikke afstemt med et abonnement her endnu. Tilstanden er IKKE '
+        + 'skiftet. Det er ikke det samme som en åben betalingsside: her er der '
+        + 'sandsynligvis betalt, og et skift til gratis ville efterlade en kunde '
+        + 'med et løbende abonnement, ingen kan se. Vent på webhooken — '
+        + 'timekørslens betalingstilsyn afstemmer den selv — eller slå '
+        + 'abonnementet op i Stripe og tag stilling til det, som du ville til et '
+        + 'hvilket som helst andet løbende abonnement.'
+        + (r.detaljer.length ? ` Stripe svarede: ${r.detaljer.join(' · ')}` : ''),
+    }
+  }
   if (r.slags === 'uafklaret') {
     const n = r.antal
     return {
@@ -146,7 +170,9 @@ export async function saetTilstand(
         + 'lukkes hos Stripe, så tilstanden er IKKE skiftet. Bliver muren '
         + 'slået fra, mens de står åbne, kan de betales bagefter, og kunden '
         + 'ender med et løbende abonnement i gratis tilstand. Tryk igen, når '
-        + 'Stripe svarer — eller luk sessionerne i Stripe først.'
+        + 'Stripe svarer — eller luk sessionerne i Stripe først. En reservation, '
+        + 'hvis betalingsside er ved at blive oprettet, afklarer sig selv, når '
+        + 'den udløber.'
         + (r.detaljer.length ? ` Stripe svarede: ${r.detaljer.join(' · ')}` : ''),
     }
   }

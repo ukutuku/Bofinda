@@ -15,7 +15,7 @@
 //  trykket koeb» og «pengene er modtaget».
 // ═══════════════════════════════════════════════════════════════
 
-import { and, count, desc, eq, inArray, isNotNull, lt, sql } from 'drizzle-orm'
+import { and, count, desc, eq, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm'
 import { db, raekker } from '../db/client'
 import type Stripe from 'stripe'
 import { checkoutForsoeg, subscriptions, users } from '../db/schema'
@@ -30,7 +30,10 @@ export const LEVENDE = [
 export type Koebssvar =
   | { ok: true; url: string }
   | { ok: false; fejl: 'gratis_tilstand' | 'ikke_logget_ind' | 'stripe_mangler'
-      | 'har_allerede' | 'koeb_i_gang' | 'stripe_fejlede' }
+      | 'har_allerede' | 'koeb_i_gang' | 'koeb_gennemfoert' | 'stripe_fejlede' }
+
+/** De to tilstande, hvor et koebsforsoeg endnu ikke er afgjort. */
+export const UAFSLUTTET = ['aaben', 'gennemfoert'] as const
 
 /**
  * Starter et koeb og returnerer Stripes betalingsside.
@@ -98,21 +101,50 @@ export async function startKoebFor(
         .limit(1)
       if (levende) throw new Koebsfejl('har_allerede')
 
-      // Udloebne reservationer lukkes, saa et nyt forsoeg kan laves.
+      // ── SWEEPET LUKKER KUN DET, STRIPE ALDRIG FIK AT VIDE ──
+      // Foer lukkede det enhver udloebet reservation paa det LOKALE ur.
+      // Det kunne skjule et koeb, der blev GENNEMFOERT foer
+      // udloebstidspunktet: sessionen var `complete` hos Stripe, mens
+      // vi skrev `udloebet` uden at spoerge.
+      //
+      // En raekke MED et sessions-id afgoeres derfor udelukkende af
+      // Stripes svar — den vej ligger to linjer laengere nede, hvor
+      // `aaben_findes` sender den gennem `urlForForsoeg`. Det lokale ur
+      // bruges kun til det, Stripe aldrig blev fortalt.
+      //
+      // For en SESSIONSLOES raekke er uret nok, og det er ikke et
+      // skoen: sessionens `expires_at` ER reservationens `udloeber_at`
+      // (samme tal, med vilje). Er tidspunktet passeret, kan en session,
+      // der maatte vaere oprettet, heller ikke betales laengere.
       await tx.update(checkoutForsoeg)
         .set({ status: 'udloebet', lukketAt: new Date() })
         .where(and(
           eq(checkoutForsoeg.userId, brugerId),
           eq(checkoutForsoeg.status, 'aaben'),
+          isNull(checkoutForsoeg.stripeSessionId),
           lt(checkoutForsoeg.udloeberAt, new Date()),
         ))
 
-      const [aaben] = await tx.select({
+      // BEGGE ikke-afgjorte tilstande spaerrer. Et `gennemfoert`
+      // forsoeg er den vigtigste af de to: der er maaske betalt, og et
+      // nyt koeb ville give kunden to abonnementer.
+      //
+      // Bemaerk at spaerringen IKKE hviler paa `subscriptions`-raekken.
+      // Den skabes kun af webhooken, og Stripe garanterer hverken
+      // raekkefoelge eller hastighed — en beskyttelse, der venter paa en
+      // fremmed levering, er ingen beskyttelse. Sessionens egen
+      // `complete` er det tidligste bevis, VI selv kan hente.
+      const [uafsluttet] = await tx.select({
         id: checkoutForsoeg.id, sid: checkoutForsoeg.stripeSessionId,
+        status: checkoutForsoeg.status,
       }).from(checkoutForsoeg)
-        .where(and(eq(checkoutForsoeg.userId, brugerId), eq(checkoutForsoeg.status, 'aaben')))
+        .where(and(
+          eq(checkoutForsoeg.userId, brugerId),
+          inArray(checkoutForsoeg.status, [...UAFSLUTTET]),
+        ))
         .limit(1)
-      if (aaben) throw new Koebsfejl('aaben_findes', aaben.id, aaben.sid)
+      if (uafsluttet?.status === 'gennemfoert') throw new Koebsfejl('gennemfoert_findes')
+      if (uafsluttet) throw new Koebsfejl('aaben_findes', uafsluttet.id, uafsluttet.sid)
 
       const [u] = await tx.select({
         mail: users.email, kunde: users.stripeCustomerId, intro: users.introBrugtAt,
@@ -132,6 +164,9 @@ export async function startKoebFor(
     })
   } catch (e) {
     if (e instanceof Koebsfejl) {
+      // Sessionen er gennemfoert. Der er intet nyt koeb at starte, og
+      // det ville vaere det vaerst taenkelige svar paa en betaling.
+      if (e.slags === 'gennemfoert_findes') return { ok: false, fejl: 'koeb_gennemfoert' }
       if (e.slags === 'aaben_findes') {
         // Der ligger allerede et aabent forsoeg. Tre udfald, og de er
         // tre FORSKELLIGE beskeder til hende:
@@ -143,6 +178,11 @@ export async function startKoebFor(
         //   allerede et abonnement» — og det havde hun ikke. Hun havde
         //   en udloebet betalingsside, og det rigtige svar paa den er en
         //   ny. Ét genforsoeg, saa en uventet tilstand ikke kan loekke.
+        // · sessionen er GENNEMFOERT → ikke et nyt koeb. Her laa
+        //   fund 1: `complete` blev laest som «doed side», raekken sat
+        //   til `betalt`, og genstarten oprettede session nummer to
+        //   oven i en betaling, der lige var gaaet igennem.
+        if (svar.slags === 'gennemfoert') return { ok: false, fejl: 'koeb_gennemfoert' }
         if (svar.slags === 'lukket' && foersteForsoeg) {
           return startKoebFor(brugerId, retur, false)
         }
@@ -281,7 +321,8 @@ const erDublet = (e: unknown) =>
  * gennemgangens egen probe. Fire linjer mere er en lav pris for at
  * filen kan laeses af den slags vaerktoej.
  */
-type Koebsfejlslags = 'gratis_tilstand' | 'har_allerede' | 'ikke_logget_ind' | 'aaben_findes'
+type Koebsfejlslags = 'gratis_tilstand' | 'har_allerede' | 'ikke_logget_ind'
+  | 'aaben_findes' | 'gennemfoert_findes'
 class Koebsfejl extends Error {
   slags: Koebsfejlslags
   forsoegId?: string
@@ -305,7 +346,13 @@ class Koebsfejl extends Error {
 type Forsoegssvar =
   /** Sessionen kan betales. */
   | { slags: 'url'; url: string }
-  /** Sessionen er ubetalbar, og raekken er lukket. Der kan begyndes forfra. */
+  /**
+   * Sessionen er GENNEMFOERT. Der er maaske betalt, og der er maaske
+   * opstaaet et abonnement — vi har bare ikke bogfoert det endnu.
+   * Raekken staar `gennemfoert` og spaerrer, til afstemningen er lavet.
+   */
+  | { slags: 'gennemfoert' }
+  /** Sessionen er UDLOEBET. Raekken er lukket. Der kan begyndes forfra. */
   | { slags: 'lukket' }
   /** Vi fik ikke svar. Raekken staar aaben, og vi paastaar ingenting. */
   | { slags: 'uafklaret' }
@@ -329,17 +376,34 @@ async function urlForForsoeg(
     return { slags: 'uafklaret' }
   }
   try {
+    // Vi betaler allerede for det her opslag. Foer blev svaret castet
+    // til `{ status, url }`, og BAADE `subscription` og
+    // `payment_status` blev smidt vaek — netop de to felter, der siger
+    // om kassen blev til noget. Nu laeses de.
     const sess = await stripe(o).checkout.sessions.retrieve(sessionId) as
-      { status?: string; url?: string } | null
+      { status?: string; url?: string; subscription?: unknown
+        payment_status?: string } | null
     if (sess?.status === 'open' && sess.url) {
       await db.update(checkoutForsoeg).set({ stripeStatus: 'open' })
         .where(eq(checkoutForsoeg.id, forsoegId))
       return { slags: 'url', url: sess.url }
     }
+    if (sess?.status === 'complete') {
+      // GENNEMFOERT. Raekken lukkes IKKE — den spaerrer, til
+      // abonnementet er bogfoert. Uanset `payment_status`: `unpaid`
+      // betyder «betalingen behandles endnu», ikke «der kom intet».
+      await db.update(checkoutForsoeg)
+        .set({
+          status: 'gennemfoert', stripeStatus: 'complete',
+          stripePaymentStatus: sess.payment_status ?? null,
+          stripeSubscriptionId: subId(sess.subscription),
+        })
+        .where(eq(checkoutForsoeg.id, forsoegId))
+      return { slags: 'gennemfoert' }
+    }
     if (sess?.status && sess.status !== 'open') {
       await db.update(checkoutForsoeg)
-        .set({ status: sess.status === 'complete' ? 'betalt' : 'udloebet',
-               stripeStatus: sess.status, lukketAt: new Date() })
+        .set({ status: 'udloebet', stripeStatus: sess.status, lukketAt: new Date() })
         .where(eq(checkoutForsoeg.id, forsoegId))
       return { slags: 'lukket' }
     }
@@ -349,6 +413,12 @@ async function urlForForsoeg(
     return { slags: 'uafklaret' }
   }
 }
+
+/** Abonnements-id'et, uanset om Stripe gav en streng eller et objekt. */
+const subId = (v: unknown): string | null =>
+  typeof v === 'string' ? v
+  : typeof (v as { id?: unknown } | null)?.id === 'string' ? (v as { id: string }).id
+  : null
 
 /**
  * Sessionen blev oprettet, men reservationen naaede at blive lukket
@@ -377,10 +447,17 @@ async function opgivSession(o: Stripeopsaetning, forsoegId: string, sessionId: s
   }
 }
 
-/** Hvor mange paabegyndte betalinger staar stadig aabne? */
+/**
+ * Hvor mange paabegyndte betalinger er endnu ikke afgjort?
+ *
+ * BEGGE ikke-terminale tilstande taeller. Talte den kun `aaben`, ville
+ * adminsiden vise 0, mens skiftet blev afvist — og et tal, der
+ * modsiger afvisningen ved siden af, er praecis den fejltype, hele
+ * rettelsen handler om.
+ */
 export async function aabneKoeb(): Promise<number> {
   const [r] = await db.select({ n: count() })
-    .from(checkoutForsoeg).where(eq(checkoutForsoeg.status, 'aaben'))
+    .from(checkoutForsoeg).where(inArray(checkoutForsoeg.status, [...UAFSLUTTET]))
   return r?.n ?? 0
 }
 
@@ -412,40 +489,75 @@ const lukForsoeg = (id: string, status: 'udloebet' | 'afbrudt') =>
  * sessionen stadig var `open` hos Stripe.
  */
 export async function lukAlleAabneKoeb(udf: Udfoerer = db): Promise<{
-  lukkede: number; uafklarede: number; detaljer: string[]
+  lukkede: number; uafklarede: number; gennemfoerte: number; detaljer: string[]
 }> {
   const o = opsaetning()
-  const aabne = await udf.select({
+  const tom = { lukkede: 0, uafklarede: 0, gennemfoerte: 0, detaljer: [] }
+  const uafsluttede = await udf.select({
     id: checkoutForsoeg.id, sid: checkoutForsoeg.stripeSessionId,
-  }).from(checkoutForsoeg).where(eq(checkoutForsoeg.status, 'aaben'))
-  if (!aabne.length) return { lukkede: 0, uafklarede: 0, detaljer: [] }
+    status: checkoutForsoeg.status, udloeber: checkoutForsoeg.udloeberAt,
+  }).from(checkoutForsoeg).where(inArray(checkoutForsoeg.status, [...UAFSLUTTET]))
+  if (!uafsluttede.length) return tom
+
+  // Et GENNEMFOERT forsoeg kan ikke lukkes her. Der er maaske betalt, og
+  // det er ikke en oprydningsopgave — det er en beslutning om et
+  // abonnement, som et menneske skal tage. Det taelles for sig.
+  const gennemfoerte = uafsluttede.filter((x) => x.status === 'gennemfoert')
+  const aabne = uafsluttede.filter((x) => x.status === 'aaben')
 
   if (!o) {
     // INGEN opsaetning = intet kald = ingen bekraeftet lukning.
     // Foer talte de som lukkede uden at Stripe var spurgt.
     return {
-      lukkede: 0, uafklarede: aabne.length,
+      lukkede: 0, uafklarede: aabne.length, gennemfoerte: gennemfoerte.length,
       detaljer: ['Stripe er ikke konfigureret, så sessionerne kan ikke lukkes.'],
     }
   }
   const s = stripe(o)
   let lukkede = 0
   const detaljer: string[] = []
+  const nu = Date.now()
   for (const a of aabne) {
     if (!a.sid) {
-      // Reserveret, men ingen session naaede at blive oprettet.
-      await udf.update(checkoutForsoeg)
-        .set({ status: 'afbrudt', lukketAt: new Date() })
-        .where(eq(checkoutForsoeg.id, a.id))
-      lukkede++; continue
+      // ── SESSIONSLOES: TO HELT FORSKELLIGE TILFAELDE ────────
+      // Her stod «reserveret, men ingen session naaede at blive
+      // oprettet» — og raekken blev talt som LUKKET. Det var fund 2.
+      // Et tomt sessions-id siger kun, at VI ikke har faaet et id at
+      // vide; et `checkout.sessions.create` kan koere lige nu.
+      //
+      // Skellet er tiden, og det er ikke et skoen: sessionens
+      // `expires_at` ER reservationens `udloeber_at`. Er den passeret,
+      // kan en session, der maatte findes, ikke betales.
+      if (a.udloeber.getTime() <= nu) {
+        await udf.update(checkoutForsoeg)
+          .set({ status: 'udloebet', lukketAt: new Date() })
+          .where(eq(checkoutForsoeg.id, a.id))
+        lukkede++
+      } else {
+        detaljer.push(
+          `reservation ${a.id}: en betalingsside er ved at blive oprettet. `
+          + `Afventer til ${a.udloeber.toLocaleString('da-DK')}.`,
+        )
+      }
+      continue
     }
     try {
-      const sess = await s.checkout.sessions.retrieve(a.sid) as { status?: string } | null
+      const sess = await s.checkout.sessions.retrieve(a.sid) as
+        { status?: string; payment_status?: string; subscription?: unknown } | null
+      if (sess?.status === 'complete') {
+        // GENNEMFOERT. Ikke en lukning — en afstemning, der mangler.
+        await udf.update(checkoutForsoeg)
+          .set({ status: 'gennemfoert', stripeStatus: 'complete',
+                 stripePaymentStatus: sess.payment_status ?? null,
+                 stripeSubscriptionId: subId(sess.subscription) })
+          .where(eq(checkoutForsoeg.id, a.id))
+        detaljer.push(`session ${a.sid}: gennemført — afventer afstemning med abonnementet.`)
+        continue
+      }
       if (sess?.status && sess.status !== 'open') {
         // Allerede ubetalbar — ikke en fejl.
         await udf.update(checkoutForsoeg)
-          .set({ status: sess.status === 'complete' ? 'betalt' : 'udloebet',
-                 stripeStatus: sess.status, lukketAt: new Date() })
+          .set({ status: 'udloebet', stripeStatus: sess.status, lukketAt: new Date() })
           .where(eq(checkoutForsoeg.id, a.id))
         lukkede++; continue
       }
@@ -464,7 +576,16 @@ export async function lukAlleAabneKoeb(udf: Udfoerer = db): Promise<{
       detaljer.push(`session ${a.sid}: ${(e as Error).message.slice(0, 120)}`)
     }
   }
-  return { lukkede, uafklarede: aabne.length - lukkede, detaljer }
+  // De gennemfoerte taeller ALDRIG som lukkede — heller ikke naar
+  // opslaget lykkedes. De er en selvstaendig grund til ikke at skifte.
+  const stadigGennemfoerte = await udf.select({ id: checkoutForsoeg.id })
+    .from(checkoutForsoeg).where(eq(checkoutForsoeg.status, 'gennemfoert'))
+  return {
+    lukkede,
+    uafklarede: aabne.length - lukkede,
+    gennemfoerte: stadigGennemfoerte.length,
+    detaljer,
+  }
 }
 
 export type Opsigelsessvar =
@@ -544,6 +665,11 @@ export interface Abonnementsbillede {
    * holde.
    */
   naeste: { slags: 'beloeb'; oere: number } | { slags: 'fornyes_ikke' } | { slags: 'ukendt' }
+  /**
+   * Fornyelsen er stoppet AF OS, fordi planen ikke kunne bekraeftes.
+   * Hun skal vide det — og at hun beholder det, hun har betalt for.
+   */
+  fornyelseStoppet: boolean
   fornyesAt: Date | null
   adgangTil: Date | null
   opsagt: boolean
@@ -574,6 +700,7 @@ export async function abonnementForBruger(brugerId: string): Promise<Abonnements
     slut: subscriptions.currentPeriodEnd, adgang: subscriptions.adgangTil,
     opsagt: subscriptions.cancelAtPeriodEnd, plan: subscriptions.stripeScheduleId,
     planStatus: subscriptions.planStatus,
+    stoppet: subscriptions.fornyelseStoppetAt,
   }
   const [levende] = await db.select(felter).from(subscriptions)
     .where(and(
@@ -608,6 +735,7 @@ export async function abonnementForBruger(brugerId: string): Promise<Abonnements
   return {
     status: a.status,
     fase: f,
+    fornyelseStoppet: a.stoppet !== null,
     naeste,
     fornyesAt: a.opsagt ? null : a.slut,
     adgangTil: a.adgang,

@@ -20,7 +20,8 @@ export function Skifter({ tilstand, levende, aabneKoeb, aendretAt, note }: {
     setArbejder(false)
     if (svar.ok) { setNu(til); setMelding(`Tilstanden er nu ${til.toUpperCase()}.`); return }
     setMelding(
-      svar.fejl === 'levende_abonnementer' || svar.fejl === 'aabne_koeb' ? svar.forklaring
+      svar.fejl === 'levende_abonnementer' || svar.fejl === 'aabne_koeb'
+      || svar.fejl === 'gennemfoerte_koeb' ? svar.forklaring
       : svar.fejl === 'ikke_admin' ? 'Du har ikke adgang til at skifte tilstand.'
       : 'Der er ingen driftsrække i basen. Kør migrationerne.',
     )
@@ -43,9 +44,12 @@ export function Skifter({ tilstand, levende, aabneKoeb, aendretAt, note }: {
       <p>Løbende abonnementer lige nu: <strong>{levende}</strong></p>
       {aabneKoeb > 0 && (
         <p>
-          Påbegyndte betalinger, der stadig står åbne:{' '}
-          <strong>{aabneKoeb}</strong>. De skal lukkes hos Stripe, før muren
-          kan slås fra — tryk «Slå muren FRA» for at forsøge igen.
+          Påbegyndte betalinger, der ikke er afgjort:{' '}
+          <strong>{aabneKoeb}</strong>. En åben betalingsside skal lukkes hos
+          Stripe, før muren kan slås fra — tryk «Slå muren FRA» for at forsøge
+          igen. Er en betaling derimod <em>gennemført</em>, afstemmer
+          timekørslens betalingstilsyn den selv; slå den op i Stripe, hvis den
+          bliver stående.
         </p>
       )}
       {melding && <p className="koebsfejl" role="alert">{melding}</p>}

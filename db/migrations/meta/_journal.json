@@ -183,6 +183,13 @@
       "when": 1788811312617,
       "tag": "0025_betaling_koe",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1788811312618,
+      "tag": "0026_afstemning",
+      "breakpoints": true
     }
   ]
 }

@@ -34,6 +34,12 @@ export function Koebsboks({ retur, loggetInd, tilbud }: {
       har_allerede: 'Du har allerede et abonnement. Se Mit abonnement.',
       koeb_i_gang: 'Du har allerede et køb i gang i et andet vindue. '
         + 'Gør det færdigt dér — eller vent et øjeblik og prøv igen.',
+      // Hun HAR betalt. Det værste, vi kunne gøre her, var at åbne en
+      // ny betalingsside — og det var præcis det, koden gjorde, fordi
+      // en gennemført session blev læst som en død side.
+      koeb_gennemfoert: 'Din betaling er gennemført. Vi venter på '
+        + 'bekræftelsen fra Stripe — den plejer at tage få sekunder. '
+        + 'Opdatér om et øjeblik. Du skal ikke betale igen.',
       stripe_fejlede: 'Betalingen kunne ikke startes. Prøv igen — der er ikke trukket noget.',
     }[svar.fejl])
   }

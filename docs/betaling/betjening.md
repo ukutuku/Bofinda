@@ -64,6 +64,17 @@ Der er **to** afvisninger, ikke én:
 |---|---|
 | `levende_abonnementer` | nogen betaler lige nu — tag stilling i Stripe |
 | `aabne_koeb` | en påbegyndt betaling kunne **ikke lukkes hos Stripe** |
+| `gennemfoerte_koeb` | en betaling er **gennemført**, men ikke afstemt endnu |
+
+`gennemfoerte_koeb` er ikke det samme som `aabne_koeb`, og svaret er
+et andet. En **åben** betalingsside kan stadig betales; den skal lukkes.
+En **gennemført** er der sandsynligvis betalt for — den skal afstemmes,
+ikke lukkes. Timekørslens betalingstilsyn gør det selv inden for en
+time; bliver den stående, så slå abonnementet op i Stripe og tag
+stilling til det, som du ville til ethvert andet løbende abonnement.
+
+Vi opsiger hende **aldrig** automatisk for at få skiftet igennem. Det
+ville være en beslutning om et fremmed menneskes penge.
 
 `aabne_koeb` er den nye. En kunde kan stå med betalingssiden åben i
 netop det sekund; betaler hun bagefter, har hun et løbende abonnement i
@@ -75,6 +86,14 @@ der allerede står GRATIS: står der åbne påbegyndte betalinger, er
 knappen afstemningen af dem. Siden viser tallet. Kun en lukning, Stripe
 har bekræftet, bogføres som lukket — hverken en netværksfejl eller en
 manglende Stripe-opsætning tæller.
+
+**En reservation uden betalingsside blokerer højst 35 minutter.** Ser
+skiftet en reservation, hvor sessionen endnu ikke er oprettet, er det
+ikke bevis for, at intet sker — et kald til Stripe kan være i luften
+netop da. Det afvises derfor, men kun indtil reservationen udløber:
+sessionens `expires_at` er det **samme tal** som reservationens
+`udloeber_at`, så når det er passeret, kan en session, der måtte være
+oprettet, heller ikke betales. Derefter går skiftet igennem af sig selv.
 
 **Et skift til BETALING opretter ingen abonnementer og opkræver ingen.**
 Gratis brugere møder en betalingsboks og skal selv trykke.
@@ -131,6 +150,12 @@ se ud som om der ikke var noget at gøre.
 
 ## Hvis introplanen ikke kan lægges inden døgnfornyelsen
 
+> **Dette afsnit er ændret.** Før stod her, at en plan i `fejlet`
+> krævede, at et menneske greb ind, og at abonnementet indtil da
+> fornyedes til 9 kr. om dagen. Det var sandt og utilstrækkeligt: en
+> advarsel er ikke en beskyttelse. **Nu griber systemet selv ind**, og
+> afsnittet beskriver hvordan.
+
 Det er det alvorligste, der kan gå galt i betalingsmodulet, og det
 kræver et menneske. Læs afsnittet, før muren slås til.
 
@@ -146,14 +171,33 @@ betalingen. Tilsynet kører hver time og prøver igen, så der er normalt
 ~23 forsøg inden da. Efter `PLAN_MAX_FORSOEG` (5) mislykkede forsøg
 sættes `plan_status = 'fejlet'`, og de automatiske forsøg stopper.
 
-**«fejlet» stopper ingen opkrævning.** Det er en markering i vores
-base, ikke en handling hos Stripe. Derfor skriver tilsynet linjen i
-**hver eneste kørsel**, til nogen har gjort noget:
+**Hvad systemet gør af sig selv.** Når planen ikke er bekræftet, og
+enten forsøgene er brugt op **eller** fornyelsen er mindre end
+`STOP_FOER_FORNYELSE_MIN` (120 minutter) væk, stopper tilsynet
+fornyelsen:
+
+1. planen **slippes** (`release`) — ellers kan den skrive opsigelsen om
+   ved næste faseskift, præcis som ved en almindelig opsigelse;
+2. `cancel_at_period_end: true` sættes på abonnementet;
+3. det skrives i basen med sin grund (`fornyelse_stoppet_at`,
+   `fornyelse_stoppet_grund`) og i kørselsrapporten.
 
 ```
-[betaling] ⚠ 1 abonnement(er) har INGEN bekræftet plan efter 5 forsøg og
-fornyes til 9 kr./DAG hos Stripe, til nogen griber ind: sub_1abc…
+[betaling] ⚠ fornyelsen er STOPPET for sub_1abc…: Planen kunne ikke
+bekræftes: fornyelsen er mindre end 120 minutter væk. …
+Kunden beholder den betalte periode; der kommer ingen ny opkrævning.
 ```
+
+**Hvorfor netop det.** Kunden beholder de 24 timer, hun betalte 9 kr.
+for — `adgang_til` røres ikke. Og der kommer ingen opkrævning på
+vilkår, vi ikke kan levere. Det er **ikke** en ændring af prismodellen;
+det er en afvisning af at forny på en anden model end den aftalte.
+Alternativet — at lade den løbe videre til 9 kr. om dagen — ville
+*være* en anden model, og den har ingen bedt om.
+
+**Udløseren er nærheden til fornyelsen**, ikke forsøgstælleren alene.
+En plan, der fejler fem gange på fem minutter, har stadig 23 timer
+tilbage; en, der fejler to gange lige før fornyelsen, har ikke.
 
 **Hvad du gør.**
 
@@ -169,6 +213,14 @@ fornyes til 9 kr./DAG hos Stripe, til nogen griber ind: sub_1abc…
    tælleren, og lad tilsynet prøve igen i næste kørsel:
    ```sql
    update subscriptions set plan_forsoeg = 0, plan_status = 'mangler'
+   where stripe_subscription_id = 'sub_…';
+   ```
+   Er fornyelsen allerede stoppet, og bliver planen lagt bagefter, så
+   slå `cancel_at_period_end` fra i Stripe og ryd markeringen:
+   ```sql
+   update subscriptions
+   set fornyelse_stoppet_at = null, fornyelse_stoppet_grund = null,
+       cancel_at_period_end = false
    where stripe_subscription_id = 'sub_…';
    ```
 3. Kan planen ikke lægges, så **lad være med at lade abonnementet
