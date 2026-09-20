@@ -14,8 +14,15 @@
 //  Melder porten, at adgangen er lukket — uanset om det kommer fra
 //  indbakken, fra en tråd eller fra en afsendelse — går HELE modulet i
 //  låst visning. Samtalelisten, uddragene og beskederne bliver ikke
-//  stående bag en besked om at genindlæse: tilstanden erstattes med den
-//  låste variant, og dermed er indholdet også ude af hukommelsen.
+//  stående bag en besked om at genindlæse: tilstanden ERSTATTES med den
+//  låste variant, og de ventende kvitteringer ryddes.
+//
+//  ⚠ Det rydder VISNINGEN og modulets tilstand. Det er ikke det samme
+//  som, at data er væk fra browserens hukommelse: svarene har været
+//  igennem netværkslaget, ligget i JS-objekter og kan stå i alt fra
+//  `performance`-bufferen til en heap snapshot, og hverken vi eller
+//  JavaScript kan garantere, hvornår en opsamler rydder dem. Det, koden
+//  lover, er at modulet ikke VISER eller BRUGER dem igen.
 //
 //  Og låsningen er en LÅS: `laastRef` sættes med det samme, og hvert
 //  eneste svar, der kommer bagefter, kasseres. Et forsinket «adgang»
@@ -59,7 +66,7 @@ import './beskeder.css'
 import { Laast } from './Laast'
 import { Samtaleliste } from './Samtaleliste'
 import { Samtalevisning, type Sendeudfald } from './Samtalevisning'
-import type { Beskedport, Indbakke, Laasegrund, Samtaletraad } from './kontrakt'
+import type { Besked, Beskedport, Indbakke, Laasegrund, Samtaletraad } from './kontrakt'
 import { erLaast, ulaesteIAlt } from './kontrakt'
 
 /** Under denne bredde er der kun plads til ét panel ad gangen. */
@@ -103,6 +110,60 @@ export function Beskedmodul({ port, loginHref = '/min-side', abonnementHref }: {
   const laastRef = useRef<Laasegrund | null>(null)
   const traadToken = useRef(0)
   const indbakkeToken = useRef(0)
+  /**
+   * Beskeder, serveren har KVITTERET for, men som en læsning endnu ikke
+   * har vist os.
+   *
+   * ═══ HVORFOR DEN FINDES ═══
+   *
+   * Læsning og skrivning er to kald, og de kan overhale hinanden. To
+   * forløb, begge målt:
+   *
+   *  A · Send i A → over i B → tilbage i A. `hentTraad(A)` kommer FØR
+   *      kvitteringen og har beskeden med, fordi serveren allerede har
+   *      gemt den. Kvitteringen lagde den så i tråden én gang til, og
+   *      den samme besked stod to steder med samme id.
+   *
+   *  B · Samme vej, men læsningen tog sit øjebliksbillede FØR skrivningen
+   *      landede. Kvitteringen kom, mens tråden hentede — og blev smidt
+   *      væk, fordi der ikke var nogen tråd at lægge den i. Bagefter
+   *      erstattede det gamle øjebliksbillede visningen, og beskeden,
+   *      brugeren lige havde fået kvittering for, forsvandt.
+   *
+   * Begge løses af ét sted: kvitteringer huskes pr. samtale og flettes
+   * ind i HVER læsning, der ikke selv har dem med. Den dag et
+   * øjebliksbillede indeholder beskeden, er den landet, og så bæres den
+   * ikke videre. Brugeren skal ikke genindlæse for at få det rigtige at se.
+   */
+  const bekraeftede = useRef(new Map<string, Besked[]>())
+
+  /** Husk en kvittering, indtil en læsning har vist os den. */
+  const husk = useCallback((samtaleId: string, b: Besked) => {
+    const liste = bekraeftede.current.get(samtaleId) ?? []
+    if (!liste.some((x) => x.id === b.id)) bekraeftede.current.set(samtaleId, [...liste, b])
+  }, [])
+
+  /**
+   * Flet ventende kvitteringer ind i et hentet øjebliksbillede.
+   *
+   * Sammenligningen er på ID, ikke på indhold: to beskeder med samme
+   * tekst er to beskeder, og den samme besked hentet to gange er én.
+   * Rækkefølgen kommer af tidspunktet; `sort` er stabil, så en besked
+   * med samme tidsstempel som en hentet bliver stående efter den.
+   */
+  const flet = useCallback((samtaleId: string, hentede: Besked[]): Besked[] => {
+    const ventende = bekraeftede.current.get(samtaleId)
+    if (!ventende?.length) return hentede
+    const kendte = new Set(hentede.map((b) => b.id))
+    const mangler = ventende.filter((b) => !kendte.has(b.id))
+    // Dem, læsningen nu selv har med, er landet. De bæres ikke videre —
+    // ellers ville de blive flettet ind ved hver eneste senere læsning.
+    if (mangler.length === 0) bekraeftede.current.delete(samtaleId)
+    else if (mangler.length !== ventende.length) bekraeftede.current.set(samtaleId, mangler)
+    if (mangler.length === 0) return hentede
+    return [...hentede, ...mangler]
+      .sort((a, b) => a.tidspunkt.localeCompare(b.tidspunkt))
+  }, [])
 
   useEffect(() => {
     const m = window.matchMedia(SMAL)
@@ -122,6 +183,9 @@ export function Beskedmodul({ port, loginHref = '/min-side', abonnementHref }: {
     laastRef.current = grund
     traadToken.current++
     indbakkeToken.current++
+    // De ventende kvitteringer er beskedindhold. De skal ikke ligge og
+    // vente paa at blive flettet ind i en visning, der er lukket.
+    bekraeftede.current.clear()
     setLaast(grund)
     setIndbakke({ slags: 'klar', data: { tilstand: grund } })
     setTraad(null)
@@ -168,7 +232,13 @@ export function Beskedmodul({ port, loginHref = '/min-side', abonnementHref }: {
       .then((d) => {
         if (erLaast(d.tilstand)) { laasNed(d.tilstand); return }
         if (laastRef.current || traadToken.current !== min) return
-        setTraad({ slags: 'klar', data: d })
+        // En læsning maa ikke kunne slette en besked, serveren har
+        // kvitteret for. Er øjebliksbilledet ældre end kvitteringen,
+        // flettes den ind; har læsningen den selv med, sker der intet.
+        setTraad({
+          slags: 'klar',
+          data: d.tilstand === 'adgang' ? { ...d, beskeder: flet(id, d.beskeder) } : d,
+        })
         if (d.tilstand !== 'adgang') return
         // Ulæst-markeringen fjernes lokalt med det samme. Kvitteringen til
         // serveren må gerne fejle i stilhed — en markering, der bliver
@@ -188,7 +258,7 @@ export function Beskedmodul({ port, loginHref = '/min-side', abonnementHref }: {
         if (laastRef.current || traadToken.current !== min) return
         setTraad({ slags: 'fejl' })
       })
-  }, [port, laasNed])
+  }, [port, laasNed, flet])
 
   const tilbage = useCallback(() => {
     // Tælles op FØR visningen ryddes: et svar, der er undervejs, må ikke
@@ -220,10 +290,18 @@ export function Beskedmodul({ port, loginHref = '/min-side', abonnementHref }: {
       }
       if (laastRef.current) return { ok: true }
       const { besked } = svar
-      setTraad((t) => (t?.slags === 'klar' && t.data.tilstand === 'adgang'
-        && t.data.hoved.id === samtaleId
-        ? { slags: 'klar', data: { ...t.data, beskeder: [...t.data.beskeder, besked] } }
-        : t))
+      // Huskes FOERST. Er traaden ved at blive hentet lige nu, er der
+      // ingen visning at lægge beskeden i — og uden det her ville den
+      // blive tabt, naar et ældre øjebliksbillede landede bagefter.
+      husk(samtaleId, besked)
+      setTraad((t) => {
+        if (!(t?.slags === 'klar' && t.data.tilstand === 'adgang'
+          && t.data.hoved.id === samtaleId)) return t
+        // Har en læsning allerede vist os beskeden, laegges den ikke i
+        // igen. Samme id ER den samme besked.
+        if (t.data.beskeder.some((b) => b.id === besked.id)) return t
+        return { slags: 'klar', data: { ...t.data, beskeder: [...t.data.beskeder, besked] } }
+      })
       setIndbakke((i) => (i.slags === 'klar' && i.data.tilstand === 'adgang'
         ? {
           slags: 'klar',
@@ -236,7 +314,7 @@ export function Beskedmodul({ port, loginHref = '/min-side', abonnementHref }: {
         }
         : i))
       return { ok: true }
-    }, [port, laasNed],
+    }, [port, laasNed, husk],
   )
 
   // ── Hele modulet låst ───────────────────────────────────────

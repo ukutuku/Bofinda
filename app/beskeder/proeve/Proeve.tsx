@@ -2,6 +2,20 @@
 // ═══════════════════════════════════════════════════════════════
 //  Prøvevisningens betjeningspanel.
 //
+//  ═══ PRØVEVISNINGEN KØRER I STRICTMODE ═══
+//
+//  Målt: projektet har ikke `reactStrictMode` i `next.config.ts`, og
+//  Next 15 slår den ikke til af sig selv — `next dev` kaldte effekterne
+//  ÉN gang. StrictMode er altså ikke noget, prøven kan formode; den skal
+//  slås til, og det gøres HER, i måleudstyret, og ikke i
+//  `next.config.ts`, som hører til opsætningen og ikke til denne opgave.
+//
+//  Det gør prøvevisningen strengere end produktet — og det er meningen.
+//  StrictMode kalder setup → cleanup → setup på samme instans, og det er
+//  dét, der afslører en livscyklus, der kun rydder op og aldrig sætter
+//  op igen. `scripts/cloud/strictmodekontrol.mjs` måler først, at den
+//  FAKTISK er aktiv, og afviser ellers.
+//
 //  Den stiller modulets tilstande frem ved siden af hinanden, så de kan
 //  ses, tabuleres igennem og fotograferes — uden en database, uden en
 //  konto og uden at sende noget.
@@ -11,7 +25,7 @@
 //  grund, som gør `aria-current` rigtig i samtalelisten.
 // ═══════════════════════════════════════════════════════════════
 
-import { useMemo, useState } from 'react'
+import { StrictMode, useEffect, useMemo, useRef, useState } from 'react'
 import { Beskedmodul } from '../Beskedmodul'
 import { lavAttrapport, type Scenarie } from './attrapport'
 
@@ -28,12 +42,47 @@ const VALG: { v: Scenarie; navn: string; hvad: string }[] = [
   { v: 'langsom-afsendelse', navn: 'Langsom afsendelse', hvad: '1,5 sek. på Send — tid til at skrive videre eller skifte samtale.' },
   { v: 'laas-ved-afsendelse', navn: 'Lås ved afsendelse', hvad: 'Send svarer «låst». Hele modulet skal lukke, også med en samtale åben.' },
   { v: 'laas-under-skift', navn: 'Lås under skift', hvad: 'Første samtale svarer «låst» straks, anden svarer «adgang» 1,5 sek. senere. Det sene svar må ikke låse op.' },
+  { v: 'kvittering-efter-genlaesning', navn: 'Kvittering efter genlæsning', hvad: 'Serveren gemmer straks, kvitterer 2,2 sek. senere. En genlæsning imellem har beskeden med — den må kun stå én gang.' },
+  { v: 'gammelt-snapshot', navn: 'Gammelt snapshot', hvad: 'Læsningen tager sit billede før skrivningen og svarer 1,8 sek. senere. Den bekræftede besked må ikke forsvinde.' },
   { v: 'login-kraevet', navn: 'Login påkrævet', hvad: 'Låst. Én knap: Log ind.' },
   { v: 'abonnement-kraevet', navn: 'Abonnement påkrævet', hvad: 'Låst. Én knap: Se abonnement.' },
   { v: 'abonnement-udloebet', navn: 'Abonnement udløbet', hvad: 'Låst. Én knap: Genaktivér.' },
 ]
 
+/**
+ * Måler, om React FAKTISK dobbeltkalder effekter.
+ *
+ * ═══ DEN SKAL MÅLES EFTER EN MONTERING, IKKE VED HYDRERING ═══
+ *
+ * Målt, ikke læst: React 19 dobbeltkalder ikke effekter, når træet
+ * HYDRERES — kun når en komponent monteres bagefter. Ved første
+ * indlæsning står tælleren derfor på 1, selv om StrictMode er aktiv
+ * (renderen ER dobbelt; det blev efterprøvet med en tæller).
+ *
+ * Mærket bærer derfor `key={scenarie}`: et scenarieskift monterer det
+ * på ny, og DER skal tælleren stå på 2. `Beskedmodul` har den samme
+ * nøgle, så modulets egne komponenter — herunder `Samtalevisning` —
+ * monteres på nøjagtig samme måde, og det er dem, prøven handler om.
+ *
+ * Usynlig, og den rører ikke modulet. Den ligger her og ikke i
+ * `app/beskeder/`, fordi den er måleudstyr og ikke produkt.
+ */
+function Strictmaerke() {
+  const koersler = useRef(0)
+  const [vist, setVist] = useState(0)
+  useEffect(() => {
+    koersler.current += 1
+    setVist(koersler.current)
+  }, [])
+  return <span className="skjult-for-oejet" data-effektkoersler={vist} />
+}
+
 export function Proeve() {
+  // Kun prøvevisningens eget træ. Produktet er urørt.
+  return <StrictMode><Betjening /></StrictMode>
+}
+
+function Betjening() {
   const [scenarie, setScenarie] = useState<Scenarie>('normal')
   // Ny port ved hvert scenarie. `key` nedenfor nulstiller samtidig
   // modulets egen tilstand, saa et valg ikke arver det forriges.
@@ -42,6 +91,11 @@ export function Proeve() {
 
   return (
     <>
+      {/* Egen noeglesti. `Beskedmodul` er soeskende og har ogsaa
+          `key={scenarie}` — to soeskende med SAMME noegle faar React til
+          at duplikere dem («Encountered two children with the same key»),
+          og saa stod der to maerker med hvert sit tal i DOM'en. */}
+      <Strictmaerke key={`maerke-${scenarie}`} />
       <fieldset className="proeve-valg">
         <legend>Tilstand</legend>
         <div className="proeve-knapper">

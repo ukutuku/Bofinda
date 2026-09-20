@@ -103,8 +103,15 @@ ord og viser det.
 Melder porten, at adgangen er lukket — fra indbakken, fra en tråd eller fra
 en afsendelse — går **hele modulet** i låst visning, også hvis en samtale
 allerede er åben. Samtalelisten, uddragene og beskederne bliver ikke stående
-bag en besked om at genindlæse: tilstanden erstattes med den låste variant,
-og indholdet er dermed også ude af hukommelsen.
+bag en besked om at genindlæse: tilstanden **erstattes** med den låste
+variant, og de ventende kvitteringer (afsnit 4) ryddes.
+
+> ⚠ Det rydder **visningen og modulets tilstand**. Det er ikke det samme som,
+> at data er væk fra browserens hukommelse. Svarene har været igennem
+> netværkslaget, har ligget i JS-objekter og kan stå i alt fra
+> `performance`-bufferen til en heap snapshot, og hverken vi eller JavaScript
+> kan garantere, hvornår en opsamler rydder dem. Det, koden lover, er at
+> modulet ikke **viser** eller **bruger** dem igen — ikke at de er slettet.
 
 Og låsningen er en lås: **et forsinket svar, der siger «adgang», åbner ikke
 op igen.** Kald, der var undervejs, da låsen faldt, kasseres.
@@ -190,6 +197,19 @@ sådan ud. Modulet håndterer begge.
 
 Det hører til kontrakten, fordi serverlaget kan udløse det:
 
+* **Læsning og skrivning koordineres.** `send` og `hentTraad` er to kald, og
+  de kan overhale hinanden. Modulet husker derfor hver besked, serveren har
+  **kvitteret** for, indtil en læsning selv har vist os den — og fletter den
+  ind i hver læsning, der ikke har den med. To forløb, begge målt:
+  * *Kvitteringen kommer efter genlæsningen.* Serveren har allerede gemt
+    beskeden, så læsningen har den med; kvitteringen må ikke lægge den i
+    igen. Sammenligningen er på **id**: samme id er samme besked.
+  * *Læsningen tog et ældre øjebliksbillede.* Kvitteringen lander, mens
+    tråden henter, og der er ingen visning at lægge den i. Uden den huskede
+    kvittering forsvandt beskeden, når det gamle billede landede bagefter.
+  Brugeren skal ikke genindlæse for at se det rigtige. Den dag et
+  øjebliksbillede indeholder beskeden, bæres den ikke videre — og en låsning
+  rydder listen.
 * **Hver åbning har et nummer.** Et svar, hvis nummer ikke længere er det
   aktuelle, hører til noget, brugeren har forladt, og kasseres. Uden det
   vandt det *langsomste* svar: A åbnes, B åbnes, A's svar kommer sidst — og
