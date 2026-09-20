@@ -45,6 +45,8 @@ export type Scenarie =
   | 'langsom-afsendelse'
   | 'laas-ved-afsendelse'
   | 'laas-under-skift'
+  | 'kvittering-efter-genlaesning'
+  | 'gammelt-snapshot'
   | Laasegrund
 
 /** De tal, kapløbene er bygget af. Millisekunder. */
@@ -57,6 +59,12 @@ const FORSINKELSE = {
   foerstemand: 200,
   sendHurtig: 350,
   sendLangsom: 1500,
+  /** «Serveren» har gemt, men kvitteringen er laenge undervejs. */
+  kvitteringSen: 2200,
+  /** Skrivningen lander MIDT i en langsom laesning. */
+  kvitteringMidt: 900,
+  /** Laesningen svarer saa sent, at den er aeldre end skrivningen. */
+  laesningSen: 1800,
 } as const
 
 const min = (n: number) => new Date(Date.now() - n * 60_000).toISOString()
@@ -137,7 +145,13 @@ export function lavAttrapport(scenarie: Scenarie): Beskedport {
     if (scenarie === 'laas-under-skift') {
       return id === 's1' ? FORSINKELSE.foerstemand : FORSINKELSE.efternoeler
     }
+    if (scenarie === 'gammelt-snapshot') return FORSINKELSE.laesningSen
     return grund
+  }
+
+  /** Bygger den besked, «serveren» gemmer. */
+  function nyBesked(tekst: string): Besked {
+    return { id: `attrap-${nr++}`, fra: 'mig', tekst, tidspunkt: new Date().toISOString() }
   }
 
   return {
@@ -153,6 +167,15 @@ export function lavAttrapport(scenarie: Scenarie): Beskedport {
     },
 
     async hentTraad(id) {
+      // ═══ ØJEBLIKSBILLEDET TAGES FØR VENTETIDEN ═══
+      //
+      // Det ER hele pointen i «gammelt-snapshot»: læsningen skal være
+      // ældre end den skrivning, der lander imens. Tages billedet efter
+      // ventetiden, har serveren nået at gemme beskeden, og forløbet
+      // kan ikke måles.
+      const tidligt = scenarie === 'gammelt-snapshot'
+        ? sager.find((x) => x.hoved.id === id)?.beskeder.map((b) => ({ ...b })) ?? null
+        : null
       await vent(traadforsinkelse(id))
       if (scenarie === 'traadfejl') throw new Error('attrap: tråden fejlede med vilje')
       if (laast) return { tilstand: laast } satisfies Samtaletraad
@@ -164,6 +187,7 @@ export function lavAttrapport(scenarie: Scenarie): Beskedport {
       if (scenarie === 'findes-ikke') return { tilstand: 'findes-ikke' }
       const s = sager.find((x) => x.hoved.id === id)
       if (!s) return { tilstand: 'findes-ikke' }
+      if (tidligt) return { tilstand: 'adgang', hoved: { ...s.hoved }, beskeder: tidligt }
       // KOPIER, ikke attrappens egne arrays. Et serverlag serialiserer
       // sit svar, og modulet regner med at eje det, det får. Udleverede
       // attrappen sin levende liste, ville modulets `[...beskeder, ny]`
@@ -177,6 +201,28 @@ export function lavAttrapport(scenarie: Scenarie): Beskedport {
     },
 
     async send(samtaleId, tekst): Promise<Sendesvar> {
+      // ═══ TO FORLØB, HVOR SKRIVNINGEN OG LÆSNINGEN OVERHALER HINANDEN ═══
+      //
+      // At gemme og at kvittere er to ting. Attrappen kan derfor gemme
+      // FØR den kvitterer — og det er netop dér, de to fejl bor:
+      //
+      //  · «kvittering efter genlæsning»: gemt med det samme, kvitteret
+      //    2,2 sek. senere. En læsning imellem har beskeden MED, og en
+      //    kvittering, der bare lægger den i, giver den samme besked to
+      //    gange med samme id.
+      //  · «gammelt snapshot»: kvitteret efter 0,9 sek., altså EFTER at
+      //    en langsom læsning har taget sit øjebliksbillede uden den.
+      //    Kvitteringen lander, mens tråden henter.
+      if (scenarie === 'kvittering-efter-genlaesning' || scenarie === 'gammelt-snapshot') {
+        const s = sager.find((x) => x.hoved.id === samtaleId)
+        if (!s) return { ok: false, fejl: 'ukendt' }
+        if (scenarie === 'gammelt-snapshot') await vent(FORSINKELSE.kvitteringMidt)
+        const b = nyBesked(tekst)
+        s.beskeder.push(b)
+        s.hoved.sidsteAktivitet = b.tidspunkt
+        if (scenarie === 'kvittering-efter-genlaesning') await vent(FORSINKELSE.kvitteringSen)
+        return { ok: true, besked: b }
+      }
       await vent(scenarie === 'langsom-afsendelse' || scenarie === 'langsom'
         ? FORSINKELSE.sendLangsom : FORSINKELSE.sendHurtig)
       if (scenarie === 'sende-exception') {
@@ -190,9 +236,7 @@ export function lavAttrapport(scenarie: Scenarie): Beskedport {
       }
       const s = sager.find((x) => x.hoved.id === samtaleId)
       if (!s) return { ok: false, fejl: 'ukendt' }
-      const b: Besked = {
-        id: `attrap-${nr++}`, fra: 'mig', tekst, tidspunkt: new Date().toISOString(),
-      }
+      const b = nyBesked(tekst)
       s.beskeder.push(b)
       s.hoved.sidsteAktivitet = b.tidspunkt
       return { ok: true, besked: b }

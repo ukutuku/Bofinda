@@ -83,6 +83,34 @@ function tjek(ok, navn, maalt = '') {
   p(`  ${ok ? '✓' : '✗'} ${navn}${maalt ? `\n      ${maalt}` : ''}`)
 }
 
+/**
+ * Loggen skal selv sige, hvad den er maalt paa.
+ *
+ * ═══ HVORFOR DEN FINDES ═══
+ *
+ * En tidligere leverance sagde «koert paa 6c94f5d» i rapporten, mens
+ * logget begyndte med `baseline: a0651f8`. Begge dele var sande — det
+ * var en amend af samme aendring — men det kunne ikke efterproeves fra
+ * logget, og saa er en revisionsangivelse ikke vaerd noget.
+ *
+ * Derfor skriver kontrollen nu revisionen, TRAEETS hash og om
+ * arbejdstraeet er rent. Traeets hash er det, der taeller: en amend, der
+ * kun aendrer commit-beskeden, giver en ny commit-hash og NOEJAGTIG det
+ * samme trae. Og er der aendringer i arbejdstraeet — som under en
+ * negativ koersel, hvor en sikring med vilje er fjernet — staar det med
+ * filnavne, saa ingen kan forveksle den med en ren maaling.
+ */
+function revision(p) {
+  const g = (...a) => spawnSync('git', a, { cwd: process.cwd(), encoding: 'utf8' }).stdout.trim()
+  const beskidt = g('status', '--porcelain')
+  p(`revision:   ${g('rev-parse', 'HEAD')}`)
+  p(`trae:       ${g('rev-parse', 'HEAD^{tree}')}`)
+  p(beskidt
+    ? `arbejdstrae: ÆNDRET —\n  ${beskidt.split('\n').join('\n  ')}`
+    : 'arbejdstrae: rent')
+  p('')
+}
+
 const ledig = (port) => new Promise((r) => {
   const s = netConnect({ host: '127.0.0.1', port })
   s.once('connect', () => { s.destroy(); r(false) })
@@ -206,6 +234,7 @@ const HEMMELIGT = [
 ]
 
 async function koer() {
+  revision(p)
   for (const port of [PORT, GUARDPORT]) {
     if (!(await ledig(port))) {
       p(`AFVIST: port ${port} er optaget. Kontrollen stopper ikke andres processer.`)
@@ -522,6 +551,63 @@ async function koer() {
   tjek((await s.locator('.bsk-laast').count()) === 1 && laekSent.length === 0,
     'laasen holder — det forsinkede svar aabner ikke indholdet igen',
     laekSent.length ? `LÆKKET: ${laekSent.join(', ')}` : 'stadig laast, intet indhold')
+
+  // ── 6h · Kvittering EFTER en genlaesning, der allerede har beskeden ──
+  //
+  // Serveren gemmer straks og kvitterer 2,2 sek. senere. Gaar man vaek og
+  // tilbage imellem, har genlaesningen beskeden MED — og en kvittering,
+  // der bare laegger den i, giver den samme besked to gange med samme id.
+  p('\n══ 6h · Kvittering efter genlæsning ══')
+  await vaelg(s, 'Kvittering efter genlæsning')
+  await s.locator('button.bsk-raekke').first().waitFor({ timeout: 8000 })
+  await s.locator('button.bsk-raekke').nth(0).click()
+  await s.locator('#bsk-felt').waitFor({ timeout: 8000 })
+  const foerH = await s.locator('.bsk-boble').count()
+  const tekstH = 'Kun én gang, selv om den hentes imellem.'
+  await s.locator('#bsk-felt').fill(tekstH)
+  await ventTilSendTaendt(s)
+  await s.getByRole('button', { name: 'Send', exact: true }).click()
+  await s.locator('button.bsk-raekke').nth(1).click()      // vaek …
+  await s.locator('.bsk-samtale-titel').waitFor({ timeout: 8000 })
+  await s.locator('button.bsk-raekke').nth(0).click()      // … og tilbage
+  await s.waitForTimeout(3400)                             // kvitteringen lander her
+  const tekstenH = await s.locator('.bsk-boble-tekst').allInnerTexts()
+  const antalH = tekstenH.filter((t) => t.trim() === tekstH).length
+  tjek(antalH === 1, 'beskeden staar præcis ÉN gang efter genlæsning + kvittering',
+    `fundet ${antalH} gang(e)`)
+  tjek((await s.locator('.bsk-boble').count()) === foerH + 1,
+    'og traaden er vokset med præcis én',
+    `${foerH} → ${await s.locator('.bsk-boble').count()}`)
+
+  // ── 6i · Kvittering, mens et ÆLDRE snapshot er undervejs ──
+  //
+  // Laesningen tager sit oejebliksbillede FOER skrivningen lander og
+  // svarer 1,8 sek. senere. Kvitteringen kommer, mens traaden henter —
+  // og foer rettelsen blev den smidt vaek, hvorefter det gamle billede
+  // erstattede visningen og beskeden forsvandt.
+  p('\n══ 6i · Gammelt snapshot under afsendelse ══')
+  await vaelg(s, 'Gammelt snapshot')
+  await s.locator('button.bsk-raekke').first().waitFor({ timeout: 8000 })
+  await s.locator('button.bsk-raekke').nth(0).click()
+  await s.locator('#bsk-felt').waitFor({ timeout: 12000 })
+  const foerI = await s.locator('.bsk-boble').count()
+  const tekstI = 'Den her maa ikke forsvinde i en gammel laesning.'
+  await s.locator('#bsk-felt').fill(tekstI)
+  await ventTilSendTaendt(s)
+  await s.getByRole('button', { name: 'Send', exact: true }).click()
+  await s.locator('button.bsk-raekke').nth(1).click()      // vaek …
+  await s.locator('button.bsk-raekke').nth(0).click()      // … og straks tilbage
+  await s.waitForTimeout(4200)                             // begge svar er landet her
+  const tekstenI = await s.locator('.bsk-boble-tekst').allInnerTexts()
+  const antalI = tekstenI.filter((t) => t.trim() === tekstI).length
+  tjek(antalI === 1, 'den bekraeftede besked staar der — uden at brugeren genindlaeser',
+    `fundet ${antalI} gang(e)`)
+  tjek((await s.locator('.bsk-boble').count()) === foerI + 1,
+    'og traaden er vokset med præcis én',
+    `${foerI} → ${await s.locator('.bsk-boble').count()}`)
+  tjek((await s.locator('.bsk-samtale-titel').innerText()).trim() === 'Prøvegade 12, 2. th',
+    'og det er stadig A, der vises')
+  await skud(s, '6-gammelt-snapshot', [1440])
 
   // ── 7 · Tom indbakke og hentefejl ─────────────────────────
   p('\n══ 7 · Tom indbakke og hentefejl ══')

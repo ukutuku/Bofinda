@@ -109,7 +109,26 @@ export function Samtalevisning({ hoved, beskeder, send, fokuserVedAabning }: {
   // og sende to gange. En ref skifter med det samme.
   const iGang = useRef(false)
   const levende = useRef(true)
-  useEffect(() => () => { levende.current = false }, [])
+  // ═══ SYMMETRISK: SETUP SAETTER TIL, CLEANUP SAETTER FRA ═══
+  //
+  // Effekten havde kun en oprydning — `() => () => { … = false }`. Det
+  // ser rigtigt ud og er det ikke: React kalder i StrictMode setup,
+  // cleanup og setup igen paa SAMME instans. Uden et `true` i setup stod
+  // ref'en tilbage paa `false` efter den runde, og saa ignorerede
+  // `afsend()` baade sit ja og sit nej — `setSender(false)` blev sprunget
+  // over, og knappen sad fast i travl, uden at noget var galt.
+  //
+  // Maalt: projektet har IKKE `reactStrictMode` slaaet til i dag, saa
+  // fejlen bider hverken i produktionsbygget eller i `npm run dev` som
+  // det staar nu. Den ville bide den dag, nogen slaar den til — hvilket
+  // Next selv anbefaler — og en livscyklus, der kun rydder op og aldrig
+  // saetter op igen, er forkert uanset hvad der faenger den.
+  // Proevevisningen slaar derfor StrictMode til i SIT eget trae, og
+  // scripts/cloud/strictmodekontrol.mjs maaler det under den.
+  useEffect(() => {
+    levende.current = true
+    return () => { levende.current = false }
+  }, [])
 
   const modpart = modpartsnavn(hoved.modpart)
 
