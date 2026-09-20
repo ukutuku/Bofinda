@@ -121,7 +121,11 @@ function Betalingsboks({ grund, id }: {
       <div className="kontaktboks">
         <strong>Kontakt udlejeren</strong>
         <span>Log ind for at se kontaktoplysningerne.</span>
-        <a className="knap" href={`/min-side?retur=${encodeURIComponent(retur)}`}>
+        {/* Gennem /abonnement, ikke /min-side. Min side laeser ingen
+            `retur`-parameter, saa vejen tilbage til boligen ville gaa
+            tabt i loginnet — og kunden lande et andet sted end det,
+            hun kom fra. /abonnement baerer den hele vejen. */}
+        <a className="knap" href={`/abonnement?retur=${encodeURIComponent(retur)}`}>
           Log ind
         </a>
       </div>
@@ -134,15 +138,15 @@ function Betalingsboks({ grund, id }: {
       <span>
         Kontaktoplysningerne er en del af abonnementet.
       </span>
-      <ul className="betalingsvilkaar">
-        <li><b>9 kr.</b> for de første 24 timer</li>
-        <li><b>349 kr.</b> når de 24 timer er gået</li>
-        <li>derefter <b>349 kr.</b> hver 28. dag</li>
-      </ul>
+      {/* Selve priserne staar paa /abonnement, hvor kontoens EGET
+          tilbud er slaaet op. Boksen her viste foer introprisen til
+          alle — ogsaa til konti, der havde brugt den, og som
+          `startKoeb()` ville tage normalprisen fra. Et forkert tal om
+          kundens penge er vaerre end intet tal. */}
       <span className="kontaktnote">
-        Abonnementet fornyes automatisk, indtil du siger op. Du kan sige
-        op når som helst — adgangen løber perioden ud. Priserne er inkl.
-        moms.
+        Fra 9 kr. Abonnementet fornyes automatisk, indtil du siger op;
+        adgangen løber perioden ud. Priserne står samlet på næste side,
+        før du betaler.
       </span>
       <a className="knap" href={`/abonnement?retur=${encodeURIComponent(retur)}`}>
         Se abonnementet

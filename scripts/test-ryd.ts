@@ -42,8 +42,8 @@ import { randomUUID } from 'node:crypto'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import {
-  conversations, drift, favorites, listings, messages, savedSearches, sources,
-  subscriptions, users,
+  checkoutForsoeg, conversations, drift, favorites, listings, messages,
+  savedSearches, sources, subscriptions, users,
 } from '../db/schema'
 import { ryd } from '../lib/alarm'
 
@@ -344,6 +344,14 @@ async function koer() {
   const kunDrift = await nyBruger('kun-drift')
   await db.update(drift).set({ aendretAf: kunDrift }).where(eq(drift.id, true))
 
+  // Et paabegyndt koeb. Cascade ville slette det i TAVSHED sammen med
+  // brugeren — derfor skal leddet ogsaa baere alene.
+  const kunKoeb = await nyBruger('kun-koeb')
+  await db.insert(checkoutForsoeg).values({
+    userId: kunKoeb, stripeSessionId: `cs_ryd_${STEMPEL}`, prisId: 'price_x',
+    udloeberAt: new Date(Date.now() + 1800000),
+  })
+
   // Og en frisk overfloedig, saa runden ogsaa maaler, at der RYDDES.
   const overfloedig3 = await nyBruger('overfloedig-3')
 
@@ -360,6 +368,7 @@ async function koer() {
       ['conversations.landlord_id', kunUdlejer],
       ['messages.sender_id', kunAfsender],
       ['drift.aendret_af', kunDrift],
+      ['checkout_forsoeg.user_id', kunKoeb],
     ]
     for (const [navn, id] of led)
       tjek(`  uden konto, kun ${navn}: bevaret`, await findes(id))
@@ -380,9 +389,10 @@ async function koer() {
   // ═══════════════════════════════════════════════════════════
   console.log('\n══ RUNDE 4 · relationslisten mod basens egen katalog ══')
   const kendte = [
-    'conversations.landlord_id', 'conversations.tenant_id', 'drift.aendret_af',
-    'favorites.user_id', 'listings.landlord_id', 'messages.sender_id',
-    'saved_searches.user_id', 'subscriptions.user_id',
+    'checkout_forsoeg.user_id', 'conversations.landlord_id',
+    'conversations.tenant_id', 'drift.aendret_af', 'favorites.user_id',
+    'listings.landlord_id', 'messages.sender_id', 'saved_searches.user_id',
+    'subscriptions.user_id',
   ]
   // PGlite og postgres-js giver resultatet i hver sin form. Samme greb
   // som `raekker()` i scripts/tjek-rettigheder.ts.

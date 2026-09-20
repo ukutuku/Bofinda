@@ -639,6 +639,11 @@ export async function ryd(): Promise<RydResultat> {
       // Runde 4 i scripts/test-ryd.ts spoerger pg_constraint og blev roed,
       // praecis som den skulle, da fremmednoeglen kom til.
       sql`not exists (select 1 from drift         t where t.aendret_af = ${users.id})`,
+      // Tilfoejet med 0024. `checkout_forsoeg` er ON DELETE CASCADE, saa
+      // den ville ikke kaste — den ville slette en paabegyndt betaling
+      // i tavshed sammen med brugeren. Det er netop den STILLE halvdel,
+      // vagten her findes for.
+      sql`not exists (select 1 from checkout_forsoeg t where t.user_id = ${users.id})`,
     ))
     .returning({ id: users.id })
 

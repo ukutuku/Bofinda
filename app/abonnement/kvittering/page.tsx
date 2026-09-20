@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { renRetur } from '../../../lib/retur'
 import { mitAbonnement } from '../../../lib/abonnement'
 import { hentBrugerId } from '../../../lib/auth'
 
@@ -23,7 +24,7 @@ export default async function Side({ searchParams }: {
   searchParams: Promise<{ retur?: string }>
 }) {
   const sp = await searchParams
-  const retur = sp.retur && sp.retur.startsWith('/') && !sp.retur.startsWith('//') ? sp.retur : '/'
+  const retur = renRetur(sp.retur)
   const brugerId = await hentBrugerId()
   const abo = brugerId ? await mitAbonnement() : null
   const harAdgang = !!abo?.adgangTil && abo.adgangTil > new Date()
@@ -47,7 +48,13 @@ export default async function Side({ searchParams }: {
             få sekunder. Opdatér siden om lidt — der er ikke trukket noget
             ekstra, og du skal ikke betale igen.
           </p>
-          <p><a href="/abonnement/kvittering">Opdatér</a> · <a href={retur}>Tilbage</a></p>
+          {/* Returvejen skal MED. Uden den landede kunden paa forsiden
+              efter at have opdateret én gang — og boligen, hun havde
+              betalt for at kunne kontakte, var vaek. */}
+          <p>
+            <a href={`/abonnement/kvittering?retur=${encodeURIComponent(retur)}`}>Opdatér</a>
+            {' · '}<a href={retur}>Tilbage</a>
+          </p>
         </>
       )}
       <p><a href="/min-side#abonnement">Mit abonnement</a></p>

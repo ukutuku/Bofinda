@@ -27,6 +27,9 @@
 
 alter table "subscriptions" alter column "current_period_end" drop not null;
 
+-- Almindelig enum-sammenligning. Den ER immutable og duer i et
+-- indekspraedikat — nu hvor 0021 GENSKABER typen i stedet for at
+-- udvide den, er vaerdierne ikke «nye i samme transaktion».
 create unique index "sub_en_levende_pr_bruger"
   on "subscriptions" ("user_id")
   where "status" in ('trialing', 'active', 'past_due', 'incomplete', 'paused', 'unpaid');

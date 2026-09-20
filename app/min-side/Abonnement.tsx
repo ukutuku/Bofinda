@@ -6,7 +6,10 @@ import { opsig } from '../abonnement/handlinger'
 export interface Abonnementsvisning {
   status: string
   fase: 'intro' | 'normal' | null
-  naesteBeloebOere: number | null
+  naeste:
+    | { slags: 'beloeb'; oere: number }
+    | { slags: 'fornyes_ikke' }
+    | { slags: 'ukendt' }
   fornyesAt: string | null
   adgangTil: string | null
   opsagt: boolean
@@ -37,7 +40,7 @@ export function Abonnement({ start }: { start: Abonnementsvisning | null }) {
     const svar = await opsig()
     setArbejder(false)
     if (svar.ok) {
-      setA((x) => (x ? { ...x, opsagt: true, naesteBeloebOere: null, fornyesAt: null } : x))
+      setA((x) => (x ? { ...x, opsagt: true, naeste: { slags: 'fornyes_ikke' }, fornyesAt: null } : x))
       setMelding('Abonnementet er sagt op. Adgangen løber perioden ud.')
       return
     }
@@ -62,8 +65,25 @@ export function Abonnement({ start }: { start: Abonnementsvisning | null }) {
         )}
         <div>
           <dt>Næste beløb</dt>
-          <dd>{a.naesteBeloebOere === null ? 'Intet — fornyes ikke' : `${kr(a.naesteBeloebOere)} kr.`}</dd>
+          {/* Tre udfald, ikke to. «Fornyes ikke» er et LØFTE om, at der
+              ikke kommer en betaling; «kan ikke bekræftes» siger, at vi
+              ikke ved det. Før var begge `null`, og en kunde, hvis plan
+              ikke var bekræftet, fik løftet — som vi ikke kunne holde. */}
+          <dd>
+            {a.naeste.slags === 'beloeb' ? `${kr(a.naeste.oere)} kr.`
+              : a.naeste.slags === 'fornyes_ikke' ? 'Intet — fornyes ikke'
+              : 'Kan ikke bekræftes lige nu'}
+          </dd>
         </div>
+        {a.naeste.slags === 'ukendt' && !a.opsagt && (
+          <div>
+            <dt>Bemærk</dt>
+            <dd>
+              Vi kan ikke bekræfte næste betaling lige nu. Det er en fejl
+              hos os — skriv til info@bofinda.dk, hvis den bliver stående.
+            </dd>
+          </div>
+        )}
         <div>
           <dt>Fornyes</dt>
           <dd>{a.fornyesAt ?? 'Fornyes ikke'}</dd>

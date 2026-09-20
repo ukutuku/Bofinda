@@ -17,6 +17,15 @@ export const subStatusEnum = pgEnum('sub_status', [
 /** GRATIS = muren er fra. BETALING = kontakt kraever abonnement. */
 export const driftTilstandEnum = pgEnum('drift_tilstand', ['gratis', 'betaling'])
 
+/** Hvor langt den tofasede betalingsplan er naaet. Se 0024. */
+export const planStatusEnum = pgEnum('plan_status', [
+  'mangler', 'oprettet', 'konfigureret', 'fejlet',
+])
+/** Et paabegyndt Checkout-forloeb. */
+export const koebStatusEnum = pgEnum('koeb_status', [
+  'aaben', 'betalt', 'udloebet', 'afbrudt',
+])
+
 // Hvor praecist adressen kunne slaas op i det officielle register.
 //   unit   = enhedsadresse, inkl. etage og doer. Én bestemt bolig.
 //   access = adgangsadresse, opgangen. Vi ved hvilken opgang, ikke hvilken doer.
@@ -117,10 +126,44 @@ export const subscriptions = pgTable('subscriptions', {
    */
   stripeOpdateretAt: timestamp('stripe_opdateret_at', { withTimezone: true }),
   oprettetAt: timestamp('oprettet_at', { withTimezone: true }).notNull().defaultNow(),
+
+  /**
+   * Planlaegningen som sin EGEN tilstand, ikke som en sideeffekt.
+   *
+   * `oprettet` og `konfigureret` er ikke det samme: et schedule-id
+   * beviser kun, at planen findes — ikke at faserne er rigtige. Fejler
+   * kaldet mellem de to, staar der `oprettet`, og genkoerslen retter
+   * netop det. Uden skellet ville en halvfaerdig plan se faerdig ud, og
+   * kunden ville blive ved med at betale 9 kr. om dagen.
+   */
+  planStatus: planStatusEnum('plan_status'),
+  planFejl: text('plan_fejl'),
+  planForsoegtAt: timestamp('plan_forsoegt_at', { withTimezone: true }),
+  planForsoeg: integer('plan_forsoeg').notNull().default(0),
 }, (t) => ({
   userIdx: index('sub_user_idx').on(t.userId),
   adgangIdx: index('sub_adgang_idx').on(t.userId, t.adgangTil),
   customerIdx: index('sub_customer_idx').on(t.stripeCustomerId),
+}))
+
+/**
+ * Ét paabegyndt koeb pr. konto. Reservationen ligger i BASEN, saa to
+ * faner eller to minutter ikke kan give to betalbare Checkout-forloeb:
+ * det delvist unikke indeks `checkout_en_aaben_pr_bruger` afviser den
+ * anden, foer Stripe naar at oprette abonnement nummer to.
+ */
+export const checkoutForsoeg = pgTable('checkout_forsoeg', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  stripeSessionId: text('stripe_session_id').notNull().unique(),
+  stripeCustomerId: text('stripe_customer_id'),
+  prisId: text('pris_id').notNull(),
+  status: koebStatusEnum('status').notNull().default('aaben'),
+  oprettetAt: timestamp('oprettet_at', { withTimezone: true }).notNull().defaultNow(),
+  udloeberAt: timestamp('udloeber_at', { withTimezone: true }).notNull(),
+  lukketAt: timestamp('lukket_at', { withTimezone: true }),
+}, (t) => ({
+  sessionIdx: index('checkout_session_idx').on(t.stripeSessionId),
 }))
 
 /**
@@ -149,6 +192,13 @@ export const stripeEvents = pgTable('stripe_events', {
   behandletAt: timestamp('behandlet_at', { withTimezone: true }),
   forsoeg: integer('forsoeg').notNull().default(0),
   fejl: text('fejl'),
+  /**
+   * Det ATOMISKE krav paa haendelsen. Sat af en betinget UPDATE, der
+   * enten rammer én raekke eller nul — to samtidige behandlere kan
+   * derfor ikke begge fortsaette. Primaernoeglen forhindrer to
+   * RAEKKER, ikke to BEHANDLERE.
+   */
+  paabegyndtAt: timestamp('paabegyndt_at', { withTimezone: true }),
 }, (t) => ({
   ubehandletIdx: index('stripe_events_ubehandlet_idx').on(t.behandletAt, t.modtagetAt),
 }))

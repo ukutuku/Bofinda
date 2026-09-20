@@ -45,7 +45,30 @@ values (true, 'gratis', 'Lancering: muren er slaaet fra.');
 -- Enummet manglede fire af dem. En status, Postgres ikke kender,
 -- kaster ved indsaettelse — og saa taber vi en webhook, vi allerede
 -- har kvitteret for.
-alter type "sub_status" add value if not exists 'incomplete';
-alter type "sub_status" add value if not exists 'incomplete_expired';
-alter type "sub_status" add value if not exists 'paused';
-alter type "sub_status" add value if not exists 'unpaid';
+--
+-- ── HVORFOR TYPEN GENSKABES I STEDET FOR AT UDVIDES ──
+-- `alter type ... add value` ser enklere ud, men en vaerdi tilfoejet
+-- saadan kan IKKE BRUGES i den samme transaktion:
+--     ERROR: unsafe use of new value "incomplete" of enum type sub_status
+--     HINT:  New enum values must be committed before they can be used.
+-- `drizzle-kit migrate` koerer alle ventende migrationer i ÉN
+-- transaktion, saa det delvist unikke indeks i 0023 — som naevner
+-- netop de nye vaerdier — braekkede paa en frisk base. Det var IKKE
+-- synligt i PGlite-hjaelperen, som koerer filerne hver for sig.
+--
+-- `status::text in (...)` loeser det ikke: castet er STABLE, ikke
+-- IMMUTABLE, og et indekspraedikat kraever IMMUTABLE.
+--
+-- En NYOPRETTET type har ikke den begraensning. Derfor: ny type med
+-- alle ni vaerdier, kolonnen skiftes over, den gamle type droppes, og
+-- den nye overtager navnet. Efterproevet paa en rigtig Postgres:
+-- variant A (add value + indeks) fejler, variant B (den her) gaar
+-- igennem i samme transaktion.
+create type "sub_status_v2" as enum (
+  'trialing', 'active', 'past_due', 'canceled', 'expired',
+  'incomplete', 'incomplete_expired', 'paused', 'unpaid'
+);
+alter table "subscriptions"
+  alter column "status" type "sub_status_v2" using "status"::text::"sub_status_v2";
+drop type "sub_status";
+alter type "sub_status_v2" rename to "sub_status";

@@ -53,3 +53,30 @@ kan ikke spørge.
 
 `scripts/test-betaling.ts` afsnit 9 læser kildeteksten på hvert
 kaldested og fejler, hvis vagten forsvinder. Tilføj dit kaldested der.
+
+---
+
+## Webhookens udfald (tilføjet efter gennemgangen)
+
+`behandl()` svarer med ét af seks udfald. Beskedmodulet rører dem ikke,
+men de hører til kontrakten, fordi de afgør, hvornår adgang opstår:
+
+| Udfald | Betydning | Markeres færdig? |
+|---|---|---|
+| `behandlet` | anvendt | ja |
+| `gentagelse` | set og færdigbehandlet før | — |
+| `i_gang` | en anden behandler har kravet | — |
+| `ignoreret` | ikke en hændelse, vi lytter på | ja |
+| `forael` | ældre end det, rækken bærer | ja |
+| **`afventer`** | gyldig, men forudsætningen mangler | **nej** |
+
+`afventer` er den vigtige. En `invoice.paid`, der overhaler sin
+`checkout.session.completed`, må ikke markeres færdig — gør man det,
+giver genleveringen `gentagelse`, og den betalte periode er tabt.
+
+**Adgang opstår ét sted: `invoice.paid`.** Vagten dér er MONOTON —
+`adgang_til` flyttes kun frem. En sent ankommen faktura kan ikke
+forkorte en betalt periode, og en faktura i uorden kan stadig forlænge
+den. Det fælles `stripe_opdateret_at`-filter bruges bevidst **ikke** på
+adgangen: det beskytter statusspejlingen, og en nyere
+`subscription.updated` ville ellers få en gyldig betaling afvist.

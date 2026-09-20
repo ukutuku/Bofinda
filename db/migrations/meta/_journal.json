@@ -169,6 +169,13 @@
       "when": 1788811312615,
       "tag": "0023_abonnement_entydighed",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788811312616,
+      "tag": "0024_betaling_robusthed",
+      "breakpoints": true
     }
   ]
 }

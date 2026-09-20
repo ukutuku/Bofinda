@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
+import { renRetur } from '../../lib/retur'
 import { hentTilstand } from '../../lib/adgang'
 import { hentBrugerId } from '../../lib/auth'
-import { mitAbonnement } from '../../lib/abonnement'
+import { gaeldendeTilbud, mitAbonnement } from '../../lib/abonnement'
 import { Koebsboks } from './Koebsboks'
 
 // Siden afhaenger af tilstanden og af HVEM der spoerger. Den maa aldrig
@@ -14,10 +15,11 @@ export default async function Side({ searchParams }: {
   searchParams: Promise<{ retur?: string; grund?: string }>
 }) {
   const sp = await searchParams
-  const retur = sp.retur && sp.retur.startsWith('/') && !sp.retur.startsWith('//') ? sp.retur : '/'
+  const retur = renRetur(sp.retur)
   const tilstand = await hentTilstand()
   const brugerId = await hentBrugerId()
   const abo = brugerId ? await mitAbonnement() : null
+  const tilbud = await gaeldendeTilbud()
 
   // GRATIS: der er intet at koebe, og der vises ingen koebsknap. En
   // direkte kalder af `koeb()` faar ogsaa nej — se lib/abonnement.ts.
@@ -57,7 +59,7 @@ export default async function Side({ searchParams }: {
   return (
     <main className="side-smal">
       <h1>Abonnement</h1>
-      <Koebsboks retur={retur} loggetInd={!!brugerId} />
+      <Koebsboks retur={retur} loggetInd={!!brugerId} tilbud={tilbud ?? 'intro'} />
     </main>
   )
 }

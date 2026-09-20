@@ -136,3 +136,64 @@ export function medRetur(url: string, retur: string | null | undefined): string 
   const p = new URLSearchParams({ [RETUR_PARAM]: retur })
   return `${url}${url.includes('?') ? '&' : '?'}${p}`
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  BETALINGENS returvej.
+//
+//  Muren skal kunne sende folk tilbage til en BOLIG eller et
+//  kildelink — adresser, `returUrl()` ovenfor ikke kender, fordi den
+//  er bygget til søgninger. Reglen er den samme: en ALLOWLIST, og vi
+//  genopbygger stien i stedet for at give den videre.
+//
+//  Betalingsmodulet havde fire kopier af
+//  `r.startsWith('/') && !r.startsWith('//')`. De var alle fire
+//  forkerte på samme måde: `/\fremmed.invalid` har én skråstreg og
+//  begynder ikke med to — men browsere normaliserer backslash til
+//  skråstreg, så den læses som `//fremmed.invalid`, altså en FREMMED
+//  VÆRT. Efter betaling ville kunden lande dér.
+//
+//  Reproduceret mod 832d483: prædikatet accepterede
+//  `/\fremmed.invalid/phishing`.
+// ═══════════════════════════════════════════════════════════════
+
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+
+/** De steder, et betalingsforløb må vende tilbage til. Lukket sæt. */
+const BETALINGSSTIER: RegExp[] = [
+  /^\/$/,
+  new RegExp(`^/bolig/${UUID}$`, 'i'),
+  new RegExp(`^/go/${UUID}$`, 'i'),
+  OMRAADE,
+  /^\/min-side$/,
+  /^\/gruppe$/,
+]
+
+/**
+ * Returvejen for et betalingsforløb, eller null.
+ *
+ * Genopbygger: uddata er enten `null` eller en streng, der er matchet
+ * af et af mønstrene ovenfor — aldrig en streng, en fremmed har
+ * skrevet. En query-streng kastes væk: intet i betalingsforløbet har
+ * brug for den, og alt, vi ikke bærer med, kan ikke bære noget med.
+ */
+export function betalingsRetur(raa: unknown): string | null {
+  if (typeof raa !== 'string' || raa.length === 0 || raa.length > MAKS) return null
+  // Afkod ÉN gang: `%2F%2Fevil` og `%5Cevil` skal fanges af de samme
+  // mønstre som den rå form.
+  let v = raa
+  try { v = decodeURIComponent(raa) } catch { return null }
+  if (v.includes('\\')) return null
+  // Kontroltegn og mellemrum: en browser kan normalisere dem væk, og
+  // så er det ikke længere den sti, vi læste.
+  if (/[\u0000- \u007f]/.test(v)) return null
+  const skaer = v.indexOf('?')
+  const sti = skaer === -1 ? v : v.slice(0, skaer)
+  const m = BETALINGSSTIER.find((r) => r.test(sti))
+  if (!m) return null
+  // Genopbygget af selve mønstrets træffer — ikke af inddata.
+  const traef = m.exec(sti)
+  return traef ? traef[0] : null
+}
+
+/** Stien, hvis den er en gyldig betalingsretur — ellers forsiden. */
+export const renRetur = (raa: unknown): string => betalingsRetur(raa) ?? '/'

@@ -8,13 +8,8 @@ import { sigOp, startKoeb } from '../../lib/abonnement'
 import { hentBrugerId } from '../../lib/auth'
 import { hentTilstand } from '../../lib/adgang'
 import { saetTilstand } from '../../lib/driftskift'
+import { renRetur } from '../../lib/retur'
 import { spor } from '../../lib/maaling-server'
-
-/** En intern sti — aldrig en fremmed URL, og aldrig et protokolskift. */
-function renRetur(r: string | null | undefined): string {
-  if (!r || !r.startsWith('/') || r.startsWith('//')) return '/'
-  return r
-}
 
 export async function koeb(retur: string) {
   const svar = await startKoeb(renRetur(retur))

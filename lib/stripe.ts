@@ -80,8 +80,22 @@ export function opsaetning(): Stripeopsaetning | null {
   return { hemmelighed, webhookHemmelighed, introPrisId, normalPrisId }
 }
 
+/**
+ * En INDSAT klient. Samme greb som `indsaetBase` i db/client.ts: proeven
+ * saetter en kontrolleret erstatning ind, og alt der importerer `stripe()`
+ * rammer den — uden at nogen af de moduler ved det.
+ *
+ * Findes KUN for proeven. Uden den maatte proeverne enten naa netvaerket
+ * (det maa de ikke) eller noejes med at soege i kildeteksten efter
+ * vagternes navne — og en tekstsoegning kan ikke se, om et kald faktisk
+ * goer det rigtige.
+ */
+let _indsat: Stripe | null = null
+export function indsaetStripe(k: unknown | null) { _indsat = k as Stripe | null }
+
 /** Klienten. Kastes kun, hvis nogen kalder den uden opsaetning. */
 export function stripe(o: Stripeopsaetning): Stripe {
+  if (_indsat) return _indsat
   return new Stripe(o.hemmelighed, {
     // Laast til den version, SDK'ets typer er bygget mod. Uden den
     // foelger vi Stripes nyeste automatisk, og et felt kan skifte

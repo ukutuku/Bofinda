@@ -30,7 +30,7 @@
 import { count, eq, inArray } from 'drizzle-orm'
 import { db } from '../db/client'
 import { drift, subscriptions, users } from '../db/schema'
-import { LEVENDE } from './abonnement'
+import { LEVENDE, lukAlleAabneKoeb } from './abonnement'
 import type { Tilstand } from './adgang'
 
 export type Skiftesvar =
@@ -81,6 +81,27 @@ export async function saetTilstand(
           + 'bedt om. Tag stilling til hver enkelt først: sig dem op i Stripe '
           + '(adgangen løber perioden ud) eller lad dem løbe videre med et '
           + 'varsel. Skift derefter tilstanden.',
+      }
+    }
+  }
+
+  // ── EN AABEN CHECKOUT MAA IKKE KUNNE BETALES BAGEFTER ──────
+  // Skiftet til GRATIS er accepteret her (der er ingen loebende
+  // abonnementer). Men en kunde kan staa med betalingssiden aaben i
+  // netop det sekund — betaler hun bagefter, har hun et loebende
+  // abonnement i gratis tilstand, og det var hele pointen med vagten
+  // ovenfor. Sessionerne lukkes derfor HOS STRIPE, foer tilstanden
+  // skrives: raekken herhjemme er kun vores bogfoering af det.
+  if (til === 'gratis') {
+    const l = await lukAlleAabneKoeb()
+    if (l.fejlede > 0) {
+      return {
+        ok: false, fejl: 'levende_abonnementer', antal: l.fejlede,
+        forklaring:
+          `${l.fejlede} påbegyndt${l.fejlede === 1 ? ' betaling' : 'e betalinger'} `
+          + 'kunne ikke lukkes hos Stripe. Bliver muren slået fra nu, kan '
+          + 'de betales bagefter, og kunden ender med et løbende abonnement '
+          + 'i gratis tilstand. Prøv igen — eller luk dem i Stripe først.',
       }
     }
   }
