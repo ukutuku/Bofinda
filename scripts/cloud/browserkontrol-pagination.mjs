@@ -132,7 +132,12 @@ async function kontekst({ bloker = true, ...opt } = {}) {
 }
 
 const felt = (s) => s.locator('form.filtre input[name="sted"]').first()
-const knap = (s) => s.locator('form.filtre button[type="submit"]').first()
+// `.soegeknap` og ikke «den foerste submit-knap». Filtervinduet ligger i
+// den samme formular og har sin egen «Vis resultater», saa en generisk
+// selector kan ramme en knap inde i et LUKKET vindue — usynlig, og saa
+// venter klikket tyve sekunder og kaster. Knappen i soegelinjen har et
+// navn; det bruger vi.
+const knap = (s) => s.locator('form.filtre button.soegeknap').first()
 /**
  * Vent til siden er klar til NÆSTE brugerhandling.
  *
@@ -391,7 +396,9 @@ console.log('\n═══ 4 · mobil 390 px ═══')
   const s = await c.newPage()
   for (const n of [1, 2, 3]) {
     await s.goto(`${BASE}/?side=${n}`, { waitUntil: 'networkidle' })
-    await s.locator('.liste').first().scrollIntoViewIfNeeded()
+    // Ikke-fatal: under 901 px kan listen vaere skjult til fordel for
+    // kortet, og et kast her ville vaelte hele kontrollen.
+    await s.locator('.liste').first().scrollIntoViewIfNeeded().catch(() => {})
     await s.waitForTimeout(500)
     await s.screenshot({ path: `${UD}/pag-mobil-side${n}.png` })
     const overloeb = await s.evaluate(() =>

@@ -1,7 +1,10 @@
 import { Kort, kr } from '../Boligkort'
+import { favoritIder, statusFor } from '../../lib/favoritter'
 import {
-  gruppenoegleFra, gruppenoegleFraBolig, hentGruppe, type Soegeparametre,
+  filtreFraParametre, gruppenoegleFra, gruppenoegleFraBolig, hentGruppe, type Soegeparametre,
 } from '../../lib/soeg'
+import { erEgenAnnonce } from '../../lib/kilde'
+import { RETUR_PARAM, returUrl } from '../../lib/retur'
 import { spor } from '../../lib/maaling-server'
 
 export const dynamic = 'force-dynamic'
@@ -9,10 +12,10 @@ export const dynamic = 'force-dynamic'
 // ═══════════════════════════════════════════════════════════════
 //  De enkelte boliger bag ét gruppekort.
 //
-//  Adressen bærer ét felt: `?b=<repræsentantens bolig-id>`. Nøglen udledes
+//  Adressen bærer `?b=<repræsentantens bolig-id>` og listens søgefiltre. Nøglen udledes
 //  af den bolig — kilde, postnummer, vej, værelser, om totalen er kendt, og
-//  for udlejerannoncer ejeren. Ikke brugerens øvrige filtre, så linket peger
-//  på det samme, uanset hvem der åbner det.
+//  for udlejerannoncer ejeren. Filtrene bevarer kortets udsnit efter klik,
+//  så «Se de 2 adresser» ikke åbner fire boliger over brugerens makspris.
 //
 //  Hvorfor ikke nøglen i adressen, som før: da ejeren kom med i nøglen,
 //  ville det have lagt en udlejers konto-id i en delbar URL. Bolig-id'et er
@@ -41,7 +44,22 @@ export default async function Side(
   const b = Array.isArray(sp.b) ? sp.b[0] : sp.b
   const n = b ? await gruppenoegleFraBolig(b.trim()) : gruppenoegleFra(sp)
   const nu = new Date()
-  const boliger = n ? await hentGruppe(n) : []
+  // Vejen tilbage til den søgning, hun kom fra. Den GENOPBYGGES af
+  // `returUrl` — adressen i `?fra=` ekkoes aldrig, og er den ikke til at
+  // genkende, er der ingen returvej, og siden står som før. Se
+  // lib/retur.ts.
+  //
+  // Den gives UÆNDRET videre til kortene herunder. Pakkede gruppesiden
+  // sin egen adresse ind i sig selv, ville strengen vokse for hvert hop,
+  // og boligsidens returvej ville føre hertil i stedet for til listen.
+  const tilbage = returUrl(sp[RETUR_PARAM])
+  // Gamle nøglelinks bruger også postnr/værelser, men til selve nøglen.
+  // Kun id-linkene læser derfor parametrene som søgefiltre.
+  const boliger = n ? await hentGruppe(n, b ? filtreFraParametre(sp) : undefined) : []
+  // Efter hinanden, ikke i Promise.all: samtidige kæder pipelines gennem
+  // Supavisor i transaction mode. Opslaget er cachet pr. request og
+  // spørger slet ikke, når ingen er logget ind.
+  const favkontekst = await favoritIder()
 
   if (!n || boliger.length === 0) {
     return (
@@ -52,7 +70,11 @@ export default async function Side(
             ? 'De boliger, linket peger på, er ikke længere til leje hos kilden.'
             : 'Linket er ufuldstændigt.'}
         </p>
-        <p className="note"><a href="/">← Til boligsøgningen</a></p>
+        <p className="note">
+          <a href={tilbage ?? '/'}>
+            {tilbage ? '← Tilbage til søgeresultaterne' : '← Til boligsøgningen'}
+          </a>
+        </p>
       </div>
     )
   }
@@ -77,30 +99,65 @@ export default async function Side(
 
   return (
     <div className="omraade">
-      <div className="krumme">
-        <a href="/">Alle boliger</a> <span>·</span>{' '}
+      {/* Samme sti og samme sidetitel som resultatsiden. Gruppesiden
+          er en udfoldning af ét kort derfra, og den skal se ud som det
+          sted, man kom fra — ikke som en tredje slags side. Adresserne
+          og teksten er uaendrede. */}
+      <nav className="broedkrumme" aria-label="Sti">
+        {/* Det første led er HENDES søgning, når vi har den — med
+            filtre, sortering og liste-/kortvalg. Har vi den ikke (et
+            delt link, et bogmærke), står der «Forside» og fører til
+            forsiden, præcis som før. Et link, der lover at føre tilbage
+            og i stedet nulstiller søgningen, ville være den samme slags
+            usandhed som en total, der lader som om aconto er kendt. */}
+        <a href={tilbage ?? '/'}>{tilbage ? '← Tilbage til søgeresultaterne' : 'Forside'}</a>
+        <span aria-hidden="true">›</span>
         <a href={`/?sted=${encodeURIComponent(n.postnr)}`}>{n.postnr} {boliger[0]!.by}</a>
-      </div>
+        <span aria-hidden="true">›</span>
+        <span aria-current="page">{n.vej}</span>
+      </nav>
 
-      <h1>{n.vej}</h1>
-      <p className="gruppe-manchet">
-        <strong>{boliger.length} {ord}</strong> med {n.vaerelser}{' '}
-        {n.vaerelser === 1 ? 'værelse' : 'værelser'}, fra {boliger[0]!.kildeNavn}.
-        Boligerne kan være forskellige i pris, areal og indflytningsdato — det
-        står på hver enkelt nedenfor.
-      </p>
+      {/* ── Titel, antal og ÉN forklaring ──────────────────────
+          Her stod to blokke, og den anden gentog den første. Striben
+          havde tre felter: værelsestallet, som sætningen ovenfor
+          allerede sagde; postnummer og by, som brødkrummen allerede
+          sagde; og prisspændet, som var det eneste nye. To af tre
+          oplysninger stod altså to gange, og de skubbede tilsammen
+          boligkortene 48 px ned på en telefon.
 
-      <div className="optaelling">
-        <span><strong>{n.vaerelser}</strong> {n.vaerelser === 1 ? 'værelse' : 'værelser'}</span>
-        <span>
+          Prisspændet er flyttet ind i sætningen, hvor det hører til —
+          det er en oplysning om gruppen, ikke en fjerde overskrift — og
+          striben er væk. Ingenting er tabt: værelser, by og postnummer
+          står stadig på siden, bare ét sted hver.
+
+          Forbeholdet bliver. Et gruppekort må kun påstå det, der gælder
+          for HELE gruppen, og at boligerne kan være forskellige er
+          netop det, læseren skal vide, før hun læser ét tal som alles. */}
+      <div className="sidetitel">
+        <h1>{n.vej}</h1>
+        <p>
+          <strong>{boliger.length} {ord}</strong> med {n.vaerelser}{' '}
+          {n.vaerelser === 1 ? 'værelse' : 'værelser'}{' '}
+          {/* Samme spørgsmål som kortets mærkat, samme svar — men med
+              plads til en sætning. Se `kildeetiket` i lib/kilde.ts. */}
+          {erEgenAnnonce(boliger[0]!) ? 'fra udlejeren selv' : `fra ${boliger[0]!.kildeNavn}`},{' '}
           {prisMin === prisMax ? kr(prisMin) : `${kr(prisMin)}–${kr(prisMax)}`} kr/md{' '}
-          {n.total ? 'til udlejer' : 'i husleje'}
-        </span>
-        <span>{n.postnr} {boliger[0]!.by}</span>
+          {n.total ? 'til udlejer' : 'i husleje'}. Pris, areal og indflytningsdato
+          kan variere — se hver enkelt nedenfor.
+        </p>
       </div>
 
-      <div className="liste">
-        {boliger.map((b) => <Kort key={b.id} b={b} nu={nu} />)}
+      <div className="listeomraade">
+        <div className="liste">
+          {/* Den GENOPBYGGEDE adresse gives videre, ikke den rå fra
+              URL'en. Så er der ingen streng i sidens markup, som en
+              fremmed har skrevet — kun den, vi selv har bygget af en
+              literal sti og de nøgler, hvidlisten navngiver. */}
+          {boliger.map((b) => (
+            <Kort key={b.id} b={b} nu={nu} favorit={statusFor(favkontekst, b.id)}
+              retur={tilbage} />
+          ))}
+        </div>
       </div>
     </div>
   )

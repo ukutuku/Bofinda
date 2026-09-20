@@ -21,6 +21,7 @@ BOFINDA_PGDB=bofinda_test
 BOFINDA_PGBRUGER=bofinda_test
 
 BOFINDA_AKTIVPORT=55433   # lokale testaktiver: billeder og kortfliser
+BOFINDA_MAILPORT=55434    # mailattrappen: en indbakke paa loopback
 BOFINDA_APPPORT=3100
 
 PGBIN=/usr/lib/postgresql/16/bin

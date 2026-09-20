@@ -1,0 +1,136 @@
+  testbase: PGlite, 21 migrationer, ingen forbindelse ud af processen
+
+
+── Produktanalytics ──────────────────────────────────
+
+  ✓ 1 · harFiltre skelner forside fra søgning
+  ✓ 1 · antalFiltre følger harFiltre
+  ✓ 1b · sted alene giver 0 avancerede
+  ✓ 1b · og stedet taelles stadig i antal_filtre
+  ✓ 1b · hvert avanceret filter taeller ét
+  ✓ 1b · tallet kan ikke blive negativt
+  ✓ 1b · sortering taelles ikke som filter
+  ✓ 1b · men sorteringen naevnes for sig
+  ✓ 1b · ukendt sortering er ikke «sorteret»
+  ✓ 1b · sammenfatningens ordlyd  — Flere filtre · 1 aktivt · sorteret
+  ✓ 1b · foerste led er altid navnet
+  ✓ 2 · count(search) = count(search_results_view) + count(empty_results)  — 3 = 2 + 1
+  ✓ 3 · to identiske kald i én request giver ÉN række
+  ✓ 3 · næste request giver en ny række
+  ✓ 4 · samme (session, listing, result_view) giver ÉN impression
+  ✓ 4 · en ny resultatvisning giver en ny impression
+  ✓ 4 · en session uden for stikprøven skriver ingen impressions
+  ✓ 4 · stikprøven rammer KUN impressions
+  ✓ 5 · stikprøven er deterministisk pr. session
+  ✓ 5 · 25 % rammer omkring en fjerdedel  — 505/2000
+  ✓ 6 · impression uden sample_andel afvises
+  ✓ 6A · klientens payload uden sample_andel skrives nu  — 1 raekke(r)
+  ✓ 6A · serveren stempler den faktiske andel som BROEKDEL  — 0.25
+  ✓ 6C · og klienten sendte den beviseligt ikke selv
+  ✓ 6A · andelen foelger pct — ved 100 % er den 1  — 1
+  ✓ 6B · session uden for stikprøven skriver ingen impression
+  ✓ 6B · porten kan ikke omgaas ved selv at sende feltet med
+  ✓ 6D · en paastaaet 1 overskrives med den sande 0.25  — 0.25
+  ✓ 6D · ogsaa en andel, der ville puste tallet 2500× op, overskrives  — 0.25
+  ✓ 6F · properties er praecis de forventede noegler — intet er laekket ind  — er_gruppe,position,result_view_id,sample_andel
+  ✓ 6F · andelen er et TAL i (0,1] — den kan rummes i numeric(5,4)  — 0.25
+  ✓ 6E · de fire oevrige klient-events skrives uaendret  — 4/4
+  ✓ 6E · og ingen af dem har faaet et sample_andel
+  ✓ 7 · alert_created fyrer ikke ved ugyldig mail
+  ✓ 8 · alert_confirmed fyrer ved den reelle transition
+  ✓ 8 · filtertyper er NAVNE, ikke værdier
+  ✓ 8 · genåbning af et bekræftet link giver 0 nye events  — 1 event(er)
+  ✓ 9 · kendt by gemmes kanonisk
+  ✓ 9 · ukendt by gemmes IKKE
+  ✓ 9 · postnummer vinder over by
+  ✓ 10 · mailadresse afviser hele eventet
+  ✓ 10 · telefonnummer afviser hele eventet
+  ✓ 10 · JWT afviser hele eventet
+  ✓ 10 · Bearer-token afviser hele eventet
+  ✓ 10 · fremmed URL afviser hele eventet
+  ✓ 10 · for lang tekst afviser hele eventet
+  ✓ 10 · vores eget domæne er ikke en fremmed URL
+  ✓ 10 · en uuid er ikke et telefonnummer
+  ✓ 10 · et beløb i øre er ikke et telefonnummer
+  ✓ 10 · «+45 20 12 34 56» fanges stadig
+  ✓ 10 · «20123456» fanges stadig
+  ✓ 10 · «(+45) 20-12-34-56» fanges stadig
+  ✓ 10 · et postnummer er ikke et telefonnummer
+  ✓ 10 · empty_results bærer sted_slags
+  ✓ 11 · ukendt property droppes, eventet skrives
+  ✓ 12 · manglende påkrævet property afviser eventet
+  ✓ 12 · ukendt eventnavn afvises
+  ✓ 12 · rute uden for RUTER afvises
+  ✓ 12 · ingen allowlist-post hedder sted, by, mail eller navn
+  ✓ 13 · produktet fortsætter, når analytics kaster  — spaerret
+  ✓ 13 · spor() kaster aldrig videre
+  ✓ 14 · uvalgt samtykke giver ingen plan
+  ✓ 14 · nej giver ingen plan
+  ✓ 14 · laesSamtykke kender de tre tilstande
+  ✓ 15 · ja giver både anonymt id og session
+  ✓ 15 · identifikatorerne holder på tværs af requests
+  ✓ 15 · kun sessionen fornys, ikke det anonyme id
+  ✓ 16 · efter tilbagetrækning er der ingen plan
+  ✓ 16 · et nyt ja giver et ANDET anonymt id
+  ✓ 17 · sessionen skifter på det absolutte loft (12 t)
+  ✓ 17 · en session inden for loftet består
+  ✓ 17 · en ødelagt cookieværdi giver en ny session
+  ✓ 18 · alle rækker fra prøven er environment=proeve
+  ✓ 18 · ingen række er produktion
+  ✓ 18 · testbasen satte miljøet, prøven behøvede ikke huske det
+  ✓ 19 · et miljø uden for enum'en afviser eventet
+  ✓ 19 · enum'en har præcis fire værdier
+  ✓ 20 · taggen følger med
+  ✓ 20 · eventet er ellers HELT normalt — ikke en parallel verden
+  ✓ 20 · et holdnummer med fritekst afvises
+  ✓ 21 · et tilføjet filter giver ét filter_applied
+  ✓ 21 · et fjernet filter giver ét filter_cleared
+  ✓ 21 · en ændret sortering giver sort_changed
+  ✓ 21b · ?flere=1 er ikke et filter og giver ingen events
+  ✓ 21b · ?flere=1 aendrer hverken harFiltre eller antal_filtre
+  ✓ 21b · og heller ikke sammenfatningens tal
+  ✓ 21b · ?flere=1 i Referer giver ingen events
+  ✓ 22 · «Nulstil» kollapser til ÉT event
+  ✓ 23 · ingen Referer → ingen filterevents
+  ✓ 23 · en fremmed oprindelse tæller ikke som forrige side
+  ✓ 23 · en anden sti end / tæller ikke
+  ✓ 24 · diffen danner faktisk et by-event at prøve på  — 1 event(er)
+  ✓ 24 · REFERER LÆKKER IKKE fritekst ind i et event
+  ✓ 24 · byen bliver til en kategori, ikke til teksten
+  ✓ 24 · uddrag() sender aldrig rå sted videre
+  ✓ 24 · filter_applied med fritekst bag sig passerer værnet rent
+  ✓ 25 · udløbne rækker slettes faktisk
+  ✓ 25 · rækker med fremtidig udløbsdato bliver
+  ✓ 25 · udløbsklassen er den KORTESTE frist
+  ✓ 26 · dagsaggregatet skrives
+  ✓ 26 · aggregatet bærer kilden og andelen
+  ✓ 27 · MAALING_AKTIV slået fra → ingenting skrives
+  ✓ 27 · slået til → der skrives igen
+  ✓ 28 · en almindelig navigation er en visning
+  ✓ 28 · Server Action-revalidering er det IKKE
+  ✓ 28 · prefetch er det heller ikke
+  ✓ 28 · en klientside-navigation (rsc) ER en visning  — ellers ville next/link en dag tie hele listing_view ihjel
+  ✓ 28 · ét besøg + ét kontaktklik = ÉN listing_view  — 1 listing_view
+  ✓ 28 · contact_reveal fyrer stadig fra handlingen  — 1 contact_reveal
+  ✓ 28 · reload tæller stadig som en visning
+  ✓ 28 · ingen handlingsevents på render-listen
+  ✓ 28 · source_click rammes ikke af vagten
+  ✓ 29 · en payload UDEN de nye felter accepteres uændret
+  ✓ 29 · gyldige pagineringsfelter accepteres
+  ✓ 29 · alle tolv ugyldige værdier afvises som forkert-type  — 12/12
+  ✓ 29 · sider_i_alt droppes, når komplet er false
+  ✓ 29 · sider_i_alt droppes, når komplet er slet ikke oplyst
+  ✓ 29 · side uden for rækkevidde er en LOVLIG resultatvisning
+  ✓ 29 · search, search_results_view og empty_results bærer alle tre felter
+  ✓ 30 · search_submitted skrives
+  ✓ 30 · og bærer INGEN properties — heller ikke et filterantal
+  ✓ 30 · den er et KLIENTevent, så /api/maaling lukker den ind
+  ✓ 30 · den er IKKE et renderevent — vagten mod genrendering rammer den ikke
+  ✓ 30 · en fritekst-property droppes, og teksten når ikke rækken
+  ✓ 30 · en stikprøve på 0 % rammer IKKE search_submitted
+  ✓ 30 · uden samtykke/kontekst skrives der ingenting
+  ✓ 30 · dagsaggregatet dækker det nye event uden skemaændring  — antal=1 andel=1.0000
+  ✓ 30 · udløbsklassen er produktets, ikke impressionernes
+
+  ALT GRØNT
+

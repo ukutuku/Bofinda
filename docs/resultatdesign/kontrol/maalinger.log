@@ -1,0 +1,20 @@
+  390 forside        bar 328x180   filterknap 316x44    kortvalg null      dialog 0x0        kortboks null       1 kol à 346 (48) · overløb 0
+  390 resultat       bar 328x178   filterknap 189x44    kortvalg 119x44    dialog 0x0        kortboks 346x620    44 kol à 0 (44) · overløb 0 · liste skjult
+  390 resultat-liste bar 328x178   filterknap 189x44    kortvalg 119x44    dialog 0x0        kortboks null       1 kol à 346 (44) · overløb 0
+  390 udenkoord      bar 328x178   filterknap 316x44    kortvalg null      dialog 0x0        kortboks null       1 kol à 346 (42) · overløb 0 · KORTMANGLER
+  390 filtre         bar 328x178   filterknap 189x44    kortvalg 119x44    dialog 390x1000   kortboks 346x620    44 kol à 0 (44) · overløb 0 · liste skjult
+  768 forside        bar 706x71    filterknap 185x59    kortvalg null      dialog 0x0        kortboks null       2 kol à 352 (48) · overløb 0
+  768 resultat       bar 706x68    filterknap 185x56    kortvalg 116x56    dialog 0x0        kortboks 724x620    44 kol à 0 (44) · overløb 0 · liste skjult
+  768 resultat-liste bar 706x68    filterknap 185x56    kortvalg 115x56    dialog 0x0        kortboks null       2 kol à 352 (44) · overløb 0
+  768 udenkoord      bar 706x68    filterknap 185x56    kortvalg null      dialog 0x0        kortboks null       2 kol à 352 (42) · overløb 0 · KORTMANGLER
+  768 filtre         bar 706x68    filterknap 185x56    kortvalg 116x56    dialog 720x760    kortboks 724x620    44 kol à 0 (44) · overløb 0 · liste skjult
+ 1100 forside        bar 1038x71   filterknap 185x59    kortvalg null      dialog 0x0        kortboks null       2 kol à 518 (48) · overløb 0
+ 1100 resultat       bar 1038x68   filterknap 185x56    kortvalg 116x56    dialog 0x0        kortboks 352x720    2 kol à 330 (44) · overløb 0
+ 1100 resultat-liste bar 1038x68   filterknap 185x56    kortvalg 115x56    dialog 0x0        kortboks null       2 kol à 518 (44) · overløb 0
+ 1100 udenkoord      bar 1038x68   filterknap 185x56    kortvalg null      dialog 0x0        kortboks null       2 kol à 518 (42) · overløb 0 · KORTMANGLER
+ 1100 filtre         bar 1038x68   filterknap 185x56    kortvalg 116x56    dialog 720x760    kortboks 352x720    2 kol à 330 (44) · overløb 0
+ 1440 forside        bar 1238x71   filterknap 185x59    kortvalg null      dialog 0x0        kortboks null       2 kol à 640 (48) · overløb 0
+ 1440 resultat       bar 1282x68   filterknap 185x56    kortvalg 116x56    dialog 0x0        kortboks 546x720    2 kol à 355 (44) · overløb 0
+ 1440 resultat-liste bar 1282x68   filterknap 185x56    kortvalg 115x56    dialog 0x0        kortboks null       2 kol à 640 (44) · overløb 0
+ 1440 udenkoord      bar 1282x68   filterknap 185x56    kortvalg null      dialog 0x0        kortboks null       2 kol à 640 (42) · overløb 0 · KORTMANGLER
+ 1440 filtre         bar 1282x68   filterknap 185x56    kortvalg 116x56    dialog 720x760    kortboks 546x720    2 kol à 355 (44) · overløb 0

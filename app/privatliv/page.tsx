@@ -8,6 +8,15 @@ export const metadata = {
 // Almindelig side, ikke genereret indhold. Teksten rettes her, og den er
 // ejerens — ikke noget vi formulerer på hans vegne.
 //
+// ⚠ TEKSTEN SKAL BESKRIVE DET, KODEN GØR — ikke omvendt. Cookienavnene og
+// levetiderne bor i lib/samtykke.ts, lib/kontovej.ts, lib/gemoenske.ts og
+// lib/gemudkast.ts; fristerne bor i `ryd()` i lib/alarm.ts. Der er ikke
+// noget, der måler, at de to stemmer, og det har kostet to gange: først
+// blev cookielisten udvidet uden at datoen fulgte med, og siden fik
+// boligsøgende konti og favoritter (Min side), uden at ét ord her blev
+// rødt. Ændres en cookie, en frist eller hvad en konto kan, hører denne
+// side med i SAMME ændring.
+//
 // info@bofinda.dk modtager mail siden 7. september 2026 — domænet er
 // registreret og flyttet til Simply, som leverer indgående mail. Politikken
 // er dermed gyldig. Se CLAUDE.md for hvad der skal overleve, hvis nogen
@@ -16,7 +25,7 @@ export default function Side() {
   return (
     <article className="dokument">
       <h1>Privatlivspolitik</h1>
-      <p className="dato">Sidst opdateret: 7. september 2026</p>
+      <p className="dato">Sidst opdateret: 19. september 2026</p>
 
       <h2>Dataansvarlig</h2>
       <p>
@@ -37,17 +46,32 @@ export default function Side() {
           de søgekriterier, du har valgt (postnummer, by, pris, værelser,
           areal, kilde)
         </li>
+        <li>
+          et navn til søgningen, så du kan kende den igen — det du selv
+          skriver i feltet, eller et, vi laver af kriterierne, hvis du lader
+          det stå tomt
+        </li>
         <li>tidspunktet for oprettelsen og for hver besked, vi sender</li>
       </ul>
       <p>
-        Vi beder ikke om navn, telefonnummer eller adresse, og vi opretter
-        ingen brugerkonto.
+        Vi beder ikke om dit navn, dit telefonnummer eller din adresse. En
+        boligbesked opretter <strong>ingen brugerkonto</strong> — du skal
+        hverken vælge en adgangskode eller logge ind for at få besked. Vil
+        du derudover gemme boliger, kan du oprette en konto; det er et andet
+        forløb, og det er beskrevet under <a href="#konto">Din konto og dine
+        gemte boliger</a>.
       </p>
       <p>
         Bruger du kun boligsøgningen uden at oprette en alarm, og uden at
-        sige ja til statistik, behandler vi ingen personoplysninger om dig.
-        Siger du ja til statistik, gemmer vi to tilfældige numre i din
-        browser — se afsnittet nedenfor.
+        sige ja til statistik, <strong>registrerer vi ingen
+        besøgsstatistik</strong>. Vores egen kode henter aldrig din
+        IP-adresse.
+        At siden overhovedet kan vises, kræver dog, at din forespørgsel når
+        de servere, der leverer den, og dér kan leverandørerne have
+        IP-adressen i deres egne driftslogs. Det er teknisk drift og noget
+        andet end den besøgsstatistik, du selv vælger til; IP-adressen
+        indgår ikke i statistikken. Siger du ja til statistik, gemmer vi to
+        tilfældige numre i din browser — se afsnittet nedenfor.
       </p>
 
       <h2>Formål og retsgrundlag</h2>
@@ -102,9 +126,11 @@ export default function Side() {
       </p>
       <p>
         <strong>Vi måler ikke, før du har sagt ja.</strong> Har du ikke
-        taget stilling, eller har du sagt nej, registrerer vi ingenting om
-        dit besøg — hverken med eller uden numre — og vi gemmer intet i din
-        browser.
+        taget stilling, eller har du sagt nej, registrerer vi ingen
+        besøgsstatistik — hverken med eller uden numre. Før du vælger,
+        gemmer vi ikke engang dit valg; siger du nej, husker vi selve
+        svaret i en nødvendig cookie, så vi ikke spørger igen ved hvert
+        besøg. Den indeholder kun dit valg.
       </p>
 
       <Valg />
@@ -127,7 +153,7 @@ export default function Side() {
           det viste telefonnummer
         </li>
         <li>at en boligbesked blev påbegyndt, oprettet og bekræftet</li>
-        <li>at nogen oprettede sig som udlejer eller loggede ind</li>
+        <li>at nogen oprettede en konto eller loggede ind</li>
         <li>at kortet blev brugt, og at filtrene blev foldet ud</li>
         <li>at en handling på siden fejlede — men aldrig fejlbeskeden</li>
       </ul>
@@ -150,10 +176,10 @@ export default function Side() {
       </ul>
       <p>
         Skriver du et bynavn, vi ikke kender, gemmer vi ikke det, du skrev —
-        kun at søgningen gjaldt et sted, vi ikke kender. Vores leverandører
-        kan have din IP-adresse i deres egne driftslogs i kort tid, men vi
-        henter den ikke ind i vores statistik og bruger den ikke til at
-        genkende dig.
+        kun at søgningen gjaldt et sted, vi ikke kender. Som beskrevet
+        ovenfor kan vores leverandører have din IP-adresse i deres egne
+        driftslogs. Vi henter den ikke ind i vores statistik og bruger den
+        ikke til at genkende dig.
       </p>
 
       <h3>Genkendelse på tværs af besøg</h3>
@@ -172,7 +198,8 @@ export default function Side() {
         fingeraftryk af din browser.
       </p>
       <p>
-        Når du opretter en udlejerkonto, kobles netop den hændelse til dit
+        Når du opretter en konto — som boligsøgende eller som udlejer —
+        kobles netop den hændelse til dit
         interne bruger-id — et tilfældigt nummer i vores egen database. Dine
         øvrige besøg kobles ikke til kontoen, kun til browsernummeret. Din
         mailadresse indgår aldrig i statistikken.
@@ -213,15 +240,113 @@ export default function Side() {
         begynder. Holdnummeret er et løbenummer og siger intet om, hvem du er.
       </p>
 
-      <h2>Cookies</h2>
-      <p>Vi bruger cookies til fire ting og ikke andet:</p>
+      <h2 id="konto">Din konto og dine gemte boliger</h2>
+      <p>
+        Du kan oprette en konto for at gemme boliger og samle dine gemte
+        søgninger ét sted. Det er frivilligt: boligsøgningen virker uden, og
+        en boligbesked kræver det ikke.
+      </p>
+      <p>
+        Adgangskoden vælger du selv, og den <strong>går gennem vores egen
+        server</strong>: du skriver den i formularen, formularen sendes til
+        os, og vores server sender den videre til vores databehandler
+        Supabase Auth, der står for selve kontoen. Vælger du en ny
+        adgangskode, tjekker vores server undervejs, at den er lang nok — og
+        at de to felter er ens, dér hvor du skriver den to gange. Ved et
+        almindeligt login sender den den bare videre.
+      </p>
+      <p>
+        Vi skriver den ingen steder: hverken i vores egne tabeller, i en
+        cookie eller i vores statistik. Går et login galt, registrerer vi
+        kun hvilken <em>slags</em> fejl det var — «forkert login»,
+        «for mange forsøg» — aldrig hvad du skrev.
+      </p>
+      <p>
+        Supabase Auth gemmer den ikke som tekst, men som et hash: et aftryk,
+        der ikke kan regnes tilbage til adgangskoden. Aftrykket ligger i den
+        samme database som resten af vores data og følger med, når vi tager
+        en sikkerhedskopi. <strong>Vi kan derfor ikke slå din adgangskode
+        op</strong> — hverken for dig eller for andre. Har du glemt den,
+        sætter du en ny gennem «Glemt adgangskode?» på loginsiden.
+      </p>
+      <p>Har du en konto, gemmer vi:</p>
       <ul>
-        <li>at holde dig logget ind, hvis du er udlejer</li>
+        <li>din mailadresse</li>
+        <li>
+          et internt bruger-id og en markering af, om kontoen er oprettet som
+          boligsøgende eller som udlejer
+        </li>
+        <li>
+          tidspunktet, vi første gang oprettede en række om dig. Det er, da du
+          oprettede kontoen — eller da du oprettede en boligbesked, hvis du
+          havde en først
+        </li>
+        <li>
+          for hver bolig, du gemmer: hvilken bolig det er, og hvornår du
+          gemte den. Ikke hvad du har set på, og ikke hvor længe
+        </li>
+      </ul>
+      <p>
+        Retsgrundlaget er artikel 6, stk. 1, litra b: behandlingen er
+        nødvendig for at levere det, du har bedt om. Uden oplysningerne kan vi
+        hverken vise dig listen igen på en anden enhed eller kende den fra en
+        andens.
+      </p>
+      <p>
+        Du kan fjerne en gemt bolig igen med «Fjern» på Min side; rækken
+        slettes, den bliver ikke bare skjult. Og du kan afmelde en gemt
+        søgning med «Afmeld» samme sted — så holder beskederne op med det
+        samme, og selve søgningen slettes 90 dage efter, som beskrevet
+        ovenfor.
+      </p>
+      <p>
+        <strong>Der er ingen knap, der sletter hele kontoen.</strong> Vil du
+        have den slettet, beder du om det ved at skrive til{' '}
+        <a href="mailto:info@bofinda.dk">info@bofinda.dk</a> — det er den
+        samme vej som de øvrige rettigheder længere nede på siden.
+      </p>
+      <p>
+        Havde du en boligbesked i forvejen og opretter en konto med den
+        samme mailadresse, samles de to, så søgningerne står på Min side.
+        Det sker kun, når Auth-serveren melder mailadressen bekræftet —
+        ellers ville en fremmed kunne overtage dine søgninger ved at skrive
+        din adresse.
+      </p>
+
+      <h2>Cookies</h2>
+      <p>Vi bruger cookies til otte ting og ikke andet:</p>
+      <ul>
+        <li>
+          at holde dig logget ind, når du har en konto. Det er den samme
+          cookie, uanset om du søger bolig eller udlejer
+        </li>
         <li>at huske, om du har sagt ja eller nej til statistik</li>
         <li>statistik, hvis du har sagt ja — de to numre beskrevet ovenfor</li>
         <li>
           holdnummeret, hvis du deltager i en brugertest. Den udløber efter
           fire timer
+        </li>
+        <li>
+          at bære det, du lige har skrevet i «Få besked om nye boliger», med
+          tilbage til formularen, hvis noget gik galt — så du kan rette det i
+          stedet for at skrive det hele igen. Den indeholder kun det, du selv
+          har tastet, og den udløber efter to minutter
+        </li>
+        <li>
+          at vise dig, hvad der skete, lige før du blev sendt videre — at
+          adgangskoden blev skiftet, eller at mailadressen blev bekræftet.
+          Den siger hvad, aldrig hvem, og den udløber efter to minutter
+        </li>
+        <li>
+          at vise dig, om boligen blev gemt, når du har trykket på et hjerte
+          og derefter logget ind. Den bærer ikke hvilken bolig det var, og
+          den udløber efter 30 sekunder
+        </li>
+        <li>
+          Ved oprettelse af en konto eller nulstilling af adgangskoden bruger
+          vi nødvendige cookies til at knytte maillinket til den browser, hvor
+          du startede forløbet. De bruges ikke til statistik eller
+          markedsføring og har en udløbstid på op til 400 dage.
         </li>
       </ul>
       <p>
@@ -249,8 +374,13 @@ export default function Side() {
         kontaktvej har ingen funktion.
       </p>
       <p>
-        Oplysningerne slettes, når du fjerner annoncen eller din konto. Du kan
-        til enhver tid rette dem under Mine annoncer.
+        Fjerner du annoncen, kan en besøgende ikke længere få oplysningerne
+        udleveret: forespørgslen kræver, at annoncen er aktiv. Men{' '}
+        <strong>værdierne bliver stående</strong> — det er dem, annoncen får
+        igen, hvis du udgiver den på ny. Vil du have dem væk, rydder du
+        felterne under Mine annoncer, hvor du også til enhver tid kan rette
+        dem; eller du beder os om det på{' '}
+        <a href="mailto:info@bofinda.dk">info@bofinda.dk</a>.
       </p>
       <p>
         For boliger, vi henter fra andre portaler, viser vi ikke

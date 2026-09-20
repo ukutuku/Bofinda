@@ -1,8 +1,12 @@
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { hentUdlejer } from '../../../lib/auth'
 import { mineBoliger } from '../../../lib/udlejer'
+import { KVITTERINGSCOOKIE, kvitteringFra } from '../../../lib/kontovej'
 import { fjern, genudgiv, logUd } from '../handlinger'
+import { Kvitteringsblok } from '../Kvitteringsblok'
 import { kr } from '../../Boligkort'
+import { erEgenAnnonce } from '../../../lib/kilde'
 import type { Repraesentant } from '../../../lib/soeg'
 
 /**
@@ -29,6 +33,20 @@ export default async function Side() {
   if (!u) redirect('/udlejer')
   const boliger = await mineBoliger(u)
 
+  // ── Kvitteringen efter en gendannelse ──────────────────────────
+  //
+  // Den staar HER og ikke paa /udlejer, fordi /udlejer sender en
+  // indlogget udlejer videre hertil, FOER cookien overhovedet laeses.
+  // Fejler udlogningen i `gemNyKode`, er hun netop stadig logget ind —
+  // saa er denne side den eneste, hun faktisk ser, og uden blokken
+  // landede hun paa Mine annoncer uden et ord om, at koden var skiftet.
+  //
+  // Laesningen ligger EFTER `hentUdlejer()`: adgangen afgoeres af
+  // sessionen som foer, og cookien tilfoejer kun en besked. En
+  // haandskrevet kvittering giver derfor ingen adgang — den redirect,
+  // der staar ovenfor, sker uanset hvad der staar i den.
+  const kvittering = kvitteringFra((await cookies()).get(KVITTERINGSCOOKIE)?.value)
+
   return (
     <div className="udlejer">
       <div className="udlejerhoved">
@@ -38,9 +56,11 @@ export default async function Side() {
         </div>
         <div className="udlejerknapper">
           <a className="knap" href="/udlejer/opret">Opret annonce</a>
-          <form action={logUd}><button className="nulstil" type="submit">Log ud</button></form>
+          <form action={logUd.bind(null, 'udlejer')}><button className="nulstil" type="submit">Log ud</button></form>
         </div>
       </div>
+
+      <Kvitteringsblok kvittering={kvittering} visning="indlogget" kontekst="udlejer" />
 
       {boliger.length === 0 ? (
         <div className="tom">
@@ -79,7 +99,11 @@ export default async function Side() {
                       <strong>Vises ikke i søgningen.</strong> Vi har fundet
                       en anden annonce for den samme bolig og viser den i
                       stedet: <a href={`/bolig/${synlig.af.id}`}>{synlig.af.adresse}</a>
-                      {' '}hos {synlig.af.kilde}.
+                      {/* «hos udlejeren selv», ikke «hos Bofinda»: den
+                          vindende annonce er heller ikke hentet nogen
+                          steder. Samme spørgsmål som kortets mærkat,
+                          men midt i en sætning — se lib/kilde.ts. */}
+                      {' '}hos {erEgenAnnonce(synlig.af) ? 'udlejeren selv' : synlig.af.kildeNavn}.
                     </p>
                     <p className="note">
                       Den blev valgt, fordi {grunden(b, synlig.af)}. Din annonce

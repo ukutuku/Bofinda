@@ -1,0 +1,10 @@
+{
+  "git": {
+    "deploymentEnabled": {
+      "feature/frontend-lancering-v2": false,
+      "feature/kontomails-bekraeftelse-v1": false,
+      "integration/release-kandidat": false,
+      "claude/supply-depositum-propstep-lokalbolig": false
+    }
+  }
+}

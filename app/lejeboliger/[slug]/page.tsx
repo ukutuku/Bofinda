@@ -4,7 +4,9 @@ import { cache } from 'react'
 import { findOmraade, naboer, statistik, type Omraade } from '../../../lib/omraade'
 import { antalBoliger, soegGrupperet, type Soegeparametre } from '../../../lib/soeg'
 import { Visningskort, kr } from '../../Boligkort'
+import { favoritIder, statusFor } from '../../../lib/favoritter'
 import { Sider, sideUrl } from '../../Sider'
+import { returVaerdi } from '../../../lib/retur'
 
 /** Kort pr. side — samme tal som søgesiden. */
 const PR_SIDE = 48
@@ -84,7 +86,7 @@ export async function generateMetadata(
     s.medianIndflytning != null
       ? `Typisk indflytningspris ${kr(s.medianIndflytning)} kr.`
       : null,
-    'Se den reelle månedlige udgift, ikke bare huslejen.',
+    'Se den månedlige betaling til udlejer, ikke bare huslejen.',
   ].filter(Boolean)
 
   // ── En side EFTER sidste gyldige side ───────────────────────────
@@ -135,6 +137,12 @@ export default async function Side({ params, searchParams }: {
   // giver 404 og kommer heller ikke i sitemap'et.
   if (!o) notFound()
 
+  // Returadressen til DENNE områdeside. Bygges af områdets egen slug —
+  // `o.slug`, ikke `slug` fra adressen — så det, der bæres videre, er en
+  // slug, `findOmraade` har genkendt. `returUrl` prøver den mod formen
+  // fra lib/slug.ts igen ved læsningen. Se lib/retur.ts.
+  const retur = returVaerdi(`/lejeboliger/${o.slug}`, sp)
+
   // Efter hinanden, ikke i Promise.all — se noten i app/page.tsx.
   const s = await statistik(o)
   const nu = nuFor()
@@ -142,6 +150,7 @@ export default async function Side({ params, searchParams }: {
   // til én forespørgsel.
   const { visninger, kortIAlt, komplet } = await sideudsnit(o.slags, o.vaerdi, side)
   const nabo = await naboer(o)
+  const favkontekst = await favoritIder()
   // Kort er ikke boliger: ens boliger paa samme vej staar som ét kort.
   const vist = antalBoliger(visninger)
   const { sider, forHoej } = udenForRaekkevidde(kortIAlt, side)
@@ -152,13 +161,17 @@ export default async function Side({ params, searchParams }: {
 
   return (
     <div className="omraade">
-      <nav className="krumme">
-        <a href="/">Alle boliger</a>
-        <span>›</span>
-        <span>{o.navn}</span>
+      {/* Samme sti og sidetitel som resultat- og gruppesiden.
+          Omraadesidens tekst og tal er uroerte. */}
+      <nav className="broedkrumme" aria-label="Sti">
+        <a href="/">Forside</a>
+        <span aria-hidden="true">›</span>
+        <span aria-current="page">{o.navn}</span>
       </nav>
 
-      <h1>Lejeboliger {iOmraadet(o)}</h1>
+      <div className="sidetitel">
+        <h1>Lejeboliger {iOmraadet(o)}</h1>
+      </div>
 
       {/* Kun tal vi kan pege paa raekkerne bag. Ingen paastande om
           markedet, ingen "populaert omraade". */}
@@ -183,9 +196,9 @@ export default async function Side({ params, searchParams }: {
           )}
           {' '}
           {s.medTotal === s.antal
-            ? <>Alle {s.antal} oplyser aconto, så den reelle månedlige udgift kendes.</>
+            ? <>Alle {s.antal} oplyser aconto, så den samlede betaling til udlejer kendes.</>
             : s.medTotal === 0
-              ? <>Ingen af dem oplyser aconto, så den samlede månedlige udgift kendes ikke.</>
+              ? <>Ingen af dem oplyser aconto, så den samlede betaling til udlejer kendes ikke.</>
               : <><strong>{s.medTotal} af {s.antal}</strong> oplyser aconto. På resten kender
                 vi kun huslejen — spørg udlejeren om varme og vand.</>}
         </p>
@@ -209,14 +222,27 @@ export default async function Side({ params, searchParams }: {
       ) : visninger.length === 0 ? (
         <div className="tom"><p>Ingen boliger lige nu.</p></div>
       ) : (
-        <div className="liste">
-          {visninger.map((v) => (
-            <Visningskort
-              nu={nu}
-              key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
-              v={v}
-            />
-          ))}
+        /* Listen brydes efter SIN egen bredde, ikke efter vinduets:
+           `.listeomraade` BAERER `container-type: inline-size`, og
+           `.liste` er gitteret indeni. Begge lag skal blive — kortenes
+           brydning ligger i `@container`, aldrig i `@media`. */
+        <div className="listeomraade">
+          <div className="liste">
+            {visninger.map((v) => (
+              <Visningskort
+                nu={nu}
+                filtre={filterFor(o.slags, o.vaerdi)}
+                retur={retur}
+                key={v.slags === 'gruppe' ? `g:${v.gruppe.repraesentant.id}` : v.bolig.id}
+                v={v}
+                // Repraesentantens id er det, kortet gemmer — samme id som
+                // kortets `data-bolig`. Ét opslag pr. request bag
+                // `favoritIder()`, afledt her pr. kort.
+                favorit={statusFor(favkontekst,
+                  v.slags === 'gruppe' ? v.gruppe.repraesentant.id : v.bolig.id)}
+              />
+            ))}
+          </div>
         </div>
       )}
 

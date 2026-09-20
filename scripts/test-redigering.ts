@@ -26,13 +26,15 @@
 //    npm test
 // ═══════════════════════════════════════════════════════════════
 
-import { and, eq, sql as dsql } from 'drizzle-orm'
+import { and, eq, inArray, sql as dsql } from 'drizzle-orm'
 import { db, luk } from '../db/client'
 import { alertMatches, crawlRuns, fetchFailures, hostBlocks, listingImages, listings, savedSearches, sources, users } from '../db/schema'
 import { matchAlarmer } from '../lib/alarm'
 import { byForPostnr } from '../lib/omraade'
 import { laesBolig as dacasLaes } from '../adapters/dacas'
+import { readFileSync } from 'node:fs'
 import { laesSag as homeLaes } from '../adapters/home'
+import { noeglerISag, sagstypeFor } from './home-felter'
 import { laes as balderLaes } from '../adapters/balder'
 import { findSearchResponse as cejFind, laes as cejLaes } from '../adapters/cej'
 import {
@@ -72,6 +74,8 @@ import { tjekRettigheder } from './tjek-rettigheder'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Gruppekort, Kort } from '../app/Boligkort'
+import { type Bladring, Bladrepile, LISTEN_FEJLEDE, PROEVER_IGEN } from '../app/Billedbladring'
+import { GET as boligbilleder } from '../app/api/boligbilleder/route'
 import { billedUrl, TILLADTE_VAERTER } from '../lib/billede'
 import { eltilstand } from '../lib/eloplysning'
 import type { Bolig, Filtre, Gruppe } from '../lib/soeg'
@@ -523,6 +527,258 @@ async function main() {
   tjek('… og lejen er sagens egen', hjemSag.rentMonthly === 1200000,
     String(hjemSag.rentMonthly))
 
+  // ── home.dk: optaellingen af feltnavne ───────────────────────
+  // `scripts/home-felter.ts` findes, fordi adapteren IKKE saetter
+  // deposit, prepaidRent og rooms, og fordi ingen har maalt, hvad de
+  // hedder i payloaden. Vaerktoejet TAELLER noeglerne i stedet for at
+  // slaa et formodet navn op — og det er netop en optaelling, der skal
+  // kunne stoles paa, for den bliver grundlaget for at udvide
+  // adapterens allowlist.
+  //
+  // Fixturen er konstrueret og laegger NABOENS sag foerst, som den
+  // eksisterende home-fixture ovenfor. Naboen har et beloebsfelt, SAGEN
+  // IKKE HAR (`rentalDepositUkendt`) og et ekstra stats-felt — saa en
+  // ubunden «foerste objekt med et offer»-laesning ville rapportere
+  // naboens feltnavne som boligens. Det er praecis den fejl, en
+  // optaelling maa vaere immun over for: den ville faa os til at skrive
+  // et feltnavn ind i adapteren, som den maalte bolig ikke har.
+  console.log('\n══ home.dk: feltoptaelling bundet til sagens id ══')
+  const HF_FLAD: unknown[] = [
+    'meta',                                                    // 0
+    { id: 2, offer: 3, stats: 6 },                             // 1  NABOEN — foerst
+    'NABO1',                                                   // 2
+    { rentalPricePerMonth: 4, rentalDepositUkendt: 5 },        // 3  EKSTRA beloebsfelt
+    { amount: 9000 },                                          // 4
+    { amount: 27000 },                                         // 5
+    { floorArea: 7, naboFelt: 8 },                             // 6  EKSTRA stats-felt
+    55,                                                        // 7
+    'kun-hos-naboen',                                          // 8
+    { id: 10, offer: 11, stats: 14 },                          // 9  SAGEN
+    'SAG1',                                                    // 10
+    { rentalPricePerMonth: 12, rentalUtilitiesPerMonth: 13 },  // 11
+    { amount: 12000 },                                         // 12
+    { amount: 1100 },                                          // 13
+    { floorArea: 15 },                                         // 14
+    70,                                                        // 15
+    { id: 17, offer: 18 },                                     // 16  TREDJE — uden stats
+    '177P000001',                                              // 17
+    {},                                                        // 18  tomt offer
+  ]
+
+  const hfSag = noeglerISag(HF_FLAD, 'SAG1')
+  tjek('præmis: naboens sag står FØRST i den flade liste',
+    JSON.stringify(HF_FLAD).indexOf('NABO1') < JSON.stringify(HF_FLAD).indexOf('SAG1'))
+  tjek('offer-nøglerne er SAGENS egne',
+    hfSag.offer.some((k) => k.startsWith('rentalPricePerMonth:'))
+    && hfSag.offer.some((k) => k.startsWith('rentalUtilitiesPerMonth:')),
+    hfSag.offer.join(' · '))
+  tjek('naboens ekstra beløbsfelt lækker IKKE ind som sagens',
+    !hfSag.offer.some((k) => k.startsWith('rentalDepositUkendt:')),
+    hfSag.offer.join(' · '))
+  tjek('stats-nøglerne er sagens egne — naboens ekstra felt er ude',
+    hfSag.stats.some((k) => k.startsWith('floorArea:'))
+    && !hfSag.stats.some((k) => k.startsWith('naboFelt:')),
+    hfSag.stats.join(' · '))
+  tjek('beløbsformede felter findes, og kun sagens',
+    hfSag.beloebsformede.join(',') === 'offer.rentalPricePerMonth,offer.rentalUtilitiesPerMonth',
+    hfSag.beloebsformede.join(','))
+
+  // Manglende felt er ikke en fejl — det er et tomt svar. En kilde, der
+  // ikke har `stats` paa en sag, skal give en tom liste, ikke et kast:
+  // fravaeret er selve maaleresultatet.
+  const hfUden = noeglerISag(HF_FLAD, '177P000001')
+  tjek('en sag uden stats giver tom liste, ikke et kast',
+    hfUden.stats.length === 0 && hfUden.offer.length === 0)
+  tjek('… og den har ingen beløbsformede felter at rapportere',
+    hfUden.beloebsformede.length === 0, hfUden.beloebsformede.join(','))
+
+  // Sagstypen kan ses paa sagsnummeret (adapterens eget hoved), og de to
+  // typer har dokumenteret forskellig dataform — derfor skal BEGGE maales.
+  tjek('sagstype: 177P… er projektlejemål',
+    sagstypeFor('177P009058') === 'projekt')
+  tjek('sagstype: 1770021465 er almindelig sag',
+    sagstypeFor('1770021465') === 'almindelig')
+  tjek('sagstype: ukendt form gættes ikke', sagstypeFor('SAG1') === 'ukendt')
+
+  // PRIVATLIV: optaellingen maa aldrig baere vaerdier ud. Allowlisten
+  // findes, fordi kilders datamodeller baerer sagsbehandlernoter med
+  // navne og telefonnumre paa nuvaerende lejere. Et vaerktoej, der
+  // dumpede hele objektet, ville vaere den lige vej uden om reglen.
+  const udskrift = JSON.stringify(hfSag)
+  tjek('optællingen bærer NAVNE, ikke værdier',
+    !udskrift.includes('12000') && !udskrift.includes('1100')
+    && !udskrift.includes('kun-hos-naboen') && !udskrift.includes('70'),
+    udskrift)
+
+  // ── home.dk: depositum, forudbetalt leje og vaerelser ────────
+  // MOD DE RIGTIGE KILDEPROEVER. scripts/kildeproever/home/ rummer to
+  // hentede detaljesider fra 15. sep. 2026 — én projektsag og én
+  // almindelig — reduceret til de maalte felter med ORIGINALE indekser
+  // og uaendrede kildevaerdier. Belaegget (url, tidspunkt, SHA-256) staar
+  // i feltbelaeg.json ved siden af.
+  //
+  // De to sagstyper proeves hver for sig, fordi de har forskellig
+  // dataform: projektsagen har `rentalUtilitiesPerMonth: null`, altsaa
+  // et fravaerende aconto-beloeb, hvor den almindelige har et tal.
+  console.log('\n══ home.dk: depositum, forudbetalt og vaerelser fra kilden ══')
+  const proeveFlad = (fil: string): unknown[] =>
+    JSON.parse(readFileSync(new URL(`./kildeproever/home/${fil}`, import.meta.url), 'utf8'))
+  const gitterFor = (id: string) => ({
+    id, url: `https://home.dk/sag-${id}/`, adresse: 'Prøvevej 1, 2300 København S',
+    postnr: '2300', areal: undefined, leje: undefined, type: 'lejlighed',
+    billeder: [] as string[],
+  })
+
+  // Projektsag 177P009541 — kildens egne tal: leje 14.300, depositum
+  // 42.900, forudbetalt 14.300, 2 vaerelser, INTET aconto-beloeb.
+  const pSag = homeLaes(proeveFlad('177P009541-nuxt-minimal.json'),
+    gitterFor('177P009541'), 'https://home.dk/sag-177P009541/')
+  tjek('projektsag: depositum er kildens 42.900 kr. i øre',
+    pSag.deposit === 4290000, String(pSag.deposit))
+  tjek('projektsag: forudbetalt leje er kildens 14.300 kr. i øre',
+    pSag.prepaidRent === 1430000, String(pSag.prepaidRent))
+  tjek('projektsag: værelsestallet er kildens 2', pSag.rooms === 2, String(pSag.rooms))
+  tjek('projektsag: huslejen er uændret 14.300 kr.',
+    pSag.rentMonthly === 1430000, String(pSag.rentMonthly))
+  tjek('projektsag: aconto er null hos kilden og forbliver UKENDT',
+    pSag.utilitiesOther === undefined, String(pSag.utilitiesOther))
+  // Kilden oplyser ingen samlet indflytningspris, og vi laegger ikke
+  // delene sammen: en sum, vi selv havde regnet, ville se lige saa
+  // sikker ud som en oplyst.
+  tjek('projektsag: indflytningsprisen er IKKE regnet af delene',
+    pSag.moveInCost === undefined, String(pSag.moveInCost))
+
+  // Almindelig sag 1770021346 — leje 15.800, aconto 600, depositum
+  // 15.800, forudbetalt 15.800, 2 vaerelser.
+  const aSag = homeLaes(proeveFlad('1770021346-nuxt-minimal.json'),
+    gitterFor('1770021346'), 'https://home.dk/sag-1770021346/')
+  tjek('almindelig sag: depositum er kildens 15.800 kr. i øre',
+    aSag.deposit === 1580000, String(aSag.deposit))
+  tjek('almindelig sag: forudbetalt leje er kildens 15.800 kr. i øre',
+    aSag.prepaidRent === 1580000, String(aSag.prepaidRent))
+  tjek('almindelig sag: værelsestallet er kildens 2', aSag.rooms === 2, String(aSag.rooms))
+  tjek('almindelig sag: aconto er kildens 600 kr.',
+    aSag.utilitiesOther === 60000, String(aSag.utilitiesOther))
+  tjek('almindelig sag: indflytningsprisen er IKKE regnet af delene',
+    aSag.moveInCost === undefined, String(aSag.moveInCost))
+
+  // ── Syntetiske randtilfaelde — IKKE kildeobservationer ───────
+  // Det her er opdigtede payloads i home.dk's form, bygget til at proeve
+  // tre ting, de to hentede sager ikke daekker: et oplyst NUL, et helt
+  // fravaerende felt, og en nabosag med andre vaerdier. De maa aldrig
+  // omtales som en tredje maaling af kilden.
+  console.log('\n══ home.dk: nul, manglende felt og nabosag (syntetisk) ══')
+
+  // Oplyst nul: kilden siger 0 kr. Det er et UDSAGN og skal overleve som
+  // 0 — ikke smelte sammen med «ikke oplyst». Samme skel som aconto-
+  // reglen: «udlejer opkraever intet» og «udlejer oplyser intet» er to
+  // forskellige saetninger, og vi paastaar ikke den ene om den anden.
+  const NUL_FLAD: unknown[] = [
+    'meta',                                                    // 0
+    { id: 2, offer: 3, stats: 8 },                             // 1
+    'NUL1',                                                    // 2
+    { rentalSecurityDeposit: 4, rentalPricePrePaid: 6 },       // 3
+    { amount: 5 },                                             // 4
+    0,                                                         // 5  oplyst NUL
+    { amount: 7 },                                             // 6
+    0,                                                         // 7  oplyst NUL
+    { rooms: 9 },                                              // 8
+    0,                                                         // 9  oplyst NUL
+  ]
+  const nulSag = homeLaes(NUL_FLAD, gitterFor('NUL1'), 'https://home.dk/x')
+  tjek('et oplyst nul bevares som 0 — ikke som ukendt',
+    nulSag.deposit === 0 && nulSag.prepaidRent === 0,
+    `${nulSag.deposit} / ${nulSag.prepaidRent}`)
+  tjek('… og det gælder også værelsestallet', nulSag.rooms === 0, String(nulSag.rooms))
+
+  // Manglende felter: sagen har hverken depositum, forudbetalt eller
+  // stats. Tre gange undefined — og ingen nuller opfundet undervejs.
+  const TOM_FLAD: unknown[] = [
+    'meta',                                                    // 0
+    { id: 2, offer: 3 },                                       // 1  intet stats
+    'TOM1',                                                    // 2
+    { rentalPricePerMonth: 4 },                                // 3  kun leje
+    { amount: 5 },                                             // 4
+    12000,                                                     // 5
+  ]
+  const tomSag = homeLaes(TOM_FLAD, gitterFor('TOM1'), 'https://home.dk/x')
+  tjek('manglende felter forbliver UKENDTE — ingen nuller opfindes',
+    tomSag.deposit === undefined && tomSag.prepaidRent === undefined
+    && tomSag.rooms === undefined,
+    `${tomSag.deposit} / ${tomSag.prepaidRent} / ${tomSag.rooms}`)
+  tjek('… men huslejen læses stadig', tomSag.rentMonthly === 1200000,
+    String(tomSag.rentMonthly))
+
+  // Nabosag med ANDRE vaerdier, lagt FOERST i den flade liste — samme
+  // faelde som ledigdatoen havde foer id-bindingen. Naboens depositum er
+  // 99.000 og sagens 42.900; en ubunden laesning ville tage naboens, og
+  // tallet ville se lige saa rigtigt ud som et rigtigt.
+  const NABO_FLAD: unknown[] = [
+    'meta',                                                    // 0
+    { id: 2, offer: 3, stats: 9 },                             // 1  NABOEN — foerst
+    'NABO9',                                                   // 2
+    { rentalSecurityDeposit: 4, rentalPricePrePaid: 6 },       // 3
+    { amount: 5 },                                             // 4
+    99000,                                                     // 5  naboens depositum
+    { amount: 7 },                                             // 6
+    88000,                                                     // 7  naboens forudbetalte
+    88,                                                        // 8
+    { rooms: 11 },                                             // 9
+    { id: 12, offer: 13, stats: 19 },                          // 10 SAGEN
+    7,                                                         // 11 naboens 7 vaerelser
+    'SAG9',                                                    // 12
+    { rentalSecurityDeposit: 14, rentalPricePrePaid: 16 },     // 13
+    { amount: 15 },                                            // 14
+    42900,                                                     // 15 sagens depositum
+    { amount: 17 },                                            // 16
+    14300,                                                     // 17 sagens forudbetalte
+    2,                                                         // 18 sagens 2 vaerelser
+    { rooms: 18 },                                             // 19
+  ]
+  const naboSag = homeLaes(NABO_FLAD, gitterFor('SAG9'), 'https://home.dk/x')
+  tjek('præmis: naboens sag står FØRST i den flade liste',
+    JSON.stringify(NABO_FLAD).indexOf('NABO9') < JSON.stringify(NABO_FLAD).indexOf('SAG9'))
+  tjek('depositum er SAGENS 42.900 — ikke naboens 99.000',
+    naboSag.deposit === 4290000, String(naboSag.deposit))
+  tjek('forudbetalt leje er SAGENS 14.300 — ikke naboens 88.000',
+    naboSag.prepaidRent === 1430000, String(naboSag.prepaidRent))
+  tjek('værelsestallet er SAGENS 2 — ikke naboens 7',
+    naboSag.rooms === 2, String(naboSag.rooms))
+
+  // ── Hele vejen gennem normaliseringen ────────────────────────
+  // Proeverne ovenfor stopper ved adapterens RawListing. Det er ikke nok
+  // til at sige, at felterne NAAR frem: `normaliser` er det lag, der
+  // oversaetter til raekken, og det er dér `?? null` kunne komme til at
+  // sluge et oplyst nul. Den her proever kaeden paa den RIGTIGE
+  // kildeproeve, saa paastanden om ende-til-ende har en roed linje bag sig.
+  const HJEM_VASK: VasketAdresse = {
+    street: 'Ørestads Boulevard', houseNumber: '34A', floor: '4', door: null,
+    postalCode: '2300', city: 'København S',
+    unitAddressUuid: crypto.randomUUID(), accessAddressUuid: null,
+    addressMatchLevel: 'unit', lat: null, lng: null,
+  }
+  const pNorm = await normaliser(pSag, HJEM_VASK)
+  tjek('normaliseret: værelser, depositum og forudbetalt når frem i øre',
+    pNorm.rooms === 2 && pNorm.deposit === 4290000 && pNorm.prepaidRent === 1430000,
+    `${pNorm.rooms} / ${pNorm.deposit} / ${pNorm.prepaidRent}`)
+  tjek('normaliseret: indflytningsprisen er STADIG ikke regnet af delene',
+    pNorm.moveInCost === null, String(pNorm.moveInCost))
+  // Projektsagen har ingen aconto, saa der er ingen total at vise. Vi
+  // gaetter ikke en total ud af huslejen alene.
+  tjek('normaliseret: uden aconto er der ingen total',
+    pNorm.totalMonthly === null, String(pNorm.totalMonthly))
+
+  // Et oplyst nul skal ogsaa overleve normaliseringen — `?? null` lader
+  // 0 passere, men det er praecis den slags, der stille kunne aendre sig.
+  const nulNorm = await normaliser(nulSag, HJEM_VASK)
+  tjek('normaliseret: et oplyst nul er stadig 0, ikke null',
+    nulNorm.deposit === 0 && nulNorm.prepaidRent === 0 && nulNorm.rooms === 0,
+    `${nulNorm.deposit} / ${nulNorm.prepaidRent} / ${nulNorm.rooms}`)
+  const tomNorm = await normaliser(tomSag, HJEM_VASK)
+  tjek('normaliseret: manglende felter er null, ikke 0',
+    tomNorm.deposit === null && tomNorm.prepaidRent === null && tomNorm.rooms === null,
+    `${tomNorm.deposit} / ${tomNorm.prepaidRent} / ${tomNorm.rooms}`)
+
   // ── UI læser DOMÆNET — aldrig legacy ─────────────────────────
   // Fixturerne er bygget så legacy og domæne SIGER NOGET FORSKELLIGT.
   // Læser kortet igen available_from/application_type til availability,
@@ -841,16 +1097,37 @@ async function main() {
   console.log('\n══ forbeholdet må ikke skubbe teksten en række ned ══')
 
   /** Klasserne paa kortets DIREKTE boern, i orden. Statisk markup, saa en
-   *  tag-taeller raekker — og den er uafhaengig af klassenavnene. */
+   *  tag-taeller raekker — og den er uafhaengig af klassenavnene.
+   *
+   *  Der maales fra `<a class="kort">` og ikke fra det yderste element:
+   *  gitteret er kortet selv. Brugeromraadet lagde et `.kort-hylster`
+   *  udenom, som favoritknappen kan ligge oven paa — og saa taltes
+   *  hylsterets ene barn i stedet for kortets felter. Praemissen fangede
+   *  det, og det er dét, den er til for. Gitterets raekker er stadig
+   *  netop kortets direkte boern. */
   const TOMME_TAGS = new Set(['img', 'br', 'input', 'hr', 'meta', 'link'])
-  const direkteBoern = (html: string): string[] => {
+  const direkteBoern = (raaHtml: string): string[] => {
+    const start = raaHtml.indexOf('<a class="kort')
+    const html = start >= 0 ? raaHtml.slice(start) : raaHtml
     const boern: string[] = []
     let dybde = 0
+    let aabnet = false
     for (const m of html.matchAll(/<(\/?)([a-z][a-z0-9]*)([^>]*)>/g)) {
       const attr = m[3] ?? ''
-      if (m[1] === '/') { dybde--; continue }
+      if (m[1] === '/') {
+        dybde--
+        // TAELLEREN STOPPER, NAAR LINKET LUKKER.
+        // Uden den her linje talte den videre efter `</a>` og tog
+        // kortets SOESKENDE med — favoritknappen og billedpilene, som
+        // begge ligger uden for linket med vilje, fordi en <button> i et
+        // <a> er ugyldig HTML. De er ikke gitterfelter i kortet, og
+        // praemissen handler om kortets felter. Uden stoppet maalte den
+        // noget andet end det, den siger.
+        if (aabnet && dybde === 0) break
+        continue
+      }
       if (dybde === 1) boern.push(/class="([^"]*)"/.exec(attr)?.[1] ?? '')
-      if (!TOMME_TAGS.has(m[2]!) && !attr.trimEnd().endsWith('/')) dybde++
+      if (!TOMME_TAGS.has(m[2]!) && !attr.trimEnd().endsWith('/')) { dybde++; aabnet = true }
     }
     return boern
   }
@@ -1024,6 +1301,334 @@ async function main() {
   ] as const) {
     tjek(`${navn}: INGEN uden-billede`, !/uden-billede/.test(html))
     tjek(`${navn}: og billedet tegnes`, /<img[^>]+\/api\/billede/.test(html))
+  }
+
+  // ── Billedbladring ──────────────────────────────────────────
+  //
+  // Pilene skifter billedet INDE i kortets link, men ligger UDEN FOR det:
+  // en <button> i et <a> er ugyldig HTML, og browserne håndterer det
+  // forskelligt — nogle aktiverer linket alligevel. Det er den samme
+  // grund, favoritknappen ligger som søskende, og
+  // `scripts/cloud/kortkontrol.mjs` afviser hvert fokuserbart element
+  // inde i `a.kort`. Den kontrol kræver en kørende app; her måles det
+  // samme på markuppen, så `npm test` også fanger det.
+  console.log('\n══ billedbladring ══')
+  {
+    /** Alt fra `<a class="kort` til og med det første `</a>`. */
+    const iLinket = (html: string) => {
+      const a = html.indexOf('<a class="kort')
+      if (a < 0) return ''
+      // UDEN SELVE <a …>-TAGGEN. Med den matchede vagten nedenfor
+      // kortets eget link og var roed, uanset hvad der laa inde i det.
+      const krop = html.indexOf('>', a) + 1
+      const slut = html.indexOf('</a>', krop)
+      return slut < 0 ? '' : html.slice(krop, slut)
+    }
+    const FOKUSERBART = /<(?:a|button|input|select|textarea)\b|\stabindex=|role="button"/
+
+    for (const [navn, lav] of [
+      ['enkeltkort', (o: Record<string, unknown>) =>
+        vis(createElement(Kort, { nu: KORTNU, b: bolig({ forside: TILLADT, ...o }) }))],
+      ['gruppekort', (o: Record<string, unknown>) =>
+        vis(createElement(Gruppekort, { nu: KORTNU, g: gruppe({}, { forside: TILLADT, ...o }) }))],
+    ] as const) {
+      const flere = lav({ billeder: 8 })
+      const ét = lav({ billeder: 1 })
+
+      tjek(`${navn}: med flere billeder er der to pile`,
+        (flere.match(/class="bladrepil /g) ?? []).length === 2,
+        String((flere.match(/class="bladrepil /g) ?? []).length))
+      tjek(`${navn}: og en tæller, der siger 1 af 8`, flere.includes('>1/8<'),
+        /kort-antal">([^<]*)/.exec(flere)?.[1] ?? '(ingen)')
+
+      // KERNEN: pilene må ikke ligge i linket.
+      tjek(`${navn}: pilene ligger UDEN FOR kortets link`,
+        !iLinket(flere).includes('bladrepil') && flere.includes('bladrepil'),
+        iLinket(flere).includes('bladrepil') ? 'KNAP INDE I <a>' : '')
+      tjek(`${navn}: og der er intet fokuserbart inde i linket overhovedet`,
+        !FOKUSERBART.test(iLinket(flere)),
+        FOKUSERBART.exec(iLinket(flere))?.[0] ?? '')
+
+      // Ét billede: ingen pile, ingen tæller. En «1/1» er ikke en
+      // oplysning, og en pil, der ikke fører nogen steder hen, er værre
+      // end ingen pil.
+      tjek(`${navn}: ét billede giver ingen pile`, !ét.includes('bladrepil'))
+      tjek(`${navn}: og ingen tæller`, !ét.includes('kort-antal'))
+
+      // Præcis ét <img> i billedfeltet. Billedet skiftes med `src`, ikke
+      // ved at stable slides: `kortkontrol.mjs` afviser et barn, der er
+      // bredere end kortet, og `fotokontrol.mjs` måler rammen mod det
+      // FØRSTE img — to ville måle det forkerte.
+      tjek(`${navn}: præcis ét billede i feltet`,
+        (flere.match(/<img/g) ?? []).length === 1,
+        String((flere.match(/<img/g) ?? []).length))
+
+      // En vært uden for allowlisten: intet billede OG ingen pile. Uden
+      // den sidste halvdel ville kortet tilbyde at bladre i noget, der
+      // ikke kan vises.
+      const fremmed = navn === 'enkeltkort'
+        ? vis(createElement(Kort, { nu: KORTNU, b: bolig({ forside: FREMMED, billeder: 20 }) }))
+        : vis(createElement(Gruppekort, { nu: KORTNU, g: gruppe({}, { forside: FREMMED, billeder: 20 }) }))
+      tjek(`${navn}: fremmed vært giver hverken billede eller pile`,
+        !/<img/.test(fremmed) && !fremmed.includes('bladrepil'))
+
+      // Ingen automatisk rotation: markuppen må ikke bære en varighed
+      // eller et interval, og komponenten må ikke have en timer.
+      tjek(`${navn}: ingen autorotation i markuppen`,
+        !/animation|data-interval|autoplay/i.test(flere))
+    }
+
+    // ── INGEN AUTOMATIK — OG PRAECIST HVAD DET BETYDER ─────────
+    //
+    // Proeven forbood foer ENHVER timer. Det var praecist nok, saa laenge
+    // der ikke var nogen — men det er ikke det, reglen handler om.
+    // Reglen er, at intet maa rotere eller proeve igen af sig selv.
+    //
+    // Der er nu ÉN `setTimeout` i filen, og den goer det modsatte: den
+    // afbryder et kald, der haenger, saa det bliver til en fejl, brugeren
+    // selv kan svare paa. Uden den stod «Proev igen» med fokus og
+    // aria-busy og gjorde ingenting, fordi samtidighedsvagten slugte
+    // hvert tryk — den knap, der ikke virker.
+    //
+    // Proeven maaler derfor det, reglen faktisk siger: ingen
+    // `setInterval` overhovedet, praecis én `setTimeout`, og den skal
+    // afbryde — ikke hente.
+    const kildeBladring = readFileSync('app/Billedbladring.tsx', 'utf8')
+    tjek('bladringen har ingen automatisk rotation',
+      !/setInterval/.test(kildeBladring),
+      (/setInterval/.exec(kildeBladring) ?? [])[0] ?? '')
+    const timerlinjer = kildeBladring.split('\n')
+      .filter((l) => /set(?:Timeout|Interval)\(/.test(l) && !l.trimStart().startsWith('//'))
+    tjek('og den ene timer, der findes, AFBRYDER — den henter ikke',
+      timerlinjer.length === 1 && /abort\(\)/.test(timerlinjer[0] ?? ''),
+      timerlinjer.map((l) => l.trim()).join(' · ') || '(ingen)')
+    // ── DEN LODRETTE RULNING ER BRUGERENS ────────────────────
+    // Svirpet maa ALDRIG kalde preventDefault paa en touch-haendelse: saa
+    // ville en skraa bevaegelse kunne laase siden fast under fingeren.
+    // Maalt paa selve touch-haandtererne, ikke paa hele filen —
+    // `linkvagt` kalder preventDefault paa et KLIK, og det er rigtigt:
+    // det er dét, der forhindrer, at et svirp ogsaa aabner annoncen.
+    const fladen = kildeBladring.slice(
+      kildeBladring.indexOf('    flade: {'), kildeBladring.indexOf('    linkvagt: {'))
+    tjek('præmis: touch-håndtererne blev faktisk fundet',
+      fladen.includes('onTouchStart') && fladen.includes('onTouchMove')
+      && fladen.includes('onTouchEnd'), `${fladen.length} tegn`)
+    // Noterne skaeres fra foerst. Kommentaren ved `onTouchMove` forklarer
+    // netop, at der ALDRIG kaldes preventDefault — og uden det her ville
+    // proeven vaere roed paa sin egen begrundelse.
+    const udenNoter = fladen.replace(/\/\/[^\n]*/g, '')
+    tjek('og de blokerer aldrig den lodrette rulning',
+      !udenNoter.includes('preventDefault'))
+    // ── EN PIL SLAAR ALDRIG SIG SELV FRA ───────────────────────
+    // En knap, der bliver `disabled` midt i et tastetryk, mister fokus
+    // til <body> — og saa er tastaturbrugeren smidt ud af kortet, netop
+    // fordi hun brugte knappen. Komponenten siger det; CSS'en maa ikke
+    // sige noget andet. Der stod en `.bladrepil:disabled`, som aldrig
+    // kunne fyre, og en doed regel for praecis den tilstand, koden
+    // forbyder, er en invitation til at indfoere den.
+    tjek('pilene saettes aldrig disabled',
+      !/className="bladrepil[^"]*"[^>]*\sdisabled/.test(kildeBladring)
+      && !/<button[^>]*\sdisabled[^>]*className="bladrepil/.test(kildeBladring))
+    tjek('og CSS\'en har ingen regel for den tilstand',
+      !/\.bladrepil:disabled\s*\{/.test(readFileSync('app/globals.css', 'utf8')))
+
+    // Og browseren faar det udtrykkeligt at vide i CSS'en.
+    tjek('billedfladerne overlader den lodrette panorering til browseren',
+      /\.kort-billede,\s*\.gemt-foto\s*\{[^}]*touch-action:\s*pan-y/
+        .test(readFileSync('app/globals.css', 'utf8')))
+  
+    // ── DEN FASTLAASTE FEJLTILSTAND ─────────────────────────────
+    //
+    // Fejlbeskeden kan ikke naas ved at gengive et kort: den findes
+    // foerst, naar en hentning i BROWSEREN er fejlet, og et kort
+    // gengivet paa serveren har ingen. Browserproeverne maaler forloebet
+    // (bladrekontrol 7, minsidekontrol 3E); KONTRAKTEN maales her, fordi
+    // den er det, de to flader deler, og fordi npm test koerer uden
+    // browser.
+    //
+    // Hvorfor den findes: foer stod pilene og taelleren og lovede otte
+    // billeder, mens hvert tryk stille gjorde ingenting for resten af
+    // kortets levetid. En knap, der ikke virker, er vaerre end ingen
+    // knap — den bruges netop i den situation, hvor noget er galt.
+    {
+      const grund = {
+        nr: 0, antal: 8, taeller: '1/8', src: TILLADT, srcSet: undefined,
+        fejlet: false, hentefejl: false, henter: false,
+        gaa: () => {}, proevIgen: () => {},
+        fokus: { knap: { current: null }, naeste: { current: null } },
+        flade: { onFocus: () => {}, onTouchStart: () => {}, onTouchMove: () => {}, onTouchEnd: () => {} },
+        linkvagt: { onClickCapture: () => {} },
+        billedvagt: { ref: { current: null }, onError: () => {}, onLoad: () => {} },
+      } as unknown as Bladring
+      const pile = (o: Partial<Bladring>) =>
+        vis(createElement(Bladrepile, { b: { ...grund, ...o } as Bladring, etiket: 'Testvej 1, 2. tv' }))
+
+      const rask = pile({})
+      tjek('bladrepile: uden fejl staar der ingen besked',
+        !rask.includes('bladrefejl') && !rask.includes('bladreigen'))
+
+      const syg = pile({ hentefejl: true })
+      tjek('bladrepile: en fejlet hentning SIGER det', syg.includes('bladrefejl'))
+      tjek('bladrepile: og giver en udtrykkelig vej til at proeve igen',
+        syg.includes('class="bladreigen"') && syg.includes('>Prøv igen<'))
+      tjek('bladrepile: knappen navngiver boligen for en skaermlaeser',
+        syg.includes('Testvej 1, 2. tv'))
+      tjek('bladrepile: pilene bliver staaende — kortet laases ikke',
+        (syg.match(/class="bladrepil /g) ?? []).length === 2,
+        String((syg.match(/class="bladrepil /g) ?? []).length))
+
+      // ── HJAELPEMIDLETS EGEN KANAL ─────────────────────────────
+      // Live-omraadet skal staa, OGSAA naar der intet er at sige. Et
+      // omraade, der indsaettes sammen med sin tekst, bliver typisk ikke
+      // annonceret — og en besked, der er uaendret ved anden fejl,
+      // bliver det heller ikke. Teksten skal derfor skifte ved hvert
+      // skridt, og den maa ikke ligge om knappen: role=status er
+      // implicit atomisk, saa et skift i knappens aria-busy ville faa
+      // hele beskeden OG knappens navn laest op igen.
+      const live = /<span class="skjult-for-oejet" role="status">([^<]*)<\/span>/
+      tjek('bladrepile: live-omraadet staar, ogsaa naar der intet er sket',
+        live.test(rask), live.exec(rask)?.[1] === '' ? '(tomt)' : live.exec(rask)?.[1] ?? 'MANGLER')
+      tjek('bladrepile: ved fejl siger det det samme som beskeden',
+        live.exec(syg)?.[1] === LISTEN_FEJLEDE, live.exec(syg)?.[1] ?? 'MANGLER')
+      tjek('bladrepile: og under genforsoeget siger det noget ANDET',
+        live.exec(pile({ hentefejl: true, henter: true }))?.[1] === PROEVER_IGEN,
+        live.exec(pile({ hentefejl: true, henter: true }))?.[1] ?? 'MANGLER')
+      tjek('bladrepile: knappens aria-busy ligger IKKE i live-omraadet',
+        !/role="status"[^>]*>[^<]*<button/.test(syg)
+        && !/<p class="bladrefejl" role="status"/.test(syg))
+
+      // Ruten svarede «der er ikke mere»: saa er der intet at bladre i,
+      // og saa staar der HELLER ingen fejlbesked — der var jo ingen fejl.
+      // Taelleren er hookens ene udtryk for «kan der bladres», og den er
+      // tom baade ved ét billede og efter et saadant svar.
+      tjek('bladrepile: uden taeller er hele feltet vaek — ogsaa beskeden',
+        pile({ taeller: '', hentefejl: true }) === '')
+
+      // Ingen automatisk gentagelse. Et menneske er det eneste, der
+      // proever igen — maalt paa, at ingen timer kalder hentningen.
+      tjek('bladringen proever aldrig igen af sig selv',
+        !/set(?:Timeout|Interval)\([^\n]*hent\(/.test(kildeBladring)
+        && /proevIgen = useCallback/.test(kildeBladring))
+    }
+
+    // ── FOKUS- OG GENFORSOEGSFORLOEBET ──────────────────────────
+    //
+    // Selve forloebet kan kun maales i en browser: hvor fokus staar
+    // midt i en hentning, hvad der sker naar knappen fjernes, og om et
+    // tabstop udloeser et kald. Det ligger i bladrekontrol 9-11 og
+    // minsidekontrol 3F-3H. Her maales de fire STRUKTURELLE traek, som
+    // forloebet hviler paa — de kan brydes ved en uopmaerksom
+    // omskrivning, og saa er browserproeven det eneste, der opdager det.
+    {
+      const iHent = kildeBladring.slice(
+        kildeBladring.indexOf('const hent = useCallback'),
+        kildeBladring.indexOf('const proevIgen'))
+      tjek('praemis: hentningen blev fundet', iHent.includes('fetch('),
+        `${iHent.length} tegn`)
+
+      // 1 · Hensigt og handling er to forskellige ting.
+      tjek('hent skelner mellem en hensigt og en handling',
+        /\(anledning: Anledning\)/.test(iHent))
+      tjek('og en hensigt proever ikke igen efter en fejl',
+        /if \(hentefejl && anledning !== 'handling'\) return/.test(iHent))
+
+      // 2 · Fokus og beroering er hensigter; pil, svirp og knap er
+      //     handlinger. Maalt paa selve `flade`-objektet, saa en
+      //     kommentar ikke kan goere proeven groen.
+      // SAMME SLICE SOM OVENFOR. Den blev udregnet to gange, tredive
+      // linjer fra hinanden — to udtryk for det samme spoergsmaal, som
+      // projektets egen regel forbyder. `udenNoter` er den, der allerede
+      // er skaaret for kommentarer, saa en note ikke kan goere proeven groen.
+      tjek('fokus og beroering beder kun paa forhaand',
+        udenNoter.includes("hent('forhaand')") && !udenNoter.includes("hent('handling')"))
+      tjek('men et pileklik og «Proev igen» er handlinger',
+        /void hent\('handling'\)\.then/.test(kildeBladring)
+        && /proevIgen = useCallback\(\(\) => \{ void hent\('handling'\) \}/.test(kildeBladring))
+
+      // 3 · Beskeden ryddes FOERST naar svaret er der. Ryddedes den ved
+      //     hentningens start, ville «Proev igen» forsvinde under den
+      //     finger, der lige havde trykket paa den.
+      tjek('beskeden ryddes ikke, naar kaldet gaar af sted',
+        iHent.indexOf('setHentefejl(false)') > iHent.indexOf('fetch('),
+        `fetch ved ${iHent.indexOf('fetch(')}, rydning ved ${iHent.indexOf('setHentefejl(false)')}`)
+
+      // 4 · Og fokus flyttes FOER rydningen — ikke i en effekt bagefter,
+      //     hvor knappen allerede ville vaere vaek og fokus faldet til
+      //     <body>.
+      tjek('og fokus flyttes, mens knappen stadig findes',
+        iHent.indexOf('foerBeskedenForsvinder(') > -1
+        && iHent.indexOf('foerBeskedenForsvinder(') < iHent.indexOf('setHentefejl(false)'))
+    }
+  }
+
+  // ── Ruten, der leverer billede 2..N ─────────────────────────
+  //
+  // Kortet baerer forsiden og ET ANTAL, som foer. Resten hentes her,
+  // foerste gang nogen vil bladre. Proeven gaar paa det, der kan gaa
+  // galt, naar en rute tager et bolig-id imod: at den svarer med en
+  // ANDEN boligs billeder, at den glemmer vaertsfilteret, eller at
+  // raekkefoelgen ikke er kildens.
+  console.log('\n══ /api/boligbilleder ══')
+  {
+    const [k] = await db.insert(sources)
+      .values({ slug: `billedrute-${Date.now()}`, name: 'Prøvekilde billedrute', sourceType: 'spider' })
+      .returning()
+    const lavBolig = async (noegle: string) => {
+      const [r] = await db.insert(listings).values({
+        sourceId: k!.id, sourceType: 'spider', externalKey: `billedrute-${noegle}-${Date.now()}`,
+        sourceUrl: `https://eksempel.invalid/${noegle}`, status: 'active',
+        addressRaw: `Billedvej ${noegle}, 9100 Prøveby`, street: 'Billedvej', houseNumber: noegle,
+        postalCode: '9100', city: 'Prøveby', addressMatchLevel: 'unit',
+        unitAddressUuid: `intern:v3:billedrute:${noegle}-${Date.now()}`,
+      }).returning()
+      return r!.id
+    }
+    const vores = await lavBolig('1')
+    const naboen = await lavBolig('2')
+    // Rækkefølgen i basen er MED VILJE en anden end `position`: svaret
+    // skal komme i kildens orden, ikke i indsættelsens.
+    await db.insert(listingImages).values([
+      { listingId: vores, externalUrl: `${VIST_VAERT}/tredje.jpg`, position: 2 },
+      { listingId: vores, externalUrl: `${SKJULT_VAERT}/skjult.jpg`, position: 1 },
+      { listingId: vores, externalUrl: `${VIST_VAERT}/foerste.jpg`, position: 0 },
+      { listingId: naboen, externalUrl: `${VIST_VAERT}/naboens.jpg`, position: 0 },
+    ])
+
+    const kald = async (id: string) => {
+      const r = await boligbilleder(new Request(`http://proeve.invalid/api/boligbilleder?b=${id}`))
+      return { status: r.status, krop: await r.json() as { billeder?: { lille: string }[] } }
+    }
+
+    const svar = await kald(vores)
+    tjek('ruten svarer 200 for en kendt bolig', svar.status === 200, String(svar.status))
+    const url = (svar.krop.billeder ?? []).map((b) => decodeURIComponent(b.lille))
+    tjek('kun de VISBARE billeder kommer med', url.length === 2, `${url.length}`)
+    tjek('og værten uden for allowlisten er sorteret fra',
+      !url.some((u) => u.includes(new URL(SKJULT_VAERT).host)),
+      url.join(' | '))
+    tjek('rækkefølgen er kildens position, ikke indsættelsens',
+      url[0]!.includes('foerste.jpg') && url[1]!.includes('tredje.jpg'),
+      url.map((u) => u.split('/').pop()?.split('&')[0]).join(' → '))
+    tjek('adresserne går gennem den signerede proxy',
+      url.every((u) => u.startsWith('/api/billede?')), url[0] ?? '')
+
+    // KERNEN FOR GRUPPEKORTET: naboens billede må ALDRIG være med. Et
+    // gruppekort nøgler på repræsentantens id, og blandede billeder ville
+    // vise en bolig, kortet ikke handler om.
+    tjek('naboens billede er IKKE med',
+      !url.some((u) => u.includes('naboens.jpg')), url.join(' | '))
+    const naboSvar = await kald(naboen)
+    tjek('præmis: naboen har sit eget billede, så prøven ovenfor måler noget',
+      (naboSvar.krop.billeder ?? []).length === 1
+      && decodeURIComponent(naboSvar.krop.billeder![0]!.lille).includes('naboens.jpg'))
+
+    tjek('et ugyldigt id afvises uden at røre basen', (await kald('ikke-et-uuid')).status === 400)
+    tjek('et ukendt id giver 404, ikke en tom liste',
+      (await kald('00000000-0000-4000-8000-000000000000')).status === 404)
+
+    await db.delete(listingImages).where(inArray(listingImages.listingId, [vores, naboen]))
+    await db.delete(listings).where(inArray(listings.id, [vores, naboen]))
+    await db.delete(sources).where(eq(sources.id, k!.id))
   }
 
   try {

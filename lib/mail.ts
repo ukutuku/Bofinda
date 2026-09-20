@@ -11,9 +11,40 @@
 //  Den tredje er indkøringsventilen: mens vi ser efter, hvad der faktisk
 //  lander i indbakken, må kun ejerens egen adresse få mail. Alle andre
 //  bliver sprunget over og logget — ikke sendt "bare denne ene gang".
+//
+//  ═══ MAIL_API_BASE: EN ATTRAP, DER IKKE KAN BLIVE EN OMDIRIGERING ═══
+//
+//  Det isolerede testmiljø skal kunne køre HELE forløbet — indsend,
+//  bekræftelsesmail, kvittering — uden at noget forlader maskinen. Før
+//  blev det løst ved at LADE VÆRE med at sætte nøglen: så fejlede
+//  afsendelsen, og prøven målte en spærring i stedet for et forløb.
+//  «Det gik ikke i stykker» er ikke det samme som «det virkede».
+//
+//  `MAIL_API_BASE` flytter derfor modtageren af selve HTTP-kaldet. Den
+//  er farlig, hvis den kan pege hvor som helst — så var det ikke en
+//  attrap, det var en omdirigering af rigtig post — og derfor:
+//
+//    · kun loopback. Alt andet AFVISES.
+//    · og den falder ALDRIG tilbage til Resend. En variabel, der er sat
+//      forkert, skal give ingen mail, ikke rigtig mail: den, der tror
+//      hun sender til en attrap, må ikke komme til at sende til en
+//      fremmed indbakke, fordi hun skrev værtsnavnet forkert.
 // ═══════════════════════════════════════════════════════════════
 
-const API = 'https://api.resend.com/emails'
+const RESEND = 'https://api.resend.com/emails'
+const LOOPBACK = ['127.0.0.1', 'localhost', '[::1]']
+
+/** Hvor kaldet skal hen — eller hvorfor der slet ikke skal kaldes. */
+export function mailApi(): { url: string } | { fejl: string } {
+  const egen = process.env.MAIL_API_BASE
+  if (!egen) return { url: RESEND }
+  let u: URL
+  try { u = new URL(egen) } catch { return { fejl: 'MAIL_API_BASE er ikke en gyldig URL' } }
+  if (!LOOPBACK.includes(u.hostname)) {
+    return { fejl: `MAIL_API_BASE peger på ${u.hostname} — kun loopback er tilladt` }
+  }
+  return { url: egen }
+}
 
 export interface MailResultat {
   sendt: boolean
@@ -49,7 +80,10 @@ export async function sendMail(opts: {
   const lov = maaSendeTil(opts.til)
   if (!lov.ok) return { sendt: false, grund: lov.grund }
 
-  const res = await fetch(API, {
+  const maal = mailApi()
+  if ('fejl' in maal) return { sendt: false, grund: maal.fejl }
+
+  const res = await fetch(maal.url, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
@@ -72,7 +106,7 @@ export async function sendMail(opts: {
   })
 
   if (!res.ok) {
-    return { sendt: false, grund: `Resend svarede ${res.status}: ${(await res.text()).slice(0, 200)}` }
+    return { sendt: false, grund: `Mailtjenesten svarede ${res.status}: ${(await res.text()).slice(0, 200)}` }
   }
   const j = await res.json() as { id?: string }
   return { sendt: true, id: j.id }
