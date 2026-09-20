@@ -91,8 +91,15 @@
 }
 .bsk-raekke-sted::before { content: '· '; }
 
-/* ─── Skelettet under indlæsning ────────────────────────────── */
-.bsk-skeletraekke { display: grid; gap: 8px; cursor: default; }
+/* ─── Skelettet under indlæsning ──────────────────────────────
+   Pladsholderne deler IKKE `.bsk-raekke`-selektoren med de rigtige
+   rækker — se noten i Samtaleliste.tsx. Derfor står målene her. */
+.bsk-skeletraekke {
+  display: grid; gap: 8px; cursor: default;
+  padding: 12px 18px; min-height: 44px;
+  border-bottom: 1px solid var(--linje-svag);
+}
+.bsk-raekke-baerer:last-child .bsk-skeletraekke { border-bottom: 0; }
 .bsk-skeletlinje {
   display: block; height: 10px; border-radius: var(--r-xs); background: var(--linje-svag);
   animation: bsk-puls 1.4s ease-in-out infinite;
@@ -117,9 +124,12 @@
   display: grid; gap: 2px; padding: 14px 18px 12px;
   border-bottom: 1px solid var(--linje-svag);
 }
+/* Tilbagevejen ligger i PANELET, ikke inde i samtalen: den skal findes
+   i alle trådens tilstande — også under indlæsning, efter en hentefejl
+   og på en samtale, der ikke findes. Se noten i Beskedmodul.tsx. */
+.bsk-traadtop { padding: 12px 18px 0; }
 .bsk-tilbage {
-  justify-self: start; margin-bottom: 8px; min-height: 44px;
-  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 44px; display: inline-flex; align-items: center; gap: 6px;
 }
 .bsk-tilbage:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .bsk-samtale-titel { margin: 0; font-size: 16px; font-weight: 640; overflow-wrap: anywhere; }
@@ -200,17 +210,6 @@
 .bsk-igen { min-height: 36px; padding: 5px 13px; font-size: 13px; }
 .bsk-igen:focus-visible { outline: 2px solid var(--vaek); outline-offset: 2px; }
 
-/* ─── Skrivebeskyttet historik ──────────────────────────────── */
-.bsk-skrivespaerre {
-  display: flex; gap: 14px; align-items: center; justify-content: space-between;
-  flex-wrap: wrap; padding: 14px 18px;
-  border-top: 1px solid var(--linje-svag); background: var(--sand);
-}
-.bsk-skrivespaerre p { margin: 0; font-size: 13.5px; color: var(--daempet); }
-.bsk-skrivespaerre .knap {
-  min-height: 44px; display: inline-flex; align-items: center;
-}
-
 /* ─── Låst adgang ───────────────────────────────────────────── */
 .bsk-laast {
   max-width: 520px; margin: 0 auto; text-align: center;
@@ -242,7 +241,8 @@
   .bsk-panel { border-radius: var(--r); }
   .bsk-traad { padding: 14px 14px 10px; }
   .bsk-boble { max-width: 88%; }
-  .bsk-raekke { padding: 12px 14px; }
-  .bsk-panelhoved, .bsk-samtale-hoved, .bsk-skriv { padding-left: 14px; padding-right: 14px; }
+  .bsk-raekke, .bsk-skeletraekke { padding: 12px 14px; }
+  .bsk-panelhoved, .bsk-samtale-hoved, .bsk-skriv,
+  .bsk-traadtop { padding-left: 14px; padding-right: 14px; }
   .bsk-laast { padding: 26px 18px 28px; }
 }

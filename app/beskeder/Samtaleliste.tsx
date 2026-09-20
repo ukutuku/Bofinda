@@ -89,13 +89,20 @@ function Raekke({ s, valgt, vaelg }: {
 }
 
 /** Skelettet. `aria-hidden`, fordi det ikke er indhold — beskeden om at
- *  der hentes, står i modulets live-område og siges ÉN gang. */
+ *  der hentes, står i modulets live-område og siges ÉN gang.
+ *
+ *  ⚠ Pladsholderne bærer IKKE klassen `bsk-raekke`. Det gjorde de, og så
+ *  svarede to forskellige ting på spørgsmålet «er det her en samtale?»:
+ *  en `<button>` med en samtale bag, og en `<div>` med ingenting. En
+ *  måling, der talte `.bsk-raekke`, ramte skelettet og klikkede på et
+ *  `<div>`, hvor der ikke skete noget — og fejlen så ud som om
+ *  tilbageknappen manglede. Se CLAUDE.md om to udtryk for ét spørgsmål. */
 function Skelet() {
   return (
     <ul className="bsk-liste bsk-skelet" aria-hidden="true">
       {[0, 1, 2].map((i) => (
         <li key={i} className="bsk-raekke-baerer">
-          <div className="bsk-raekke bsk-skeletraekke">
+          <div className="bsk-skeletraekke">
             <span className="bsk-skeletlinje bred" />
             <span className="bsk-skeletlinje mellem" />
             <span className="bsk-skeletlinje smal" />

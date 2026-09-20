@@ -10,7 +10,7 @@
 //  database, ingen konto, ingen adgangskontrol og ingen beskedlevering
 //  bag — og kontrollen påstår derfor ingenting om nogen af delene.
 //
-//  ── DEN VIGTIGSTE MÅLING ─────────────────────────────────────
+//  ── DEN VIGTIGSTE MÅLING, OG HVAD DEN IKKE BEVISER ───────────
 //
 //  I de tre låste tilstande skal beskedindholdet være FRAVÆRENDE, ikke
 //  skjult. Kontrollen læser derfor den rå `page.content()` — hele
@@ -18,6 +18,22 @@
 //  at hverken adresser, navne eller beskedtekster står i den. En prøve,
 //  der kun spurgte `isVisible()`, ville være grøn på præcis den fejl,
 //  kravet findes for at forhindre.
+//
+//  ⚠ Men den måler PRØVEVISNINGENS MARKUP, og intet andet. Den siger
+//  ikke, at private data ikke forlader en server: der er ingen server
+//  her, porten er en attrap i hukommelsen, og et netværkssvar er ikke
+//  en DOM. At serverlaget skal kontrollere adgang og ejerskab og
+//  EKSPLICIT bygge et svar uden private felter ved afvisning, er en
+//  opgave for den integration — ikke noget, denne prøve kan udtale sig
+//  om. Se DATAKONTRAKT.md afsnit 6.
+//
+//  ── KAPLØB MÅLES MED STYREDE FORSINKELSER ────────────────────
+//
+//  Attrappen har scenarier, hvis eneste formål er at lade et langsomt
+//  svar lande efter et hurtigt: «omvendt», «langsom-afsendelse» og
+//  «laas-under-skift». Uden dem kan man ikke skelne kode, der binder
+//  svar til den rigtige samtale, fra kode, der bare plejer at være
+//  heldig med rækkefølgen.
 //
 //  ── DEN MÅLER ET PRODUKTIONSBYG ──────────────────────────────
 //
@@ -138,6 +154,31 @@ const iSyne = (l) => l.evaluate((el) => {
  * Der efterproeves bagefter, at knappen FAKTISK blev valgt. Ellers
  * ville en etiket uden `for`/indlejring give en tavst gron proeve.
  */
+/**
+ * Venter, til «Send» faktisk er taendt.
+ *
+ * `fill()` saetter vaerdien, men React skal gengive, foer knappens
+ * `aria-disabled` falder vaek — og et klik imellem de to bliver slugt
+ * af knappens egen vagt. Uden den her ventede proeven paa en fejl, der
+ * aldrig kom, og fejlede en gang imellem uden at noget var galt.
+ */
+const ventTilSendTaendt = (s, ms = 8000) => s.waitForFunction(() => {
+  const b = document.querySelector('.bsk-send')
+  return Boolean(b) && b.getAttribute('aria-disabled') === null
+}, null, { timeout: ms }).then(() => true, () => false)
+
+/**
+ * Dukker elementet op inden for fristen?
+ *
+ * Som boolean og ikke som en kastende `waitFor`. En manglende ting er
+ * dét, proeven MAALER — og en `waitFor`, der kaster, afbryder hele
+ * koerslen, saa man hverken faar en roed linje eller resten af
+ * maalingerne. Maalt: tre negative koersler meldte «afbrudt» dér, hvor
+ * de skulle have meldt en roed linje.
+ */
+const dukkerOp = (loc, ms = 6000) =>
+  loc.waitFor({ state: 'visible', timeout: ms }).then(() => true, () => false)
+
 const vaelg = async (s, navn) => {
   await s.locator('label.proeve-valgknap', { hasText: navn }).click()
   await s.waitForTimeout(400)
@@ -212,23 +253,23 @@ async function koer() {
   // ── 1 · Adgang: oversigten ────────────────────────────────
   p('\n══ 1 · Samtaleoversigt ══')
   await vaelg(s, 'Adgang')
-  await s.locator('.bsk-raekke').first().waitFor({ timeout: 8000 })
-  const raekker = await s.locator('.bsk-raekke').count()
+  await s.locator('button.bsk-raekke').first().waitFor({ timeout: 8000 })
+  const raekker = await s.locator('button.bsk-raekke').count()
   tjek(raekker === 3, 'tre samtaler i listen', `${raekker} rækker`)
 
-  const foerste = s.locator('.bsk-raekke').first()
+  const foerste = s.locator('button.bsk-raekke').first()
   const navn = await foerste.getAttribute('aria-label')
   tjek(Boolean(navn) && navn.includes('Prøvegade 12') && navn.includes('2 ulæste beskeder')
     && navn.includes('sidst for'),
   'rækkens navn siger bolig, modpart, ulæste og hvornår', `«${navn}»`)
 
-  const badge = s.locator('.bsk-raekke').first().locator('.bsk-ulaest')
+  const badge = s.locator('button.bsk-raekke').first().locator('.bsk-ulaest')
   tjek(await iSyne(badge), 'ulæst-markeringen er synlig')
   tjek((await badge.innerText()).trim() === '2', 'markeringen er et TAL, ikke kun en prik',
     `«${(await badge.innerText()).trim()}»`)
   const fed = await foerste.locator('.bsk-raekke-bolig').evaluate((e) =>
     Number(getComputedStyle(e).fontWeight))
-  const fedNormal = await s.locator('.bsk-raekke').nth(1).locator('.bsk-raekke-bolig')
+  const fedNormal = await s.locator('button.bsk-raekke').nth(1).locator('.bsk-raekke-bolig')
     .evaluate((e) => Number(getComputedStyle(e).fontWeight))
   tjek(fed > fedNormal, 'ulæst rækkes bolig er federe end en læst', `${fed} mod ${fedNormal}`)
 
@@ -264,6 +305,7 @@ async function koer() {
   tjek(await send.getAttribute('aria-disabled') === 'true',
     'Send er slukket, når feltet er tomt')
   await felt.fill('Tak. Torsdag kl. 16 passer fint.')
+  await ventTilSendTaendt(s)
   tjek(await send.getAttribute('aria-disabled') === null,
     'Send tændes, når der står noget')
   await felt.press('Control+Enter')
@@ -278,10 +320,11 @@ async function koer() {
   // ── 4 · Afsendelsesfejl med bevaret kladde ────────────────
   p('\n══ 4 · Afsendelsesfejl ══')
   await vaelg(s, 'Afsendelsesfejl')
-  await s.locator('.bsk-raekke').first().click()
+  await s.locator('button.bsk-raekke').first().click()
   await s.locator('#bsk-felt').waitFor({ timeout: 8000 })
   const kladde = 'Den her skal helst ikke forsvinde.'
   await s.locator('#bsk-felt').fill(kladde)
+  await ventTilSendTaendt(s)
   await s.getByRole('button', { name: 'Send', exact: true }).click()
   await s.waitForTimeout(1400)
   const fejllinje = s.locator('.bsk-fejl')
@@ -310,7 +353,7 @@ async function koer() {
     tjek(laekket.length === 0,
       `${grund}: intet beskedindhold i markuppen`,
       laekket.length ? `LÆKKET: ${laekket.join(', ')}` : 'ingen af de seks stumper')
-    tjek((await s.locator('.bsk-raekke').count()) === 0
+    tjek((await s.locator('button.bsk-raekke').count()) === 0
       && (await s.locator('.bsk-boble').count()) === 0,
     `${grund}: hverken rækker eller bobler findes`)
     const knapper = await s.locator('.bsk-laast a, .bsk-laast button').count()
@@ -323,22 +366,168 @@ async function koer() {
     if (grund === 'abonnement-udloebet') await skud(s, '5-laast', [390, 768, 1440])
   }
 
-  // ── 6 · Skrivebeskyttet historik ──────────────────────────
-  p('\n══ 6 · Skrivebeskyttet ══')
-  await vaelg(s, 'Skrivebeskyttet')
-  await s.locator('.bsk-raekke').first().click()
-  await s.locator('.bsk-skrivespaerre').waitFor({ timeout: 8000 })
-  tjek((await s.locator('#bsk-felt').count()) === 0, 'der er intet skrivefelt')
-  tjek((await s.locator('.bsk-boble').count()) > 0, 'historikken kan stadig læses')
-  const sp = await s.locator('.bsk-skrivespaerre a').count()
-  tjek(sp === 1, 'én knap til genaktivering', `${sp}`)
-  await skud(s, '6-skrivebeskyttet', [390, 768, 1440])
+  // ── 6 · Kapløb: svaret skal høre til den viste samtale ────
+  p('\n══ 6 · Kapløb mellem samtaler ══')
+  await vaelg(s, 'Omvendt rækkefølge')
+  await s.locator('button.bsk-raekke').first().waitFor({ timeout: 8000 })
+  // A svarer 1,5 sek. senere end B. Klik A, saa B — A's svar lander sidst.
+  await s.locator('button.bsk-raekke').nth(0).click()
+  await s.locator('button.bsk-raekke').nth(1).click()
+  await s.waitForTimeout(2600)
+  const titelNu = (await s.locator('.bsk-samtale-titel').innerText()).trim()
+  tjek(titelNu === 'Attrapvej 3, st.',
+    'B bliver staaende, selv om A svarer sidst', `«${titelNu}»`)
+  const htmlEfterSkift = await s.content()
+  // Kun TRAADPANELET maales. A's navn staar med rette i listen ved siden
+  // af — det er hendes raekke. Det, der ikke maa ske, er at A's BESKEDER
+  // staar i den traad, der handler om B.
+  const traadHtml = await s.locator('.bsk-traadpanel').innerHTML()
+  const aSpor = ['fællesvaskeri', 'Prøvegade 12', 'stadig ledig']
+    .filter((t) => traadHtml.includes(t))
+  tjek(aSpor.length === 0, 'A\u2019s beskeder staar ikke i traaden',
+    aSpor.length ? `A-tekst fundet: ${aSpor.join(', ')}` : 'ingen A-tekst')
+  const boblerB = await s.locator('.bsk-boble').count()
+  tjek(boblerB === 2, 'traaden viser B\u2019s to beskeder', `${boblerB}`)
+
+  // ── 6b · Kvittering fra en samtale, brugeren har forladt ──
+  p('\n══ 6b · Kvittering fra en forladt samtale ══')
+  await vaelg(s, 'Langsom afsendelse')
+  await s.locator('button.bsk-raekke').first().waitFor({ timeout: 8000 })
+  await s.locator('button.bsk-raekke').nth(0).click()
+  await s.locator('#bsk-felt').waitFor({ timeout: 8000 })
+  const boblerA = await s.locator('.bsk-boble').count()
+  await s.locator('#bsk-felt').fill('Denne hoerer til A.')
+  await ventTilSendTaendt(s)
+  await s.getByRole('button', { name: 'Send', exact: true }).click()
+  await s.locator('button.bsk-raekke').nth(1).click()          // vaek, mens den sender
+  await s.locator('.bsk-samtale-titel').waitFor({ timeout: 8000 })
+  await s.waitForTimeout(2200)                            // kvitteringen fra A lander her
+  const titelB = (await s.locator('.bsk-samtale-titel').innerText()).trim()
+  tjek(titelB === 'Attrapvej 3, st.', 'B er stadig den viste samtale', `«${titelB}»`)
+  const boblerBEfter = await s.locator('.bsk-boble').count()
+  tjek(boblerBEfter === 2, 'B har ikke faaet A\u2019s besked', `${boblerBEfter} bobler`)
+  const htmlB = await s.content()
+  tjek(!htmlB.includes('Denne hoerer til A'), 'A\u2019s tekst staar ingen steder i B')
+  tjek((await s.locator('#bsk-felt').inputValue()) === '',
+    'B\u2019s skrivefelt er tomt — kvitteringen ryddede ikke en fremmed kladde',
+    `«${await s.locator('#bsk-felt').inputValue()}»`)
+  const fokusEfterKvittering = await s.evaluate(() => document.activeElement?.id ?? '')
+  tjek(fokusEfterKvittering !== 'bsk-felt',
+    'kvitteringen springer ikke fokus til den samtale, brugeren gik til',
+    `aktivt element: «${fokusEfterKvittering || 'ikke feltet'}»`)
+  // Og beskeden er ikke tabt: A’s raekke i listen har faaet ny aktivitet.
+  const aRaekke = await s.locator('button.bsk-raekke').nth(0).innerText()
+  tjek(/lige nu|for 0 min/.test(aRaekke),
+    'A\u2019s raekke viser den nye aktivitet — kvitteringen blev bundet, ikke smidt vaek',
+    aRaekke.replace(/\s+/g, ' ').slice(0, 90))
+
+  // ── 6c · Tekst skrevet EFTER afsendelsen er startet ───────
+  p('\n══ 6c · Videre skrivning under afsendelse ══')
+  await vaelg(s, 'Langsom afsendelse')
+  await s.locator('button.bsk-raekke').first().waitFor({ timeout: 8000 })
+  await s.locator('button.bsk-raekke').nth(0).click()
+  await s.locator('#bsk-felt').waitFor({ timeout: 8000 })
+  const foerSkrivning = await s.locator('.bsk-boble').count()
+  await s.locator('#bsk-felt').fill('hej')
+  await ventTilSendTaendt(s)
+  await s.getByRole('button', { name: 'Send', exact: true }).click()
+  await s.locator('#bsk-felt').fill('hej igen')          // skriver videre imens
+  await s.waitForTimeout(2200)
+  tjek((await s.locator('#bsk-felt').inputValue()) === ' igen',
+    'kun den sendte tekst ryddes — resten staar der endnu',
+    `«${await s.locator('#bsk-felt').inputValue()}»`)
+  const sidsteTekst = await s.locator('.bsk-boble').last().locator('.bsk-boble-tekst').innerText()
+  tjek(sidsteTekst.trim() === 'hej', 'det var «hej», der blev sendt', `«${sidsteTekst.trim()}»`)
+  tjek((await s.locator('.bsk-boble').count()) === foerSkrivning + 1,
+    'praecis én besked kom til')
+
+  // ── 6d · To klik i samme tik maa ikke sende to gange ──────
+  p('\n══ 6d · Dobbeltafsendelse ══')
+  const foerDobbelt = await s.locator('.bsk-boble').count()
+  await s.locator('#bsk-felt').fill('')
+  await s.locator('#bsk-felt').fill('Kun én gang, tak.')
+  tjek(await ventTilSendTaendt(s), 'Send er taendt igen efter forrige afsendelse')
+  // Begge klik afsendes SYNKRONT, foer React naar at gengive. Det er
+  // dét, en ref-laas skal fange — `sender` som tilstand er endnu falsk.
+  await s.evaluate(() => {
+    const b = document.querySelector('.bsk-send')
+    b.click(); b.click()
+  })
+  await s.waitForTimeout(2400)
+  tjek((await s.locator('.bsk-boble').count()) === foerDobbelt + 1,
+    'to klik i samme tik giver ÉN besked',
+    `${foerDobbelt} → ${await s.locator('.bsk-boble').count()}`)
+
+  // ── 6e · Porten AFVISER sit loefte ────────────────────────
+  p('\n══ 6e · Afsendelsen kaster ══')
+  await vaelg(s, 'Afsendelse kaster')
+  await s.locator('button.bsk-raekke').first().click()
+  await s.locator('#bsk-felt').waitFor({ timeout: 8000 })
+  const kastKladde = 'Den her maa ikke forsvinde i en exception.'
+  await s.locator('#bsk-felt').fill(kastKladde)
+  await ventTilSendTaendt(s)
+  await s.getByRole('button', { name: 'Send', exact: true }).click()
+  const fejlKom = await dukkerOp(s.locator('.bsk-fejl'))
+  tjek(fejlKom, 'en kastet Promise giver en synlig fejl',
+    fejlKom ? '' : 'ingen .bsk-fejl inden for 6 sek.')
+  tjek((await s.locator('#bsk-felt').inputValue()) === kastKladde,
+    'kladden er bevaret efter en exception',
+    `«${await s.locator('#bsk-felt').inputValue()}»`)
+  const sendEfterKast = s.getByRole('button', { name: 'Send', exact: true })
+  tjek((await sendEfterKast.getAttribute('aria-busy')) === null,
+    'travlheden er slut — knappen haenger ikke i «sender»')
+  tjek((await sendEfterKast.getAttribute('aria-disabled')) === null,
+    'og den kan bruges igen')
+  tjek(await dukkerOp(s.getByRole('button', { name: 'Prøv igen' }), 2000),
+    'der er en vej videre')
+  await skud(s, '6-afsendelse-kaster', [390, 768, 1440])
+
+  // ── 6f · Laas ved afsendelse, med en samtale aaben ────────
+  p('\n══ 6f · Låsning med en samtale åben ══')
+  await vaelg(s, 'Lås ved afsendelse')
+  await s.locator('button.bsk-raekke').first().click()
+  await s.locator('#bsk-felt').waitFor({ timeout: 8000 })
+  await s.locator('#bsk-felt').fill('Skriver lige videre …')
+  await ventTilSendTaendt(s)
+  await s.getByRole('button', { name: 'Send', exact: true }).click()
+  tjek(await dukkerOp(s.locator('.bsk-laast'), 8000),
+    'et «laast»-svar lukker modulet ned')
+  const htmlLaas = await s.content()
+  const laekLaas = HEMMELIGT.filter((h) => htmlLaas.includes(h))
+  tjek(laekLaas.length === 0,
+    'hele modulet laases — listen og beskederne er VAEK, ikke skjult',
+    laekLaas.length ? `LÆKKET: ${laekLaas.join(', ')}` : 'ingen af de seks stumper')
+  tjek((await s.locator('button.bsk-raekke').count()) === 0
+    && (await s.locator('.bsk-boble').count()) === 0
+    && (await s.locator('#bsk-felt').count()) === 0,
+  'hverken raekker, bobler eller skrivefelt findes')
+  // Tolerant: er modulet IKKE laast, findes knappen ikke, og en
+  // kastende `innerText` ville afbryde koerslen i stedet for at melde
+  // en roed linje. Samme grund som `dukkerOp`.
+  const laastKnap = (await s.locator('.bsk-laast-knap').innerText()
+    .catch(() => '(ingen laast visning)')).trim()
+  tjek(laastKnap === 'Genaktivér', 'og der staar den rigtige knap', `«${laastKnap}»`)
+  await skud(s, '6-laas-ved-afsendelse', [390, 768, 1440])
+
+  // ── 6g · Et forsinket «adgang» maa ikke laase op igen ─────
+  p('\n══ 6g · Forsinket svar efter en låsning ══')
+  await vaelg(s, 'Lås under skift')
+  await s.locator('button.bsk-raekke').first().waitFor({ timeout: 8000 })
+  await s.locator('button.bsk-raekke').nth(1).click()   // svarer «adgang» om 1,5 sek.
+  await s.locator('button.bsk-raekke').nth(0).click()   // svarer «laast» om 0,2 sek.
+  tjek(await dukkerOp(s.locator('.bsk-laast'), 8000), 'traadens «laast»-svar lukker modulet ned')
+  await s.waitForTimeout(2400)                    // det sene «adgang» lander her
+  const htmlSent = await s.content()
+  const laekSent = HEMMELIGT.filter((h) => htmlSent.includes(h))
+  tjek((await s.locator('.bsk-laast').count()) === 1 && laekSent.length === 0,
+    'laasen holder — det forsinkede svar aabner ikke indholdet igen',
+    laekSent.length ? `LÆKKET: ${laekSent.join(', ')}` : 'stadig laast, intet indhold')
 
   // ── 7 · Tom indbakke og hentefejl ─────────────────────────
   p('\n══ 7 · Tom indbakke og hentefejl ══')
   await vaelg(s, 'Tom indbakke')
   await s.locator('.bsk-tom').waitFor({ timeout: 8000 })
-  tjek((await s.locator('.bsk-raekke').count()) === 0, 'ingen rækker i en tom indbakke')
+  tjek((await s.locator('button.bsk-raekke').count()) === 0, 'ingen rækker i en tom indbakke')
   tjek((await s.locator('.bsk-tom-link').count()) === 1, 'én vej videre fra en tom indbakke')
   await skud(s, '7-tom', [390, 768, 1440])
 
@@ -367,7 +556,7 @@ async function koer() {
   // ── 9 · Tastatur ──────────────────────────────────────────
   p('\n══ 9 · Tastaturbetjening ══')
   await vaelg(s, 'Adgang')
-  await s.locator('.bsk-raekke').first().waitFor({ timeout: 8000 })
+  await s.locator('button.bsk-raekke').first().waitFor({ timeout: 8000 })
   await s.locator('.proeve-titel').click()   // fokus ud af radiogruppen
   await s.keyboard.press('Tab')
   let hop = 0
@@ -436,9 +625,62 @@ async function koer() {
   const fokusEfter = await s.evaluate(() =>
     document.activeElement?.classList.contains('bsk-paneltitel') ?? false)
   tjek(fokusEfter, 'fokus følger med tilbage til listen')
-  const raekkeMaal = await s.locator('.bsk-raekke').first().boundingBox()
+  const raekkeMaal = await s.locator('button.bsk-raekke').first().boundingBox()
   tjek(raekkeMaal.height >= 44, 'en samtalerække er mindst 44 px høj',
     `${Math.round(raekkeMaal.height)} px`)
+
+  // ── 11 · Vejen tilbage findes i ALLE trådens tilstande ────
+  //
+  // Tilbageknappen laa foer inde i `Samtalevisning`, og den gengives kun,
+  // naar traaden ER hentet. Paa en telefon betoed det, at der ingen vej
+  // tilbage var under indlaesning, efter en hentefejl eller paa en samtale,
+  // der ikke findes — netop de tre steder, hvor man helst vil vaek igen.
+  p('\n══ 11 · Tilbagevejen ved 390 px i alle tilstande ══')
+  await s.setViewportSize({ width: 390, height: 844 })
+  await s.waitForTimeout(400)
+
+  for (const [valg, navn, vent] of [
+    ['Indlæsning', 'under indlæsning', 300],
+    ['Trådfejl', 'efter hentefejl', 900],
+    ['Findes ikke', 'når samtalen ikke findes', 900],
+  ]) {
+    await vaelg(s, valg)
+    await s.locator('button.bsk-raekke').first().waitFor({ timeout: 8000 })
+    await s.locator('button.bsk-raekke').nth(0).click()
+    await s.waitForTimeout(vent)
+    const knap = s.getByRole('button', { name: /Alle samtaler/ })
+    // Rulles i syne foerst: `iSyne` spoerger `elementFromPoint`, og den
+    // klaebende brandbjaelke ligger oeverst. Maalingen er «findes og er
+    // ikke daekket», ikke «staar over folden».
+    if (await knap.count()) await knap.scrollIntoViewIfNeeded()
+    const findes = (await knap.count()) === 1 && await iSyne(knap)
+    tjek(findes, `tilbageknappen findes ${navn}`)
+    if (!findes) continue
+    const h = await knap.boundingBox()
+    tjek(h.height >= 44, `og den er mindst 44 px høj ${navn}`, `${Math.round(h.height)} px`)
+    await knap.click()
+    await s.waitForTimeout(600)
+    tjek((await s.locator('.bsk-listepanel').count()) === 1,
+      `og den fører tilbage til listen ${navn}`)
+  }
+
+  // Og tilbagevejen skal AFBRYDE det, der er undervejs: et svar, der
+  // lander efter, maa ikke skubbe traaden frem igen.
+  p('\n══ 11b · Tilbage afbryder et svar undervejs ══')
+  await vaelg(s, 'Indlæsning')
+  await s.locator('button.bsk-raekke').first().waitFor({ timeout: 8000 })
+  await s.locator('button.bsk-raekke').nth(0).click()
+  await s.waitForTimeout(250)
+  await s.getByRole('button', { name: /Alle samtaler/ }).click()
+  await s.waitForTimeout(2200)   // det langsomme svar lander her
+  tjek((await s.locator('.bsk-listepanel').count()) === 1
+    && (await s.locator('.bsk-samtale').count()) === 0,
+  'listen bliver staaende — det sene svar overtager ikke visningen',
+  `liste ${await s.locator('.bsk-listepanel').count()} · samtale ${await s.locator('.bsk-samtale').count()}`)
+  await skud(s, '11-tilbagevej', [390])
+
+  await s.setViewportSize({ width: 1440, height: 900 })
+  await s.waitForTimeout(300)
 
   tjek(konsol.length === 0, 'ingen sidefejl i browseren', konsol.join(' · ') || 'ingen')
 

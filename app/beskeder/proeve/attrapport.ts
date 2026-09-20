@@ -4,11 +4,21 @@
 //  ⚠ DET HER ER IKKE BESKEDLEVERING. Ingen database, ingen konto, ingen
 //  mail, intet netværk. Porten svarer ud af hukommelsen og glemmer alt
 //  ved genindlæsning. Den findes for at kunne afprøve BRUGERFLADEN —
-//  tilstandene, tastaturet, mobilvisningen og en afsendelse, der fejler.
+//  tilstandene, tastaturet, mobilvisningen og de måder, et kald kan gå
+//  galt på.
 //
 //  Navne og adresser er opdigtede og skrevet, så det kan ses: «Attrup»,
 //  «Prøvegade», «Attrapby». Filen ligger under `proeve/` og importeres
 //  ikke af modulet selv — `Beskedmodul` kender kun grænsefladen.
+//
+//  ═══ FORSINKELSERNE ER STYREDE, IKKE TILFÆLDIGE ═══
+//
+//  Flere af scenarierne findes for at kunne ramme et bestemt kapløb:
+//  et langsomt svar, der lander EFTER et hurtigt, en kvittering der
+//  kommer, når brugeren har skiftet samtale, og en låsning der falder,
+//  mens et andet kald er undervejs. De tal, der styrer det, står i
+//  `FORSINKELSE` — ikke spredt ud i koden — så et scenarie kan læses
+//  som det kapløb, det er.
 //
 //  ═══ INGEN PARALLEL ADGANGSKONTROL ═══
 //
@@ -27,9 +37,27 @@ export type Scenarie =
   | 'tom'
   | 'langsom'
   | 'hentefejl'
-  | 'skrivebeskyttet'
+  | 'traadfejl'
+  | 'findes-ikke'
+  | 'omvendt'
   | 'sendefejl'
+  | 'sende-exception'
+  | 'langsom-afsendelse'
+  | 'laas-ved-afsendelse'
+  | 'laas-under-skift'
   | Laasegrund
+
+/** De tal, kapløbene er bygget af. Millisekunder. */
+const FORSINKELSE = {
+  hurtig: 120,
+  langsom: 1400,
+  /** Den samtale, der skal svare SIDST i «omvendt» og «laas-under-skift». */
+  efternoeler: 1500,
+  /** Den, der skal svare først og udløse låsen. */
+  foerstemand: 200,
+  sendHurtig: 350,
+  sendLangsom: 1500,
+} as const
 
 const min = (n: number) => new Date(Date.now() - n * 60_000).toISOString()
 
@@ -89,27 +117,51 @@ const vent = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 export function lavAttrapport(scenarie: Scenarie): Beskedport {
   const sager = data()
-  // Afsendte beskeder lægges i hukommelsen, så tråden opfører sig som en
-  // tråd. De forsvinder ved genindlæsning — og det er meningen.
-  const laast = (scenarie === 'login-kraevet' || scenarie === 'abonnement-kraevet'
-    || scenarie === 'abonnement-udloebet') ? scenarie : null
-  const forsinkelse = scenarie === 'langsom' ? 1400 : 120
+  const laast: Laasegrund | null =
+    (scenarie === 'login-kraevet' || scenarie === 'abonnement-kraevet'
+      || scenarie === 'abonnement-udloebet') ? scenarie : null
+  const grund = scenarie === 'langsom' ? FORSINKELSE.langsom : FORSINKELSE.hurtig
   let nr = 100
+
+  /**
+   * Hvor længe svarer DENNE tråd?
+   *
+   * I «omvendt» er den første samtale efternøler, så et klik på A og
+   * derefter B lader A's svar lande SIDST. I «laas-under-skift» er det
+   * omvendt: den anden er efternøler og svarer «adgang», mens den
+   * første svarer LÅST med det samme — så låsen falder, mens et andet
+   * kald stadig er undervejs.
+   */
+  function traadforsinkelse(id: string): number {
+    if (scenarie === 'omvendt') return id === 's1' ? FORSINKELSE.efternoeler : FORSINKELSE.hurtig
+    if (scenarie === 'laas-under-skift') {
+      return id === 's1' ? FORSINKELSE.foerstemand : FORSINKELSE.efternoeler
+    }
+    return grund
+  }
 
   return {
     async hentIndbakke() {
-      await vent(forsinkelse)
+      await vent(grund)
       if (scenarie === 'hentefejl') throw new Error('attrap: hentning fejlede med vilje')
-      // Den låste variant sendes UDEN samtaler. Det er ikke en høflighed
-      // — typen tillader ikke andet, og det er hele pointen.
+      // Den låste variant sendes UDEN samtaler. Typen tillader ikke
+      // andet — men se advarslen i kontrakt.ts: det er udviklerhjælp,
+      // ikke en filtrering, et rigtigt serverlag kan læne sig op ad.
       if (laast) return { tilstand: laast } satisfies Indbakke
       if (scenarie === 'tom') return { tilstand: 'adgang', samtaler: [] }
       return { tilstand: 'adgang', samtaler: sager.map((s) => ({ ...s.hoved })) }
     },
 
     async hentTraad(id) {
-      await vent(forsinkelse)
+      await vent(traadforsinkelse(id))
+      if (scenarie === 'traadfejl') throw new Error('attrap: tråden fejlede med vilje')
       if (laast) return { tilstand: laast } satisfies Samtaletraad
+      // Låsningen kommer HER i «laas-under-skift»: porten melder, at
+      // adgangen er lukket, mens en anden tråd stadig er undervejs.
+      if (scenarie === 'laas-under-skift' && id === 's1') {
+        return { tilstand: 'abonnement-udloebet' }
+      }
+      if (scenarie === 'findes-ikke') return { tilstand: 'findes-ikke' }
       const s = sager.find((x) => x.hoved.id === id)
       if (!s) return { tilstand: 'findes-ikke' }
       // KOPIER, ikke attrappens egne arrays. Et serverlag serialiserer
@@ -121,13 +173,21 @@ export function lavAttrapport(scenarie: Scenarie): Beskedport {
         tilstand: 'adgang',
         hoved: { ...s.hoved },
         beskeder: s.beskeder.map((b) => ({ ...b })),
-        skriv: scenarie === 'skrivebeskyttet' ? 'skrivebeskyttet' : 'kan-skrive',
       }
     },
 
     async send(samtaleId, tekst): Promise<Sendesvar> {
-      await vent(scenarie === 'langsom' ? 1400 : 450)
+      await vent(scenarie === 'langsom-afsendelse' || scenarie === 'langsom'
+        ? FORSINKELSE.sendLangsom : FORSINKELSE.sendHurtig)
+      if (scenarie === 'sende-exception') {
+        // En AFVIST Promise — ikke et svar, der siger nej. Det er sådan
+        // en afbrudt forbindelse og en server action, der kaster, ser ud.
+        throw new Error('attrap: afsendelsen kastede med vilje')
+      }
       if (scenarie === 'sendefejl') return { ok: false, fejl: 'netvaerk' }
+      if (scenarie === 'laas-ved-afsendelse') {
+        return { ok: false, fejl: 'laast', grund: 'abonnement-udloebet' }
+      }
       const s = sager.find((x) => x.hoved.id === samtaleId)
       if (!s) return { ok: false, fejl: 'ukendt' }
       const b: Besked = {

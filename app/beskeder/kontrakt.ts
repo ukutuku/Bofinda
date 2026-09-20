@@ -15,18 +15,27 @@
 //  udløbet, eller om en samtale er gratis. Serverlaget sender ÉN
 //  eksplicit visningstilladelse, og brugerfladen adlyder den.
 //
-//  Det er derfor `Indbakke` og `Samtaletraad` er diskriminerede unioner
-//  og ikke objekter med et `laast`-flag ved siden af indholdet: i de
-//  låste varianter FINDES beskedfelterne ikke. En komponent kan ikke
-//  komme til at gengive indhold, den ikke har fået, og en «skjul det
-//  med CSS»-fejl kan ikke skrives ned. Opgavens krav — *«beskedindhold
-//  må ikke blot skjules med CSS; den endelige serverintegration skal
-//  undlade at udlevere indholdet»* — står altså i typen og ikke i en
-//  aftale, nogen skal huske.
+//  ⚠ ═══ TYPERNE ER UDVIKLERHJÆLP, IKKE SIKKERHED ═══
 //
-//  Serverlaget skal derfor returnere `{ tilstand: 'login-kraevet' }`
-//  UDEN `samtaler`, ikke `{ tilstand: 'login-kraevet', samtaler: [...] }`
-//  med et tomt flag. Kompilatoren håndhæver det.
+//  Unionerne herunder gør det svært at komme til at gengive indhold i en
+//  låst tilstand, og de gør det tydeligt, hvad serveren skal sende. Det
+//  er alt, de gør. De er:
+//
+//    · IKKE autorisation. Typer findes ikke ved kørselstid. Enhver kan
+//      kalde en server action eller en rute direkte, uden vores klient.
+//    · IKKE en filtrering af svar. Der er ingen kode, der fjerner felter
+//      på vej ud; et serverlag, der lægger `samtaler` ved siden af en
+//      låst tilstand, sender dem — typen er væk, når JSON'en pakkes.
+//    · IKKE et bevis for, at private data ikke forlader serveren.
+//
+//  **Serverlaget skal derfor selv kontrollere adgang OG ejerskab i hver
+//  eneste forespørgsel og EKSPLICIT bygge et svar uden private felter,
+//  når adgangen afvises.** Ikke returnere det fulde objekt og lade
+//  typen «skjule» noget. Se DATAKONTRAKT.md afsnit 6.
+//
+//  Det, typen giver, er at `{ tilstand: 'login-kraevet' }` ikke HAR et
+//  `samtaler`-felt, så den vej ind er lukket ved et uheld. Den vej ind
+//  ved en fejl i serverlaget er ikke lukket af noget her.
 // ═══════════════════════════════════════════════════════════════
 
 /**
@@ -36,6 +45,22 @@
  * «har haft et». De to får forskellig tekst og forskelligt knapnavn —
  * «Se abonnement» mod «Genaktivér» — fordi det er to forskellige
  * situationer for den, der står i dem.
+ *
+ * ═══ ET UDLØBET ABONNEMENT LÅSER BEGGE VEJE ═══
+ *
+ * Besluttet. I betalingstilstand låser `abonnement-udloebet` BÅDE
+ * læsning og skrivning: beskederne vises ikke, og der kan ikke skrives.
+ * De bevares i basen og bliver tilgængelige igen ved genaktivering —
+ * der slettes ingenting.
+ *
+ * En opsigelse med resterende betalt adgang låser IKKE. Adgangen løber
+ * til periodens udløb, og først derefter er tilstanden
+ * `abonnement-udloebet`. Regnestykket — `cancelAtPeriodEnd` sammen med
+ * `currentPeriodEnd` — hører til hos Supply og ikke her.
+ *
+ * I gratis tilstand er det Supplys centrale adgangsbeslutning, der
+ * afgør tilstanden. Brugerfladen kender ikke forskel på de to
+ * tilstande; den får ét ord og viser det.
  */
 export type Laasegrund = 'login-kraevet' | 'abonnement-kraevet' | 'abonnement-udloebet'
 
@@ -84,29 +109,12 @@ export interface Besked {
   tidspunkt: string
 }
 
-/**
- * Må der skrives i tråden?
- *
- * Skemaets egen note siger det: *«Spær ved AFSENDELSE, server-side.
- * Udløbet abonnement betyder skrivebeskyttet historik — slet aldrig
- * beskeder.»* Derfor er skrivning en SELVSTÆNDIG tilladelse og ikke en
- * afledning af adgangen: Supply kan give læseadgang til historikken
- * uden at give skriveadgang, og brugerfladen skal kunne vise begge dele
- * uden at gætte, hvilken regel der gjaldt.
- */
-export type Skrivetilstand = 'kan-skrive' | 'skrivebeskyttet'
-
 export type Indbakke =
   | { tilstand: 'adgang'; samtaler: Samtalehoved[] }
   | { tilstand: Laasegrund }
 
 export type Samtaletraad =
-  | {
-    tilstand: 'adgang'
-    hoved: Samtalehoved
-    beskeder: Besked[]
-    skriv: Skrivetilstand
-  }
+  | { tilstand: 'adgang'; hoved: Samtalehoved; beskeder: Besked[] }
   | { tilstand: Laasegrund }
   /** Samtalen findes ikke, eller den er ikke denne brugers. Samme svar med vilje. */
   | { tilstand: 'findes-ikke' }
@@ -116,13 +124,23 @@ export type Sendefejl =
   | 'netvaerk'
   /** Over `MAKS_TEGN`. Kan ikke prøves igen uden at rette teksten. */
   | 'for-lang'
-  /** Adgangen er ændret, siden tråden blev hentet. Genindlæs. */
+  /** Adgangen er ændret, siden tråden blev hentet. */
   | 'laast'
   | 'ukendt'
 
+/**
+ * Svaret på en afsendelse.
+ *
+ * `laast` bærer sin GRUND. Uden den ville brugerfladen vide, at adgangen
+ * var lukket, men ikke kunne sige hvorfor — og så ville den eneste
+ * ærlige besked være «genindlæs», hvilket er at bede brugeren om at
+ * gøre vores arbejde. Med grunden kan modulet gå direkte i den rigtige
+ * låste visning med den rigtige knap.
+ */
 export type Sendesvar =
   | { ok: true; besked: Besked }
-  | { ok: false; fejl: Sendefejl }
+  | { ok: false; fejl: Exclude<Sendefejl, 'laast'> }
+  | { ok: false; fejl: 'laast'; grund: Laasegrund }
 
 /**
  * Længdegrænsen står ÉT sted og afledes begge steder fra.
@@ -145,6 +163,10 @@ export const TAELLER_FRA = 200
  * implementering (kommer efter Supplys levering), prøvevisningens
  * syntetiske, eller en, en prøve bygger. Det er dét, der gør modulet
  * afprøvbart uden et midlertidigt produktions-API.
+ *
+ * Alle fire må afvise deres løfte. Modulet håndterer det — en afvist
+ * Promise er ikke det samme som et svar, der siger nej, og begge dele
+ * sker i virkeligheden.
  */
 export interface Beskedport {
   hentIndbakke(signal?: AbortSignal): Promise<Indbakke>
@@ -164,3 +186,7 @@ export const ulaesteIAlt = (s: Samtalehoved[]): number =>
 /** Modpartens navn, eller rollen hvis det ikke er oplyst. Aldrig en pladsholder. */
 export const modpartsnavn = (m: Modpart): string =>
   m.navn ?? (m.rolle === 'udlejer' ? 'Udlejeren' : 'Den boligsøgende')
+
+/** Er tilstanden en låsning? Ét udtryk, brugt af både modulet og porten. */
+export const erLaast = (t: Indbakke['tilstand'] | Samtaletraad['tilstand']): t is Laasegrund =>
+  t === 'login-kraevet' || t === 'abonnement-kraevet' || t === 'abonnement-udloebet'
