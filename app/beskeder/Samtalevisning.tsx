@@ -118,12 +118,10 @@ export function Samtalevisning({ hoved, beskeder, send, fokuserVedAabning }: {
   // `afsend()` baade sit ja og sit nej — `setSender(false)` blev sprunget
   // over, og knappen sad fast i travl, uden at noget var galt.
   //
-  // Maalt: projektet har IKKE `reactStrictMode` slaaet til i dag, saa
-  // fejlen bider hverken i produktionsbygget eller i `npm run dev` som
-  // det staar nu. Den ville bide den dag, nogen slaar den til — hvilket
-  // Next selv anbefaler — og en livscyklus, der kun rydder op og aldrig
-  // saetter op igen, er forkert uanset hvad der faenger den.
-  // Proevevisningen slaar derfor StrictMode til i SIT eget trae, og
+  // Fejlen bider under StrictMode. En livscyklus, der kun rydder op og
+  // aldrig saetter op igen, er forkert uanset hvad der faenger den — og
+  // derfor er den rettet her, i produktkoden, og ikke kun i maaleudstyret.
+  // Proevevisningen slaar StrictMode til i SIT eget trae, og
   // scripts/cloud/strictmodekontrol.mjs maaler det under den.
   useEffect(() => {
     levende.current = true

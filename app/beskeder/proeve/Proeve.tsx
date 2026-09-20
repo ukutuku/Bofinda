@@ -4,11 +4,15 @@
 //
 //  ═══ PRØVEVISNINGEN KØRER I STRICTMODE ═══
 //
-//  Målt: projektet har ikke `reactStrictMode` i `next.config.ts`, og
-//  Next 15 slår den ikke til af sig selv — `next dev` kaldte effekterne
-//  ÉN gang. StrictMode er altså ikke noget, prøven kan formode; den skal
-//  slås til, og det gøres HER, i måleudstyret, og ikke i
-//  `next.config.ts`, som hører til opsætningen og ikke til denne opgave.
+//  Målt i den prøvede opsætning: ved første indlæsning kørte effekten
+//  ÉN gang, og efter et scenarieskift — som monterer træet på ny — kørte
+//  den TO gange. Begge tal står i strictmodekontrollens log.
+//
+//  Ét kald ved første indlæsning siger i sig selv ingenting om, hvorvidt
+//  StrictMode er slået til: React 19 dobbeltkalder ikke ved hydrering,
+//  kun ved en montering bagefter. Prøven formoder derfor ingenting —
+//  StrictMode slås til HER, i måleudstyret, og `next.config.ts` røres
+//  ikke; den hører til opsætningen og ikke til denne opgave.
 //
 //  Det gør prøvevisningen strengere end produktet — og det er meningen.
 //  StrictMode kalder setup → cleanup → setup på samme instans, og det er

@@ -22,16 +22,19 @@
 //  At starte `next dev` beviser INTET om StrictMode. To ting blev målt,
 //  og begge ændrede prøven:
 //
-//   1 · Projektet har ikke `reactStrictMode` i `next.config.ts`, og
-//       Next 15 slår den ikke til af sig selv. Prøvevisningen slår den
-//       derfor til i sit EGET træ — se app/beskeder/proeve/Proeve.tsx.
-//       `next.config.ts` hører til opsætningen og ikke til denne opgave.
+//   1 · I den prøvede opsætning kørte effekten ÉN gang ved første
+//       indlæsning. Ét kald er i sig selv ikke et bevis for, at
+//       StrictMode er slået fra — se punkt 2 — så prøven formoder
+//       ingenting: prøvevisningen slår StrictMode til i sit EGET træ,
+//       se app/beskeder/proeve/Proeve.tsx. `next.config.ts` røres ikke;
+//       den hører til opsætningen og ikke til denne opgave.
 //
 //   2 · React 19 dobbeltkalder IKKE effekter, når træet HYDRERES — kun
-//       når en komponent monteres bagefter. Ved første indlæsning stod
-//       tælleren på 1, selv om StrictMode var aktiv (renderen VAR
-//       dobbelt; efterprøvet med en tæller). Prøven måler derfor efter
-//       et scenarieskift, som monterer både mærket og modulet på ny.
+//       når en komponent monteres bagefter. Netop derfor stod tælleren
+//       på 1 ved første indlæsning, selv om StrictMode var aktiv
+//       (renderen VAR dobbelt; efterprøvet med en tæller). Prøven måler
+//       derfor efter et scenarieskift, som monterer både mærket og
+//       modulet på ny — dér blev den målt til 2.
 //
 //  Er tallet ikke 2 dér, afvises der med exit 2 — så en grøn linje
 //  aldrig kan komme fra et miljø, der ikke var det, den sagde.
