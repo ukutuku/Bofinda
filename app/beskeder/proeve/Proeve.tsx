@@ -4,17 +4,14 @@
 //
 //  ═══ PRØVEVISNINGEN KØRER I STRICTMODE ═══
 //
-//  Målt i den prøvede opsætning: ved første indlæsning kørte effekten
-//  ÉN gang, og efter et scenarieskift — som monterer træet på ny — kørte
-//  den TO gange. Begge tal står i strictmodekontrollens log.
+//  I den afprøvede opsætning måltes én effektkørsel ved første
+//  indlæsning og to efter scenarieskift. Kontrollen kræver derfor to
+//  efter genmontering. Begge tal står i strictmodekontrollens log.
 //
-//  Ét kald ved første indlæsning siger i sig selv ingenting om, hvorvidt
-//  StrictMode er slået til: React 19 dobbeltkalder ikke ved hydrering,
-//  kun ved en montering bagefter. Prøven formoder derfor ingenting —
-//  StrictMode slås til HER, i måleudstyret, og `next.config.ts` røres
-//  ikke; den hører til opsætningen og ikke til denne opgave.
+//  Prøven formoder ingenting om opsætningen: StrictMode slås til HER, i
+//  måleudstyret, og `next.config.ts` røres ikke; den hører til
+//  opsætningen og ikke til denne opgave.
 //
-//  Det gør prøvevisningen strengere end produktet — og det er meningen.
 //  StrictMode kalder setup → cleanup → setup på samme instans, og det er
 //  dét, der afslører en livscyklus, der kun rydder op og aldrig sætter
 //  op igen. `scripts/cloud/strictmodekontrol.mjs` måler først, at den
@@ -56,12 +53,11 @@ const VALG: { v: Scenarie; navn: string; hvad: string }[] = [
 /**
  * Måler, om React FAKTISK dobbeltkalder effekter.
  *
- * ═══ DEN SKAL MÅLES EFTER EN MONTERING, IKKE VED HYDRERING ═══
+ * ═══ DEN MÅLES EFTER EN GENMONTERING ═══
  *
- * Målt, ikke læst: React 19 dobbeltkalder ikke effekter, når træet
- * HYDRERES — kun når en komponent monteres bagefter. Ved første
- * indlæsning står tælleren derfor på 1, selv om StrictMode er aktiv
- * (renderen ER dobbelt; det blev efterprøvet med en tæller).
+ * I den afprøvede opsætning måltes én effektkørsel ved første
+ * indlæsning og to efter scenarieskift. Kontrollen kræver derfor to
+ * efter genmontering.
  *
  * Mærket bærer derfor `key={scenarie}`: et scenarieskift monterer det
  * på ny, og DER skal tælleren stå på 2. `Beskedmodul` har den samme

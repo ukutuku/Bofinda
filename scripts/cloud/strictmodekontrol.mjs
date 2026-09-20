@@ -19,22 +19,16 @@
 //
 //  ── DEN FORMODER IKKE STRICTMODE — DEN MÅLER DET ─────────────
 //
-//  At starte `next dev` beviser INTET om StrictMode. To ting blev målt,
-//  og begge ændrede prøven:
+//  At starte `next dev` beviser INTET om StrictMode. Målingen afgør det:
 //
-//   1 · I den prøvede opsætning kørte effekten ÉN gang ved første
-//       indlæsning. Ét kald er i sig selv ikke et bevis for, at
-//       StrictMode er slået fra — se punkt 2 — så prøven formoder
-//       ingenting: prøvevisningen slår StrictMode til i sit EGET træ,
-//       se app/beskeder/proeve/Proeve.tsx. `next.config.ts` røres ikke;
-//       den hører til opsætningen og ikke til denne opgave.
+//   1 · I den afprøvede opsætning måltes én effektkørsel ved første
+//       indlæsning og to efter scenarieskift. Kontrollen kræver derfor
+//       to efter genmontering.
 //
-//   2 · React 19 dobbeltkalder IKKE effekter, når træet HYDRERES — kun
-//       når en komponent monteres bagefter. Netop derfor stod tælleren
-//       på 1 ved første indlæsning, selv om StrictMode var aktiv
-//       (renderen VAR dobbelt; efterprøvet med en tæller). Prøven måler
-//       derfor efter et scenarieskift, som monterer både mærket og
-//       modulet på ny — dér blev den målt til 2.
+//   2 · Prøven formoder ingenting om opsætningen: prøvevisningen slår
+//       StrictMode til i sit EGET træ, se app/beskeder/proeve/Proeve.tsx.
+//       `next.config.ts` røres ikke; den hører til opsætningen og ikke
+//       til denne opgave.
 //
 //  Er tallet ikke 2 dér, afvises der med exit 2 — så en grøn linje
 //  aldrig kan komme fra et miljø, der ikke var det, den sagde.
@@ -186,11 +180,12 @@ async function koer() {
   p('\n══ 1 · StrictMode dobbeltkalder faktisk ══')
   const vedHydrering = await s.locator('[data-effektkoersler]')
     .getAttribute('data-effektkoersler')
-  // Et scenarieskift monterer baade maerket og modulet paa ny. Det er
-  // FOERST dér, React 19 dobbeltkalder — se noten i hovedet. Og det skal
+  // Et scenarieskift monterer baade maerket og modulet paa ny, og det er
+  // dér, de to koersler blev maalt — se noten i hovedet. Og det skal
   // vaere et ANDET scenarie end det, der staar: «Adgang» er allerede
   // valgt ved indlaesning, saa nøglen ville ikke skifte, og maalingen
-  // ville laese hydreringens tal igen. (Maalt: 1 i stedet for 2.)
+  // ville laese tallet fra foerste indlaesning igen. (Maalt: 1 i stedet
+  // for 2.)
   await vaelg(s, 'Tom indbakke')
   await s.waitForTimeout(800)
   const koersler = await s.locator('[data-effektkoersler]')
