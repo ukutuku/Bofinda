@@ -9,16 +9,15 @@ Dette dokument forklarer dem.
 
 ---
 
-## 1 · Den ene regel, der bærer resten
+## 1 · Adgangsreglerne ejes af Supply — og typerne er ikke sikkerhed
 
-**Adgangsreglerne ejes af Supply. Komponenterne regner dem ikke.**
+**Ingen komponent regner en adgangsregel.** Der er ikke ét sted i
+`app/beskeder/`, hvor der står, om nogen har betalt, hvornår et abonnement
+udløber, eller hvad der er gratis. Serverlaget sender **én eksplicit
+visningstilladelse**, og brugerfladen adlyder den.
 
-Der er ikke ét sted i `app/beskeder/`, hvor der står, om nogen har betalt,
-hvornår et abonnement udløber, eller hvad der er gratis. Serverlaget
-sender **én eksplicit visningstilladelse**, og brugerfladen adlyder den.
-
-Det er derfor `Indbakke` og `Samtaletraad` er diskriminerede unioner og
-ikke objekter med et `laast`-flag ved siden af indholdet:
+Derfor er `Indbakke` og `Samtaletraad` diskriminerede unioner og ikke
+objekter med et `laast`-flag ved siden af indholdet:
 
 ```ts
 export type Indbakke =
@@ -26,16 +25,34 @@ export type Indbakke =
   | { tilstand: Laasegrund }          // ← ingen samtaler. Feltet FINDES ikke.
 ```
 
-I de låste varianter findes beskedfelterne ikke. En komponent kan ikke
-komme til at gengive indhold, den ikke har fået, og «skjul det med CSS»
-kan ikke skrives ned uden at slå typen fra. Kravet — *beskedindhold må
-ikke blot skjules med CSS* — står altså i typen og ikke i en aftale,
-nogen skal huske.
+### ⚠ Hvad det er — og hvad det ikke er
 
-**Serverlaget skal returnere `{ tilstand: 'login-kraevet' }` uden
-`samtaler`.** Ikke et tomt array, ikke et flag ved siden af indholdet.
-Kompilatoren håndhæver det, og `scripts/cloud/beskedkontrol.mjs` måler
-det bagefter på den rå HTML (se afsnit 6).
+Unionen gør det svært at komme til at gengive indhold i en låst tilstand,
+og den gør det tydeligt, hvad serveren skal sende. **Det er alt, den gør.**
+Den er:
+
+* **ikke autorisation.** Typer findes ikke ved kørselstid. Enhver kan kalde
+  en server action eller en rute direkte, uden vores klient.
+* **ikke en filtrering af svar.** Der er ingen kode, der fjerner felter på
+  vej ud. Et serverlag, der lægger `samtaler` ved siden af en låst tilstand,
+  sender dem — typen er væk, når JSON'en pakkes.
+* **ikke et bevis for, at private data ikke forlader serveren.**
+
+**Serverintegrationen skal derfor selv:**
+
+1. **Kontrollere adgangen** for den aktuelle bruger ved hver eneste
+   forespørgsel — ikke stole på en tilstand, klienten har med.
+2. **Kontrollere ejerskabet** i selve forespørgslen: en samtale skal
+   tilhøre brugeren som `tenantId` eller `landlordId`, og kravet hører til i
+   `where`-leddet, ikke i en kontrol bagefter.
+3. **Eksplicit bygge svaret uden private felter, når adgangen afvises.**
+   Ikke hente hele objektet og returnere det «bare med en anden tilstand».
+   Returnér `{ tilstand: 'abonnement-udloebet' }` som en ny værdi, bygget af
+   ingenting.
+
+Det, typen giver os, er at `{ tilstand: 'login-kraevet' }` ikke **har** et
+`samtaler`-felt, så den vej ind er lukket ved et uheld. Vejen ind ved en
+fejl i serverlaget er ikke lukket af noget her.
 
 ---
 
@@ -46,7 +63,7 @@ det bagefter på den rå HTML (se afsnit 6).
 | `adgang` | Supply siger ja | Listen og tråden |
 | `login-kraevet` | Ingen session | «Log ind for at se dine beskeder» + knappen **Log ind** |
 | `abonnement-kraevet` | Har aldrig haft abonnement | «Beskeder kræver abonnement» + **Se abonnement** |
-| `abonnement-udloebet` | Har haft et | «Dit abonnement er udløbet» + **Genaktivér** |
+| `abonnement-udloebet` | Har haft et, og det er udløbet | «Dit abonnement er udløbet» + **Genaktivér** |
 
 De to sidste er skilt ad med vilje: det er to forskellige situationer for
 den, der står i dem, og de får derfor forskellig tekst og forskelligt
@@ -55,35 +72,56 @@ serverlaget — serveren sender ét ord fra en union, brugerfladen skriver
 sætningen. Sendte serveren selve teksten, ville brugervendt dansk ligge
 spredt over to lag, og den ene kopi ville blive rettet uden den anden.
 
-**Ingen pris nogen steder i modulet.** Prisen ejes af Supply og ville
-blive forkert den dag, den ændrer sig ét sted.
+**Ingen pris nogen steder i modulet.** Prisen ejes af Supply og ville blive
+forkert den dag, den ændrer sig ét sted.
 
----
+### Et udløbet abonnement låser begge veje
 
-## 3 · Skrivning er en selvstændig tilladelse
+Besluttet. I betalingstilstand låser `abonnement-udloebet` **både læsning og
+skrivning**: beskederne vises ikke, og der kan ikke skrives. De **bevares i
+basen** og bliver tilgængelige igen ved genaktivering — der slettes
+ingenting.
+
+**En opsigelse med resterende betalt adgang låser ikke.** Adgangen løber til
+periodens udløb, og først derefter er tilstanden `abonnement-udloebet`.
+Regnestykket — `cancelAtPeriodEnd` sammen med `currentPeriodEnd` — hører til
+hos Supply og ikke her.
+
+**I gratis tilstand** er det Supplys centrale adgangsbeslutning, der afgør
+tilstanden. Brugerfladen kender ikke forskel på de to tilstande; den får ét
+ord og viser det.
+
+> Skemaets gamle kommentar ved `messages` — *«Udløbet abonnement betyder
+> skrivebeskyttet historik»* — er **ikke** gældende produktkrav. Forløbet
+> «læs historikken, men genaktivér for at skrive» findes ikke længere i
+> modulet: der er ingen `Skrivetilstand`, intet skrivebeskyttet panel og
+> intet scenarie for det. Kommentaren i `db/schema.ts` er ikke rettet her,
+> fordi databasen ligger uden for denne opgave.
+
+### En låsning er endelig for visningen
+
+Melder porten, at adgangen er lukket — fra indbakken, fra en tråd eller fra
+en afsendelse — går **hele modulet** i låst visning, også hvis en samtale
+allerede er åben. Samtalelisten, uddragene og beskederne bliver ikke stående
+bag en besked om at genindlæse: tilstanden erstattes med den låste variant,
+og indholdet er dermed også ude af hukommelsen.
+
+Og låsningen er en lås: **et forsinket svar, der siger «adgang», åbner ikke
+op igen.** Kald, der var undervejs, da låsen faldt, kasseres.
+
+Derfor bærer en afvist afsendelse sin grund med:
 
 ```ts
-export type Skrivetilstand = 'kan-skrive' | 'skrivebeskyttet'
+| { ok: false; fejl: 'laast'; grund: Laasegrund }
 ```
 
-Skemaets egen note siger det: *«Spær ved AFSENDELSE, server-side. Udløbet
-abonnement betyder skrivebeskyttet historik — slet aldrig beskeder.»*
-
-Derfor er `skriv` et selvstændigt felt på `Samtaletraad` og ikke en
-afledning af `tilstand`. Supply kan give læseadgang til historikken uden
-at give skriveadgang, og brugerfladen kan vise begge dele uden at gætte,
-hvilken regel der gjaldt. Ved `skrivebeskyttet` er der intet skrivefelt i
-DOM'en — ikke et slukket felt.
-
-**Spærringen skal håndhæves igen ved afsendelse.** `skriv` er en
-visningstilladelse, ikke en adgangskontrol: adgangen kan være ændret,
-siden tråden blev hentet. `send()` må derfor svare `{ ok: false, fejl:
-'laast' }`, og brugerfladen viser «Din adgang er ændret, mens du skrev.
-Genindlæs siden.»
+Uden grunden ville brugerfladen vide, at adgangen var lukket, men ikke kunne
+sige hvorfor — og så ville den eneste ærlige besked være «genindlæs»,
+hvilket er at bede brugeren om at gøre vores arbejde.
 
 ---
 
-## 4 · Grænsefladen, serverlaget skal opfylde
+## 3 · Grænsefladen, serverlaget skal opfylde
 
 ```ts
 export interface Beskedport {
@@ -95,9 +133,14 @@ export interface Beskedport {
 ```
 
 Komponenterne kalder aldrig `fetch` eller en server action direkte. De får
-en port ind. Det er dét, der gør modulet afprøvbart med syntetiske
-samtaler uden et midlertidigt produktions-API — og det, der gør den
-rigtige serverintegration til **én fil**.
+en port ind. Det er dét, der gør modulet afprøvbart med syntetiske samtaler
+uden et midlertidigt produktions-API — og det, der gør den rigtige
+serverintegration til **én fil**.
+
+**Alle fire må afvise deres løfte.** En afvist Promise er ikke det samme som
+et svar, der siger nej, og begge dele sker i virkeligheden: en afbrudt
+forbindelse, en 500'er uden krop og en server action, der kaster, ser alle
+sådan ud. Modulet håndterer begge.
 
 ### Felter, der skal fyldes
 
@@ -122,21 +165,43 @@ rigtige serverintegration til **én fil**.
 | `tekst` | Ren tekst. Modulet gengiver den som tekst, aldrig som markup |
 | `tidspunkt` | ISO 8601 |
 
-### Tre ting, der er lette at gøre forkert
+### Fire ting, der er lette at gøre forkert
 
 1. **`uddrag` skal forkortes af serveren.** Sendte vi hele beskeden og
    klippede med `text-overflow`, ville hele teksten stå i markuppen — samme
    fejl som at skjule et låst indhold med `display: none`.
 2. **Svaret skal være en kopi, ikke en levende reference.** Modulet regner
-   med at eje det, det får, og lægger nye beskeder i med
-   `[...beskeder, ny]`. Attrappen udleverede først sin egen liste, og så
-   stod den sendte besked to gange. Et serverlag, der serialiserer, har
-   ikke problemet — men en in-process implementering har.
+   med at eje det, det får, og lægger nye beskeder i med `[...beskeder, ny]`.
+   Attrappen udleverede først sin egen liste, og så stod den sendte besked to
+   gange. Et serverlag, der serialiserer, har ikke problemet — men en
+   in-process implementering har.
 3. **`MAKS_TEGN` (2000) står i `kontrakt.ts` og skal bruges begge steder.**
    Tælleren i skrivefeltet og serverens afvisning svarer på det samme
-   spørgsmål. To tal ville drive fra hinanden, og brugeren ville se et
-   felt, der sagde god for en tekst, serveren kastede væk. Se CLAUDE.md:
-   *«Svarer to udtryk på det samme spørgsmål, skal de beregnes ét sted.»*
+   spørgsmål. To tal ville drive fra hinanden, og brugeren ville se et felt,
+   der sagde god for en tekst, serveren kastede væk. Se CLAUDE.md: *«Svarer
+   to udtryk på det samme spørgsmål, skal de beregnes ét sted.»*
+4. **`send` skal spærre igen, server-side.** `hentTraad` gav en
+   visningstilladelse, ikke en adgangskontrol: adgangen kan være ændret,
+   siden tråden blev hentet. Svar `{ ok: false, fejl: 'laast', grund }`.
+
+---
+
+## 4 · Hvordan modulet binder svar til samtaler
+
+Det hører til kontrakten, fordi serverlaget kan udløse det:
+
+* **Hver åbning har et nummer.** Et svar, hvis nummer ikke længere er det
+  aktuelle, hører til noget, brugeren har forladt, og kasseres. Uden det
+  vandt det *langsomste* svar: A åbnes, B åbnes, A's svar kommer sidst — og
+  B blev overskrevet af A.
+* **Vejen tilbage tæller også op.** Et svar, der lander efter, må ikke skubbe
+  tråden frem igen.
+* **Afsendelsen bærer sit samtale-id med.** Kvitteringen lægges kun i
+  tråden, hvis det stadig er dén tråd, der vises. Den lægges altid i den
+  rigtige række i listen — beskeden er sendt, og det skal kunne ses.
+* **En låsning slår alt andet.** Den gælder, også hvis svaret er forældet:
+  en lukket adgang er en oplysning om kontoen, ikke om denne ene
+  forespørgsel, og at lukke for meget er den rigtige vej at fejle.
 
 ---
 
@@ -148,80 +213,93 @@ Rækkefølgen er den, tingene spærrer for hinanden i.
 
 1. **En funktion, der afgør adgangstilstanden** for den aktuelle bruger:
    `adgang(): Promise<'adgang' | Laasegrund>`. Den skal kende sessionen,
-   abonnementets status og gyldighedsdato — alt sammen Supplys.
+   abonnementets status, `cancelAtPeriodEnd` og `currentPeriodEnd` — og den
+   centrale beslutning for gratis tilstand. Alt sammen Supplys.
 2. **Ruten til abonnement/genaktivering.** `Beskedmodul` kræver
    `abonnementHref` og har med vilje **ingen** standardværdi: en knap, der
    peger på en rute, der ikke findes, er værre end ingen knap. I dag findes
    ruten ikke, og prøvevisningen sender en synlig attrap
    (`#abonnementsruten-leveres-af-supply`).
-3. **Beslutningen om, hvad `abonnement-udloebet` betyder for læsning.**
-   Skemaet siger «skrivebeskyttet historik». Opgaven siger, at låst adgang
-   ikke må udlevere indhold. Begge dele kan lade sig gøre i kontrakten —
-   `{ tilstand: 'abonnement-udloebet' }` (intet indhold) eller
-   `{ tilstand: 'adgang', skriv: 'skrivebeskyttet' }` (historik, ingen
-   skrivning) — og **valget er Supplys, ikke brugerfladens.**
 
 ### 5.2 · Serverlaget for beskeder
 
-4. **Fire server actions eller en rute, der opfylder `Beskedport`.**
-   Tabellerne findes allerede i `db/schema.ts` (`conversations`,
-   `messages`) og er ikke rørt i denne opgave.
+3. **Fire server actions eller en rute, der opfylder `Beskedport`.**
+   Tabellerne findes allerede i `db/schema.ts` (`conversations`, `messages`)
+   og er ikke rørt i denne opgave. Adgang og ejerskab kontrolleres i hver
+   enkelt, og afviste svar bygges eksplicit uden private felter — se afsnit 1.
    - `hentIndbakke` — samtaler hvor brugeren er `tenantId` eller
      `landlordId`, sorteret på `lastMessageAt`, med `ulaeste` talt af
      `messages.readAt is null and senderId <> mig`.
-   - `hentTraad` — beskederne på `conversationId`, og **ejerskabet
-     efterprøvet i selve forespørgslen**. En samtale, der ikke er
-     brugerens, skal svare `{ tilstand: 'findes-ikke' }` — samme svar som
-     en, der ikke findes, så eksistensen ikke kan aflæses.
-   - `send` — indsæt beskeden, opdatér `conversations.lastMessageAt`.
-     Spær ved afsendelse, server-side, som skemaet siger.
+   - `hentTraad` — beskederne på `conversationId`, med ejerskabet i selve
+     `where`. En samtale, der ikke er brugerens, skal svare
+     `{ tilstand: 'findes-ikke' }` — samme svar som en, der ikke findes, så
+     eksistensen ikke kan aflæses.
+   - `send` — indsæt beskeden, opdatér `conversations.lastMessageAt`. Spær
+     ved afsendelse, server-side, og svar med `grund`, når det er en låsning.
    - `markerLaest` — `messages.readAt = now()` for modpartens ulæste.
-5. **Oprettelsen af en samtale.** Modulet viser samtaler; det starter dem
-   ikke. Knappen «Skriv til udlejeren» hører til på boligsiden, og den
-   findes ikke endnu. Uden den kan en boligsøgende aldrig få sin første
-   samtale. Kun `source_type = 'native'` — der er ingen at skrive til på en
-   importeret bolig.
-6. **Ruten `/beskeder`.** Modulet har ingen offentlig rute i dag; der er
-   kun prøvevisningen, som 404'er uden `BESKEDER_PROEVE=1`. Ruten skal
-   hente adgangstilstanden på serveren og give modulet en port, der kalder
-   server actions.
-7. **En vej ind til modulet.** Hverken den øverste bjælke eller Min side
-   linker til beskeder. Layoutets egen note siger hvorfor der ikke bare
-   kan hænges et link op: bjælken er statisk med vilje, og et
-   ulæst-tal i toppen ville gøre hver eneste side dynamisk.
-8. **RLS på `conversations` og `messages`** efterprøvet mod den rigtige
+4. **Oprettelsen af en samtale.** Modulet viser samtaler; det starter dem
+   ikke. Knappen «Skriv til udlejeren» hører til på boligsiden, og den findes
+   ikke endnu. Uden den kan en boligsøgende aldrig få sin første samtale. Kun
+   `source_type = 'native'` — der er ingen at skrive til på en importeret
+   bolig.
+5. **Ruten `/beskeder`.** Modulet har ingen offentlig rute i dag; der er kun
+   prøvevisningen, som 404'er uden `BESKEDER_PROEVE=1`. Ruten skal hente
+   adgangstilstanden på serveren og give modulet en port, der kalder server
+   actions.
+6. **En vej ind til modulet.** Hverken den øverste bjælke eller Min side
+   linker til beskeder. Layoutets egen note siger hvorfor der ikke bare kan
+   hænges et link op: bjælken er statisk med vilje, og et ulæst-tal i toppen
+   ville gøre hver eneste side dynamisk.
+7. **RLS på `conversations` og `messages`** efterprøvet mod den rigtige
    Supabase. `public` eksponeres gennem PostgREST; en tabel uden RLS kan
    læses med den offentlige nøgle, og så er muren pynt.
+8. **Skemakommentaren ved `messages`** siger stadig «skrivebeskyttet
+   historik». Den er ikke rettet her, fordi databasen ligger uden for denne
+   opgave — men den er i modstrid med beslutningen i afsnit 2 og bør med, når
+   nogen alligevel rører `db/schema.ts`.
 
 ### 5.3 · Kendt, men ikke bygget
 
 9. **Adresser pr. samtale.** Valget er i dag intern tilstand, ikke
    `/beskeder/<id>`. Det betyder, at en samtale ikke kan deles, bogmærkes
-   eller nås med browserens tilbageknap. `Samtaleliste` tager `vaelg` som
-   en prop netop for at gøre det til én ændring.
+   eller nås med browserens tilbageknap. `Samtaleliste` tager `vaelg` som en
+   prop netop for at gøre det til én ændring.
 10. **Nye beskeder undervejs.** Der er ingen polling, ingen websocket og
     ingen notifikation. Tråden opdateres kun, når man selv sender.
 11. **Moderation.** Beskederne er umodereret brugerindhold mellem to
-    mennesker. Det er ikke det samme som alarmmailenes spamvej — de går
-    ikke ud i fremmedes indbakker — men en rapportér-vej hører til, før
-    modulet møder rigtige brugere.
+    mennesker. Det er ikke det samme som alarmmailenes spamvej — de går ikke
+    ud i fremmedes indbakker — men en rapportér-vej hører til, før modulet
+    møder rigtige brugere.
 12. **Vedhæftninger** findes ikke, og `messages.body` er ren tekst.
 
 ---
 
-## 6 · Hvordan låsningen er efterprøvet
+## 6 · Hvad prøven måler — og hvad den ikke beviser
 
 `scripts/cloud/beskedkontrol.mjs` læser den **rå `page.content()`** — hele
-HTML-teksten, også det `display: none` ville gemme — og forlanger, at
-ingen af seks tekststumper fra de syntetiske samtaler står i den, når
-modulet er låst.
+HTML-teksten, også det `display: none` ville gemme — og forlanger, at ingen
+af seks tekststumper fra de syntetiske samtaler står i den, når modulet er
+låst.
 
 Prøven er efterprøvet i begge retninger:
 
-- **Grøn** på den rigtige kode: ingen af de seks stumper findes.
-- **Rød** på en udgave, hvor indholdet blev gengivet og skjult med
+* **Grøn** på den rigtige kode: ingen af de seks stumper findes.
+* **Rød** på en udgave, hvor indholdet blev gengivet og skjult med
   `display: none`: `LÆKKET: Prøvegade 12, Mette Attrup, fællesvaskeri` på
   alle tre låste tilstande.
 
-En prøve, der kun spurgte `isVisible()`, ville være grøn på præcis den
-fejl, kravet findes for at forhindre.
+En prøve, der kun spurgte `isVisible()`, ville være grøn på præcis den fejl,
+kravet findes for at forhindre.
+
+**⚠ Men den måler prøvevisningens markup, og intet andet.** Der er ingen
+server bag; porten er en attrap i hukommelsen, og et netværkssvar er ikke en
+DOM. Målingen siger altså:
+
+* **ja** til: brugerfladen gengiver ikke indhold i en låst tilstand, heller
+  ikke skjult.
+* **intet** om: hvad et rigtigt serverlag ville sende over ledningen.
+
+Den påstand kan kun en prøve mod den rigtige serverintegration give — og den
+skal måle **svaret**, ikke DOM'en: hent som en bruger uden adgang, og
+efterprøv at kroppen ikke indeholder samtaler, uddrag eller beskeder. Det
+hører til den opgave, der bygger serverlaget.

@@ -10,7 +10,7 @@
 //  skærmlæser. Navnet gør. Tråden er en `<ol>`, fordi rækkefølgen ER
 //  betydningen.
 //
-//  ═══ KLADDEN RYDDES FØRST, NÅR DEN ER SENDT ═══
+//  ═══ KLADDEN RYDDES FØRST, NÅR DEN ER SENDT — OG KUN DEN ═══
 //
 //  Ingen optimistisk boble. Feltet beholder teksten, indtil serveren har
 //  sagt ja, og en fejl efterlader derfor præcis det, brugeren skrev.
@@ -18,9 +18,18 @@
 //  3.3.7 Redundant Entry er niveau A, og den rammer hårdest dér, hvor
 //  indtastning koster mest — skærmtastatur, kontaktbetjening, tale.
 //
-//  En optimistisk boble ville desuden PÅSTÅ, at beskeden var sendt, i
-//  det sekund vi ikke ved det. Det er den samme slags usandhed som en
-//  total, der lader som om aconto er kendt.
+//  Og kun DEN tekst, der blev sendt. Skriver hun videre, mens
+//  afsendelsen er undervejs, ryddede en tidligere udgave hele feltet —
+//  også det, kvitteringen ikke handlede om. Nu fjernes præcis den
+//  sendte tekst, og resten bliver stående.
+//
+//  ═══ ALLE TRE UDFALD, IKKE TO ═══
+//
+//  Porten kan svare ja, svare nej — og AFVISE sit løfte. Det sidste er
+//  ikke et hjørnetilfælde: en afbrudt forbindelse, en 500'er uden krop
+//  og en server action, der kaster, ser alle sådan ud. Uden `catch`
+//  blev `sender` hængende sand, knappen sad fast i travl, og der var
+//  ingen vej videre. Travlheden afsluttes derfor i `finally`.
 //
 //  ═══ KNAPPENS NAVN LAVER SIG IKKE OM ═══
 //
@@ -38,7 +47,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { Besked, Samtalehoved, Sendefejl, Skrivetilstand } from './kontrakt'
+import type { Besked, Samtalehoved, Sendefejl } from './kontrakt'
 import { MAKS_TEGN, TAELLER_FRA, modpartsnavn } from './kontrakt'
 import { dagsskel, klokken, noejagtig, sammeDag } from './tid'
 
@@ -48,9 +57,11 @@ const kanProeveIgen = (f: Sendefejl): boolean => f === 'netvaerk' || f === 'uken
 const FEJLTEKST: Record<Sendefejl, string> = {
   netvaerk: 'Beskeden blev ikke sendt. Din tekst står der stadig.',
   'for-lang': `Beskeden er for lang. Den må højst fylde ${MAKS_TEGN} tegn.`,
-  laast: 'Din adgang er ændret, mens du skrev. Genindlæs siden.',
+  laast: 'Din adgang er ændret, mens du skrev.',
   ukendt: 'Beskeden blev ikke sendt. Din tekst står der stadig.',
 }
+
+export type Sendeudfald = { ok: true } | { ok: false; fejl: Sendefejl }
 
 function Boble({ b, modpart, visDag }: { b: Besked; modpart: string; visDag: string | null }) {
   const mig = b.fra === 'mig'
@@ -58,8 +69,8 @@ function Boble({ b, modpart, visDag }: { b: Besked; modpart: string; visDag: str
     <>
       {visDag && (
         // Skillelinjen er `aria-hidden`: dagen står i forvejen i hver
-        // boples `title` og i dens `<time>`, og et skærmlæser-stop midt
-        // i en samtale er stoej, ikke oplysning.
+        // bobles `title` og i dens `<time>`, og et skærmlæser-stop midt
+        // i en samtale er støj, ikke oplysning.
         <li className="bsk-dagskel" aria-hidden="true"><span>{visDag}</span></li>
       )}
       <li className={`bsk-boble ${mig ? 'fra-mig' : 'fra-modpart'}`}>
@@ -75,16 +86,16 @@ function Boble({ b, modpart, visDag }: { b: Besked; modpart: string; visDag: str
   )
 }
 
-export function Samtalevisning({
-  hoved, beskeder, skriv, send, abonnementHref, paaTilbage, visTilbage,
-}: {
+export function Samtalevisning({ hoved, beskeder, send, fokuserVedAabning }: {
   hoved: Samtalehoved
   beskeder: Besked[]
-  skriv: Skrivetilstand
-  send: (tekst: string) => Promise<{ ok: true } | { ok: false; fejl: Sendefejl }>
-  abonnementHref: string
-  paaTilbage: () => void
-  visTilbage: boolean
+  /**
+   * Afsendelsen. Må både svare nej OG afvise sit løfte — begge dele
+   * håndteres her. Modulet ovenover binder den til DENNE samtale.
+   */
+  send: (tekst: string) => Promise<Sendeudfald>
+  /** På en telefon erstatter tråden listen, og fokus skal følge med. */
+  fokuserVedAabning: boolean
 }) {
   const [kladde, setKladde] = useState('')
   const [sender, setSender] = useState(false)
@@ -93,22 +104,25 @@ export function Samtalevisning({
   const felt = useRef<HTMLTextAreaElement>(null)
   const bund = useRef<HTMLDivElement>(null)
   const titel = useRef<HTMLHeadingElement>(null)
+  // Låsen mod dobbeltafsendelse. `sender` er TILSTAND og er først sand
+  // efter en gengivelse; to klik i samme tik ville begge se den falsk
+  // og sende to gange. En ref skifter med det samme.
+  const iGang = useRef(false)
+  const levende = useRef(true)
+  useEffect(() => () => { levende.current = false }, [])
 
   const modpart = modpartsnavn(hoved.modpart)
 
   // Nyeste besked i syne, når tråden åbnes og efter hver afsendelse.
   // `useLayoutEffect` og ikke `useEffect`: sker springet efter maling,
-  // ser man traaden hoppe.
+  // ser man tråden hoppe.
   useLayoutEffect(() => {
     bund.current?.scrollIntoView({ block: 'end' })
   }, [hoved.id, beskeder.length])
 
-  // Paa en telefon ERSTATTER traaden listen. Fokus skal foelge med, ellers
-  // staar den, der bruger tastatur eller skaermlaeser, tilbage i en liste,
-  // der ikke er der laengere.
   useEffect(() => {
-    if (visTilbage) titel.current?.focus()
-  }, [hoved.id, visTilbage])
+    if (fokuserVedAabning) titel.current?.focus()
+  }, [hoved.id, fokuserVedAabning])
 
   // Feltet vokser med teksten, men ikke ud over sit loft (CSS: max-height).
   useLayoutEffect(() => {
@@ -123,30 +137,45 @@ export function Samtalevisning({
   const tom = kladde.trim().length === 0
 
   async function afsend() {
-    if (sender || tom || forLang) return
+    if (iGang.current || tom || forLang) return
+    iGang.current = true
+    // Teksten LÅSES fast her. Alt nedenfor handler om præcis den —
+    // ikke om det, der måtte stå i feltet, når svaret kommer tilbage.
+    const sendt = kladde
     setSender(true)
     setFejl(null)
     setMelding('Sender…')
-    const svar = await send(kladde)
-    setSender(false)
-    if (svar.ok) {
-      setKladde('')            // ← ryddes FØRST her
-      setMelding('Beskeden er sendt.')
-      felt.current?.focus()
-    } else {
-      setFejl(svar.fejl)
-      setMelding(FEJLTEKST[svar.fejl])
+    try {
+      const svar = await send(sendt)
+      if (!levende.current) return
+      if (svar.ok) {
+        // Kun den sendte tekst fjernes. Er der skrevet videre imens,
+        // bliver resten stående — ellers ville kvitteringen for den
+        // gamle tekst slette den nye.
+        setKladde((k) => (k === sendt ? ''
+          : k.startsWith(sendt) ? k.slice(sendt.length)
+            : k))
+        setMelding('Beskeden er sendt.')
+        felt.current?.focus()
+      } else {
+        setFejl(svar.fejl)
+        setMelding(FEJLTEKST[svar.fejl])
+      }
+    } catch {
+      // Porten afviste sit løfte. Brugeren skal kunne komme videre, og
+      // kladden skal stå der endnu — præcis som ved et nej.
+      if (!levende.current) return
+      setFejl('ukendt')
+      setMelding(FEJLTEKST.ukendt)
+    } finally {
+      iGang.current = false
+      if (levende.current) setSender(false)
     }
   }
 
   return (
     <section className="bsk-samtale" aria-label={`Samtale om ${hoved.bolig.adresse}`}>
       <header className="bsk-samtale-hoved">
-        {visTilbage && (
-          <button type="button" className="nulstil bsk-tilbage" onClick={paaTilbage}>
-            <span aria-hidden="true">←</span> Alle samtaler
-          </button>
-        )}
         {/* `tabIndex={-1}` gør overskriften fokuserbar for koden, ikke for
             tabulatoren. Det er dén, fokus flyttes til på en telefon. */}
         <h2 className="bsk-samtale-titel" ref={titel} tabIndex={-1}>{hoved.bolig.adresse}</h2>
@@ -178,87 +207,74 @@ export function Samtalevisning({
       </ol>
 
       {/* Hjælpemidlets egen kanal. Den er sr-only, fordi det synlige svar
-          står nedenfor — to synlige kopier af samme besked er stoej.
+          står nedenfor — to synlige kopier af samme besked er støj.
           Samme opdeling som app/Billedbladring.tsx. */}
       <span className="skjult-for-oejet" role="status">{melding}</span>
 
-      {skriv === 'skrivebeskyttet' ? (
-        <div className="bsk-skrivespaerre">
-          <p>Du kan læse samtalen, men ikke skrive. Beskederne er ikke slettet.</p>
-          <a className="knap" href={abonnementHref}>Genaktivér</a>
-        </div>
-      ) : (
-        <form
-          className="bsk-skriv"
-          onSubmit={(e) => { e.preventDefault(); void afsend() }}
-        >
-          {fejl && (
-            <p className="bsk-fejl">
-              {FEJLTEKST[fejl]}
-              {kanProeveIgen(fejl) && (
-                <button
-                  type="button" className="nulstil bsk-igen"
-                  onClick={() => void afsend()} aria-busy={sender || undefined}
-                >
-                  Prøv igen
-                </button>
-              )}
-            </p>
-          )}
-          <label className="skjult-for-oejet" htmlFor="bsk-felt">
-            Skriv en besked til {modpart}
-          </label>
-          <div className="bsk-skriv-raekke">
-            <textarea
-              id="bsk-felt" ref={felt} className="bsk-felt" rows={1}
-              placeholder="Skriv en besked…"
-              value={kladde}
-              onChange={(e) => setKladde(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                  e.preventDefault()
-                  void afsend()
-                }
-              }}
-              aria-describedby="bsk-genvej"
-              aria-invalid={forLang || undefined}
-            />
-            {/* `aria-disabled` og IKKE `disabled`.
-                En `disabled`-knap er ikke i tabulatorrækkefølgen. Den,
-                der betjener med tastatur eller skærmlæser, tabulerede
-                derfor fra skrivefeltet FORBI «Send» og videre ned i
-                sidefoden — knappen fandtes ikke for hende, før hun
-                havde skrevet noget, og der var intet, der sagde det.
-                Målt af scripts/cloud/beskedkontrol.mjs, som ramte
-                «Min side» dér, hvor «Send» skulle stå.
-                Med `aria-disabled` bliver knappen stående i
-                rækkefølgen, navnet er det samme hele vejen, og
-                tilstanden bliver læst op. Et tryk, mens den er slukket,
-                sender ikke — det sætter fokus i feltet, så svaret er
-                til at se. En død knap ville være værre end ingen. */}
-            <button
-              type="submit" className="bsk-send"
-              aria-disabled={tom || forLang || sender || undefined}
-              aria-busy={sender || undefined}
-              onClick={(e) => {
-                if (!(tom || forLang || sender)) return
-                e.preventDefault()
-                felt.current?.focus()
-              }}
-            >
-              Send
-            </button>
-          </div>
-          <p className="bsk-genvej" id="bsk-genvej">
-            Ctrl+Enter sender. Enter laver en ny linje.
-            {tilbage <= TAELLER_FRA && (
-              <span className={`bsk-taeller${forLang ? ' over' : ''}`}>
-                {' '}{tilbage} tegn tilbage
-              </span>
+      <form className="bsk-skriv" onSubmit={(e) => { e.preventDefault(); void afsend() }}>
+        {fejl && (
+          <p className="bsk-fejl">
+            {FEJLTEKST[fejl]}
+            {kanProeveIgen(fejl) && (
+              <button
+                type="button" className="nulstil bsk-igen"
+                onClick={() => void afsend()} aria-busy={sender || undefined}
+              >
+                Prøv igen
+              </button>
             )}
           </p>
-        </form>
-      )}
+        )}
+        <label className="skjult-for-oejet" htmlFor="bsk-felt">
+          Skriv en besked til {modpart}
+        </label>
+        <div className="bsk-skriv-raekke">
+          <textarea
+            id="bsk-felt" ref={felt} className="bsk-felt" rows={1}
+            placeholder="Skriv en besked…"
+            value={kladde}
+            onChange={(e) => setKladde(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault()
+                void afsend()
+              }
+            }}
+            aria-describedby="bsk-genvej"
+            aria-invalid={forLang || undefined}
+          />
+          {/* `aria-disabled` og IKKE `disabled`.
+              En `disabled`-knap er ikke i tabulatorrækkefølgen. Den, der
+              betjener med tastatur eller skærmlæser, tabulerede derfor
+              fra skrivefeltet FORBI «Send» og videre ned i sidefoden —
+              knappen fandtes ikke for hende, før hun havde skrevet
+              noget, og der var intet, der sagde det. Målt af
+              scripts/cloud/beskedkontrol.mjs, som ramte «Min side» dér,
+              hvor «Send» skulle stå.
+              Et tryk, mens den er slukket, sender ikke — det sætter
+              fokus i feltet, så svaret er til at se. */}
+          <button
+            type="submit" className="bsk-send"
+            aria-disabled={tom || forLang || sender || undefined}
+            aria-busy={sender || undefined}
+            onClick={(e) => {
+              if (!(tom || forLang || sender)) return
+              e.preventDefault()
+              felt.current?.focus()
+            }}
+          >
+            Send
+          </button>
+        </div>
+        <p className="bsk-genvej" id="bsk-genvej">
+          Ctrl+Enter sender. Enter laver en ny linje.
+          {tilbage <= TAELLER_FRA && (
+            <span className={`bsk-taeller${forLang ? ' over' : ''}`}>
+              {' '}{tilbage} tegn tilbage
+            </span>
+          )}
+        </p>
+      </form>
     </section>
   )
 }
