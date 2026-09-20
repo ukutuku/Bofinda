@@ -27,8 +27,8 @@ import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { checkoutForsoeg, drift, stripeEvents, subscriptions, users } from '../db/schema'
 import { behandl, betalingstilsyn, afstemGennemfoerteKoeb, naesteForsoeg,
-  type Haendelse } from '../lib/webhook'
-import { startKoebFor, lukAlleAabneKoeb } from '../lib/abonnement'
+  stopForkertFornyelse, type Haendelse } from '../lib/webhook'
+import { startKoebFor, lukAlleAabneKoeb, aabneKoeb } from '../lib/abonnement'
 import { saetTilstand } from '../lib/driftskift'
 import { indsaetStripe } from '../lib/stripe'
 import { lavFalsk, type Falsk } from './stripefalsk/index'
@@ -87,6 +87,20 @@ const post = (haendelse: Haendelse) => POST(new Request('https://proeve.invalid/
              'content-type': 'application/json' },
   body: JSON.stringify(haendelse),
 }))
+
+/**
+ * Nulstil attrappen OG driftstilstanden.
+ *
+ * Drift-tilstanden er GLOBAL for hele filen. Et afsnit, der efterlader
+ * den paa `gratis` — fordi det fejlede — faar hvert eneste
+ * efterfoelgende `startKoebFor` til at svare `gratis_tilstand`, og saa
+ * kaster `[0]!.sid` en TypeError, der afbryder HELE prøven. Afsnittene
+ * skal kunne fejle hver for sig.
+ */
+async function nulstil() {
+  falsk.nulstil()
+  await db.update(drift).set({ tilstand: 'betaling' }).where(eq(drift.id, true))
+}
 
 /** Sessionen gennemføres hos Stripe, uden at webhooken er ankommet. */
 function gennemfoerHosStripe(sid: string, sub = `sub_gf_${randomUUID()}`) {
@@ -155,8 +169,18 @@ async function koer() {
 
   console.log('\n══ 1c · afstemningen opløser den — og kun den ══')
   {
-    const u = (await db.select({ id: checkoutForsoeg.userId }).from(checkoutForsoeg)
-      .where(eq(checkoutForsoeg.status, 'gennemfoert')).limit(1))[0]!.id
+    // Afsnittet stiller sin EGEN række op. Før læste det den, 1b
+    // efterlod, og `[0]!.id` er kun en typepåstand: fejlede 1b, kastede
+    // linjen en TypeError, der afbrød HELE filen — afsnit 2-7 blev
+    // aldrig kørt, og der kom ingen optælling. En prøve, der kan tie om
+    // seks afsnit, fordi ét gik galt, måler ikke det, den lover.
+    await nulstil()
+    await db.delete(checkoutForsoeg); await db.delete(subscriptions)
+    const u = await bruger('1c')
+    await startKoebFor(u, '/')
+    const [r0] = await forsoegFor(u)
+    gennemfoerHosStripe(r0!.sid!)
+    await startKoebFor(u, '/')          // flytter rækken til gennemfoert
     const linjer = await betalingstilsyn(OPS)
     const [r] = await forsoegFor(u)
     tjek('tilsynet afstemmer det gennemførte køb', r?.status === 'betalt',
@@ -170,7 +194,7 @@ async function koer() {
 
   console.log('\n══ 1d · sweepet lukker ikke en række, Stripe kender ══')
   {
-    falsk.nulstil()
+    await nulstil()
     await db.delete(checkoutForsoeg)
     const u = await bruger('1d')
     await startKoebFor(u, '/')
@@ -225,17 +249,122 @@ async function koer() {
     tjek('  reservationen blev IKKE markeret afbrudt', r1?.status === 'aaben',
       `status=${r1?.status}`)
 
-    // Nu svarer Stripe, og oprydningen fejler.
-    falsk.fejlPaa.add('checkout.sessions.expire')
+    // Nu svarer Stripe. Skiftet vandt ikke, så reservationen er stadig
+    // `aaben`, overtagelsen rammer sin række, og oprydningen køres
+    // ALDRIG i dette forløb. Her stod før `fejlPaa.add('…expire')` —
+    // et flag, der aldrig fyrede, og en afsnitsoverskrift, der lovede
+    // en måling, der ikke fandt sted. Oprydningen har sit eget afsnit
+    // nedenfor (2c), hvor den faktisk nås.
     slip()
     const k = await koeb
     ;(falsk.checkout as { sessions: { create: unknown } }).sessions.create = rigtig
     tjek('købet lykkes — skiftet vandt jo ikke', k.ok, JSON.stringify(k))
+    tjek('  og oprydningen blev IKKE kaldt — der var intet at rydde op',
+      falsk.antal('checkout.sessions.expire') === 0,
+      `${falsk.antal('checkout.sessions.expire')} expire-kald`)
     const [d2] = await db.select({ t: drift.tilstand }).from(drift)
-    tjek('  ALDRIG gratis tilstand OG en betalbar session',
-      !(d2?.t === 'gratis'
-        && [...falsk.sessioner.values()].some((x) => x.status === 'open')),
-      `tilstand=${d2?.t}`)
+    const [r2] = await forsoegFor(u)
+    // POSITIVT formuleret. «ikke (gratis og betalbar)» er sandt af sig
+    // selv, så snart tilstanden ikke er gratis — og det har afsnittet
+    // allerede fastslået fire linjer før. En assertion, der ikke kan
+    // fejle, måler ingenting.
+    tjek('  tilstanden er betaling, og sessionen er kendt og betalbar',
+      d2?.t === 'betaling' && r2?.status === 'aaben' && r2.sid !== null
+      && falsk.sessioner.get(r2.sid)?.status === 'open',
+      `tilstand=${d2?.t} status=${r2?.status} sid=${r2?.sid}`)
+  }
+
+  console.log('\n══ 2c · en session, oprydningen ikke kunne lukke, bliver SYNLIG ══')
+  {
+    // Forløbet, der før gjorde en betalbar session usynlig:
+    //  1. reservationen lukkes under kaldet, og kontoen får en NY
+    //  2. `opgivSession` kaldes — `expire` fejler
+    //  3. fejlgrenen skrev status TILBAGE til `aaben`
+    //  4. det delvise indeks afviste det med 23505
+    //  5. fejlen slap ud, og den ydre catch lukkede rækken som
+    //     `afbrudt` UDEN sessions-id
+    //  6. gratis-skiftet meldte «ok», mens sessionen stod betalbar
+    falsk.nulstil()
+    await db.delete(checkoutForsoeg); await db.delete(subscriptions)
+    await db.update(drift).set({ tilstand: 'betaling' }).where(eq(drift.id, true))
+    const admin = await bruger('2cadm')
+    await db.update(users).set({ role: 'admin' }).where(eq(users.id, admin))
+    const u = await bruger('2c')
+
+    const rigtig = (falsk.checkout as { sessions: { create: (p: unknown, o?: unknown) => Promise<unknown> } })
+      .sessions.create
+    ;(falsk.checkout as { sessions: { create: unknown } }).sessions.create =
+      async (p: unknown, o?: unknown) => {
+        const sess = await rigtig(p, o)
+        // MENS kaldet var i luften: reservationen blev lukket, og
+        // kontoen fik en ny uafsluttet række. Nu kan status ikke
+        // skrives tilbage til `aaben` uden at ramme indekset.
+        await db.update(checkoutForsoeg)
+          .set({ status: 'udloebet', lukketAt: new Date() })
+          .where(and(eq(checkoutForsoeg.userId, u), eq(checkoutForsoeg.status, 'aaben')))
+        await db.insert(checkoutForsoeg).values({
+          userId: u, prisId: OPS.introPrisId,
+          udloeberAt: new Date(Date.now() + 35 * 60_000),
+        })
+        return sess
+      }
+    falsk.fejlPaa.add('checkout.sessions.expire')
+    const k = await startKoebFor(u, '/')
+    ;(falsk.checkout as { sessions: { create: unknown } }).sessions.create = rigtig
+
+    tjek('købet afvises, fordi reservationen blev lukket under det',
+      !k.ok && k.fejl === 'gratis_tilstand', JSON.stringify(k))
+    tjek('  oprydningen BLEV forsøgt — flaget fyrede',
+      falsk.antal('checkout.sessions.expire') === 1,
+      `${falsk.antal('checkout.sessions.expire')} expire-kald`)
+    const raekker3 = await db.select({
+      id: checkoutForsoeg.id, status: checkoutForsoeg.status,
+      sid: checkoutForsoeg.stripeSessionId, ss: checkoutForsoeg.stripeStatus,
+      fejl: checkoutForsoeg.lukkeFejl,
+    }).from(checkoutForsoeg).where(eq(checkoutForsoeg.userId, u))
+    const efterladt = raekker3.find((r) => r.sid !== null)
+    tjek('  sessionen står på rækken, selv om lukningen fejlede',
+      !!efterladt && efterladt.ss === 'open' && !!efterladt.fejl,
+      JSON.stringify(raekker3))
+    tjek('  rækken blev IKKE genoplivet til aaben',
+      efterladt?.status !== 'aaben', `status=${efterladt?.status}`)
+    tjek('  sessionen er stadig betalbar hos Stripe',
+      falsk.sessioner.get(efterladt!.sid!)?.status === 'open')
+    tjek('  den TÆLLES med på adminsiden', (await aabneKoeb()) === 2,
+      `${await aabneKoeb()} talt`)
+
+    // ── DEN AFGØRENDE MÅLING ──────────────────────────────
+    // Den ANDEN række fjernes, så den efterladte session er det ENESTE,
+    // der kan spærre. Før rettelsen var den usynlig for både
+    // `lukAlleAabneKoeb`, `aabneKoeb()` og skiftet — og skiftet meldte
+    // «ok», mens sessionen stod betalbar hos Stripe.
+    await db.delete(checkoutForsoeg)
+      .where(and(eq(checkoutForsoeg.userId, u), eq(checkoutForsoeg.status, 'aaben')))
+    tjek('  kun den efterladte står tilbage', (await aabneKoeb()) === 1,
+      `${await aabneKoeb()} talt`)
+    falsk.fejlPaa.add('checkout.sessions.expire')
+    const s = await saetTilstand('gratis', admin)
+    const [d] = await db.select({ t: drift.tilstand }).from(drift)
+    tjek('  gratis-skiftet AFVISES af den ALENE', !s.ok, JSON.stringify(s))
+    tjek('  tilstanden er UROERT', d?.t === 'betaling', `tilstand=${d?.t}`)
+    tjek('  og sessionen er ikke skjult — den er stadig betalbar',
+      falsk.sessioner.get(efterladt!.sid!)?.status === 'open')
+
+    // Og når Stripe svarer igen, lukkes den — uden at nogen status
+    // skrives om, og altså uden at ramme indekset.
+    const l = await lukAlleAabneKoeb()
+    tjek('  næste afstemning lukker sessionen hos Stripe',
+      falsk.sessioner.get(efterladt!.sid!)?.status === 'expired', JSON.stringify(l))
+    const [e2] = await db.select({ ss: checkoutForsoeg.stripeStatus,
+      fejl: checkoutForsoeg.lukkeFejl, status: checkoutForsoeg.status })
+      .from(checkoutForsoeg).where(eq(checkoutForsoeg.id, efterladt!.id))
+    tjek('  rækken bærer nu en BEKRÆFTET lukning',
+      e2?.ss === 'expired' && e2.fejl === null, JSON.stringify(e2))
+    tjek('  og dens egen status er uændret — vi skrev den aldrig om',
+      e2?.status === efterladt?.status, `${efterladt?.status} → ${e2?.status}`)
+    const s2 = await saetTilstand('gratis', admin)
+    tjek('  og NU kan muren slås fra', s2.ok, JSON.stringify(s2))
+    await db.update(drift).set({ tilstand: 'betaling' }).where(eq(drift.id, true))
   }
 
   console.log('\n══ 2b · en sessionsløs reservation efter udløb er harmløs ══')
@@ -397,9 +526,16 @@ async function koer() {
     tjek('fornyelsen STOPPES, fordi den er nær — ikke fordi forsøgene er brugt',
       linjer.some((l) => l.includes('fornyelsen er STOPPET') && l.includes(sub)),
       JSON.stringify(linjer.filter((l) => l.includes('STOPPET'))))
-    tjek('  planen blev SLUPPET først (release), aldrig cancel',
-      falsk.antal('subscriptionSchedules.release') >= 1
-      && falsk.antal('subscriptions.cancel') === 0)
+    // RÆKKEFØLGEN måles, ikke bare at begge skete. Byttede man de to
+    // kald om i produktkoden, var en optælling stadig grøn — og
+    // rækkefølgen er netop dét, der afgør, om planen kan skrive
+    // opsigelsen om ved næste faseskift. Samme form som robusthed §6.
+    const iRelease = falsk.kald.findIndex((k) => k.metode === 'subscriptionSchedules.release')
+    const iUpdate = falsk.kald.findIndex((k) => k.metode === 'subscriptions.update')
+    tjek('  planen blev SLUPPET FØRST (release før update), aldrig cancel',
+      iRelease >= 0 && iUpdate >= 0 && iRelease < iUpdate
+      && falsk.antal('subscriptions.cancel') === 0,
+      `release=${iRelease} update=${iUpdate}`)
     const k = falsk.sidste('subscriptions.update')
     tjek('  og cancel_at_period_end blev sat hos Stripe',
       (k?.args[1] as { cancel_at_period_end?: boolean })?.cancel_at_period_end === true)
@@ -521,7 +657,7 @@ async function koer() {
   // ═══ AFSTEMNINGEN SOM SELVSTÆNDIG INDGANG ════════════════
   console.log('\n══ 7 · afstemningen er sikker, når Stripe ikke svarer ══')
   {
-    falsk.nulstil()
+    await nulstil()
     await db.delete(checkoutForsoeg); await db.delete(subscriptions)
     const u = await bruger('7')
     await startKoebFor(u, '/')
@@ -538,8 +674,386 @@ async function koer() {
     tjek('  og den siger hvorfor', a.uafklarede === 1 && a.detaljer.length > 0,
       JSON.stringify(a))
   }
+
+  // ═══ MODSTANDSGENNEMGANGENS FUND ═════════════════════════
+  //  Fire lasere gik diffen efter, EFTER at de seks fund var rettet.
+  //  Det de fandt, er ikke gennemgangens fund — det er fejl, RETTELSERNE
+  //  indfoerte, eller som de foerst goer synlige. De hoerer derfor til
+  //  her, i samme proeve som det, de retter.
+
+  console.log('\n══ 8 · en BETALT faktura forsvinder aldrig i tavshed ══')
+  {
+    falsk.nulstil()
+    await db.delete(checkoutForsoeg); await db.delete(subscriptions)
+    const u = await bruger('8')
+    const kunde = `cus_8_${S}`
+    const subA = `sub_8A_${S}`
+    const subB = `sub_8B_${S}`
+    // Kontoen HAR et levende abonnement. Det delvise indeks
+    // `sub_en_levende_pr_bruger` tillader kun ét.
+    const adgangA = new Date(Date.now() + 86_400_000)
+    await db.insert(subscriptions).values({
+      userId: u, stripeSubscriptionId: subA, stripeCustomerId: kunde,
+      status: 'active', adgangTil: adgangA,
+    })
+    // …og der ankommer en betalt faktura for et ANDET abonnement paa
+    // samme Stripe-kunde. Indsaettelsen KAN ikke lykkes.
+    const e = faktura(subB, nu() + 86400, OPS.introPrisId, kunde)
+    await post(e)
+
+    const [r] = await db.select({
+      b: stripeEvents.behandletAt, n: stripeEvents.nyttelast, f: stripeEvents.fejl,
+    }).from(stripeEvents).where(eq(stripeEvents.id, e.id))
+    tjek('hændelsen er IKKE markeret færdig', r?.b === null, `behandletAt=${r?.b}`)
+    tjek('  nyttelasten er bevaret, så den kan køres om', r?.n !== null)
+    tjek('  og der står HVORFOR i basen',
+      !!r?.f && r.f.includes('dobbelt abonnement'), `fejl=${r?.f}`)
+    tjek('  den levende rækkes betalte adgang er URØRT',
+      (await abo(subA))?.adgang?.getTime() === adgangA.getTime())
+    tjek('  og der blev ikke oprettet en række til',
+      (await db.select({ id: subscriptions.id }).from(subscriptions)).length === 1)
+
+    // Og genleveringen fra Stripe kan stadig tages op.
+    await post(e)
+    const [r2] = await db.select({ b: stripeEvents.behandletAt })
+      .from(stripeEvents).where(eq(stripeEvents.id, e.id))
+    tjek('  en genlevering svarer ikke «gentagelse» og lukker den ikke',
+      r2?.b === null, `behandletAt=${r2?.b}`)
+  }
+
+  console.log('\n══ 9 · tilsynet ophæver ikke sin egen beskyttelse ══')
+  {
+    falsk.nulstil()
+    await db.delete(checkoutForsoeg); await db.delete(subscriptions)
+    const u = await bruger('9')
+    const sub = `sub_9_${S}`
+    await db.insert(subscriptions).values({
+      userId: u, stripeSubscriptionId: sub, status: 'active',
+      adgangTil: new Date(Date.now() + 30 * 60_000),
+      stripeScheduleId: `sub_sched_9_${S}`,
+      planStatus: 'oprettet', planForsoeg: 1, planFejl: 'modelleret 500',
+    })
+    await betalingstilsyn(OPS)
+    const e1 = await abo(sub)
+    tjek('kørsel 1 stopper fornyelsen', !!e1?.stoppet && e1.opsagt === true)
+    tjek('  og planen er sluppet', e1?.plan === null, `plan=${e1?.plan}`)
+
+    // NÆSTE TIME. Uden vagten lagde tilsynet en ny plan paa det
+    // abonnement, det lige havde sluppet — og markerede den
+    // `konfigureret`, mens basen og «Mit abonnement» blev ved med at
+    // sige, at der ikke bliver trukket mere.
+    const foer = falsk.antal('subscriptionSchedules.create')
+    const linjer = await betalingstilsyn(OPS)
+    const e2 = await abo(sub)
+    tjek('kørsel 2 lægger INGEN ny plan',
+      falsk.antal('subscriptionSchedules.create') === foer,
+      `${falsk.antal('subscriptionSchedules.create') - foer} nye`)
+    tjek('  abonnementet har stadig ingen plan', e2?.plan === null, `plan=${e2?.plan}`)
+    tjek('  og det står stadig som stoppet', !!e2?.stoppet)
+    tjek('  advarslen BLIVER stående for et menneske',
+      linjer.some((l) => l.includes('har stoppet fornyelse') && l.includes(sub)),
+      JSON.stringify(linjer))
+  }
+
+  console.log('\n══ 9b · advarslen hviler på ÉT felt, ikke to ══')
+  {
+    // Blev planen bekraeftet bagefter — af en anden vej end tilsynet —
+    // maa advarslen ikke forsvinde: `cancel_at_period_end` staar stadig
+    // hos Stripe, og kunden har faaet at vide, at der ikke trækkes mere.
+    const u = await bruger('9b')
+    const sub = `sub_9b_${S}`
+    await db.insert(subscriptions).values({
+      userId: u, stripeSubscriptionId: sub, status: 'active',
+      cancelAtPeriodEnd: true, fornyelseStoppetAt: new Date(),
+      fornyelseStoppetGrund: 'prøvens egen', planStatus: 'konfigureret',
+    })
+    const linjer = await betalingstilsyn(OPS)
+    tjek('en bekræftet plan slukker ikke advarslen om en stoppet fornyelse',
+      linjer.some((l) => l.includes('har stoppet fornyelse') && l.includes(sub)),
+      JSON.stringify(linjer.filter((l) => l.includes('stoppet fornyelse'))))
+    await db.delete(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+  }
+
+  console.log('\n══ 10 · en KORREKT plan slippes aldrig ══')
+  {
+    falsk.nulstil()
+    await db.delete(checkoutForsoeg); await db.delete(subscriptions)
+    const u = await bruger('10')
+    const sub = `sub_10_${S}`
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false })
+    await db.insert(subscriptions).values({
+      userId: u, stripeSubscriptionId: sub, status: 'active',
+      adgangTil: new Date(Date.now() + 86_400_000),
+      planStatus: 'mangler', planForsoeg: 0,
+    })
+    // Læg planen rigtigt — gennem den rigtige kodevej.
+    await betalingstilsyn(OPS)
+    const lagt = await abo(sub)
+    tjek('planen er lagt og bekræftet', lagt?.planStatus === 'konfigureret'
+      && !!lagt.plan, JSON.stringify(lagt))
+
+    // Nu TABER vi vores egen tilbagelæsning: rækken står «oprettet»,
+    // mens planen ligger rigtigt hos Stripe. Og fornyelsen er nær.
+    await db.update(subscriptions)
+      .set({ planStatus: 'oprettet', planFejl: 'svaret gik tabt',
+             adgangTil: new Date(Date.now() + 30 * 60_000) })
+      .where(eq(subscriptions.stripeSubscriptionId, sub))
+    const slip = falsk.antal('subscriptionSchedules.release')
+    const r = await stopForkertFornyelse(OPS, sub, 'prøvens egen grund')
+
+    tjek('afstemningen svarer «planen er rigtig»', r === 'plan_er_rigtig', `r=${r}`)
+    tjek('  planen blev IKKE sluppet',
+      falsk.antal('subscriptionSchedules.release') === slip,
+      `${falsk.antal('subscriptionSchedules.release') - slip} release`)
+    const e = await abo(sub)
+    tjek('  abonnementet blev IKKE opsagt', e?.opsagt === false && !e.stoppet,
+      JSON.stringify(e))
+    tjek('  og planen er nu bekræftet i basen', e?.planStatus === 'konfigureret')
+    tjek('  kunden beholder sin overgang til normalprisen',
+      falsk.planer.get(e!.plan!)?.status === 'active',
+      `status=${falsk.planer.get(e!.plan!)?.status}`)
+  }
+
+  console.log('\n══ 10b · en FORKERT plan slippes stadig ══')
+  {
+    // Modproeven. Ville rettelsen ovenfor have slaaet beskyttelsen fra,
+    // ville DEN her blive groen ved at lade vaere med at goere noget.
+    falsk.nulstil()
+    await db.delete(checkoutForsoeg); await db.delete(subscriptions)
+    const u = await bruger('10b')
+    const sub = `sub_10b_${S}`
+    const planId = `sub_sched_10b_${S}`
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false })
+    // ÉN fase til introprisen og ingen overgang: praecis den plan, der
+    // ville forny til 9 kr. igen og igen.
+    falsk.planer.set(planId, {
+      id: planId, konfigureret: true, status: 'active',
+      phases: [{ start_date: 1_700_000_000, end_date: 1_700_086_400,
+                 items: [{ price: OPS.introPrisId, quantity: 1 }] }],
+    })
+    await db.insert(subscriptions).values({
+      userId: u, stripeSubscriptionId: sub, status: 'active',
+      adgangTil: new Date(Date.now() + 30 * 60_000),
+      stripeScheduleId: planId, planStatus: 'oprettet', planForsoeg: 1,
+    })
+    const r = await stopForkertFornyelse(OPS, sub, 'prøvens egen grund')
+    tjek('en plan uden overgang til normalprisen STOPPER fornyelsen',
+      r === 'stoppet', `r=${r}`)
+    tjek('  planen blev sluppet', falsk.planer.get(planId)?.status === 'released')
+    const e = await abo(sub)
+    tjek('  og det står i basen med sin grund', !!e?.stoppet && !!e.grund)
+  }
+
+  console.log('\n══ 10c · normalprisen røres ALDRIG af beskyttelsen ══')
+  {
+    falsk.nulstil()
+    await db.delete(checkoutForsoeg); await db.delete(subscriptions)
+    const u = await bruger('10c')
+    const sub = `sub_10c_${S}`
+    // En helt almindelig kunde paa 349 kr./28 dage: hun kom aldrig
+    // gennem introprisen, saa der er ingen plan og INGEN planStatus.
+    await db.insert(subscriptions).values({
+      userId: u, stripeSubscriptionId: sub, status: 'active',
+      stripePriceId: OPS.normalPrisId,
+      adgangTil: new Date(Date.now() + 5 * 60_000),   // fornyelse om fem minutter
+    })
+    const linjer = await betalingstilsyn(OPS)
+    const e = await abo(sub)
+    tjek('hun bliver ikke opsagt', e?.opsagt === false, JSON.stringify(e))
+    tjek('  fornyelsen er ikke stoppet', !e?.stoppet)
+    tjek('  der blev ikke kaldt noget hos Stripe om hende',
+      falsk.antal('subscriptions.update') === 0
+      && falsk.antal('subscriptionSchedules.release') === 0)
+    tjek('  og tilsynet nævner hende slet ikke',
+      !linjer.some((l) => l.includes(sub)), JSON.stringify(linjer))
+  }
+
+  console.log('\n══ 11 · afstemningen stempler ikke fremtiden ══')
+  {
+    await nulstil()
+    await db.delete(checkoutForsoeg); await db.delete(subscriptions)
+    await db.delete(stripeEvents)
+    const u = await bruger('11')
+    const kunde = `cus_11_${S}`
+    await startKoebFor(u, '/')
+    const [r0] = await forsoegFor(u)
+    const sub = gennemfoerHosStripe(r0!.sid!)
+    falsk.sessioner.get(r0!.sid!)!.customer = kunde
+    falsk.sessioner.get(r0!.sid!)!.client_reference_id = u
+    await startKoebFor(u, '/')                  // flytter raekken til gennemfoert
+    await db.update(checkoutForsoeg).set({ stripeSubscriptionId: null })
+      .where(eq(checkoutForsoeg.id, r0!.id))
+
+    const a = await afstemGennemfoerteKoeb(OPS)
+    tjek('afstemningen bogfører abonnementet', a.afstemte === 1, JSON.stringify(a))
+
+    // Webhooken var nede. Nu kommer de ÆGTE hændelser — oprettet FØR
+    // afstemningen. De maa ikke afvises som foraeldede.
+    const foer = nu() - 3600
+    await post(h('checkout.session.completed',
+      { id: r0!.sid!, subscription: sub, client_reference_id: u, customer: kunde }, foer))
+    await post(faktura(sub, nu() + 86400, OPS.introPrisId, kunde, foer))
+    const e = await abo(sub)
+    tjek('  status er spejlet, ikke afvist som forældet',
+      e?.status === 'active', `status=${e?.status}`)
+    const [pris] = await db.select({ p: subscriptions.stripePriceId,
+      slut: subscriptions.currentPeriodEnd })
+      .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+    tjek('  prisen er spejlet', pris?.p === OPS.introPrisId, `pris=${pris?.p}`)
+    tjek('  og perioden er spejlet — «næste betaling» er ikke ukendt',
+      pris?.slut !== null)
+  }
+
+  console.log('\n══ 12 · uafklarede tæller ikke de gennemførte med ══')
+  {
+    await nulstil()
+    await db.delete(checkoutForsoeg); await db.delete(subscriptions)
+    const u = await bruger('12')
+    await startKoebFor(u, '/')
+    const [r0] = await forsoegFor(u)
+    gennemfoerHosStripe(r0!.sid!)
+    const l = await lukAlleAabneKoeb()
+    tjek('den gennemførte tælles ÉN gang — som gennemført',
+      l.gennemfoerte === 1, JSON.stringify(l))
+    tjek('  og ikke også som uafklaret', l.uafklarede === 0, JSON.stringify(l))
+    tjek('  den tælles heller ikke som lukket', l.lukkede === 0, JSON.stringify(l))
+  }
+
+  console.log('\n══ 13 · en introfaktura afsluttes ikke uden Stripe-opsætning ══')
+  {
+    // Genindført. Afsnittet stod i runde2 og blev slettet, da 3c blev
+    // skrevet om — og dermed stod `if (!ops && prisId) return
+    // 'afventer'` (lib/webhook.ts) helt uden prøve. Uden den linje
+    // markeres hændelsen færdig, nyttelasten kasseres, introflaget
+    // tages aldrig, planen bliver aldrig lagt, og abonnementet fornyes
+    // til introprisen HVER DAG. Det var anden gennemgangs fund 2.
+    falsk.nulstil()
+    await db.delete(checkoutForsoeg); await db.delete(subscriptions)
+    await db.delete(stripeEvents)
+    const u = await bruger('13')
+    const sub = `sub_13_${S}`
+    const kunde = `cus_13_${S}`
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false })
+    await post(h('checkout.session.completed',
+      { id: `cs_13_${S}`, subscription: sub, client_reference_id: u, customer: kunde }))
+
+    const f = faktura(sub, nu() + 86400, OPS.introPrisId, kunde)
+    const udfald = await behandl(f, null)
+    tjek('uden opsætning svarer den AFVENTER', udfald === 'afventer', `udfald=${udfald}`)
+    tjek('  men adgangen ER skrevet — kunden har betalt',
+      !!(await abo(sub))?.adgang)
+    const [e] = await db.select({ b: stripeEvents.behandletAt, n: stripeEvents.nyttelast })
+      .from(stripeEvents).where(eq(stripeEvents.id, f.id))
+    tjek('  hændelsen er ikke markeret færdig', e?.b === null, `behandletAt=${e?.b}`)
+    tjek('  og nyttelasten er bevaret, så tilsynet kan tage den op',
+      e?.n !== null)
+
+    // Med opsætningen på plads bliver den færdig, og planen lagt.
+    const igen = await behandl(f, OPS)
+    const r = await abo(sub)
+    tjek('  med opsætning bliver den færdig og planen lagt',
+      r?.planStatus === 'konfigureret',
+      `udfald=${igen} planStatus=${r?.planStatus}`)
+    const [e2] = await db.select({ b: stripeEvents.behandletAt })
+      .from(stripeEvents).where(eq(stripeEvents.id, f.id))
+    tjek('  og hændelsen er nu færdig', e2?.b !== null)
+  }
+
+  console.log('\n══ 14 · et DØDT abonnement lukker forsøget som afbrudt ══')
+  {
+    // Grenen havde ingen prøve. Den er den ene af tre udgange fra
+    // afstemningen, og den, der giver kontoen lov til at købe igen.
+    await nulstil()
+    await db.delete(checkoutForsoeg); await db.delete(subscriptions)
+    const u = await bruger('14')
+    await startKoebFor(u, '/')
+    const [r0] = await forsoegFor(u)
+    const sub = gennemfoerHosStripe(r0!.sid!)
+    await startKoebFor(u, '/')          // flytter rækken til gennemfoert
+    // Abonnementet er dødt hos os — opsagt, udløbet, hvad som helst.
+    await db.insert(subscriptions).values({
+      userId: u, stripeSubscriptionId: sub, status: 'canceled',
+    })
+    const a = await afstemGennemfoerteKoeb(OPS)
+    const [r1] = await forsoegFor(u)
+    tjek('forsøget lukkes som AFBRUDT, ikke betalt', r1?.status === 'afbrudt',
+      `status=${r1?.status} · ${JSON.stringify(a)}`)
+    tjek('  og kontoen må købe igen', (await startKoebFor(u, '/')).ok)
+  }
+
+  console.log('\n══ 15 · kan fornyelsen ikke stoppes, SIGER tilsynet det ══')
+  {
+    // ⚠⚠-linjen havde heller ingen prøve. Den er det eneste, der
+    // fortæller et menneske, at beskyttelsen IKKE greb — og at
+    // abonnementet derfor fornyes til introprisen, til nogen gør noget.
+    await nulstil()
+    await db.delete(checkoutForsoeg); await db.delete(subscriptions)
+    const u = await bruger('15')
+    const sub = `sub_15_${S}`
+    const planId = `sub_sched_15_${S}`
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false })
+    falsk.planer.set(planId, {
+      id: planId, konfigureret: true, status: 'active',
+      phases: [{ start_date: 1_700_000_000, end_date: 1_700_086_400,
+                 items: [{ price: OPS.introPrisId, quantity: 1 }] }],
+    })
+    const adgangTil = new Date(Date.now() + 30 * 60_000)
+    await db.insert(subscriptions).values({
+      userId: u, stripeSubscriptionId: sub, status: 'active',
+      adgangTil, stripeScheduleId: planId,
+      // Forsøgene er brugt op, så `laegManglendePlaner` ikke selv
+      // afgør den, før beskyttelsen når at prøve.
+      planStatus: 'fejlet', planForsoeg: 5, planFejl: 'modelleret 500',
+    })
+    falsk.fejlPaa.add('subscriptionSchedules.release')
+    const linjer = await betalingstilsyn(OPS)
+    tjek('tilsynet siger med ⚠⚠, at der IKKE blev grebet ind',
+      linjer.some((l) => l.includes('⚠⚠') && l.includes(sub)
+        && l.includes('IKKE grebet ind')), JSON.stringify(linjer))
+    const r = await abo(sub)
+    tjek('  og basen påstår ikke, at fornyelsen er stoppet', !r?.stoppet)
+    tjek('  abonnementet er ikke opsagt hos Stripe',
+      falsk.abonnementer.get(sub)?.cancel_at_period_end !== true)
+    tjek('  KUNDENS BETALTE ADGANG ER UROERT',
+      r?.adgang?.getTime() === adgangTil.getTime())
+  }
+
+  console.log('\n══ 16 · afstemningen bogfører på VORES bruger, ikke Stripes svar ══')
+  {
+    // `client_reference_id` er noget, vi selv sendte — men den kommer
+    // tilbage gennem Stripe. Vandt den over `checkout_forsoeg.user_id`,
+    // kunne et svar udefra bestemme, hvilken konto et abonnement
+    // bogføres på.
+    await nulstil()
+    await db.delete(checkoutForsoeg); await db.delete(subscriptions)
+    const u = await bruger('16')
+    const fremmed = await bruger('16x')
+    await startKoebFor(u, '/')
+    const [r0] = await forsoegFor(u)
+    const sub = gennemfoerHosStripe(r0!.sid!)
+    // Stripe svarer med en ANDEN brugers id.
+    falsk.sessioner.get(r0!.sid!)!.client_reference_id = fremmed
+    await startKoebFor(u, '/')
+    await db.update(checkoutForsoeg).set({ stripeSubscriptionId: null })
+      .where(eq(checkoutForsoeg.id, r0!.id))
+
+    await afstemGennemfoerteKoeb(OPS)
+    const [ejer] = await db.select({ b: subscriptions.userId })
+      .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+    tjek('abonnementet bogføres på RÆKKENS bruger', ejer?.b === u,
+      `ejer=${ejer?.b} vores=${u} fremmed=${fremmed}`)
+  }
 }
 
-await koer()
+try {
+  await koer()
+} catch (e) {
+  // En kastet fejl i ét afsnit maa ikke tie om resten. Optællingen
+  // skrives stadig, og det STAAR, at prøven blev afbrudt — i stedet
+  // for en rå TypeError og en tavs, uafsluttet liste.
+  fejl++
+  console.log(`\n  ✗ PRØVEN BLEV AFBRUDT: ${(e as Error).message}`)
+  console.log('    De resterende afsnit blev IKKE kørt.')
+}
 console.log(fejl === 0 ? '\n  ALT GROENT\n' : `\n  ${fejl} FEJLEDE\n`)
 if (fejl) process.exit(1)

@@ -178,7 +178,7 @@ og derefter mod repoets arbejdstræ:
 | 5 | `<=` lod samme sekund genoplive `canceled` | særskilt **terminalvagt**, tiden urørt |
 | 6 | de 50 ældste udsultede køen | `naeste_forsoeg_at` med tilbagetrækning |
 
-Tilstandsmodellen, de syv invarianter og bindingerne mellem forsøg,
+Tilstandsmodellen, de ti invarianter og bindingerne mellem forsøg,
 session, abonnement og driftsstatus står i
 [`docs/betaling/tilstande.md`](tilstande.md).
 
@@ -218,10 +218,21 @@ Begge retninger er kørt:
 | 3 · før | `0e75b1c`, byte-verificeret mod git (28 filer) | alle syv scenarier reproducerer |
 | 3 · efter | repoets filer, assertionerne vendt om | alle syv er væk |
 
-Efter-kørslen er **den samme harness**, ikke en ny. Tre ting er føjet
-til adapteren og intet andet: en transaktion, der kører sit
+| 3 · efter modstandsgennemgangen | repoets filer, assertionerne vendt om | alle syv er stadig væk |
+
+Efter-kørslen er **den samme harness**, ikke en ny. Tre ting blev føjet
+til adapteren i runde 3 og intet andet: en transaktion, der kører sit
 tilbagekald, `execute` til låsesætningen på drift-rækken, og
-`raekker()`-shimmet. Adapteren er enkelttrådet og har ingen isolation,
+`raekker()`-shimmet. Modstandsgennemgangen kostede to til, begge
+adapterens begrænsninger og ikke kodens: `UAFSLUTTET` som binding
+(loaderen stripper imports, og konstanten flyttede til `db/schema.ts`)
+og `coalesce()` i dens `sql`-tag.
+
+**Én af dem fandt noget.** Loaderen kunne ikke oversætte en
+`export { X }`-genudstilling, og det viste sig, at den genudstilling
+ikke havde en eneste kalder: den var indført «for kompatibilitet» med
+ingenting. Den er væk. Adapteren er ikke et bevis om Stripe, men den
+kan altså stadig pege på noget. Adapteren er enkelttrådet og har ingen isolation,
 så den måler kontrolflow — kapløbene er prøvet på rigtig Postgres ved
 siden af.
 
@@ -229,6 +240,89 @@ Det kostede én ændring i produktionskoden: `Koebsfejl` brugte
 parameteregenskaber (`constructor(readonly slags)`), som er
 TypeScript-syntaks, der *skaber* kode. Nodes egen typestripning afviser
 den med `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`. Felterne er skrevet ud.
+
+## Modstandsgennemgangen af rettelserne selv
+
+Rettelserne blev derefter gået efter af fire uafhængige linser —
+pengene, tilstandsmaskinen, migrationen og prøverne — med én opgave:
+find det, RETTELSERNE indførte. Det gav otte fund, og de tre første
+var alvorlige. **De er rettet i samme commit som de seks, de kom af.**
+
+| # | Hvad | Hvorfor det betyder noget |
+|---|---|---|
+| A | `betalt()` slugte konflikten med `sub_en_levende_pr_bruger` | En BETALT faktura blev markeret færdig, nyttelasten slettet, og genleveringen svarede «gentagelse». Pengene var modtaget; adgangen blev aldrig skrevet |
+| B | Tilsynet ophævede sin egen fornyelsesbeskyttelse | Kørsel 1 stoppede fornyelsen, kørsel 2 lagde en ny plan på det samme abonnement og markerede den `konfigureret` — mens basen og «Mit abonnement» sagde «der bliver ikke trukket mere» |
+| C | `stopForkertFornyelse` slap en KORREKT plan uden at spørge Stripe | Ét mislykket opslag i de sidste 120 minutter var nok til at opsige et abonnement, der ikke fejlede noget |
+| D | Den generelle fejltekst overskrev den præcise | «afventer forudsaetning» skrev hen over «kontoen har allerede et levende abonnement» — og netop den skal et menneske se |
+| E | Den blivende advarsel kunne slukkes af en anden kolonne | Advarslen hvilede på to felter; nu på `fornyelse_stoppet_at` alene |
+| F | Afstemningen stemplede med NU | De ægte hændelser fra købet blev derefter afvist som forældede: status, pris og periode blev aldrig spejlet |
+| G | `uafklarede` blev udledt af et startantal | En række, der netop blev `gennemfoert`, talte både som uafklaret og som gennemført |
+| H | `UAFSLUTTET` stod fire steder | Samme spørgsmål i SQL og i JS, uden at kunne udledes af hinanden |
+| I | `opgivSession` genoplivede rækken til `aaben` | Ramte `checkout_uafsluttet_pr_bruger`, fejlen slap ud, og rækken blev lukket **uden** sessions-id: en betalbar session, ingen kunne se — og GRATIS-skiftet meldte «ok» |
+| J | `fejlPaa.add('…expire')` fyrede aldrig | Tre prøver hed noget andet, end de målte. Oprydningen blev aldrig kørt, og rapporten lovede en dækning, der ikke fandtes |
+| K | «release FØR update» målte ikke rækkefølge | Byttede man de to kald om, var prøven stadig grøn — og rækkefølgen er hele vagten |
+| L | Prøven for `!ops && prisId → 'afventer'` var slettet | Reglen mod 9 kr./DAG stod helt udækket |
+| M | §1c læste den række, §1b efterlod | `[0]!.id` på et tomt resultat afbrød hele filen: seks afsnit blev aldrig kørt, og der kom ingen optælling |
+| N | Afstemningen lod Stripes `client_reference_id` vinde over `checkout_forsoeg.user_id` | Et svar udefra kunne bestemme, hvilken konto et abonnement blev bogført på. Vores egen række er NOT NULL, så den fjerne værdi vandt altid |
+| O | `falsk.nulstil()` nulstillede ikke sessioner, planer og abonnementer | Et afsnit, der tæller «hvor mange sessioner er åbne hos Stripe», målte også de foregående afsnits. Ét afsnit kompenserede ad hoc |
+| P | Kommentaren om idempotensnøglen beskrev en vagt, koden ikke har | Den sagde, nøglen «genbruges» efter en valideringsfejl. Den roterer ved hvert forsøg; sikkerheden ligger i afstemningen mod `subscription.schedule` — og en kommentar, der peger på den forkerte vagt, får nogen til at fjerne den rigtige |
+
+Og tre grene, der ikke havde nogen prøve overhovedet, har fået en:
+afstemningens «dødt abonnement → forsøget `afbrudt`» (§14),
+`stopForkertFornyelse`s `'fejlede'` og dens ⚠⚠-linje (§15), og — uden om
+koden, direkte i basen — den nye halvdel af
+`checkout_uafsluttet_pr_bruger`, som 0026 indførte og ingen målte
+(`scripts/test-migrationer.ts`).
+
+
+**I er den, der kostede mest at finde, og den eneste, to linser måtte
+give op på.** Pengelinsen skrev den som «usikker»: «Jeg KUNNE IKKE
+konstruere forløbet.» Prøvelinsen konstruerede det — og målte
+udgangen: `gratis-skift: {"ok":true}` med en betalbar session tilbage
+hos Stripe. Det er invariant I2 brudt, og den var brudt på 0e75b1c.
+
+Rettelsen er én sætning flyttet: **sessions-id'et skrives FØR kaldet,
+ikke efter.** Fra det øjeblik Stripe har givet os et id, findes der
+noget betalbart, og der må ikke være et vindue, hvor vores base ikke
+kender det. Fejlgrenen rører derefter ikke `status` — den skriver kun,
+hvad vi ved — og det nye prædikat `SPAERRER_SKIFTET` finder rækken
+uanset hvilken status den står i. `lukAlleAabneKoeb` og `aabneKoeb()`
+bruger det samme prædikat, så adminsidens tal ikke kan modsige
+afvisningen ved siden af.
+
+**J, K, L og M er prøver, ikke kode.** De hører med alligevel: en
+prøve, der ikke måler det, den hedder, er værre end ingen prøve, fordi
+rapporten bygger på den. J's flag fyrede aldrig; K's optælling var
+ligeglad med rækkefølgen; L var slettet; M kunne afbryde hele filen.
+Alle fire er rettet, og J har nu sit eget afsnit (§2c), hvor
+oprydningen faktisk nås.
+
+**A er den dyreste, og den var der før tredje gennemgang** — den blev
+først synlig, da `bogfoerAbonnement()` lærte at håndtere den samme
+forudsætning rigtigt. To kodeveje, der oprettede den samme række, og
+kun den ene læste resultatet af sin indsættelse. Det er CLAUDE.md's
+regel om ét beregningssted, endnu en gang.
+
+**C er værd at holde fast i som mønster.** `laegPlan` fik i denne
+omgang en «AFSTEM FØR DU OPRETTER»-vagt. Den modsatte handling — at
+tage en plan fra nogen — havde ingen. Den dyre af de to var den uden
+vagt: at oprette en plan for meget koster en oprydning, at slippe en
+rigtig koster kunden hendes overgang til normalprisen og en opsigelse,
+hun ikke har bedt om.
+
+**H fik sin egen prøve, og den er ny af art.** `scripts/test-migrationer.ts`
+kører journalens migrationer i ÉN transaktion — sådan som
+`drizzle-kit migrate` faktisk gør — og sammenligner bagefter
+`UAFSLUTTET` i `db/schema.ts` med indekspraedikatet, den finder i
+basen. Begge dele var før udækket: `npm test` og cloud-klargøringen
+kører filerne hver for sig, og det er netop dér, enum-fælden IKKE
+bider. 0021 og 0026 måtte begge omgå den, og begge gange blev det
+opdaget ved håndkraft.
+
+Hver rettelse har en prøve, der er kørt **omvendt** i en separat kopi
+af repoet: fejlen genindført, prøven fejler. Alle modprøver fejler som
+de skal — en prøve, der ikke kan fejle, måler ingenting. Se
+`logs/11-modproever.log`.
 
 ## Det, der ikke er løst
 

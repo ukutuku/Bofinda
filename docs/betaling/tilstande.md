@@ -67,7 +67,7 @@ blev åbnet oven i et, der netop var gennemført.
 nyt køb, og begge blokerer et skift til GRATIS. `betalt`, `udloebet` og
 `afbrudt` er terminale.
 
-## De seks invarianter
+## De ti invarianter
 
 | # | Invariant |
 |---|---|
@@ -77,11 +77,46 @@ nyt køb, og begge blokerer et skift til GRATIS. `betalt`, `udloebet` og
 | **I4** | En terminal abonnementsstatus genoplives ikke af en hændelse, der ikke er strengt nyere |
 | **I5** | Ingen ubehandlet hændelse kan fortrænges permanent af andre |
 | **I6** | Vi fornyer ikke på vilkår, vi ikke kan levere |
+| **I8** | En modtaget betaling markeres aldrig færdig uden at være bogført |
+| **I9** | Vi tager ikke en plan eller en fornyelse fra nogen på et grundlag, vi ikke kunne bekræfte |
+| **I10** | En stoppet fornyelse startes kun igen af et menneske |
 | **I7** | `adgang_til` flyttes kun frem. Altid. Uden undtagelse |
 
 I7 står sidst, fordi den er den eneste, der aldrig har været brudt, og
 den eneste der aldrig må blive det. Alle de andre rettelser skal kunne
 laves **uden** at røre den.
+
+**I8, I9 og I10 kom til efter modstandsgennemgangen af rettelserne
+selv.** De hører sammen to og to med noget, vi allerede havde:
+
+· **I8** er I5 vendt den anden vej. I5 siger, at en hændelse ikke må
+  blive fortrængt; I8 siger, at den ikke må blive *afsluttet*, når
+  arbejdet ikke blev gjort. `betalt()` kunne før få sin indsættelse
+  afvist af `sub_en_levende_pr_bruger`, skrive ingenting og alligevel
+  markere hændelsen færdig og slette nyttelasten. Pengene var modtaget,
+  og der var ingen vej tilbage til dem.
+
+· **I9** er «AFSTEM FØR DU OPRETTER» i `laegPlan`, gentaget for den
+  modsatte handling. At oprette en plan for meget koster en oprydning.
+  At slippe en plan, der var rigtig, koster kunden hendes overgang til
+  normalprisen **og** en opsigelse, hun ikke har bedt om. Den dyreste
+  af de to var den, der ikke afstemte.
+
+**I2 blev brudt igen, og på en ny måde.** Vagten var altid formuleret
+som «ingen `aaben` række → ingen betaling kan lande». Men rækkens
+`status` svarer på «må kontoen starte noget nyt?», mens sessionen hos
+Stripe svarer på «kan der stadig komme penge?». De to kan stå
+forskelligt: en reservation, der blev lukket under et kald i luften, er
+afgjort **hos os** og stadig betalbar **hos Stripe**. Derfor er
+prædikatet nu `SPAERRER_SKIFTET` — uafsluttet status ELLER en session,
+vi ikke har fået bekræftet lukket — og sessions-id'et skrives FØR
+kaldet, aldrig efter.
+
+· **I10** følger af I9. Når et menneske — eller tilsynet — har stoppet
+  en fornyelse, er det en beslutning. Tilsynet lagde før planen igen i
+  næste time og markerede den `konfigureret`, mens basen og «Mit
+  abonnement» blev ved med at sige, at der ikke bliver trukket mere. To
+  kilder, der modsiger hinanden om kundens penge.
 
 ## Bindingerne mellem enhederne
 

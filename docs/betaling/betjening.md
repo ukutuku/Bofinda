@@ -73,6 +73,31 @@ ikke lukkes. Timekørslens betalingstilsyn gør det selv inden for en
 time; bliver den stående, så slå abonnementet op i Stripe og tag
 stilling til det, som du ville til ethvert andet løbende abonnement.
 
+#### Den ene gennemførte betaling, tilsynet IKKE kan afstemme
+
+Har kontoen **i forvejen et løbende abonnement**, kan det nye ikke
+bogføres: det delvist unikke indeks `sub_en_levende_pr_bruger` tillader
+kun ét levende pr. konto, og det er med vilje. Tilsynet kan altså ikke
+afgøre forsøget, og — det er pointen — **det ændrer sig ikke af at
+vente.** Næste time rammer den samme vagt. Forsøget bliver stående som
+`gennemfoert` og spærrer både nye køb og gratis-skiftet, indtil et
+menneske gør noget.
+
+Tilsynets detaljelinje siger det med de ord — «kan IKKE afstemmes
+automatisk … den løser sig ikke af sig selv». Læser du den linje:
+
+1. Slå begge abonnementer op i Stripe på kundens `customer`-id.
+2. Afgør hvilket der gælder. Det er kundens penge, så det er en
+   beslutning, ikke en oprydning — vi opsiger aldrig selv.
+3. Er det overflødige opsagt hos Stripe, kommer
+   `customer.subscription.deleted`, rækken bliver `canceled`, og næste
+   kørsel af tilsynet afstemmer forsøget af sig selv.
+4. Skal det NYE gælde i stedet, skal den gamle række opsiges først —
+   ellers rammer bogføringen det samme indeks igen.
+
+Kort sagt: tilsynet fortæller, at det ikke kan komme videre. Det
+gætter ikke om nogens abonnement.
+
 Vi opsiger hende **aldrig** automatisk for at få skiftet igennem. Det
 ville være en beslutning om et fremmed menneskes penge.
 
@@ -94,6 +119,24 @@ netop da. Det afvises derfor, men kun indtil reservationen udløber:
 sessionens `expires_at` er det **samme tal** som reservationens
 `udloeber_at`, så når det er passeret, kan en session, der måtte være
 oprettet, heller ikke betales. Derefter går skiftet igennem af sig selv.
+
+**En efterladt session tæller med — også når rækken er lukket.**
+Blev en reservation lukket, mens Stripe-kaldet var i luften, forsøger vi
+at udløbe sessionen med det samme. Lykkes det ikke, står der en
+**betalbar session, som vores egen række har lukket** — rækkens status
+siger «afgjort», Stripe siger «open». De to svarer på hvert sit
+spørgsmål, og her står de forskelligt.
+
+Sådan en række tælles derfor med i «påbegyndte betalinger, der ikke er
+afgjort», og den spærrer skiftet, selv om dens status er `udloebet`
+eller `afbrudt`. Den opløses af sig selv, så snart Stripe svarer på
+`expire` — tryk «Slå muren FRA» igen, eller vent på timekørslen. Kun
+rækkens `stripe_status` og `lukke_fejl` skrives; selve `status` røres
+aldrig, netop fordi kontoen i mellemtiden kan have en ny reservation.
+
+Siger Stripe derimod, at sessionen er **gennemført**, skrives der intet.
+Så er der sandsynligvis betalt på en session, vores række har lukket, og
+det er en beslutning, ikke en oprydning: slå abonnementet op i Stripe.
 
 **Et skift til BETALING opretter ingen abonnementer og opkræver ingen.**
 Gratis brugere møder en betalingsboks og skal selv trykke.

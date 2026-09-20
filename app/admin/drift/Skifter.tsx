@@ -47,9 +47,15 @@ export function Skifter({ tilstand, levende, aabneKoeb, aendretAt, note }: {
           Påbegyndte betalinger, der ikke er afgjort:{' '}
           <strong>{aabneKoeb}</strong>. En åben betalingsside skal lukkes hos
           Stripe, før muren kan slås fra — tryk «Slå muren FRA» for at forsøge
-          igen. Er en betaling derimod <em>gennemført</em>, afstemmer
-          timekørslens betalingstilsyn den selv; slå den op i Stripe, hvis den
-          bliver stående.
+          igen. Tallet dækker også en betalingsside, vi ikke har fået
+          bekræftet lukket, selv om selve købet er afgjort her: Stripe kan
+          stadig tage imod penge på den. Er en betaling derimod <em>gennemført</em>, afstemmer
+          timekørslens betalingstilsyn den som regel selv.{' '}
+          <strong>Med én undtagelse:</strong> har kontoen i forvejen et
+          løbende abonnement, kan den ikke bogføres, og så løser den sig
+          ikke af sig selv, uanset hvor længe man venter. Tilsynets
+          detaljelinje siger det med de ord. Slå abonnementet op i Stripe og
+          afgør, hvilket der gælder.
         </p>
       )}
       {melding && <p className="koebsfejl" role="alert">{melding}</p>}

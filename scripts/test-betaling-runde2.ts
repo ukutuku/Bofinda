@@ -260,6 +260,9 @@ async function koer() {
     await db.insert(subscriptions).values({
       userId: u, stripeSubscriptionId: sub, status: 'active',
       adgangTil, stripeScheduleId: `sub_sched_3c_${S}`,
+      // Forsoegene er brugt op — det er DEN udloeser, afsnittet
+      // proever. (Den naere fornyelse er den anden, og den har runde3
+      // §4c.)
       planStatus: 'fejlet', planForsoeg: 5, planFejl: 'modelleret 500',
       oprettetAt: new Date(),
     })
@@ -267,10 +270,13 @@ async function koer() {
     tjek('fornyelsen bliver STOPPET, ikke bare logget',
       linjer.some((l) => l.includes('fornyelsen er STOPPET') && l.includes(sub)),
       JSON.stringify(linjer))
-    tjek('  planen blev SLUPPET foerst (release), ikke cancel',
-      falsk.antal('subscriptionSchedules.release') === 1
+    const iRelease = falsk.kald.findIndex((k) => k.metode === 'subscriptionSchedules.release')
+    const iUpdate = falsk.kald.findIndex((k) => k.metode === 'subscriptions.update')
+    tjek('  planen blev SLUPPET FOERST (release FOER update), ikke cancel',
+      iRelease >= 0 && iUpdate >= 0 && iRelease < iUpdate
       && falsk.antal('subscriptions.cancel') === 0,
-      'en plan kan skrive opsigelsen om ved naeste faseskift')
+      `release=${iRelease} update=${iUpdate} — en plan kan skrive opsigelsen `
+      + 'om ved naeste faseskift, saa det er RAEKKEFOELGEN der er vagten')
     const k = falsk.sidste('subscriptions.update')
     tjek('  og cancel_at_period_end blev sat hos Stripe',
       (k?.args[1] as { cancel_at_period_end?: boolean })?.cancel_at_period_end === true,
@@ -288,14 +294,32 @@ async function koer() {
       !!sr?.stoppet && !!sr.grund && sr.opsagt === true,
       JSON.stringify(sr))
 
-    // Anden koersel: den stopper ikke igen, men tier heller ikke.
+    // Anden koersel: den stopper ikke igen, laegger ingen ny plan, og
+    // tier heller ikke.
+    //
+    // FORSOEGSTALLET SAETTES NED FOERST, og det er hele pointen. Med 5
+    // filtrerede `lt(planForsoeg, PLAN_MAX_FORSOEG)` raekken fra, og den
+    // sidste assertion bestod af den grund — ikke fordi beskyttelsen
+    // holdt. Med 1 er raekken en rigtig kandidat til
+    // `laegManglendePlaner`, og kun `isNull(fornyelse_stoppet_at)`
+    // holder den ude. Uden vagten ville tilsynet her laegge en NY plan
+    // paa det abonnement, det lige har sluppet.
+    await db.update(subscriptions)
+      .set({ planStatus: 'oprettet', planForsoeg: 1 })
+      .where(eq(subscriptions.stripeSubscriptionId, sub))
     falsk.nulstil()
     const igen = await betalingstilsyn(OPS)
     tjek('naeste koersel stopper den ikke igen',
       falsk.antal('subscriptions.update') === 0,
       `${falsk.antal('subscriptions.update')} kald`)
+    tjek('  og den laegger INGEN ny plan paa det slupne abonnement',
+      falsk.antal('subscriptionSchedules.create') === 0,
+      `${falsk.antal('subscriptionSchedules.create')} oprettelser`)
+    const r2 = await raekke(sub)
+    tjek('  abonnementet har stadig ingen plan', r2?.plan === null,
+      `plan=${r2?.plan}`)
     tjek('  men den bliver ved at staa i rapporten',
-      igen.some((l) => l.includes('stoppet fornyelse og stadig')),
+      igen.some((l) => l.includes('har stoppet fornyelse')),
       JSON.stringify(igen))
     await db.delete(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
   }

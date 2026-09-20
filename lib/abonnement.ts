@@ -15,10 +15,10 @@
 //  trykket koeb» og «pengene er modtaget».
 // ═══════════════════════════════════════════════════════════════
 
-import { and, count, desc, eq, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm'
+import { and, count, desc, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm'
 import { db, raekker } from '../db/client'
 import type Stripe from 'stripe'
-import { checkoutForsoeg, subscriptions, users } from '../db/schema'
+import { UAFSLUTTET, checkoutForsoeg, subscriptions, users } from '../db/schema'
 import { hentBrugerId } from './auth'
 import { NORMAL_OERE, fase, opsaetning, stripe, type Stripeopsaetning } from './stripe'
 
@@ -31,9 +31,6 @@ export type Koebssvar =
   | { ok: true; url: string }
   | { ok: false; fejl: 'gratis_tilstand' | 'ikke_logget_ind' | 'stripe_mangler'
       | 'har_allerede' | 'koeb_i_gang' | 'koeb_gennemfoert' | 'stripe_fejlede' }
-
-/** De to tilstande, hvor et koebsforsoeg endnu ikke er afgjort. */
-export const UAFSLUTTET = ['aaben', 'gennemfoert'] as const
 
 /**
  * Starter et koeb og returnerer Stripes betalingsside.
@@ -192,7 +189,7 @@ export async function startKoebFor(
       }
       return { ok: false, fejl: e.slags }
     }
-    // Det delvise indeks `checkout_en_aaben_pr_bruger` afviste
+    // Det delvise indeks `checkout_uafsluttet_pr_bruger` afviste
     // indsaettelsen: en ANDEN samtidig forespoergsel naaede at
     // reservere foerst. Det er ikke en Stripe-fejl, og teksten
     // «prøv igen — der er ikke trukket noget» ville vaere forkert:
@@ -424,28 +421,81 @@ const subId = (v: unknown): string | null =>
  * Sessionen blev oprettet, men reservationen naaede at blive lukket
  * under os. Den skal udloebes hos Stripe — ellers kan den betales.
  *
- * LYKKES lukningen ikke, saettes raekken TILBAGE til `aaben` med
- * sessionsnummeret paa. Det ser bagvendt ud, og det er med vilje:
- * bogfoerer vi den som lukket, forsvinder den betalbare session ud af
- * hver eneste opgoerelse, og gratis-skiftet ville melde alt klar. En
- * aaben raekke er den eneste maade, naeste afstemning kan se den paa.
+ * ── SESSIONSNUMMERET SKRIVES FOERST, ALTID ──────────────────
+ * Foer kaldet, ikke efter. Den raekkefoelge er hele vagten: fra det
+ * oejeblik Stripe har givet os et sessions-id, findes der noget
+ * betalbart, og saa maa der aldrig vaere et vindue, hvor vores base
+ * ikke kender det. Alt hvad der kommer bagefter — kaldet, svaret,
+ * skrivningen — kan mislykkes.
+ *
+ * ── OG RAEKKEN GENOPLIVES ALDRIG ────────────────────────────
+ * Her stod foer `status: 'aaben'` i fejlgrenen, saa naeste afstemning
+ * kunne se raekken. Det virkede kun, saa laenge kontoen ikke havde en
+ * anden uafsluttet raekke — og den HAR den netop her: vi er i den her
+ * gren, fordi reservationen blev lukket under os, og kunden typisk har
+ * trykket igen. Det delvise indeks `checkout_uafsluttet_pr_bruger`
+ * afviste saa skrivningen med 23505, fejlen slap ud af funktionen, og
+ * `startKoebFor`s ydre catch lukkede raekken som `afbrudt` UDEN
+ * sessions-id. Sessionen var dermed usynlig for baade
+ * `lukAlleAabneKoeb`, `aabneKoeb()` og gratis-skiftet — som derefter
+ * meldte «ok», mens der stod en betalbar session hos Stripe. Det er
+ * praecis det udfald, hele vagten findes for at forhindre.
+ *
+ * Nu roerer fejlgrenen ikke `status`. Den skriver kun, hvad vi ved:
+ * sessionen findes, den stod `open`, og lukningen mislykkedes. Det
+ * praedikat, `UDEN_BEKRAEFTET_LUKNING` beskriver, finder den derefter
+ * uanset hvilken status raekken staar i.
  */
 async function opgivSession(o: Stripeopsaetning, forsoegId: string, sessionId: string) {
+  await db.update(checkoutForsoeg)
+    .set({ stripeSessionId: sessionId, stripeStatus: 'open' })
+    .where(eq(checkoutForsoeg.id, forsoegId))
   try {
     await stripe(o).checkout.sessions.expire(sessionId)
     await db.update(checkoutForsoeg)
-      .set({ stripeSessionId: sessionId, stripeStatus: 'expired',
-             status: 'afbrudt', lukketAt: new Date() })
+      .set({ stripeStatus: 'expired', lukkeFejl: null })
       .where(eq(checkoutForsoeg.id, forsoegId))
   } catch (e) {
     await db.update(checkoutForsoeg)
-      .set({ stripeSessionId: sessionId, stripeStatus: 'open',
-             status: 'aaben', lukketAt: null,
-             lukkeFejl: (e as Error).message.slice(0, 300),
+      .set({ lukkeFejl: (e as Error).message.slice(0, 300),
              lukkeForsoeg: sql`${checkoutForsoeg.lukkeForsoeg} + 1` })
       .where(eq(checkoutForsoeg.id, forsoegId))
   }
 }
+
+/**
+ * En session, VI ikke har faaet bekraeftet lukket — uanset hvilken
+ * status raekken selv staar i.
+ *
+ * Raekkens `status` svarer paa «maa kontoen starte noget nyt?».
+ * Sessionen hos Stripe svarer paa «kan der stadig komme penge?». Det
+ * er to forskellige spoergsmaal, og de kan staa forskelligt: en raekke,
+ * der blev lukket under et kald i luften, er afgjort HOS OS, mens
+ * sessionen stadig er betalbar HOS STRIPE.
+ *
+ * Tre led, og alle tre er noedvendige: der ER en session, vi HAR
+ * forsoegt at lukke den (ellers er den bare ny), og det sidste, Stripe
+ * sagde om den, var `open`.
+ */
+const UDEN_BEKRAEFTET_LUKNING = () => and(
+  isNotNull(checkoutForsoeg.stripeSessionId),
+  isNotNull(checkoutForsoeg.lukkeFejl),
+  eq(checkoutForsoeg.stripeStatus, 'open'),
+)
+
+/**
+ * Alt, der kan spaerre et gratis-skift: et uafsluttet forsoeg ELLER en
+ * session, vi ikke har faaet bekraeftet lukket.
+ *
+ * ÉT sted, fordi `lukAlleAabneKoeb` og `aabneKoeb()` ellers ville
+ * svare forskelligt paa det samme spoergsmaal — og et tal paa
+ * adminsiden, der modsiger afvisningen ved siden af, er selve den
+ * fejltype, hele det her modul handler om.
+ */
+export const SPAERRER_SKIFTET = () => or(
+  inArray(checkoutForsoeg.status, [...UAFSLUTTET]),
+  UDEN_BEKRAEFTET_LUKNING(),
+)
 
 /**
  * Hvor mange paabegyndte betalinger er endnu ikke afgjort?
@@ -457,7 +507,7 @@ async function opgivSession(o: Stripeopsaetning, forsoegId: string, sessionId: s
  */
 export async function aabneKoeb(): Promise<number> {
   const [r] = await db.select({ n: count() })
-    .from(checkoutForsoeg).where(inArray(checkoutForsoeg.status, [...UAFSLUTTET]))
+    .from(checkoutForsoeg).where(SPAERRER_SKIFTET())
   return r?.n ?? 0
 }
 
@@ -496,7 +546,7 @@ export async function lukAlleAabneKoeb(udf: Udfoerer = db): Promise<{
   const uafsluttede = await udf.select({
     id: checkoutForsoeg.id, sid: checkoutForsoeg.stripeSessionId,
     status: checkoutForsoeg.status, udloeber: checkoutForsoeg.udloeberAt,
-  }).from(checkoutForsoeg).where(inArray(checkoutForsoeg.status, [...UAFSLUTTET]))
+  }).from(checkoutForsoeg).where(SPAERRER_SKIFTET())
   if (!uafsluttede.length) return tom
 
   // Et GENNEMFOERT forsoeg kan ikke lukkes her. Der er maaske betalt, og
@@ -504,12 +554,22 @@ export async function lukAlleAabneKoeb(udf: Udfoerer = db): Promise<{
   // abonnement, som et menneske skal tage. Det taelles for sig.
   const gennemfoerte = uafsluttede.filter((x) => x.status === 'gennemfoert')
   const aabne = uafsluttede.filter((x) => x.status === 'aaben')
+  // ── DE EFTERLADTE ────────────────────────────────────────
+  // Lukket hos OS, ubekraeftet hos STRIPE. De maa ikke behandles som
+  // `aabne`: deres `status` er allerede afgjort, og at skrive den om
+  // ville ramme `checkout_uafsluttet_pr_bruger`, naar kontoen i
+  // mellemtiden har faaet en ny reservation — hvilket er netop den
+  // situation, de opstaar i. Sessionen lukkes; raekkens status roeres
+  // ikke.
+  const efterladte = uafsluttede.filter(
+    (x) => x.status !== 'aaben' && x.status !== 'gennemfoert')
 
   if (!o) {
     // INGEN opsaetning = intet kald = ingen bekraeftet lukning.
     // Foer talte de som lukkede uden at Stripe var spurgt.
     return {
-      lukkede: 0, uafklarede: aabne.length, gennemfoerte: gennemfoerte.length,
+      lukkede: 0, uafklarede: aabne.length + efterladte.length,
+      gennemfoerte: gennemfoerte.length,
       detaljer: ['Stripe er ikke konfigureret, så sessionerne kan ikke lukkes.'],
     }
   }
@@ -576,14 +636,64 @@ export async function lukAlleAabneKoeb(udf: Udfoerer = db): Promise<{
       detaljer.push(`session ${a.sid}: ${(e as Error).message.slice(0, 120)}`)
     }
   }
-  // De gennemfoerte taeller ALDRIG som lukkede — heller ikke naar
-  // opslaget lykkedes. De er en selvstaendig grund til ikke at skifte.
-  const stadigGennemfoerte = await udf.select({ id: checkoutForsoeg.id })
-    .from(checkoutForsoeg).where(eq(checkoutForsoeg.status, 'gennemfoert'))
+  // ── ANDET GENNEMLOEB · DE EFTERLADTE SESSIONER ───────────
+  // Kun sessionen lukkes. `status` roeres ALDRIG her — se kommentaren
+  // over `efterladte`.
+  for (const a of efterladte) {
+    if (!a.sid) continue
+    try {
+      const sess = await s.checkout.sessions.retrieve(a.sid) as
+        { status?: string } | null
+      if (sess?.status === 'complete') {
+        // Der er sandsynligvis betalt paa en session, vores raekke har
+        // lukket. Vi skriver INTET om den — hverken status eller
+        // «lukket». `lukke_fejl` bliver staaende, saa den bliver ved
+        // at spaerre skiftet, til et menneske har set paa den.
+        detaljer.push(
+          `session ${a.sid}: GENNEMFØRT hos Stripe, men rækken her står `
+          + `«${a.status}». Der er sandsynligvis betalt — slå abonnementet `
+          + 'op i Stripe og tag stilling, før muren slås fra.',
+        )
+        continue
+      }
+      if (sess?.status && sess.status !== 'open') {
+        await udf.update(checkoutForsoeg)
+          .set({ stripeStatus: sess.status, lukkeFejl: null })
+          .where(eq(checkoutForsoeg.id, a.id))
+        continue
+      }
+      await s.checkout.sessions.expire(a.sid)
+      await udf.update(checkoutForsoeg)
+        .set({ stripeStatus: 'expired', lukkeFejl: null })
+        .where(eq(checkoutForsoeg.id, a.id))
+    } catch (e) {
+      await udf.update(checkoutForsoeg)
+        .set({ lukkeFejl: (e as Error).message.slice(0, 300),
+               lukkeForsoeg: sql`${checkoutForsoeg.lukkeForsoeg} + 1` })
+        .where(eq(checkoutForsoeg.id, a.id))
+      detaljer.push(`efterladt session ${a.sid}: ${(e as Error).message.slice(0, 120)}`)
+    }
+  }
+
+  // ── BEGGE TAL MAALES, INGEN AF DEM UDLEDES ────────────────
+  // `uafklarede` var `aabne.length - lukkede`. Det ser rigtigt ud og er
+  // det ikke: en raekke, der netop blev `gennemfoert` her i loekken,
+  // taeller i `aabne.length`, men ikke i `lukkede` — saa den stod BAADE
+  // som uafklaret og som gennemfoert. Det er CLAUDE.md's regel om to
+  // udtryk for det samme spoergsmaal: «hvor mange staar der endnu?»
+  // maales, den udledes ikke af et startantal minus en taeller.
+  //
+  // Maalingen er samtidig den rigtige: den ser paa basen EFTER loekken,
+  // saa en raekke, en samtidig kaerre har skrevet, ogsaa taeller med.
+  // Den skal taelle med — den spaerrer skiftet lige saa meget.
+  const staaende = await udf.select({ status: checkoutForsoeg.status })
+    .from(checkoutForsoeg).where(SPAERRER_SKIFTET())
   return {
     lukkede,
-    uafklarede: aabne.length - lukkede,
-    gennemfoerte: stadigGennemfoerte.length,
+    // Alt der STADIG spaerrer og ikke er `gennemfoert`, er uafklaret —
+    // baade en aaben reservation og en efterladt session.
+    uafklarede: staaende.filter((x) => x.status !== 'gennemfoert').length,
+    gennemfoerte: staaende.filter((x) => x.status === 'gennemfoert').length,
     detaljer,
   }
 }

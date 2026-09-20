@@ -36,6 +36,29 @@ export const koebStatusEnum = pgEnum('koeb_status', [
   'aaben', 'gennemfoert', 'betalt', 'udloebet', 'afbrudt',
 ])
 
+/**
+ * De tilstande, hvor et koebsforsoeg endnu ikke er afgjort.
+ *
+ * ── HVORFOR DEN LIGGER HER OG IKKE I `lib/` ─────────────────
+ * Det SAMME spoergsmaal stilles fire steder: indekspraedikatet i
+ * `checkout_uafsluttet_pr_bruger` (0026), spaerringen i `startKoebFor`,
+ * sweepet i `lukAlleAabneKoeb` og de tre skrivninger i `lib/webhook.ts`,
+ * der lukker forsoeget. De var ordret ens — og ordret ens er ikke det
+ * samme som beregnet ét sted. Kommer der en tredje ikke-afgjort
+ * tilstand, og overses én af literalerne, rammer `invoice.paid`-
+ * skrivningen nul raekker: forsoeget bliver staaende uafsluttet,
+ * spaerrer baade nye koeb og gratis-skiftet, og intet fejler.
+ *
+ * Skemafilen er det eneste sted, BAADE webappen, workeren og
+ * proeverne kan importere fra — `lib/abonnement.ts` traekker
+ * `next/headers` med gennem `./auth` og kan derfor ikke vaere kilden.
+ *
+ * `satisfies` binder listen til enummet, saa en tastefejl ikke kan
+ * oversaettes. Samme greb som `FACILITETER` mod `FACILITET`.
+ */
+export const UAFSLUTTET = ['aaben', 'gennemfoert'] as const satisfies
+  readonly (typeof koebStatusEnum.enumValues)[number][]
+
 // Hvor praecist adressen kunne slaas op i det officielle register.
 //   unit   = enhedsadresse, inkl. etage og doer. Én bestemt bolig.
 //   access = adgangsadresse, opgangen. Vi ved hvilken opgang, ikke hvilken doer.
@@ -172,10 +195,16 @@ export const subscriptions = pgTable('subscriptions', {
 }))
 
 /**
- * Ét paabegyndt koeb pr. konto. Reservationen ligger i BASEN, saa to
+ * Ét UAFSLUTTET koeb pr. konto. Reservationen ligger i BASEN, saa to
  * faner eller to minutter ikke kan give to betalbare Checkout-forloeb:
- * det delvist unikke indeks `checkout_en_aaben_pr_bruger` afviser den
- * anden, foer Stripe naar at oprette abonnement nummer to.
+ * det delvist unikke indeks `checkout_uafsluttet_pr_bruger` afviser
+ * den anden, foer Stripe naar at oprette abonnement nummer to.
+ *
+ * Indekset hed `checkout_en_aaben_pr_bruger` indtil 0026 og daekkede
+ * kun `aaben`. Det daekker nu BEGGE uafsluttede tilstande — `aaben`
+ * og `gennemfoert` — fordi et gennemfoert, men uafstemt koeb er
+ * praecis lige saa meget en grund til ikke at starte det naeste: der
+ * er maaske allerede betalt.
  */
 export const checkoutForsoeg = pgTable('checkout_forsoeg', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -198,6 +227,19 @@ export const checkoutForsoeg = pgTable('checkout_forsoeg', {
    * `complete` betyder at kassen blev gennemfoert — IKKE at pengene er
    * modtaget. At laese kun den foerste akse var tredje gennemgangs
    * foerste fund.
+   *
+   * ── DEN ER BOGFOERING, IKKE EN KNAP ───────────────────────
+   * Feltet SKRIVES og laeses aldrig af runtime-kode, og det er med
+   * vilje. Spaerringen hviler paa `status`, og `urlForForsoeg` siger
+   * udtrykkeligt «uanset `payment_status`»: en gennemfoert session
+   * spaerrer, ogsaa naar betalingen stadig er under behandling.
+   *
+   * Det er ikke `sources.enabled` om igen. Forskellen er, hvad feltet
+   * giver sig ud for at vaere: `enabled` ligner en knap, der slukker
+   * noget, og gjorde det ikke. Det her er en NOTE om, hvad Stripe
+   * sagde — den paastaar ikke at styre noget. Begynder nogen at lade
+   * en beslutning hvile paa den, skal den beslutning have sin egen
+   * proeve; indtil da er den til for at kunne efterses bagefter.
    */
   stripePaymentStatus: text('stripe_payment_status'),
   /** Abonnementet, sessionen blev til. Bindingen forsoeg → abonnement. */
@@ -212,7 +254,12 @@ export const checkoutForsoeg = pgTable('checkout_forsoeg', {
   lukketAt: timestamp('lukket_at', { withTimezone: true }),
 }, (t) => ({
   sessionIdx: index('checkout_session_idx').on(t.stripeSessionId),
-  subIdx: index('checkout_sub_idx').on(t.stripeSubscriptionId),
+  // Delvist, praecis som i 0026: kun raekker MED et abonnements-id
+  // slaas op. Stod praedikatet kun i migrationen, ville skemaet og
+  // basen sige to forskellige ting om det samme indeks, og
+  // `drizzle-kit` ville foreslaa at lave det om ved naeste generering.
+  subIdx: index('checkout_sub_idx').on(t.stripeSubscriptionId)
+    .where(sql`${t.stripeSubscriptionId} is not null`),
 }))
 
 /**

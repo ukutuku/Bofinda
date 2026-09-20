@@ -59,6 +59,14 @@ export interface Session {
   /** Saettes naar kassen gennemfoeres. Stripes to akser, ikke én. */
   subscription?: string
   payment_status?: string
+  /**
+   * De to, vi selv sendte med ved oprettelsen. Stripe giver dem tilbage
+   * paa en `retrieve`, og `afstemGennemfoerteKoeb` laeser dem netop
+   * dér, naar webhooken aldrig kom. Uden dem i attrappen ville den
+   * kodevej aldrig blive prøvet.
+   */
+  client_reference_id?: string
+  customer?: string
 }
 
 export interface Falsk {
@@ -226,8 +234,17 @@ export function lavFalsk(): Falsk & Record<string, unknown> {
 
   const f: Falsk & Record<string, unknown> = {
     kald, fejlPaa, gemtFejlPaa, planer, sessioner, abonnementer, noegler,
+    // ── NULSTIL BETYDER NULSTIL ──────────────────────────────
+    // Foer ryddede den kun `kald`, `fejlPaa`, `gemtFejlPaa` og
+    // `noegler` — men ikke sessionerne, planerne og abonnementerne.
+    // Et afsnit, der taeller «hvor mange sessioner er aabne hos
+    // Stripe», maalte derfor ogsaa de foregaaende afsnits, og ét
+    // afsnit kompenserede ad hoc med et eksplicit
+    // `falsk.sessioner.clear()`. En attrap, hvis `nulstil` ikke
+    // nulstiller, er en faelde, der venter paa naeste proeve.
     nulstil: () => {
       kald.length = 0; fejlPaa.clear(); gemtFejlPaa.clear(); noegler.clear()
+      sessioner.clear(); planer.clear(); abonnementer.clear()
     },
     sidste: (m: string) => [...kald].reverse().find((k) => k.metode === m),
     antal: (m: string) => kald.filter((k) => k.metode === m).length,
@@ -242,9 +259,14 @@ export function lavFalsk(): Falsk & Record<string, unknown> {
         create: (p: unknown, o?: unknown) =>
           gennem('checkout.sessions.create', [p], o, () => {
             const id = `cs_falsk_${++n}`
+            const par = p as {
+              expires_at?: number; client_reference_id?: string; customer?: string
+            } | undefined
             const s: Session = {
               id, url: `https://falsk.invalid/${id}`, status: 'open',
-              expires_at: (p as { expires_at?: number })?.expires_at,
+              expires_at: par?.expires_at,
+              client_reference_id: par?.client_reference_id,
+              customer: par?.customer,
             }
             sessioner.set(id, s)
             return s
