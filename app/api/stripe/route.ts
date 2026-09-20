@@ -18,6 +18,17 @@
 //    genforsoeg ville ikke hjaelpe.
 //  · Behandling kastede → 500, SAA Stripe leverer igen. Haendelsen
 //    staar med `behandlet_at = null` og koeres om.
+//  · AFVENTER → 409. Haendelsen er gyldig, men forudsaetningen er
+//    ikke kommet endnu. Her laa fund 1: ruten svarede 200, og 200
+//    betyder «prøv ikke igen». Haendelsen stod ubehandlet i basen med
+//    `behandlet_at = null` — og Stripe leverede den aldrig igen, saa
+//    der var ingen til at tage den op. Den betalte periode var tabt.
+//    409 faar Stripe til at levere igen, og nyttelasten er gemt, saa
+//    `betalingstilsyn()` kan koere den om ogsaa efter at Stripe har
+//    givet op. To veje, fordi den ene ikke kan staa alene.
+//  · I_GANG → 409 af samme grund: en anden behandler har kravet lige
+//    nu, men den kan doe midt i, og saa er der ingen til at faerdiggoere
+//    den. En ny levering er billig; en tabt betaling er det ikke.
 //  · Alt andet → 200.
 //
 //  Ingen generel try/catch om det hele: en fanget fejl, der svarede
@@ -58,7 +69,10 @@ export async function POST(req: Request) {
   }
 
   const udfald = await behandl(h, o)
+  // Kun et FAERDIGT udfald kvitteres. Se hovedet.
+  const uafsluttet = udfald === 'afventer' || udfald === 'i_gang'
   return NextResponse.json({ udfald }, {
-    status: 200, headers: { 'Cache-Control': 'no-store' },
+    status: uafsluttet ? 409 : 200,
+    headers: { 'Cache-Control': 'no-store' },
   })
 }

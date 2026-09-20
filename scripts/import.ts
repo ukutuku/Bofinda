@@ -6,6 +6,8 @@ import { koerAlle, formatResultat } from '../lib/scheduler'
 import { koerKilde, RUNNER } from '../lib/ingest'
 import { matchAlarmer, ryd, sendAlarmer } from '../lib/alarm'
 import { opdaterDagsaggregat, ryddHaendelser } from '../lib/maaling-server'
+import { betalingstilsyn } from '../lib/webhook'
+import { opsaetning } from '../lib/stripe'
 import { sql } from '../db/client'
 
 const ud = (s: string) => process.stdout.write(s + '\n')
@@ -62,6 +64,20 @@ try {
   // Maalingen maa ikke kunne vaelte importen.
   ud(`[maaling] oprydning fejlede: ${(e as Error).message}`)
 }
+
+// ── BETALINGSTILSYNET ─────────────────────────────────────────
+// To ting, ingen HTTP-kvittering kan klare alene: haendelser, hvis
+// forudsaetning kom for sent, og betalingsplaner, der ikke kunne
+// laegges, fordi Stripe var nede. Begge staar i basen med deres fejl,
+// og begge tages op her. Uden den her indgang ville en plan, der
+// fejlede fem gange paa en time med nedetid, staa for evigt — og
+// kunden betale 9 kr. om DAGEN imens.
+//
+// Den koerer i alle tilstande, ogsaa GRATIS: er muren slaaet fra,
+// mens nogen har et loebende abonnement, skal deres plan stadig
+// laegges. Mangler Stripe-opsaetningen, siger tilsynet det i stedet
+// for at tie.
+for (const l of await betalingstilsyn(opsaetning())) ud(l)
 
 const alarmer = await matchAlarmer()
 for (const a of alarmer) ud(`[alarm] ${a.soegning}: ${a.nyeTraef} nye træf`)

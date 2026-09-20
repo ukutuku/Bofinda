@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import { skiftTilstand } from '../../abonnement/handlinger'
 
-export function Skifter({ tilstand, levende, aendretAt, note }: {
+export function Skifter({ tilstand, levende, aabneKoeb, aendretAt, note }: {
   tilstand: 'gratis' | 'betaling'
   levende: number
+  aabneKoeb: number
   aendretAt: string | null
   note: string | null
 }) {
@@ -19,7 +20,7 @@ export function Skifter({ tilstand, levende, aendretAt, note }: {
     setArbejder(false)
     if (svar.ok) { setNu(til); setMelding(`Tilstanden er nu ${til.toUpperCase()}.`); return }
     setMelding(
-      svar.fejl === 'levende_abonnementer' ? svar.forklaring
+      svar.fejl === 'levende_abonnementer' || svar.fejl === 'aabne_koeb' ? svar.forklaring
       : svar.fejl === 'ikke_admin' ? 'Du har ikke adgang til at skifte tilstand.'
       : 'Der er ingen driftsrække i basen. Kør migrationerne.',
     )
@@ -40,12 +41,20 @@ export function Skifter({ tilstand, levende, aendretAt, note }: {
         offentlige.
       </p>
       <p>Løbende abonnementer lige nu: <strong>{levende}</strong></p>
+      {aabneKoeb > 0 && (
+        <p>
+          Påbegyndte betalinger, der stadig står åbne:{' '}
+          <strong>{aabneKoeb}</strong>. De skal lukkes hos Stripe, før muren
+          kan slås fra — tryk «Slå muren FRA» for at forsøge igen.
+        </p>
+      )}
       {melding && <p className="koebsfejl" role="alert">{melding}</p>}
       <p>
         <button type="button" className="knap" disabled={arbejder || nu === 'betaling'}
           onClick={() => skift('betaling')}>Slå muren TIL</button>
         {' '}
-        <button type="button" className="knap" disabled={arbejder || nu === 'gratis'}
+        <button type="button" className="knap"
+          disabled={arbejder || (nu === 'gratis' && aabneKoeb === 0)}
           onClick={() => skift('gratis')}>Slå muren FRA</button>
       </p>
       <p className="koebsnote">

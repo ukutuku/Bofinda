@@ -27,16 +27,17 @@
 //  funktion; det er den funktion, der maatte bygges foerst.
 // ═══════════════════════════════════════════════════════════════
 
-import { count, eq, inArray } from 'drizzle-orm'
-import { db } from '../db/client'
+import { count, eq, inArray, sql } from 'drizzle-orm'
+import { db, raekker } from '../db/client'
 import { drift, subscriptions, users } from '../db/schema'
-import { LEVENDE, lukAlleAabneKoeb } from './abonnement'
+import { LEVENDE, aabneKoeb, lukAlleAabneKoeb } from './abonnement'
 import type { Tilstand } from './adgang'
 
 export type Skiftesvar =
   | { ok: true; fra: Tilstand; til: Tilstand }
   | { ok: false; fejl: 'ikke_admin' }
   | { ok: false; fejl: 'levende_abonnementer'; antal: number; forklaring: string }
+  | { ok: false; fejl: 'aabne_koeb'; antal: number; forklaring: string }
   | { ok: false; fejl: 'ingen_raekke' }
 
 /** Er den VERIFICEREDE bruger admin? Rollen laeses i basen, ikke i en cookie. */
@@ -64,57 +65,98 @@ export async function saetTilstand(
 ): Promise<Skiftesvar> {
   if (!await erAdmin(brugerId)) return { ok: false, fejl: 'ikke_admin' }
 
-  const [nu] = await db.select({ t: drift.tilstand }).from(drift).limit(1)
-  if (!nu) return { ok: false, fejl: 'ingen_raekke' }
-  if (nu.t === til) return { ok: true, fra: nu.t, til }
+  const [findes] = await db.select({ t: drift.tilstand }).from(drift).limit(1)
+  if (!findes) return { ok: false, fejl: 'ingen_raekke' }
 
-  if (til === 'gratis') {
-    const n = await levendeAbonnementer()
-    if (n > 0) {
-      return {
-        ok: false, fejl: 'levende_abonnementer', antal: n,
-        forklaring:
-          `${n} ${n === 1 ? 'konto har' : 'konti har'} et løbende abonnement. `
-          + 'Slås muren fra nu, fortsætter Stripe med at trække 349 kr. hver '
-          + '28. dag for noget, alle andre får gratis — og en automatisk '
-          + 'opsigelse ville være en beslutning om deres penge, som ingen har '
-          + 'bedt om. Tag stilling til hver enkelt først: sig dem op i Stripe '
-          + '(adgangen løber perioden ud) eller lad dem løbe videre med et '
-          + 'varsel. Skift derefter tilstanden.',
-      }
-    }
+  // ── BETALING slaas til uden vagt ──────────────────────────
+  // Det opretter INTET abonnement og opkraever ingen. Gratis brugere
+  // bliver ikke abonnenter af et sideskift — de moeder en betalingsboks
+  // og skal selv trykke.
+  if (til === 'betaling') {
+    if (findes.t === til) return { ok: true, fra: findes.t, til }
+    await skriv(til, brugerId, note)
+    return { ok: true, fra: findes.t, til }
   }
 
-  // ── EN AABEN CHECKOUT MAA IKKE KUNNE BETALES BAGEFTER ──────
-  // Skiftet til GRATIS er accepteret her (der er ingen loebende
-  // abonnementer). Men en kunde kan staa med betalingssiden aaben i
-  // netop det sekund — betaler hun bagefter, har hun et loebende
-  // abonnement i gratis tilstand, og det var hele pointen med vagten
-  // ovenfor. Sessionerne lukkes derfor HOS STRIPE, foer tilstanden
-  // skrives: raekken herhjemme er kun vores bogfoering af det.
-  if (til === 'gratis') {
-    const l = await lukAlleAabneKoeb()
-    if (l.fejlede > 0) {
-      return {
-        ok: false, fejl: 'levende_abonnementer', antal: l.fejlede,
-        forklaring:
-          `${l.fejlede} påbegyndt${l.fejlede === 1 ? ' betaling' : 'e betalinger'} `
-          + 'kunne ikke lukkes hos Stripe. Bliver muren slået fra nu, kan '
-          + 'de betales bagefter, og kunden ender med et løbende abonnement '
-          + 'i gratis tilstand. Prøv igen — eller luk dem i Stripe først.',
-      }
+  // ── GRATIS ────────────────────────────────────────────────
+  // Bemaerk: der er INGEN tidlig udgang paa «staar der allerede».
+  // Lykkes lukningen af en paabegyndt betaling ikke, skrives
+  // tilstanden alligevel ikke — og saa staar der maaske GRATIS med en
+  // betalbar session tilbage. Et nyt tryk paa knappen skal kunne goere
+  // arbejdet faerdigt, og det kan det kun, hvis afstemningen koerer
+  // uanset hvad raekken siger.
+  const r = await db.transaction(async (tx) => {
+    // `for update` paa drift-raekken er koordineringen med `startKoeb()`,
+    // som tager `for share` paa den samme raekke. Saa laenge vi holder
+    // den, kan ingen ny reservation komme til, og en reservation, der
+    // var i gang, er enten committet (og synlig for lukningen nedenfor)
+    // eller venter paa os (og moeder GRATIS, naar den faar lov).
+    const [d] = raekker<{ tilstand: Tilstand }>(await tx.execute(
+      sql`select tilstand from drift where id = true for update`,
+    ))
+    const fra = d?.tilstand ?? findes.t
+
+    const [lev] = await tx.select({ n: count() }).from(subscriptions)
+      .where(inArray(subscriptions.status, [...LEVENDE]))
+    const n = lev?.n ?? 0
+    if (n > 0) return { slags: 'levende' as const, fra, antal: n }
+
+    // En kunde kan staa med betalingssiden aaben i netop det sekund —
+    // betaler hun bagefter, har hun et loebende abonnement i gratis
+    // tilstand, og det var hele pointen med vagten ovenfor. Sessionerne
+    // lukkes derfor HOS STRIPE, foer tilstanden skrives: raekken
+    // herhjemme er kun vores bogfoering af det.
+    const l = await lukAlleAabneKoeb(tx)
+    if (l.uafklarede > 0) {
+      return { slags: 'uafklaret' as const, fra, antal: l.uafklarede, detaljer: l.detaljer }
+    }
+
+    // Stod der GRATIS i forvejen, var trykket en AFSTEMNING af de
+    // aabne betalinger, ikke et skift. Saa skrives raekken ikke: et
+    // nyt `aendret_at` ville paastaa paa adminsiden, at tilstanden
+    // blev aendret, og det blev den ikke.
+    if (fra !== til) {
+      await tx.update(drift).set({
+        tilstand: til, aendretAf: brugerId, aendretAt: new Date(), note: note ?? null,
+      }).where(eq(drift.id, true))
+    }
+    return { slags: 'ok' as const, fra }
+  })
+
+  if (r.slags === 'levende') {
+    const n = r.antal
+    return {
+      ok: false, fejl: 'levende_abonnementer', antal: n,
+      forklaring:
+        `${n} ${n === 1 ? 'konto har' : 'konti har'} et løbende abonnement. `
+        + 'Slås muren fra nu, fortsætter Stripe med at trække 349 kr. hver '
+        + '28. dag for noget, alle andre får gratis — og en automatisk '
+        + 'opsigelse ville være en beslutning om deres penge, som ingen har '
+        + 'bedt om. Tag stilling til hver enkelt først: sig dem op i Stripe '
+        + '(adgangen løber perioden ud) eller lad dem løbe videre med et '
+        + 'varsel. Skift derefter tilstanden.',
     }
   }
-
-  // BETALING slaas til uden vagt: det opretter INTET abonnement og
-  // opkraever ingen. Gratis brugere bliver ikke abonnenter af et
-  // sideskift — de moeder en betalingsboks og skal selv trykke.
-  await db.update(drift).set({
-    tilstand: til, aendretAf: brugerId, aendretAt: new Date(),
-    note: note ?? null,
-  }).where(eq(drift.id, true))
-  return { ok: true, fra: nu.t, til }
+  if (r.slags === 'uafklaret') {
+    const n = r.antal
+    return {
+      ok: false, fejl: 'aabne_koeb', antal: n,
+      forklaring:
+        `${n} påbegyndt${n === 1 ? ' betaling' : 'e betalinger'} kunne ikke `
+        + 'lukkes hos Stripe, så tilstanden er IKKE skiftet. Bliver muren '
+        + 'slået fra, mens de står åbne, kan de betales bagefter, og kunden '
+        + 'ender med et løbende abonnement i gratis tilstand. Tryk igen, når '
+        + 'Stripe svarer — eller luk sessionerne i Stripe først.'
+        + (r.detaljer.length ? ` Stripe svarede: ${r.detaljer.join(' · ')}` : ''),
+    }
+  }
+  return { ok: true, fra: r.fra, til }
 }
+
+const skriv = (til: Tilstand, brugerId: string | null, note?: string) =>
+  db.update(drift).set({
+    tilstand: til, aendretAf: brugerId, aendretAt: new Date(), note: note ?? null,
+  }).where(eq(drift.id, true))
 
 /** Til adminsiden: hvad staar der nu, og hvad spaerrer et skift? */
 export async function driftsbillede(brugerId: string | null) {
@@ -127,6 +169,10 @@ export async function driftsbillede(brugerId: string | null) {
     aendretAt: r?.aendretAt ?? null,
     note: r?.note ?? null,
     levende: await levendeAbonnementer(),
+    // Staar der aabne betalinger, er «slå muren FRA» ikke et no-op,
+    // heller ikke naar tilstanden allerede ER gratis: knappen er saa
+    // afstemningen. Derfor skal siden kunne se tallet.
+    aabneKoeb: await aabneKoeb(),
   }
 }
 

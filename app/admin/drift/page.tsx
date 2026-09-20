@@ -27,6 +27,7 @@ export default async function Side() {
       <Skifter
         tilstand={b.tilstand!}
         levende={b.levende}
+        aabneKoeb={b.aabneKoeb}
         aendretAt={b.aendretAt ? b.aendretAt.toLocaleString('da-DK') : null}
         note={b.note}
       />

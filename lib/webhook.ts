@@ -29,10 +29,10 @@
 //  loeber ud.
 // ═══════════════════════════════════════════════════════════════
 
-import { and, eq, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm'
+import { and, count, eq, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { checkoutForsoeg, stripeEvents, subscriptions, users } from '../db/schema'
-import { fase, faser, stripe, type Stripeopsaetning } from './stripe'
+import { INTRO_TIMER, fase, faser, stripe, type Stripeopsaetning } from './stripe'
 
 /** De haendelser, vi handler paa. Alt andet kvitteres og ignoreres. */
 export const LYTTER = [
@@ -117,8 +117,16 @@ export async function behandl(h: Haendelse, o: Stripeopsaetning | null): Promise
   // (vi har kravet) eller nul (en anden har det, eller den er faerdig).
   // `paabegyndt_at` frigives efter KRAV_TIMEOUT_MIN, saa en doed
   // behandler ikke laaser haendelsen for evigt.
+  // NYTTELASTEN GEMMES. Uden den kan en haendelse, vi ikke naaede at
+  // faerdiggoere, kun tages op igen, hvis STRIPE leverer den igen — og
+  // Stripe holder op efter sit genforsoegsvindue. Med den kan vores
+  // eget tilsyn koere den om naar som helst, ogsaa bagefter. Det er
+  // den «fungerende genbehandlingsvej», fund 1 beder om.
   await db.insert(stripeEvents)
-    .values({ id: h.id, type: h.type, stripeOprettetAt: oprettet })
+    .values({
+      id: h.id, type: h.type, stripeOprettetAt: oprettet,
+      nyttelast: kunDetViLaeser(h),
+    })
     .onConflictDoNothing()
 
   const krav = await db.update(stripeEvents)
@@ -178,8 +186,88 @@ export async function behandl(h: Haendelse, o: Stripeopsaetning | null): Promise
   return udfald
 }
 
+/**
+ * Faerdig — OG nyttelasten kasseres.
+ *
+ * Den gemmes udelukkende for at kunne koere en uafsluttet haendelse om.
+ * Er den afsluttet, er der intet at koere om, og saa er der heller ingen
+ * grund til at beholde et Stripe-objekt med kundeoplysninger i vores
+ * base. Det er den samme regel som alt andet her: vi opbevarer ikke det,
+ * vi ikke bruger.
+ */
 const faerdig = (id: string) => db.update(stripeEvents)
-  .set({ behandletAt: new Date(), fejl: null }).where(eq(stripeEvents.id, id))
+  .set({ behandletAt: new Date(), fejl: null, nyttelast: null })
+  .where(eq(stripeEvents.id, id))
+
+// ═══════════════════════════════════════════════════════════════
+//  NYTTELASTEN GEMMES SOM EN ALLOWLIST, ALDRIG SOM HELE OBJEKTET.
+//
+//  Det ville vaere lettere at skrive `h` direkte i kolonnen, og det var
+//  ogsaa det, foerste udgave gjorde. Men et Stripe-haendelsesobjekt
+//  baerer kundens navn, mailadresse, faktureringsadresse, kortets
+//  sidste fire cifre og udstederland — oplysninger vi hverken laeser
+//  eller har brug for. At gemme dem, fordi de tilfaeldigvis fulgte med
+//  i en HTTP-krop, er den samme fejl som `...raw` i en adapter, og
+//  CLAUDE.md siger hvorfor: en denylist daekker i dag og svigter i
+//  morgen, naar Stripe tilfoejer et felt.
+//
+//  Listen nedenfor er PRAECIS de stier, behandlerne herover laeser.
+//  Tilfoejes en ny laesning, skal den med her — ellers ser en
+//  genbehandling ikke feltet. Det er den rigtige vej at svigte: et
+//  manglende felt opdages, et gemt felt opdages ikke.
+// ═══════════════════════════════════════════════════════════════
+
+/** Ét felt, hvis det er der. Tomme objekter opstaar ikke. */
+function tag(kilde: Ukendt, felter: string[]): Ukendt | undefined {
+  const ud: Ukendt = {}
+  for (const f of felter) if (kilde[f] !== undefined) ud[f] = kilde[f]
+  return Object.keys(ud).length ? ud : undefined
+}
+
+function fakturalinje(l: Ukendt): Ukendt {
+  const ud: Ukendt = {}
+  const periode = tag((l['period'] ?? {}) as Ukendt, ['start', 'end'])
+  if (periode) ud['period'] = periode
+  const pd = ((l['pricing'] as Ukendt | undefined)?.['price_details'] ?? {}) as Ukendt
+  const pris = tag(pd, ['price'])
+  if (pris) ud['pricing'] = { price_details: pris }
+  const sid = ((l['parent'] as Ukendt | undefined)?.['subscription_item_details'] ?? {}) as Ukendt
+  const forael = tag(sid, ['subscription'])
+  if (forael) ud['parent'] = { subscription_item_details: forael }
+  return ud
+}
+
+function abonnementsvare(v: Ukendt): Ukendt {
+  const ud = tag(v, ['current_period_start', 'current_period_end']) ?? {}
+  const pris = tag((v['price'] ?? {}) as Ukendt, ['id'])
+  if (pris) ud['price'] = pris
+  return ud
+}
+
+export function kunDetViLaeser(h: Haendelse): Record<string, unknown> {
+  const o = (h.data?.object ?? {}) as Ukendt
+  const obj: Ukendt = tag(o, [
+    // kassen()
+    'subscription', 'client_reference_id', 'customer',
+    // spejl()
+    'id', 'status', 'cancel_at_period_end', 'schedule',
+    'current_period_start', 'current_period_end',
+  ]) ?? {}
+
+  const linjer = (o['lines'] as Ukendt | undefined)?.['data']
+  if (Array.isArray(linjer)) {
+    // Kun FOERSTE linje laeses af `betalt()`. Resten gemmes ikke.
+    const f = linjer[0] as Ukendt | undefined
+    if (f) obj['lines'] = { data: [fakturalinje(f)] }
+  }
+  const varer = (o['items'] as Ukendt | undefined)?.['data']
+  if (Array.isArray(varer)) {
+    const f = varer[0] as Ukendt | undefined
+    if (f) obj['items'] = { data: [abonnementsvare(f)] }
+  }
+
+  return { id: h.id, type: h.type, created: h.created, data: { object: obj } }
+}
 
 /**
  * Vagt 3, som ét praedikat: afvis kun en haendelse, der er AELDRE end
@@ -290,7 +378,9 @@ async function betalt(o: Ukendt, stempel: Date, ops: Stripeopsaetning | null): P
   if (!findes) {
     const bruger = kunde ? await brugerForKunde(kunde) : null
     if (!bruger) {
-      // Forudsaetningen mangler stadig. IKKE faerdig — Stripe leverer igen.
+      // Forudsaetningen mangler stadig. IKKE faerdig — hverken Stripes
+      // genlevering eller vores eget tilsyn er afskaaret fra at tage
+      // den op igen.
       return 'afventer'
     }
     await db.insert(subscriptions).values({
@@ -299,51 +389,86 @@ async function betalt(o: Ukendt, stempel: Date, ops: Stripeopsaetning | null): P
     }).onConflictDoNothing()
   }
 
-  // MONOTON vagt: adgangen flyttes kun frem, og kun af en betalt periode.
-  const r = await db.update(subscriptions)
+  // ── SKRIVNING 1 · ADGANGEN, MONOTON OG UDEN TIDSFILTER ─────
+  // Adgang er ikke en spejling; den er en kendsgerning om penge, vi har
+  // modtaget. Vagten er derfor monoton — kun FREM — og ikke
+  // `nyereEnd()`: en `invoice.paid`, der overhales af en
+  // `subscription.updated`, skal stadig kunne forlaenge perioden.
+  const adgang = slut
+    ? await db.update(subscriptions)
+        .set({ adgangTil: slut, updatedAt: new Date() })
+        .where(and(
+          eq(subscriptions.stripeSubscriptionId, subId),
+          or(isNull(subscriptions.adgangTil), lt(subscriptions.adgangTil, slut)),
+        ))
+        .returning({ id: subscriptions.id })
+    : []
+
+  // ── SKRIVNING 2 · SPEJLINGEN, MED TIDSFILTER ───────────────
+  // Status, pris og periode er Stripes tilstand, ikke vores
+  // kendsgerning. En AELDRE faktura maa registrere betalt adgang
+  // ovenfor — men den maa ikke skrive `active` hen over en NYERE
+  // `customer.subscription.deleted`. Foer var de to skrivninger én, og
+  // status fulgte med adgangen uden at blive sammenlignet med noget.
+  await db.update(subscriptions)
     .set({
       status: 'active',
-      ...(slut ? { adgangTil: slut, currentPeriodEnd: slut } : {}),
+      ...(slut ? { currentPeriodEnd: slut } : {}),
       ...(start ? { currentPeriodStart: start } : {}),
       ...(prisId ? { stripePriceId: prisId } : {}),
       ...(kunde ? { stripeCustomerId: kunde } : {}),
-      updatedAt: new Date(),
+      stripeOpdateretAt: stempel, updatedAt: new Date(),
     })
-    .where(and(
-      eq(subscriptions.stripeSubscriptionId, subId),
-      slut
-        ? or(isNull(subscriptions.adgangTil), lt(subscriptions.adgangTil, slut))
-        : sql`true`,
-    ))
-    .returning({ bruger: subscriptions.userId, plan: subscriptions.stripeScheduleId })
+    .where(and(eq(subscriptions.stripeSubscriptionId, subId), nyereEnd(stempel)))
 
-  if (!r.length) {
-    // Adgangen var allerede lige saa lang eller laengere. Det er ikke en
-    // fejl — det er en gentagelse eller en overhalet faktura.
-    return 'forael'
-  }
-
-  // Introduktionen er brugt, naar den er BETALT — ikke naar siden blev
-  // aabnet. Saettes kun, hvis den ikke stod i forvejen.
+  // ── SKRIVNING 3 · INTRO OG PLAN, UAFHAENGIGT AF DE TO ─────
+  // HER laa fund 2. Skrivningen ovenfor havde en tidlig `return
+  // 'forael'`, naar adgangen ikke flyttede sig — og en genlevering,
+  // der skulle reparere en HALVT gennemfoert behandling, ramte netop
+  // den gren: `adgang_til` var skrevet i foerste forsoeg, saa anden
+  // omgang gav «foraeldet» og sprang baade introregistreringen og
+  // planskylden over. Kunden stod med adgang, intro-flaget utaget og
+  // ingen plan — altsaa 9 kr. om DAGEN.
+  //
+  // De tre skrivninger er nu uafhaengige og hver for sig betingede paa
+  // deres EGET felt. En genlevering kan derfor faerdiggoere praecis
+  // det, der mangler, uanset hvad der lykkedes foerste gang.
+  //
+  // UDEN `ops` kan vi ikke afgoere, OM det er introprisen — og en
+  // haendelse, der maaske skyldte en plan, maa ikke markeres faerdig
+  // paa et spoergsmaal, vi ikke kunne stille. Den svarer 'afventer' og
+  // tages op igen, naar Stripe er konfigureret. Adgangen er skrevet
+  // ovenfor uanset: kunden har betalt.
+  if (!ops && prisId) return 'afventer'
   if (ops && prisId && fase(prisId, ops) === 'intro') {
-    await db.update(users)
-      .set({ introBrugtAt: new Date() })
-      .where(and(eq(users.id, r[0]!.bruger), isNull(users.introBrugtAt)))
+    const [r] = await db.select({ bruger: subscriptions.userId })
+      .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, subId)).limit(1)
+    if (r) {
+      // Introduktionen er brugt, naar den er BETALT — ikke naar siden
+      // blev aabnet. Saettes kun, hvis den ikke stod i forvejen.
+      await db.update(users)
+        .set({ introBrugtAt: new Date() })
+        .where(and(eq(users.id, r.bruger), isNull(users.introBrugtAt)))
 
-    // Planlaegningen markeres som SKYLDIG her og udfoeres nedenfor.
-    // Bliver kaldet til Stripe afbrudt, staar skylden i basen, og
-    // `laegManglendePlaner()` tager den op igen.
-    await db.update(subscriptions)
-      .set({ planStatus: 'mangler' })
-      .where(and(
-        eq(subscriptions.stripeSubscriptionId, subId),
-        isNull(subscriptions.planStatus),
-      ))
-    await laegPlan(subId, ops)
+      // Planlaegningen markeres som SKYLDIG her og udfoeres nedenfor.
+      // Bliver kaldet til Stripe afbrudt, staar skylden i basen, og
+      // `laegManglendePlaner()` tager den op igen.
+      await db.update(subscriptions)
+        .set({ planStatus: 'mangler' })
+        .where(and(
+          eq(subscriptions.stripeSubscriptionId, subId),
+          isNull(subscriptions.planStatus),
+        ))
+      await laegPlan(subId, ops)
+    }
   }
+
   // Lukker koebsforsoeget, saa kontoen kan koebe igen en anden dag.
   if (kunde) await lukForsoegForKunde(kunde)
-  return 'behandlet'
+
+  // Udfaldet er informativt: 'forael' betyder, at adgangen ikke flyttede
+  // sig — ikke at der blev sprunget arbejde over.
+  return slut && !adgang.length ? 'forael' : 'behandlet'
 }
 
 /** Vores bruger bag en Stripe-kunde. Null, hvis vi ikke kender kunden. */
@@ -449,8 +574,9 @@ export async function laegPlan(subId: string, ops: Stripeopsaetning): Promise<
     // LAES TILBAGE. Et schedule-id beviser ikke, at faserne er rigtige.
     // Uden det her ville «oprettet men forkert konfigureret» se faerdig ud.
     const efter = await s.subscriptionSchedules.retrieve(planId)
-    if (!faserErRigtige(efter, ops)) {
-      throw new Error('faserne stemmer ikke efter opdatering')
+    const fejl = planfejl(efter, ops)
+    if (fejl.length) {
+      throw new Error(`faserne stemmer ikke efter opdatering: ${fejl.join('; ')}`)
     }
 
     await db.update(subscriptions)
@@ -474,19 +600,93 @@ export async function laegPlan(subId: string, ops: Stripeopsaetning): Promise<
 /**
  * Er de to faser dem, vi bad om?
  *
- * Maaler PRISERNE og at der er praecis to faser. Det er det, der
- * afgoer, hvad kunden traekkes: fase 1 introprisen, fase 2
- * normalprisen. Stemmer det ikke, er planen ikke konfigureret —
- * uanset at den findes.
+ * Foer maalte den kun pris-id'erne og at der var to faser. Det er ikke
+ * nok til at baere prismodellen: en plan med de rigtige priser og
+ * `quantity: 5` traekker 45 kr. og 1.745 kr., og en fase 1, der varer
+ * to doegn i stedet for ét, er en anden model end den, der er lovet.
+ * Derfor maales nu ogsaa MAENGDER og TIDSGRAENSER.
+ *
+ * Kontrollen, punkt for punkt:
+ *  · praecis to faser
+ *  · én vare pr. fase — en ekstra vare er en ekstra opkraevning
+ *  · fase 1: introprisen, maengde 1
+ *  · fase 2: normalprisen, maengde 1
+ *  · fase 1 varer PRAECIS `INTRO_TIMER` timer, maalt paa Stripes egne
+ *    `start_date`/`end_date`. Vi sender dem selv, saa tilbagelaesningen
+ *    skal give det samme; goer den ikke det, har vi ikke forstaaet,
+ *    hvad Stripe gjorde, og planen er ikke bekraeftet.
+ *  · fase 2 begynder PRAECIS hvor fase 1 slipper. Et hul ville vaere
+ *    tid uden abonnement; et overlap ville vaere to samtidige.
+ *  · fase 1 er ikke en proeveperiode. En `trial` er GRATIS hos Stripe,
+ *    og saa er de 9 kr. der ikke.
+ *
+ * Fase 2's `end_date` maales IKKE. Den er aaben i vores model, og
+ * hvad Stripe skriver i feltet for en aaben sidste fase er ikke noget,
+ * vi har kunnet efterproeve — en kontrol paa et gaet ville afvise
+ * rigtige planer.
+ *
+ * `quantity` er valgfri i Stripes type. Mangler den, laeses den som 1:
+ * det er Stripes egen standard, og en manglende vaerdi er ikke bevis
+ * for en forkert. Risikoen, kontrollen findes for — en maengde paa 2
+ * eller 5 — fanges uaendret.
  */
 export function faserErRigtige(plan: unknown, ops: Stripeopsaetning): boolean {
-  const p = (plan as { phases?: { items?: { price?: unknown }[] }[] } | null)?.phases
-  if (!Array.isArray(p) || p.length !== 2) return false
-  const pris = (f: { items?: { price?: unknown }[] } | undefined) => {
-    const v = f?.items?.[0]?.price
-    return typeof v === 'string' ? v : (v as { id?: string } | undefined)?.id
+  return planfejl(plan, ops).length === 0
+}
+
+/**
+ * Samme kontrol, men den SIGER hvad der er galt. `laegPlan` skriver
+ * listen paa raekken, saa en plan, der ikke kan bekraeftes, kan
+ * efterses af et menneske uden at nogen skal gaette.
+ */
+export function planfejl(plan: unknown, ops: Stripeopsaetning): string[] {
+  type Vare = { price?: unknown; quantity?: unknown }
+  type Fase = {
+    items?: Vare[]; start_date?: unknown; end_date?: unknown
+    trial?: unknown; trial_end?: unknown
   }
-  return pris(p[0]) === ops.introPrisId && pris(p[1]) === ops.normalPrisId
+  const p = (plan as { phases?: Fase[] } | null)?.phases
+  if (!Array.isArray(p)) return ['planen har ingen faser']
+  if (p.length !== 2) return [`planen har ${p.length} faser, ikke 2`]
+
+  const fejl: string[] = []
+  const prisId = (v: Vare | undefined) => {
+    const x = v?.price
+    return typeof x === 'string' ? x : (x as { id?: string } | undefined)?.id
+  }
+  const forventet = [ops.introPrisId, ops.normalPrisId]
+  p.forEach((f, n) => {
+    const varer = Array.isArray(f?.items) ? f.items : []
+    if (varer.length !== 1) {
+      fejl.push(`fase ${n + 1} har ${varer.length} varer, ikke 1`)
+      return
+    }
+    if (prisId(varer[0]) !== forventet[n]) {
+      fejl.push(`fase ${n + 1} har prisen ${String(prisId(varer[0]))}, ikke ${forventet[n]}`)
+    }
+    // Mangler `quantity`, er Stripes standard 1.
+    const m = varer[0]!.quantity
+    const maengde = m === undefined || m === null ? 1 : m
+    if (maengde !== 1) fejl.push(`fase ${n + 1} har mængde ${String(maengde)}, ikke 1`)
+  })
+
+  const t = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+  const s0 = t(p[0]?.start_date), e0 = t(p[0]?.end_date), s1 = t(p[1]?.start_date)
+  if (s0 === null || e0 === null) {
+    fejl.push('fase 1 mangler start_date eller end_date')
+  } else if (e0 - s0 !== INTRO_TIMER * 3600) {
+    fejl.push(`fase 1 varer ${e0 - s0} sekunder, ikke ${INTRO_TIMER * 3600}`)
+  }
+  if (s1 === null) fejl.push('fase 2 mangler start_date')
+  else if (e0 !== null && s1 !== e0) {
+    fejl.push(`fase 2 begynder ${s1}, mens fase 1 slutter ${e0}`)
+  }
+  if (p[0]?.trial === true) fejl.push('fase 1 er markeret som prøveperiode — den ville være gratis')
+  const pt = t(p[0]?.trial_end)
+  if (pt !== null && e0 !== null && pt >= e0) {
+    fejl.push('fase 1 har trial_end ved eller efter fasens slutning — hele fasen ville være gratis')
+  }
+  return fejl
 }
 
 /**
@@ -551,4 +751,141 @@ async function spejl(o: Ukendt, stempel: Date, ops: Stripeopsaetning | null): Pr
     .returning({ id: subscriptions.id })
   void ops
   return r.length ? 'behandlet' : 'forael'
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  GENBEHANDLING — den vej, HTTP-kvitteringen ikke kan vaere.
+//
+//  Ruten svarer nu 409 paa 'afventer', saa Stripe leverer igen. Men
+//  Stripes genforsoeg holder op efter sit vindue, og en haendelse, hvis
+//  forudsaetning kommer for sent, ville dermed vaere tabt. Derfor to
+//  ting, ikke én:
+//
+//    · nyttelasten GEMMES paa raekken, naar haendelsen foerste gang ses
+//    · `behandlUbehandlede()` koerer dem om fra basen, uden Stripe
+//
+//  Ingen ubehandlet haendelse kasseres nogensinde af sig selv. Staar
+//  den stadig, staar den i `stripe_events` med sin fejl og sit
+//  forsoegstal, hvor et menneske kan se den. En betaling, vi ikke har
+//  faaet bogfoert, maa ikke kunne forsvinde i tavshed.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Tager gemte, ubehandlede haendelser op igen. Kaldes af importkoerslen.
+ *
+ * Kun raekker med en gemt nyttelast kan koeres om — en raekke fra foer
+ * kolonnen fandtes har ingen krop at behandle, og vi opfinder ikke en.
+ */
+export async function behandlUbehandlede(
+  o: Stripeopsaetning | null, maks = 50,
+): Promise<{ taget: number; behandlet: number; afventer: number; fejlet: number; tilbage: number }> {
+  const ubehandlede = await db.select({
+    id: stripeEvents.id, last: stripeEvents.nyttelast,
+  }).from(stripeEvents)
+    .where(and(isNull(stripeEvents.behandletAt), isNotNull(stripeEvents.nyttelast)))
+    .orderBy(stripeEvents.stripeOprettetAt)
+    .limit(maks)
+
+  let behandlet = 0, afventer = 0, fejlet = 0
+  for (const r of ubehandlede) {
+    const h = r.last as unknown as Haendelse | null
+    if (!h || typeof h.id !== 'string' || !h.data) { fejlet++; continue }
+    try {
+      const u = await behandl(h, o)
+      if (u === 'afventer' || u === 'i_gang') afventer++
+      else behandlet++
+    } catch {
+      // `behandl()` har allerede skrevet fejlen paa raekken og frigivet
+      // kravet. Tilsynet maa ikke vaelte af én daarlig haendelse.
+      fejlet++
+    }
+  }
+
+  const [t] = await db.select({ n: count() }).from(stripeEvents)
+    .where(isNull(stripeEvents.behandletAt))
+  return { taget: ubehandlede.length, behandlet, afventer, fejlet, tilbage: t?.n ?? 0 }
+}
+
+/**
+ * Driftsindgangen. Ét kald, importkoerslen laver hver time:
+ *  1. koer ubehandlede haendelser om
+ *  2. tag skyldige betalingsplaner op igen
+ *
+ * Raekkefoelgen er ikke ligegyldig. En haendelse, der bliver faerdig i
+ * skridt 1, bogfoerer sin planskyld — og skridt 2 tager den med i den
+ * SAMME koersel i stedet for at vente en time.
+ *
+ * KASTER IKKE. Tilsynet maa ikke kunne vaelte importen.
+ */
+export async function betalingstilsyn(o: Stripeopsaetning | null): Promise<string[]> {
+  const linjer: string[] = []
+
+  if (!o) {
+    // ── UDEN STRIPE GOER TILSYNET INGENTING — OG SIGER DET ──
+    // Det er fristende at koere genbehandlingen alligevel: den er
+    // «bare» database. Men `betalt()` kan ikke afgoere, om en faktura
+    // er introprisen, naar den ikke kender priserne — og en haendelse,
+    // der blev markeret faerdig paa det grundlag, ville tage sin
+    // planskyld med sig. Tavshed her ville desuden se ud praecis som
+    // «der var ikke noget at goere».
+    const [u] = await db.select({ n: count() }).from(stripeEvents)
+      .where(isNull(stripeEvents.behandletAt))
+    const [p] = await db.select({ n: count() }).from(subscriptions)
+      .where(and(
+        isNotNull(subscriptions.planStatus),
+        ne(subscriptions.planStatus, 'konfigureret'),
+      ))
+    if (u?.n) {
+      linjer.push(`[betaling] ${u.n} ubehandlede hændelser blev IKKE taget op: `
+        + 'Stripe er ikke konfigureret i denne kørsel.')
+    }
+    if (p?.n) {
+      linjer.push(`[betaling] ${p.n} skyldige betalingsplaner kunne IKKE lægges: `
+        + 'Stripe er ikke konfigureret i denne kørsel.')
+    }
+    return linjer
+  }
+
+  try {
+    const g = await behandlUbehandlede(o)
+    if (g.taget || g.tilbage) {
+      linjer.push(
+        `[betaling] genbehandling: ${g.taget} taget · ${g.behandlet} færdige `
+        + `· ${g.afventer} afventer · ${g.fejlet} fejlede · ${g.tilbage} ubehandlede tilbage`,
+      )
+    }
+  } catch (e) {
+    linjer.push(`[betaling] genbehandling fejlede: ${(e as Error).message}`)
+  }
+  try {
+    const p = await laegManglendePlaner(o)
+    if (p.forsoegt) {
+      linjer.push(`[betaling] planer: ${p.forsoegt} forsøgt · ${p.konfigureret} konfigureret `
+        + `· ${p.fejlet} opgivet efter ${PLAN_MAX_FORSOEG} forsøg`)
+    }
+  } catch (e) {
+    linjer.push(`[betaling] planlægning fejlede: ${(e as Error).message}`)
+  }
+
+  // ── DE OPGIVNE SKAL BLIVE VED AT STAA DER ─────────────────
+  // `laegManglendePlaner` springer dem over: de har brugt deres fem
+  // forsoeg. Men «opgivet» er ikke «loest». Uden plan fornyes
+  // abonnementet til 9 kr. HVER DAG hos Stripe, og en tavs raekke i
+  // basen stopper ingenting. Linjen staar derfor i HVER kørsel, til
+  // et menneske har gjort noget ved den — se
+  // docs/betaling/betjening.md.
+  try {
+    const opgivne = await db.select({ sub: subscriptions.stripeSubscriptionId })
+      .from(subscriptions).where(eq(subscriptions.planStatus, 'fejlet')).limit(20)
+    if (opgivne.length) {
+      linjer.push(
+        `[betaling] ⚠ ${opgivne.length} abonnement(er) har INGEN bekræftet plan efter `
+        + `${PLAN_MAX_FORSOEG} forsøg og fornyes til 9 kr./DAG hos Stripe, til nogen griber ind: `
+        + opgivne.map((x) => x.sub).join(', '),
+      )
+    }
+  } catch (e) {
+    linjer.push(`[betaling] opgørelsen af opgivne planer fejlede: ${(e as Error).message}`)
+  }
+  return linjer
 }

@@ -176,6 +176,13 @@
       "when": 1788811312616,
       "tag": "0024_betaling_robusthed",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1788811312617,
+      "tag": "0025_betaling_koe",
+      "breakpoints": true
     }
   ]
 }

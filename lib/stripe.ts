@@ -26,8 +26,9 @@
 //  datoer, 28 dage giver 13 paa faste intervaller.
 //
 //  Overgangen styres af en `SubscriptionSchedule` med to faser:
-//    fase 1 · intro-prisen, `iterations: 1`  → én 24-timers periode
-//    fase 2 · normalprisen, ingen iterations → loeber videre
+//    fase 1 · intro-prisen, `duration { day, 1 }` → én 24-timers periode
+//    fase 2 · normalprisen, ingen duration       → loeber videre
+//  (`iterations` findes ikke laengere i Stripes API — se `faser()`.)
 //  Stripe skifter fase paa det praecise faseskel, saa fornyelsen faar
 //  ét entydigt tidspunkt 24 timer efter starten — og starten er, naar
 //  introbetalingen GENNEMFOERES, ikke naar betalingssiden blev aabnet.

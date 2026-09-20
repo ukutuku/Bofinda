@@ -178,3 +178,21 @@ function stedfortraeder<T extends object>(hent: () => T, maal: object): T {
 // saa stedfortraederens maal skal vaere en funktion.
 export const sql: Sql = stedfortraeder(klient, function () {})
 export const db: DrizzleDb = stedfortraeder(drizzleKlient, {})
+
+/**
+ * Raekkerne ud af et `execute()`-svar, uanset driver.
+ *
+ * postgres-js-driveren giver raekkerne som et ARRAY. PGlite-driveren,
+ * proeverne koerer paa, giver et OBJEKT med `rows`. Skrives
+ * `const [r] = await db.execute(...)` virker det derfor i produktionen
+ * og kaster «is not iterable» i proeven — eller, vaerre, omvendt.
+ *
+ * Shimmet staar HER og ikke i hvert kaldested. Det er den samme regel
+ * som alt andet i projektet: svarer to udtryk paa det samme spoergsmaal,
+ * beregnes de ét sted.
+ */
+export function raekker<T>(svar: unknown): T[] {
+  const r = (svar as { rows?: unknown } | null)?.rows
+  if (Array.isArray(r)) return r as T[]
+  return Array.isArray(svar) ? svar as T[] : []
+}

@@ -21,7 +21,9 @@ import { drift, listings, sources, subscriptions, users } from '../db/schema'
 import { FUNKTION, harBetaltAdgang, hentTilstand, maaBruge } from '../lib/adgang'
 import { levendeAbonnementer, saetTilstand } from '../lib/driftskift'
 import { behandl, periode, type Haendelse } from '../lib/webhook'
-import { faser, INTRO_OERE, NORMAL_OERE, opsaetning } from '../lib/stripe'
+import { faser, indsaetStripe, INTRO_OERE, NORMAL_OERE, opsaetning } from '../lib/stripe'
+import { startKoebFor } from '../lib/abonnement'
+import { lavFalsk } from './stripefalsk/index'
 
 let fejl = 0
 const tjek = (navn: string, ok: boolean, note = '') => {
@@ -322,10 +324,30 @@ async function koer() {
       t.indexOf('maaBruge(') < t.indexOf('db\n') + t.indexOf('await db'),
       'opslaget maa ikke koere, naar adgangen er naegtet')
   }
-  // Koebsvejen maa ikke kunne kaldes i gratis tilstand.
-  const abo = readFileSync('lib/abonnement.ts', 'utf8')
-  tjek('startKoeb afviser gratis tilstand',
-    abo.includes("hentTilstand() !== 'betaling'") && abo.includes('gratis_tilstand'))
+  // Koebsvejen maa ikke kunne kaldes i gratis tilstand. HANDLINGEN
+  // proeves, ikke kildeteksten: en tekstsoegning efter vagtens navn kan
+  // ikke se, om vagten faktisk fyrer, og den ville vaere groen paa en
+  // vagt, der stod i en gren, ingen naar.
+  {
+    await db.update(drift).set({ tilstand: 'gratis' }).where(eq(drift.id, true))
+    const falsk = lavFalsk(); indsaetStripe(falsk)
+    process.env.STRIPE_SECRET_KEY = OPS.hemmelighed
+    process.env.STRIPE_WEBHOOK_SECRET = OPS.webhookHemmelighed
+    process.env.STRIPE_PRIS_INTRO = OPS.introPrisId
+    process.env.STRIPE_PRIS_NORMAL = OPS.normalPrisId
+    const koeber = await nyBruger('koeber-gratis')
+    const svar = await startKoebFor(koeber, '/')
+    tjek('startKoeb afviser gratis tilstand',
+      !svar.ok && svar.fejl === 'gratis_tilstand', JSON.stringify(svar))
+    tjek('  og der blev IKKE oprettet en session hos Stripe',
+      falsk.antal('checkout.sessions.create') === 0,
+      'afvisningen skal ske FOER det eksterne kald, ikke efter')
+    indsaetStripe(null)
+    delete process.env.STRIPE_SECRET_KEY
+    delete process.env.STRIPE_WEBHOOK_SECRET
+    delete process.env.STRIPE_PRIS_INTRO
+    delete process.env.STRIPE_PRIS_NORMAL
+  }
 
   void listings; void kilde
 }

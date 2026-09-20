@@ -15,11 +15,11 @@ import { randomUUID } from 'node:crypto'
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { checkoutForsoeg, drift, stripeEvents, subscriptions, users } from '../db/schema'
-import { behandl, faserErRigtige, laegManglendePlaner, laegPlan, type Haendelse } from '../lib/webhook'
+import { behandl, faserErRigtige, laegManglendePlaner, laegPlan, planfejl, type Haendelse } from '../lib/webhook'
 import { abonnementForBruger, sigOpFor } from '../lib/abonnement'
 import { indsaetStripe } from '../lib/stripe'
 import { betalingsRetur } from '../lib/retur'
-import { lavFalsk, type Falsk } from './stripefalsk/index'
+import { lavFalsk, PLANSTART, type Falsk } from './stripefalsk/index'
 
 let fejl = 0
 const tjek = (n: string, ok: boolean, note = '') => {
@@ -218,15 +218,96 @@ async function koer() {
 
   console.log('\n══ 2c · et schedule-id alene beviser ikke rigtige faser ══')
   {
-    tjek('to faser med rigtige priser godkendes',
-      faserErRigtige({ phases: [{ items: [{ price: OPS.introPrisId }] },
-        { items: [{ price: OPS.normalPrisId }] }] }, OPS))
+    // En plan, som den SKAL se ud, naar Stripe laeses tilbage.
+    const rigtig = (aendring: Record<string, unknown> = {}, fase2: Record<string, unknown> = {}) => ({
+      phases: [
+        {
+          items: [{ price: OPS.introPrisId, quantity: 1 }],
+          start_date: PLANSTART, end_date: PLANSTART + 86400,
+          ...aendring,
+        },
+        {
+          items: [{ price: OPS.normalPrisId, quantity: 1 }],
+          start_date: PLANSTART + 86400,
+          ...fase2,
+        },
+      ],
+    })
+    tjek('den rigtige plan godkendes', faserErRigtige(rigtig(), OPS),
+      planfejl(rigtig(), OPS).join('; '))
     tjek('kun én fase afvises',
       !faserErRigtige({ phases: [{ items: [{ price: OPS.introPrisId }] }] }, OPS))
-    tjek('forkert pris i fase 2 afvises',
-      !faserErRigtige({ phases: [{ items: [{ price: OPS.introPrisId }] },
-        { items: [{ price: OPS.introPrisId }] }] }, OPS))
     tjek('ingen plan afvises', !faserErRigtige(null, OPS))
+
+    // ── PRISER ──
+    tjek('forkert pris i fase 2 afvises',
+      !faserErRigtige(rigtig({}, { items: [{ price: OPS.introPrisId, quantity: 1 }] }), OPS))
+
+    // ── MAENGDER · det nye ──
+    const maengde5 = rigtig({ items: [{ price: OPS.introPrisId, quantity: 5 }] })
+    tjek('mængde 5 i fase 1 afvises', !faserErRigtige(maengde5, OPS),
+      planfejl(maengde5, OPS).join('; '))
+    const maengde2 = rigtig({}, { items: [{ price: OPS.normalPrisId, quantity: 2 }] })
+    tjek('mængde 2 i fase 2 afvises', !faserErRigtige(maengde2, OPS),
+      'to gange 349 kr. er ikke prismodellen')
+    const toVarer = rigtig({
+      items: [{ price: OPS.introPrisId, quantity: 1 }, { price: OPS.normalPrisId, quantity: 1 }],
+    })
+    tjek('to varer i én fase afvises', !faserErRigtige(toVarer, OPS),
+      'en ekstra vare er en ekstra opkraevning')
+    const udenMaengde = rigtig({ items: [{ price: OPS.introPrisId }] })
+    tjek('manglende quantity laeses som Stripes standard 1 og godkendes',
+      faserErRigtige(udenMaengde, OPS), planfejl(udenMaengde, OPS).join('; '))
+
+    // ── TIDSGRAENSER · det nye ──
+    const toDoegn = rigtig({ end_date: PLANSTART + 2 * 86400 },
+      { start_date: PLANSTART + 2 * 86400 })
+    tjek('fase 1 paa TO doegn afvises', !faserErRigtige(toDoegn, OPS),
+      planfejl(toDoegn, OPS).join('; '))
+    const hul = rigtig({}, { start_date: PLANSTART + 3 * 86400 })
+    tjek('et hul mellem faserne afvises', !faserErRigtige(hul, OPS),
+      'tid uden abonnement')
+    const overlap = rigtig({}, { start_date: PLANSTART })
+    tjek('et overlap mellem faserne afvises', !faserErRigtige(overlap, OPS))
+    tjek('fase 1 uden datoer afvises',
+      !faserErRigtige({ phases: [
+        { items: [{ price: OPS.introPrisId, quantity: 1 }] },
+        { items: [{ price: OPS.normalPrisId, quantity: 1 }] },
+      ] }, OPS), 'uden tidspunkter er varigheden ikke bekraeftet')
+
+    // ── PROEVEPERIODE · en gratis fase 1 er ikke 9 kr. ──
+    const proeve = rigtig({ trial: true })
+    tjek('fase 1 som proeveperiode afvises', !faserErRigtige(proeve, OPS),
+      planfejl(proeve, OPS).join('; '))
+    const proeveslut = rigtig({ trial_end: PLANSTART + 86400 })
+    tjek('trial_end ved fasens slutning afvises', !faserErRigtige(proeveslut, OPS),
+      'hele fasen ville vaere gratis')
+
+    // ── FEJLENE SIGES, ikke bare taelles ──
+    const f = planfejl(maengde5, OPS)
+    tjek('planfejl navngiver hvad der er galt',
+      f.length === 1 && f[0]!.includes('mængde'), JSON.stringify(f))
+  }
+
+  console.log('\n══ 2c2 · laegPlan laeser Stripes UDREGNEDE faser tilbage ══')
+  {
+    falsk.nulstil()
+    const u = await bruger('2c2'); const sub = `sub_${randomUUID()}`
+    await behandl(h('checkout.session.completed',
+      { subscription: sub, client_reference_id: u, customer: `cus_2c2_${S}` }), OPS)
+    await behandl(faktura(sub, nu() + 86400), OPS)
+    const r = await raekke(sub)
+    tjek('planen bliver bekraeftet konfigureret', r?.planStatus === 'konfigureret',
+      `status=${r?.planStatus}`)
+    // Det, erstatningen gemte, er det Stripe VILLE have svaret: faser
+    // med udregnede tidspunkter, ikke de `duration`-felter, vi sendte.
+    const plan = [...falsk.planer.values()].at(-1)
+    const faser2 = plan?.phases as { start_date?: number; end_date?: number; duration?: unknown }[]
+    tjek('  fase 2 har faaet et UDREGNET start_date', typeof faser2?.[1]?.start_date === 'number')
+    tjek('  og duration er vaek, som hos Stripe', faser2?.[1]?.duration === undefined)
+    tjek('  fase 2 er aaben (ingen end_date)', faser2?.[1]?.end_date === undefined)
+    tjek('  kontrollen maaler altsaa svaret, ikke vores eget indput',
+      faserErRigtige(plan, OPS), planfejl(plan, OPS).join('; '))
   }
 
   console.log('\n══ 2d · driftstilsynet tager skyldige planer op ══')

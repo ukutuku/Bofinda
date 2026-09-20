@@ -155,9 +155,18 @@ export const subscriptions = pgTable('subscriptions', {
 export const checkoutForsoeg = pgTable('checkout_forsoeg', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  stripeSessionId: text('stripe_session_id').notNull().unique(),
+  /**
+   * NULLABLE: reservationen skrives FOER Stripe-kaldet, saa raekkens
+   * eget id kan vaere idempotensnoegle. Unikheden haandhaeves af et
+   * delvist indeks, naar feltet er sat.
+   */
+  stripeSessionId: text('stripe_session_id'),
   stripeCustomerId: text('stripe_customer_id'),
   prisId: text('pris_id').notNull(),
+  /** Sessionens status hos Stripe, som VI sidst fik den bekraeftet. */
+  stripeStatus: text('stripe_status'),
+  lukkeFejl: text('lukke_fejl'),
+  lukkeForsoeg: integer('lukke_forsoeg').notNull().default(0),
   status: koebStatusEnum('status').notNull().default('aaben'),
   oprettetAt: timestamp('oprettet_at', { withTimezone: true }).notNull().defaultNow(),
   udloeberAt: timestamp('udloeber_at', { withTimezone: true }).notNull(),
@@ -199,6 +208,13 @@ export const stripeEvents = pgTable('stripe_events', {
    * RAEKKER, ikke to BEHANDLERE.
    */
   paabegyndtAt: timestamp('paabegyndt_at', { withTimezone: true }),
+  /**
+   * Selve haendelsen. Uden den kan INTET genbehandles: ruten svarede
+   * 200 paa `afventer`, men der var ikke noget at koere om. En
+   * kvittering uden en koe bag sig kvitterer for noget, ingen kan
+   * tage op igen.
+   */
+  nyttelast: jsonb('nyttelast'),
 }, (t) => ({
   ubehandletIdx: index('stripe_events_ubehandlet_idx').on(t.behandletAt, t.modtagetAt),
 }))

@@ -32,6 +32,8 @@ export function Koebsboks({ retur, loggetInd, tilbud }: {
       ikke_logget_ind: 'Log ind først, så ved vi, hvem abonnementet hører til.',
       stripe_mangler: 'Betaling er ikke slået til endnu. Prøv igen senere.',
       har_allerede: 'Du har allerede et abonnement. Se Mit abonnement.',
+      koeb_i_gang: 'Du har allerede et køb i gang i et andet vindue. '
+        + 'Gør det færdigt dér — eller vent et øjeblik og prøv igen.',
       stripe_fejlede: 'Betalingen kunne ikke startes. Prøv igen — der er ikke trukket noget.',
     }[svar.fejl])
   }
