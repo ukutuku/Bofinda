@@ -469,7 +469,12 @@ const KORTFELTER = {
   lng: listings.lng,
   foerstSet: listings.firstSeenAt,
   hosKilden: listings.sourceCreatedAt,
-  url: listings.sourceUrl,
+  // `url: listings.sourceUrl` STOD her. Feltet blev hentet til hvert
+  // eneste kort og brugt af ingen skabelon — /go/[id] slaar selv op.
+  // Med betalingsmuren er kildens adresse et BESKYTTET felt, og et
+  // beskyttet felt, der ligger ét JSX-led fra `self.__next_f` uden at
+  // nogen har brug for det, er en laekage, der venter paa en
+  // uopmaerksom UI-aendring. Det, vi ikke henter, kan ikke slippe ud.
   kilde: sources.slug,
   kildeNavn: sources.name,
   // Kortet skal kunne skelne vores egne annoncer fra importerede. Bundet til
@@ -1528,7 +1533,9 @@ export async function hentBolig(id: string) {
       status: listings.status,
       foerstSet: listings.firstSeenAt,
       hosKilden: listings.sourceCreatedAt,
-      url: listings.sourceUrl,
+      // Kildens adresse hentes IKKE hertil. Boligsiden linker til
+      // /go/[id], som slaar den op bag muren; siden har aldrig selv
+      // brug for adressen, og saa skal den ikke have den.
       kilde: sources.slug,
       kildeNavn: sources.name,
       // Kontaktfelterne kommer KUN ud for native boliger, og betingelsen
@@ -1539,7 +1546,12 @@ export async function hentBolig(id: string) {
       // henvise til, og en annonce ingen kan svare paa er ingen annonce.
       // Se noten i CLAUDE.md om hvad der skal ske, naar betalingsmodellen
       // kommer.
-      skjult: listings.isBlurred,
+      // `skjult: listings.isBlurred` STOD her. Kolonnen skrives altid
+      // til `true` og blev laest af ingen — BRIEF'ens paastand om, at
+      // den «afgoer i API-laget om kontaktfelter returneres», var ikke
+      // sand. Samme moenster som `sources.enabled`: en knap, der ikke
+      // virker, bruges i en noedsituation. Muren staar nu ét sted, der
+      // FAKTISK laeses — `maaBruge()` i lib/adgang.ts.
       // Til visningen: en native bolig har ingen ekstern kilde at sende
       // laeseren hen til. Kontaktfelterne hentes stadig ALDRIG her — muren
       // staar i query'en, ikke i skabelonen.

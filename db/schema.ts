@@ -9,7 +9,13 @@ export const listingStatusEnum = pgEnum('listing_status', ['active', 'delisted']
 export const userRoleEnum = pgEnum('user_role', ['tenant', 'landlord', 'admin'])
 export const subStatusEnum = pgEnum('sub_status', [
   'trialing', 'active', 'past_due', 'canceled', 'expired',
+  // Stripes egne vaerdier, tilfoejet i 0021. Manglede de, kastede
+  // indsaettelsen paa en webhook, vi allerede havde kvitteret for.
+  'incomplete', 'incomplete_expired', 'paused', 'unpaid',
 ])
+
+/** GRATIS = muren er fra. BETALING = kontakt kraever abonnement. */
+export const driftTilstandEnum = pgEnum('drift_tilstand', ['gratis', 'betaling'])
 
 // Hvor praecist adressen kunne slaas op i det officielle register.
 //   unit   = enhedsadresse, inkl. etage og doer. Én bestemt bolig.
@@ -64,6 +70,12 @@ export const users = pgTable('users', {
    */
   authUserId: uuid('auth_user_id').unique(),
   stripeCustomerId: text('stripe_customer_id'),
+  /**
+   * Introduktionstilbuddet paa 9 kr. er brugt. Staar paa BRUGEREN, ikke
+   * paa abonnementet: et abonnement kan slettes, og saa ville tilbuddet
+   * kunne bruges igen. Genaktivering efter udloeb sker til normalpris.
+   */
+  introBrugtAt: timestamp('intro_brugt_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -73,11 +85,72 @@ export const subscriptions = pgTable('subscriptions', {
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   stripeSubscriptionId: text('stripe_subscription_id').notNull().unique(),
   status: subStatusEnum('status').notNull(),
-  currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }).notNull(),
+  /**
+   * Stripes PLAN for naeste traek. NULLABLE siden 0023: feltet ligger
+   * paa SubscriptionItem, ikke paa Subscription, i stripe@22 — og et
+   * tal, vi selv regnede ud, ville vaere opdigtet.
+   * Adgangen foelger `adgangTil`, ikke den her.
+   */
+  currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
   cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+
+  stripeCustomerId: text('stripe_customer_id'),
+  /** Planen, der baerer 24-timers-fasen og derefter 28-dages-fasen. */
+  stripeScheduleId: text('stripe_schedule_id'),
+  /** Prisen, abonnementet koerer paa NU. Skelner intro fra normal. */
+  stripePriceId: text('stripe_price_id'),
+  currentPeriodStart: timestamp('current_period_start', { withTimezone: true }),
+  /**
+   * ADGANGEN. Skrives KUN, naar en faktura faktisk er betalt.
+   *
+   * Ikke det samme som `currentPeriodEnd`, som er Stripes PLAN for
+   * naeste traek — den flyttes ogsaa, naar et traek mislykkes og Stripe
+   * proever igen. «Ved mislykket fornyelse gives ikke automatisk en ny
+   * betalt adgangsperiode», og det er den her kolonne, der holder det.
+   */
+  adgangTil: timestamp('adgang_til', { withTimezone: true }),
+  /**
+   * Stripes eget tidsstempel paa den nyeste haendelse, vi har skrevet.
+   * En forsinket haendelse med et AELDRE stempel afvises, saa den ikke
+   * kan genaabne et udloebet abonnement.
+   */
+  stripeOpdateretAt: timestamp('stripe_opdateret_at', { withTimezone: true }),
+  oprettetAt: timestamp('oprettet_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   userIdx: index('sub_user_idx').on(t.userId),
+  adgangIdx: index('sub_adgang_idx').on(t.userId, t.adgangTil),
+  customerIdx: index('sub_customer_idx').on(t.stripeCustomerId),
+}))
+
+/**
+ * Driftstilstanden. ÉN raekke, haandhaevet af en check-constraint paa
+ * `id`, saa «hvilken raekke gaelder» ikke bliver et nyt spoergsmaal.
+ */
+export const drift = pgTable('drift', {
+  id: boolean('id').primaryKey().default(true),
+  tilstand: driftTilstandEnum('tilstand').notNull().default('betaling'),
+  aendretAf: uuid('aendret_af').references(() => users.id),
+  aendretAt: timestamp('aendret_at', { withTimezone: true }).notNull().defaultNow(),
+  note: text('note'),
+})
+
+/**
+ * Kvittering for hver Stripe-haendelse. Primaernoeglen er Stripes eget
+ * event-id, saa en gentagelse ikke kan indsaettes to gange.
+ * `behandletAt` skelner «modtaget» fra «faerdigbehandlet»: en haendelse,
+ * der kastede undervejs, skal kunne koeres igen — ikke springes over.
+ */
+export const stripeEvents = pgTable('stripe_events', {
+  id: text('id').primaryKey(),
+  type: text('type').notNull(),
+  stripeOprettetAt: timestamp('stripe_oprettet_at', { withTimezone: true }).notNull(),
+  modtagetAt: timestamp('modtaget_at', { withTimezone: true }).notNull().defaultNow(),
+  behandletAt: timestamp('behandlet_at', { withTimezone: true }),
+  forsoeg: integer('forsoeg').notNull().default(0),
+  fejl: text('fejl'),
+}, (t) => ({
+  ubehandletIdx: index('stripe_events_ubehandlet_idx').on(t.behandletAt, t.modtagetAt),
 }))
 
 export const listings = pgTable('listings', {

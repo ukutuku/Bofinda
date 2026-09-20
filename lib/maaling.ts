@@ -105,6 +105,9 @@ export const RUTER = [
   '/', '/bolig/[id]', '/gruppe', '/lejeboliger/[slug]',
   '/bekraeft/[token]', '/afmeld/[token]', '/privatliv',
   '/udlejer', '/udlejer/boliger', '/udlejer/opret', '/udlejer/boliger/[id]',
+  // Betalingen. Ruterne er moenstre, ikke URL'er, og ingen af dem
+  // baerer et bolig-id, et beloeb eller et Stripe-id i selve stien.
+  '/abonnement', '/abonnement/kvittering', '/admin/drift',
   // Brugeromraadet. INGEN nye events — `signup_completed` og
   // `login_completed` findes i forvejen og bogfoeres nu ogsaa herfra.
   // Uden ruten ville en konto oprettet paa Min side enten forsvinde ud af
@@ -152,6 +155,12 @@ export type Haendelse = Envelope & (
   | { navn: 'source_click'; props: KildeProps }
   | { navn: 'contact_reveal'; props: KontaktProps }
   | { navn: 'contact_click'; props: KontaktklikProps }
+  // Betalingsmuren. Ingen af dem baerer beloeb, kunde-id eller
+  // abonnements-id — kun AT noget skete, og i hvilken tilstand.
+  | { navn: 'paywall_blocked'; props: MurProps }
+  | { navn: 'checkout_started'; props: MurProps }
+  | { navn: 'subscription_activated'; props: AbonnementProps }
+  | { navn: 'subscription_canceled'; props: AbonnementProps }
   | { navn: 'alert_started'; props: Tom }
   | { navn: 'alert_created'; props: AlarmProps }
   | { navn: 'alert_confirmed'; props: AlarmProps }
@@ -278,6 +287,14 @@ export interface KildeProps {
 }
 export interface KontaktProps { har_mail: boolean; har_telefon: boolean }
 export interface KontaktklikProps { maal: 'mail' | 'telefon' }
+/** Muren stoppede nogen, eller nogen begyndte et koeb. */
+export interface MurProps {
+  funktion: 'kontakt' | 'kildelink' | 'beskeder'
+  grund?: 'abonnement_kraeves' | 'login_kraeves' | 'ukendt_tilstand'
+  tilstand: 'gratis' | 'betaling'
+}
+/** Et abonnement skiftede tilstand. ALDRIG beloeb eller Stripe-id'er. */
+export interface AbonnementProps { fase?: 'intro' | 'normal' }
 export interface AlarmProps { filtertyper: string[]; antal_filtre?: number }
 export interface KontoProps { bandt_eksisterende?: boolean }
 export interface KortProps { slags: 'zoom' | 'pan' | 'maerke_klik' }
@@ -435,6 +452,22 @@ export const ALLOWLIST: Record<Eventnavn, Record<string, Spec>> = {
   },
   contact_click: {
     maal: { slags: 'tekst', kraevet: true, af: ['mail', 'telefon'] },
+  },
+  paywall_blocked: {
+    funktion: { slags: 'tekst', kraevet: true, af: ['kontakt', 'kildelink', 'beskeder'] },
+    grund: { slags: 'tekst', af: ['abonnement_kraeves', 'login_kraeves', 'ukendt_tilstand'] },
+    tilstand: { slags: 'tekst', kraevet: true, af: ['gratis', 'betaling'] },
+  },
+  checkout_started: {
+    funktion: { slags: 'tekst', kraevet: true, af: ['kontakt', 'kildelink', 'beskeder'] },
+    grund: { slags: 'tekst', af: ['abonnement_kraeves', 'login_kraeves', 'ukendt_tilstand'] },
+    tilstand: { slags: 'tekst', kraevet: true, af: ['gratis', 'betaling'] },
+  },
+  subscription_activated: {
+    fase: { slags: 'tekst', af: ['intro', 'normal'] },
+  },
+  subscription_canceled: {
+    fase: { slags: 'tekst', af: ['intro', 'normal'] },
   },
   alert_started: {},
   alert_created: {

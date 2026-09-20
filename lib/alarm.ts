@@ -632,6 +632,13 @@ export async function ryd(): Promise<RydResultat> {
       sql`not exists (select 1 from conversations t where t.tenant_id = ${users.id})`,
       sql`not exists (select 1 from conversations t where t.landlord_id = ${users.id})`,
       sql`not exists (select 1 from messages      t where t.sender_id = ${users.id})`,
+      // Tilfoejet med betalingsmodulet (0021): den admin, der sidst
+      // skiftede driftstilstand, staar paa `drift.aendret_af`. Hun har
+      // altid en konto, saa `isNull(users.authUserId)` fanger hende
+      // allerede — men listen skal vaere FULDSTAENDIG, ikke tilstraekkelig.
+      // Runde 4 i scripts/test-ryd.ts spoerger pg_constraint og blev roed,
+      // praecis som den skulle, da fremmednoeglen kom til.
+      sql`not exists (select 1 from drift         t where t.aendret_af = ${users.id})`,
     ))
     .returning({ id: users.id })
 

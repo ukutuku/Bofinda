@@ -29,6 +29,9 @@ import { Gemtkort, dato } from './Gemtkort'
 import { Konto } from '../udlejer/Konto'
 import { Kvitteringsblok } from '../udlejer/Kvitteringsblok'
 import { logUd } from '../udlejer/handlinger'
+import { mitAbonnement } from '../../lib/abonnement'
+import { hentTilstand } from '../../lib/adgang'
+import { Abonnement } from './Abonnement'
 
 export const dynamic = 'force-dynamic'
 
@@ -173,6 +176,18 @@ export default async function Side(
   // Efter hinanden, ikke i Promise.all — se noten i app/page.tsx om
   // pipelinede saetninger gennem transaction-pooleren.
   const boliger = await hentFavoritter(bruger.id)
+
+  // Abonnementet og tilstanden. Begge laeses paa SERVEREN; intet
+  // af det maa komme fra browseren.
+  const tilstand = await hentTilstand()
+  const a = tilstand === 'betaling' ? await mitAbonnement() : null
+  const abonnement = a && {
+    status: a.status, fase: a.fase,
+    naesteBeloebOere: a.naesteBeloebOere,
+    fornyesAt: a.fornyesAt ? a.fornyesAt.toLocaleString('da-DK') : null,
+    adgangTil: a.adgangTil ? a.adgangTil.toLocaleString('da-DK') : null,
+    opsagt: a.opsagt,
+  }
   const soegninger = await db.select().from(savedSearches)
     .where(eq(savedSearches.userId, bruger.id))
     .orderBy(desc(savedSearches.createdAt))
@@ -206,6 +221,15 @@ export default async function Side(
           derfor «indlogget»: «log ind herunder» ville pege paa en
           formular, der ikke staar paa denne side. */}
       <Kvitteringsblok kvittering={kvittering} visning="indlogget" kontekst="bolig" />
+
+      {/* ── Mit abonnement ───────────────────────────────────
+          Vises kun i BETALING. I gratis tilstand er der intet
+          abonnement at administrere, og en tom sektion ville rejse et
+          spoergsmaal, brugeren ikke har stillet. Datoerne formateres
+          paa SERVEREN: en klientkomponent, der kaldte
+          toLocaleString() selv, ville vise serverens tid foerst og
+          browserens bagefter, og de to er ikke altid ens. */}
+      {tilstand === 'betaling' && <Abonnement start={abonnement} />}
 
       {/* ── Gemte boliger ────────────────────────────────────── */}
       <section className="blok">

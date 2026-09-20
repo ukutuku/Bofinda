@@ -148,6 +148,27 @@
       "when": 1788811312592,
       "tag": "0020_haendelser",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1788811312613,
+      "tag": "0021_betaling",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1788811312614,
+      "tag": "0022_abonnement",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788811312615,
+      "tag": "0023_abonnement_entydighed",
+      "breakpoints": true
     }
   ]
 }
