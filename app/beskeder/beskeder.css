@@ -1,0 +1,248 @@
+/* ═══════════════════════════════════════════════════════════════
+   Beskedmodulets egen CSS.
+
+   LIGGER HER OG IKKE I app/globals.css. Modulet er sit eget område, og
+   globals.css er i forvejen 3.577 linjer, som hver eneste side betaler
+   for. Next.js' App Router tillader et stylesheet-import fra en hvilken
+   som helst komponent i `app/`, så filen følger med, når modulet
+   bruges — og kun der. `Beskedmodul.tsx` importerer den ét sted.
+
+   TOKENS ER DE FÆLLES. Farver, radier, skygger og mellemrum kommer fra
+   `:root` i globals.css. Et eget farvesæt her ville blive et andet
+   Bofinda ved første rettelse af mærkefarven.
+
+   PRÆFIKSET `bsk-` følger husets skik: `kort-` på boligkortet, `fd-` i
+   filterdialogen, `gemt-` på Min side.
+
+   ⚠ DEN GLOBALE `button`-REGEL. globals.css giver HVER `<button>`
+   accentfarvet baggrund, hvid tekst, `white-space: nowrap` og
+   `display: inline-block`. Samtalerækkerne ER knapper og skal derfor
+   nulstille alle fire — ellers bliver listen til en spalte af grønne
+   pillekapsler på én linje.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Modulets to paneler ───────────────────────────────────── */
+.bsk-modul { display: grid; gap: 16px; align-items: start; }
+
+@media (min-width: 720px) {
+  .bsk-modul { grid-template-columns: 300px minmax(0, 1fr); }
+}
+@media (min-width: 1080px) {
+  .bsk-modul { grid-template-columns: 340px minmax(0, 1fr); gap: 20px; }
+}
+
+.bsk-panel {
+  background: var(--kort); border: 1px solid var(--linje);
+  border-radius: var(--r); box-shadow: var(--skygge-flad);
+  overflow: hidden; min-width: 0;
+}
+
+.bsk-panelhoved {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; padding: 15px 18px 11px; border-bottom: 1px solid var(--linje-svag);
+}
+.bsk-paneltitel { margin: 0; font-size: 16px; font-weight: 640; }
+.bsk-paneltitel:focus-visible,
+.bsk-samtale-titel:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--r-xs);
+}
+.bsk-ulaest-i-alt { margin: 0; font-size: 12.5px; color: var(--accent); font-weight: 600; }
+
+/* ─── Samtalelisten ─────────────────────────────────────────── */
+.bsk-liste { list-style: none; margin: 0; padding: 0; }
+.bsk-raekke-baerer { margin: 0; }
+
+.bsk-raekke {
+  /* Nulstiller den globale knapregel — se noten øverst. */
+  display: grid; gap: 3px; width: 100%; text-align: left;
+  white-space: normal; background: var(--kort); color: var(--tekst);
+  border: 0; border-bottom: 1px solid var(--linje-svag); border-radius: 0;
+  font-size: 14px; font-weight: 400; padding: 12px 18px;
+  /* 44 px er gulvet for en handling, der rammes med en finger. */
+  min-height: 44px; cursor: pointer;
+}
+.bsk-raekke-baerer:last-child .bsk-raekke { border-bottom: 0; }
+.bsk-raekke:hover { background: var(--sand); }
+.bsk-raekke.er-valgt {
+  background: var(--accent-lys);
+  /* Den valgte markeres med en kant OG en baggrund. `aria-current` siger
+     det samme for den, der lytter. */
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.bsk-raekke:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.bsk-raekke-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bsk-raekke-bolig { font-weight: 620; font-size: 14.5px; overflow-wrap: anywhere; }
+/* Ulæst er TRE signaler: fed skrift, en pille og et tal. Aldrig farve alene. */
+.bsk-raekke.har-ulaest .bsk-raekke-bolig { font-weight: 730; }
+.bsk-ulaest {
+  flex: 0 0 auto; background: var(--accent); color: #fff;
+  border-radius: var(--r-pille); min-width: 21px; height: 21px; padding: 0 7px;
+  font-size: 12px; font-weight: 650; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+.bsk-raekke-modpart { font-size: 13px; color: var(--daempet); overflow-wrap: anywhere; }
+.bsk-rolle { color: var(--svag); font-weight: 400; }
+.bsk-raekke-uddrag { font-size: 13px; color: var(--daempet); overflow-wrap: anywhere; }
+.bsk-raekke-tid {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  font-size: 12px; color: var(--svag); margin-top: 2px;
+}
+.bsk-raekke-sted::before { content: '· '; }
+
+/* ─── Skelettet under indlæsning ────────────────────────────── */
+.bsk-skeletraekke { display: grid; gap: 8px; cursor: default; }
+.bsk-skeletlinje {
+  display: block; height: 10px; border-radius: var(--r-xs); background: var(--linje-svag);
+  animation: bsk-puls 1.4s ease-in-out infinite;
+}
+.bsk-skeletlinje.bred { width: 72%; }
+.bsk-skeletlinje.mellem { width: 48%; }
+.bsk-skeletlinje.smal { width: 34%; }
+@keyframes bsk-puls { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) {
+  .bsk-skeletlinje { animation: none; }
+}
+
+/* ─── Tom indbakke ──────────────────────────────────────────── */
+.bsk-tom { padding: 26px 18px 28px; }
+.bsk-tom-titel { margin: 0 0 4px; font-size: 14.5px; font-weight: 620; }
+.bsk-tom-tekst { margin: 0 0 12px; font-size: 13.5px; color: var(--daempet); }
+.bsk-tom-link { font-size: 13.5px; color: var(--accent); }
+
+/* ─── Samtalen ──────────────────────────────────────────────── */
+.bsk-samtale { display: flex; flex-direction: column; min-width: 0; }
+.bsk-samtale-hoved {
+  display: grid; gap: 2px; padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--linje-svag);
+}
+.bsk-tilbage {
+  justify-self: start; margin-bottom: 8px; min-height: 44px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.bsk-tilbage:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bsk-samtale-titel { margin: 0; font-size: 16px; font-weight: 640; overflow-wrap: anywhere; }
+.bsk-samtale-under { margin: 0; font-size: 13px; color: var(--daempet); }
+
+.bsk-traad {
+  list-style: none; margin: 0; padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 10px;
+  overflow-y: auto; overscroll-behavior: contain;
+}
+/* På en skærm står skrivefeltet fast, og tråden ruller indeni. På en
+   telefon ruller siden i stedet: et internt rullefelt inde i et
+   rullende dokument er svært at ramme med en tommelfinger. */
+@media (min-width: 720px) {
+  .bsk-traad { max-height: min(52vh, 460px); }
+}
+
+.bsk-dagskel {
+  align-self: center; font-size: 12px; color: var(--svag);
+  background: var(--bg-dyb); border-radius: var(--r-pille); padding: 2px 10px;
+  margin: 4px 0;
+}
+
+.bsk-boble {
+  max-width: 78%; border: 1px solid var(--linje); border-radius: var(--r);
+  padding: 9px 12px; background: var(--kort);
+}
+.bsk-boble.fra-mig { align-self: flex-end; background: var(--accent-lys); border-color: #d3e4dc; }
+.bsk-boble.fra-modpart { align-self: flex-start; background: var(--sand); }
+.bsk-boble-hoved {
+  display: flex; gap: 12px; justify-content: space-between; align-items: baseline;
+  margin: 0 0 3px; font-size: 12px; color: var(--daempet);
+}
+.bsk-afsender { font-weight: 650; color: var(--tekst); }
+.bsk-klokken { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bsk-boble-tekst {
+  margin: 0; font-size: 14.5px; line-height: 1.45;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.bsk-bund { height: 1px; margin: 0; }
+
+/* ─── Skrivefeltet ──────────────────────────────────────────── */
+.bsk-skriv {
+  border-top: 1px solid var(--linje-svag); padding: 12px 18px 14px;
+  background: var(--kort); position: sticky; bottom: 0;
+}
+.bsk-skriv-raekke { display: flex; gap: 8px; align-items: flex-end; }
+.bsk-felt {
+  flex: 1 1 auto; min-width: 0; font: inherit; font-size: 14.5px; line-height: 1.45;
+  padding: 10px 12px; min-height: 44px; max-height: 168px; resize: none;
+  border: 1px solid var(--linje); border-radius: var(--r-s);
+  background: #fff; color: inherit; overflow-y: auto;
+}
+.bsk-felt:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-lys);
+}
+.bsk-send { flex: 0 0 auto; min-height: 44px; padding: 8px 20px; }
+.bsk-send:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* En slukket knap skal SES slukket. Den globale regel ville ellers give
+   den fuld accentfarve, og så ligner «kan ikke sendes» «send nu».
+   `aria-disabled` og ikke `:disabled` — se noten i Samtalevisning.tsx:
+   en `disabled`-knap falder ud af tabulatorrækkefølgen. */
+.bsk-send[aria-disabled='true'],
+.bsk-send[aria-disabled='true']:hover {
+  background: var(--linje); border-color: var(--linje);
+  color: var(--svag); cursor: not-allowed;
+}
+.bsk-genvej { margin: 8px 0 0; font-size: 12px; color: var(--svag); }
+.bsk-taeller { color: var(--advarsel); font-weight: 600; }
+.bsk-taeller.over { color: var(--vaek); }
+
+.bsk-fejl {
+  display: flex; gap: 12px; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; margin: 0 0 10px; padding: 9px 11px;
+  background: var(--vaek-lys); border: 1px solid #f0d6d4; border-radius: var(--r-s);
+  font-size: 13px; color: var(--vaek);
+}
+.bsk-igen { min-height: 36px; padding: 5px 13px; font-size: 13px; }
+.bsk-igen:focus-visible { outline: 2px solid var(--vaek); outline-offset: 2px; }
+
+/* ─── Skrivebeskyttet historik ──────────────────────────────── */
+.bsk-skrivespaerre {
+  display: flex; gap: 14px; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; padding: 14px 18px;
+  border-top: 1px solid var(--linje-svag); background: var(--sand);
+}
+.bsk-skrivespaerre p { margin: 0; font-size: 13.5px; color: var(--daempet); }
+.bsk-skrivespaerre .knap {
+  min-height: 44px; display: inline-flex; align-items: center;
+}
+
+/* ─── Låst adgang ───────────────────────────────────────────── */
+.bsk-laast {
+  max-width: 520px; margin: 0 auto; text-align: center;
+  background: var(--kort); border: 1px solid var(--linje); border-radius: var(--r);
+  box-shadow: var(--skygge-flad); padding: 30px 24px 32px;
+}
+.bsk-laast-titel { margin: 0 0 8px; font-size: 18px; font-weight: 650; }
+.bsk-laast-tekst { margin: 0 0 18px; font-size: 14px; color: var(--daempet); }
+.bsk-laast-knap {
+  min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+  padding: 10px 22px;
+}
+.bsk-laast-knap:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* ─── Hentefejl og tomt højrepanel ──────────────────────────── */
+.bsk-hentefejl {
+  display: grid; gap: 10px; justify-items: start;
+  padding: 20px 18px; font-size: 13.5px; color: var(--daempet);
+}
+.bsk-hentefejl p { margin: 0; }
+.bsk-hentefejl button { min-height: 44px; }
+.bsk-hentefejl button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bsk-intet-valgt { margin: 0; padding: 30px 18px; font-size: 14px; color: var(--svag); }
+
+/* ─── 390 px ────────────────────────────────────────────────── */
+@media (max-width: 719px) {
+  /* Ét panel fylder bredden, og tråden ruller med siden. Skrivefeltet
+     bliver klæbende i bunden af vinduet, så det er der uden at rulle. */
+  .bsk-panel { border-radius: var(--r); }
+  .bsk-traad { padding: 14px 14px 10px; }
+  .bsk-boble { max-width: 88%; }
+  .bsk-raekke { padding: 12px 14px; }
+  .bsk-panelhoved, .bsk-samtale-hoved, .bsk-skriv { padding-left: 14px; padding-right: 14px; }
+  .bsk-laast { padding: 26px 18px 28px; }
+}
