@@ -134,7 +134,7 @@ det med det samme.
 
 | Kommando | Base | Hvad |
 |---|---|---|
-| `npm test` | PGlite | hele suiten, inkl. **fire** betalingsprøver |
+| `npm test` | PGlite | hele suiten, inkl. **otte** betalingsprøver |
 | `npm run test:kaploeb` | rigtig PostgreSQL, egen database | kapløbene |
 
 `scripts/test-betaling-runde3.ts` kører tredje rundes seks fund gennem
@@ -861,6 +861,195 @@ revision. Det var forkert — linjen blev skrevet, før commit'en blev
 amendet to gange mere. Slutrevisionen er `aca19df`, hvilket patch-serien
 og loggene i samme pakke angiver korrekt. Gennemgangen har ret, og det
 kræver ingen omskrivning af historik.
+
+## Syvende gennemgang: hvad en fejl må rive med sig
+
+Tre fund, alle reproduceret før rettelse — af gennemgangens egen probe
+og af mig selv gennem de faktiske indgange (`betalingstilsyn`,
+`stopForkertFornyelse`, `sigOpFor`) mod PGlite.
+
+**Grundlaget er efterprøvet mod Git,** hvilket gennemgangen udtrykkeligt
+ikke havde gjort: pakkens **39 kildefiler er byte-identiske med
+`967cd6f`**, dens `input_zip_sha256` er identisk med den ZIP, jeg
+afleverede, og dens `superseded_input_sha256` er identisk med den
+`4127be3`-ZIP, jeg selv erstattede. Grundlaget holder.
+
+De tre fund har samme form: **et kast får lov at betyde mere, end det
+gør.** I20 og I21 handlede om, hvad en skrivning må love. Q1-Q3 handler
+om, hvad en fejl må rive med sig — de andre rækker, ejerskabet over
+arbejdet, eller det, der faktisk nåede at ske.
+
+### Q1 · Én rækkes skrivefejl tømte hele køen
+
+`afstemSkyldige` kørte sin løkke uden beskyttelse pr. række.
+`afstemAbonnement` bogfører selv en Stripe-fejl; fejler **den**
+skrivning også, kaster den, og løkken stod af.
+
+Målt gennem `betalingstilsyn`: tre kunder, A forrest i køen med nærmest
+frist. A's Stripe-opslag brudt, og bogføringen af netop den fejl brudt.
+**B og C fik nul Stripe-kald i tre kørsler.** Deres skyld stod urørt,
+men ingen rørte den.
+
+Det er S5's fejl i søsterkøen. S5 rettede fornyelsesvagten i sidste
+runde; afstemningskøen havde samme form og blev ikke rettet. Det er
+præcis CLAUDE.md's «to udtryk, der svarer på det samme spørgsmål» —
+her var det to køer med samme fejl, og kun den ene blev set.
+
+Rettelsen er en vagt pr. række: fejlen tælles, rapporteres **med
+abonnementets id**, skylden bevares, og køen går videre. Vagten dækker
+også det **diagnostiske** opslag, der kun henter fejlteksten — uvagtet
+er det lige så godt til at vælte køen med. Det koster en fejltekst, ikke
+en kø.
+
+### Q2 · Manglende egen generation blev til ejerskab over andres arbejde
+
+`stopForkertFornyelse` kvitterede med
+`vorGen !== null ? eq(gen, vorGen) : sql\`true\``. Den `true` er fejlen.
+
+`besluttetAfOs` returnerer null **netop**, når kunden nåede at gemme sin
+opsigelse, mens sikkerhedsstoppet var i luften — altså præcis når vi
+ikke ejer beslutningen. Og så valgte afslutningen en ubetinget
+kvittering og kunne slette køarbejde, en anden havde registreret.
+
+Målt: kunden siger op mens stoppet er i luften, `laegPlan` registrerer
+ny, korrekt skyld — og stoppet sletter den. Planen `active` hos Stripe,
+skyld null, tre tilsynskørsler med nul kald.
+
+**Reproduktionen krævede den rigtige hook.** Mit første forsøg hang på
+`subscriptions.retrieve`, og scenariet reproducerede ikke: er bindingen
+allerede kendt, læser stoppet `subscriptionSchedules.retrieve`, og
+hooken fyrede aldrig (`gen=1` i stedet for `gen=2`). Det er værd at
+notere som fejltype: en injektion, der ikke rammer kodevejen, måler
+ingenting og ser grøn ud.
+
+Rettelsen skiller de to kendsgerninger ad, som I15 kræver.
+`cancel_at_period_end` er Stripes bekræftede sluttilstand og bogføres
+ubetinget. Kvitteringen er en påstand om udført arbejde og dækker kun
+vores egen generation. Ejer vi ingen, kvitterer vi ingenting.
+
+**Ikke bekræftet:** at rigtig Stripe accepterer det forsinkede
+create-forløb, scenariet hviler på. Det er samme antagelse som N2 i
+femte runde, og den er stadig ikke målt mod en Stripe-sandkasse.
+
+### Q3 · «Der er IKKE sket noget» om en opsigelse, der var gennemført
+
+Fangsten om `noterOpsigelse` svarede altid `ikke_gemt`, og begrundelsen
+i koden var, at skrivningen er ét statement. **Det følger ikke.**
+Atomiciteten gælder basen, ikke forbindelsen. Et tabt svar — basen
+committer, klienten får det aldrig at vide — kaster præcis som en
+afvist skrivning.
+
+Målt: beslutningen står, skylden står, tilsynet fuldfører opsigelsen hos
+Stripe (`cancel_at_period_end` sat) — og kunden har fået at vide, at der
+**ikke** er sket noget med hendes abonnement.
+
+Rettelsen er at spørge rækken. Det er netop atomiciteten, der gør den
+til et gyldigt svar: der findes ingen halv tilstand at fejllæse. Derfor
+skal skrivningen **blive** ét statement — I20 er forudsætningen for
+I24, ikke et alternativ.
+
+| Rækken siger | Svaret |
+|---|---|
+| hverken beslutning eller skyld | `ikke_gemt` — prøv igen, intet er sket |
+| begge står | som efter et kald, der lykkedes |
+| kun den ene, eller rækken kan ikke læses | `ukendt` |
+
+`ukendt` lover hverken en automatik eller siger, at intet er gemt:
+*«Vi kunne ikke få bekræftet, om din opsigelse blev gemt. Genindlæs
+siden om lidt og se under «Status»: står der, at abonnementet er opsagt
+eller undervejs, er den registreret. Står der ikke noget, så prøv igen
+— eller skriv til info@bofinda.dk.»* Knappen bliver stående, og kaldet
+er idempotent.
+
+**Det tabte svar er SIMULERET.** Der er ikke revet en forbindelse over;
+skrivningen får lov at lykkes, hvorefter der kastes i klienten.
+Modellen er den rigtige for det, rettelsen handler om, men et rigtigt
+netværksudfald er ikke målt, og det skal ikke læses som om det var.
+Prøvens filhoved siger det samme.
+
+### Modprøven
+
+Hver rettelse er rullet tilbage for sig i en separat kopi, og netop
+dens regression blev rød:
+
+| rollback | hvad der blev rødt |
+|---|---|
+| Q1 (vagt pr. række) | «B og C blev afstemt» — `Stripe=[false,false] kald=0` |
+| Q1DIAG (vagt om diagnostikken) | «B og C blev afstemt, selv om fejlteksten ikke kunne læses» |
+| Q2 (delt skrivning) | «det nyere køarbejde overlevede et stop, der ikke ejede det» — `skyldig=null` |
+| Q3 (tre udfald) | «svaret påstår ikke «intet er gemt» om noget, der ER gemt» og «svaret er «ukendt»» |
+| Q3AFSTEM (vagt om afstemningskaldet) | «kunden får et svar, ikke en kastet fejl» |
+
+Og på **rigtig PostgreSQL**: rulles Q2-rettelsen tilbage, bliver §E5
+rød — `skyldig=null gen=2 under=2`.
+
+**De to Q1-vagter har hver sin prøve, og det er med vilje.** Rulles den
+ene tilbage, bliver kun dens egen prøve rød — den anden vagt fanger
+stadig sit eget tilfælde. En fælles prøve ville have været grøn i begge
+rollbacks og målt ingenting. (Det var netop dét, der skete med S5 i
+sjette runde, hvor to redundante rettelser dækkede for hinanden.)
+
+### Kapløbet måles, hvor det kan måles
+
+§E4 fra sjette runde måler generationsvagten i **afstemningsgrenen**.
+Q2 sidder i **sikkerhedsstoppet**, og dér ejer koden ikke altid en
+generation — det er hele fundet. Derfor er `test-betaling-kaploeb.ts`
+udvidet med **§E5**: kundens opsigelse commit'er på en anden
+forbindelse, mens stoppet holder sit snapshot, og serveren afgør
+rækkefølgen. I PGlite-udgaven serialiseres hendes skrivning ind i
+hooken; her gør den ikke.
+
+**§E5 har en vagt om sig selv, og den var nødvendig.** Første udkast
+var grønt, fordi stoppet vendte om på `plan_er_rigtig`-grenen og aldrig
+nåede kvitteringen — prøven målte ingenting og så rigtig ud. Den
+hævder nu udtrykkeligt `r === 'stoppet'`. Samme fejltype som den
+forkerte hook ovenfor: **en prøve, der ikke rammer kodevejen, er grøn
+af den forkerte grund.**
+
+### En rettelse fandt en gammel utæthed ved siden af
+
+Q3's rettelse lader `sigOpFor` fortsætte til afstemningen, når
+beslutningen er læst tilbage. Det gjorde det synligt, at kaldet til
+`afstemAbonnement` aldrig har været vagtet — og `afstemAbonnement` kan
+kaste: dens egen fejlbogføring er også en skrivning, præcis som Q1
+viser. Kunden mødte da en ubehandlet fejl i stedet for en besked,
+stik imod hvad `sigOpFor`s egen kommentar lover.
+
+Vagten er sat om hele kaldet, ikke kun om den nye vej. To vagter om det
+samme kald, valgt efter hvordan man kom derhen, ville være to udtryk
+for ét spørgsmål. Svaret er `afventer`, og det er målt: enten lykkedes
+`noterOpsigelse`, eller også har vi lige læst beslutningen **og**
+skylden tilbage. `Q3d` i runde 7-prøven måler det.
+
+### Gennemgangens egen probe efter rettelse
+
+`checks/review-probe.mjs` peget på mit træ med `BOFINDA_REVIEW_SOURCE`,
+ét scenarie ad gangen med `BOFINDA_REVIEW_SCENARIO`:
+
+| scenarie | før | efter |
+|---|---|---|
+| S5 | består | **består** (exit 0) |
+| Q1 | reproducerer | **reproducerer ikke** — `otherStripeCalls` 0 → 6 |
+| Q2 | reproducerer | **reproducerer ikke** — `pendingAfterAck` false → true |
+| Q3 | reproducerer | **reproducerer ikke** — `fejl: 'ikke_gemt'` → `ok: true` |
+
+De positive kontroller består uændret i alle tre. Q3's positive
+kontrol er den vigtigste: en **afvist** skrivning svarer stadig
+`ikke_gemt`, så rettelsen har ikke gjort det svar uopnåeligt dér, hvor
+det er sandt.
+
+### Hvad der IKKE er rørt
+
+Prismodellen, den betalte adgang, GRATIS/BETALING-reglerne, M1, M2, S5
+og de tidligere rettelser står uændret. `app/beskeder/` og
+integrationskandidaten er ikke rørt.
+
+**Én navngiven udvidelse ud over de tre fund:** vagten om
+`afstemAbonnement` i `sigOpFor`, beskrevet ovenfor. Den er med, fordi
+Q3's rettelse ellers ville have åbnet en ny vej ind i en utæthed, der
+allerede var der. De dokumenterede prøvegab i §A og
+§D af `test-betaling-kaploeb.ts` er holdt særskilt og er **ikke** lukket
+i denne runde — de står stadig beskrevet ovenfor som de gab, de er.
 
 ## Det, der ikke er løst
 

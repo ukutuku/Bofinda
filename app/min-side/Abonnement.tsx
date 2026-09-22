@@ -66,6 +66,16 @@ export function Abonnement({ start }: { start: Abonnementsvisning | null }) {
       setMelding('Abonnementet er sagt op. Adgangen løber perioden ud.')
       return
     }
+    if (svar.fejl === 'ukendt') {
+      // Vi ved det ikke. Hverken «der er ikke sket noget» eller «vi
+      // prøver automatisk igen» ville være dækket — og et gæt her er
+      // et udsagn om hendes penge.
+      setMelding('Vi kunne ikke få bekræftet, om din opsigelse blev gemt. '
+        + 'Genindlæs siden om lidt og se under «Status»: står der, at '
+        + 'abonnementet er opsagt eller undervejs, er den registreret. '
+        + 'Står der ikke noget, så prøv igen — eller skriv til info@bofinda.dk.')
+      return
+    }
     if (svar.fejl === 'ikke_gemt') {
       // Der blev ikke gemt noget, og der er ingen kø. At sige «vi
       // prøver automatisk igen» ville være et løfte om en automatik,

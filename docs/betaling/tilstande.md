@@ -96,6 +96,9 @@ nyt køb, og begge blokerer et skift til GRATIS. `betalt`, `udloebet` og
 | **I19** | Et dødt abonnement er en BEKRÆFTET sluttilstand — siden lover ikke en automatik, der ikke findes |
 | **I20** | En gemt beslutning har ALTID en vej til udførelse — de to skrives i ét |
 | **I21** | En kvittering dækker kun det arbejde, den har SET. Generation, ikke tidsstempel |
+| **I22** | En kø behandler sine rækker hver for sig — også når bogføringen af en fejl fejler |
+| **I23** | Ingen egen generation er ingen kvittering. Manglende ejerskab er ikke ejerskab |
+| **I24** | «Bekræftet ikke gemt» og «ukendt udfald» er to svar. Et kast beviser ikke, at intet skete |
 | **I7** | `adgang_til` flyttes kun frem. Altid. Uden undtagelse |
 
 I7 står sidst, fordi den er den eneste, der aldrig har været brudt, og
@@ -344,6 +347,92 @@ her om, hvad en enkelt skrivning må love.
   Er generationen steget, er det ikke en fejl: vores arbejde ER gjort,
   og kunden får sit ja. Men vi har ikke set det nye, og så kan vi ikke
   sige, det er gjort.
+
+**I22 til I24 kom til efter syvende gennemgang.** De tre handler om
+det samme: hvad en fejl må rive med sig. I20 og I21 sikrede, at en
+skrivning ikke lover for meget. Her går det på, at et KAST ikke må
+lyve — hverken om de andre rækker, om hvem der ejer arbejdet, eller om
+hvad der nåede at ske.
+
+· **I22** er S5 ført over i søsterkøen. S5 rettede fornyelsesvagten, så
+  én rækkes fejl ikke tog de øvrige med. `afstemSkyldige` havde samme
+  form og blev ikke rettet: `afstemAbonnement` bogfører selv en
+  Stripe-fejl, og fejler DEN skrivning også, kaster den. Løkken stod af.
+  Målt: tre kunder, A forrest i køen med nærmest frist, A's opslag og
+  A's fejlbogføring brudt — B og C fik **nul** Stripe-kald i tre
+  kørsler. Deres skyld stod urørt, men ingen rørte den.
+
+  Vagten dækker også det **diagnostiske** opslag. Det henter kun
+  fejlteksten, så linjen kan sige, hvad der gik galt — men uvagtet er
+  det lige så godt til at vælte køen med. Det koster en fejltekst, ikke
+  en kø: linjen bærer stadig abonnementets id og siger, at teksten ikke
+  kunne læses.
+
+  **Skylden bevares i begge tilfælde.** En række, der kastede, er ikke
+  afstemt, og køen skal tage den igen.
+
+  Samme regel gælder det ENKELTE kald. `sigOpFor` kalder også
+  `afstemAbonnement`, og også dér kan den kaste — så mødte kunden en
+  ubehandlet fejl i stedet for en besked. Vagten sidder om hele
+  kaldet, ikke kun om den vej, I24 åbnede, for to vagter om samme kald
+  valgt efter hvordan man kom derhen ville være to udtryk for ét
+  spørgsmål. Svaret er `afventer`, og det er målt: beslutningen og
+  skylden står, så tilsynet tager rækken.
+
+· **I23** er I21's vagt, dér hvor den blev sat ud af kraft.
+  `stopForkertFornyelse` kvitterede med
+  `vorGen !== null ? eq(gen, vorGen) : sql\`true\``. Den `true` er
+  fejlen. `besluttetAfOs` returnerer null netop, når KUNDEN nåede at
+  gemme sin opsigelse, mens vi var i luften — altså præcis når vi ikke
+  ejer beslutningen. Og så valgte afslutningen en ubetinget kvittering
+  og kunne slette køarbejde, en anden havde registreret. Målt: den nye
+  skyld væk, planen `active` hos Stripe, tre tilsynskørsler med nul
+  kald.
+
+  Rettelsen er at skille de to kendsgerninger ad, som I15 kræver.
+  `cancel_at_period_end` er Stripes BEKRÆFTEDE sluttilstand, og den
+  bogføres ubetinget — den er sand, uanset hvem der ellers har skrevet
+  på rækken. Kvitteringen er noget andet: den er en påstand om, at
+  arbejdet er udført, og den må kun dække den generation, vi selv
+  skrev. Ejer vi ingen, kvitterer vi ingenting.
+
+  Nul ryddede rækker er ikke et bevis for, at alt er afstemt. Det
+  betyder, at nogen har registreret arbejde, vi ikke har udført.
+
+· **I24** er I20 læst ordentligt. I20 gjorde `noterOpsigelse` til ét
+  statement, og fangsten omkring den konkluderede derfra: «skrivningen
+  er atomisk, så når den kaster, landede der intet». Det følger ikke.
+  Atomiciteten gælder BASEN, ikke forbindelsen. Et tabt svar — basen
+  committer, klienten får det aldrig at vide — kaster præcis som en
+  afvist skrivning.
+
+  Så stod beslutningen, skylden stod, tilsynet fuldførte opsigelsen hos
+  Stripe — og kunden havde fået at vide, at der **ikke** var sket noget
+  med hendes abonnement. Det er I19's fejl spejlvendt endnu en gang: vi
+  lovede for lidt om noget, vi faktisk havde gjort.
+
+  Rettelsen er at spørge rækken. Det er netop atomiciteten, der gør den
+  til et gyldigt svar: der findes ingen halv tilstand at fejllæse.
+  Derfor skal skrivningen BLIVE ét statement — I20 er forudsætningen
+  for I24, ikke et alternativ til den.
+
+  Tre udfald, ikke ét:
+
+  | Rækken siger | Hvad vi ved | Svaret |
+  |---|---|---|
+  | hverken beslutning eller skyld | skrivningen landede ikke | `ikke_gemt` — prøv igen |
+  | begge står | svaret gik tabt, arbejdet er i køen | som efter et kald, der lykkedes |
+  | kun den ene, eller rækken kan ikke læses | vi ved det ikke | `ukendt` |
+
+  `ukendt` må hverken love en automatik eller sige, at intet er gemt.
+  Teksten siger derfor præcis det, den kan stå inde for: vi kunne ikke
+  få bekræftet, om opsigelsen blev gemt — se efter under «Status», prøv
+  igen hvis der ikke står noget, eller skriv til os. Knappen bliver
+  stående, og kaldet er idempotent.
+
+  **Den tredje række er den, man overser.** Den ene uden den anden kan
+  ikke komme af DENNE skrivning; den sætter begge i samme statement. Så
+  ved vi ikke, hvad vi ser, og et gæt her er et udsagn om hendes penge.
 
 ## Hvornår en plan GÆLDER
 

@@ -22,6 +22,7 @@ import { UAFSLUTTET, checkoutForsoeg, subscriptions, users } from '../db/schema'
 import { hentBrugerId } from './auth'
 import { NORMAL_OERE, fase, opsaetning, stripe, type Stripeopsaetning } from './stripe'
 import { TERMINALE, afstemAbonnement, noterOpsigelse } from './opsigelse'
+import type { Opsigelsesudfald } from './opsigelse'
 
 /** Statusser, hvor abonnementet stadig lever hos Stripe. */
 export const LEVENDE = [
@@ -727,6 +728,17 @@ export type Opsigelsessvar =
    * er N1's fejl i en ny forklaedning, og den skal holdes adskilt.
    */
   | { ok: false; fejl: 'ikke_gemt' }
+  /**
+   * Vi VED det ikke. Skrivningen fejlede, og raekken kunne ikke laeses
+   * tilbage bagefter — saa vi kan hverken sige, at noget staar, eller
+   * at intet goer.
+   *
+   * Den maa hverken slaas sammen med `ikke_gemt` eller med `afventer`.
+   * `ikke_gemt` paastaar, at intet skete; `afventer` lover en
+   * automatik. Her er begge dele ubekraeftede, og et gaet er et udsagn
+   * om hendes penge.
+   */
+  | { ok: false; fejl: 'ukendt'; adgangTil: Date | null }
   | { ok: false; fejl: 'ikke_logget_ind' | 'intet_abonnement' | 'stripe_mangler' }
 
 /**
@@ -780,11 +792,45 @@ export async function sigOpFor(brugerId: string): Promise<Opsigelsessvar> {
   try {
     await noterOpsigelse(a.stripeId)
   } catch {
-    // IKKE `afventer`. Skrivningen er ét statement, saa naar den
-    // fejler, staar hverken beslutningen eller skylden — og saa er
-    // «vi proever automatisk igen» et loefte om en automatik, der
-    // ikke findes. Hun skal trykke igen, og det skal hun have at vide.
-    return { ok: false, fejl: 'ikke_gemt' }
+    // ── ET KAST ER IKKE ET BEVIS FOR, AT INTET SKETE ────────
+    // Her stod `ikke_gemt` ubetinget, og det var for staerkt et
+    // udsagn. Skrivningen er ÉT statement: den lander helt eller slet
+    // ikke. Men et tabt svar — forbindelsen falder, EFTER basen har
+    // committet — kaster PRAECIS som en afvist skrivning. Beslutningen
+    // og skylden staar da i raekken, tilsynet fuldfoerer opsigelsen, og
+    // «der er IKKE sket noget med dit abonnement» er saa usandt.
+    //
+    // Det er atomiciteten, der goer raekken til et gyldigt svar: der
+    // findes ingen halv tilstand at fejllaese. Derfor laeses den
+    // tilbage, og derfor skal skrivningen BLIVE ét statement.
+    let staar: { opsagt: Date | null; skyldig: Date | null } | undefined
+    try {
+      ;[staar] = await db.select({
+        opsagt: subscriptions.opsagtAfKundeAt,
+        skyldig: subscriptions.afstemningSkyldigAt,
+      }).from(subscriptions)
+        .where(eq(subscriptions.stripeSubscriptionId, a.stripeId)).limit(1)
+    } catch {
+      // Vi kunne ikke engang se efter. Saa siger vi det.
+      return { ok: false, fejl: 'ukendt', adgangTil: a.adgang }
+    }
+    if (!staar) return { ok: false, fejl: 'ukendt', adgangTil: a.adgang }
+
+    // Hverken beslutning eller skyld: skrivningen landede ikke. Det er
+    // det eneste tilfaelde, hvor «der er ikke sket noget» er maalt.
+    // Der er heller ingen koe at haenge et loefte om automatik paa.
+    if (!staar.opsagt && !staar.skyldig) return { ok: false, fejl: 'ikke_gemt' }
+
+    // Den ene uden den anden. Det kan ikke komme af DENNE skrivning —
+    // den saetter begge i samme statement — saa vi ved ikke, hvad vi
+    // ser, og om tilsynet tager den. Vi lover ingen af delene.
+    if (!staar.opsagt || !staar.skyldig) {
+      return { ok: false, fejl: 'ukendt', adgangTil: a.adgang }
+    }
+
+    // Begge staar: skrivningen ER landet, og det var svaret, der gik
+    // tabt. Tilstanden er den samme som efter et kald, der lykkedes,
+    // saa vi fortsaetter som efter et kald, der lykkedes.
   }
 
   // Afstemningen henter sin hensigt fra raekken, og beslutningen er
@@ -794,7 +840,22 @@ export async function sigOpFor(brugerId: string): Promise<Opsigelsessvar> {
   // `false`: hendes eget tryk er ikke et koeforsoeg. Taltes det med,
   // ville tre mislykkede tryk skubbe hendes egen opsigelse bagud i
   // koeen — hun ville blive straffet for at proeve.
-  const u = await afstemAbonnement(o, a.stripeId, false)
+  // ── OGSAA AFSTEMNINGEN KAN KASTE ────────────────────────
+  // Den bogfoerer selv en Stripe-fejl, og fejler DEN skrivning ogsaa,
+  // kaster den — samme form som Q1 i koeen. Uden vagten her moedte
+  // kunden en ubehandlet fejl i stedet for en besked, og det er
+  // noejagtig det, kommentaren ovenfor lover at den ikke goer.
+  //
+  // Svaret er `afventer`, og det er MAALT, ikke gaettet: enten
+  // lykkedes `noterOpsigelse`, eller ogsaa har vi lige laest
+  // beslutningen OG skylden tilbage. Raekken staar i koeen, og
+  // tilsynet tager den.
+  let u: Opsigelsesudfald
+  try {
+    u = await afstemAbonnement(o, a.stripeId, false)
+  } catch {
+    return { ok: false, fejl: 'afventer', adgangTil: a.adgang }
+  }
 
   // ── TO SLAGS «IKKE FAERDIG», OG KUN DEN ENE ER EN FEJL ──
   // `bekraeftet_ikke_bogfoert` betyder, at STRIPE har opsigelsen — der

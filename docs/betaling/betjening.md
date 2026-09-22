@@ -193,6 +193,55 @@ og der skal ikke gøres noget.
 igangværende kørsel kvittere arbejde, den ikke har udført — præcis det,
 tælleren findes for at forhindre.
 
+### Når selve afstemningen kaster
+
+To linjer kommer kun, når noget andet end Stripe gik galt:
+
+    sub_xxx: afstemningen kastede — <fejltekst>
+    sub_xxx: kunne ikke afstemmes, og fejlteksten kunne ikke læses
+
+Den første betyder, at `afstemAbonnement` selv røg på en fejl — typisk
+en databasefejl, mens den skulle bogføre Stripes svar. Den anden
+betyder, at afstemningen gik galt **og** at opslaget, der skulle hente
+fejlteksten, også gik galt.
+
+**Begge dele koster netop den ene række.** Køen fortsætter, de øvrige
+rækker afstemmes, og den ramte række beholder sin skyld og tages igen
+næste kørsel. Sådan var det ikke før: løkken stod af på den første
+række, der kastede, og resten af køen fik intet forsøg — tavst.
+
+**Det betyder for dig:** ser du linjen én gang, er der ikke noget at
+gøre; næste kørsel tager rækken. Kommer den kørsel efter kørsel på den
+samme række, er det ikke Stripe, der er nede — så er det vores egen
+base eller den række, der er noget galt med. `afstemning_forsoeg`
+stiger ikke nødvendigvis, netop fordi den skrivning er den, der
+fejler, så tæl linjerne i loggen i stedet.
+
+### Når en kunde siger, at opsigelsen ikke blev gemt
+
+Har hun set beskeden
+
+> *Vi kunne ikke få bekræftet, om din opsigelse blev gemt. Genindlæs
+> siden om lidt og se under «Status»: står der, at abonnementet er
+> opsagt eller undervejs, er den registreret. Står der ikke noget, så
+> prøv igen — eller skriv til info@bofinda.dk.*
+
+så ved **vi** det heller ikke. Skrivningen fejlede, og rækken kunne
+ikke læses tilbage bagefter. Slå abonnementet op og se på de tre felter
+i tabellen nedenfor:
+
+- står `opsagt_af_kunde_at` og `afstemning_skyldig_at` begge, er
+  opsigelsen registreret, og tilsynet fuldfører den. Sig det til hende.
+- står ingen af dem, er der ikke sket noget. Hun skal trykke igen.
+- står kun den ene, er det en tilstand, der ikke kan opstå af den
+  normale vej — de skrives i ét statement. Notér rækken og se efter,
+  om nogen har rettet i basen i hånden.
+
+Beskeden **«Vi kunne ikke gemme din opsigelse lige nu, og der er IKKE
+sket noget med dit abonnement»** er noget andet: dér har vi målt, at
+rækken er urørt. Hun skal trykke igen, og der er ikke en kø, der
+arbejder videre.
+
 ### Tre ting, der ikke er det samme
 
 Rækken bærer **tre adskilte kendsgerninger**, og hele afsnittet her

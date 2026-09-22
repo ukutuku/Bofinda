@@ -1529,17 +1529,40 @@ export async function stopForkertFornyelse(
   // tidsstempel ogsaa — og «Opsagt» vinder paa skaermen, fordi hendes
   // forfatterskab er det oeverste led i kaskaden. `cancel_at_period_end`
   // er sat enten vej.
-  // ── OG KVITTÉR VORES EGEN SKYLD, BETINGET ───────────────
-  // `besluttetAfOs` skrev baade beslutningen og koearbejdet. Naar
-  // indgrebet er lykkedes, er det arbejde gjort — men kun DET. Kom der
-  // nyt, mens vi var i luften, er generationen steget, og saa staar
-  // skylden. Samme vagt som i `afstemAbonnement`, af samme grund.
+  // ── TO KENDSGERNINGER, TO SKRIVNINGER ───────────────────
+  // De laa i ÉN, og vagten var
+  // `vorGen !== null ? eq(gen, vorGen) : sql\`true\``. Den `true` er
+  // fejlen: `besluttetAfOs` returnerer null, naar KUNDEN naaede at
+  // gemme sin opsigelse, mens vi var i luften — altsaa netop naar vi
+  // IKKE ejer beslutningen. Og saa valgte afslutningen en ubetinget
+  // kvittering og kunne slette koearbejde, en anden havde registreret.
+  // Maalt: den nye skyld forsvandt, planen stod `active` hos Stripe,
+  // og tre tilsynskoersler gjorde nul kald.
+  //
+  // MANGLENDE EGEN GENERATION ER IKKE EJERSKAB OVER ANDRES ARBEJDE.
+  // Det er det modsatte: ejer vi ingen generation, har vi intet at
+  // kvittere.
+
+  // 1 · Kendsgerningen. Stripe HAR svaret, og det er vores at bogfoere,
+  //     uanset hvem der ellers har skrevet paa raekken.
   await db.update(subscriptions)
-    .set({ cancelAtPeriodEnd: true, ...RYD_SAET, updatedAt: new Date() })
-    .where(and(
-      eq(subscriptions.stripeSubscriptionId, subId),
-      vorGen !== null ? eq(subscriptions.afstemningGen, vorGen) : sql`true`,
-    ))
+    .set({ cancelAtPeriodEnd: true, updatedAt: new Date() })
+    .where(eq(subscriptions.stripeSubscriptionId, subId))
+
+  // 2 · Kvitteringen. KUN den generation, vi selv skrev. Ejer vi ingen,
+  //     kvitterer vi ingenting, og skylden staar — den er en andens,
+  //     og afstemningen tager den.
+  if (vorGen !== null) {
+    await db.update(subscriptions)
+      .set({ ...RYD_SAET, updatedAt: new Date() })
+      .where(and(
+        eq(subscriptions.stripeSubscriptionId, subId),
+        eq(subscriptions.afstemningGen, vorGen),
+      ))
+    // Nul raekker er ikke et bevis for, at alt er afstemt — det
+    // betyder, at nogen har registreret arbejde, vi ikke har udfoert.
+    // Skylden staar, og det er det rigtige.
+  }
   return 'stoppet'
 }
 

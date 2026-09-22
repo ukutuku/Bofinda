@@ -715,7 +715,24 @@ export async function afstemSkyldige(
   let afstemte = 0, fejlede = 0, nytArbejde = 0
   const detaljer: string[] = []
   for (const r of raekker) {
-    const u = await afstemAbonnement(ops, r.sub)
+    // ── ÉN RAEKKE MAA IKKE TAGE DE OEVRIGE MED SIG ────────
+    // `afstemAbonnement` bogfoerer selv en Stripe-fejl. Fejler DEN
+    // skrivning ogsaa, kaster den — og uden den her vagt stoppede
+    // loekken, saa resten af koeen fik intet forsoeg. Maalt: tre
+    // kunder, den foerste med naermest frist; A's opslag fejler og
+    // bogfoeringen af fejlen fejler med, og B og C fik NUL kald i tre
+    // koersler. Deres skyld stod urørt, men ingen rørte den.
+    //
+    // Det er noejagtig samme fejl som S5 i fornyelsesvagten, i
+    // soesterkoeen. Den blev rettet ét sted og ikke det andet.
+    let u: Opsigelsesudfald
+    try {
+      u = await afstemAbonnement(ops, r.sub)
+    } catch (e) {
+      fejlede++
+      detaljer.push(`${r.sub}: afstemningen kastede — ${(e as Error).message.slice(0, 160)}`)
+      continue
+    }
     if (u === 'nyt_arbejde') {
       // Vores arbejde lykkedes; der kom bare mere. Det er hverken
       // «afstemt» eller «kunne ikke» — og at kalde det det ene ville
@@ -723,10 +740,18 @@ export async function afstemSkyldige(
       nytArbejde++
     } else if (u === 'ikke_bekraeftet' || u === 'bekraeftet_ikke_bogfoert') {
       fejlede++
-      const [n] = await db.select({ f: subscriptions.afstemningFejl,
-        forsoeg: subscriptions.afstemningForsoeg })
-        .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, r.sub)).limit(1)
-      detaljer.push(`${r.sub}: ${n?.f ?? 'ukendt'} (forsøg ${n?.forsoeg ?? '?'})`)
+      // ── OGSAA DIAGNOSTIKKEN SKAL KUNNE FEJLE ──────────
+      // Det her opslag findes kun for at kunne SIGE hvad der gik galt.
+      // Kaster det, maa det ikke tage de oevrige raekker med sig —
+      // saa mister vi en fejltekst, ikke en koe.
+      try {
+        const [n] = await db.select({ f: subscriptions.afstemningFejl,
+          forsoeg: subscriptions.afstemningForsoeg })
+          .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, r.sub)).limit(1)
+        detaljer.push(`${r.sub}: ${n?.f ?? 'ukendt'} (forsøg ${n?.forsoeg ?? '?'})`)
+      } catch {
+        detaljer.push(`${r.sub}: kunne ikke afstemmes, og fejlteksten kunne ikke læses`)
+      }
     } else {
       afstemte++
     }

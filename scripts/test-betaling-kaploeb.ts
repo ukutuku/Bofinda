@@ -706,6 +706,107 @@ try {
       `skyldig=${efter?.skyldig}`)
   }
 
+  // ═══ E5 · STOPPET KVITTERER IKKE ET ARBEJDE, DET IKKE EJER ═══
+  console.log('\n══ E5 · sikkerhedsstoppet rydder ikke en ANDEN forbindelses arbejde ══')
+  {
+    // Syvende gennemgangs Q2. E2 måler, at stoppet ikke melder fejl på
+    // et kapløb, det tabte. Den her måler det næste led: taber det
+    // kapløbet, ejer det ingen generation — og så må det ikke kvittere.
+    //
+    // Vagten var `vorGen !== null ? eq(gen, vorGen) : sql`true``.
+    // `besluttetAfOs` returnerer null NETOP, når kunden nåede at gemme
+    // sin opsigelse først, så `true` blev valgt præcis dér, hvor vi
+    // mindst ejede beslutningen.
+    //
+    // Forskellen fra PGlite-udgaven i `test-betaling-runde7.ts`:
+    // dér serialiseres hendes skrivning ind i hooken. Her commit'er
+    // den på en ANDEN forbindelse, mens stoppet holder sit snapshot,
+    // og serveren afgør rækkefølgen.
+    const u = await bruger('e5')
+    const sub = `sub_${randomUUID()}`
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false })
+    await behandl(h('checkout.session.completed',
+      { subscription: sub, client_reference_id: u, customer: 'cus_e5' }), OPS)
+    await behandl(h('invoice.paid', {
+      subscription: sub, customer: 'cus_e5',
+      lines: { data: [{ period: { start: nu(), end: nu() + 86400 },
+        pricing: { price_details: { price: OPS.introPrisId } } }] },
+    }), OPS)
+    // Fornyelsen er nær, og planen står uafklaret: det er indgangen
+    // til sikkerhedsstoppet.
+    await db.update(subscriptions)
+      .set({ planStatus: 'fejlet', planFejl: 'svaret gik tabt', planForsoeg: 5,
+             adgangTil: new Date(Date.now() + 20 * 60_000),
+             currentPeriodEnd: new Date(Date.now() + 20 * 60_000) })
+      .where(eq(subscriptions.stripeSubscriptionId, sub))
+    const [foer] = await db.select({
+      adgang: subscriptions.adgangTil, plan: subscriptions.stripeScheduleId,
+    }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+    // Og planen er FAKTISK forkert. Uden det vender stoppet om på
+    // `plan_er_rigtig`-grenen og når aldrig frem til kvitteringen —
+    // så ville prøven være grøn uden at have rørt det, den måler.
+    // (Målt: den var det, og den svarede `plan_er_rigtig`.)
+    falsk.planer.get(foer!.plan!)!.phases = []
+
+    // PORTEN sidder på PLANOPSLAGET. Det er dét, stoppet laver, når
+    // bindingen allerede er kendt — og det ligger FØR `besluttetAfOs`,
+    // så hendes skrivning når at gøre vores egen betingede.
+    const iStripe = aftale(); const erNaaet = aftale()
+    const rigtigHent = (falsk.subscriptionSchedules as
+      { retrieve: (id: string) => Promise<unknown> }).retrieve
+      .bind(falsk.subscriptionSchedules)
+    let foerste = true
+    ;(falsk.subscriptionSchedules as Record<string, unknown>).retrieve =
+      async (id: string) => {
+        const svar = await rigtigHent(id)
+        if (foerste) { foerste = false; erNaaet.slip(); await iStripe.naaet }
+        return svar
+      }
+
+    const stop = stopForkertFornyelse(OPS, sub, 'prøvens egen grund')
+    await erNaaet.naaet
+    // Hun siger op — på en anden forbindelse, mens stoppet holder.
+    const hendes = await sigOpFor(u)
+    // Og derefter registreres nyt, korrekt arbejde, præcis som
+    // `laegPlan` gør, når dens forsinkede `create` vender tilbage.
+    await skyldAfstemning(sub, 'planen blev lagt, mens kunden sagde op')
+    const [under] = await db.select({ gen: subscriptions.afstemningGen })
+      .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+    iStripe.slip()
+    const r = await stop
+    ;(falsk.subscriptionSchedules as Record<string, unknown>).retrieve = rigtigHent
+
+    const [e5] = await db.select({
+      skyldig: subscriptions.afstemningSkyldigAt, gen: subscriptions.afstemningGen,
+      opsagt: subscriptions.cancelAtPeriodEnd, opsagtAf: subscriptions.opsagtAfKundeAt,
+      adgang: subscriptions.adgangTil,
+    }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+
+    tjek('hendes opsigelse gik igennem', hendes.ok === true, JSON.stringify(hendes))
+    // VAGTEN OM PRØVEN SELV: nåede stoppet overhovedet frem til
+    // kvitteringen? `plan_er_rigtig` og `allerede` vender om før den.
+    tjek('  stoppet nåede frem til kvitteringen', r === 'stoppet', `r=${r}`)
+    // KERNEN: arbejdet blev registreret af en ANDEN, og stoppet ejer
+    // ingen generation. Så står skylden.
+    tjek('  det NYERE køarbejde overlevede stoppet',
+      e5?.skyldig !== null, `skyldig=${e5?.skyldig} gen=${e5?.gen} under=${under?.gen}`)
+    tjek('  generationen er urørt af stoppet',
+      e5?.gen === under?.gen, `under=${under?.gen} efter=${e5?.gen}`)
+    // … OG skellet holder: den bekræftede Stripe-tilstand er bogført.
+    tjek('  men den BEKRÆFTEDE Stripe-tilstand er bogført',
+      e5?.opsagt === true, `cancel_at_period_end=${e5?.opsagt}`)
+    tjek('  HENDES forfatterskab står', !!e5?.opsagtAf)
+    tjek('  KUNDENS BETALTE ADGANG ER URØRT',
+      e5?.adgang?.getTime() === foer?.adgang?.getTime())
+
+    // Og tilsynet gør resten færdigt — skylden er ikke en blindgyde.
+    await betalingstilsyn(OPS)
+    const [efter] = await db.select({ skyldig: subscriptions.afstemningSkyldigAt })
+      .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+    tjek('  tilsynet tager den op og indfrier den',
+      efter?.skyldig === null, `skyldig=${efter?.skyldig}`)
+  }
+
   // ═══ F · OPSIGELSE MOD ET IGANGVAERENDE PLANKALD ═════════
   console.log('\n══ F · opsigelse mod et planlægningskald i luften ══')
   {
