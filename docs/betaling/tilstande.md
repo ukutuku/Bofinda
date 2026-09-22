@@ -67,7 +67,7 @@ blev åbnet oven i et, der netop var gennemført.
 nyt køb, og begge blokerer et skift til GRATIS. `betalt`, `udloebet` og
 `afbrudt` er terminale.
 
-## De ti invarianter
+## De fjorten invarianter
 
 | # | Invariant |
 |---|---|
@@ -80,6 +80,10 @@ nyt køb, og begge blokerer et skift til GRATIS. `betalt`, `udloebet` og
 | **I8** | En modtaget betaling markeres aldrig færdig uden at være bogført |
 | **I9** | Vi tager ikke en plan eller en fornyelse fra nogen på et grundlag, vi ikke kunne bekræfte |
 | **I10** | En stoppet fornyelse startes kun igen af et menneske |
+| **I11** | En hændelse markeres aldrig færdig, fordi dens forudsætning mangler |
+| **I12** | En opsigelse er genoptagelig: beslutningen skrives før de eksterne kald |
+| **I13** | En plan gælder kun, når Stripe siger, den styrer netop dette abonnement |
+| **I14** | Kundens opsigelse ophæves hverken af en forsinket spejling eller af automatik |
 | **I7** | `adgang_til` flyttes kun frem. Altid. Uden undtagelse |
 
 I7 står sidst, fordi den er den eneste, der aldrig har været brudt, og
@@ -102,6 +106,44 @@ selv.** De hører sammen to og to med noget, vi allerede havde:
   normalprisen **og** en opsigelse, hun ikke har bedt om. Den dyreste
   af de to var den, der ikke afstemte.
 
+**I11 til I14 kom til efter fjerde gennemgang**, og de hænger sammen
+to og to med noget, vi allerede havde:
+
+· **I11** er I5 ført ét skridt videre. I5 siger, at en hændelse ikke må
+  fortrænges; I8, at den ikke må afsluttes, når arbejdet ikke blev
+  gjort. I11 siger, at den heller ikke må afsluttes, når
+  **forudsætningen ikke var der.** `spejl()` svarede `forael` både på
+  «din spejling er forældet» og på «der er ingen række at spejle i» —
+  to vidt forskellige ting, og den ene betyder «prøv igen senere».
+  En `customer.subscription.deleted`, der ankom før sin checkout, blev
+  derfor kvitteret og kasseret; bagefter stod rækken `active`, mens
+  Stripe sagde `canceled`, og kontoen var låst ude med `har_allerede`.
+  Stripe garanterer ingen rækkefølge.
+
+· **I12** er «skriv skylden, før du udfører» — det samme som
+  `planStatus: 'mangler'` — anvendt på opsigelsen. Uden et anker var
+  der intet at genoptage fra: `release` lykkedes hos Stripe, den lokale
+  skrivning fejlede, og hvert genforsøg døde på et `release` af den
+  plan, Stripe allerede havde sluppet, længe før det nåede
+  `cancel_at_period_end`. Kunden sad fast på et abonnement, hun havde
+  sagt op.
+
+· **I13** er I9 gjort præcis. I9 sagde «afstem, før du tager noget fra
+  nogen». Men afstemningen målte kun **faserne** — og en frigivet plan
+  beholder sine faser; Stripe fjerner kun dens `subscription`. Derfor
+  svarede sikkerhedskontrollen «planen er rigtig» om en plan, der ikke
+  styrede noget, og skrev `konfigureret` på den. En plan gælder, når
+  dens status er `active` eller `not_started` **og** dens
+  `subscription` er vores.
+
+· **I14** er I10 for kunden i stedet for for systemet. I10 beskyttede
+  systemets eget sikkerhedsstop mod at blive ophævet af automatikken.
+  Kundens almindelige opsigelse havde ingen tilsvarende beskyttelse: en
+  forsinket `subscription.updated` kunne skrive flaget tilbage til
+  false, og både tilsynet og en forsinket faktura kunne sende nye
+  `subscriptionSchedules.create`/`update` ind i den betalingsplan, hun
+  netop havde afmeldt.
+
 **I2 blev brudt igen, og på en ny måde.** Vagten var altid formuleret
 som «ingen `aaben` række → ingen betaling kan lande». Men rækkens
 `status` svarer på «må kontoen starte noget nyt?», mens sessionen hos
@@ -117,6 +159,25 @@ kaldet, aldrig efter.
   næste time og markerede den `konfigureret`, mens basen og «Mit
   abonnement» blev ved med at sige, at der ikke bliver trukket mere. To
   kilder, der modsiger hinanden om kundens penge.
+
+## Hvornår en plan GÆLDER
+
+Det er to spørgsmål, ikke ét, og de har hver sit svar:
+
+| Spørgsmål | Svares af |
+|---|---|
+| Er faserne dem, vi bad om? | `faserErRigtige` / `planfejl` (`lib/webhook.ts`) |
+| Styrer planen stadig dette abonnement? | `planGaelder` (`lib/opsigelse.ts`) |
+
+En plan er kun gyldig, når **begge** svarer ja. Det står i Stripes egne
+typer, ikke i en formodning: `release` virker kun på `not_started` og
+`active`, og en frigivet plan får sin `subscription` fjernet — id'et
+flyttes til `released_subscription`
+(`SubscriptionSchedules.d.ts:39, :104-116, :267`).
+
+Konsekvensen er, at `stripe_schedule_id` hos os er en **bogføring**,
+ikke en kendsgerning. Før hver handling på en plan — slippe den,
+bekræfte den, bygge videre på den — slås den op hos Stripe.
 
 ## Bindingerne mellem enhederne
 

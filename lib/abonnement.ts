@@ -21,6 +21,7 @@ import type Stripe from 'stripe'
 import { UAFSLUTTET, checkoutForsoeg, subscriptions, users } from '../db/schema'
 import { hentBrugerId } from './auth'
 import { NORMAL_OERE, fase, opsaetning, stripe, type Stripeopsaetning } from './stripe'
+import { fuldfoerOpsigelse, noterOpsigelse } from './opsigelse'
 
 /** Statusser, hvor abonnementet stadig lever hos Stripe. */
 export const LEVENDE = [
@@ -729,35 +730,32 @@ export async function sigOpFor(brugerId: string): Promise<Opsigelsessvar> {
   const o = opsaetning()
   if (!o) return { ok: false, fejl: 'stripe_mangler' }
 
-  try {
-    const s = stripe(o)
-    if (a.plan) {
-      // ── OPSIGELSE MED EN AKTIV PLAN ────────────────────────
-      // Styres abonnementet af en SubscriptionSchedule, er det planen,
-      // der bestemmer faserne. Sætter man `cancel_at_period_end` direkte
-      // paa abonnementet, kan planen skrive det om ved naeste faseskift
-      // — og kunden blive traekt igen, efter hun sagde op. Derfor
-      // slippes planen FOERST; derefter er abonnementet sit eget, og
-      // opsigelsen bider.
-      //
-      // `release` afslutter planen UDEN at opsige abonnementet — det er
-      // netop pointen: den allerede betalte periode skal loebe ud.
-      // IKKE `cancel`, som ville afslutte abonnementet med det samme og
-      // tage en periode, kunden har betalt for.
-      await s.subscriptionSchedules.release(a.plan)
-      await db.update(subscriptions)
-        .set({ stripeScheduleId: null, planStatus: null })
-        .where(eq(subscriptions.stripeSubscriptionId, a.stripeId))
-    }
-    await s.subscriptions.update(a.stripeId, { cancel_at_period_end: true })
-  } catch {
-    return { ok: false, fejl: 'stripe_fejlede' }
-  }
-  // Vi skriver flaget her OG spejler det igen fra webhooken. Uden det
-  // foerste ville siden vise «fornyes» lige efter, hun sagde op.
-  await db.update(subscriptions)
-    .set({ cancelAtPeriodEnd: true, updatedAt: new Date() })
-    .where(eq(subscriptions.stripeSubscriptionId, a.stripeId))
+  // ── BESLUTNINGEN SKRIVES FOERST ──────────────────────────
+  // Foer et eneste eksternt kald. Det er ankeret, der goer resten
+  // genoptagelig: knaekker opsigelsen midtvejs — `release` lykkedes,
+  // den lokale skrivning fejlede — staar beslutningen stadig, og
+  // `fuldfoerSkyldigeOpsigelser` tager den op igen i naeste
+  // tilsynskoersel. Foer stod der intet at genoptage FRA, og kunden
+  // sad fast: hvert genforsoeg doede paa et `release` af en plan,
+  // Stripe allerede havde sluppet, laenge foer det naaede
+  // `cancel_at_period_end`.
+  //
+  // Beslutningen spaerrer samtidig automatisk planlaegning og kan ikke
+  // ryddes af en forsinket spejling. Se `opsagtAfKundeAt` i skemaet.
+  await noterOpsigelse(a.stripeId)
+
+  // Selve arbejdet ligger ÉT sted, delt med tilsynet. To
+  // implementeringer af «slip planen og saet cancel_at_period_end»
+  // ville vaere praecis den drift, CLAUDE.md advarer imod — og de to,
+  // der fandtes, var uenige om, hvornaar en plan overhovedet kan
+  // slippes.
+  const u = await fuldfoerOpsigelse(o, a.stripeId)
+  // KUN et aegte nej fra Stripe er en fejl for kunden. Naaede vores
+  // egen bogfoering ikke at blive skrevet, er opsigelsen stadig i
+  // kraft dér, hvor pengene er — og «Mit abonnement» siger det
+  // rigtige, fordi beslutningen blev noteret foerst. Tilsynet skriver
+  // raekken hjem.
+  if (u === 'stripe_fejlede') return { ok: false, fejl: 'stripe_fejlede' }
   return { ok: true, adgangTil: a.adgang }
 }
 
@@ -811,6 +809,7 @@ export async function abonnementForBruger(brugerId: string): Promise<Abonnements
     opsagt: subscriptions.cancelAtPeriodEnd, plan: subscriptions.stripeScheduleId,
     planStatus: subscriptions.planStatus,
     stoppet: subscriptions.fornyelseStoppetAt,
+    opsagtAf: subscriptions.opsagtAfKundeAt,
   }
   const [levende] = await db.select(felter).from(subscriptions)
     .where(and(
@@ -828,12 +827,20 @@ export async function abonnementForBruger(brugerId: string): Promise<Abonnements
   const a = nyeste
   if (!a) return null
 
+  // ── HENDES EGEN BESLUTNING TAELLER MED ───────────────────
+  // `cancel_at_period_end` er Stripes felt, og vi spejler det. Naaede
+  // vores egen skrivning ikke igennem — eller ankom en forsinket
+  // haendelse — maa siden alligevel ikke sige «fornyes» til en kunde,
+  // der har trykket op. Beslutningen er skrevet FOER de eksterne kald
+  // og er committet, uanset hvad der skete bagefter.
+  const opsagt = a.opsagt || a.opsagtAf !== null
+
   const o = opsaetning()
   const f = o ? fase(a.pris, o) : null
 
   // NAESTE BETALING — tre udfald, ikke to.
   const naeste: Abonnementsbillede['naeste'] =
-    a.opsagt ? { slags: 'fornyes_ikke' }
+    opsagt ? { slags: 'fornyes_ikke' }
     : f === 'normal' ? { slags: 'beloeb', oere: NORMAL_OERE }
     // I introfasen er naeste traek 349 kr. UDELUKKENDE, fordi planen er
     // bekraeftet konfigureret. Er den det ikke, ved vi det ikke — og
@@ -847,9 +854,9 @@ export async function abonnementForBruger(brugerId: string): Promise<Abonnements
     fase: f,
     fornyelseStoppet: a.stoppet !== null,
     naeste,
-    fornyesAt: a.opsagt ? null : a.slut,
+    fornyesAt: opsagt ? null : a.slut,
     adgangTil: a.adgang,
-    opsagt: a.opsagt,
+    opsagt,
   }
 }
 

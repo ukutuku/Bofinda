@@ -33,6 +33,7 @@ import { and, count, eq, gt, inArray, isNotNull, isNull, lt, lte, ne, notInArray
 import { db } from '../db/client'
 import { UAFSLUTTET, checkoutForsoeg, stripeEvents, subscriptions, users } from '../db/schema'
 import { INTRO_TIMER, fase, faser, stripe, type Stripeopsaetning } from './stripe'
+import { fuldfoerSkyldigeOpsigelser, planGaelder } from './opsigelse'
 
 /** De haendelser, vi handler paa. Alt andet kvitteres og ignoreres. */
 export const LYTTER = [
@@ -778,13 +779,15 @@ export const PLAN_MAX_FORSOEG = 5
  * KASTER IKKE. Fejlen skrives paa raekken, og `plan_forsoeg` taelles op.
  */
 export async function laegPlan(subId: string, ops: Stripeopsaetning): Promise<
-  'konfigureret' | 'oprettet' | 'fejlet' | 'sprunget_over' | 'stoppet'
+  'konfigureret' | 'oprettet' | 'fejlet' | 'sprunget_over' | 'stoppet' | 'opsagt'
 > {
   const [a] = await db.select({
     plan: subscriptions.stripeScheduleId,
     status: subscriptions.planStatus,
     forsoeg: subscriptions.planForsoeg,
     stoppet: subscriptions.fornyelseStoppetAt,
+    opsagtAf: subscriptions.opsagtAfKundeAt,
+    opsagt: subscriptions.cancelAtPeriodEnd,
   }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, subId)).limit(1)
   if (!a) return 'sprunget_over'
   if (a.status === 'konfigureret') return 'konfigureret'
@@ -801,6 +804,21 @@ export async function laegPlan(subId: string, ops: Stripeopsaetning): Promise<
   // en beslutning, og den skal et menneske tage — se
   // docs/betaling/betjening.md for hvordan.
   if (a.stoppet) return 'stoppet'
+
+  // ── HAR KUNDEN SAGT OP, LAEGGER VI INGEN PLAN ─────────────
+  // Beskyttelsen fandtes kun mod systemets EGET sikkerhedsstop
+  // (`fornyelse_stoppet_at`). Kundens almindelige opsigelse havde
+  // ingen: en forsinket introfaktura eller bare naeste tilsynskoersel
+  // sendte et nyt `subscriptionSchedules.create` og et `update` ind i
+  // den betalingsplan, hun lige havde afmeldt — og skrev
+  // `konfigureret` paa det.
+  //
+  // Begge felter taeller. `opsagt_af_kunde_at` er HENDES beslutning og
+  // kan ikke spejles vaek; `cancel_at_period_end` faanger ogsaa den
+  // opsigelse, der kom fra Stripes side — fx en, vi selv satte i
+  // dashboardet.
+  if (a.opsagtAf || a.opsagt) return 'opsagt'
+
   if (a.forsoeg >= PLAN_MAX_FORSOEG && a.status === 'fejlet') return 'fejlet'
 
   const s = stripe(ops)
@@ -881,11 +899,52 @@ export async function laegPlan(subId: string, ops: Stripeopsaetning): Promise<
       throw new Error(`faserne stemmer ikke efter opdatering: ${fejl.join('; ')}`)
     }
 
+    // ── SAGDE HUN OP, MENS VI VAR I LUFTEN? ───────────────
+    // Vagten oeverst laeser raekken ÉN gang, og imellem den og det her
+    // ligger tre eksterne kald. En opsigelse i det vindue ville ellers
+    // faa den plan, vi netop har lagt, til at staa `konfigureret` paa
+    // et abonnement, kunden har afmeldt — og en plan kan skrive
+    // `cancel_at_period_end` om ved naeste faseskift.
+    //
+    // Vi slipper den derfor igen. Hendes beslutning vandt, ogsaa selv
+    // om den kom et sekund efter vores kald.
+    const [efterKaldet] = await db.select({
+      opsagtAf: subscriptions.opsagtAfKundeAt,
+      opsagt: subscriptions.cancelAtPeriodEnd,
+    }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, subId)).limit(1)
+    if (efterKaldet?.opsagtAf || efterKaldet?.opsagt) {
+      try { await s.subscriptionSchedules.release(planId) } catch { /* se nedenfor */ }
+      await db.update(subscriptions)
+        .set({ stripeScheduleId: null, planStatus: null, planFejl: null })
+        .where(eq(subscriptions.stripeSubscriptionId, subId))
+      // Kan planen ikke slippes lige nu, er bindingen alligevel ryddet
+      // hjemme, og `fuldfoerSkyldigeOpsigelser` afstemmer den igen:
+      // den slaar planen op hos Stripe og slipper den, naar den kan.
+      return 'opsagt'
+    }
+
     await db.update(subscriptions)
       .set({ planStatus: 'konfigureret', planFejl: null, planForsoegtAt: new Date() })
       .where(eq(subscriptions.stripeSubscriptionId, subId))
     return 'konfigureret'
   } catch (e) {
+    // ── VAR DET EN OPSIGELSE, DER SLOG KALDET IHJEL? ──────
+    // Sagde kunden op, mens vi var i luften, slipper HENDES kodevej
+    // planen — og Stripe afviser saa vores `update` paa en frigivet
+    // plan. Det er ikke en planfejl, og det skal ikke taelles som et
+    // forsoeg eller staa som `plan_fejl` paa hendes raekke. Det er
+    // bare et kald, der kom for sent.
+    const [efterFejlen] = await db.select({
+      opsagtAf: subscriptions.opsagtAfKundeAt,
+      opsagt: subscriptions.cancelAtPeriodEnd,
+    }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, subId)).limit(1)
+    if (efterFejlen?.opsagtAf || efterFejlen?.opsagt) {
+      await db.update(subscriptions)
+        .set({ stripeScheduleId: null, planStatus: null, planFejl: null })
+        .where(eq(subscriptions.stripeSubscriptionId, subId))
+      return 'opsagt'
+    }
+
     const forsoeg = a.forsoeg + 1
     await db.update(subscriptions)
       .set({
@@ -1017,6 +1076,10 @@ export async function laegManglendePlaner(ops: Stripeopsaetning, maks = 25): Pro
       // indfri af os selv. Vagten staar OGSAA i `laegPlan` — det her er
       // udvaelgelsen, der sparer opslaget.
       isNull(subscriptions.fornyelseStoppetAt),
+      // Og det samme for kundens egen opsigelse. Begge felter, af
+      // samme grund som i `laegPlan`.
+      isNull(subscriptions.opsagtAfKundeAt),
+      eq(subscriptions.cancelAtPeriodEnd, false),
     ))
     .limit(maks)
   let konfigureret = 0, fejlet = 0
@@ -1251,7 +1314,18 @@ export async function stopForkertFornyelse(
     }
     if (planId) {
       const plan = await s.subscriptionSchedules.retrieve(planId)
-      if (faserErRigtige(plan, ops)) {
+      // ── TO SPOERGSMAAL, IKKE ÉT ─────────────────────────
+      // «Er faserne rigtige?» og «styrer planen stadig det her
+      // abonnement?» er ikke det samme. En FRIGIVET plan beholder sine
+      // faser — Stripe fjerner kun dens `subscription` — saa en
+      // kontrol paa faser alene svarede «planen er rigtig» om en plan,
+      // der ikke styrede noget, og skrev `konfigureret` paa den.
+      // Derefter greb hverken tilsynet eller nogen anden ind.
+      //
+      // Rigtig plan = gaelder FOR DET HER abonnement OG har de rigtige
+      // faser. Se `planGaelder` i lib/opsigelse.ts.
+      const gaelder = planGaelder(plan, subId)
+      if (gaelder && faserErRigtige(plan, ops)) {
         // Planen var der hele tiden, og den er rigtig. Saa er det
         // vores egen bogfoering, der var bagud — ikke kundens
         // abonnement, der var i fare. Skriv det, og lad hende vaere.
@@ -1260,9 +1334,16 @@ export async function stopForkertFornyelse(
           .where(eq(subscriptions.stripeSubscriptionId, subId))
         return 'plan_er_rigtig'
       }
-      // SLIP planen foerst — ellers skriver den opsigelsen om ved
-      // naeste faseskift. Samme grund som i `sigOpFor`.
-      await s.subscriptionSchedules.release(planId)
+      if (gaelder) {
+        // SLIP planen foerst — ellers skriver den opsigelsen om ved
+        // naeste faseskift. Samme grund som i `sigOpFor`.
+        //
+        // Gaelder den IKKE, er der intet at slippe: `release` virker
+        // kun paa `not_started` og `active`, og et kald paa en allerede
+        // frigivet plan ville kaste og spaerre `cancel_at_period_end`
+        // nedenfor — praecis den laas, opsigelsen sad fast i.
+        await s.subscriptionSchedules.release(planId)
+      }
       await db.update(subscriptions)
         .set({ stripeScheduleId: null })
         .where(eq(subscriptions.stripeSubscriptionId, subId))
@@ -1344,14 +1425,60 @@ async function spejl(o: Ukendt, stempel: Date, ops: Stripeopsaetning | null): Pr
   const f = Array.isArray(items) ? items[0] as Ukendt | undefined : undefined
   const prisId = tekst((f?.['price'] as Ukendt | undefined)?.['id'])
 
+  // ── FINDES RAEKKEN OVERHOVEDET? ───────────────────────────
+  // «Nul raekker opdateret» betoed FOER to vidt forskellige ting:
+  // «din spejling er foraeldet» og «der er ingen raekke at spejle i».
+  // Begge svarede 'forael', og 'forael' markeres faerdig.
+  //
+  // Det kostede en `customer.subscription.deleted`, der ankom FOER sin
+  // checkout: den blev kvitteret 200, nyttelasten slettet — og da den
+  // aeldre checkout og faktura saa ankom, blev raekken oprettet og stod
+  // `active`, mens Stripe sagde `canceled`. Genleveringen svarede
+  // «gentagelse», og kontoen kunne ikke koebe igen: `har_allerede`.
+  // Stripe garanterer ingen raekkefoelge — se docs/webhooks#event-ordering.
+  //
+  // Terminalvagten kunne ikke fange det: den beskytter en EKSISTERENDE
+  // terminal raekke. Den kan ikke beskytte mod en terminal haendelse,
+  // der blev kasseret, foer raekken fandtes.
+  //
+  // 'afventer' markerer IKKE faerdig: nyttelasten beholdes, ruten
+  // svarer 409, og baade Stripes genlevering og vores eget tilsyn kan
+  // tage den op igen, naar `kassen()` har skrevet raekken.
+  const [raekke] = await db.select({
+    id: subscriptions.id, opsagtAf: subscriptions.opsagtAfKundeAt,
+  }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, subId)).limit(1)
+  if (!raekke) return 'afventer'
+
+  // ── KUNDENS BESLUTNING SPEJLES IKKE VAEK ──────────────────
+  // En forsinket `updated`, oprettet FOER opsigelsen, baerer
+  // `cancel_at_period_end: false` — og skrev det hen over kundens
+  // beslutning, saa «Mit abonnement» sagde «fornyes» kort efter, hun
+  // sagde op. Flaget er et spejl; beslutningen er ikke. Kun en
+  // haendelse, der er NYERE end beslutningen, maa rydde flaget.
+  //
+  // At saette det til true er altid i orden — dér er de to enige.
+  const rydder = o['cancel_at_period_end'] !== true
+  const aeldreEndBeslutningen = raekke.opsagtAf !== null && raekke.opsagtAf > stempel
+  const maaSkriveOpsigelsesflag = !(rydder && aeldreEndBeslutningen)
+
+  // ── `schedule: null` ER ET SVAR ───────────────────────────
+  // Feltet blev foer kun skrevet, naar det havde en VAERDI. En
+  // autoritativ `schedule: null` — Stripes egen maade at sige «det
+  // her abonnement styres ikke laengere af en plan» — kunne derfor
+  // ikke rydde bindingen, og et gammelt plan-id blev staaende som
+  // bevis for en plan, der var sluppet. Nu afgoer det, om NOEGLEN er
+  // der, ikke om vaerdien er sand.
+  const harSkema = Object.prototype.hasOwnProperty.call(o, 'schedule')
+
   const r = await db.update(subscriptions)
     .set({
       status: status as typeof subscriptions.$inferInsert.status,
-      cancelAtPeriodEnd: o['cancel_at_period_end'] === true,
+      ...(maaSkriveOpsigelsesflag
+        ? { cancelAtPeriodEnd: o['cancel_at_period_end'] === true } : {}),
       ...(p.slut ? { currentPeriodEnd: p.slut } : {}),
       ...(p.start ? { currentPeriodStart: p.start } : {}),
       ...(prisId ? { stripePriceId: prisId } : {}),
-      ...(tekst(o['schedule']) ? { stripeScheduleId: tekst(o['schedule'])! } : {}),
+      ...(harSkema ? { stripeScheduleId: tekst(o['schedule']) } : {}),
       stripeOpdateretAt: stempel, updatedAt: new Date(),
     })
     // En `subscription.deleted` saetter `canceled` og skal kunne skrive
@@ -1497,6 +1624,33 @@ export async function betalingstilsyn(o: Stripeopsaetning | null): Promise<strin
   } catch (e) {
     linjer.push(`[betaling] genbehandling fejlede: ${(e as Error).message}`)
   }
+  // ── FULDFOER DE SKYLDIGE OPSIGELSER ───────────────────────
+  // FOER planlaegningen, og det er ikke tilfaeldigt: en opsigelse, der
+  // staar halvt gennemfoert, skal ryddes af vejen, inden vi
+  // overvejer at laegge planer. Ellers ville tilsynet i vaerste fald
+  // lægge en plan paa et abonnement, det et oejeblik senere selv
+  // opsiger.
+  //
+  // Genoptagelsen findes, fordi opsigelsen kan knaekke midtvejs:
+  // `release` lykkes hos Stripe, den lokale skrivning fejler, og
+  // funktionen svarer `stripe_fejlede`. Foer sad kunden saa fast —
+  // hvert genforsoeg doede paa et `release` af en plan, Stripe
+  // allerede havde sluppet, laenge foer det naaede
+  // `cancel_at_period_end`. Nu staar beslutningen i basen, og den her
+  // tager den op igen.
+  try {
+    const op = await fuldfoerSkyldigeOpsigelser(o)
+    if (op.skyldige) {
+      linjer.push(
+        `[betaling] opsigelser: ${op.skyldige} skyldige · ${op.opsagte} fuldført `
+        + `· ${op.fejlede} kunne ikke endnu`
+        + (op.detaljer.length ? ` — ${op.detaljer.join(' · ')}` : ''),
+      )
+    }
+  } catch (e) {
+    linjer.push(`[betaling] opsigelserne kunne ikke fuldføres: ${(e as Error).message}`)
+  }
+
   try {
     const p = await laegManglendePlaner(o)
     if (p.forsoegt) {

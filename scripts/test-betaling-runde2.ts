@@ -257,9 +257,19 @@ async function koer() {
     falsk.nulstil()
     const u = await bruger('3c'); const sub = `sub_${randomUUID()}`
     const adgangTil = new Date(Date.now() + 86400000)
+    const planId = `sub_sched_3c_${S}`
+    // Planen STYRER abonnementet, men er forkert: kun fase 1. Uden
+    // bindingen ville attrappen beskrive en plan, der ikke styrer
+    // noget — og saa er der heller ikke noget at slippe.
+    falsk.planer.set(planId, {
+      id: planId, konfigureret: true, status: 'active', subscription: sub,
+      phases: [{ start_date: 1_700_000_000, end_date: 1_700_086_400,
+                 items: [{ price: OPS.introPrisId, quantity: 1 }] }],
+    })
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false, schedule: planId })
     await db.insert(subscriptions).values({
       userId: u, stripeSubscriptionId: sub, status: 'active',
-      adgangTil, stripeScheduleId: `sub_sched_3c_${S}`,
+      adgangTil, stripeScheduleId: planId,
       // Forsoegene er brugt op — det er DEN udloeser, afsnittet
       // proever. (Den naere fornyelse er den anden, og den har runde3
       // §4c.)

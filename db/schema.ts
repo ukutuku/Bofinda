@@ -188,10 +188,34 @@ export const subscriptions = pgTable('subscriptions', {
    */
   fornyelseStoppetAt: timestamp('fornyelse_stoppet_at', { withTimezone: true }),
   fornyelseStoppetGrund: text('fornyelse_stoppet_grund'),
+  /**
+   * KUNDENS EGEN OPSIGELSE — en beslutning, ikke en spejling.
+   *
+   * `cancel_at_period_end` er Stripes felt, og vi spejler det. En
+   * forsinket `subscription.updated`, oprettet FOER opsigelsen, skrev
+   * derfor flaget tilbage til false, og «Mit abonnement» sagde
+   * «fornyes» kort efter, hun havde sagt op. Det her felt kan kun
+   * aendres af en beslutning, og spejlingen maa ikke rydde flaget med
+   * en haendelse, der er aeldre end det.
+   *
+   * Det er samtidig ANKERET for en genoptagelig opsigelse: det skrives
+   * FOER de eksterne kald, saa en opsigelse, der knaekker midtvejs —
+   * `release` lykkedes, den lokale skrivning fejlede — kan tages op
+   * igen af `fuldfoerSkyldigeOpsigelser`. Uden ankeret var der intet
+   * at genoptage fra, og kunden sad fast paa et abonnement, hun havde
+   * sagt op.
+   *
+   * Det spaerrer ogsaa automatisk planlaegning: se `laegPlan`.
+   */
+  opsagtAfKundeAt: timestamp('opsagt_af_kunde_at', { withTimezone: true }),
 }, (t) => ({
   userIdx: index('sub_user_idx').on(t.userId),
   adgangIdx: index('sub_adgang_idx').on(t.userId, t.adgangTil),
   customerIdx: index('sub_customer_idx').on(t.stripeCustomerId),
+  // Delvist, praecis som i 0027: tilsynet spoerger kun efter de
+  // skyldige — besluttet, men ikke bekraeftet hos Stripe.
+  skyldigOpsigelseIdx: index('sub_skyldig_opsigelse_idx').on(t.opsagtAfKundeAt)
+    .where(sql`${t.opsagtAfKundeAt} is not null and ${t.cancelAtPeriodEnd} = false`),
 }))
 
 /**

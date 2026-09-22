@@ -138,6 +138,37 @@ Siger Stripe derimod, at sessionen er **gennemført**, skrives der intet.
 Så er der sandsynligvis betalt på en session, vores række har lukket, og
 det er en beslutning, ikke en oprydning: slå abonnementet op i Stripe.
 
+## Når en opsigelse ikke er nået helt igennem
+
+Tilsynet skriver en linje som
+
+    [betaling] opsigelser: 2 skyldige · 1 fuldført · 1 kunne ikke endnu
+
+En **skyldig** opsigelse er en, kunden har besluttet
+(`opsagt_af_kunde_at` er sat), og som Stripe endnu ikke har bekræftet
+(`cancel_at_period_end` er false). Det sker, når kaldet knækker
+midtvejs — Stripe svarer ikke, eller vores egen skrivning går tabt.
+
+**Der skal som regel ikke gøres noget.** Beslutningen er skrevet, før
+de eksterne kald, og tilsynet fuldfører den i næste kørsel: planen
+afstemmes, slippes hvis den stadig gælder, og `cancel_at_period_end`
+sættes. Begge Stripe-kald er idempotente, så det kan køre igen og igen.
+
+**Kunden ser det rigtige imens.** «Mit abonnement» siger «fornyes
+ikke», så snart beslutningen står i basen — ikke først når Stripe har
+bekræftet. Hun skal ikke trykke igen, og gør hun det alligevel, sker
+der ikke noget galt.
+
+Bliver den samme række ved at stå i «kunne ikke endnu» time efter time,
+er det Stripe, der ikke svarer på netop det abonnement. Slå det op i
+Stripe og sæt `cancel_at_period_end` i hånden; tilsynet holder så op af
+sig selv, fordi rækken ikke længere er skyldig.
+
+**Ryd aldrig `opsagt_af_kunde_at` for at få linjen væk.** Feltet er
+kundens beslutning. Ryddes det, kan en forsinket hændelse skrive
+opsigelsen om, og automatisk planlægning kan begynde igen på et
+abonnement, hun har afmeldt.
+
 **Et skift til BETALING opretter ingen abonnementer og opkræver ingen.**
 Gratis brugere møder en betalingsboks og skal selv trykke.
 

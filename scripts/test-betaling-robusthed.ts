@@ -419,9 +419,21 @@ async function koer() {
   {
     falsk.nulstil()
     const u = await bruger('6'); const sub = `sub_${randomUUID()}`
+    const planId = `sub_sched_${S}`
+    // Planen skal FAKTISK styre abonnementet hos Stripe. Attrappen
+    // haandhaever nu Stripes egen regel — `release` virker kun paa en
+    // `active`/`not_started` plan, og en plan uden `subscription`
+    // styrer ingenting — saa en fixture uden bindingen ville beskrive
+    // en tilstand, Stripe aldrig kan vaere i.
+    falsk.planer.set(planId, {
+      id: planId, konfigureret: true, status: 'active', subscription: sub,
+      phases: [{ start_date: 1_700_000_000, end_date: 1_700_086_400,
+                 items: [{ price: OPS.introPrisId, quantity: 1 }] }],
+    })
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false, schedule: planId })
     await db.insert(subscriptions).values({
       userId: u, stripeSubscriptionId: sub, status: 'active',
-      adgangTil: new Date(Date.now() + 86400000), stripeScheduleId: `sub_sched_${S}`,
+      adgangTil: new Date(Date.now() + 86400000), stripeScheduleId: planId,
       planStatus: 'konfigureret', stripePriceId: OPS.introPrisId, oprettetAt: new Date(),
     })
     const svar = await sigOpFor(u)

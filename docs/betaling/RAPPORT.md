@@ -324,6 +324,115 @@ af repoet: fejlen genindført, prøven fejler. Alle modprøver fejler som
 de skal — en prøve, der ikke kan fejle, måler ingenting. Se
 `logs/11-modproever.log`.
 
+## Fjerde gennemgang: hændelsesbevaring, opsigelse, planafstemning
+
+Fjerde gennemgang bekræftede, at alle tidligere scenarier består, og
+fandt **fire nye reproduktioner i tre problemområder**. Alle fire
+reproducerede mod både den afleverede kildepakke og repoets eget træ.
+De er rettet som én sammenhængende ændring, ikke fire lapper: de
+hænger sammen om én ting — **hvad vi faktisk ved, og hvornår vi ved
+det.**
+
+### R1 · en terminal hændelse gik tabt, fordi rækken ikke fandtes endnu
+
+`spejl()` svarede `forael` på to forskellige ting: «din spejling er
+forældet» og «der er ingen række at spejle i». Det andet betyder «prøv
+igen senere», og det første betyder «færdig». En
+`customer.subscription.deleted`, der ankom **før** sin checkout, blev
+derfor kvitteret 200, nyttelasten slettet — og da den ældre checkout og
+faktura så ankom, stod rækken `active`, mens Stripe sagde `canceled`.
+Genleveringen svarede «gentagelse», og kontoen kunne ikke købe igen.
+
+Terminalvagten kunne ikke fange det: den beskytter en **eksisterende**
+terminal række.
+
+Nu svarer `spejl()` `'afventer'`, når rækken ikke findes. Ruten svarer
+409, nyttelasten bevares, og tilsynet tager hændelsen op igen, når
+`kassen()` har skrevet rækken. Den betalte periode bogføres uanset —
+adgangen er urørt af reparationen.
+
+### R2 · opsigelsen kunne ikke genoptages efter en delvis gennemførelse
+
+`release` lykkedes hos Stripe; den efterfølgende lokale skrivning
+fejlede én gang; funktionen svarede `stripe_fejlede` — og
+`cancel_at_period_end` var aldrig blevet sat. Hvert genforsøg døde så
+på et `release` af den plan, Stripe **allerede havde sluppet**
+(`release` virker kun på `not_started`/`active`), længe før det nåede
+opsigelsen. Kunden sad fast, og tilsynet greb ikke ind, fordi den
+lokale `planStatus` stod `konfigureret`.
+
+Tre ting ændrede sig:
+
+1. **Beslutningen skrives først.** `opsagt_af_kunde_at` er ankeret —
+   uden det var der intet at genoptage fra.
+2. **Planen afstemmes, før den slippes.** Gælder den ikke længere, er
+   der intet at slippe, og opsigelsen går videre i stedet for at dø.
+3. **Bogføringen er én skrivning til sidst.** Stripe først, vores egen
+   række bagefter. Fejler den, er opsigelsen i kraft dér, hvor pengene
+   er, og tilsynet skriver rækken hjem.
+
+`fuldfoerSkyldigeOpsigelser` i `betalingstilsyn` er den genoptagelse.
+Begge Stripe-kald er idempotente, så den kan køre igen og igen.
+
+### R3 · kundens opsigelse spærrede ikke automatisk planlægning
+
+Beskyttelsen fandtes kun mod systemets **eget** sikkerhedsstop
+(`fornyelse_stoppet_at`). Kundens almindelige opsigelse havde ingen:
+tilsynet og en forsinket introfaktura sendte nye
+`subscriptionSchedules.create`/`update` ind i den betalingsplan, hun
+lige havde afmeldt.
+
+Nu spærrer både `opsagt_af_kunde_at` og `cancel_at_period_end` i
+`laegPlan` og i udvælgelsen. Og `laegPlan` **gentjekker efter** de
+eksterne kald: siger hun op, mens vi er i luften, slippes den plan, vi
+netop har lagt. Hendes beslutning vinder, også når den kommer et
+sekund for sent.
+
+### R4 · en sluppet plan blev genindsat og bekræftet som gyldig
+
+To ting i ét fund:
+
+· **Bindingen kom tilbage.** `spejl()` skrev kun `stripe_schedule_id`,
+  når feltet havde en **værdi**. En autoritativ `schedule: null` —
+  Stripes egen måde at sige «dette abonnement styres ikke af en plan»
+  — kunne derfor ikke rydde bindingen. Nu afgør det, om **nøglen** er
+  der, ikke om værdien er sand.
+
+· **Og den blev godkendt.** Sikkerhedskontrollen målte kun faserne. En
+  frigivet plan beholder sine faser; Stripe fjerner kun dens
+  `subscription`. Den svarede derfor `plan_er_rigtig` om en plan, der
+  ikke styrede noget, og skrev `konfigureret` på den. Nu kræves begge
+  led — se `planGaelder`.
+
+Dertil: en forsinket `subscription.updated`, oprettet **før**
+opsigelsen, kunne skrive `cancel_at_period_end` tilbage til false.
+Flaget er et spejl; beslutningen er det ikke. Kun en hændelse, der er
+nyere end beslutningen, må rydde flaget — og «Mit abonnement» læser
+begge felter, så siden aldrig siger «fornyes» til en kunde, der har
+trykket op.
+
+### Attrappen blev strengere, og det var nødvendigt
+
+`scripts/stripefalsk` tog imod `release` på hvad som helst og lod en
+frigivet plan blive ændret. Begge dele afviser Stripe. En attrap, der
+er mildere end virkeligheden, gør prøver grønne om forløb, der ville
+fejle — og det var netop dén forskel, der skjulte, at opsigelsen sad
+fast på sit eget genforsøg. Attrappen håndhæver nu reglen, og en plan
+dér bærer sin `subscription`, som hos Stripe.
+
+Fem prøvefixtures måtte rettes, fordi de beskrev en plan, der ikke
+styrede noget, og alligevel forventede et `release`. Det var ikke
+prøverne, der blev svækket — det var beskrivelsen, der blev sand.
+
+### Hvad der er prøvet, og hvordan
+
+| Niveau | Hvad |
+|---|---|
+| Kodeforløb | gennemgangens egen probe, vendt om: alle fire fund væk (`logs/10-probe-efter.log`) |
+| PGlite | `scripts/test-betaling-runde4.ts` gennem HTTP-ruten, `sigOpFor()` og `betalingstilsyn()` |
+| Rigtig PostgreSQL | to nye kapløb: dobbeltklik på opsigelsen, og opsigelse mod et planlægningskald i luften |
+| Stripe-sandbox | **uafprøvet.** Intet er kørt mod Stripe |
+
 ## Det, der ikke er løst
 
 * **RLS på `storage.objects`** er stadig den eneste håndhævelse af

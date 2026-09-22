@@ -53,7 +53,18 @@ interface Fase {
   trial?: boolean
   trial_end?: number
 }
-export interface Plan { id: string; phases: Fase[]; konfigureret: boolean; status: string }
+export interface Plan {
+  id: string; phases: Fase[]; konfigureret: boolean; status: string
+  /**
+   * Abonnementet, planen styrer. Stripe FJERNER feltet ved `release`
+   * og flytter id'et til `released_subscription`
+   * (SubscriptionSchedules.d.ts:39, :104-116). Uden det i attrappen
+   * kunne en proeve ikke skelne en gaeldende plan fra en sluppet — og
+   * det var netop den skelnen, der manglede i koden.
+   */
+  subscription?: string | null
+  released_subscription?: string | null
+}
 export interface Session {
   id: string; url: string; status: string; expires_at?: number
   /** Saettes naar kassen gennemfoeres. Stripes to akser, ikke én. */
@@ -313,19 +324,35 @@ export function lavFalsk(): Falsk & Record<string, unknown> {
           // Som Stripe: en plan lavet `from_subscription` har ÉN fase,
           // der spejler abonnementet — med start og slut allerede sat.
           // De 86.400 sekunder er introprisens eget doegn.
+          const sub = (p as { from_subscription?: unknown } | undefined)?.from_subscription
           const plan: Plan = {
             id, konfigureret: false, status: 'active',
+            subscription: typeof sub === 'string' ? sub : null,
+            released_subscription: null,
             phases: [{
               start_date: PLANSTART, end_date: PLANSTART + 86400,
               items: [{ price: 'intro', quantity: 1 }],
             }],
           }
           planer.set(id, plan)
+          // Abonnementet kender sin egen plan hos Stripe. `laegPlan`
+          // og opsigelsen afstemmer netop paa det felt.
+          if (typeof sub === 'string') {
+            const a = abonnementer.get(sub) ?? { id: sub }
+            a.schedule = id
+            abonnementer.set(sub, a)
+          }
           return plan
         }),
       update: (id: string, p: { phases?: Fase[] }) =>
         gennem('subscriptionSchedules.update', [id, p], undefined, () => {
           const plan = planer.get(id)
+          // En frigivet plan kan ikke aendres. Samme grund som ved
+          // release: en attrap, der tager imod, maaler en anden verden.
+          if (plan && plan.status !== 'active' && plan.status !== 'not_started') {
+            throw new FoerUdfoerelseFejl(
+              `falsk stripe: kan ikke aendre en plan i status ${plan.status}`)
+          }
           if (plan && Array.isArray(p.phases)) {
             plan.phases = udregnFaser(p.phases, plan.phases[0]?.start_date ?? PLANSTART)
             plan.konfigureret = true
@@ -337,8 +364,27 @@ export function lavFalsk(): Falsk & Record<string, unknown> {
       release: (id: string) =>
         gennem('subscriptionSchedules.release', [id], undefined, () => {
           const plan = planer.get(id)
-          if (plan) plan.status = 'released'
-          return plan ?? null
+          if (!plan) return null
+          // ── STRIPES EGEN REGEL, HAANDHAEVET ─────────────────
+          // «A schedule can only be released if its status is
+          // not_started or active» (SubscriptionSchedules.d.ts:39).
+          // Attrappen tog FOER imod et release paa hvad som helst, og
+          // saa kunne en proeve vaere groen om et forloeb, Stripe ville
+          // have afvist. Det var praecis den forskel, der skjulte, at
+          // opsigelsen sad fast paa sit eget genforsoeg.
+          if (plan.status !== 'active' && plan.status !== 'not_started') {
+            throw new FoerUdfoerelseFejl(
+              `falsk stripe: kan ikke release en plan i status ${plan.status}`)
+          }
+          plan.status = 'released'
+          // Og planen slipper abonnementet — som hos Stripe.
+          if (plan.subscription) {
+            const a = abonnementer.get(plan.subscription)
+            if (a) a.schedule = undefined
+            plan.released_subscription = plan.subscription
+            plan.subscription = null
+          }
+          return plan
         }),
     },
     webhooks: {

@@ -190,6 +190,13 @@
       "when": 1788811312618,
       "tag": "0026_afstemning",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790063366536,
+      "tag": "0027_opsigelse",
+      "breakpoints": true
     }
   ]
 }

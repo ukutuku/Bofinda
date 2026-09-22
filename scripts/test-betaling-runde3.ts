@@ -491,7 +491,7 @@ async function koer() {
     // findes, abonnementet peger på den, og vores base ved det ikke.
     const planId = `sub_sched_skjult_${S}`
     falsk.planer.set(planId, {
-      id: planId, konfigureret: false, status: 'active',
+      id: planId, konfigureret: false, status: 'active', subscription: sub,
       phases: [{ start_date: 1_700_000_000, end_date: 1_700_086_400,
                  items: [{ price: 'intro', quantity: 1 }] }],
     })
@@ -515,13 +515,28 @@ async function koer() {
     await db.delete(checkoutForsoeg); await db.delete(subscriptions)
     const u = await bruger('4c')
     const sub = `sub_${randomUUID()}`
+    const planId = `sub_sched_4c_${S}`
     const adgangTil = new Date(Date.now() + 30 * 60_000)   // fornyelse om 30 min
+    // Planen STYRER abonnementet, men kun med fase 1: den fornyer til
+    // introprisen igen og igen. Bindingen skal være der — en plan, der
+    // ikke styrer noget, er der intet at slippe i, og så ville
+    // afsnittet ikke måle rækkefølgen, det hedder efter.
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false, schedule: planId })
+    falsk.planer.set(planId, {
+      id: planId, konfigureret: true, status: 'active', subscription: sub,
+      phases: [{ start_date: 1_700_000_000, end_date: 1_700_086_400,
+                 items: [{ price: OPS.introPrisId, quantity: 1 }] }],
+    })
     await db.insert(subscriptions).values({
       userId: u, stripeSubscriptionId: sub, status: 'active',
-      adgangTil, stripeScheduleId: `sub_sched_4c_${S}`,
+      adgangTil, stripeScheduleId: planId,
       planStatus: 'oprettet', planForsoeg: 1, planFejl: 'modelleret 500',
       oprettetAt: new Date(),
     })
+    // Planlægningen prøver først at reparere planen — det er dens
+    // opgave. Her fejler den, så rækken stadig står ubekræftet, når
+    // beskyttelsen kigger.
+    falsk.fejlPaa.add('subscriptionSchedules.update')
     const linjer = await betalingstilsyn(OPS)
     tjek('fornyelsen STOPPES, fordi den er nær — ikke fordi forsøgene er brugt',
       linjer.some((l) => l.includes('fornyelsen er STOPPET') && l.includes(sub)),
@@ -823,11 +838,13 @@ async function koer() {
     const u = await bruger('10b')
     const sub = `sub_10b_${S}`
     const planId = `sub_sched_10b_${S}`
-    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false })
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false, schedule: planId })
     // ÉN fase til introprisen og ingen overgang: praecis den plan, der
-    // ville forny til 9 kr. igen og igen.
+    // ville forny til 9 kr. igen og igen. Den STYRER abonnementet —
+    // ellers er der intet at slippe, og afsnittet måler ikke det, det
+    // hedder.
     falsk.planer.set(planId, {
-      id: planId, konfigureret: true, status: 'active',
+      id: planId, konfigureret: true, status: 'active', subscription: sub,
       phases: [{ start_date: 1_700_000_000, end_date: 1_700_086_400,
                  items: [{ price: OPS.introPrisId, quantity: 1 }] }],
     })
@@ -991,9 +1008,9 @@ async function koer() {
     const u = await bruger('15')
     const sub = `sub_15_${S}`
     const planId = `sub_sched_15_${S}`
-    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false })
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false, schedule: planId })
     falsk.planer.set(planId, {
-      id: planId, konfigureret: true, status: 'active',
+      id: planId, konfigureret: true, status: 'active', subscription: sub,
       phases: [{ start_date: 1_700_000_000, end_date: 1_700_086_400,
                  items: [{ price: OPS.introPrisId, quantity: 1 }] }],
     })

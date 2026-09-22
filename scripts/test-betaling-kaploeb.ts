@@ -87,9 +87,9 @@ const { and, eq, sql } = await import('drizzle-orm')
 const { db, luk, raekker } = await import('../db/client')
 const { checkoutForsoeg, drift, stripeEvents, subscriptions, users } =
   await import('../db/schema')
-const { startKoebFor } = await import('../lib/abonnement')
+const { startKoebFor, sigOpFor } = await import('../lib/abonnement')
 const { saetTilstand } = await import('../lib/driftskift')
-const { behandl } = await import('../lib/webhook')
+const { behandl, laegPlan, betalingstilsyn } = await import('../lib/webhook')
 type Haendelse = Parameters<typeof behandl>[0]
 const { indsaetStripe } = await import('../lib/stripe')
 const { lavFalsk } = await import('./stripefalsk/index')
@@ -410,6 +410,104 @@ try {
     tjek('adgangen står på den LÆNGSTE af de to perioder',
       a?.til?.getTime() === lang * 1000,
       `adgang=${a?.til?.toISOString()} lang=${new Date(lang * 1000).toISOString()}`)
+  }
+  // ═══ E · TO SAMTIDIGE OPSIGELSER ════════════════════════
+  console.log('\n══ E · to samtidige opsigelser — ét release, ét ja ══')
+  {
+    const u = await bruger('e')
+    const sub = `sub_${randomUUID()}`
+    const kunde = 'cus_e'
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false })
+    await behandl(h('checkout.session.completed',
+      { subscription: sub, client_reference_id: u, customer: kunde }), OPS)
+    await behandl(h('invoice.paid', {
+      subscription: sub, customer: kunde,
+      lines: { data: [{ period: { start: nu(), end: nu() + 86400 },
+        pricing: { price_details: { price: OPS.introPrisId } } }] },
+    }), OPS)
+    const [foer] = await db.select({ plan: subscriptions.stripeScheduleId,
+      planStatus: subscriptions.planStatus }).from(subscriptions)
+      .where(eq(subscriptions.stripeSubscriptionId, sub))
+    tjek('planen er lagt og bekræftet',
+      foer?.planStatus === 'konfigureret' && !!foer.plan, JSON.stringify(foer))
+
+    // DOBBELTKLIK. To forbindelser, to transaktioner. Stripe afviser
+    // et release nummer to, saa uden afstemningen ville den ene af de
+    // to faa `stripe_fejlede` — og kunden se en fejl paa en opsigelse,
+    // der faktisk gik igennem.
+    const slip0 = falsk.antal('subscriptionSchedules.release')
+    const svar = await Promise.all([sigOpFor(u), sigOpFor(u)])
+    tjek('BEGGE svarer ok — ingen af dem ser en fejl',
+      svar.every((x) => x.ok), JSON.stringify(svar))
+    tjek('  og der blev sluppet ÉN gang',
+      falsk.antal('subscriptionSchedules.release') - slip0 === 1,
+      `${falsk.antal('subscriptionSchedules.release') - slip0} release`)
+    tjek('  planen er sluppet hos Stripe',
+      falsk.planer.get(foer!.plan!)?.status === 'released')
+    tjek('  og cancel_at_period_end er sat',
+      falsk.abonnementer.get(sub)?.cancel_at_period_end === true)
+    const [e] = await db.select({
+      opsagt: subscriptions.cancelAtPeriodEnd, opsagtAf: subscriptions.opsagtAfKundeAt,
+      plan: subscriptions.stripeScheduleId, adgang: subscriptions.adgangTil,
+    }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+    tjek('  rækken står opsagt, uden binding',
+      e?.opsagt === true && !!e.opsagtAf && e.plan === null, JSON.stringify(e))
+    tjek('  og adgangen er URØRT', !!e?.adgang)
+  }
+
+  // ═══ F · OPSIGELSE MOD ET IGANGVAERENDE PLANKALD ═════════
+  console.log('\n══ F · opsigelse mod et planlægningskald i luften ══')
+  {
+    const u = await bruger('f')
+    const sub = `sub_${randomUUID()}`
+    const kunde = 'cus_f'
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false })
+    await behandl(h('checkout.session.completed',
+      { subscription: sub, client_reference_id: u, customer: kunde }), OPS)
+    // Planen skyldes, men er ikke lagt.
+    await db.update(subscriptions)
+      .set({ planStatus: 'mangler', planForsoeg: 0, stripePriceId: OPS.introPrisId,
+             adgangTil: new Date(Date.now() + 86_400_000) })
+      .where(eq(subscriptions.stripeSubscriptionId, sub))
+
+    // Planlaegningen holdes inde i Stripe-kaldet, mens kunden siger op
+    // paa en ANDEN forbindelse. Vagten oeverst i `laegPlan` har
+    // allerede laest raekken; kun gentjekket bagefter kan fange det.
+    const iStripe = aftale(); const erNaaet = aftale()
+    const rigtig = (falsk.subscriptionSchedules as
+      { update: (...a: unknown[]) => Promise<unknown> }).update
+    ;(falsk.subscriptionSchedules as { update: unknown }).update =
+      async (...a: unknown[]) => {
+        erNaaet.slip(); await iStripe.naaet; return rigtig(...a)
+      }
+    const plan = laegPlan(sub, OPS)
+    await erNaaet.naaet
+    const opsagt = await sigOpFor(u)
+    iStripe.slip()
+    const planSvar = await plan
+    ;(falsk.subscriptionSchedules as { update: unknown }).update = rigtig
+
+    tjek('opsigelsen lykkes', opsagt.ok, JSON.stringify(opsagt))
+    tjek('  og planlægningen svarer «opsagt», ikke «konfigureret»',
+      planSvar === 'opsagt', `svar=${planSvar}`)
+    const [f] = await db.select({
+      plan: subscriptions.stripeScheduleId, planStatus: subscriptions.planStatus,
+      opsagt: subscriptions.cancelAtPeriodEnd, adgang: subscriptions.adgangTil,
+    }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+    tjek('  ingen plan bliver stående på et opsagt abonnement',
+      f?.plan === null && f.planStatus !== 'konfigureret', JSON.stringify(f))
+    tjek('  ALLE planer på abonnementet er sluppet hos Stripe',
+      [...falsk.planer.values()].filter((x) => x.subscription === sub).length === 0,
+      JSON.stringify([...falsk.planer.values()].map((x) => [x.id, x.status, x.subscription])))
+    tjek('  opsigelsen står', f?.opsagt === true)
+    tjek('  og adgangen er urørt', !!f?.adgang)
+
+    // Og tilsynet lægger den ikke tilbage bagefter.
+    const create0 = falsk.antal('subscriptionSchedules.create')
+    await betalingstilsyn(OPS)
+    tjek('  tilsynet lægger ingen ny plan bagefter',
+      falsk.antal('subscriptionSchedules.create') === create0,
+      `${falsk.antal('subscriptionSchedules.create') - create0} nye`)
   }
 } finally {
   await luk()
