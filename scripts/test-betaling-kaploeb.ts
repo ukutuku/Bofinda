@@ -10,7 +10,25 @@
 //  Her er der flere forbindelser mod en server, der selv afgør
 //  rækkefølgen. Det er det eneste sted, `for share`/`for update` på
 //  drift-rækken og det delvise entydighedsindeks på checkout_forsoeg
-//  kan bevises.
+//  KAN bevises.
+//
+//  ── MEN §A BEVISER IKKE INDEKSET, OG DET SKAL STÅ HER ───────
+//  Her stod, at indekset bevises i §A. Det gør det ikke. Målt: med
+//  BEGGE entydighedsindeks droppet er §A grøn i 4 af 5 kørsler (den
+//  femte fangede det). Årsagen er den samme som §E's oprindelige
+//  fejl — `Promise.all` giver ingen interleaving af sig selv, og §A
+//  har ingen port mellem eksistenskontrollen og indsættelsen, så de
+//  to kald kører reelt efter hinanden.
+//
+//  §A måler altså, at den normale vej opfører sig rigtigt. Den er
+//  ikke værdiløs, men den er ikke en vagt om indekset, og den må
+//  ikke læses som en. En port ville kræve et sømt sted inde i
+//  `startKoebFor` mellem dens SELECT og dens INSERT; det er ikke
+//  bygget, og indtil det er, er indekset UBEVIST af denne prøve.
+//
+//  Samme forbehold gælder §D (`:393-413`): flyttes monotonien i
+//  `adgang_til` fra SQL til JS, forbliver den grøn. `Promise.allSettled`
+//  åbner ikke vinduet ved adgangsskrivningen.
 //
 //  ── ISOLATION ───────────────────────────────────────────────
 //  Prøven opretter sin EGEN database i den lokale testklynge, kører
@@ -90,6 +108,7 @@ const { checkoutForsoeg, drift, stripeEvents, subscriptions, users } =
 const { startKoebFor, sigOpFor } = await import('../lib/abonnement')
 const { saetTilstand } = await import('../lib/driftskift')
 const { behandl, laegPlan, betalingstilsyn, stopForkertFornyelse } = await import('../lib/webhook')
+const { skyldAfstemning } = await import('../lib/opsigelse')
 type Haendelse = Parameters<typeof behandl>[0]
 const { indsaetStripe } = await import('../lib/stripe')
 const { lavFalsk } = await import('./stripefalsk/index')
@@ -608,6 +627,83 @@ try {
     tjek('  og en uafklaret plan er ikke glemt — enten afklaret eller skyldig',
       e3?.skyldig !== null || (e3?.opsagt === true && e3?.plan === null),
       JSON.stringify(e3))
+  }
+
+  // ═══ E4 · TO SAMTIDIGE SKRIVERE OM SAMME KOEARBEJDE ═════
+  console.log('\n══ E4 · nyt køarbejde overlever en samtidig kvittering ══')
+  {
+    // Sjette gennemgangs M2, som et RIGTIGT kapløb. Gennemgangens egen
+    // probe siger det selv: dens adapter har ingen transaktionsisolering
+    // og modellerer ikke PostgreSQL. Egenskaben — at en kvittering på
+    // en forældet generation ikke rydder nyere arbejde — kan kun måles
+    // dér, hvor to forbindelser faktisk skriver samtidig.
+    const u = await bruger('e4')
+    const sub = `sub_${randomUUID()}`
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false })
+    await behandl(h('checkout.session.completed',
+      { subscription: sub, client_reference_id: u, customer: 'cus_e4' }), OPS)
+    await behandl(h('invoice.paid', {
+      subscription: sub, customer: 'cus_e4',
+      lines: { data: [{ period: { start: nu(), end: nu() + 86400 },
+        pricing: { price_details: { price: OPS.introPrisId } } }] },
+    }), OPS)
+
+    // PORTEN: hold den afsluttende Stripe-læsning, til en ANDEN
+    // forbindelse har registreret nyt arbejde. Uden porten måler vi
+    // kun én bestemt planlægning — det var §E's fejl i runde 5.
+    let slip: () => void = () => {}
+    const holdt = new Promise<void>((r) => { slip = r })
+    const rigtig = (falsk.subscriptions as
+      { retrieve: (id: string) => Promise<unknown> }).retrieve
+      .bind(falsk.subscriptions)
+    let gang = 0
+    ;(falsk.subscriptions as Record<string, unknown>).retrieve =
+      async (id: string) => {
+        const svar = await rigtig(id)
+        // Anden læsning er den AFSLUTTENDE tilbagelæsning.
+        if (++gang === 2) await Promise.race([holdt,
+          new Promise((r) => setTimeout(r, 2000))])
+        return svar
+      }
+
+    const opsigelse = sigOpFor(u)
+    // Imens: en anden forbindelse registrerer nyt, korrekt arbejde —
+    // præcis som `laegPlan` gør, når dens forsinkede `create` vender
+    // tilbage på et abonnement, kunden har sagt op.
+    await new Promise((r) => setTimeout(r, 50))
+    await skyldAfstemning(sub, 'planen blev lagt, mens kunden sagde op')
+    const [genUnder] = await db.select({ g: subscriptions.afstemningGen })
+      .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+    slip()
+    const svar = await opsigelse
+    ;(falsk.subscriptions as Record<string, unknown>).retrieve = rigtig
+
+    const [e4] = await db.select({
+      skyldig: subscriptions.afstemningSkyldigAt, gen: subscriptions.afstemningGen,
+      opsagt: subscriptions.cancelAtPeriodEnd, adgang: subscriptions.adgangTil,
+    }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+
+    tjek('kunden får sit svar — vores eget arbejde blev gjort',
+      svar.ok === true, JSON.stringify(svar))
+    tjek('  generationen steg, mens opsigelsen var i luften',
+      (e4?.gen ?? 0) >= (genUnder?.g ?? 0) && (genUnder?.g ?? 0) > 0,
+      `under=${genUnder?.g} efter=${e4?.gen}`)
+    // KERNEN: kvitteringen så generation N; der står nu N+1. Den må
+    // ikke rydde arbejde, den aldrig har udført.
+    tjek('  det NYERE køarbejde overlevede kvitteringen',
+      e4?.skyldig !== null, `skyldig=${e4?.skyldig} gen=${e4?.gen}`)
+    tjek('  og opsigelsen er bekræftet hos Stripe',
+      falsk.abonnementer.get(sub)?.cancel_at_period_end === true)
+    tjek('  KUNDENS BETALTE ADGANG ER URØRT', !!e4?.adgang)
+
+    // Og tilsynet gør resten færdigt.
+    const foer = falsk.antal('subscriptions.retrieve')
+    await betalingstilsyn(OPS)
+    const [efter] = await db.select({ skyldig: subscriptions.afstemningSkyldigAt })
+      .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+    tjek('  tilsynet tager den op og indfrier den',
+      efter?.skyldig === null && falsk.antal('subscriptions.retrieve') > foer,
+      `skyldig=${efter?.skyldig}`)
   }
 
   // ═══ F · OPSIGELSE MOD ET IGANGVAERENDE PLANKALD ═════════

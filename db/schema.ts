@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm'
 import {
-  pgTable, uuid, text, integer, smallint, numeric, boolean,
+  pgTable, uuid, text, integer, bigint, smallint, numeric, boolean,
   timestamp, jsonb, index, uniqueIndex, check, primaryKey, pgEnum,
 } from 'drizzle-orm/pg-core'
 
@@ -236,6 +236,19 @@ export const subscriptions = pgTable('subscriptions', {
   afstemningNaesteAt: timestamp('afstemning_naeste_at', { withTimezone: true }),
   afstemningForsoeg: integer('afstemning_forsoeg').notNull().default(0),
   afstemningFejl: text('afstemning_fejl'),
+  /**
+   * Generationen af udestaaende arbejde. Stiger ved HVER registrering.
+   *
+   * En kvittering maa kun daekke det arbejde, den har SET. Afstemningen
+   * laeser taelleren ved start og rydder kun skylden, hvis den staar
+   * uaendret — er den steget, har en anden registreret noget imens, og
+   * det staar tilbage.
+   *
+   * Hvorfor ikke bare `afstemning_skyldig_at`: den er `coalesce`'et med
+   * vilje, saa en ny skyld oven i en gammel BEVARER det gamle tidspunkt.
+   * To generationer faar samme vaerdi og kan ikke skelnes. Se 0029.
+   */
+  afstemningGen: bigint('afstemning_gen', { mode: 'number' }).notNull().default(0),
 }, (t) => ({
   userIdx: index('sub_user_idx').on(t.userId),
   adgangIdx: index('sub_adgang_idx').on(t.userId, t.adgangTil),

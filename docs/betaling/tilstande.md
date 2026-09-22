@@ -1,8 +1,8 @@
 # Tilstandene og deres relationer
 
-Denne fil findes, fordi **fem** gennemgange i træk har fundet fejl af
+Denne fil findes, fordi **seks** gennemgange i træk har fundet fejl af
 **samme art**: en tilstand blev behandlet som afgjort, før den var det.
-Ikke fem forskellige fejl — den samme fejl fem steder.
+Ikke seks forskellige fejl — den samme fejl seks steder.
 
 Femte gennemgang gjorde det skarpere: det er ikke nok at skelne
 «besluttet» fra «bekræftet». Der er en **tredje** kendsgerning —
@@ -72,7 +72,7 @@ blev åbnet oven i et, der netop var gennemført.
 nyt køb, og begge blokerer et skift til GRATIS. `betalt`, `udloebet` og
 `afbrudt` er terminale.
 
-## De nitten invarianter
+## De enogtyve invarianter
 
 | # | Invariant |
 |---|---|
@@ -94,6 +94,8 @@ nyt køb, og begge blokerer et skift til GRATIS. `betalt`, `udloebet` og
 | **I17** | «Skal fornyelsen stoppes?» beregnes ét sted, og alle sættere og betalere bruger dét |
 | **I18** | Køen giver aldrig op, kan ikke udsulte, og vender ikke hastværket om |
 | **I19** | Et dødt abonnement er en BEKRÆFTET sluttilstand — siden lover ikke en automatik, der ikke findes |
+| **I20** | En gemt beslutning har ALTID en vej til udførelse — de to skrives i ét |
+| **I21** | En kvittering dækker kun det arbejde, den har SET. Generation, ikke tidsstempel |
 | **I7** | `adgang_til` flyttes kun frem. Altid. Uden undtagelse |
 
 I7 står sidst, fordi den er den eneste, der aldrig har været brudt, og
@@ -288,6 +290,60 @@ om én ting: **en tilstand blev behandlet som afgjort, før den var det**
   `afstemGennemfoerteKoeb` (50 permanent knækkede rækker spærrede den
   51. i tre kørsler) og `iFareForForkertFornyelse` (`limit(100)` uden
   nogen `order by`).
+
+**I20 og I21 kom til efter sjette gennemgang.** Begge er den samme sag
+som I15-I19, ét lag dybere: dér handlede det om, hvad rækken BETYDER;
+her om, hvad en enkelt skrivning må love.
+
+· **I20** er I12 og I16 ført til ende. I12 siger, at beslutningen skrives
+  før de eksterne kald, så den kan genoptages. I16 siger, at
+  genoptagelsen skal have sit eget felt. **I20 siger, at de to ikke må
+  kunne skilles ad.**
+
+  `noterOpsigelse` lavede TO selvstændige `update`s — beslutningen og
+  skylden. En enkelt databasefejl i den anden var nok: beslutningen stod
+  tilbage uden en vej til udførelse. Målt: tre tilsynskørsler, nul
+  Stripe-kald, ingen logline, `cancel_at_period_end` aldrig sat hos
+  Stripe — mens «Mit abonnement» sagde *«Opsigelse undervejs … Vi prøver
+  automatisk igen»* om en kø, der var tom. Hun kunne kun komme videre ved
+  selv at trykke igen.
+
+  Rettelsen er ÉT `update`. Ét statement er atomisk i PostgreSQL, så der
+  er ingen transaktion — og dermed heller ingen transaktion, der holdes
+  åben over et netværkskald. `coalesce` på beslutningen gør nøjagtig
+  det, `isNull`-vagten gjorde: det FØRSTE tidspunkt vinder.
+
+  **Og fristelsen skal modstås:** man kunne lade køen finde rækken uden
+  en skyld — «besluttet, men ikke bekræftet» som reserveprædikat. Det
+  ville være to udtryk for det samme spørgsmål, og det er netop den
+  fejlform, I16 kom af. Ét sted, og det er skylden.
+
+  De rækker, der allerede måtte stå forældreløse, samles op af 0029's
+  backfill. Rettelsen gør tilstanden uopnåelig fremover; den fjerner
+  ikke det, der allerede er sket.
+
+· **I21** er K7 ført hele vejen rundt. K7 beskyttede rydningen i grenen
+  UDEN en stopbeslutning. Grenen, der GENNEMFØRER en opsigelse, ryddede
+  fortsat ubetinget — og mellem den afsluttende Stripe-læsning og
+  skrivningen hjem ligger en netværkstur. I det vindue kan `laegPlan`
+  vende tilbage fra et forsinket `create`, opdage opsigelsen og
+  registrere ny, korrekt skyld. Den gamle kvittering slettede den.
+  Målt: planen `active` hos Stripe, skyld null, tre tilsynskørsler med
+  nul kald. Tavs og blivende.
+
+  **Tidsstemplet kan ikke bruges til at se det.**
+  `coalesce(afstemning_skyldig_at, now())` BEVARER med vilje det gamle
+  tidspunkt, så en ny skyld oven i en gammel får præcis samme værdi. To
+  generationer bliver umulige at skelne — målt i `npm test`.
+
+  Derfor `afstemning_gen`, en tæller der stiger ved hver registrering.
+  Afstemningen læser den ved start og kvitterer kun, hvis den står
+  uændret. Det samme gælder planbindingen: den ryddes kun, hvis den
+  stadig peger på den plan, VI undersøgte.
+
+  Er generationen steget, er det ikke en fejl: vores arbejde ER gjort,
+  og kunden får sit ja. Men vi har ikke set det nye, og så kan vi ikke
+  sige, det er gjort.
 
 ## Hvornår en plan GÆLDER
 

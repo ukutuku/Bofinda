@@ -17,7 +17,8 @@ efter anden gennemgangsrunde. Basis for hele arbejdet:
 | `d8bd15f` | Tredje gennemgangs seks fund |
 | `fa3e11e` | Modstandsgennemgang: seksten fund i rettelserne selv |
 | `c8aa05b` | Fjerde gennemgang: hændelsesbevaring, opsigelse, planafstemning |
-| *denne* | Femte gennemgang: anmodning, bekræftet sluttilstand, udestående arbejde |
+| `aca19df` | Femte gennemgang: anmodning, bekræftet sluttilstand, udestående arbejde |
+| *denne* | Sjette gennemgang: atomisk beslutning, kvittering kun på set arbejde |
 
 Historikken er ikke omskrevet undervejs. De tidligere revisioner står,
 som de blev afleveret.
@@ -674,6 +675,192 @@ ved en igangværende opsigelse, er ikke målt.** Det kræver sandbox, og
 gennemgangens egen instruks er læst som den står: fundet afvises ikke
 på en uafprøvet antagelse om Stripe. Intet her siger noget om, hvorvidt
 en opkrævning ville ske eller udeblive.
+
+## Sjette gennemgang: atomisk beslutning, kvittering kun på set arbejde
+
+To fund, begge reproduceret før rettelse — af gennemgangen med dens egen
+probe, og af mig selv gennem de faktiske indgange mod PGlite.
+
+**Grundlaget er efterprøvet mod Git,** hvilket gennemgangen udtrykkeligt
+ikke havde gjort: pakkens 37 kildefiler er byte-identiske med `aca19df`,
+og dens `input_zip_sha256` er identisk med den ZIP, jeg afleverede.
+
+### M1 · En gemt beslutning kunne mangle sin vej til udførelse
+
+`noterOpsigelse()` lavede TO selvstændige skrivninger: kundens
+beslutning, og derefter `skyldAfstemning()`. En enkelt databasefejl i den
+anden var nok.
+
+Målt: beslutningen gemt, ingen skyld, **tre tilsynskørsler med nul
+Stripe-kald og tom logliste**, `cancel_at_period_end` aldrig sat hos
+Stripe — mens «Mit abonnement» sagde *«Opsigelse undervejs … Vi prøver
+automatisk igen»* om en kø, der var tom. Oven i det afviste `sigOpFor()`
+sit promise, så kunden mødte en ubehandlet fejl frem for en besked.
+
+Rettelsen er **ét `update`**. Ét statement er atomisk i PostgreSQL, så
+de to felter ikke kan skilles ad — og der er ingen transaktion, og
+dermed heller ingen transaktion, der holdes åben over et netværkskald.
+`coalesce` på beslutningen gør det, `isNull`-vagten gjorde: det første
+tidspunkt vinder. `sigOpFor()` svarer nu `afventer` i stedet for at kaste.
+
+**Fristelsen, der blev modstået:** køen kunne have fået et
+reserveprædikat — «besluttet, men ikke bekræftet». Det ville være to
+udtryk for samme spørgsmål, og det er netop den fejlform, hele runde 5
+handlede om. Ét sted, og det er skylden. De rækker, der allerede måtte
+stå forældreløse, samles op af 0029's backfill.
+
+### M2 · En gammel kvittering kunne slette nyere køarbejde
+
+K7 beskyttede rydningen i grenen UDEN en stopbeslutning. Grenen, der
+GENNEMFØRER en opsigelse, ryddede fortsat ubetinget — og mellem den
+afsluttende Stripe-læsning og skrivningen hjem ligger en netværkstur.
+
+Målt: et forsinket `create` vender tilbage, `laegPlan` opdager
+opsigelsen og registrerer korrekt ny skyld — og den gamle kvittering
+sletter den. Plan `active` hos Stripe, skyld null, binding null, tre
+tilsynskørsler med nul kald. Tavs og blivende.
+
+**Tidsstemplet duer ikke som markør, og det er målt:**
+`coalesce(afstemning_skyldig_at, now())` bevarer med vilje det gamle
+tidspunkt, så to registreringer får præcis samme værdi.
+
+Derfor `afstemning_gen` (0029), en tæller der stiger ved hver
+registrering. Afstemningen læser den ved start og kvitterer kun, hvis den
+står uændret. Planbindingen ryddes kun, hvis den stadig peger på den
+plan, vi undersøgte. Samme vagt på alle fire kvitteringssteder.
+
+Er generationen steget, er det ikke en fejl: vores arbejde ER gjort, og
+kunden får sit ja. Men vi har ikke set det nye, så vi siger ikke, det er
+gjort.
+
+### Kapløbet måles, hvor det kan måles
+
+Gennemgangen siger det selv om sin egen probe: ingen transaktions­-
+isolering, ingen modellering af PostgreSQL. Derfor ligger M2's egentlige
+egenskab i `test-betaling-kaploeb.ts` **§E4** mod rigtig, isoleret
+PostgreSQL, med en port på den afsluttende læsning og en anden
+forbindelse, der registrerer arbejde i vinduet.
+
+**§E4 er modprøvet:** rulles generationsvagten tilbage, bliver den rød
+(`skyldig=null`) på rigtig PostgreSQL.
+
+### Tre fund i rettelserne selv
+
+Modlæsning af runde 6's egen kode fandt tre defekter, alle målt før de
+blev rettet:
+
+**S1 · Et miss var usynligt.** `ryd()` returnerede `void`, så en
+kvittering, generationsvagten afviste, forsvandt sporløst: udfaldet blev
+`afstemt`, og tilsynet skrev «1 skyldige · 1 taget · 1 afstemt · 0 kunne
+ikke endnu» om en række, der stadig var skyldig. Det er CLAUDE.md's egen
+regel — *en manglende oplysning skal være synlig, ikke fraværende* —
+vendt indad mod vores eget tilsyn. `ryd()` svarer nu, om den ramte,
+udfaldet `nyt_arbejde` findes, og tilsynslinjen tæller det.
+
+**S2 · De to vagter kunne komme i utakt.** Bindingsvagten og
+generationsvagten stod på hver sin skrivning. Med en forældet lokal
+binding missede den ene, mens den anden ramte — så blev skylden ryddet,
+mens bindingen stod, og rækken påstod «plan konfigureret» uden
+køarbejde. De er nu ÉT statement under samme vagt, og vagten tager
+**begge** observerede plan-id'er: vores eget og Stripes.
+
+Grunden til at generationen ikke kan bære bindingen alene er målt:
+`laegPlan` skriver `stripe_schedule_id` straks efter sit `create` og
+**før** den noterer nogen skyld. I det vindue er generationen urørt,
+mens bindingen er ny.
+
+**S3 · `besluttetAfOs` havde M1's fejl.** Den skrev beslutningen alene;
+skylden blev sat i en catch langt nede. Fejlede DEN skrivning, stod
+`fornyelse_stoppet_at` uden køarbejde, og tre tilsynskørsler gjorde
+intet. Nu ét statement, som `noterOpsigelse`.
+
+Modstykket fulgte med: et indgreb, der LYKKEDES, må ikke efterlade
+evigt arbejde. Kvitteringen sker nu på successvejen — betinget på den
+generation, vores egen beslutning skrev, så den ikke rydder noget, en
+anden har registreret imens.
+
+### S5 · Én dårlig række slog sikringen fra for alle andre
+
+`iFareForForkertFornyelse` er den **sidste** sikring før en forkert
+fornyelse. Løkken over den lå i ét stort `try`, og
+`stopForkertFornyelse` kunne kaste — selv om dens egen docstring lovede
+«KASTER IKKE».
+
+Målt: fejler den første rækkes skyld-skrivning, får de øvrige **nul**
+forsøg, og loggen siger kun «fornyelsesbeskyttelsen fejlede». To
+abonnementer på vej mod en forkert fornyelse blev tavst sprunget over.
+
+To rettelser, fordi der er to fejl:
+
+* `stopForkertFornyelse` holder nu sit løfte — catch-grenens egen
+  skrivning er selv vagtet.
+* Løkken bærer fejlen **pr. række**. Den dårlige får sin egen ⚠⚠-linje
+  med sit eget abonnements-id; de øvrige bliver forsøgt.
+
+**De to rettelser er redundante med vilje**, og modprøven måtte lære
+det: ruller man kun den ene tilbage, bliver prøven grøn — hver halvdel
+holder egenskaben alene. Modprøven ruller derfor begge, og så bliver
+den rød med 0 af 2. Redundansen er ikke tilfældig: den ene beskytter
+mod den fejl vi kender, den anden mod dem vi ikke har set endnu.
+
+Det er samme familie som N4's udsultning: noget, der stille undlader at
+ske for alle på nær den første.
+
+### To eksisterende kapløbsprøver beviser ikke, hvad de siger
+
+Målt under denne runde, og de er ældre end den:
+
+**§A i `test-betaling-kaploeb.ts` beviser ikke entydighedsindekset.**
+Med BEGGE indeks droppet er §A grøn i **4 af 5 kørsler**. Årsagen er
+§E's oprindelige fejl: `Promise.all` giver ingen interleaving af sig
+selv, og §A har ingen port mellem eksistenskontrollen og indsættelsen.
+
+Filens hoved påstod, at indekset bevises dér. **Den påstand er
+rettet** — ikke prøven. En port ville kræve et sømt sted inde i
+`startKoebFor` mellem dens SELECT og dens INSERT, og det er uden for
+denne rundes omfang. Indtil det er bygget, er indekset ubevist af den
+prøve, og nu står der det.
+
+**§D har samme svaghed:** flyttes monotonien i `adgang_til` fra SQL til
+JS, forbliver den grøn.
+
+### Hvad PGlite kan og ikke kan bevise
+
+Målt, ikke formodet: PGlite kan ikke holde to transaktioner åbne
+samtidig — der er én forbindelse. To «samtidige» skrivninger får samme
+`txid_current()`, og efter en ROLLBACK svarer PGlite **forkert** dér,
+hvor rigtig PostgreSQL svarer rigtigt.
+
+Det betyder, at en betinget skrivning, der skal blokere på rækkelåsen
+og derefter genlæse sin WHERE mod udfaldet af en anden transaktion
+(READ COMMITTED / EvalPlanQual), **aldrig udøves på PGlite**. Samme
+gælder `for share`/`for update` og de delvise entydighedsindeks.
+
+M2 er derimod målt til at give samme udfald begge steder, fordi den
+ikke er et kapløb mellem to transaktioner: den er ét forløbs gamle
+Stripe-øjebliksbillede, der driver en ubetinget skrivning. Derfor
+ligger regressionen i `npm test` **og** kapløbet i §E4.
+
+### Rettelser til mine egne påstande
+
+To ting, jeg skrev og målte mig frem til var forkerte:
+
+* Jeg skrev først, at `besluttetAfOs` **ikke** var den samme fejl som
+  M1, fordi den kaster videre uden at skrive. Målt: den skriver
+  beslutningen, og det er catch-grenens skyld-skrivning, der kan fejle.
+  Gennemgangen havde ret i at bede mig se på den. Se S3.
+* En assertion om, at den forældreløse plan ender sluppet, blev fjernet
+  frem for gjort grøn: den kan ikke måles, fordi attrappens `release`
+  rydder `subscription.schedule` ubetinget. Det står nu som uafprøvet
+  frem for som en påstand.
+
+### Rettelse til den forrige aflevering
+
+`SVAR.md` i `betaling-runde5-aca19df.zip` angav `52838b5` som afleveret
+revision. Det var forkert — linjen blev skrevet, før commit'en blev
+amendet to gange mere. Slutrevisionen er `aca19df`, hvilket patch-serien
+og loggene i samme pakke angiver korrekt. Gennemgangen har ret, og det
+kræver ingen omskrivning af historik.
 
 ## Det, der ikke er løst
 

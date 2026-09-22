@@ -31,7 +31,7 @@
 //     released` (:267).
 // ═══════════════════════════════════════════════════════════════
 
-import { and, asc, count, eq, isNotNull, isNull, lte, or, sql, type SQL } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, isNotNull, isNull, lte, or, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/client'
 import { subscriptions } from '../db/schema'
 import { stripe, type Stripeopsaetning } from './stripe'
@@ -127,6 +127,13 @@ export async function skyldAfstemning(subId: string, grund: string): Promise<voi
       afstemningSkyldigAt: sql`coalesce(${subscriptions.afstemningSkyldigAt}, now())`,
       afstemningNaesteAt: null,
       afstemningFejl: grund.slice(0, 300),
+      // ── HVER REGISTRERING ER EN NY GENERATION ───────────
+      // Tidsstemplet kan IKKE bruges til det: det er `coalesce`'et
+      // med vilje, saa en ny skyld oven i en gammel bevarer det
+      // gamle tidspunkt. To generationer faar samme vaerdi.
+      // Taelleren stiger derimod hver gang, og afstemningen kan
+      // dermed se, om der er kommet arbejde, den ikke har udfoert.
+      afstemningGen: sql`${subscriptions.afstemningGen} + 1`,
       updatedAt: new Date(),
     })
     .where(eq(subscriptions.stripeSubscriptionId, subId))
@@ -150,6 +157,15 @@ export type Opsigelsesudfald =
    * at udfoere noget — derfor laeser naeste afstemning kilden igen.
    */
   | 'ikke_bekraeftet'
+  /**
+   * Vores eget arbejde ER gjort og bekraeftet — men der er registreret
+   * NYT arbejde, mens vi var i luften, og det har vi ikke set.
+   *
+   * Det er ikke en fejl, og kunden faar sit ja. Men raekken bliver i
+   * koeen, og det skal kunne SES: uden udfaldet meldte tilsynet
+   * «afstemt» om en raekke, der stadig var skyldig.
+   */
+  | 'nyt_arbejde'
 
 /**
  * Statusser, et abonnement ikke kommer tilbage fra.
@@ -264,18 +280,29 @@ export async function afstemAbonnement(
     status: subscriptions.status,
     forsoeg: subscriptions.afstemningForsoeg,
     frist: subscriptions.currentPeriodEnd,
+    // Generationen, som den stod DA VI BEGYNDTE. Alt hvad vi kvitterer
+    // til sidst, maales mod den her.
+    gen: subscriptions.afstemningGen,
   }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, subId)).limit(1)
   if (!a) return 'ikke_noedvendig'
 
   // Et doedt abonnement fornyes ikke og kan ikke opsiges. Skylden
   // ryddes; der er ikke noget at afstemme.
   if ((TERMINALE as readonly string[]).includes(a.status)) {
-    await ryd(subId)
+    if (!await ryd(subId, [eq(subscriptions.afstemningGen, a.gen ?? 0)])) {
+      return 'nyt_arbejde'
+    }
     return 'ikke_noedvendig'
   }
 
   const skalStoppes = skalFornyelsenStoppes(a)
   let slugtVedRelease: string | null = null
+  // Den plan, VI faktisk undersoegte og slap. Oprydningen nedenfor
+  // rydder kun bindingen, hvis raekken stadig peger paa netop den.
+  let planId: string | null = null
+  // Stripes eget svar paa «hvilken plan styrer abonnementet», som vi
+  // LAESTE det. Bindingsvagten nedenfor bruger begge observerede id'er.
+  let planHosStripeSet: string | null = null
 
   try {
     const s = stripe(ops)
@@ -284,6 +311,7 @@ export async function afstemAbonnement(
     const abo = await s.subscriptions.retrieve(subId) as
       { schedule?: unknown; cancel_at_period_end?: unknown; status?: unknown } | null
     const planHosStripe = idAf(abo?.schedule)
+    planHosStripeSet = planHosStripe
 
     // ── DOEDSVAGTEN LAESER STRIPE, IKKE OS ──────────────────
     // Vagten oeverst i funktionen spurgte VORES spejl (`a.status`).
@@ -305,7 +333,9 @@ export async function afstemAbonnement(
       await db.update(subscriptions)
         .set({ status: statusHosStripe as never, updatedAt: new Date() })
         .where(eq(subscriptions.stripeSubscriptionId, subId))
-      await ryd(subId)
+      if (!await ryd(subId, [eq(subscriptions.afstemningGen, a.gen ?? 0)])) {
+        return 'nyt_arbejde'
+      }
       return 'ikke_noedvendig'
     }
 
@@ -334,7 +364,10 @@ export async function afstemAbonnement(
       // udtrykt i basen. Rammer den nul raekker, har nogen besluttet
       // noget i mellemtiden, skylden bliver staaende, og naeste
       // afstemning tager den op med den nye viden.
-      await ryd(subId, [...INGEN_BESLUTNING])
+      if (!await ryd(subId, [...INGEN_BESLUTNING,
+        eq(subscriptions.afstemningGen, a.gen ?? 0)])) {
+        return 'nyt_arbejde'
+      }
       return 'afstemt'
     }
 
@@ -347,7 +380,7 @@ export async function afstemAbonnement(
     // en plan, der for laengst er sluppet, mens en ANDEN er bundet til
     // abonnementet nu. Laeste vi vores eget id foerst, ville vi
     // undersoege den forkerte plan og aldrig slippe den rigtige.
-    const planId = planHosStripe ?? a.plan
+    planId = planHosStripe ?? a.plan
     if (planId) {
       const plan = await s.subscriptionSchedules.retrieve(planId)
       if (planGaelder(plan, subId)) {
@@ -426,10 +459,52 @@ export async function afstemAbonnement(
   // Naar vi er her, HAR Stripe bekraeftet. En fejl herfra og ned
   // aendrer ikke det; den betyder bare, at der er lidt tilbage at
   // rydde op i — og skylden staar, saa tilsynet goer det.
+  //
+  // ── MEN KUN DET, VI HAR SET ───────────────────────────
+  // Bindingen ryddes kun, hvis den stadig peger paa den plan, VI
+  // undersoegte. Mellem den afsluttende Stripe-laesning og den her
+  // skrivning ligger en netvaerkstur, og i det vindue kan `laegPlan`
+  // vende tilbage fra et forsinket `create` og binde en NY plan.
+  // Ryddede vi ubetinget, slettede vi bindingen til en plan, vi
+  // aldrig har sluppet — og den ville staa aktiv hos Stripe uden at
+  // vaere synlig for nogen.
+  //
+  // `planId` er null, naar der slet ikke var en plan at slippe. Saa er
+  // der heller ikke en binding at rydde, og betingelsen bliver
+  // `is null` — den rammer kun en raekke, der stadig er tom.
+  // ── KVITTÉR KUN DEN GENERATION, VI HAR UDFOERT ────────
+  // Er der registreret nyt arbejde, mens vi var i luften, staar det
+  // tilbage. Det er ikke en fejl: VORES arbejde ER gjort, og kunden
+  // faar sit ja. Men vi har ikke set det nye, og saa kan vi ikke
+  // sige, det er gjort. Raekken bliver i koeen, og naeste afstemning
+  // tager den med den nye viden.
+  //
+  // Foer stod her `await ryd(subId)` ubetinget. Maalt: et forsinket
+  // `create` vendte tilbage og registrerede korrekt ny skyld, den
+  // gamle kvittering slettede den, planen stod `active` hos Stripe, og
+  // tre tilsynskoersler foretog nul kald. Tavs og blivende.
+  //
+  // ── BINDING OG SKYLD I ÉN SKRIVNING ───────────────────
+  // De var to, hver med sin vagt, og de kunne komme i UTAKT: med en
+  // foraeldet lokal binding missede bindingsvagten, mens
+  // generationsvagten ramte — saa blev skylden ryddet, mens bindingen
+  // stod. Raekken paastod «plan konfigureret» uden koearbejde, og
+  // ingen koe saa den igen. Maalt.
+  //
+  // Ét statement er atomisk, saa de to felter kan ikke skilles ad —
+  // samme svar som M1, ét lag laengere inde.
+  const uroert = [
+    eq(subscriptions.afstemningGen, a.gen ?? 0),
+    bindingUroert(a.plan, planHosStripeSet),
+  ]
   try {
-    await db.update(subscriptions)
-      .set({ stripeScheduleId: null, planStatus: null, updatedAt: new Date() })
-      .where(eq(subscriptions.stripeSubscriptionId, subId))
+    const ryddet = await db.update(subscriptions)
+      .set({ stripeScheduleId: null, planStatus: null,
+             ...RYD_SAET, updatedAt: new Date() })
+      .where(and(eq(subscriptions.stripeSubscriptionId, subId), ...uroert))
+      .returning({ id: subscriptions.id })
+    // ── ET MISS ER ET UDFALD, IKKE EN TAVSHED ───────────
+    if (!ryddet.length) return 'nyt_arbejde'
   } catch (e) {
     await db.update(subscriptions)
       .set({
@@ -441,16 +516,56 @@ export async function afstemAbonnement(
       .where(eq(subscriptions.stripeSubscriptionId, subId))
     return 'bekraeftet_ikke_bogfoert'
   }
-  await ryd(subId)
+  // Naaede vi hertil, ramte kvitteringen ovenfor, og der var intet
+  // nyt at tage hensyn til.
   return 'afstemt'
 }
 
-/** Skylden er indfriet. ÉT sted, og kun efter en laest sluttilstand. */
-async function ryd(subId: string, kun: SQL[] = []): Promise<void> {
-  await db.update(subscriptions)
-    .set({ afstemningSkyldigAt: null, afstemningNaesteAt: null,
-           afstemningForsoeg: 0, afstemningFejl: null, updatedAt: new Date() })
+/** Det, der skal staa i basen, naar skylden er indfriet. ÉT sted. */
+export const RYD_SAET = {
+  afstemningSkyldigAt: null, afstemningNaesteAt: null,
+  afstemningForsoeg: 0, afstemningFejl: null,
+} as const
+
+/**
+ * Skylden er indfriet. ÉT sted, og kun efter en laest sluttilstand.
+ *
+ * SVARER, OM DEN RAMTE. Den returnerede `void`, og et miss var derfor
+ * usynligt: udfaldet blev `afstemt`, og tilsynet skrev
+ * «1 skyldige · 1 taget · 1 afstemt · 0 kunne ikke endnu» om en raekke,
+ * der stadig var skyldig. Det er CLAUDE.md's egen regel — en manglende
+ * oplysning skal vaere SYNLIG, ikke fravaerende — vendt indad mod
+ * vores eget tilsyn. Maalt, foer den svarede.
+ */
+async function ryd(subId: string, kun: SQL[] = []): Promise<boolean> {
+  const r = await db.update(subscriptions)
+    .set({ ...RYD_SAET, updatedAt: new Date() })
     .where(and(eq(subscriptions.stripeSubscriptionId, subId), ...kun))
+    .returning({ id: subscriptions.id })
+  return r.length > 0
+}
+
+/**
+ * Peger bindingen stadig paa en plan, VI har observeret?
+ *
+ * Generationen kan ikke baere det her alene, og det er maalt:
+ * `laegPlan` skriver `stripe_schedule_id` STRAKS efter sit `create` og
+ * FOER den noterer nogen skyld. I det vindue er generationen uroert,
+ * mens bindingen er ny — og en ubetinget rydning sletter en binding
+ * til en plan, vi aldrig har sluppet.
+ *
+ * BEGGE observerede id'er taeller: vores eget fra raekken OG Stripes
+ * eget. Er vores lokale binding foraeldet, mens Stripe siger noget
+ * andet, er det stadig en binding, vi HAR set, og den maa ryddes.
+ * Tog vagten kun den ene, kom de to skrivninger i utakt — maalt:
+ * bindingen blev staaende, mens skylden blev ryddet, og raekken
+ * paastod «plan konfigureret» uden koearbejde.
+ */
+function bindingUroert(vores: string | null, hosStripe: string | null): SQL {
+  const set = [...new Set([vores, hosStripe].filter((x): x is string => x !== null))]
+  if (!set.length) return isNull(subscriptions.stripeScheduleId)
+  return or(isNull(subscriptions.stripeScheduleId),
+            inArray(subscriptions.stripeScheduleId, set))!
 }
 
 /**
@@ -461,13 +576,36 @@ async function ryd(subId: string, kun: SQL[] = []): Promise<void> {
  * og det er dét, spejlingen sammenligner en forsinket haendelse med.
  */
 export async function noterOpsigelse(subId: string): Promise<void> {
+  // ── ÉN SKRIVNING, IKKE TO ─────────────────────────────────
+  // Her stod to selvstaendige `update`s: foerst beslutningen, saa
+  // skylden. Fejlede den anden — og en enkelt databasefejl er nok —
+  // stod beslutningen tilbage UDEN en vej til udfoerelse. Maalt: tre
+  // tilsynskoersler, nul Stripe-kald, ingen logline, `cancel_at_period_end`
+  // aldrig sat hos Stripe. Og siden sagde imens «Opsigelse undervejs …
+  // Vi proever automatisk igen» om en koe, der var tom. Hun kunne kun
+  // komme videre ved selv at trykke igen.
+  //
+  // En vedvarende beslutning skal have en vedvarende vej til
+  // udfoerelse, og de to maa derfor ikke kunne skilles ad. Ét
+  // `update` er atomisk i PostgreSQL — ingen transaktion noedvendig,
+  // og dermed heller ingen transaktion, der holdes aaben over et
+  // netvaerkskald.
+  //
+  // `coalesce` paa beslutningen goer noejagtig det, `isNull`-vagten
+  // gjorde: det FOERSTE tidspunkt vinder. Det er dér, kunden traf
+  // valget, og det er dét, spejlingen sammenligner en forsinket
+  // haendelse med. Skylden saettes derimod hver gang — trykker hun
+  // igen, er det en ny registrering, og generationen stiger.
   await db.update(subscriptions)
-    .set({ opsagtAfKundeAt: new Date(), updatedAt: new Date() })
-    .where(and(
-      eq(subscriptions.stripeSubscriptionId, subId),
-      isNull(subscriptions.opsagtAfKundeAt),
-    ))
-  await skyldAfstemning(subId, 'kunden har sagt op — afventer bekræftelse hos Stripe')
+    .set({
+      opsagtAfKundeAt: sql`coalesce(${subscriptions.opsagtAfKundeAt}, now())`,
+      afstemningSkyldigAt: sql`coalesce(${subscriptions.afstemningSkyldigAt}, now())`,
+      afstemningNaesteAt: null,
+      afstemningFejl: 'kunden har sagt op — afventer bekræftelse hos Stripe',
+      afstemningGen: sql`${subscriptions.afstemningGen} + 1`,
+      updatedAt: new Date(),
+    })
+    .where(eq(subscriptions.stripeSubscriptionId, subId))
 }
 
 /**
@@ -489,6 +627,8 @@ export async function afstemSkyldige(
   ops: Stripeopsaetning, maks = 25,
 ): Promise<{
   skyldige: number; taget: number; afstemte: number; fejlede: number
+  /** Vores arbejde lykkedes, men der stod nyt tilbage, vi ikke har set. */
+  nytArbejde: number
   venter: number; detaljer: string[]
 }> {
   const nu = new Date()
@@ -572,11 +712,16 @@ export async function afstemSkyldige(
     )
     .limit(maks)
 
-  let afstemte = 0, fejlede = 0
+  let afstemte = 0, fejlede = 0, nytArbejde = 0
   const detaljer: string[] = []
   for (const r of raekker) {
     const u = await afstemAbonnement(ops, r.sub)
-    if (u === 'ikke_bekraeftet' || u === 'bekraeftet_ikke_bogfoert') {
+    if (u === 'nyt_arbejde') {
+      // Vores arbejde lykkedes; der kom bare mere. Det er hverken
+      // «afstemt» eller «kunne ikke» — og at kalde det det ene ville
+      // skjule en skyld, der staar.
+      nytArbejde++
+    } else if (u === 'ikke_bekraeftet' || u === 'bekraeftet_ikke_bogfoert') {
       fejlede++
       const [n] = await db.select({ f: subscriptions.afstemningFejl,
         forsoeg: subscriptions.afstemningForsoeg })
@@ -589,7 +734,7 @@ export async function afstemSkyldige(
   return {
     skyldige: i_alt?.n ?? 0,
     taget: raekker.length,
-    afstemte, fejlede,
+    afstemte, fejlede, nytArbejde,
     venter: (i_alt?.n ?? 0) - (nuKlar?.n ?? 0),
     detaljer,
   }

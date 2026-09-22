@@ -153,6 +153,7 @@ af hinanden:
 | `taget` | hvor mange af dem kørslen nåede (grænsen er 25) |
 | `afstemt` | hvor mange blev færdige |
 | `kunne ikke endnu` | hvor mange fejlede og prøves igen |
+| `fik nyt arbejde undervejs` | vores arbejde lykkedes, men der kom mere, mens vi var i luften |
 | `var i tilbagetrækning ved kørslens start` | hvor mange var skyldige uden at være forfaldne, **da runden begyndte** |
 
 `skyldige` tælles med sin egen forespørgsel, ikke som længden af den
@@ -165,6 +166,33 @@ ikke, at ingen er i tilbagetrækning nu. Målte vi bagefter, ville tallet
 altid være mindst så stort som `kunne ikke endnu`, og de to ville sige
 det samme.
 
+### Hvorfor der er en generationstæller
+
+**«Fik nyt arbejde undervejs» er ikke en fejl.** Kørslen gjorde sit
+arbejde færdigt; imens registrerede noget andet mere, og det har den
+ikke set. Rækken bliver i køen, og næste kørsel tager den. Ser du
+tallet stige kørsel efter kørsel på den SAMME række, er der derimod et
+kapløb, der ikke konvergerer — så skal nogen se på det.
+
+`afstemning_gen` stiger, hver gang nogen registrerer udestående arbejde.
+Afstemningen læser den, når den begynder, og **kvitterer kun, hvis den
+står uændret**. Er den steget, har en anden registreret noget imens, og
+det står tilbage.
+
+Tidsstemplet kan ikke bruges til det. `afstemning_skyldig_at` er
+`coalesce`'et med vilje — en ny skyld oven i en gammel BEVARER det gamle
+tidspunkt, så to generationer får præcis samme værdi.
+
+**Det betyder for dig:** ser du en række, hvor skylden står, og
+`afstemning_fejl` alligevel ser ud som om alt gik godt, så er det
+formentlig det her: en kørsel gjorde sit arbejde færdigt, og en anden nåede
+at registrere nyt i vinduet. Næste kørsel tager det. Det er ikke en fejl,
+og der skal ikke gøres noget.
+
+**Ryd aldrig `afstemning_gen` i hånden.** Sætter du den ned, kan en
+igangværende kørsel kvittere arbejde, den ikke har udført — præcis det,
+tælleren findes for at forhindre.
+
 ### Tre ting, der ikke er det samme
 
 Rækken bærer **tre adskilte kendsgerninger**, og hele afsnittet her
@@ -176,6 +204,7 @@ handler om ikke at blande dem:
 | `fornyelse_stoppet_at` | **vi har besluttet det.** Sikkerhedsstoppet |
 | `cancel_at_period_end` | **Stripe har bekræftet det.** Et spejl af deres felt |
 | `afstemning_skyldig_at` | **der er arbejde tilbage.** Sættes af alle tre veje |
+| `afstemning_gen` | **hvilken generation af arbejde.** Stiger ved hver registrering |
 
 En **skyldig** række er en, hvor der står arbejde tilbage — ikke en,
 hvor et bestemt flag har en bestemt værdi. Det var netop den udledning,

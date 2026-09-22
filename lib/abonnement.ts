@@ -717,6 +717,16 @@ export async function lukAlleAabneKoeb(udf: Udfoerer = db): Promise<{
 export type Opsigelsessvar =
   | { ok: true; bekraeftet: true; adgangTil: Date | null }
   | { ok: false; fejl: 'afventer'; adgangTil: Date | null }
+  /**
+   * Der blev IKKE gemt noget. Beslutningen er ikke noteret, og der er
+   * ingen koe, der arbejder videre.
+   *
+   * Den maa ikke slaas sammen med `afventer`. «Vi proever automatisk
+   * igen» er sandt for `afventer` — beslutningen staar, og skylden
+   * staar — og USANDT her: der er ikke noget at proeve igen paa. Det
+   * er N1's fejl i en ny forklaedning, og den skal holdes adskilt.
+   */
+  | { ok: false; fejl: 'ikke_gemt' }
   | { ok: false; fejl: 'ikke_logget_ind' | 'intet_abonnement' | 'stripe_mangler' }
 
 /**
@@ -758,7 +768,24 @@ export async function sigOpFor(brugerId: string): Promise<Opsigelsessvar> {
   //
   // Beslutningen spaerrer samtidig automatisk planlaegning og kan ikke
   // ryddes af en forsinket spejling. Se `opsagtAfKundeAt` i skemaet.
-  await noterOpsigelse(a.stripeId)
+  // ── OG ET AFVIST KALD ER OGSAA ET SVAR ────────────────
+  // Fejler skrivningen — en databasefejl er nok — kastede `sigOpFor`
+  // sit promise videre, og kunden mødte en ubehandlet fejl i stedet
+  // for en besked. Vi ved i det tilfælde ikke, om beslutningen nåede
+  // at blive gemt, så vi siger præcis dét: vi kunne ikke bekræfte
+  // noget. Knappen bliver stående, og hun kan trykke igen.
+  //
+  // Det er samme regel som N1, anvendt ét skridt tidligere: et kald,
+  // der ikke lykkedes, må ikke vises som noget andet end det.
+  try {
+    await noterOpsigelse(a.stripeId)
+  } catch {
+    // IKKE `afventer`. Skrivningen er ét statement, saa naar den
+    // fejler, staar hverken beslutningen eller skylden — og saa er
+    // «vi proever automatisk igen» et loefte om en automatik, der
+    // ikke findes. Hun skal trykke igen, og det skal hun have at vide.
+    return { ok: false, fejl: 'ikke_gemt' }
+  }
 
   // Afstemningen henter sin hensigt fra raekken, og beslutningen er
   // netop skrevet. Den er ÉN implementering, delt med tilsynet: to

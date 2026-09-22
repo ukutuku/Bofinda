@@ -45,12 +45,34 @@ export function Abonnement({ start }: { start: Abonnementsvisning | null }) {
 
   async function sigOpNu() {
     setArbejder(true); setMelding(null)
-    const svar = await opsig()
-    setArbejder(false)
+    // ── KNAPPEN MAA IKKE KUNNE FRYSE ────────────────────
+    // Uden `finally` naaede `setArbejder(false)` aldrig, hvis kaldet
+    // afviste: knappen stod deaktiveret med «Siger op …» og INGEN
+    // besked, til hun genindlaeste siden. Server action'en videresender
+    // en afvisning uroert, saa det er ikke hypotetisk.
+    let svar: Awaited<ReturnType<typeof opsig>>
+    try {
+      svar = await opsig()
+    } catch {
+      setMelding('Der skete en fejl. Prøv igen om lidt, eller skriv til '
+        + 'info@bofinda.dk, hvis det bliver ved.')
+      return
+    } finally {
+      setArbejder(false)
+    }
     if (svar.ok) {
       setA((x) => (x ? { ...x, opsagt: true, opsigelseUndervejs: false,
         fornyesIkke: true, naeste: { slags: 'fornyes_ikke' }, fornyesAt: null } : x))
       setMelding('Abonnementet er sagt op. Adgangen løber perioden ud.')
+      return
+    }
+    if (svar.fejl === 'ikke_gemt') {
+      // Der blev ikke gemt noget, og der er ingen kø. At sige «vi
+      // prøver automatisk igen» ville være et løfte om en automatik,
+      // der ikke findes — N1's fejl i en ny forklædning.
+      setMelding('Vi kunne ikke gemme din opsigelse lige nu, og der er '
+        + 'IKKE sket noget med dit abonnement. Prøv igen om lidt, eller '
+        + 'skriv til info@bofinda.dk.')
       return
     }
     if (svar.fejl === 'afventer') {
