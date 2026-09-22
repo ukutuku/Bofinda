@@ -99,6 +99,8 @@ nyt køb, og begge blokerer et skift til GRATIS. `betalt`, `udloebet` og
 | **I22** | En kø behandler sine rækker hver for sig — også når bogføringen af en fejl fejler |
 | **I23** | Ingen egen generation er ingen kvittering. Manglende ejerskab er ikke ejerskab |
 | **I24** | «Bekræftet ikke gemt» og «ukendt udfald» er to svar. Et kast beviser ikke, at intet skete |
+| **I25** | En række, kørslen ikke fik FLYTTET, bruger ikke kørslens kapacitet |
+| **I26** | «Hvilken plan styrer abonnementet» besvares af KILDEN, ét sted. Vores binding er en ledetråd |
 | **I7** | `adgang_til` flyttes kun frem. Altid. Uden undtagelse |
 
 I7 står sidst, fordi den er den eneste, der aldrig har været brudt, og
@@ -434,6 +436,95 @@ hvad der nåede at ske.
   ikke komme af DENNE skrivning; den sætter begge i samme statement. Så
   ved vi ikke, hvad vi ser, og et gæt her er et udsagn om hendes penge.
 
+**I25 og I26 kom til efter ottende gennemgang.** De to ligner ikke
+hinanden, og de er den samme sag: et tal, vi selv har skrevet, blev
+brugt som om det var en kendsgerning.
+
+· **I25** er I22 ført til ende. I22 sagde, at én rækkes fejl ikke må
+  standse de øvrige. Vagten pr. række reddede de rækker, der allerede
+  var VALGT — den skaffede ikke plads til dem uden for portionen.
+
+  Udvælgelsen tager `limit(25)` sorteret efter hasteklasse, dernæst
+  **færrest forsøg først**. Forsøgstallet er vores eget, og det skrives
+  i samme sætning som fejlteksten. Fejler DEN skrivning, står tallet på
+  0, næste forsøg er stadig klar, og rækken har nøjagtig de samme
+  sorteringsnøgler som før. Den vinder altså udvælgelsen igen. Målt:
+  26 opsigelser, de 25 første med brudt opslag OG brudt fejlbogføring —
+  kunde nr. 26 fik **nul** kald, indtil nogle af de 25 faldt ud af
+  hasteklassen fem timekørsler senere, efter hendes frist.
+
+  **Et fejlet forsøg, der ikke kan bogføres, er ikke et forsøg.** Så må
+  det heller ikke bruge en plads. Kørslen henter lige så mange nye
+  rækker — uden dem, den allerede har forsøgt — og fortsætter. Skylden
+  står, fristprioriteten er den samme forespørgsel, og fejlen logges
+  stadig pr. række.
+
+  **To veje, ikke én.** Et kast er den åbenlyse. Den anden er
+  `bekraeftet_ikke_bogfoert`: den returnerer PÆNT og skriver skylden,
+  men hverken forsøgstal eller tilbagetrækning. Og `nyt_arbejde` gør
+  det samme. Alle tre efterlader rækken forrest, og alle tre tælles
+  derfor med.
+
+  **Og der er et loft.** Uden ét kunne en base, hvor hver eneste
+  skrivning fejler, holde kørslen inde for evigt — og det ville bare
+  være en anden slags ubrugelig kø. Loftet er fire portioner, og det
+  står i kørselsrapporten med et tal, når det rammes. Resten er ærlig:
+  er der flere end fire portioners forgiftede rækker, når kørslen
+  stadig ikke forbi dem, og linjen er der, så det ikke er tavst.
+
+  **Et kast beviser ikke, at bogføringen udeblev** — I24 siger det
+  modsatte. Så giver vi en plads, der ikke var nødvendig. Den fejl
+  koster ét ekstra forsøg på en anden række. Den modsatte — at tro en
+  række flyttede sig, når den ikke gjorde — er den, der udsulter.
+
+· **I26** er CLAUDE.md's egen regel anvendt på et spørgsmål, tre
+  kodeveje besvarede hver for sig: **hvilken plan styrer abonnementet?**
+
+  `afstemAbonnement` spurgte kilden først og brugte vores binding som
+  sidste udvej. `stopForkertFornyelse` og `laegPlan` gjorde det
+  modsatte: de brugte vores binding og spurgte kun kilden, når
+  bindingen var tom — altså netop når der ikke var noget at afstemme.
+
+  Det kostede en kunde hendes fornyelse. Plan A var frigivet, Stripe
+  styrede med en korrekt plan B, og vores binding pegede stadig på A.
+  Sikkerhedsstoppet undersøgte A, fandt en plan der ikke styrer noget,
+  skrev `fornyelse_stoppet_at` og sendte `cancel_at_period_end` på et
+  abonnement, der ikke fejlede noget. B blev aldrig hentet. Blev det
+  første kald afvist, fuldførte næste afstemning den samme gemte
+  beslutning ved at frigive B.
+
+  **Reglen ligger nu ét sted, `planDerStyrer`.** `planGaelder` dømmer
+  hele vejen: en plan tæller kun, hvis den er levende OG selv siger, at
+  den styrer netop dette abonnement.
+
+  1. Har kalderen allerede kildens svar, ER det svaret.
+  2. Ellers prøves **vores binding**. Kommer den igennem `planGaelder`,
+     er den rigtig — og så er der ikke noget at spørge om.
+  3. Først når bindingen ikke duer, spørges kilden.
+
+  Svaret er null, når ingen plan styrer abonnementet. Så er der intet
+  at slippe — og for `laegPlan` betyder det, at der skal oprettes en,
+  på et afstemt grundlag og ikke på et gæt.
+
+  **Kilden spørges IKKE først, og det er en rettelse af min egen
+  første rettelse.** Et ubetinget `subscriptions.retrieve` gjorde
+  kildens svar nødvendigt for at **stå ned** — ikke kun for at gribe
+  ind. Målt: er netop det kald nede, mens planerne svarer fint, faldt
+  hele sikkerhedsstoppet i sin catch og skrev ⚠⚠ *«der er IKKE grebet
+  ind»* hver time om et abonnement, hvis plan var helt korrekt. To
+  falske alarmer i timen, i det uendelige.
+
+  **Kilden er nødvendig for at gribe ind, og kun dér.** Kommer vores
+  egen binding igennem `planGaelder`, siger PLANEN selv, at den styrer
+  abonnementet — og så kan `subscription.schedule` ikke pege et andet
+  sted. Det er dét, der gør rækkefølgen sikker, ikke en afvejning af
+  hvor dyrt et kald er.
+
+  **Rettelsen af bindingen er betinget.** `laegPlan` skriver bindingen
+  straks efter sit `create`; en ubetinget korrektion kunne slette den
+  med et svar, vi læste før den blev til. Og `eq(kolonne, null)` er
+  aldrig sandt i SQL — den tomme binding prøves med `isNull`.
+
 ## Hvornår en plan GÆLDER
 
 Det er to spørgsmål, ikke ét, og de har hver sit svar:
@@ -464,7 +555,13 @@ til det næste:
 | session | forsøg | sessionens `id` | `checkout.session.completed` |
 | forsøg | abonnement | `checkout_forsoeg.stripe_subscription_id` | `kassen()` skriver den |
 | faktura | forsøg | `parent.subscription_details.metadata.bofinda_forsoeg` | vi sætter den i `subscription_data.metadata` ved `sessions.create`; Stripe fastfryser den i fakturaen |
-| abonnement | plan | `subscriptions.stripe_schedule_id` og Stripes egen `subscription.schedule` | to uafhængige kilder, og det er med vilje |
+| abonnement | plan | `subscriptions.stripe_schedule_id` og Stripes egen `subscription.schedule` | to kilder, og de er IKKE ligestillede — se I26 |
+
+**Vores `stripe_schedule_id` er en ledetråd, ikke en autoritet.** Den
+må gerne bruges — og den bruges først, fordi den er billig — men kun
+når planen SELV siger, at den styrer netop dette abonnement
+(`planGaelder`). Kommer den ikke igennem, er det kilden, der svarer.
+Reglen ligger ét sted, `planDerStyrer`. Se I26.
 
 **Kunde-id er ikke en binding.** En kunde kan have et gammelt, opsagt
 abonnement og et nyt købsforsøg samtidig. At lukke et forsøg på

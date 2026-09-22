@@ -322,6 +322,22 @@ export function lavFalsk(): Falsk & Record<string, unknown> {
     subscriptionSchedules: {
       create: (p: unknown, o?: unknown) =>
         gennem('subscriptionSchedules.create', [p], o, () => {
+          // ── STRIPES EGEN REGEL: ÉN PLAN PR. ABONNEMENT ──────
+          // `from_subscription` paa et abonnement, der allerede har et
+          // schedule, afvises af Stripe. Attrappen tog FOER imod og
+          // overskrev bare `a.schedule` — og saa kunne en proeve vaere
+          // groen om et forloeb, Stripe ville have sagt nej til.
+          //
+          // Det blev vigtigt i runde 8: `laegPlan` opretter nu, naar
+          // KILDEN siger, at ingen plan styrer abonnementet. Svarer
+          // kilden forkert ét oejeblik, er det her nej den sidste
+          // spaerring mod plan nummer to — og saa skal attrappen have
+          // den, ellers maaler proeverne en anden verden.
+          const paa = (p as { from_subscription?: unknown } | undefined)?.from_subscription
+          if (typeof paa === 'string' && abonnementer.get(paa)?.schedule) {
+            throw new FoerUdfoerelseFejl(
+              `falsk stripe: abonnementet ${paa} har allerede en plan`)
+          }
           const id = `sub_sched_falsk_${++n}`
           // Som Stripe: en plan lavet `from_subscription` har ÉN fase,
           // der spejler abonnementet — med start og slut allerede sat.

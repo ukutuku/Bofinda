@@ -293,10 +293,18 @@ async function koer() {
 
     // Kunden når det først, MENS stoppet er i luften.
     //
-    // Hooken sidder på PLANOPSLAGET. Det er dét, stoppet laver, når
-    // bindingen allerede er kendt; `subscriptions.retrieve` rammes
-    // aldrig i det forløb, så en hook dér ville måle ingenting.
+    // Hooken sidder på PLANOPSLAGET, og den skal blive der.
+    //
+    // Da prøven blev skrevet, var det det ENESTE opslag i forløbet:
+    // stoppet brugte sin egen binding og spurgte ikke abonnementet.
+    // En hook på `subscriptions.retrieve` målte derfor ingenting.
     // (Målt: den gjorde — scenariet reproducerede ikke.)
+    //
+    // Siden runde 8 spørger stoppet FØRST abonnementet og derefter
+    // planen. Begge ligger stadig før `besluttetAfOs`, så hooken fyrer
+    // samme sted i forløbet — men «rammes aldrig» er ikke længere
+    // sandt, og det skal stå her, så den næste ikke flytter hooken på
+    // et forkert grundlag.
     const rigtigHent = (falsk.subscriptionSchedules as
       { retrieve: (id: string) => Promise<unknown> }).retrieve
       .bind(falsk.subscriptionSchedules)

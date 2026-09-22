@@ -1051,6 +1051,154 @@ allerede var der. De dokumenterede prøvegab i §A og
 §D af `test-betaling-kaploeb.ts` er holdt særskilt og er **ikke** lukket
 i denne runde — de står stadig beskrevet ovenfor som de gab, de er.
 
+## Ottende gennemgang: et tal, vi selv har skrevet, er ikke en kendsgerning
+
+To fund, begge reproduceret mod urørt `bb6e274` — af gennemgangens egen
+probe og af mig selv gennem `betalingstilsyn`, `laegPlan` og
+`behandl()` mod PGlite.
+
+**Grundlaget er efterprøvet mod Git,** hvilket gennemgangen
+udtrykkeligt ikke havde gjort: pakkens **40 kildefiler er
+byte-identiske med `bb6e274`**, og dens `input_zip_sha256` er identisk
+med den ZIP, jeg afleverede.
+
+De to fund ligner ikke hinanden, og de er den samme sag. I begge
+tilfælde blev **vores egen bogføring behandlet som en kendsgerning**:
+i T1 forsøgstallet, i T2 plan-bindingen.
+
+### T1 · Køen kom aldrig ud over sin første portion
+
+Udvælgelsen tager `limit(25)`, sorteret efter hasteklasse og dernæst
+**færrest forsøg først**. Forsøgstallet skrives i samme sætning som
+fejlteksten. Fejler DEN skrivning, står tallet på 0, næste forsøg er
+stadig klar, og rækken har nøjagtig de samme sorteringsnøgler som før.
+Den vinder altså udvælgelsen igen, og igen.
+
+Runde 7's vagt pr. række reddede de rækker, der allerede var **valgt**.
+Den skaffede ikke plads til dem uden for portionen.
+
+**Målt gennem `betalingstilsyn`:** 26 registrerede opsigelser, de 25
+første med brudt Stripe-opslag OG brudt fejlbogføring. Kunde nr. 26 fik
+**nul kald** i første kørsel. Med gennemgangens timekørsler nås hun
+først i femte time, mod en frist efter 4 t 26 min — 34 minutter for
+sent, fordi nogle af de 25 da faldt ud af hasteklassen. Uden
+skrivefejlen nås hun i anden kørsel.
+
+**Rettelsen:** en række, kørslen ikke fik flyttet, bruger ikke
+kørslens kapacitet. Kørslen henter lige så mange nye rækker — uden dem,
+den allerede har forsøgt — og fortsætter. Samme forespørgsel, samme
+rækkefølge; kun mængden af allerede forsøgte er udelukket.
+
+**Tre veje, ikke én.** Jeg fandt selv to mere, efter at have opregnet
+hver udgang i `afstemAbonnement`:
+
+| udfald | skriver forsøgstallet? | efterlader rækken forrest |
+|---|---|---|
+| kast | nej | ja |
+| `bekraeftet_ikke_bogfoert` | **nej** — returnerer PÆNT | ja |
+| `nyt_arbejde` | **nej** — `skyldAfstemning` nulstiller `naeste_at` | ja |
+| `ikke_bekraeftet` | ja | nej |
+| `afstemt` / `ikke_noedvendig` | skylden ryddes | nej |
+
+Gennemgangen beskriver kun kastet. De to andre er samme udsultning ad
+grene, der ikke kaster, og de tælles nu med samme sted.
+
+**Loftet er fire portioner, og det er ikke en løsning, det er et krav.**
+En ubundet løkke må ikke kunne løbe. Er der flere end fire portioners
+forgiftede rækker, når kørslen stadig ikke forbi dem — og så står det i
+kørselsrapporten med et tal: *«loftet på 100 forsøgte rækker er nået —
+42 klare rækker blev ikke forsøgt.»* Resten er ærlig frem for tavs.
+
+**Et kast beviser ikke, at bogføringen udeblev.** Runde 7 fastslog selv,
+at en skrivning kan committe, mens svaret går tabt. Så giver vi en
+plads, der ikke var nødvendig — det koster ét ekstra forsøg på en anden
+række. Den modsatte fejl er den, der udsulter.
+
+**Og en ny fejl, jeg selv indførte undervejs:** den ekstra udvælgelse
+ligger MIDT i runden. Kastede den videre, forsvandt hele rapporten for
+de rækker, der allerede var afstemt. Den er nu vagtet, og linjen siger
+hvorfor der ikke kom flere. Den FØRSTE udvælgelse er urørt: den ligger
+før alt arbejde, og et kast dér koster ikke noget.
+
+### T2 · Sikkerhedsstoppet spurgte den gamle plan
+
+`stopForkertFornyelse` havde `let planId = a.plan; if (!planId) { spørg
+kilden }`. Vi spurgte altså kun, når vi intet vidste — netop det
+tilfælde, hvor der ikke var noget at afstemme. Kommentaren ovenover sagde
+*«vi spørger derfor kilden, præcis som `laegPlan` gør»*; koden gjorde
+det kun i det ene tilfælde. Det er samme form som den catch-kommentar,
+runde 5 fandt: en vagt beskrevet, men ikke bygget.
+
+**Målt gennem `betalingstilsyn`:** plan A frigivet, Stripe styrer med
+en korrekt plan B, den forældede binding sat gennem den faktiske
+`customer.subscription.updated`-indgang. B blev aldrig hentet,
+`fornyelse_stoppet_at` blev skrevet, og der gik et
+`cancel_at_period_end` ud på et abonnement, der ikke fejlede noget.
+Blev det første kald afvist, fuldførte næste afstemning den samme gemte
+beslutning ved at **frigive B**.
+
+`laegPlan` havde samme valgvej, og den er en del af forudsætningen: med
+en forældet binding forsøgte den at konfigurere en frigivet plan, fejlede
+fem gange, og skrev dermed selv den `planStatus = 'fejlet'`, der bringer
+rækken frem til sikkerhedsstoppet.
+
+**T2 fandtes også på `967cd6f`.** Den er ikke indført af runde 7.
+
+**Rettelsen er ÉT sted, `planDerStyrer`,** og det er hele pointen. Tre
+kodeveje besvarede det samme spørgsmål hver for sig, og det var dét,
+fejlen kom af — CLAUDE.md's egen regel, ordret. `planGaelder` dømmer
+hele vejen: en plan tæller kun, hvis den er levende OG selv siger, at
+den styrer netop dette abonnement.
+
+1. Har kalderen allerede kildens svar, ER det svaret.
+2. Ellers prøves **vores binding**. Kommer den igennem `planGaelder`,
+   er den rigtig.
+3. Først når bindingen ikke duer, spørges kilden.
+
+**Rækkefølgen er en rettelse af min egen første rettelse.** Jeg skrev
+den først med kilden som absolut autoritet og et ubetinget
+`subscriptions.retrieve` som første kald. Det gjorde kildens svar
+nødvendigt for at **stå ned** — ikke kun for at gribe ind. Målt som
+kontrafaktisk: er netop det kald nede, mens planerne svarer fint, faldt
+hele sikkerhedsstoppet i sin catch og skrev ⚠⚠ *«der er IKKE grebet
+ind»* hver time om et abonnement, hvis plan var helt korrekt. To falske
+alarmer i timen, i det uendelige. `T2g` måler det nu.
+
+Den samme fejl ville desuden have gjort §R4b i runde 4 grøn af en anden
+grund end den, den er skrevet for: planen ville aldrig være blevet
+hentet. Prøven har nu en vagt om sig selv, der måler, at den sluppede
+plan FAKTISK blev undersøgt — og med den rigtige rækkefølge bliver den
+det.
+
+**Rettelsen af bindingen er betinget** på den værdi, vi læste
+(`laegPlan` skriver bindingen straks efter sit `create`), og den tomme
+binding prøves med `isNull` — `eq(kolonne, null)` er aldrig sandt i SQL.
+**Rydningen efter indgrebet er nu også betinget**, med `bindingUroert`,
+den samme vagt `afstemAbonnement` bruger: før kom `planId` altid fra
+rækken selv, så en ubetinget rydning ryddede det, vi selv havde læst.
+Nu kommer det fra kilden og kan være et andet.
+
+### Et fikstur, der kun virkede af den gamle grund
+
+§9 i runde 3 blev rød af rettelsen, og det var fiksturets skyld, ikke
+rettelsens. Det bandt rækken til et plan-id, der ikke fandtes hos
+Stripe, på et abonnement, attrappen slet ikke kendte. Det virkede kun,
+fordi `laegPlan` dengang BRUGTE vores binding uden at spørge.
+
+Prøvens hensigt — at tilsynet ikke ophæver sin egen beskyttelse — er
+uændret. Fiksturet er nu et forløb, Stripe kunne have: et abonnement,
+der findes, uden plan, hvor oprettelsen fejler. Og Stripe kommer op igen
+mellem de to kørsler, så assertionen «kørsel 2 lægger INGEN ny plan» er
+en vagt og ikke en selvfølgelighed — før blev den holdt grøn af, at
+intet kunne oprettes overhovedet.
+
+**Attrappen har fået Stripes egen regel med:** `from_subscription` på et
+abonnement, der allerede har et schedule, afvises. Det blev vigtigt her,
+fordi `laegPlan` nu opretter, når kilden siger, at ingen plan styrer
+abonnementet — og så er det nej den sidste spærring mod plan nummer to.
+Samme begrundelse som da attrappen fik Stripes status­regler for
+`release` og `update`.
+
 ## Det, der ikke er løst
 
 * **RLS på `storage.objects`** er stadig den eneste håndhævelse af

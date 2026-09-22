@@ -33,8 +33,8 @@ import { and, asc, count, eq, gt, inArray, isNotNull, isNull, lt, lte, ne, notIn
 import { db } from '../db/client'
 import { UAFSLUTTET, checkoutForsoeg, stripeEvents, subscriptions, users } from '../db/schema'
 import { INTRO_TIMER, fase, faser, stripe, type Stripeopsaetning } from './stripe'
-import { INGEN_BESLUTNING, RYD_SAET, TERMINALE, afstemSkyldige, planGaelder,
-  skalFornyelsenStoppes, skyldAfstemning } from './opsigelse'
+import { INGEN_BESLUTNING, RYD_SAET, TERMINALE, afstemSkyldige, bindingUroert,
+  planDerStyrer, planGaelder, skalFornyelsenStoppes, skyldAfstemning } from './opsigelse'
 
 /** De haendelser, vi handler paa. Alt andet kvitteres og ignoreres. */
 export const LYTTER = [
@@ -828,27 +828,58 @@ export async function laegPlan(subId: string, ops: Stripeopsaetning): Promise<
   const s = stripe(ops)
   let planId = a.plan
   try {
-    if (!planId) {
-      // ── AFSTEM FOER DU OPRETTER ─────────────────────────
-      // Et tidligere forsoeg kan have oprettet planen, uden at vi fik
-      // svaret: en 500 fra Stripe betyder «udfoerelsen kan vaere
-      // paabegyndt», ikke «intet skete». Stripe gemmer den 500 under
-      // idempotensnoeglen, saa et genforsoeg paa SAMME noegle kaster
-      // den samme fejl igen — fem gange, og saa staar planen `fejlet`,
-      // mens den maaske findes. Og et BLINDT noegleskift ville oprette
-      // nummer to.
+    // ── AFSTEM FOER DU OPRETTER — OG FOER DU BRUGER DEN, DU HAR ──
+    // Et tidligere forsoeg kan have oprettet planen, uden at vi fik
+    // svaret: en 500 fra Stripe betyder «udfoerelsen kan vaere
+    // paabegyndt», ikke «intet skete». Stripe gemmer den 500 under
+    // idempotensnoeglen, saa et genforsoeg paa SAMME noegle kaster
+    // den samme fejl igen — fem gange, og saa staar planen `fejlet`,
+    // mens den maaske findes. Og et BLINDT noegleskift ville oprette
+    // nummer to.
+    //
+    // Abonnementet ved det selv: `subscription.schedule`
+    // (Subscriptions.d.ts:245). Ét opslag afgoer det.
+    //
+    // ── OG SPOERGSMAALET STILLES ALTID ──────────────────
+    // Her stod `if (!planId)` omkring hele afstemningen: vi spurgte
+    // KUN, naar vi intet vidste. En ikke-tom binding blev altsaa brugt
+    // som autoritet — ogsaa naar den var foraeldet. Saa konfigurerede
+    // vi en frigivet plan (og fejlede), mens abonnementet i
+    // virkeligheden stod med en anden, gyldig plan. Det er den samme
+    // valgvej som i `stopForkertFornyelse`, og den er rettet samme
+    // sted: kilden svarer, vi retter os efter svaret.
+    // Reglen er ÉT sted — `planDerStyrer` — og deles med
+    // `afstemAbonnement` og `stopForkertFornyelse`. Den svarer kun med
+    // en plan, der FAKTISK styrer abonnementet: en frigivet plan
+    // beholder sine faser, men styrer ingenting, og et `update` paa
+    // den ville blive afvist af Stripe.
+    const styrer = await planDerStyrer(s, subId, planId)
+    const aktuel = styrer?.id ?? null
+    if (aktuel !== planId) {
+      // Betinget paa den vaerdi, VI laeste. Gik der en anden
+      // planlaegning i gang imellem opslaget og den her skrivning, er
+      // dens binding nyere end vores svar, og den skal ikke tabes.
       //
-      // Abonnementet ved det selv: `subscription.schedule`
-      // (Subscriptions.d.ts:245). Ét opslag afgoer det.
-      const abo = await s.subscriptions.retrieve(subId) as
-        { schedule?: unknown } | null
-      const fundet = skemaId(abo?.schedule)
-      if (fundet) {
-        planId = fundet
+      // `eq(kolonne, null)` er aldrig sandt i SQL, saa den tomme
+      // binding skal proeves med `isNull`.
+      const hvor = and(
+        eq(subscriptions.stripeSubscriptionId, subId),
+        a.plan === null
+          ? isNull(subscriptions.stripeScheduleId)
+          : eq(subscriptions.stripeScheduleId, a.plan),
+      )
+      if (aktuel) {
         await db.update(subscriptions)
-          .set({ stripeScheduleId: planId, planStatus: 'oprettet', planForsoegtAt: new Date() })
-          .where(eq(subscriptions.stripeSubscriptionId, subId))
+          .set({ stripeScheduleId: aktuel, planStatus: 'oprettet', planForsoegtAt: new Date() })
+          .where(hvor)
       }
+      // ── OG DEN FORAELDEDE BINDING RYDDES IKKE HER ───────
+      // Det proevede jeg. Rydningen ville ligge FOER `create`, saa en
+      // fejlet oprettelse efterlod raekken uden nogen pegepind — og en
+      // pegepind, der ikke gaelder, er harmloes: `planDerStyrer`
+      // kasserer den ved hvert opslag. Lykkes oprettelsen, skriver den
+      // selv den nye binding et par linjer nede.
+      planId = aktuel
     }
     if (!planId) {
       // `from_subscription` kan ikke kombineres med `phases` — SDK'ens
@@ -878,7 +909,12 @@ export async function laegPlan(subId: string, ops: Stripeopsaetning): Promise<
         .where(eq(subscriptions.stripeSubscriptionId, subId))
     }
 
-    const nu = await s.subscriptionSchedules.retrieve(planId)
+    // `planDerStyrer` har allerede hentet planen, naar den svarede med
+    // én. Den genbruges — to opslag af samme id i traek er ét for
+    // meget, og det ene af dem ville vaere aeldre end det andet.
+    const nu = styrer && styrer.id === planId
+      ? styrer.plan
+      : await s.subscriptionSchedules.retrieve(planId)
     const nuvaerende = (nu as unknown as { phases?: { start_date?: number; end_date?: number }[] })
       .phases?.[0]
     if (!nuvaerende) throw new Error('planen har ingen fase at bygge videre paa')
@@ -997,11 +1033,12 @@ export async function laegPlan(subId: string, ops: Stripeopsaetning): Promise<
   }
 }
 
-/** Skema-id'et, uanset om Stripe gav en streng eller et objekt. */
-const skemaId = (v: unknown): string | null =>
-  typeof v === 'string' ? v
-  : typeof (v as { id?: unknown } | null)?.id === 'string' ? (v as { id: string }).id
-  : null
+// `skemaId` stod her og var en ordret kopi af `idAf` i
+// lib/opsigelse.ts — to udtryk for ét spoergsmaal, som CLAUDE.md
+// advarer imod. Den havde to kaldere, og begge er nu gaaet over til
+// `planDerStyrer`, der laeser feltet ét sted. Derfor er den fjernet
+// frem for at staa tilbage som en kopi, nogen kunne komme til at
+// bruge igen.
 
 /**
  * Er de to faser dem, vi bad om?
@@ -1416,30 +1453,66 @@ export async function stopForkertFornyelse(
     // basen, tilsynet skriver ⚠⚠-linjen, og et menneske ser den. At
     // opsige et fremmed menneskes abonnement paa et grundlag, vi ikke
     // kunne bekraefte, er ikke den sikre side af valget.
-    let planId = a.plan
-    if (!planId) {
-      const abo = await s.subscriptions.retrieve(subId) as { schedule?: unknown } | null
-      planId = skemaId(abo?.schedule)
-      if (planId) {
-        await db.update(subscriptions)
-          .set({ stripeScheduleId: planId })
-          .where(eq(subscriptions.stripeSubscriptionId, subId))
-      }
+    // ── OG SPOERGSMAALET STILLES ALTID, IKKE KUN NAAR VI INTET VED ──
+    // Her stod `let planId = a.plan; if (!planId) { spoerg kilden }`.
+    // Altsaa: vi spurgte KUN, naar vi ikke havde en binding i forvejen
+    // — praecis det tilfaelde, hvor der ikke var noget at afstemme.
+    // Kommentaren ovenfor sagde «vi spoerger derfor kilden»; koden
+    // gjorde det kun i det ene tilfaelde. Det er samme form som
+    // catch-kommentaren laengere nede engang havde: en vagt beskrevet,
+    // men ikke bygget.
+    //
+    // En ikke-tom binding er netop den farlige. Den kan vaere
+    // foraeldet: plan A er frigivet, Stripe styrer abonnementet med en
+    // korrekt plan B — og saa undersoegte vi A, fandt en plan der ikke
+    // styrer noget, og traf vores stopbeslutning paa den. Maalt gennem
+    // `betalingstilsyn`: B blev aldrig hentet, `fornyelse_stoppet_at`
+    // blev skrevet, og der gik et `cancel_at_period_end` ud paa et
+    // abonnement, der ikke fejlede noget. Afvistes det foerste kald,
+    // frigav naeste afstemning B paa den samme gemte beslutning.
+    //
+    // Reglen er ÉT sted — `planDerStyrer` i lib/opsigelse.ts — og
+    // deles med `afstemAbonnement` og `laegPlan`. Tre udgaver af
+    // «hvilken plan styrer abonnementet» var praecis det, fejlen kom
+    // af.
+    //
+    // Kan vi ikke faa svar, kaster kaldet, og catch'en nedenfor
+    // bevarer usikkerheden: skylden staar, og tilsynet skriver
+    // ⚠⚠-linjen. Vi griber ikke ind paa et grundlag, vi ikke har.
+    const styrer = await planDerStyrer(s, subId, a.plan)
+    const planId = styrer?.id ?? null
+    if (planId !== a.plan) {
+      // ── RET BINDINGEN, MEN KUN HVIS DEN STADIG ER DEN, VI LAESTE ──
+      // `laegPlan` skriver bindingen STRAKS efter sit `create`. Havde
+      // vi skrevet ubetinget, kunne vi slette en nyere binding til en
+      // plan, der lige er oprettet — med det svar, vi laeste FOER den
+      // blev til. Rammer betingelsen nul raekker, har nogen skrevet
+      // imens, og deres vaerdi er nyere end vores.
+      //
+      // `eq(kolonne, null)` er aldrig sandt i SQL, saa den tomme
+      // binding skal proeves med `isNull`. Samme faelde som
+      // `bindingUroert` selv er skrevet for at undgaa.
+      await db.update(subscriptions)
+        .set({ stripeScheduleId: planId })
+        .where(and(
+          eq(subscriptions.stripeSubscriptionId, subId),
+          a.plan === null
+            ? isNull(subscriptions.stripeScheduleId)
+            : eq(subscriptions.stripeScheduleId, a.plan),
+        ))
     }
-    if (planId) {
-      const plan = await s.subscriptionSchedules.retrieve(planId)
+    if (styrer) {
       // ── TO SPOERGSMAAL, IKKE ÉT ─────────────────────────
       // «Er faserne rigtige?» og «styrer planen stadig det her
       // abonnement?» er ikke det samme. En FRIGIVET plan beholder sine
       // faser — Stripe fjerner kun dens `subscription` — saa en
       // kontrol paa faser alene svarede «planen er rigtig» om en plan,
       // der ikke styrede noget, og skrev `konfigureret` paa den.
-      // Derefter greb hverken tilsynet eller nogen anden ind.
       //
-      // Rigtig plan = gaelder FOR DET HER abonnement OG har de rigtige
-      // faser. Se `planGaelder` i lib/opsigelse.ts.
-      const gaelder = planGaelder(plan, subId)
-      if (gaelder && faserErRigtige(plan, ops)) {
+      // Det andet spoergsmaal er nu besvaret FOER vi kommer hertil:
+      // `planDerStyrer` giver kun en plan tilbage, naar den gaelder.
+      // Tilbage staar faserne.
+      if (faserErRigtige(styrer.plan, ops)) {
         // Planen var der hele tiden, og den er rigtig. Saa er det
         // vores egen bogfoering, der var bagud — ikke kundens
         // abonnement, der var i fare. Skriv det, og lad hende vaere.
@@ -1472,28 +1545,32 @@ export async function stopForkertFornyelse(
       // nul raekker, har nogen besluttet noget imens.
       vorGen = await besluttetAfOs(subId, grund) ?? vorGen
 
-      if (gaelder) {
-        // SLIP planen foerst — ellers skriver den opsigelsen om ved
-        // naeste faseskift. Samme grund som i `sigOpFor`.
-        //
-        // Gaelder den IKKE, er der intet at slippe: `release` virker
-        // kun paa `not_started` og `active`, og et kald paa en allerede
-        // frigivet plan ville kaste og spaerre `cancel_at_period_end`
-        // nedenfor — praecis den laas, opsigelsen sad fast i.
-        try {
-          await s.subscriptionSchedules.release(planId)
-        } catch (e) {
-          // Samme vagt som i `afstemAbonnement`: taber vi kaploebet
-          // mod kundens egen opsigelse, er det, vi bad om, sket.
-          // Uden genlaesningen svarede tilsynet «fejlede» og satte
-          // aldrig `cancel_at_period_end`.
-          const igen = await s.subscriptionSchedules.retrieve(planId)
-          if (planGaelder(igen, subId)) throw e
-        }
+      // SLIP planen foerst — ellers skriver den opsigelsen om ved
+      // naeste faseskift. Samme grund som i `sigOpFor`.
+      try {
+        await s.subscriptionSchedules.release(styrer.id)
+      } catch (e) {
+        // Samme vagt som i `afstemAbonnement`: taber vi kaploebet
+        // mod kundens egen opsigelse, er det, vi bad om, sket.
+        // Uden genlaesningen svarede tilsynet «fejlede» og satte
+        // aldrig `cancel_at_period_end`.
+        const igen = await s.subscriptionSchedules.retrieve(styrer.id)
+        if (planGaelder(igen, subId)) throw e
       }
+      // ── OG RYDNINGEN ER OGSAA BETINGET ──────────────────
+      // Her stod `.where(eq(subId))` og intet andet. Det var til at
+      // leve med, saa laenge `planId` ALTID var raekkens eget id: saa
+      // ryddede vi det, vi selv havde laest. Nu kommer `planId` fra
+      // kilden og kan vaere et andet — og saa ville en ubetinget
+      // rydning kunne slette en binding, en anden lige har skrevet.
+      // Vagten er `bindingUroert`, den samme som `afstemAbonnement`
+      // bruger, af samme grund og med begge observerede id'er.
       await db.update(subscriptions)
         .set({ stripeScheduleId: null })
-        .where(eq(subscriptions.stripeSubscriptionId, subId))
+        .where(and(
+          eq(subscriptions.stripeSubscriptionId, subId),
+          bindingUroert(a.plan, styrer.id),
+        ))
     }
     // Og den anden vej ind: der var slet ingen plan at undersoege.
     // Kaldet ovenfor har saa ikke fundet sted, og beslutningen skal

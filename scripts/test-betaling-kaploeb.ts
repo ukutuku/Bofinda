@@ -748,9 +748,12 @@ try {
     // (Målt: den var det, og den svarede `plan_er_rigtig`.)
     falsk.planer.get(foer!.plan!)!.phases = []
 
-    // PORTEN sidder på PLANOPSLAGET. Det er dét, stoppet laver, når
-    // bindingen allerede er kendt — og det ligger FØR `besluttetAfOs`,
+    // PORTEN sidder på PLANOPSLAGET. Det ligger FØR `besluttetAfOs`,
     // så hendes skrivning når at gøre vores egen betingede.
+    //
+    // Siden runde 8 spørger stoppet også abonnementet, og det kald
+    // ligger før planopslaget. Porten fyrer altså stadig i samme
+    // vindue; den er bare ikke længere det eneste opslag i forløbet.
     const iStripe = aftale(); const erNaaet = aftale()
     const rigtigHent = (falsk.subscriptionSchedules as
       { retrieve: (id: string) => Promise<unknown> }).retrieve
@@ -805,6 +808,87 @@ try {
       .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
     tjek('  tilsynet tager den op og indfrier den',
       efter?.skyldig === null, `skyldig=${efter?.skyldig}`)
+  }
+
+  // ═══ E6 · KORREKTIONEN AF BINDINGEN OVERSKRIVER IKKE EN NYERE ═══
+  console.log('\n══ E6 · en nyere binding overlever stoppets egen korrektion ══')
+  {
+    // Ottende gennemgangs T2. Sikkerhedsstoppet spoerger nu kilden om
+    // den aktuelle plan og RETTER vores binding, hvis den afviger.
+    // Den rettelse er en skrivning midt i et forloeb med et
+    // netvaerkskald i — og `laegPlan` skriver bindingen STRAKS efter
+    // sit `create`. Uden en compare-and-set kunne korrektionen slette
+    // en binding, der er nyere end det svar, den bygger paa.
+    //
+    // Egenskaben kan kun maales her: PGlite er én forbindelse, saa
+    // den anden skriver ville blive serialiseret ind foer eller efter
+    // og aldrig ramme vinduet.
+    const u = await bruger('e6')
+    const sub = `sub_${randomUUID()}`
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false })
+    await behandl(h('checkout.session.completed',
+      { subscription: sub, client_reference_id: u, customer: 'cus_e6' }), OPS)
+    await behandl(h('invoice.paid', {
+      subscription: sub, customer: 'cus_e6',
+      lines: { data: [{ period: { start: nu(), end: nu() + 86400 },
+        pricing: { price_details: { price: OPS.introPrisId } } }] },
+    }), OPS)
+    const [efter] = await db.select({ plan: subscriptions.stripeScheduleId,
+      adgang: subscriptions.adgangTil })
+      .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+    const b = efter!.plan!            // den rigtige, aktive plan
+    const adgangFoer = efter!.adgang!.getTime()
+
+    // Vores binding er foraeldet: den peger paa en gammel, frigivet A.
+    const a = `sch_e6_A_${randomUUID()}`
+    falsk.planer.set(a, { ...structuredClone(falsk.planer.get(b)!), id: a,
+      status: 'released', subscription: null, released_subscription: sub })
+    await db.update(subscriptions)
+      .set({ stripeScheduleId: a, planStatus: 'fejlet', planForsoeg: 5,
+             planFejl: 'modelleret' })
+      .where(eq(subscriptions.stripeSubscriptionId, sub))
+
+    // PORTEN: hold stoppet inde i planopslaget, mens en ANDEN
+    // forbindelse binder en helt ny plan C — praecis som `laegPlan`
+    // goer, naar dens `create` vender tilbage.
+    const iStripe = aftale(); const erNaaet = aftale()
+    const rigtigHent = (falsk.subscriptionSchedules as
+      { retrieve: (id: string) => Promise<unknown> }).retrieve
+      .bind(falsk.subscriptionSchedules)
+    let foerste = true
+    ;(falsk.subscriptionSchedules as Record<string, unknown>).retrieve =
+      async (id: string) => {
+        const svar = await rigtigHent(id)
+        if (foerste) { foerste = false; erNaaet.slip(); await iStripe.naaet }
+        return svar
+      }
+
+    const stop = stopForkertFornyelse(OPS, sub, 'prøvens egen grund')
+    await erNaaet.naaet
+    const c = `sch_e6_C_${randomUUID()}`
+    await db.update(subscriptions)
+      .set({ stripeScheduleId: c })
+      .where(eq(subscriptions.stripeSubscriptionId, sub))
+    iStripe.slip()
+    const r = await stop
+    ;(falsk.subscriptionSchedules as Record<string, unknown>).retrieve = rigtigHent
+
+    const [e6] = await db.select({
+      plan: subscriptions.stripeScheduleId, stoppet: subscriptions.fornyelseStoppetAt,
+      opsagt: subscriptions.cancelAtPeriodEnd, adgang: subscriptions.adgangTil,
+    }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+
+    // VAGTEN OM PRØVEN SELV: naaede stoppet frem til korrektionen?
+    tjek('stoppet undersøgte den aktuelle plan og lod kunden være',
+      r === 'plan_er_rigtig', `r=${r}`)
+    // KERNEN: den nyere binding er ikke skrevet over.
+    tjek('  den NYERE binding overlevede korrektionen',
+      e6?.plan === c, `plan=${e6?.plan} (A=${a} B=${b} C=${c})`)
+    tjek('  der blev ikke gemt en stopbeslutning', e6?.stoppet === null)
+    tjek('  abonnementet er ikke opsagt', e6?.opsagt === false
+      && falsk.abonnementer.get(sub)?.cancel_at_period_end !== true)
+    tjek('  KUNDENS BETALTE ADGANG ER URØRT',
+      e6?.adgang?.getTime() === adgangFoer)
   }
 
   // ═══ F · OPSIGELSE MOD ET IGANGVAERENDE PLANKALD ═════════

@@ -469,7 +469,18 @@ async function koer() {
              adgangTil: new Date(Date.now() + 30 * 60_000) })
       .where(eq(subscriptions.stripeSubscriptionId, sub))
 
+    const foerKald = falsk.kald.length
     const r = await stopForkertFornyelse(OPS, sub, 'prøvens egen grund')
+    // ── VAGTEN OM PRØVEN SELV ───────────────────────────
+    // Siden runde 8 spørger sikkerheden kilden først, og attrappens
+    // `release` rydder abonnementets `schedule`. Uden den her
+    // assertion kunne prøven blive grøn, fordi planen ALDRIG blev
+    // hentet — altså af en anden grund end den, den er skrevet for.
+    // Den skal måle, at `planGaelder` faktisk blev spurgt om planen.
+    tjek('  den sluppede plan BLEV undersøgt',
+      falsk.kald.slice(foerKald).some((k) =>
+        k.metode === 'subscriptionSchedules.retrieve' && k.args[0] === planId),
+      JSON.stringify(falsk.kald.slice(foerKald).map((k) => [k.metode, k.args[0]])))
     tjek('sikkerheden svarer IKKE «planen er rigtig»', r !== 'plan_er_rigtig', `r=${r}`)
     const e = await abo(sub)
     tjek('  og skriver ikke «konfigureret» på den',

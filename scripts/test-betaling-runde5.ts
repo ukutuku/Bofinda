@@ -607,6 +607,11 @@ async function koer() {
 
     // Kørsel 2: Stripe virker igen. Hun SKAL med, selv om 16 uprøvede
     // rækker har færre forsøg end hun har og kan fylde hele kørslen.
+    //
+    // Runde 8's portionsløkke ændrer ikke prøven: alle rækker her
+    // fejler ad `ikke_bekraeftet`-grenen, som BOGFØRER forsøget, så
+    // kørslen henter kun én portion. Det er hasteklassen, der får
+    // hende med — ikke en ekstra portion.
     await afstemSkyldige(OPS, MAKS)
     const r = await laes(akut)
     tjek('  …og hun når frem i den kørsel, hvor Stripe virker',
@@ -671,7 +676,16 @@ async function koer() {
     ;(falsk.subscriptions as Record<string, unknown>).update = rigtigUpd2
     tjek('«skyldige» er det RIGTIGE total, ikke længden af listen',
       u.skyldige === 7, `skyldige=${u.skyldige}`)
-    tjek('  «taget» er grænsen', u.taget === 3, `taget=${u.taget}`)
+    // ── «TAGET» ER GRÆNSEN, NÅR RÆKKERNE BLIVER FLYTTET ──
+    // Siden runde 8 er `taget` antallet af FORSØGTE rækker, og en
+    // kørsel henter en portion mere, hvis den forrige indeholdt
+    // rækker, den ikke fik flyttet. Her fejler alle tre ad
+    // `ikke_bekraeftet`-grenen, som bogfører forsøget — så der kommer
+    // ingen ekstra portion, og grænsen holder. Assertionen nedenfor
+    // om tilbagetrækningen er det, der gør den antagelse målt og ikke
+    // formodet: tre rækker har fået en `afstemning_naeste_at`.
+    tjek('  «taget» er grænsen, fordi alle tre BLEV bogført',
+      u.taget === 3, `taget=${u.taget}`)
     tjek('  «fejlede» stemmer med «taget»', u.fejlede === 3 && u.afstemte === 0,
       JSON.stringify(u))
     const venter = (await db.select({ n: sql<number>`count(*)::int` }).from(subscriptions)

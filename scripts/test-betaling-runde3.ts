@@ -747,11 +747,24 @@ async function koer() {
     await db.delete(checkoutForsoeg); await db.delete(subscriptions)
     const u = await bruger('9')
     const sub = `sub_9_${S}`
+    // ── FIKSTURET SKAL VAERE ET, STRIPE KUNNE SVARE PAA ────
+    // Her stod en binding til et plan-id, der ikke fandtes hos Stripe,
+    // og abonnementet var slet ikke registreret i attrappen. Det virkede
+    // kun, fordi `laegPlan` dengang BRUGTE vores egen binding uden at
+    // spoerge — planopslaget gav null, og planlaegningen knaekkede.
+    //
+    // Nu spoerger begge veje kilden foerst (runde 8, T2). Saa er det
+    // rigtige fikstur et abonnement, der FINDES, uden plan, hvor
+    // oprettelsen fejler: det er netop derfor sikkerhedsstoppet findes.
+    // Prøven maaler det samme som foer — at tilsynet ikke ophaever sin
+    // egen beskyttelse — men paa et forloeb, Stripe ville kunne have.
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false })
+    falsk.fejlPaa.add('subscriptionSchedules.create')
     await db.insert(subscriptions).values({
       userId: u, stripeSubscriptionId: sub, status: 'active',
       adgangTil: new Date(Date.now() + 30 * 60_000),
-      stripeScheduleId: `sub_sched_9_${S}`,
-      planStatus: 'oprettet', planForsoeg: 1, planFejl: 'modelleret 500',
+      stripeScheduleId: null,
+      planStatus: 'mangler', planForsoeg: 1, planFejl: 'modelleret 500',
     })
     await betalingstilsyn(OPS)
     const e1 = await abo(sub)
@@ -762,6 +775,12 @@ async function koer() {
     // abonnement, det lige havde sluppet — og markerede den
     // `konfigureret`, mens basen og «Mit abonnement» blev ved med at
     // sige, at der ikke bliver trukket mere.
+    //
+    // Og Stripe er kommet op igen: oprettelsen ville lykkes nu. Det er
+    // dét, der goer assertionen nedenfor til en vagt og ikke en
+    // selvfoelgelighed — foer blev den holdt grøn af, at intet kunne
+    // oprettes overhovedet.
+    falsk.fejlPaa.delete('subscriptionSchedules.create')
     const foer = falsk.antal('subscriptionSchedules.create')
     const linjer = await betalingstilsyn(OPS)
     const e2 = await abo(sub)
@@ -883,9 +902,12 @@ async function koer() {
     const e = await abo(sub)
     tjek('hun bliver ikke opsagt', e?.opsagt === false, JSON.stringify(e))
     tjek('  fornyelsen er ikke stoppet', !e?.stoppet)
+    // Tæl ALT, ikke to navngivne metoder. Hed assertionen «der blev
+    // ikke kaldt noget», mens den tælte to ting, ville et tredje kald
+    // — fx et opslag af abonnementet — glide igennem usagt.
     tjek('  der blev ikke kaldt noget hos Stripe om hende',
-      falsk.antal('subscriptions.update') === 0
-      && falsk.antal('subscriptionSchedules.release') === 0)
+      falsk.kald.filter((k) => k.args[0] === sub).length === 0,
+      JSON.stringify(falsk.kald.filter((k) => k.args[0] === sub).map((k) => k.metode)))
     tjek('  og tilsynet nævner hende slet ikke',
       !linjer.some((l) => l.includes(sub)), JSON.stringify(linjer))
   }

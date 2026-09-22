@@ -150,7 +150,7 @@ af hinanden:
 | tal | betyder |
 |---|---|
 | `skyldige` | hvor mange rækker har udestående arbejde **i alt** |
-| `taget` | hvor mange af dem kørslen nåede (grænsen er 25) |
+| `taget` | hvor mange rækker kørslen FORSØGTE (se nedenfor — kan overstige 25) |
 | `afstemt` | hvor mange blev færdige |
 | `kunne ikke endnu` | hvor mange fejlede og prøves igen |
 | `fik nyt arbejde undervejs` | vores arbejde lykkedes, men der kom mere, mens vi var i luften |
@@ -159,6 +159,13 @@ af hinanden:
 `skyldige` tælles med sin egen forespørgsel, ikke som længden af den
 afkortede liste. Ellers ville 26 skyldige med en grænse på 25 stå som
 «25 skyldige · 0 taget», og det ligner «ingenting at lave».
+
+**`taget` kan være større end 25, og det er meningen.** Grænsen gælder
+de rækker, kørslen faktisk FLYTTER. En række, kørslen ikke fik flyttet —
+fordi bogføringen af forsøget ikke kunne skrives — bruger ikke en plads;
+kørslen henter lige så mange nye i stedet, uden dem den allerede har
+forsøgt. Uden det blev de samme 25 valgt time efter time, og kunde nr.
+26 fik aldrig et forsøg. Se «Når køen ikke kommer videre» nedenfor.
 
 **Det sidste tal er målt FØR runden**, og det står der derfor. De
 rækker, runden selv skubber bagud, er ikke med — så et «0» betyder
@@ -193,6 +200,35 @@ og der skal ikke gøres noget.
 igangværende kørsel kvittere arbejde, den ikke har udført — præcis det,
 tælleren findes for at forhindre.
 
+### Når køen ikke kommer videre
+
+To linjer handler om kørslens egen kapacitet:
+
+    loftet på 100 forsøgte rækker er nået — 42 klare rækker blev ikke forsøgt. …
+    kunne ikke hente flere rækker: <fejl> — resten tages næste kørsel
+
+**Den første** betyder, at kørslen brugte hele sit loft på rækker, den
+ikke kunne flytte. Loftet er `25 × 4`: kørslen må hente en ny portion,
+når den forrige indeholdt rækker, den ikke fik bogført, men højst fire
+portioner i alt. Uden loftet kunne en base, hvor hver eneste rækkes
+skrivninger fejler, holde kørslen inde for evigt.
+
+**Det betyder for dig:** står linjen én gang, tager næste kørsel resten.
+Står den kørsel efter kørsel, kan skrivningerne til de forreste rækker
+ikke gennemføres — og så er det basen, ikke Stripe, der er noget galt
+med. `afstemning_forsoeg` bliver stående på sin gamle værdi netop for de
+rækker, det gælder; det er kendetegnet.
+
+**Der er en rest, og den skal stå her:** er der flere end `25 × 4`
+rækker, hvis bogføring ikke kan skrives, når kørslen stadig ikke forbi
+dem. Loftet er et krav — en ubundet løkke må ikke kunne løbe — og
+linjen er der, så tilstanden ikke er tavs. Tallet i linjen siger, hvor
+mange klare rækker der blev tilbage.
+
+**Den anden linje** betyder, at kørslen ikke kunne hente sin næste
+portion. Den rapporterer så det, den nåede, i stedet for at kaste hele
+regnskabet væk — de rækker, der ER afstemt, står stadig i rapporten.
+
 ### Når selve afstemningen kaster
 
 To linjer kommer kun, når noget andet end Stripe gik galt:
@@ -216,6 +252,34 @@ samme række, er det ikke Stripe, der er nede — så er det vores egen
 base eller den række, der er noget galt med. `afstemning_forsoeg`
 stiger ikke nødvendigvis, netop fordi den skrivning er den, der
 fejler, så tæl linjerne i loggen i stedet.
+
+### «planen ligger rigtigt hos Stripe»
+
+    [betaling] sub_xxx: planen ligger rigtigt hos Stripe — det var vores
+    egen tilbagelæsning, der manglede. Fornyelsen er IKKE stoppet, og
+    planen er nu bekræftet.
+
+Linjen betyder, at sikkerhedsstoppet undersøgte abonnementet, fandt en
+gyldig plan hos Stripe og lod kunden være. Den er ikke en fejl; den er
+dokumentationen for, at vi IKKE greb ind.
+
+**Hvorfor den er blevet hyppigere:** sikkerhedsstoppet og
+planlægningen dømmer nu vores eget `stripe_schedule_id` med
+`planGaelder`, og duer den ikke, spørger de Stripe, hvilken plan der
+faktisk styrer abonnementet. Var vores binding forældet — plan A
+frigivet, mens Stripe kørte videre med en korrekt plan B — undersøgte
+vi før den forkerte plan og stoppede fornyelsen på et abonnement, der
+ikke fejlede noget.
+
+**Stripe spørges ikke, når vores egen binding holder.** En plan, der
+selv siger, at den styrer abonnementet, er svar nok — og så koster den
+sunde vej det samme som før. Det er med vilje: gjorde vi kildens svar
+nødvendigt for at stå ned, ville en nedetid på netop dét opslag give
+⚠⚠-alarmer om abonnementer, der ikke fejler noget.
+
+**Det betyder for dig:** ser du linjen, er bindingen samtidig blevet
+rettet til den plan, Stripe faktisk bruger. Er der noget at se efter,
+er det, hvorfor vores bogføring kom bagud — ikke abonnementet.
 
 ### Når en kunde siger, at opsigelsen ikke blev gemt
 
@@ -291,9 +355,21 @@ selv, fordi den læser Stripes svar og ser, at sluttilstanden er nået.
 ingen ventetid på forsøg 1-2, ti minutter fra 3., og loftet er en time
 — men aldrig ud over **fristen minus ti minutter**, så en fornyelse,
 der er nær, altid når et forsøg mere. Udvælgelsen tager **færrest
-forsøg først**, og det er dét, der gør udsultning umulig: 25 rækker,
-der bliver ved at fejle, kan ikke holde nummer 26 ude, for nummer 26
-har færre forsøg end dem alle.
+forsøg først**: 25 rækker, der bliver ved at fejle, kan ikke holde
+nummer 26 ude, for nummer 26 har færre forsøg end dem alle.
+
+**Men kun når forsøget bliver bogført**, og det er værd at forstå.
+Forsøgstallet er vores eget, og det skrives i samme sætning som
+fejlteksten. Fejler DEN skrivning, står tallet på 0, næste forsøg er
+stadig klar, og rækken har nøjagtig de samme sorteringsnøgler som før
+— så den vinder udvælgelsen igen. Præcis dét skete: 26 opsigelser, de
+25 første med brudt opslag OG brudt fejlbogføring, og kunde nr. 26 fik
+nul kald, indtil nogle af de 25 faldt ud af hasteklassen fem
+timekørsler senere.
+
+Derfor bruger en række, kørslen ikke fik FLYTTET, ikke en plads; se
+«Når køen ikke kommer videre» ovenfor. Færrest forsøg først er stadig
+reglen — den er bare ikke nok i sig selv.
 
 ### Når vi selv har stoppet en fornyelse
 

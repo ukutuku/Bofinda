@@ -31,7 +31,7 @@
 //     released` (:267).
 // ═══════════════════════════════════════════════════════════════
 
-import { and, asc, count, eq, inArray, isNotNull, isNull, lte, or, sql, type SQL } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, isNotNull, isNull, lte, notInArray, or, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/client'
 import { subscriptions } from '../db/schema'
 import { stripe, type Stripeopsaetning } from './stripe'
@@ -67,6 +67,82 @@ export function planGaelder(plan: unknown, subId: string): boolean {
 }
 
 /**
+ * HVILKEN plan styrer abonnementet — og hvad siger den selv?
+ *
+ * ── HVORFOR DEN LIGGER ÉT STED ──────────────────────────────
+ * Tre kodeveje traf tidligere hver sin afgoerelse om det samme:
+ * `afstemAbonnement` spurgte kilden foerst og faldt tilbage paa vores
+ * binding; `stopForkertFornyelse` og `laegPlan` brugte vores binding
+ * og spurgte KUN kilden, naar bindingen var tom. De to sidste var
+ * forkerte, og det kostede en kunde hendes fornyelse: plan A var
+ * frigivet, Stripe styrede med en korrekt plan B — og vi undersoegte
+ * A, traf stopbeslutningen paa den og sendte et opsigelseskald.
+ *
+ * CLAUDE.md's regel gaelder ordret her: svarer to udtryk paa det samme
+ * spoergsmaal, skal de beregnes ét sted. Det her er stedet.
+ *
+ * ── REGLEN ──────────────────────────────────────────────────
+ * `planGaelder` er doemmeren hele vejen: en plan taeller kun, hvis den
+ * er levende OG selv siger, at den styrer netop dette abonnement. En
+ * frigivet plan beholder sine faser; den styrer bare ikke noget.
+ *
+ * 1 · Har kalderen allerede kildens svar, ER det svaret.
+ * 2 · Ellers proeves VORES binding. Kommer den igennem `planGaelder`,
+ *     er den rigtig — og saa er der ikke noget at spoerge om.
+ * 3 * Foerst naar bindingen ikke duer, spoerges kilden.
+ *
+ * ── HVORFOR KILDEN IKKE SPOERGES FOERST ─────────────────────
+ * Det proevede jeg, og det er en ny fejl. Et ubetinget
+ * `subscriptions.retrieve` gjorde kildens svar noedvendigt for at
+ * STAA NED — ikke kun for at gribe ind. Maalt: er netop det kald nede,
+ * mens planerne svarer fint, faldt hele sikkerhedsstoppet i sin catch
+ * og skrev ⚠⚠ «der er IKKE grebet ind» hver time om et abonnement,
+ * hvis plan var helt korrekt. To falske alarmer i timen, i det
+ * uendelige.
+ *
+ * Kilden er noedvendig for at gribe ind, og kun dér. Kommer vores egen
+ * binding igennem `planGaelder`, siger PLANEN selv, at den styrer
+ * abonnementet — og saa kan Stripes `subscription.schedule` ikke pege
+ * et andet sted.
+ *
+ * Svaret er `null`, naar ingen plan styrer abonnementet. Saa er der
+ * intet at slippe — og for `laegPlan` betyder det, at der skal
+ * oprettes en, paa et afstemt grundlag og ikke paa et gaet.
+ */
+export async function planDerStyrer(
+  s: ReturnType<typeof stripe>, subId: string, vores: string | null,
+  /**
+   * Kildens svar, hvis kalderen ALLEREDE har det (`afstemAbonnement`
+   * henter abonnementet i forvejen). `undefined` betyder «ikke
+   * spurgt» — og saa spoerges der kun, hvis der bliver brug for det.
+   */
+  hosStripe?: string | null,
+): Promise<{ id: string; plan: unknown } | null> {
+  const doem = async (id: string) => {
+    const plan = await s.subscriptionSchedules.retrieve(id)
+    return planGaelder(plan, subId) ? { id, plan } : null
+  }
+  // 1 · Har kalderen allerede kildens svar, ER det svaret.
+  if (hosStripe) return doem(hosStripe)
+  // 2 · Vores binding — men kun hvis planen SELV siger, at den styrer.
+  //     Det er dét, der goer, at vi kan staa ned uden at spoerge
+  //     abonnementet: en plan, der hverken er levende eller bundet til
+  //     netop dette abonnement, kommer ikke igennem `planGaelder`.
+  if (vores) {
+    const r = await doem(vores)
+    if (r) return r
+  }
+  // 3 · Vores binding duede ikke. FOERST nu er kilden noedvendig —
+  //     og det er ogsaa foerst nu, vi er paa vej til at gribe ind.
+  if (hosStripe === undefined) {
+    const abo = await s.subscriptions.retrieve(subId) as { schedule?: unknown } | null
+    const fra = idAf(abo?.schedule)
+    if (fra && fra !== vores) return doem(fra)
+  }
+  return null
+}
+
+/**
  * Tilbagetraekning for en afstemning, der ikke kunne goeres faerdig.
  *
  * ── HVORFOR DEN IKKE ER `naesteForsoeg()` FRA WEBHOOKEN ─────
@@ -94,6 +170,22 @@ export function planGaelder(plan: unknown, subId: string): boolean {
  * til én koersel mere.
  */
 const MARGEN_MS = 10 * 60_000
+
+/**
+ * Hvor mange portioner én afstemningskoersel hoejst maa hente.
+ *
+ * Koerslen henter en ny portion, naar den forrige indeholdt raekker,
+ * den ikke fik FLYTTET — se `afstemSkyldige`. Uden et loft kunne en
+ * base, hvor hver eneste raekkes bogfoering fejler, holde koerslen
+ * inde for evigt.
+ *
+ * Fire er valgt, fordi det er stort nok til, at et sammenhaengende
+ * felt af forgiftede raekker paa `maks`' stoerrelse ikke spaerrer for
+ * dem bagved, og lille nok til, at en syg base ikke bliver til
+ * hundredvis af kald i én koersel. Rammes loftet, staar det i
+ * koerselsrapporten — det er ikke tavst.
+ */
+const PORTIONER_PR_KOERSEL = 4
 
 export function naesteAfstemning(forsoeg: number, frist: Date | null = null): Date {
   const nu = Date.now()
@@ -380,13 +472,16 @@ export async function afstemAbonnement(
     // en plan, der for laengst er sluppet, mens en ANDEN er bundet til
     // abonnementet nu. Laeste vi vores eget id foerst, ville vi
     // undersoege den forkerte plan og aldrig slippe den rigtige.
-    planId = planHosStripe ?? a.plan
-    if (planId) {
-      const plan = await s.subscriptionSchedules.retrieve(planId)
-      if (planGaelder(plan, subId)) {
-        try {
-          await s.subscriptionSchedules.release(planId)
-        } catch (e) {
+    // Reglen — kilden foerst, vores binding kun som ledetraad, og
+    // `planGaelder` som doemmer — er ÉT sted: `planDerStyrer`.
+    // `planId` er derfor den plan, vi FAKTISK slap, og null naar der
+    // ikke var nogen. Det er praecis det, rydningen nedenfor antager.
+    const styrer = await planDerStyrer(s, subId, a.plan, planHosStripe)
+    planId = styrer?.id ?? null
+    if (styrer) {
+      try {
+        await s.subscriptionSchedules.release(styrer.id)
+      } catch (e) {
           // ── ET TABT KAPLOEB ER IKKE EN FEJL ─────────────
           // To samtidige opsigelser kan begge have laest `active`,
           // foer den foerste slap planen. Den anden faar saa et nej
@@ -395,13 +490,12 @@ export async function afstemAbonnement(
           //
           // Og vi sluger den ikke: gaelder planen STADIG, var nejet
           // aegte, og saa skal det videre.
-          const igen = await s.subscriptionSchedules.retrieve(planId)
-          if (planGaelder(igen, subId)) throw e
-          // Den blev ikke slugt sporloest. Gaar noget galt LAENGERE
-          // NEDE, staar den her i fejlteksten — ellers ville
-          // aarsagen forsvinde ud af enhver senere fejlsoegning.
-          slugtVedRelease = (e as Error).message.slice(0, 120)
-        }
+        const igen = await s.subscriptionSchedules.retrieve(styrer.id)
+        if (planGaelder(igen, subId)) throw e
+        // Den blev ikke slugt sporloest. Gaar noget galt LAENGERE
+        // NEDE, staar den her i fejlteksten — ellers ville
+        // aarsagen forsvinde ud af enhver senere fejlsoegning.
+        slugtVedRelease = (e as Error).message.slice(0, 120)
       }
     }
     if (abo?.cancel_at_period_end !== true) {
@@ -561,7 +655,7 @@ async function ryd(subId: string, kun: SQL[] = []): Promise<boolean> {
  * bindingen blev staaende, mens skylden blev ryddet, og raekken
  * paastod «plan konfigureret» uden koearbejde.
  */
-function bindingUroert(vores: string | null, hosStripe: string | null): SQL {
+export function bindingUroert(vores: string | null, hosStripe: string | null): SQL {
   const set = [...new Set([vores, hosStripe].filter((x): x is string => x !== null))]
   if (!set.length) return isNull(subscriptions.stripeScheduleId)
   return or(isNull(subscriptions.stripeScheduleId),
@@ -657,9 +751,19 @@ export async function afstemSkyldige(
   const [nuKlar] = await db.select({ n: count() }).from(subscriptions)
     .where(and(isNotNull(subscriptions.afstemningSkyldigAt), klar))
 
-  const raekker = await db.select({ sub: subscriptions.stripeSubscriptionId })
+  // Grundvilkaaret og raekkefoelgen staar ÉT sted, fordi udvaelgelsen
+  // koeres mere end én gang pr. koersel — se `vaelg` nedenfor. To
+  // udgaver af den her sortering ville vaere to svar paa «hvem er mest
+  // presserende», og det er praecis den fejlform, CLAUDE.md advarer imod.
+  const grundvilkaar = and(isNotNull(subscriptions.afstemningSkyldigAt), klar)
+
+  /** Naeste portion, uden de raekker denne koersel allerede har forsoegt. */
+  const vaelg = (antal: number, undtagen: string[]) => db
+    .select({ sub: subscriptions.stripeSubscriptionId })
     .from(subscriptions)
-    .where(and(isNotNull(subscriptions.afstemningSkyldigAt), klar))
+    .where(undtagen.length
+      ? and(grundvilkaar, notInArray(subscriptions.stripeSubscriptionId, undtagen))
+      : grundvilkaar)
     // ── FAERREST FORSOEG FOERST, DEREFTER MEST PRESSERENDE ──
     // To led, og det foerste er selve fremdriften.
     //
@@ -710,55 +814,166 @@ export async function afstemSkyldige(
       asc(subscriptions.currentPeriodEnd),
       asc(subscriptions.afstemningSkyldigAt),
     )
-    .limit(maks)
+    .limit(antal)
 
   let afstemte = 0, fejlede = 0, nytArbejde = 0
   const detaljer: string[] = []
-  for (const r of raekker) {
-    // ── ÉN RAEKKE MAA IKKE TAGE DE OEVRIGE MED SIG ────────
-    // `afstemAbonnement` bogfoerer selv en Stripe-fejl. Fejler DEN
-    // skrivning ogsaa, kaster den — og uden den her vagt stoppede
-    // loekken, saa resten af koeen fik intet forsoeg. Maalt: tre
-    // kunder, den foerste med naermest frist; A's opslag fejler og
-    // bogfoeringen af fejlen fejler med, og B og C fik NUL kald i tre
-    // koersler. Deres skyld stod urørt, men ingen rørte den.
-    //
-    // Det er noejagtig samme fejl som S5 i fornyelsesvagten, i
-    // soesterkoeen. Den blev rettet ét sted og ikke det andet.
-    let u: Opsigelsesudfald
+
+  // ── EN RAEKKE, DER IKKE FLYTTEDE SIG, MAA IKKE BRUGE EN PLADS ──
+  // Catch'en pr. raekke (runde 7) reddede de oevrige raekker, der
+  // allerede var VALGT. Den skaffede ikke plads til dem uden for
+  // portionen — og det var hullet.
+  //
+  // Bogfoeringen af et fejlet forsoeg skriver `afstemning_forsoeg` og
+  // `afstemning_naeste_at`. Fejler DEN skrivning, staar forsoegstallet
+  // paa 0 og naeste forsoeg er stadig klar. Raekken har altsaa
+  // noejagtig de samme sorteringsnoegler som foer — og vinder
+  // udvaelgelsen igen, og igen. Med femogtyve saadanne raekker naaede
+  // den seksogtyvende kunde aldrig et forsoeg. Maalt: nul kald til
+  // hende i foerste koersel, og foerst et forsoeg fem timekoersler
+  // senere, efter hendes frist, fordi nogle af de femogtyve da faldt
+  // ud af hasteklassen.
+  //
+  // Derfor: raekker, koerslen ikke fik flyttet, bruger ikke koerslens
+  // kapacitet. Vi henter lige saa mange nye — uden dem, vi allerede
+  // har forsoegt — og fortsaetter. Skylden staar, fristprioriteten er
+  // den samme forespoergsel, og fejlen logges stadig pr. raekke.
+  //
+  // ── HVORFOR IKKE BARE ENDNU EN SKRIVNING ─────────────────
+  // Man kunne notere forsoeget i en anden, mindre skrivning i
+  // catch'en. Den ville virke mod netop DEN injicerede fejl, hvor det
+  // er fejlTEKSTEN, der ikke kan skrives — og svigte i det generelle
+  // tilfaelde, hvor enhver skrivning til raekken fejler. Udelukkelsen
+  // her holder uanset hvorfor bogfoeringen ikke lykkedes, fordi den
+  // ikke skal skrive noget for at virke.
+  //
+  // ── OG HVORFOR IKKE BARE EN STOERRE GRAENSE ──────────────
+  // `maks` er uaendret for de raekker, koerslen FAKTISK flytter. En
+  // stoerre fast graense ville flytte taellet og lade fejlen staa: er
+  // der `maks` forgiftede raekker, er de stadig foerst.
+  const proevede: string[] = []
+  const LOFT = maks * PORTIONER_PR_KOERSEL
+  let plads = maks
+  let loftRamt = false
+
+  while (plads > 0) {
+    if (proevede.length >= LOFT) { loftRamt = true; break }
+    // ── EN EKSTRA UDVAELGELSE MAA IKKE KOSTE RUNDENS REGNSKAB ──
+    // Den FOERSTE udvaelgelse ligger foer alt arbejde: kaster den, er
+    // der intet at miste, og `betalingstilsyn` skriver «afstemningen
+    // fejlede». De efterfoelgende ligger MIDT i runden. Kastede en af
+    // dem videre, ville hele rapporten for de raekker, vi ALLEREDE har
+    // afstemt, forsvinde — sammen med hver fejltekst i `detaljer`.
+    // Det er samme regel som Q1, ét niveau hoejere: et kast maa koste
+    // det, det er, og ikke mere.
+    let raekker: { sub: string }[]
     try {
-      u = await afstemAbonnement(ops, r.sub)
+      raekker = await vaelg(Math.min(plads, LOFT - proevede.length), proevede)
     } catch (e) {
-      fejlede++
-      detaljer.push(`${r.sub}: afstemningen kastede — ${(e as Error).message.slice(0, 160)}`)
-      continue
+      if (!proevede.length) throw e
+      detaljer.push('kunne ikke hente flere rækker: '
+        + `${(e as Error).message.slice(0, 120)} — resten tages næste kørsel`)
+      break
     }
-    if (u === 'nyt_arbejde') {
-      // Vores arbejde lykkedes; der kom bare mere. Det er hverken
-      // «afstemt» eller «kunne ikke» — og at kalde det det ene ville
-      // skjule en skyld, der staar.
-      nytArbejde++
-    } else if (u === 'ikke_bekraeftet' || u === 'bekraeftet_ikke_bogfoert') {
-      fejlede++
-      // ── OGSAA DIAGNOSTIKKEN SKAL KUNNE FEJLE ──────────
-      // Det her opslag findes kun for at kunne SIGE hvad der gik galt.
-      // Kaster det, maa det ikke tage de oevrige raekker med sig —
-      // saa mister vi en fejltekst, ikke en koe.
+    if (!raekker.length) break
+    // Raekker, koerslen ikke flyttede. De giver plads til lige saa
+    // mange nye — og kun de flyttede bruger af `maks`.
+    let ubevaegede = 0
+    for (const r of raekker) {
+      proevede.push(r.sub)
+      // ── ÉN RAEKKE MAA IKKE TAGE DE OEVRIGE MED SIG ────────
+      // `afstemAbonnement` bogfoerer selv en Stripe-fejl. Fejler DEN
+      // skrivning ogsaa, kaster den — og uden den her vagt stoppede
+      // loekken, saa resten af koeen fik intet forsoeg. Maalt: tre
+      // kunder, den foerste med naermest frist; A's opslag fejler og
+      // bogfoeringen af fejlen fejler med, og B og C fik NUL kald i tre
+      // koersler. Deres skyld stod urørt, men ingen rørte den.
+      //
+      // Det er noejagtig samme fejl som S5 i fornyelsesvagten, i
+      // soesterkoeen. Den blev rettet ét sted og ikke det andet.
+      //
+      // Og et kast flytter ikke raekken: `ubevaegede` taeller den, saa
+      // den ikke bruger koerslens kapacitet.
+      //
+      // Et kast BEVISER ikke, at bogfoeringen udeblev — runde 7 maalte
+      // selv, at en skrivning kan committe, mens svaret gaar tabt. Saa
+      // giver vi en plads, der ikke var noedvendig. Det koster ét
+      // ekstra forsoeg paa en anden raekke og kan ikke koste andet:
+      // den ekstra portion udelader alt, vi allerede har roert. Den
+      // modsatte fejl — at tro en raekke flyttede sig, naar den ikke
+      // gjorde — er dén, der udsulter, og den tager vi ikke.
+      let u: Opsigelsesudfald
       try {
-        const [n] = await db.select({ f: subscriptions.afstemningFejl,
-          forsoeg: subscriptions.afstemningForsoeg })
-          .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, r.sub)).limit(1)
-        detaljer.push(`${r.sub}: ${n?.f ?? 'ukendt'} (forsøg ${n?.forsoeg ?? '?'})`)
-      } catch {
-        detaljer.push(`${r.sub}: kunne ikke afstemmes, og fejlteksten kunne ikke læses`)
+        u = await afstemAbonnement(ops, r.sub)
+      } catch (e) {
+        fejlede++
+        ubevaegede++
+        detaljer.push(`${r.sub}: afstemningen kastede — ${(e as Error).message.slice(0, 160)}`)
+        continue
       }
-    } else {
-      afstemte++
+      if (u === 'nyt_arbejde') {
+        // Vores arbejde lykkedes; der kom bare mere. Det er hverken
+        // «afstemt» eller «kunne ikke» — og at kalde det det ene ville
+        // skjule en skyld, der staar.
+        //
+        // Raekken flyttede sig ikke: `skyldAfstemning` saetter
+        // `afstemning_naeste_at` til null og roerer ikke forsoegstallet.
+        // Den staar altsaa forrest igen, og den bruger ikke en plads.
+        nytArbejde++
+        ubevaegede++
+      } else if (u === 'ikke_bekraeftet' || u === 'bekraeftet_ikke_bogfoert') {
+        fejlede++
+        // ── «BEKRAEFTET, IKKE BOGFOERT» FLYTTER HELLER IKKE ──
+        // Den gren skriver skylden og fejlteksten, men hverken
+        // forsoegstallet eller tilbagetraekningen — se
+        // `afstemAbonnement`s oprydningsfangst. Raekken beholder altsaa
+        // sine sorteringsnoegler og vinder udvaelgelsen igen. Det er
+        // samme udsultning som kastet, ad en gren der IKKE kaster, og
+        // den skal taelles med samme sted.
+        if (u === 'bekraeftet_ikke_bogfoert') ubevaegede++
+        // ── OGSAA DIAGNOSTIKKEN SKAL KUNNE FEJLE ──────────
+        // Det her opslag findes kun for at kunne SIGE hvad der gik galt.
+        // Kaster det, maa det ikke tage de oevrige raekker med sig —
+        // saa mister vi en fejltekst, ikke en koe.
+        try {
+          const [n] = await db.select({ f: subscriptions.afstemningFejl,
+            forsoeg: subscriptions.afstemningForsoeg })
+            .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, r.sub)).limit(1)
+          detaljer.push(`${r.sub}: ${n?.f ?? 'ukendt'} (forsøg ${n?.forsoeg ?? '?'})`)
+        } catch {
+          detaljer.push(`${r.sub}: kunne ikke afstemmes, og fejlteksten kunne ikke læses`)
+        }
+      } else {
+        afstemte++
+      }
     }
+    plads = ubevaegede
   }
+
+  // ── LOFTET SKAL KUNNE SES ───────────────────────────────
+  // Stopper koerslen paa loftet, er der stadig klare raekker, den ikke
+  // naaede. Det maa ikke vaere tavst: uden linjen ville en base med
+  // hundrede forgiftede raekker se ud som en helt almindelig kørsel.
+  if (loftRamt) {
+    // Hvor mange klare raekker koerslen IKKE naaede. Tallet maales, saa
+    // linjen siger noget, man kan handle paa — «loftet er naaet» alene
+    // ville ikke fortaelle, om det var én raekke eller tusind.
+    let uberoerte: number | null = null
+    try {
+      const [n] = await db.select({ n: count() }).from(subscriptions)
+        .where(and(grundvilkaar,
+          notInArray(subscriptions.stripeSubscriptionId, proevede)))
+      uberoerte = n?.n ?? null
+    } catch { /* tallet er en oplysning, ikke en betingelse */ }
+    detaljer.push(`loftet på ${LOFT} forsøgte rækker er nået`
+      + (uberoerte === null ? '' : ` — ${uberoerte} klare rækker blev ikke forsøgt`)
+      + '. Står linjen kørsel efter kørsel, kan skrivningerne til de'
+      + ' forreste rækker ikke gennemføres; se docs/betaling/betjening.md.')
+  }
+
   return {
     skyldige: i_alt?.n ?? 0,
-    taget: raekker.length,
+    taget: proevede.length,
     afstemte, fejlede, nytArbejde,
     venter: (i_alt?.n ?? 0) - (nuKlar?.n ?? 0),
     detaljer,
