@@ -7,13 +7,20 @@ export interface Abonnementsvisning {
   status: string
   fase: 'intro' | 'normal' | null
   fornyelseStoppet?: boolean
+  afsluttet?: boolean
   naeste:
     | { slags: 'beloeb'; oere: number }
     | { slags: 'fornyes_ikke' }
+    | { slags: 'opsigelse_undervejs' }
     | { slags: 'ukendt' }
   fornyesAt: string | null
   adgangTil: string | null
+  /** BEKRAEFTET opsagt: hun bad om det, OG Stripe har bekraeftet det. */
   opsagt: boolean
+  /** Hun bad om det; Stripe har ikke bekraeftet det endnu. */
+  opsigelseUndervejs?: boolean
+  /** Stripe siger, der ikke kommer en opkraevning — uanset hvem der bad. */
+  fornyesIkke?: boolean
 }
 
 const kr = (o: number) => (o / 100).toLocaleString('da-DK', { minimumFractionDigits: 2 })
@@ -41,15 +48,33 @@ export function Abonnement({ start }: { start: Abonnementsvisning | null }) {
     const svar = await opsig()
     setArbejder(false)
     if (svar.ok) {
-      setA((x) => (x ? { ...x, opsagt: true, naeste: { slags: 'fornyes_ikke' }, fornyesAt: null } : x))
+      setA((x) => (x ? { ...x, opsagt: true, opsigelseUndervejs: false,
+        fornyesIkke: true, naeste: { slags: 'fornyes_ikke' }, fornyesAt: null } : x))
       setMelding('Abonnementet er sagt op. Adgangen løber perioden ud.')
+      return
+    }
+    if (svar.fejl === 'afventer') {
+      // ── ANMODNINGEN ER GEMT, OG DET SKAL HUN VIDE ────────
+      // Her stod «Prøv igen — der er ikke ændret noget». Det var
+      // forkert: beslutningen ER skrevet, før vi ringede til
+      // betalingsudbyderen, og tilsynet arbejder videre på den. At
+      // sige «der er ikke ændret noget» fik hende til at tro, at hun
+      // stod samme sted som før — og hun gør ikke.
+      //
+      // Men det modsatte er lige så forkert: vi må ikke love, at der
+      // ikke kommer en betaling. Det ved vi først, når Stripe har
+      // svaret. Derfor: modtaget, undervejs, og knappen bliver.
+      setA((x) => (x ? { ...x, opsigelseUndervejs: true,
+        naeste: { slags: 'opsigelse_undervejs' } } : x))
+      setMelding('Vi har modtaget din opsigelse, men kunne ikke bekræfte den '
+        + 'hos betalingsudbyderen lige nu. Vi prøver automatisk igen. Du må '
+        + 'gerne trykke igen — det gør ingen skade.')
       return
     }
     setMelding({
       ikke_logget_ind: 'Log ind igen, og prøv så.',
       intet_abonnement: 'Der er ikke noget løbende abonnement at sige op.',
       stripe_mangler: 'Betaling er ikke slået til. Skriv til info@bofinda.dk.',
-      stripe_fejlede: 'Opsigelsen gik ikke igennem. Prøv igen — der er ikke ændret noget.',
     }[svar.fejl])
   }
 
@@ -57,7 +82,25 @@ export function Abonnement({ start }: { start: Abonnementsvisning | null }) {
     <section id="abonnement">
       <h2>Mit abonnement</h2>
       <dl className="abonnementsliste">
-        <div><dt>Status</dt><dd>{a.opsagt ? 'Opsagt' : statusTekst(a.status)}</dd></div>
+        <div>
+          <dt>Status</dt>
+          <dd>
+            {/* «Opsagt» er HENDES opsigelse, bekraeftet. Har VI stoppet
+                fornyelsen — eller staar flaget uden at nogen af os bad
+                om det — er det ikke hendes, og saa maa det ikke hedde
+                det. Det ville tillaegge hende en handling, hun ikke har
+                foretaget, og blokere hende fra at gaa videre. */}
+            {/* At abonnementet ER slut, står FØRST. «Opsagt» ville
+                skjule det — og for et lukket abonnement er det den
+                vigtigste kendsgerning på siden. */}
+            {a.afsluttet ? statusTekst(a.status)
+              : a.opsagt ? 'Opsagt'
+              : a.fornyelseStoppet ? 'Fornyelse stoppet'
+              : a.fornyesIkke ? 'Fornyes ikke'
+              : a.opsigelseUndervejs ? 'Opsigelse undervejs'
+              : statusTekst(a.status)}
+          </dd>
+        </div>
         {a.fase && (
           <div>
             <dt>Periode</dt>
@@ -73,10 +116,29 @@ export function Abonnement({ start }: { start: Abonnementsvisning | null }) {
           <dd>
             {a.naeste.slags === 'beloeb' ? `${kr(a.naeste.oere)} kr.`
               : a.naeste.slags === 'fornyes_ikke' ? 'Intet — fornyes ikke'
+              : a.naeste.slags === 'opsigelse_undervejs' ? 'Afventer bekræftelse'
               : 'Kan ikke bekræftes lige nu'}
           </dd>
         </div>
-        {a.naeste.slags === 'ukendt' && !a.opsagt && (
+        {/* Opsigelsen er modtaget, men ikke bekræftet. Hun skal se
+            begge dele: at vi HAR den, og at der stadig kan blive
+            trukket, indtil betalingsudbyderen har bekræftet det. Et
+            «fornyes ikke» her ville være et løfte om hendes penge, vi
+            ikke kan holde. */}
+        {a.opsigelseUndervejs && (
+          <div>
+            <dt>Opsigelse</dt>
+            <dd>
+              Vi har modtaget din opsigelse og er ved at gennemføre den
+              hos vores betalingsudbyder. <strong>Den er ikke bekræftet
+              endnu</strong>, så bliver den ikke gennemført inden næste
+              fornyelse, kan der blive trukket som normalt. Vi prøver
+              automatisk igen. Skriv til info@bofinda.dk, hvis det her
+              bliver stående.
+            </dd>
+          </div>
+        )}
+        {a.naeste.slags === 'ukendt' && !a.fornyesIkke && (
           <div>
             <dt>Bemærk</dt>
             <dd>
@@ -112,12 +174,19 @@ export function Abonnement({ start }: { start: Abonnementsvisning | null }) {
         </div>
       </dl>
       {melding && <p role="status">{melding}</p>}
-      {!a.opsagt && (
+      {/* Knappen forsvinder FOERST, naar opsigelsen er bekraeftet.
+          Skjultes den paa anmodningen alene, ville en kunde, hvis kald
+          fejlede hos Stripe, staa uden nogen vej videre — og tro, at
+          hun var faerdig. Kaldet er idempotent, saa et ekstra tryk
+          koster ingenting. */}
+      {!a.fornyesIkke && (
         <button type="button" className="knap" onClick={sigOpNu} disabled={arbejder}>
-          {arbejder ? 'Siger op …' : 'Sig abonnementet op'}
+          {arbejder ? 'Siger op …'
+            : a.opsigelseUndervejs ? 'Prøv opsigelsen igen'
+            : 'Sig abonnementet op'}
         </button>
       )}
-      {a.opsagt && a.adgangTil && (
+      {a.fornyesIkke && a.adgangTil && (
         <p className="koebsnote">
           Du har betalt til {a.adgangTil}. Adgangen fortsætter indtil da.
         </p>

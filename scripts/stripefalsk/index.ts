@@ -209,7 +209,9 @@ export function lavFalsk(): Falsk & Record<string, unknown> {
         // Gemt FEJL afspilles som fejl. Det er hele pointen: noeglen er
         // braendt, og et genforsoeg paa den kommer aldrig videre.
         if (kendt.fejl) throw kendt.fejl
-        return kendt.svar as T
+        // Stripe afspiller et GEMT snapshot. Det er ikke en levende
+        // reference til noget, der kan naa at aendre sig.
+        return oejebliksbillede(kendt.svar) as T
       }
       kald.push({ metode, args })
       if (fejlPaa.has(metode)) {
@@ -229,7 +231,7 @@ export function lavFalsk(): Falsk & Record<string, unknown> {
       }
       const svar = udfoer()
       noegler.set(noegle, { fingeraftryk: aftryk, svar })
-      return svar
+      return oejebliksbillede(svar)
     }
     kald.push({ metode, args })
     if (fejlPaa.has(metode)) {
@@ -240,7 +242,7 @@ export function lavFalsk(): Falsk & Record<string, unknown> {
       gemtFejlPaa.delete(metode)
       throw new UkendtUdfaldFejl(metode)
     }
-    return udfoer()
+    return oejebliksbillede(udfoer())
   }
 
   const f: Falsk & Record<string, unknown> = {
@@ -400,6 +402,27 @@ export function lavFalsk(): Falsk & Record<string, unknown> {
   }
   return f
 }
+
+/**
+ * ET SVAR ER ET OEJEBLIKSBILLEDE, IKKE EN LEVENDE REFERENCE.
+ *
+ * Bruges paa ALLE tre veje ud af `gennem()` — afspilning fra en
+ * idempotensnoegle, udfoerelse med noegle og udfoerelse uden. Stripe
+ * giver aldrig en levende reference tilbage, heller ikke naar den
+ * afspiller et gemt svar.
+ *
+ * Attrappen gav foer den SAMME muterbare genstand tilbage, som et
+ * senere `release` bagefter aendrede. Et rigtigt HTTP-svar aendrer sig
+ * ikke, fordi en anden HTTP-anmodning bliver behandlet — og forskellen
+ * er ikke akademisk: den skjulte, at to samtidige opsigelser begge kan
+ * have laest `status: active`, foer den foerste slap planen. Den anden
+ * faar saa et nej fra Stripe, som ikke er en fejl, men et tabt kaploeb.
+ *
+ * En attrap, der er mildere end virkeligheden, goer proever groenne om
+ * forloeb, der ville fejle. Den her er strengere, og det er meningen.
+ */
+const oejebliksbillede = <T>(v: T): T =>
+  v === null || typeof v !== 'object' ? v : structuredClone(v)
 
 /** Fast starttidspunkt, saa proeverne er deterministiske. */
 export const PLANSTART = 1_700_000_000

@@ -28,7 +28,8 @@ import { db } from '../db/client'
 import { checkoutForsoeg, drift, stripeEvents, subscriptions, users } from '../db/schema'
 import { behandl, betalingstilsyn, afstemGennemfoerteKoeb, naesteForsoeg,
   stopForkertFornyelse, type Haendelse } from '../lib/webhook'
-import { startKoebFor, lukAlleAabneKoeb, aabneKoeb } from '../lib/abonnement'
+import { startKoebFor, lukAlleAabneKoeb, aabneKoeb,
+  abonnementForBruger } from '../lib/abonnement'
 import { saetTilstand } from '../lib/driftskift'
 import { indsaetStripe } from '../lib/stripe'
 import { lavFalsk, type Falsk } from './stripefalsk/index'
@@ -74,6 +75,10 @@ const forsoegFor = (u: string) => db.select({
   sid: checkoutForsoeg.stripeSessionId, sub: checkoutForsoeg.stripeSubscriptionId,
   betaling: checkoutForsoeg.stripePaymentStatus, afstemt: checkoutForsoeg.afstemtAt,
 }).from(checkoutForsoeg).where(eq(checkoutForsoeg.userId, u))
+const skyld = (sub: string) => db.select({ s: subscriptions.afstemningSkyldigAt })
+  .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+  .then((r) => r[0]?.s)
+
 const abo = (sub: string) => db.select({
   status: subscriptions.status, adgang: subscriptions.adgangTil,
   plan: subscriptions.stripeScheduleId, planStatus: subscriptions.planStatus,
@@ -1028,7 +1033,36 @@ async function koer() {
       linjer.some((l) => l.includes('⚠⚠') && l.includes(sub)
         && l.includes('IKKE grebet ind')), JSON.stringify(linjer))
     const r = await abo(sub)
-    tjek('  og basen påstår ikke, at fornyelsen er stoppet', !r?.stoppet)
+    // ── FELTET SKIFTEDE BETYDNING; PÅSTANDEN GJORDE IKKE ──
+    // Her stod `!r?.stoppet`: feltet `fornyelse_stoppet_at` skulle
+    // være tomt, fordi det BETØD «fornyelsen er stoppet».
+    //
+    // Det betyder nu «VI har besluttet at stoppe den», og det skrives
+    // før de eksterne kald — ellers kan et fejlet indgreb ikke
+    // genoptages: afstemningen udleder sin hensigt af netop det felt,
+    // og stod det til sidst, var det null præcis på fejlvejen. Så blev
+    // skylden ryddet ved næste afstemning uden ét Stripe-kald, med
+    // planen stadig aktiv. (Målt; se runde 5.)
+    //
+    // Prøvens EGEN hensigt er uændret og måles skarpere end før: ingen
+    // må PÅSTÅ, at fornyelsen er stoppet. Påstanden bor to steder —
+    // driftsrapportens linje og «Mit abonnement» — og begge spørges nu
+    // direkte. Oven i kommer den egenskab, fejlen kostede: beslutningen
+    // skal være forankret, så arbejdet kan tages op igen.
+    tjek('  driftsrapporten PÅSTÅR ikke, at fornyelsen er stoppet',
+      !linjer.some((l) => l.includes(sub) && l.includes('fornyes ikke')),
+      JSON.stringify(linjer.filter((l) => l.includes(sub))))
+    tjek('  men den siger, at den er BESLUTTET og ubekræftet',
+      linjer.some((l) => l.includes(sub) && l.includes('BESLUTTET stoppet')),
+      JSON.stringify(linjer.filter((l) => l.includes(sub))))
+    const side = await abonnementForBruger(u)
+    tjek('  «Mit abonnement» siger ikke «fornyelse stoppet»',
+      side?.fornyelseStoppet === false && side?.fornyesIkke === false,
+      JSON.stringify(side))
+    tjek('  beslutningen er FORANKRET, så indgrebet kan genoptages',
+      !!r?.stoppet, `stoppet=${r?.stoppet}`)
+    tjek('  og der står en skyld, som afstemningen kan tage op',
+      !!(await skyld(sub)), 'ingen afstemning_skyldig_at')
     tjek('  abonnementet er ikke opsagt hos Stripe',
       falsk.abonnementer.get(sub)?.cancel_at_period_end !== true)
     tjek('  KUNDENS BETALTE ADGANG ER UROERT',

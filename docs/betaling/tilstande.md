@@ -1,8 +1,13 @@
 # Tilstandene og deres relationer
 
-Denne fil findes, fordi tre gennemgange i træk har fundet fejl af
+Denne fil findes, fordi **fem** gennemgange i træk har fundet fejl af
 **samme art**: en tilstand blev behandlet som afgjort, før den var det.
-Ikke tre forskellige fejl — den samme fejl tre steder.
+Ikke fem forskellige fejl — den samme fejl fem steder.
+
+Femte gennemgang gjorde det skarpere: det er ikke nok at skelne
+«besluttet» fra «bekræftet». Der er en **tredje** kendsgerning —
+*er der arbejde tilbage?* — og den må hverken udledes af de to andre
+eller deles med dem. Se I15-I18.
 
 Læs den, før du retter noget i `lib/abonnement.ts`, `lib/webhook.ts`
 eller `lib/driftskift.ts`.
@@ -67,7 +72,7 @@ blev åbnet oven i et, der netop var gennemført.
 nyt køb, og begge blokerer et skift til GRATIS. `betalt`, `udloebet` og
 `afbrudt` er terminale.
 
-## De fjorten invarianter
+## De nitten invarianter
 
 | # | Invariant |
 |---|---|
@@ -84,6 +89,11 @@ nyt køb, og begge blokerer et skift til GRATIS. `betalt`, `udloebet` og
 | **I12** | En opsigelse er genoptagelig: beslutningen skrives før de eksterne kald |
 | **I13** | En plan gælder kun, når Stripe siger, den styrer netop dette abonnement |
 | **I14** | Kundens opsigelse ophæves hverken af en forsinket spejling eller af automatik |
+| **I15** | En anmodning, en bekræftet sluttilstand og udestående arbejde er TRE kendsgerninger |
+| **I16** | Udestående arbejde bæres af sit eget felt — det udledes aldrig af et flag |
+| **I17** | «Skal fornyelsen stoppes?» beregnes ét sted, og alle sættere og betalere bruger dét |
+| **I18** | Køen giver aldrig op, kan ikke udsulte, og vender ikke hastværket om |
+| **I19** | Et dødt abonnement er en BEKRÆFTET sluttilstand — siden lover ikke en automatik, der ikke findes |
 | **I7** | `adgang_til` flyttes kun frem. Altid. Uden undtagelse |
 
 I7 står sidst, fordi den er den eneste, der aldrig har været brudt, og
@@ -159,6 +169,125 @@ kaldet, aldrig efter.
   næste time og markerede den `konfigureret`, mens basen og «Mit
   abonnement» blev ved med at sige, at der ikke bliver trukket mere. To
   kilder, der modsiger hinanden om kundens penge.
+
+**I15 til I18 kom til efter femte gennemgang.** De fire hører sammen
+om én ting: **en tilstand blev behandlet som afgjort, før den var det**
+— filens egen åbningssætning, nu fjerde gang.
+
+· **I15** er den, de andre tre står på. Rækken bærer tre kendsgerninger
+  om en opsigelse, og de tre er ikke det samme spørgsmål:
+
+  | felt | svarer på |
+  |---|---|
+  | `opsagt_af_kunde_at` | **hun har bedt om det** |
+  | `fornyelse_stoppet_at` | **vi har besluttet det** |
+  | `cancel_at_period_end` | **Stripe har bekræftet det** |
+  | `afstemning_skyldig_at` | **der er arbejde tilbage** |
+
+  Før blev de to første OR'et sammen til «opsagt», og det er kernen i
+  fejlen: **et OR kan kun gøre et udsagn stærkere.** Den svageste
+  oplysning — «hun trykkede» — kom ud som det stærkeste løfte —
+  «der bliver ikke trukket mere». Et fejlet Stripe-kald gav
+  «Opsagt / Intet — fornyes ikke» på skærmen, og knappen forsvandt, så
+  hun ikke kunne prøve igen. Fejlteksten sagde oven i købet «der er
+  ikke ændret noget», mens `opsagt_af_kunde_at` netop VAR skrevet.
+
+  Nu: hendes anmodning gemmes altid, den bekræftede sluttilstand
+  påstås aldrig uden Stripes svar, og skærmen siger «Opsigelse
+  undervejs» med knappen stående og teksten «Prøv opsigelsen igen».
+
+· **I16** er I12 ført videre. I12 siger, at beslutningen skrives før de
+  eksterne kald, så den kan genoptages. I16 siger, at **genoptagelsen
+  skal have sit eget felt.** Før hvilede den på en udledning —
+  «besluttet, men `cancel_at_period_end` er false» — og den udledning
+  svarer på et andet spørgsmål end det, den blev brugt til:
+  `cancel_at_period_end` siger, om abonnementet fornyes, ikke om der er
+  arbejde tilbage. Er opsigelsen bekræftet, mens en PLAN står uafklaret
+  hos Stripe, er svaret på det første ja og på det andet nej — og
+  rækken blev aldrig valgt af nogen kø. Den aktive plan var usynlig for
+  hele modulet.
+
+  I12 gælder nu også **vores eget** sikkerhedsstop, ikke kun kundens
+  opsigelse. `fornyelse_stoppet_at` skrives, hvor beslutningen tages —
+  efter planen er undersøgt og fundet forkert, før de eksterne kald.
+  Stod det til sidst, var ankeret tomt præcis på fejlvejen, og skylden
+  fra catch-grenen pegede på et felt, ingen havde skrevet.
+
+· **I17** er CLAUDE.md's egen regel anvendt på netop dette prædikat:
+  *«Svarer to udtryk på det samme spørgsmål, skal de beregnes ét sted.»*
+  «Skal fornyelsen stoppes?» stod tre steder med **tre forskellige
+  mængder**: `laegPlan`s vagt spurgte `opsagtAf || cancel_at_period_end`,
+  dens betingede skrivning spurgte alle tre felter, og afstemningen —
+  den, der skal GØRE arbejdet — spurgte kun `opsagtAf ||
+  fornyelse_stoppet_at`. Alle tre var rigtige hver for sig. Sætterens
+  mængde var bare en ægte overmængde af betalerens, så en skyld sat på
+  det spejlede flag alene blev ryddet med **nul** Stripe-kald, mens
+  planen stod aktiv og bundet.
+
+  Prædikatet er nu `skalFornyelsenStoppes` i `lib/opsigelse.ts`, og
+  SQL-siden `INGEN_BESLUTNING` står lige under det. De to KAN ikke være
+  ét udtryk — det ene skal køre i basen — så `npm test` prøver dem mod
+  hinanden på **alle otte** kombinationer. En prøve, der kun tog de
+  tilfælde, koden i dag frembringer, ville gå op per definition.
+
+· **I18** er I5 for afstemningskøen. I5 siger, at ingen ubehandlet
+  hændelse må kunne fortrænges permanent. Køen her havde samme fejl i
+  to på hinanden følgende former, og den anden er værd at kunne
+  genkende: først «de samme 25 hver gang, fordi intet ændrer
+  prædikatet», og — efter en tilbagetrækning blev føjet til —
+  «de samme 25 hver gang, fordi intet ændrer **rækkefølgen**».
+
+  Rettelsen er ikke en større grænse. Den er, at **rotationen skal
+  komme fra det felt, en fejl flytter.** Udvælgelsen ordner på
+  `afstemning_forsoeg` stigende først; en række, der aldrig er prøvet,
+  kommer altid foran en, der har fejlet. Derefter det mest presserende.
+  Tilbagetrækningen giver aldrig op — loftet er en time — men lofter
+  aldrig ud over **fristen minus ti minutter**, så en nær fornyelse
+  altid når et forsøg mere.
+
+  **Og rettelsen vendte hastværket om.** «Færrest forsøg først»
+  kurerer udsultningen og STRAFFER derefter den række, køen lige har
+  prioriteret rigtigt: fristen er anden nøgle, så den mest presserende
+  vælges først — og fejler kørslen, forlader hun `forsoeg = 0`-laget,
+  hvor alle uprøvede står. Målt: hundrede opsigelser under en
+  Stripe-nedetid, én med fornyelse om fyrre minutter. Hun fik **nul**
+  kald i den kørsel, hvor Stripe virkede, og blev nået fire timer
+  senere.
+
+  Fristloftet i `naesteAfstemning` redder hende ikke, og det er værd at
+  forstå hvorfor: **loftet bestemmer HVORNÅR en række bliver klar,
+  aldrig hvilken RANG den får.** Hun var klar; det var udelukkende
+  sorteringen, der skar hende fra.
+
+  Derfor en HASTEKLASSE før forsøgstallet, bevidst smal i **begge**
+  ender: to timer frem, så der er tid til flere forsøg, og kun én time
+  tilbage — en fornyelse, der allerede er sket, kan ikke forhindres, og
+  en evigt forfalden række ville ellers ligge i hasteklassen for altid
+  og udsulte resten. Inden for hver klasse gælder færrest forsøg
+  uændret, så ingen af de to egenskaber køber den anden.
+
+· **I19** er I15 anvendt på den anden ende. Dødsvagten rydder skylden,
+  når Stripe selv siger, at abonnementet er lukket — rigtigt, for
+  sluttilstanden ER nået. Men `opsigelseUndervejs` havde intet led om,
+  hvorvidt abonnementet stadig lever, så siden blev stående og sagde
+  *«Opsigelse undervejs … der kan blive trukket som normalt. Vi prøver
+  automatisk igen»*, mens køen var tom. Begge sætninger var usande, og
+  knappen stod for evigt.
+
+  Det er I15's fejl **spejlvendt**: I15 lovede for MEGET om hendes
+  penge ud fra en beslutning alene; det her lovede for LIDT — og lovede
+  en automatik, der ikke fandtes. Samme svar begge veje: udsagnet skal
+  hvile på den bekræftede sluttilstand, og et dødt abonnement ER en
+  bekræftet sluttilstand. At abonnementet er slut, står nu først i
+  statuskaskaden; «Opsagt» ville skjule det.
+
+  Beregnes på serveren, ikke i klienten: et værdi-import fra `lib/` ind
+  i en klientkomponent trækker `postgres` med ind i browserbundtet.
+
+  Det samme mønster blev målt i to søskendekøer og rettet samme sted:
+  `afstemGennemfoerteKoeb` (50 permanent knækkede rækker spærrede den
+  51. i tre kørsler) og `iFareForForkertFornyelse` (`limit(100)` uden
+  nogen `order by`).
 
 ## Hvornår en plan GÆLDER
 

@@ -208,14 +208,44 @@ export const subscriptions = pgTable('subscriptions', {
    * Det spaerrer ogsaa automatisk planlaegning: se `laegPlan`.
    */
   opsagtAfKundeAt: timestamp('opsagt_af_kunde_at', { withTimezone: true }),
+  /**
+   * UDESTAAENDE ARBEJDE — eksplicit, ikke udledt.
+   *
+   * Genoptagelsen hvilede foer paa «besluttet, men `cancel_at_period_end`
+   * er false». Det felt svarer paa «fornyes abonnementet?», ikke paa «er
+   * der arbejde tilbage?». Er opsigelsen bekraeftet, mens en PLAN staar
+   * uafklaret hos Stripe, er svaret ja paa det foerste og nej paa det
+   * andet — og raekken blev aldrig valgt af nogen koe. En aktiv plan var
+   * dermed usynlig for hele modulet.
+   *
+   * Feltet saettes FLERE steder: kundens opsigelse, en plan vi ikke fik
+   * bekraeftet sluppet, vores eget sikkerhedsstop, en plan Stripe maaske
+   * har oprettet uden at vi naaede at bogfoere den. Det ryddes ÉT sted —
+   * `afstemAbonnement`, og kun efter at Stripes egen sluttilstand er
+   * laest tilbage.
+   */
+  afstemningSkyldigAt: timestamp('afstemning_skyldig_at', { withTimezone: true }),
+  /**
+   * Foer dette tidspunkt tages raekken ikke op igen.
+   *
+   * Uden den tog koeen altid de samme 25 skyldige, og kunde nummer 26
+   * kom aldrig til. Samme svar som `stripe_events.naeste_forsoeg_at`:
+   * en tilbagetraekning, der flytter de vedvarende fejl ud af vejen for
+   * dem, der kan lade sig goere.
+   */
+  afstemningNaesteAt: timestamp('afstemning_naeste_at', { withTimezone: true }),
+  afstemningForsoeg: integer('afstemning_forsoeg').notNull().default(0),
+  afstemningFejl: text('afstemning_fejl'),
 }, (t) => ({
   userIdx: index('sub_user_idx').on(t.userId),
   adgangIdx: index('sub_adgang_idx').on(t.userId, t.adgangTil),
   customerIdx: index('sub_customer_idx').on(t.stripeCustomerId),
-  // Delvist, praecis som i 0027: tilsynet spoerger kun efter de
-  // skyldige — besluttet, men ikke bekraeftet hos Stripe.
-  skyldigOpsigelseIdx: index('sub_skyldig_opsigelse_idx').on(t.opsagtAfKundeAt)
-    .where(sql`${t.opsagtAfKundeAt} is not null and ${t.cancelAtPeriodEnd} = false`),
+  // Delvist, fordi skyld er undtagelsen: de fleste raekker har ingen.
+  // 0028 droppede 0027's indeks, som svarede paa den UDLEDNING, der var
+  // fejlen — «besluttet og ikke bekraeftet».
+  afstemningIdx: index('sub_afstemning_idx')
+    .on(t.afstemningNaesteAt, t.afstemningForsoeg, t.currentPeriodEnd)
+    .where(sql`${t.afstemningSkyldigAt} is not null`),
 }))
 
 /**

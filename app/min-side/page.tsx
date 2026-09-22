@@ -188,6 +188,9 @@ export default async function Side(
     fornyesAt: a.fornyesAt ? a.fornyesAt.toLocaleString('da-DK') : null,
     adgangTil: a.adgangTil ? a.adgangTil.toLocaleString('da-DK') : null,
     opsagt: a.opsagt,
+    opsigelseUndervejs: a.opsigelseUndervejs,
+    fornyesIkke: a.fornyesIkke,
+    afsluttet: a.afsluttet,
   }
   const soegninger = await db.select().from(savedSearches)
     .where(eq(savedSearches.userId, bruger.id))

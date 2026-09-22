@@ -142,27 +142,116 @@ det er en beslutning, ikke en oprydning: slå abonnementet op i Stripe.
 
 Tilsynet skriver en linje som
 
-    [betaling] opsigelser: 2 skyldige · 1 fuldført · 1 kunne ikke endnu
+    [betaling] afstemning: 2 skyldige · 2 taget · 1 afstemt · 1 kunne ikke endnu (0 var i tilbagetrækning ved kørslens start)
 
-En **skyldig** opsigelse er en, kunden har besluttet
-(`opsagt_af_kunde_at` er sat), og som Stripe endnu ikke har bekræftet
-(`cancel_at_period_end` er false). Det sker, når kaldet knækker
-midtvejs — Stripe svarer ikke, eller vores egen skrivning går tabt.
+De fem tal svarer på hver sit spørgsmål, og de er bevidst ikke udledt
+af hinanden:
 
-**Der skal som regel ikke gøres noget.** Beslutningen er skrevet, før
-de eksterne kald, og tilsynet fuldfører den i næste kørsel: planen
-afstemmes, slippes hvis den stadig gælder, og `cancel_at_period_end`
-sættes. Begge Stripe-kald er idempotente, så det kan køre igen og igen.
+| tal | betyder |
+|---|---|
+| `skyldige` | hvor mange rækker har udestående arbejde **i alt** |
+| `taget` | hvor mange af dem kørslen nåede (grænsen er 25) |
+| `afstemt` | hvor mange blev færdige |
+| `kunne ikke endnu` | hvor mange fejlede og prøves igen |
+| `var i tilbagetrækning ved kørslens start` | hvor mange var skyldige uden at være forfaldne, **da runden begyndte** |
 
-**Kunden ser det rigtige imens.** «Mit abonnement» siger «fornyes
-ikke», så snart beslutningen står i basen — ikke først når Stripe har
-bekræftet. Hun skal ikke trykke igen, og gør hun det alligevel, sker
-der ikke noget galt.
+`skyldige` tælles med sin egen forespørgsel, ikke som længden af den
+afkortede liste. Ellers ville 26 skyldige med en grænse på 25 stå som
+«25 skyldige · 0 taget», og det ligner «ingenting at lave».
+
+**Det sidste tal er målt FØR runden**, og det står der derfor. De
+rækker, runden selv skubber bagud, er ikke med — så et «0» betyder
+ikke, at ingen er i tilbagetrækning nu. Målte vi bagefter, ville tallet
+altid være mindst så stort som `kunne ikke endnu`, og de to ville sige
+det samme.
+
+### Tre ting, der ikke er det samme
+
+Rækken bærer **tre adskilte kendsgerninger**, og hele afsnittet her
+handler om ikke at blande dem:
+
+| felt | er |
+|---|---|
+| `opsagt_af_kunde_at` | **hun har bedt om det.** Hendes beslutning |
+| `fornyelse_stoppet_at` | **vi har besluttet det.** Sikkerhedsstoppet |
+| `cancel_at_period_end` | **Stripe har bekræftet det.** Et spejl af deres felt |
+| `afstemning_skyldig_at` | **der er arbejde tilbage.** Sættes af alle tre veje |
+
+En **skyldig** række er en, hvor der står arbejde tilbage — ikke en,
+hvor et bestemt flag har en bestemt værdi. Det var netop den udledning,
+der var fejlen: køen spurgte «besluttet, men `cancel_at_period_end` er
+false», og en række, hvor opsigelsen var bekræftet, mens en **plan**
+stod uafklaret hos Stripe, blev derfor aldrig valgt. Den aktive plan
+var usynlig for hver eneste kø i modulet.
+
+**Der skal som regel ikke gøres noget.** Beslutningen skrives, før de
+eksterne kald, og afstemningen gør den færdig i næste kørsel: den
+læser Stripes egen tilstand, slipper planen hvis den stadig gælder,
+sætter `cancel_at_period_end`, **læser sluttilstanden tilbage** og
+rydder først bindingen derefter.
+
+**Kunden ser, hvad der faktisk er sket.** «Mit abonnement» siger
+«Opsigelse undervejs», så længe Stripe ikke har bekræftet — ikke
+«fornyes ikke». Knappen bliver stående og hedder «Prøv opsigelsen
+igen», og der står, at vi prøver automatisk. Hun kan trykke igen uden
+at det gør skade.
+
+Det er en ændring fra før, og den er med vilje: siden sagde «fornyes
+ikke», så snart beslutningen stod i basen. Det var et løfte om hendes
+penge, vi ikke havde dækning for — og taber hun den næste opkrævning
+på, at Stripe aldrig fik beskeden, er «vi skrev det i vores egen base»
+ikke et svar.
 
 Bliver den samme række ved at stå i «kunne ikke endnu» time efter time,
-er det Stripe, der ikke svarer på netop det abonnement. Slå det op i
-Stripe og sæt `cancel_at_period_end` i hånden; tilsynet holder så op af
-sig selv, fordi rækken ikke længere er skyldig.
+er det Stripe, der ikke svarer på netop det abonnement.
+`afstemning_fejl` på rækken siger hvad der gik galt, og
+`afstemning_forsoeg` hvor mange gange. Slå abonnementet op i Stripe og
+sæt `cancel_at_period_end` i hånden; afstemningen holder så op af sig
+selv, fordi den læser Stripes svar og ser, at sluttilstanden er nået.
+
+**Køen giver aldrig op, og den udsulter ikke.** Tilbagetrækningen er
+ingen ventetid på forsøg 1-2, ti minutter fra 3., og loftet er en time
+— men aldrig ud over **fristen minus ti minutter**, så en fornyelse,
+der er nær, altid når et forsøg mere. Udvælgelsen tager **færrest
+forsøg først**, og det er dét, der gør udsultning umulig: 25 rækker,
+der bliver ved at fejle, kan ikke holde nummer 26 ude, for nummer 26
+har færre forsøg end dem alle.
+
+### Når vi selv har stoppet en fornyelse
+
+Tilsynet skriver **to** linjer om vores eget sikkerhedsstop, og de
+siger ikke det samme:
+
+    [betaling] 1 abonnement(er) har stoppet fornyelse. …
+    [betaling] ⚠ 1 abonnement(er) er BESLUTTET stoppet, men Stripe har ikke bekræftet det. …
+
+Den første er en kendsgerning: Stripe har bekræftet, kunden fornyes
+ikke. Den anden er en **beslutning, der ikke er nået igennem** —
+abonnementet fornyes stadig. Afstemningen prøver igen hver kørsel.
+Bliver den anden linje stående, skal nogen se efter i Stripe.
+
+`fornyelse_stoppet_at` skrives nu **før** de eksterne kald, dér hvor
+beslutningen faktisk tages — altså først når planen er undersøgt og
+fundet forkert. Er planen rigtig, gribes der ikke ind, og der skrives
+ingen beslutning. Uden ankeret kunne et fejlet indgreb ikke genoptages:
+afstemningen udleder sin hensigt af netop det felt, og stod det til
+sidst, var det tomt præcis på fejlvejen.
+
+### Opskriften nedenfor skal blive ÉN sætning
+
+Opskriften «fortryd et sikkerhedsstop» rydder `fornyelse_stoppet_at`,
+`fornyelse_stoppet_grund` og `cancel_at_period_end` i **én** `update`.
+Det er ikke pænhed — det er nødvendigt.
+
+Afstemningen kører hver kørsel og genindfører `cancel_at_period_end`
+for en række, der stadig bærer `fornyelse_stoppet_at`: beslutningen
+står jo, og så er arbejdet ikke gjort. Deles opskriften i to sætninger,
+kan en kørsel nå imellem dem og opsige kunden igen.
+
+**Skylden skal ikke ryddes i hånden.** Når de tre felter er tomme, er
+der ingen beslutning, og næste afstemning rydder `afstemning_skyldig_at`
+selv. Rydder du den på forhånd, mens en beslutning stadig står, har du
+bare gjort arbejdet usynligt for køen.
 
 **Ryd aldrig `opsagt_af_kunde_at` for at få linjen væk.** Feltet er
 kundens beslutning. Ryddes det, kan en forsinket hændelse skrive

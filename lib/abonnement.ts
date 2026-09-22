@@ -21,7 +21,7 @@ import type Stripe from 'stripe'
 import { UAFSLUTTET, checkoutForsoeg, subscriptions, users } from '../db/schema'
 import { hentBrugerId } from './auth'
 import { NORMAL_OERE, fase, opsaetning, stripe, type Stripeopsaetning } from './stripe'
-import { fuldfoerOpsigelse, noterOpsigelse } from './opsigelse'
+import { TERMINALE, afstemAbonnement, noterOpsigelse } from './opsigelse'
 
 /** Statusser, hvor abonnementet stadig lever hos Stripe. */
 export const LEVENDE = [
@@ -699,9 +699,25 @@ export async function lukAlleAabneKoeb(udf: Udfoerer = db): Promise<{
   }
 }
 
+/**
+ * ── TRE UDFALD, IKKE TO ─────────────────────────────────────
+ * `ok` betoed foer to ting paa én gang: «vi har gemt din beslutning»
+ * og «der kommer ingen opkraevning». De to er ikke det samme, og det
+ * var netop dét, der gjorde et fejlet Stripe-kald til «Opsagt · Intet
+ * — fornyes ikke» paa skaermen.
+ *
+ * `bekraeftet` siger, om STRIPE har den. `ok: true, bekraeftet: false`
+ * findes ikke — er den ikke bekraeftet, er svaret `afventer`, saa
+ * ingen kalder kan komme til at laese `ok` som et loefte.
+ *
+ * `afventer` er ikke en fejl, kunden har gjort noget forkert ved. Hendes
+ * anmodning ER gemt, tilsynet arbejder videre, og hun maa gerne trykke
+ * igen — kaldet er idempotent.
+ */
 export type Opsigelsessvar =
-  | { ok: true; adgangTil: Date | null }
-  | { ok: false; fejl: 'ikke_logget_ind' | 'intet_abonnement' | 'stripe_mangler' | 'stripe_fejlede' }
+  | { ok: true; bekraeftet: true; adgangTil: Date | null }
+  | { ok: false; fejl: 'afventer'; adgangTil: Date | null }
+  | { ok: false; fejl: 'ikke_logget_ind' | 'intet_abonnement' | 'stripe_mangler' }
 
 /**
  * Opsigelse. Stopper NAESTE fornyelse; den betalte periode loeber ud.
@@ -744,19 +760,25 @@ export async function sigOpFor(brugerId: string): Promise<Opsigelsessvar> {
   // ryddes af en forsinket spejling. Se `opsagtAfKundeAt` i skemaet.
   await noterOpsigelse(a.stripeId)
 
-  // Selve arbejdet ligger ÉT sted, delt med tilsynet. To
-  // implementeringer af «slip planen og saet cancel_at_period_end»
-  // ville vaere praecis den drift, CLAUDE.md advarer imod — og de to,
-  // der fandtes, var uenige om, hvornaar en plan overhovedet kan
-  // slippes.
-  const u = await fuldfoerOpsigelse(o, a.stripeId)
-  // KUN et aegte nej fra Stripe er en fejl for kunden. Naaede vores
-  // egen bogfoering ikke at blive skrevet, er opsigelsen stadig i
-  // kraft dér, hvor pengene er — og «Mit abonnement» siger det
-  // rigtige, fordi beslutningen blev noteret foerst. Tilsynet skriver
-  // raekken hjem.
-  if (u === 'stripe_fejlede') return { ok: false, fejl: 'stripe_fejlede' }
-  return { ok: true, adgangTil: a.adgang }
+  // Afstemningen henter sin hensigt fra raekken, og beslutningen er
+  // netop skrevet. Den er ÉN implementering, delt med tilsynet: to
+  // udgaver af «slip planen og saet cancel_at_period_end» ville vaere
+  // praecis den drift, CLAUDE.md advarer imod.
+  // `false`: hendes eget tryk er ikke et koeforsoeg. Taltes det med,
+  // ville tre mislykkede tryk skubbe hendes egen opsigelse bagud i
+  // koeen — hun ville blive straffet for at proeve.
+  const u = await afstemAbonnement(o, a.stripeId, false)
+
+  // ── TO SLAGS «IKKE FAERDIG», OG KUN DEN ENE ER EN FEJL ──
+  // `bekraeftet_ikke_bogfoert` betyder, at STRIPE har opsigelsen — der
+  // kommer ingen opkraevning — og at det kun er vores egen oprydning,
+  // der mangler. Det er ikke noget, hun skal goere om, og det er ikke
+  // et ubekraeftet loefte: det er laest tilbage fra kilden.
+  //
+  // `ikke_bekraeftet` er derimod netop det, N1 handler om: vi VED det
+  // ikke. Saa siger vi det.
+  if (u === 'ikke_bekraeftet') return { ok: false, fejl: 'afventer', adgangTil: a.adgang }
+  return { ok: true, bekraeftet: true, adgangTil: a.adgang }
 }
 
 export interface Abonnementsbillede {
@@ -764,21 +786,59 @@ export interface Abonnementsbillede {
   fase: 'intro' | 'normal' | null
   /**
    * `{ slags: 'beloeb' }` · vi ved hvad der traekkes
-   * `{ slags: 'fornyes_ikke' }` · opsagt — der kommer ingen betaling
+   * `{ slags: 'fornyes_ikke' }` · BEKRAEFTET stoppet — ingen betaling
+   * `{ slags: 'opsigelse_undervejs' }` · hun har sagt op, Stripe har
+   *    ikke bekraeftet det endnu
    * `{ slags: 'ukendt' }` · vi kan IKKE bekraefte naeste betaling
    *
-   * De to sidste maa aldrig smelte sammen. `null` betoed foer begge
-   * dele, og «fornyes ikke» blev vist til en kunde, hvis plan bare ikke
-   * var bekraeftet — altsaa et loefte om ingen betaling, vi ikke kunne
-   * holde.
+   * Ingen af dem maa smelte sammen. `null` betoed engang baade
+   * «fornyes ikke» og «ved ikke», og «fornyes ikke» blev vist til en
+   * kunde, hvis plan bare ikke var bekraeftet.
+   *
+   * `opsigelse_undervejs` kom til af samme grund én runde senere:
+   * `fornyes_ikke` blev udtalt alene paa kundens BESLUTNING, saa et
+   * fejlet Stripe-kald saa ud som en gennemfoert opsigelse. Et loefte
+   * om ingen betaling maa kun hvile paa Stripes eget svar.
    */
-  naeste: { slags: 'beloeb'; oere: number } | { slags: 'fornyes_ikke' } | { slags: 'ukendt' }
+  naeste: { slags: 'beloeb'; oere: number } | { slags: 'fornyes_ikke' }
+    | { slags: 'opsigelse_undervejs' } | { slags: 'ukendt' }
   /**
    * Fornyelsen er stoppet AF OS, fordi planen ikke kunne bekraeftes.
    * Hun skal vide det — og at hun beholder det, hun har betalt for.
    */
   fornyelseStoppet: boolean
+  /**
+   * Abonnementet er lukket hos Stripe og kommer ikke tilbage.
+   *
+   * Staar foerst i statuskaskaden: at abonnementet ER slut, er den
+   * vigtigste kendsgerning paa siden, og «Opsagt» ville skjule den.
+   * Beregnes paa serveren af `TERMINALE`, saa klientkomponenten ikke
+   * skal importere en vaerdi fra `lib/` — et vaerdi-import derfra
+   * traekker `postgres` med ind i browserbundtet.
+   */
+  afsluttet: boolean
   fornyesAt: Date | null
+  /**
+   * Hun har sagt op, og Stripe har ikke bekraeftet det endnu.
+   *
+   * Skal vises som en ROLIG status — «vi har din opsigelse og er ved
+   * at gennemfoere den» — og knappen skal blive staaende, saa hun kan
+   * proeve igen. Aldrig som «Opsagt»: der er ikke kommet et nej fra
+   * betalingsudbyderen endnu, og indtil det goer, kan der blive
+   * traekt som normalt.
+   */
+  opsigelseUndervejs: boolean
+  /**
+   * Stripe siger, at der ikke kommer en opkraevning — uanset HVEM der
+   * bad om det. Kunden, os (`fornyelse_stoppet_at`) eller en haand i
+   * Stripes eget dashboard.
+   *
+   * Det er udsagnet om pengene, og det er dét, der skjuler
+   * opsigelsesknappen: er der ingen fornyelse, er der intet at sige op.
+   * Ordet «Opsagt» hoerer derimod kun til HENDES opsigelse — at
+   * tillaegge hende vores egen handling er en anden slags usandhed.
+   */
+  fornyesIkke: boolean
   adgangTil: Date | null
   opsagt: boolean
 }
@@ -827,20 +887,61 @@ export async function abonnementForBruger(brugerId: string): Promise<Abonnements
   const a = nyeste
   if (!a) return null
 
-  // ── HENDES EGEN BESLUTNING TAELLER MED ───────────────────
-  // `cancel_at_period_end` er Stripes felt, og vi spejler det. Naaede
-  // vores egen skrivning ikke igennem — eller ankom en forsinket
-  // haendelse — maa siden alligevel ikke sige «fornyes» til en kunde,
-  // der har trykket op. Beslutningen er skrevet FOER de eksterne kald
-  // og er committet, uanset hvad der skete bagefter.
-  const opsagt = a.opsagt || a.opsagtAf !== null
+  // ── TO FELTER, OG BEGGE SKAL VAERE SANDE ────────────────
+  // Her stod `a.opsagt || a.opsagtAf !== null`. Et OR kan kun goere et
+  // udsagn STAERKERE — saa den svageste oplysning, at hun har trykket
+  // paa en knap, kom ud som det staerkeste loefte, vi kan give om
+  // hendes penge: «Intet — fornyes ikke». Et fejlet Stripe-kald saa
+  // dermed ud som en gennemfoert opsigelse, og knappen forsvandt, saa
+  // hun ikke engang kunne proeve igen.
+  //
+  // De to felter svarer paa hver sit spoergsmaal:
+  //  · `opsagtAf`  — HAR HUN BEDT OM DET? En beslutning, vores egen.
+  //  · `opsagt`    — SIGER STRIPE, at der ikke kommer en opkraevning?
+  //
+  // «Opsagt» kraever begge. Kun kunden → opsigelsen er undervejs. Kun
+  // Stripe-flaget → det er ikke hendes opsigelse; det er VORES
+  // sikkerhedsstop (`stopForkertFornyelse` skriver det samme felt), og
+  // det har sin egen blok og sin egen vej videre. Maalt: uden kravet om
+  // `opsagtAf` stod der «Opsagt» og knappen var skjult for en kunde,
+  // der aldrig havde sagt op.
+  const anmodet = a.opsagtAf !== null
+  // TRE booleans, ét spoergsmaal hver:
+  //  · `fornyesIkke`          — siger STRIPE, at der ikke kommer en
+  //                             opkraevning? Det er et udsagn om penge,
+  //                             og det er sandt, uanset hvem der bad om
+  //                             det. Det er dét, der skjuler knappen:
+  //                             der er ikke noget at sige op.
+  //  · `opsagt`               — er det HENDES opsigelse, og er den
+  //                             bekraeftet? Kun den maa hedde «Opsagt».
+  //  · `opsigelseUndervejs`   — hun har bedt om det, Stripe har ikke
+  //                             bekraeftet det. Knappen bliver.
+  // ── ET DOEDT ABONNEMENT FORNYES HELLER IKKE ─────────────
+  // Afstemningens doedsvagt rydder skylden, naar Stripe selv siger,
+  // at abonnementet er lukket — og det er rigtigt: sluttilstanden ER
+  // naaet. Men `opsigelseUndervejs` havde intet led om, hvorvidt
+  // abonnementet stadig lever, saa siden blev staaende og sagde
+  // «Opsigelse undervejs … der kan blive trukket som normalt. Vi
+  // proever automatisk igen», mens koeen var tom. Begge saetninger
+  // var usande, og knappen stod for evigt.
+  //
+  // Det er N1's fejl spejlvendt: N1 lovede for MEGET om hendes penge
+  // ud fra en beslutning alene; det her lovede for LIDT — og lovede
+  // en automatik, der ikke fandtes. Samme svar som N1: udsagnet skal
+  // hvile paa den bekraeftede sluttilstand, og et doedt abonnement
+  // ER en bekraeftet sluttilstand.
+  const afsluttet = (TERMINALE as readonly string[]).includes(a.status)
+  const fornyesIkke = a.opsagt || afsluttet
+  const opsagt = anmodet && fornyesIkke
+  const opsigelseUndervejs = anmodet && !fornyesIkke
 
   const o = opsaetning()
   const f = o ? fase(a.pris, o) : null
 
-  // NAESTE BETALING — tre udfald, ikke to.
+  // NAESTE BETALING — fire udfald, ikke to.
   const naeste: Abonnementsbillede['naeste'] =
-    opsagt ? { slags: 'fornyes_ikke' }
+    fornyesIkke ? { slags: 'fornyes_ikke' }
+    : opsigelseUndervejs ? { slags: 'opsigelse_undervejs' }
     : f === 'normal' ? { slags: 'beloeb', oere: NORMAL_OERE }
     // I introfasen er naeste traek 349 kr. UDELUKKENDE, fordi planen er
     // bekraeftet konfigureret. Er den det ikke, ved vi det ikke — og
@@ -852,11 +953,30 @@ export async function abonnementForBruger(brugerId: string): Promise<Abonnements
   return {
     status: a.status,
     fase: f,
-    fornyelseStoppet: a.stoppet !== null,
+    // ── OGSAA VORES EGET STOP SKAL VAERE BEKRAEFTET ──────
+    // `fornyelse_stoppet_at` er nu VORES BESLUTNING, skrevet foer de
+    // eksterne kald — samme regel som hendes opsigelse, og af samme
+    // grund: uden et anker kunne en fejlet kaldsraekke ikke genoptages.
+    // Men saa er feltet ikke laengere et bevis for, at fornyelsen ER
+    // stoppet, og «Fornyelse stoppet» paa skaermen ville vaere N1's
+    // fejl om igen — bare med os som forfatter i stedet for hende.
+    //
+    // Er stoppet besluttet og ikke bekraeftet, staar der ingenting
+    // saerligt: abonnementet ER aktivt og fornyes, indtil vi naar
+    // igennem. Det er en driftssag, ikke en besked til hende — hun
+    // har ikke bedt om noget. Skylden staar i basen, og afstemningen
+    // tager den.
+    fornyelseStoppet: a.stoppet !== null && fornyesIkke,
+    afsluttet,
     naeste,
-    fornyesAt: opsagt ? null : a.slut,
+    // Er opsigelsen kun ANMODET, staar fornyelsesdatoen stadig. Det er
+    // sandt: Stripe har den bogfoert, indtil opsigelsen er bekraeftet,
+    // og at skjule den ville vaere det samme loefte forfra.
+    fornyesAt: fornyesIkke ? null : a.slut,
     adgangTil: a.adgang,
     opsagt,
+    opsigelseUndervejs,
+    fornyesIkke,
   }
 }
 

@@ -14,7 +14,10 @@ efter anden gennemgangsrunde. Basis for hele arbejdet:
 | `832d483` | Betalingsmodulet og den centrale adgangskontrol — første aflevering |
 | `fbfb4dc` | Første gennemgangs otte fund |
 | `0e75b1c` | Anden gennemgangs ni fund |
-| *denne* | Tredje gennemgangs seks fund |
+| `d8bd15f` | Tredje gennemgangs seks fund |
+| `fa3e11e` | Modstandsgennemgang: seksten fund i rettelserne selv |
+| `c8aa05b` | Fjerde gennemgang: hændelsesbevaring, opsigelse, planafstemning |
+| *denne* | Femte gennemgang: anmodning, bekræftet sluttilstand, udestående arbejde |
 
 Historikken er ikke omskrevet undervejs. De tidligere revisioner står,
 som de blev afleveret.
@@ -432,6 +435,245 @@ prøverne, der blev svækket — det var beskrivelsen, der blev sand.
 | PGlite | `scripts/test-betaling-runde4.ts` gennem HTTP-ruten, `sigOpFor()` og `betalingstilsyn()` |
 | Rigtig PostgreSQL | to nye kapløb: dobbeltklik på opsigelsen, og opsigelse mod et planlægningskald i luften |
 | Stripe-sandbox | **uafprøvet.** Intet er kørt mod Stripe |
+
+## Femte gennemgang: anmodning, sluttilstand og udestående arbejde
+
+Fire fund (N1-N4), alle bekræftet ved egen måling før rettelse. Under
+arbejdet fandt to modlæsninger **fire fund mere i rettelserne selv**
+(K1, K2, K6, K7) — også de er målt, rettet og dækket af regressioner.
+
+### Det, de fire fund er ÉN fejl om
+
+Rækken bar to kendsgerninger, hvor der skulle være tre. «Hun har bedt
+om det» og «Stripe har bekræftet det» blev OR'et sammen til «opsagt» —
+og **et OR kan kun gøre et udsagn stærkere.** Den svageste oplysning
+kom derfor ud som det stærkeste løfte: et fejlet Stripe-kald viste
+«Opsagt / Intet — fornyes ikke», knappen forsvandt, og fejlteksten sagde
+«der er ikke ændret noget», mens `opsagt_af_kunde_at` netop var skrevet.
+
+Den tredje kendsgerning — **udestående arbejde** — fandtes slet ikke
+som felt. Den blev udledt: «besluttet, men `cancel_at_period_end` er
+false». Den udledning svarer på et andet spørgsmål end det, den blev
+brugt til, og hullet er præcis N2: er opsigelsen bekræftet, mens en
+PLAN står uafklaret hos Stripe, er rækken ikke «skyldig» efter
+udledningen — og den aktive plan var usynlig for hver eneste kø.
+
+### N1-N4, punkt for punkt
+
+| # | Fund | Rettelse |
+|---|---|---|
+| **N1** | Et fejlet kald blev vist som gennemført opsigelse | Tre adskilte felter. `sigOpFor` svarer `{ok:false, fejl:'afventer'}`, siden siger «Opsigelse undervejs», knappen bliver og hedder «Prøv opsigelsen igen» |
+| **N2** | En uafklaret aktiv plan blev glemt, fordi `cancel_at_period_end` allerede var true | `afstemning_skyldig_at` som eget felt. Oprydningen gemmes, til Stripes sluttilstand er **læst tilbage** |
+| **N3** | To opsigelser med hvert sit `active`-snapshot: den ene fik en fejl på noget, der var lykkedes | Genlæsning i release-catch'en. En **rigtig** fejl kastes videre |
+| **N4** | 25 vedvarende fejl kunne udsulte nummer 26 | Tilbagetrækning med loft, og **færrest forsøg først** i udvælgelsen |
+
+### K1, K2, K6, K7 — fundet i rettelserne selv
+
+| # | Fund | Målt |
+|---|---|---|
+| **K1** | Skylden blev **sat** på `opsagtAf ‖ cancel_at_period_end` og **indfriet** på `opsagtAf ‖ fornyelse_stoppet_at`. Sætterens mængde var en ægte overmængde | 0 `release`, skyld ryddet, plan stadig `active` og bundet. N2's sluttilstand, nået gennem køen der skulle fjerne den |
+| **K2** | `stopForkertFornyelse` skrev sin beslutning **efter** try-blokken, så catch-grenens skyld pegede på et tomt felt | 0 `release`, 0 `update`, skyld ryddet, fornyelsen ikke stoppet |
+| **K6** | Dødsvagten læste **vores spejl**, ikke Stripes svar. Gik `subscription.deleted` tabt, blev skylden forsøgt igen for evigt | tre kørsler, tre fejl, `afstemning_forsoeg` 1-2-3, ingen ende |
+| **K7** | Rækken læses én gang; et tryk mellem læsning og rydning tabte opsigelsen | `opsagt_af_kunde_at` sat, `cancel_at_period_end` false, skyld ryddet — usynlig for enhver kø |
+
+K1 og K2 er **den samme fejlform som N1-N4 selv**, og de er værd at
+holde fast i: begge udtryk var rigtige hver for sig, og der var ingen
+forkert linje at pege på. Prædikatet beregnes nu ét sted,
+`skalFornyelsenStoppes`, med SQL-siden `INGEN_BESLUTNING` ved siden af
+og en prøve, der holder de to op mod hinanden på alle otte
+kombinationer.
+
+**K2's første rettelse var værre end fejlen.** Beslutningen blev
+skrevet øverst i funktionen — men `plan_er_rigtig`-grenen griber netop
+IKKE ind, og så bar et abonnement, der intet fejlede, vores beslutning
+om at stoppe det, med en blivende advarsel i driftsrapporten. Runde 3's
+prøve 10 fangede det. Beslutningen skrives nu dér, hvor den **tages**:
+efter planen er undersøgt og fundet forkert.
+
+### En prøve, der ikke kunne blive rød
+
+Kapløbsprøvens §E hed «og der blev sluppet ÉN gang» og tællede KALD.
+Den kunne ikke fejle: `Promise.all` giver ingen interleaving af sig
+selv — den første opsigelse når hele vejen gennem
+`retrieve → planGaelder → release`, før den anden når sit
+`planGaelder`. Målt på både PGlite og rigtig PostgreSQL, med og uden
+rettelsen: «1 release, begge ok».
+
+§E har nu en **port** på `subscriptionSchedules.retrieve`, som holder
+begge kaldere, til begge har deres svar. Så har de begge et
+`active`-snapshot, og de kalder begge `release` — det er ikke til at
+undgå uden distribueret låsning. Assertionen måler derfor **virkning**:
+præcis ét release tager effekt, ingen af de to melder fejl, og
+forsøgstallet bevises at have været over ét. Uden det sidste ville
+prøven igen kun måle én bestemt planlægning.
+
+Attrappen returnerer nu `structuredClone` på **alle tre** veje ud af
+`gennem()` — også afspilningen fra idempotensnøglen. Et HTTP-svar er et
+øjebliksbillede, ikke en levende reference. Det gav en vagt tilbage
+gratis: fjerner man tilbagelæsningen i `laegPlan`, er suiten grøn med
+den gamle attrap og **8 assertions røde** med kopierne.
+
+### Den fjerde skriver af `cancel_at_period_end`
+
+`spejl()` er den tredje skriver af kolonnen, og den kan skrive
+**false**. Vagten dér spurgte kun kundens beslutning — men vores eget
+sikkerhedsstop skriver samme kolonne **uden** at sætte
+`opsagt_af_kunde_at`. På sådan en række var der altså ingen vagt
+overhovedet: en forsinket hændelse, dannet før stoppet, ryddede flaget,
+mens Stripe stadig sagde `true`, og hverken opsigelseskøen eller
+fornyelsesvagten tog rækken op.
+
+Vagten spørger nu den **seneste af de to beslutninger**. To forløb, to
+forskellige rigtige svar:
+
+* hændelsen er **ældre** end beslutningen → den ved intet om den, og
+  der skrives ikke.
+* hændelsen er **nyere** → den er et ægte svar, flaget ryddes, og der
+  sættes en **skyld**, så afstemningen genopretter.
+
+**Regressionen for den kunne først ikke blive rød.** Første udgave
+målte kun egenskaben — «base og Stripe er enige, ELLER der står en
+skyld» — og den egenskab overlever, at vagten fjernes: så skriver
+spejlingen `false`, den anden vagt sætter skylden, og afstemningen
+retter det. Udfaldet er rigtigt, og prøven beviste ingenting. Målt ved
+at rulle vagten tilbage: prøven blev grøn.
+
+Den pinner nu selve vagten: en ældre hændelse skal skrive **slet
+ikke** — ikke skrive forkert og blive repareret bagefter. Forskellen
+er en Stripe-tur og et vindue, hvor basen er forkert.
+
+**Og den var stadig grøn anden gang**, af en anden grund: tidspunktet
+lå så langt tilbage, at den almindelige rækkefølgevagt forkastede
+hændelsen, før beslutningsvagten blev spurgt. Prøven målte en anden
+vagt, end den sagde. Hændelsen ligger nu mellem rækkens
+`stripe_opdateret_at` og beslutningen, og tidspunkterne er begrundet i
+koden.
+
+Begge gange var det modprøven, der fandt det. Det er dét, den er til:
+en regression, der ikke kan blive rød, ligner en, der dækker noget.
+
+### To tal og to lister, der sagde det samme to steder
+
+Fundet i gennemlæsningen af mine egne rettelser, efter de fire K-fund:
+
+**Tilsynslinjens sidste tal måles før runden.** Den sagde «N venter på
+tilbagetrækning», som en operatør ville læse som «nu» — men de rækker,
+runden selv skubber bagud, er ikke med. Den siger nu «var i
+tilbagetrækning ved kørslens start», og definitionen står både ved
+tallet og i betjeningsvejledningen. Målte vi bagefter, ville tallet
+altid være mindst så stort som `kunne ikke endnu`, og de to ville sige
+det samme.
+
+**`TERMINALE` og `DOEDE` var to identiske lister** — samme tre
+statusser, samme spørgsmål, hver sin fil. Kommentaren ved den ene
+påstod oven i købet, at de var delt; det var de ikke, den var
+kopieret. Dødsvagten (K6) gjorde den ene bærende et nyt sted, og så er
+den samlet ét sted. Samme regel og samme tegn som prædikatet ovenfor:
+et udtryk, der findes to steder og ikke kan afledes af sig selv.
+
+### To fejl, rettelserne selv lavede
+
+Fundet ved at vende modlæsningen mod runde 5's egen kode, og målt før
+de blev rettet:
+
+**Hastværket vendte om.** «Færrest forsøg først» — rettelsen for N4 —
+straffer den række, køen lige har prioriteret rigtigt. Fristen er anden
+nøgle, så den mest presserende vælges først; fejler kørslen, forlader
+hun `forsoeg = 0`-laget, hvor alle uprøvede står. Målt: hundrede
+opsigelser under en Stripe-nedetid, én med fornyelse om 40 minutter —
+**nul** kald i den kørsel, hvor Stripe virkede, og nået fire timer
+senere. Fristloftet redder hende ikke: det bestemmer hvornår en række
+bliver **klar**, aldrig hvilken **rang** den får.
+
+Rettet med en hasteklasse før forsøgstallet, smal i begge ender (to
+timer frem, én tilbage), så hasteklassen ikke selv bliver en
+udsultning.
+
+**Et dødt abonnement lovede en automatik, der ikke fandtes.**
+Dødsvagten rydder skylden, når Stripe siger abonnementet er lukket —
+rigtigt for køen. Men siden blev stående og sagde *«Opsigelse
+undervejs … der kan blive trukket som normalt. Vi prøver automatisk
+igen»*, mens køen var tom. Begge sætninger usande, knappen permanent.
+
+Det er N1's fejl spejlvendt — for lidt lovet i stedet for for meget —
+og svaret er det samme: udsagnet skal hvile på den bekræftede
+sluttilstand. Et dødt abonnement ER en bekræftet sluttilstand.
+
+Begge har nu en regression og en modprøve.
+
+**Tre af denne rundes prøver kunne først ikke blive røde**, og formen
+var den samme hver gang: opstillingen var ikke skarp nok, så prøven
+målte noget andet, end den sagde. Én målte kun udfaldet, som en anden
+vagt reparerede. Én havde et tidsstempel så gammelt, at en anden vagt
+afviste hændelsen, før den under prøve blev spurgt. Én havde for få
+konkurrenter, så rækken slap igennem alligevel.
+
+Alle tre blev fanget af modprøven, ingen af gennemlæsningen. Tallene og
+tidspunkterne er nu begrundet i koden, så den næste, der flytter dem,
+kan se hvad de bærer.
+
+### Modprøven
+
+Hver rettelse er rullet tilbage for sig i en separat kopi, og netop dens
+regression **skal** blive rød. Alle otte:
+
+| rullet tilbage |
+|---|
+| N1 · «afventer» fjernet |
+| N2 · blind rydning genindført |
+| N3 · genlæsning fjernet |
+| N4 · «færrest forsøg først» fjernet |
+| K1 · det spejlede flag ude af prædikatet |
+| K2 · beslutningen skrevet til sidst |
+| K6 · dødsvagten læser kun vores spejl |
+| K7 · ubetinget rydning |
+| M5 · spejlingens vagt spørger kun kundens beslutning |
+| HAST · hasteklassen fjernet fra sorteringen |
+| DOED · et dødt abonnement tæller ikke som bekræftet |
+
+**Alle elleve blev røde.** Hvor mange assertions hver af dem væltede står
+i `logs/06-modproeve.log` — og kun dér. Et tal skrevet af i hånden i en
+rapport holder til næste gang nogen rører prøven.
+
+En regression, der ikke kan fejle, måler ingenting. Det er derfor
+modprøven findes, og derfor §E blev skrevet om.
+
+### Migrationen
+
+`0028_afstemning_skyld` er prøvet **to veje** mod rigtig PostgreSQL:
+bygget fra bunden (29 migrationer i journalens rækkefølge), og
+opgraderet fra 0027 med rækker i basen, så backfill'en havde noget at
+ramme. De otte skemasnit er identiske — kolonner 209, begrænsninger 47,
+indekser 57, RLS 18, enums 42, alle med samme sha256.
+
+Tre snit er tomme, og det er **med vilje**: `rettigheder` = 0 er selve
+kravet fra CLAUDE.md, politikkerne ligger i `storage` og ikke i
+`public`, og vi definerer ingen funktioner i `public`. En sammenligning
+af to tomme baser beviser intet, så prøven fejler nu, hvis et af de fem
+substantielle snit er tomt.
+
+Backfill'en er aflæst: af tre rækker fik **kun** den besluttede,
+ubekræftede opsigelse en skyld.
+
+### Hvad der IKKE er verificeret
+
+| Lag | Status |
+|---|---|
+| Kodeforløb | gennemgangens egen probe, vendt om: alle fire fund væk, exit 0 |
+| PGlite | `test-betaling-runde5.ts` gennem `sigOpFor`, `abonnementForBruger`, `laegPlan` og `betalingstilsyn`. Antallet af assertions står i loggen, ikke her — et tal skrevet af i hånden holder ikke |
+| Rigtig PostgreSQL | §E med port, plus to nye kapløb (E2, E3) |
+| Migration | to veje mod rigtig PostgreSQL, otte snit sammenlignet |
+| **Stripe-sandbox** | **UAFPRØVET.** `api.stripe.com` er spærret i miljøet |
+
+**Attrappen er ikke Stripe.** Den håndhæver Stripes dokumenterede regel
+om, at `release` kun virker på `not_started`/`active`, og at en frigivet
+plan slipper sit abonnement — læst af SDK'ens egne typer
+(`SubscriptionSchedules.d.ts:39`, `:104-116`, `:267`). Men **om Stripe
+accepterer netop det `create`-forløb, N2c modellerer, og hvad det gør
+ved en igangværende opsigelse, er ikke målt.** Det kræver sandbox, og
+gennemgangens egen instruks er læst som den står: fundet afvises ikke
+på en uafprøvet antagelse om Stripe. Intet her siger noget om, hvorvidt
+en opkrævning ville ske eller udeblive.
 
 ## Det, der ikke er løst
 

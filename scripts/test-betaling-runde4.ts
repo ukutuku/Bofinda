@@ -29,7 +29,7 @@ import { checkoutForsoeg, drift, stripeEvents, subscriptions, users } from '../d
 import { behandl, betalingstilsyn, laegPlan, stopForkertFornyelse,
   type Haendelse } from '../lib/webhook'
 import { sigOpFor, startKoebFor, abonnementForBruger } from '../lib/abonnement'
-import { planGaelder, fuldfoerSkyldigeOpsigelser } from '../lib/opsigelse'
+import { planGaelder, afstemSkyldige } from '../lib/opsigelse'
 import { indsaetStripe } from '../lib/stripe'
 import { lavFalsk, type Falsk } from './stripefalsk/index'
 import { POST } from '../app/api/stripe/route'
@@ -185,8 +185,8 @@ async function koer() {
     // og så knækker det inden `cancel_at_period_end`.
     falsk.fejlPaa.add('subscriptions.update')
     const svar = await sigOpFor(u)
-    tjek('kunden får en ærlig fejl', !svar.ok && svar.fejl === 'stripe_fejlede',
-      JSON.stringify(svar))
+    tjek('kunden får et ærligt svar: anmodningen afventer',
+      !svar.ok && svar.fejl === 'afventer', JSON.stringify(svar))
     tjek('  planen ER sluppet hos Stripe',
       falsk.planer.get(foer!.plan!)?.status === 'released')
     tjek('  men opsigelsen nåede IKKE frem',
@@ -195,9 +195,19 @@ async function koer() {
     const r = await abo(sub)
     tjek('  BESLUTNINGEN står dog i basen — det er ankeret', !!r?.opsagtAf)
     const vis = await abonnementForBruger(u)
-    tjek('  og «Mit abonnement» siger «fornyes ikke» med det samme',
-      vis?.naeste.slags === 'fornyes_ikke' && vis.opsagt === true,
-      JSON.stringify(vis?.naeste))
+    // ── DEN HER ASSERTION VAR FORKERT ────────────────────
+    // Den krævede «fornyes ikke» og `opsagt: true` på en række, hvor
+    // Stripe intet havde fået. Prøven fastholdt altså selve det falske
+    // løfte, gennemgangen kalder N1: et fejlet kald vist som en
+    // gennemført opsigelse. Nu kræver den det modsatte.
+    tjek('  og «Mit abonnement» siger IKKE «fornyes ikke»',
+      vis?.naeste.slags === 'opsigelse_undervejs'
+      && vis.opsagt === false && vis.opsigelseUndervejs === true
+      && vis.fornyesIkke === false,
+      JSON.stringify({ naeste: vis?.naeste, opsagt: vis?.opsagt,
+        undervejs: vis?.opsigelseUndervejs }))
+    tjek('  og knappen bliver stående, så hun kan prøve igen',
+      vis?.fornyesIkke === false)
 
     // GENOPTAGELSEN. Før døde hvert genforsøg på et `release` af den
     // plan, Stripe allerede havde sluppet — længe før det nåede
@@ -214,7 +224,7 @@ async function koer() {
       r2?.opsagt === true && r2.plan === null && r2.planStatus === null,
       JSON.stringify(r2))
     tjek('  det står i rapporten',
-      linjer.some((l) => l.includes('opsigelser:') && l.includes('1 fuldført')),
+      linjer.some((l) => l.includes('afstemning:') && l.includes('1 afstemt')),
       JSON.stringify(linjer))
     tjek('  og adgangen er URØRT', r2?.adgang?.getTime() === foer?.adgang?.getTime())
   }
@@ -228,13 +238,20 @@ async function koer() {
     const planId = (await abo(sub))!.plan!
     tjek('opsigelsen lykkes hos Stripe', (await sigOpFor(u)).ok)
     // Rul bogføringen tilbage — præcis det, en tabt skrivning giver.
+    // Skylden bliver stående: den ryddes først EFTER bogføringen, så
+    // en skrivning, der aldrig landede, efterlader netop denne række.
     await db.update(subscriptions)
       .set({ cancelAtPeriodEnd: false, stripeScheduleId: planId,
-             planStatus: 'konfigureret' })
+             planStatus: 'konfigureret',
+             afstemningSkyldigAt: new Date(), afstemningNaesteAt: null })
       .where(eq(subscriptions.stripeSubscriptionId, sub))
     const vis = await abonnementForBruger(u)
-    tjek('  siden siger STADIG «fornyes ikke» — beslutningen bærer den',
-      vis?.naeste.slags === 'fornyes_ikke', JSON.stringify(vis?.naeste))
+    // Stripe HAR opsigelsen; vores egen række nåede ikke at få den.
+    // Siden må derfor ikke sige «fornyes ikke» — vi kan ikke se det —
+    // men den skal vise, at anmodningen er modtaget og undervejs.
+    tjek('  siden siger «opsigelse undervejs», ikke «fornyes ikke»',
+      vis?.naeste.slags === 'opsigelse_undervejs' && vis.opsigelseUndervejs === true,
+      JSON.stringify(vis?.naeste))
 
     const slip = falsk.antal('subscriptionSchedules.release')
     await betalingstilsyn(OPS)
@@ -270,8 +287,8 @@ async function koer() {
     const { u, sub } = await medBekraeftetPlan('R2c')
     falsk.fejlPaa.add('subscriptionSchedules.release')
     const svar = await sigOpFor(u)
-    tjek('kunden får en ærlig fejl', !svar.ok && svar.fejl === 'stripe_fejlede',
-      JSON.stringify(svar))
+    tjek('kunden får et ærligt svar: anmodningen afventer',
+      !svar.ok && svar.fejl === 'afventer', JSON.stringify(svar))
     const r = await abo(sub)
     tjek('  men beslutningen er noteret', !!r?.opsagtAf)
     tjek('  og Stripe har IKKE opsigelsen endnu',
@@ -499,7 +516,7 @@ async function koer() {
       JSON.stringify(plan?.phases.map((f) => f.items?.[0]?.price)))
     tjek('  planen GÆLDER for abonnementet', planGaelder(plan, sub))
     tjek('  og den er ikke opsagt', r?.opsagt === false && r.opsagtAf === null)
-    const tomt = await fuldfoerSkyldigeOpsigelser(OPS)
+    const tomt = await afstemSkyldige(OPS)
     tjek('  tilsynet har ingen skyldige opsigelser at fuldføre',
       tomt.skyldige === 0, JSON.stringify(tomt))
   }

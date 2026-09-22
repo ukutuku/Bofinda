@@ -89,7 +89,7 @@ const { checkoutForsoeg, drift, stripeEvents, subscriptions, users } =
   await import('../db/schema')
 const { startKoebFor, sigOpFor } = await import('../lib/abonnement')
 const { saetTilstand } = await import('../lib/driftskift')
-const { behandl, laegPlan, betalingstilsyn } = await import('../lib/webhook')
+const { behandl, laegPlan, betalingstilsyn, stopForkertFornyelse } = await import('../lib/webhook')
 type Haendelse = Parameters<typeof behandl>[0]
 const { indsaetStripe } = await import('../lib/stripe')
 const { lavFalsk } = await import('./stripefalsk/index')
@@ -431,17 +431,66 @@ try {
     tjek('planen er lagt og bekræftet',
       foer?.planStatus === 'konfigureret' && !!foer.plan, JSON.stringify(foer))
 
-    // DOBBELTKLIK. To forbindelser, to transaktioner. Stripe afviser
-    // et release nummer to, saa uden afstemningen ville den ene af de
-    // to faa `stripe_fejlede` — og kunden se en fejl paa en opsigelse,
-    // der faktisk gik igennem.
+    // ── DOBBELTKLIK, MED VINDUET TVUNGET ÅBENT ────────────
+    // Her stod `Promise.all([sigOpFor(u), sigOpFor(u)])` alene, og
+    // assertionen tællede KALD: «der blev sluppet ÉN gang».
+    //
+    // Den prøve kunne ikke blive rød. `Promise.all` giver ingen
+    // interleaving af sig selv: den første opsigelse når HELE vejen
+    // gennem `retrieve → planGaelder → release`, før den anden
+    // overhovedet når sit `planGaelder`. Målt både på PGlite og på
+    // rigtig, isoleret PostgreSQL — med og uden rettelsen: «1 release,
+    // begge ok». Prøven målte én bestemt planlægning, ikke egenskaben.
+    // Det er den samme fælde, prøven selv advarer imod i B1/B2:
+    // «SIGNALER i stedet for ventetider». §E brugte hverken det ene
+    // eller det andet — den brugte håb.
+    //
+    // PORTEN åbner vinduet: begge kaldere får deres `retrieve`-svar,
+    // og først når BEGGE har det, får nogen af dem lov at gå videre.
+    // Så har de begge et `active`-øjebliksbillede i hånden, og de
+    // kalder begge `release`. Det er ikke til at undgå uden
+    // distribueret låsning, og det SKAL det heller ikke være.
+    //
+    // Derfor måler assertionen nu VIRKNING, ikke kaldtal: præcis ét
+    // release tager effekt, ingen af de to melder fejl til kunden, og
+    // forsøgstallet bevises at have været over ét — ellers åbnede
+    // vinduet ikke, og prøven ville igen kun måle en planlægning.
+    const port = (n: number) => {
+      let kom = 0
+      let slip: () => void = () => {}
+      const alle = new Promise<void>((r) => { slip = r })
+      return async () => {
+        if (++kom >= n) slip()
+        // Nødudgang efter et sekund: når planlægningen aldrig n
+        // kaldere, skal prøven fejle på sin assertion — ikke hænge.
+        await Promise.race([alle, new Promise((r) => setTimeout(r, 1000))])
+      }
+    }
+    const hold = port(2)
+    const rigtigHent = (falsk.subscriptionSchedules as
+      { retrieve: (id: string) => Promise<unknown> }).retrieve
+      .bind(falsk.subscriptionSchedules)
+    ;(falsk.subscriptionSchedules as Record<string, unknown>).retrieve =
+      async (id: string) => {
+        const svar = await rigtigHent(id)   // hent FØRST — snapshottet er taget
+        await hold()                        // og hold, til den anden også har sit
+        return svar
+      }
     const slip0 = falsk.antal('subscriptionSchedules.release')
     const svar = await Promise.all([sigOpFor(u), sigOpFor(u)])
+    ;(falsk.subscriptionSchedules as Record<string, unknown>).retrieve = rigtigHent
+    const forsoeg = falsk.antal('subscriptionSchedules.release') - slip0
+
     tjek('BEGGE svarer ok — ingen af dem ser en fejl',
       svar.every((x) => x.ok), JSON.stringify(svar))
-    tjek('  og der blev sluppet ÉN gang',
-      falsk.antal('subscriptionSchedules.release') - slip0 === 1,
-      `${falsk.antal('subscriptionSchedules.release') - slip0} release`)
+    tjek('  vinduet var FAKTISK åbent — begge nåede at forsøge et release',
+      forsoeg >= 2, `${forsoeg} release-forsøg`)
+    const plan = falsk.planer.get(foer!.plan!)
+    tjek('  men præcis ét TOG EFFEKT — planen er sluppet én gang',
+      plan?.status === 'released' && plan?.released_subscription === sub
+        && plan?.subscription == null,
+      JSON.stringify({ status: plan?.status, released: plan?.released_subscription,
+        subscription: plan?.subscription }))
     tjek('  planen er sluppet hos Stripe',
       falsk.planer.get(foer!.plan!)?.status === 'released')
     tjek('  og cancel_at_period_end er sat',
@@ -453,6 +502,112 @@ try {
     tjek('  rækken står opsagt, uden binding',
       e?.opsagt === true && !!e.opsagtAf && e.plan === null, JSON.stringify(e))
     tjek('  og adgangen er URØRT', !!e?.adgang)
+  }
+
+  // ═══ E2 · TILSYNET TABER RELEASE-KAPLOEBET MOD KUNDEN ═══
+  console.log('\n══ E2 · vores eget stop taber kapløbet mod hendes opsigelse ══')
+  {
+    // `stopForkertFornyelse` har sit EGET `retrieve → planGaelder →
+    // release`. Det er det andet udtryk for samme spørgsmål — «må vi
+    // slippe den her plan?» — og CLAUDE.md's egen regel siger, at to
+    // sådanne driver fra hinanden. Rettelsen i runde 5 landede begge
+    // steder; den her prøve er det, der holder dem sammen.
+    //
+    // Taber tilsynet, må det ikke svare «fejlede» og lade
+    // `cancel_at_period_end` stå usat: det, det bad om, ER sket.
+    const u = await bruger('e2')
+    const sub = `sub_${randomUUID()}`
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false })
+    await behandl(h('checkout.session.completed',
+      { subscription: sub, client_reference_id: u, customer: 'cus_e2' }), OPS)
+    await behandl(h('invoice.paid', {
+      subscription: sub, customer: 'cus_e2',
+      lines: { data: [{ period: { start: nu(), end: nu() + 86400 },
+        pricing: { price_details: { price: OPS.introPrisId } } }] },
+    }), OPS)
+    const [foer] = await db.select({ plan: subscriptions.stripeScheduleId })
+      .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+    // Fornyelsen er nær, og vores tilbagelæsning er tabt.
+    await db.update(subscriptions)
+      .set({ planStatus: 'oprettet', planFejl: 'svaret gik tabt', planForsoeg: 5,
+             adgangTil: new Date(Date.now() + 30 * 60_000) })
+      .where(eq(subscriptions.stripeSubscriptionId, sub))
+
+    // HUN slipper planen, mens tilsynet holder sit snapshot.
+    const rigtigHent = (falsk.subscriptionSchedules as
+      { retrieve: (id: string) => Promise<unknown> }).retrieve
+      .bind(falsk.subscriptionSchedules)
+    let engang = false
+    ;(falsk.subscriptionSchedules as Record<string, unknown>).retrieve =
+      async (id: string) => {
+        const svar = await rigtigHent(id)
+        if (!engang) { engang = true; await sigOpFor(u) }
+        return svar
+      }
+    const r = await stopForkertFornyelse(OPS, sub, 'prøvens egen grund')
+    ;(falsk.subscriptionSchedules as Record<string, unknown>).retrieve = rigtigHent
+
+    tjek('tilsynet melder ikke fejl på et kapløb, det tabte',
+      r !== 'fejlede', `r=${r}`)
+    const plan = falsk.planer.get(foer!.plan!)
+    tjek('  planen er sluppet præcis én gang',
+      plan?.status === 'released' && plan?.subscription == null,
+      JSON.stringify({ status: plan?.status, subscription: plan?.subscription }))
+    tjek('  og fornyelsen ER stoppet hos Stripe',
+      falsk.abonnementer.get(sub)?.cancel_at_period_end === true)
+    const [e2] = await db.select({
+      opsagt: subscriptions.cancelAtPeriodEnd, opsagtAf: subscriptions.opsagtAfKundeAt,
+      skyldig: subscriptions.afstemningSkyldigAt, adgang: subscriptions.adgangTil,
+    }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+    tjek('  rækken er enten afklaret eller stadig skyldig — aldrig tavs',
+      e2?.opsagt === true || e2?.skyldig !== null, JSON.stringify(e2))
+    tjek('  HENDES forfatterskab står', !!e2?.opsagtAf)
+    tjek('  og adgangen er URØRT', !!e2?.adgang)
+  }
+
+  // ═══ E3 · «PLANEN ER BEKRAEFTET» OM EN PLAN, DER IKKE FINDES ═══
+  console.log('\n══ E3 · planStatus «konfigureret» må aldrig stå uden en plan ══')
+  {
+    // Den inkonsistens, der blev målt på rigtig PostgreSQL:
+    //   {opsagt: true, plan: null, planStatus: 'konfigureret'}
+    // «Planen er bekræftet» om en plan, der ikke findes, på et
+    // abonnement kunden har sagt op. Skrivningen i `laegPlan` er nu
+    // betinget af, at ingen har besluttet noget — læsning og skrivning
+    // er ÉT skridt i basen.
+    const u = await bruger('e3')
+    const sub = `sub_${randomUUID()}`
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false })
+    await behandl(h('checkout.session.completed',
+      { subscription: sub, client_reference_id: u, customer: 'cus_e3' }), OPS)
+    await db.update(subscriptions)
+      .set({ planStatus: 'mangler', planForsoeg: 0, stripePriceId: OPS.introPrisId,
+             adgangTil: new Date(Date.now() + 86_400_000),
+             currentPeriodEnd: new Date(Date.now() + 86_400_000) })
+      .where(eq(subscriptions.stripeSubscriptionId, sub))
+
+    // Hun siger op, mens `create` er i luften — det tætteste vindue.
+    const rigtigOpret = (falsk.subscriptionSchedules as
+      { create: (...a: unknown[]) => Promise<unknown> }).create
+      .bind(falsk.subscriptionSchedules)
+    let engang = false
+    ;(falsk.subscriptionSchedules as Record<string, unknown>).create =
+      async (...a: unknown[]) => {
+        const svar = await rigtigOpret(...a)
+        if (!engang) { engang = true; await sigOpFor(u) }
+        return svar
+      }
+    await laegPlan(sub, OPS)
+    ;(falsk.subscriptionSchedules as Record<string, unknown>).create = rigtigOpret
+
+    const [e3] = await db.select({
+      plan: subscriptions.stripeScheduleId, planStatus: subscriptions.planStatus,
+      opsagt: subscriptions.cancelAtPeriodEnd, skyldig: subscriptions.afstemningSkyldigAt,
+    }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+    tjek('«konfigureret» står aldrig uden en plan',
+      !(e3?.planStatus === 'konfigureret' && e3?.plan === null), JSON.stringify(e3))
+    tjek('  og en uafklaret plan er ikke glemt — enten afklaret eller skyldig',
+      e3?.skyldig !== null || (e3?.opsagt === true && e3?.plan === null),
+      JSON.stringify(e3))
   }
 
   // ═══ F · OPSIGELSE MOD ET IGANGVAERENDE PLANKALD ═════════

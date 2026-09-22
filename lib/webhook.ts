@@ -29,11 +29,12 @@
 //  loeber ud.
 // ═══════════════════════════════════════════════════════════════
 
-import { and, count, eq, gt, inArray, isNotNull, isNull, lt, lte, ne, notInArray, or, sql } from 'drizzle-orm'
+import { and, asc, count, eq, gt, inArray, isNotNull, isNull, lt, lte, ne, notInArray, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { UAFSLUTTET, checkoutForsoeg, stripeEvents, subscriptions, users } from '../db/schema'
 import { INTRO_TIMER, fase, faser, stripe, type Stripeopsaetning } from './stripe'
-import { fuldfoerSkyldigeOpsigelser, planGaelder } from './opsigelse'
+import { INGEN_BESLUTNING, TERMINALE, afstemSkyldige, planGaelder,
+  skalFornyelsenStoppes, skyldAfstemning } from './opsigelse'
 
 /** De haendelser, vi handler paa. Alt andet kvitteres og ignoreres. */
 export const LYTTER = [
@@ -388,7 +389,10 @@ const nyereEnd = (stempel: Date) => or(
  * dermed en ny raekke; en terminal raekke skal derfor aldrig
  * genoplives, uanset hvad et tidsstempel siger.
  */
-export const TERMINALE = ['canceled', 'incomplete_expired', 'expired'] as const
+// TERMINALE bor i `lib/opsigelse.ts` og importeres oeverst i filen.
+// Den stod her som sin EGEN identiske liste; to udtryk for samme
+// spoergsmaal i hver sin fil. Ingen uden for webhooken importerede den
+// herfra, saa der er intet at genudstille.
 
 /**
  * Terminalvagten. En raekke i en terminal status forlades kun af en
@@ -910,22 +914,52 @@ export async function laegPlan(subId: string, ops: Stripeopsaetning): Promise<
     // om den kom et sekund efter vores kald.
     const [efterKaldet] = await db.select({
       opsagtAf: subscriptions.opsagtAfKundeAt,
+      stoppet: subscriptions.fornyelseStoppetAt,
       opsagt: subscriptions.cancelAtPeriodEnd,
     }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, subId)).limit(1)
-    if (efterKaldet?.opsagtAf || efterKaldet?.opsagt) {
-      try { await s.subscriptionSchedules.release(planId) } catch { /* se nedenfor */ }
-      await db.update(subscriptions)
-        .set({ stripeScheduleId: null, planStatus: null, planFejl: null })
-        .where(eq(subscriptions.stripeSubscriptionId, subId))
-      // Kan planen ikke slippes lige nu, er bindingen alligevel ryddet
-      // hjemme, og `fuldfoerSkyldigeOpsigelser` afstemmer den igen:
-      // den slaar planen op hos Stripe og slipper den, naar den kan.
+    // SAMME SPOERGSMAAL SOM AFSTEMNINGEN STILLER. Vagten spurgte foer
+    // `opsagtAf || opsagt`, mens afstemningen — den, der skal goere
+    // arbejdet — spurgte `opsagtAf || stoppet`. To rigtige udtryk,
+    // forskellige maengder: en skyld sat her paa `opsagt` alene blev
+    // ryddet dér uden ét Stripe-kald. Se `skalFornyelsenStoppes`.
+    if (efterKaldet && skalFornyelsenStoppes(efterKaldet)) {
+      // ── SKYLDEN, IKKE EN PAASTAND ───────────────────────
+      // Her stod et `release` i sin egen try/catch — fejlen blev
+      // slugt — og derefter `stripeScheduleId: null, planStatus:
+      // null`, som om den var sluppet. Den paastand var ikke
+      // afgivet af Stripe, og ingen koe kunne se raekken bagefter:
+      // opsigelseskoeen kraevede `cancel_at_period_end = false`, og
+      // opsigelsen havde netop skrevet `true`. Planen stod aktiv hos
+      // Stripe, usynlig for hele modulet.
+      //
+      // Nu skrives der ikke noget om planen. Der skrives, at der er
+      // ARBEJDE tilbage, og `afstemAbonnement` goer det: den laeser
+      // Stripes egen tilstand, slipper planen, og rydder foerst
+      // bindingen, naar sluttilstanden er laest tilbage.
+      await skyldAfstemning(subId,
+        `planen blev lagt, mens kunden sagde op — afventer frigivelse (${planId})`)
       return 'opsagt'
     }
 
-    await db.update(subscriptions)
+    // ── BETINGET, SAA KAPLOEBET IKKE KAN TABES I VINDUET ──
+    // Gentjekket ovenfor laeser raekken; mellem den laesning og den her
+    // skrivning kan en opsigelse naa hele vejen igennem. Uden
+    // betingelsen endte raekken som `{opsagt: true, plan: null,
+    // planStatus: 'konfigureret'}` — «planen er bekraeftet» om en plan,
+    // der ikke findes, paa et abonnement, kunden har sagt op.
+    //
+    // Betingelsen goer laesningen og skrivningen til ÉT skridt i
+    // basen. Rammer den nul raekker, vandt opsigelsen, og saa er
+    // svaret det samme som ovenfor.
+    const skrevet = await db.update(subscriptions)
       .set({ planStatus: 'konfigureret', planFejl: null, planForsoegtAt: new Date() })
-      .where(eq(subscriptions.stripeSubscriptionId, subId))
+      .where(and(eq(subscriptions.stripeSubscriptionId, subId), ...INGEN_BESLUTNING))
+      .returning({ id: subscriptions.id })
+    if (!skrevet.length) {
+      await skyldAfstemning(subId,
+        `planen blev lagt, mens kunden sagde op — afventer frigivelse (${planId})`)
+      return 'opsagt'
+    }
     return 'konfigureret'
   } catch (e) {
     // ── VAR DET EN OPSIGELSE, DER SLOG KALDET IHJEL? ──────
@@ -939,9 +973,14 @@ export async function laegPlan(subId: string, ops: Stripeopsaetning): Promise<
       opsagt: subscriptions.cancelAtPeriodEnd,
     }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, subId)).limit(1)
     if (efterFejlen?.opsagtAf || efterFejlen?.opsagt) {
-      await db.update(subscriptions)
-        .set({ stripeScheduleId: null, planStatus: null, planFejl: null })
-        .where(eq(subscriptions.stripeSubscriptionId, subId))
+      // Samme grund som ovenfor — og her var paastanden endnu
+      // svagere: grenen ANTOG, at kundens kodevej havde sluppet
+      // planen, og ryddede bindingen uden overhovedet at spoerge.
+      // Fejlede konfigurationen, mens den nyoprettede plan var
+      // aktiv, stod den aktiv tilbage. Skylden staar nu i stedet.
+      await skyldAfstemning(subId,
+        `planlægningen blev afbrudt af en opsigelse — afventer afstemning`
+        + (planId ? ` (${planId})` : ''))
       return 'opsagt'
     }
 
@@ -1153,8 +1192,21 @@ export async function afstemGennemfoerteKoeb(ops: Stripeopsaetning): Promise<{
     id: checkoutForsoeg.id, sid: checkoutForsoeg.stripeSessionId,
     sub: checkoutForsoeg.stripeSubscriptionId, bruger: checkoutForsoeg.userId,
     kunde: checkoutForsoeg.stripeCustomerId,
+    forsoeg: checkoutForsoeg.lukkeForsoeg,
   }).from(checkoutForsoeg)
     .where(eq(checkoutForsoeg.status, 'gennemfoert'))
+    // ── DE MINDST PROEVEDE FOERST ──────────────────────────
+    // Uden raekkefoelge tog den de samme 50 hver gang, og et forsoeg
+    // fejlede uden at skrive paa raekken. Funktionen har sine EGNE
+    // dokumenterede, permanente beboere — «kontoen har allerede et
+    // levende abonnement … den loeser sig ikke af sig selv» — saa
+    // halvtreds af dem spaerrede den 51., der kunne afstemmes. Maalt
+    // over tre koersler.
+    //
+    // Hver fejl taeller nu paa raekken, og de mindst proevede vaelges
+    // foerst. Samme svar som koeerne ovenfor; her er taelleren bare
+    // den, der allerede fandtes.
+    .orderBy(asc(checkoutForsoeg.lukkeForsoeg), asc(checkoutForsoeg.oprettetAt))
     .limit(50)
   if (!raekker.length) return { afstemte: 0, uafklarede: 0, detaljer: [] }
 
@@ -1188,6 +1240,7 @@ export async function afstemGennemfoerteKoeb(ops: Stripeopsaetning): Promise<{
         }
       }
       if (!subId) {
+        await taelForsoeg(r.id)
         detaljer.push(`${r.id}: sessionen oplyser intet abonnement endnu`)
         continue
       }
@@ -1225,6 +1278,7 @@ export async function afstemGennemfoerteKoeb(ops: Stripeopsaetning): Promise<{
           // bogføres», laeser den, der kigger paa driftssiden, den som
           // endnu et forbigaaende nej — og «tilsynet ordner det inden
           // for en time» er et loefte, der ikke holder her.
+          await taelForsoeg(r.id)
           detaljer.push(`${r.id}: ${subId} kan IKKE afstemmes automatisk — `
             + `kontoen ${bruger} har allerede et levende abonnement. `
             + `Den loeser sig ikke af sig selv; et menneske skal afgoere, `
@@ -1241,11 +1295,23 @@ export async function afstemGennemfoerteKoeb(ops: Stripeopsaetning): Promise<{
         .where(eq(checkoutForsoeg.id, r.id))
       afstemte++
     } catch (e) {
+      await taelForsoeg(r.id)
       detaljer.push(`${r.id}: ${(e as Error).message.slice(0, 120)}`)
     }
   }
   return { afstemte, uafklarede: raekker.length - afstemte, detaljer }
 }
+
+/**
+ * Ét forsoeg mere paa et koebsforsoeg, der ikke kunne afstemmes.
+ *
+ * Taelleren er `lukke_forsoeg`, som allerede fandtes. Den er det, der
+ * giver koeen fremdrift: en raekke, der bliver ved at fejle, glider
+ * bagest, og den naeste kommer til.
+ */
+const taelForsoeg = (id: string) => db.update(checkoutForsoeg)
+  .set({ lukkeForsoeg: sql`${checkoutForsoeg.lukkeForsoeg} + 1` })
+  .where(eq(checkoutForsoeg.id, id))
 
 /** Id'et, uanset om Stripe gav en streng eller et objekt. */
 const subId2 = (v: unknown): string | null =>
@@ -1262,6 +1328,22 @@ export const STOP_FOER_FORNYELSE_MIN = 120
  * KASTER IKKE. Lykkes det ikke, staar skylden stadig i basen, og
  * tilsynet proever igen i naeste koersel.
  */
+/**
+ * Skriv VORES beslutning om at stoppe en fornyelse.
+ *
+ * Betinget paa, at ingen har besluttet noget: rammer den nul raekker,
+ * er kunden eller en tidligere koersel kommet foerst, og saa er det
+ * ikke vores indgreb. Derfor er den ogsaa IDEMPOTENT — den kan kaldes
+ * fra begge de veje, der foerer til et indgreb, uden at den anden
+ * skriver hen over den foerste.
+ */
+async function besluttetAfOs(subId: string, grund: string): Promise<void> {
+  await db.update(subscriptions)
+    .set({ fornyelseStoppetAt: new Date(),
+           fornyelseStoppetGrund: grund.slice(0, 300), updatedAt: new Date() })
+    .where(and(eq(subscriptions.stripeSubscriptionId, subId), ...INGEN_BESLUTNING))
+}
+
 export async function stopForkertFornyelse(
   ops: Stripeopsaetning, subId: string, grund: string,
 ): Promise<'stoppet' | 'allerede' | 'fejlede' | 'ikke_noedvendig' | 'plan_er_rigtig'> {
@@ -1270,13 +1352,19 @@ export async function stopForkertFornyelse(
     planStatus: subscriptions.planStatus,
     stoppet: subscriptions.fornyelseStoppetAt,
     opsagt: subscriptions.cancelAtPeriodEnd,
+    opsagtAf: subscriptions.opsagtAfKundeAt,
     status: subscriptions.status,
   }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, subId)).limit(1)
   if (!a) return 'ikke_noedvendig'
   if (a.planStatus === 'konfigureret') return 'ikke_noedvendig'
   // Et doedt abonnement fornyes ikke, og en allerede opsagt heller ikke.
   if ((TERMINALE as readonly string[]).includes(a.status)) return 'ikke_noedvendig'
-  if (a.stoppet || a.opsagt) return 'allerede'
+  // Kundens EGEN opsigelse er ogsaa «allerede». Uden `opsagtAf` kunne
+  // tilsynet vinde kaploebet mod hende og skrive
+  // `fornyelse_stoppet_at` — og saa stod der «VI har stoppet
+  // fornyelsen» om noget, hun selv havde bedt om, med en blivende
+  // advarsel i driftsrapporten, indtil et menneske ryddede den.
+  if (a.stoppet || a.opsagt || a.opsagtAf) return 'allerede'
 
   try {
     const s = stripe(ops)
@@ -1334,6 +1422,30 @@ export async function stopForkertFornyelse(
           .where(eq(subscriptions.stripeSubscriptionId, subId))
         return 'plan_er_rigtig'
       }
+      // ── HER ER BESLUTNINGEN TAGET, OG FOERST HER ────────
+      // Foerst paa dette punkt VED vi, at der skal gribes ind: enten
+      // gaelder planen og er forkert, eller ogsaa er der ingen plan.
+      // Beslutningen skrives derfor her — foer de eksterne kald, som
+      // `noterOpsigelse` goer med kundens.
+      //
+      // Den skal ikke skrives oeverst i funktionen. Det proevede jeg,
+      // og det er strengt vaerre end fejlen: `plan_er_rigtig`-grenen
+      // griber netop IKKE ind, og saa baerer et abonnement, der intet
+      // fejlede, vores beslutning om at stoppe det — med en blivende
+      // advarsel i driftsrapporten. Prøve 10 i runde 3 maaler det.
+      //
+      // Hvorfor foer kaldene og ikke efter: fejler de, skriver
+      // catch-grenen en SKYLD, og afstemningen udleder sin hensigt af
+      // netop det her felt. Stod det til sidst — som det gjorde — var
+      // feltet null praecis dér, og skylden blev ryddet ved naeste
+      // afstemning med nul `release`, nul `update` og planen stadig
+      // aktiv. Kommentaren ved catch'en beskrev en vagt, koden ikke
+      // havde.
+      //
+      // Betinget, saa et samtidigt tryk fra hende vinder: rammer den
+      // nul raekker, har nogen besluttet noget imens.
+      await besluttetAfOs(subId, grund)
+
       if (gaelder) {
         // SLIP planen foerst — ellers skriver den opsigelsen om ved
         // naeste faseskift. Samme grund som i `sigOpFor`.
@@ -1342,23 +1454,45 @@ export async function stopForkertFornyelse(
         // kun paa `not_started` og `active`, og et kald paa en allerede
         // frigivet plan ville kaste og spaerre `cancel_at_period_end`
         // nedenfor — praecis den laas, opsigelsen sad fast i.
-        await s.subscriptionSchedules.release(planId)
+        try {
+          await s.subscriptionSchedules.release(planId)
+        } catch (e) {
+          // Samme vagt som i `afstemAbonnement`: taber vi kaploebet
+          // mod kundens egen opsigelse, er det, vi bad om, sket.
+          // Uden genlaesningen svarede tilsynet «fejlede» og satte
+          // aldrig `cancel_at_period_end`.
+          const igen = await s.subscriptionSchedules.retrieve(planId)
+          if (planGaelder(igen, subId)) throw e
+        }
       }
       await db.update(subscriptions)
         .set({ stripeScheduleId: null })
         .where(eq(subscriptions.stripeSubscriptionId, subId))
     }
+    // Og den anden vej ind: der var slet ingen plan at undersoege.
+    // Kaldet ovenfor har saa ikke fundet sted, og beslutningen skal
+    // stadig staa, foer vi roerer Stripe. `besluttetAfOs` er betinget
+    // og skriver ikke hen over sig selv.
+    await besluttetAfOs(subId, grund)
     await s.subscriptions.update(subId, { cancel_at_period_end: true })
   } catch {
+    // Vi naaede ikke i maal. Skylden staar, saa `afstemAbonnement`
+    // tager raekken op igen — den udleder sin hensigt af
+    // `fornyelse_stoppet_at`, som vi selv har sat, og af kundens
+    // beslutning. Foer var en saadan raekke foraeldreloes: ingen koe
+    // valgte den, og base og Stripe blev staaende uenige.
+    await skyldAfstemning(subId, `fornyelsen kunne ikke stoppes: ${grund}`)
     return 'fejlede'
   }
+  // Beslutningen staar allerede. Her skrives kun den BEKRAEFTEDE
+  // kendsgerning: Stripe har svaret paa `cancel_at_period_end`.
+  //
+  // Naaede hun at sige op, mens vi var i luften, staar HENDES
+  // tidsstempel ogsaa — og «Opsagt» vinder paa skaermen, fordi hendes
+  // forfatterskab er det oeverste led i kaskaden. `cancel_at_period_end`
+  // er sat enten vej.
   await db.update(subscriptions)
-    .set({
-      cancelAtPeriodEnd: true,
-      fornyelseStoppetAt: new Date(),
-      fornyelseStoppetGrund: grund.slice(0, 300),
-      updatedAt: new Date(),
-    })
+    .set({ cancelAtPeriodEnd: true, updatedAt: new Date() })
     .where(eq(subscriptions.stripeSubscriptionId, subId))
   return 'stoppet'
 }
@@ -1387,6 +1521,9 @@ async function iFareForForkertFornyelse(): Promise<
       eq(subscriptions.cancelAtPeriodEnd, false),
       notInArray(subscriptions.status, [...TERMINALE]),
     ))
+    // Fristen er hele funktionens formaal. Uden raekkefoelge kunne den
+    // fornyelse, der ligger naermest, falde uden for de hundrede.
+    .orderBy(asc(subscriptions.adgangTil))
     .limit(100)
 
   return raekker.flatMap((r) => {
@@ -1446,20 +1583,41 @@ async function spejl(o: Ukendt, stempel: Date, ops: Stripeopsaetning | null): Pr
   // tage den op igen, naar `kassen()` har skrevet raekken.
   const [raekke] = await db.select({
     id: subscriptions.id, opsagtAf: subscriptions.opsagtAfKundeAt,
+    stoppet: subscriptions.fornyelseStoppetAt,
+    opsagt: subscriptions.cancelAtPeriodEnd,
+    planRoert: subscriptions.planForsoegtAt,
   }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, subId)).limit(1)
   if (!raekke) return 'afventer'
 
-  // ── KUNDENS BESLUTNING SPEJLES IKKE VAEK ──────────────────
-  // En forsinket `updated`, oprettet FOER opsigelsen, baerer
-  // `cancel_at_period_end: false` — og skrev det hen over kundens
-  // beslutning, saa «Mit abonnement» sagde «fornyes» kort efter, hun
-  // sagde op. Flaget er et spejl; beslutningen er ikke. Kun en
-  // haendelse, der er NYERE end beslutningen, maa rydde flaget.
+  // ── EN BESLUTNING SPEJLES IKKE VAEK ───────────────────────
+  // En forsinket `updated`, oprettet FOER beslutningen, baerer
+  // `cancel_at_period_end: false` — og skrev det hen over den, saa
+  // «Mit abonnement» sagde «fornyes» kort efter, kunden sagde op.
+  // Flaget er et spejl; beslutningen er ikke. Kun en haendelse, der er
+  // NYERE end beslutningen, maa rydde flaget.
   //
-  // At saette det til true er altid i orden — dér er de to enige.
+  // BEGGE beslutninger taeller. Kundens opsigelse er den ene; vores
+  // eget sikkerhedsstop (`fornyelse_stoppet_at`) er den anden, og det
+  // skriver det SAMME felt. Uden den anden kunne en haendelse, dannet
+  // foer stoppet, rydde flaget paa en raekke, hvor VI havde stoppet
+  // fornyelsen — og raekken var derefter foraeldreloes.
+  //
+  // At saette flaget til true er altid i orden: dér er spejl og
+  // beslutning enige.
+  //
+  // ── OG EN MANGLENDE NOEGLE ER IKKE ET «NEJ» ───────────────
+  // `o['cancel_at_period_end'] === true` gjorde en FRAVAERENDE noegle
+  // til false og ryddede flaget. Tre linjer nede staar `harSkema` med
+  // `hasOwnProperty` og kommentaren om, at det er noeglens
+  // TILSTEDEVAERELSE, der afgoer — samme saetning, to regler. Maalt:
+  // en `customer.subscription.updated` uden noeglen slog flaget fra.
+  const harFlag = Object.prototype.hasOwnProperty.call(o, 'cancel_at_period_end')
   const rydder = o['cancel_at_period_end'] !== true
-  const aeldreEndBeslutningen = raekke.opsagtAf !== null && raekke.opsagtAf > stempel
-  const maaSkriveOpsigelsesflag = !(rydder && aeldreEndBeslutningen)
+  const beslutning = [raekke.opsagtAf, raekke.stoppet]
+    .filter((d): d is Date => d !== null)
+    .reduce<Date | null>((m, d) => (m === null || d > m ? d : m), null)
+  const aeldreEndBeslutningen = beslutning !== null && beslutning > stempel
+  const maaSkriveOpsigelsesflag = harFlag && !(rydder && aeldreEndBeslutningen)
 
   // ── `schedule: null` ER ET SVAR ───────────────────────────
   // Feltet blev foer kun skrevet, naar det havde en VAERDI. En
@@ -1468,7 +1626,15 @@ async function spejl(o: Ukendt, stempel: Date, ops: Stripeopsaetning | null): Pr
   // ikke rydde bindingen, og et gammelt plan-id blev staaende som
   // bevis for en plan, der var sluppet. Nu afgoer det, om NOEGLEN er
   // der, ikke om vaerdien er sand.
+  //
+  // MEN et svar fra FOER planen fandtes er ikke et svar om planen.
+  // `laegPlan` skriver `plan_forsoegt_at`, hver gang den roerer en
+  // plan, og en haendelse, der er aeldre end det, ved intet om den.
+  // Uden vagten kunne en forsinket `updated` rydde bindingen paa en
+  // aktiv, korrekt plan — og saa var planen usynlig for os igen.
   const harSkema = Object.prototype.hasOwnProperty.call(o, 'schedule')
+    && !(tekst(o['schedule']) === null
+         && raekke.planRoert !== null && raekke.planRoert > stempel)
 
   const r = await db.update(subscriptions)
     .set({
@@ -1486,6 +1652,18 @@ async function spejl(o: Ukendt, stempel: Date, ops: Stripeopsaetning | null): Pr
     // skrive hen over en allerede opsagt raekke, uanset sekundet.
     .where(and(eq(subscriptions.stripeSubscriptionId, subId), maaSpejle(stempel, status)))
     .returning({ id: subscriptions.id })
+
+  // ── ET SPEJL, DER MODSIGER EN BESLUTNING, ER ARBEJDE ──────
+  // Ryddede haendelsen flaget, mens en beslutning stadig staar — fordi
+  // den var NYERE end beslutningen, og altsaa Stripes egen sandhed —
+  // saa er Stripe og vores beslutning uenige. Det er ikke noget at
+  // spaerre for; det er noget at afstemme. Uden det her ville raekken
+  // blive staaende med en beslutning, ingen koe tog op.
+  if (r.length && maaSkriveOpsigelsesflag && rydder
+      && (raekke.opsagtAf !== null || raekke.stoppet !== null)) {
+    await skyldAfstemning(subId,
+      'Stripe melder fornyelse, men opsigelsen står stadig — afstemmes')
+  }
   void ops
   return r.length ? 'behandlet' : 'forael'
 }
@@ -1639,16 +1817,21 @@ export async function betalingstilsyn(o: Stripeopsaetning | null): Promise<strin
   // `cancel_at_period_end`. Nu staar beslutningen i basen, og den her
   // tager den op igen.
   try {
-    const op = await fuldfoerSkyldigeOpsigelser(o)
+    const op = await afstemSkyldige(o)
     if (op.skyldige) {
       linjer.push(
-        `[betaling] opsigelser: ${op.skyldige} skyldige · ${op.opsagte} fuldført `
-        + `· ${op.fejlede} kunne ikke endnu`
+        `[betaling] afstemning: ${op.skyldige} skyldige · ${op.taget} taget `
+        + `· ${op.afstemte} afstemt · ${op.fejlede} kunne ikke endnu `
+        // «ved kørslens start» er ikke en omsvøb. `venter` måles FØR
+        // runden, så de rækker, runden selv skubber bagud, ikke er med.
+        // Uden ordene ville en operatør læse «0 venter» som «ingen er i
+        // tilbagetrækning nu» — og runden har lige sat femogtyve i den.
+        + `(${op.venter} var i tilbagetrækning ved kørslens start)`
         + (op.detaljer.length ? ` — ${op.detaljer.join(' · ')}` : ''),
       )
     }
   } catch (e) {
-    linjer.push(`[betaling] opsigelserne kunne ikke fuldføres: ${(e as Error).message}`)
+    linjer.push(`[betaling] afstemningen fejlede: ${(e as Error).message}`)
   }
 
   try {
@@ -1717,7 +1900,8 @@ export async function betalingstilsyn(o: Stripeopsaetning | null): Promise<strin
 
   // De stoppede skal BLIVE ved at staa der, til et menneske har set dem.
   try {
-    const stoppede = await db.select({ sub: subscriptions.stripeSubscriptionId })
+    const stoppede = await db.select({ sub: subscriptions.stripeSubscriptionId,
+      bekraeftet: subscriptions.cancelAtPeriodEnd })
       .from(subscriptions)
       // ── ÉT FELT AFGOER DET, IKKE TO ───────────────────────
       // Her stod ogsaa `planStatus <> 'konfigureret'`. Det er et ANDET
@@ -1731,12 +1915,31 @@ export async function betalingstilsyn(o: Stripeopsaetning | null): Promise<strin
       // der ryddes, ikke en anden kolonne, der tilfaeldigvis skifter.
       .where(isNotNull(subscriptions.fornyelseStoppetAt))
       .limit(20)
-    if (stoppede.length) {
+    // ── BESLUTNINGEN OG KENDSGERNINGEN ER TO LINJER ───────
+    // `fornyelse_stoppet_at` er VORES BESLUTNING, skrevet foer de
+    // eksterne kald, saa et fejlet indgreb kan genoptages. Den er
+    // derfor ikke laengere et bevis for, at fornyelsen ER stoppet.
+    //
+    // Linjen «fornyes ikke, før nogen har taget stilling» er en
+    // paastand om kundens penge. Den maa kun staa om de raekker,
+    // Stripe har bekraeftet. For de oevrige er sandheden den modsatte
+    // — abonnementet fornyes — og det er den, en operatoer skal se.
+    const bekraeftede = stoppede.filter((x) => x.bekraeftet)
+    const uafklarede = stoppede.filter((x) => !x.bekraeftet)
+    if (bekraeftede.length) {
       linjer.push(
-        `[betaling] ${stoppede.length} abonnement(er) har stoppet fornyelse. `
+        `[betaling] ${bekraeftede.length} abonnement(er) har stoppet fornyelse. `
         + 'Kunden har sin betalte periode, men fornyes ikke, før nogen har taget '
         + 'stilling og ryddet fornyelse_stoppet_at: '
-        + stoppede.map((x) => x.sub).join(', '),
+        + bekraeftede.map((x) => x.sub).join(', '),
+      )
+    }
+    if (uafklarede.length) {
+      linjer.push(
+        `[betaling] ⚠ ${uafklarede.length} abonnement(er) er BESLUTTET stoppet, men `
+        + 'Stripe har ikke bekræftet det. De fornyes stadig. Afstemningen prøver '
+        + 'igen hver kørsel; bliver de stående, skal nogen se efter i Stripe: '
+        + uafklarede.map((x) => x.sub).join(', '),
       )
     }
   } catch (e) {
