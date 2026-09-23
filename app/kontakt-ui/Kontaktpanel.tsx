@@ -8,9 +8,15 @@
 //    en samtale på Bofinda, og — hvis hun har oplyst dem —
 //    kontaktoplysninger.
 //  · Er den hentet fra en kilde, sker kontakten HOS KILDEN. Den eneste
-//    handling er vejen derhen, og der er hverken login, betaling eller
-//    beskeder involveret. Linket er offentligt, og at lægge en mur
-//    foran det ville være at tage penge for noget, vi ikke leverer.
+//    handling er vejen derhen, og der er ingen Bofinda-samtale.
+//
+//  ═══ MEN ADGANGEN AFGØRES ÉT STED, FOR BEGGE ═══
+//
+//  Første udgave viste det eksterne link UDEN at spørge adapteren, med
+//  den begrundelse at kildens link jo er offentligt. Det var en
+//  betalingsregel skrevet i browseren. Nu står verdikten FØRST — skelet,
+//  fejl, lås — og annoncetypen afgør først bagefter, hvad et ja åbner
+//  for. Rækkefølgen i denne funktion ER den regel.
 //
 //  ═══ PANELET REGNER INGEN ADGANGSREGEL ═══
 //
@@ -120,6 +126,54 @@ function Hentefejl({ proevIgen, venter }: { proevIgen: () => void; venter: boole
   )
 }
 
+/**
+ * Opsagt, men stadig betalt. En oplysning — ikke et salg.
+ *
+ * Den staar HER og ikke to steder, fordi begge annoncetyper kan have
+ * den: en opsagt adgang loeber videre for baade kontakt og for vejen
+ * ud til kilden. To kopier ville drive fra hinanden ved foerste
+ * omformulering.
+ */
+function Ophoerslinje({ ophoerer }: { ophoerer: string | null }) {
+  if (!ophoerer) return null
+  return (
+    <p className="kui-note" role="status">
+      Dit abonnement er opsagt. Du har adgang til {DATO.format(new Date(ophoerer))}.
+    </p>
+  )
+}
+
+/**
+ * Vejen ud til kildens egen annonce. Vises KUN naar adapteren har sagt
+ * `adgang` — se raekkefoelgen i `Kontaktpanel`.
+ *
+ * Den laeser med vilje IKKE `svar.indhold`: den har allerede faaet sit
+ * ja, og adressen staar paa annoncen. Dermed er der kun ÉT udtryk, der
+ * afgoer om linket maa vises (verdikten), og ikke to.
+ */
+function Eksternvej({ annonce, ophoerer }: {
+  annonce: Annonce & { slags: 'ekstern' }
+  ophoerer: string | null
+}) {
+  return (
+    <div className="kui-panel">
+      <h3 className="kui-titel">Annoncen ligger hos {annonce.kilde}</h3>
+      <p className="kui-tekst">
+        Kontaktoplysningerne står i udlejerens egen annonce. Vi er ikke part i aftalen.
+      </p>
+      {/* Vores egen /go/<id>, aldrig kildens URL direkte — ruten maa
+          ikke kunne bruges som et aabent redirect. */}
+      <a
+        className="knap kui-handling" href={annonce.videreHref}
+        target="_blank" rel="noopener noreferrer"
+      >
+        Se annoncen hos {annonce.kilde}
+      </a>
+      <Ophoerslinje ophoerer={ophoerer} />
+    </div>
+  )
+}
+
 function Skelet() {
   return (
     <div className="kui-panel kui-skelet" aria-hidden="true">
@@ -211,26 +265,11 @@ export function Kontaktpanel({
   const [henter, setHenter] = useState(false)
   const [visfejl, setVisfejl] = useState(false)
 
-  // ── Ekstern annonce: der er ingen adgang at spoerge om ──────
-  if (annonce.slags === 'ekstern') {
-    return (
-      <div className="kui-panel">
-        <h3 className="kui-titel">Annoncen ligger hos {annonce.kilde}</h3>
-        <p className="kui-tekst">
-          Kontaktoplysningerne står i udlejerens egen annonce. Vi er ikke part i aftalen.
-        </p>
-        {/* Vores egen /go/<id>, aldrig kildens URL direkte — ruten maa
-            ikke kunne bruges som et aabent redirect. */}
-        <a
-          className="knap kui-handling" href={annonce.videreHref}
-          target="_blank" rel="noopener noreferrer"
-        >
-          Se annoncen hos {annonce.kilde}
-        </a>
-      </div>
-    )
-  }
-
+  // ══ VERDIKTEN FOERST — for BEGGE annoncetyper ══
+  //
+  // Raekkefoelgen her er selve reglen. Stod den eksterne gren foerst,
+  // ville et eksternt link blive vist uanset hvad adapteren svarede,
+  // og saa havde browseren truffet betalingsbeslutningen.
   if (svar === null) return <Skelet />
   if (svar.tilstand === 'fejl') return <Hentefejl proevIgen={proevIgen} venter={venter} />
   if (svar.tilstand !== 'adgang') {
@@ -239,7 +278,21 @@ export function Kontaktpanel({
     )
   }
 
-  const oplyst = oplystTekst(svar.kontakt.harMail, svar.kontakt.harTelefon)
+  // ══ Ja. Hvad aabner det for? Det siger ANNONCEN ══
+  if (annonce.slags === 'ekstern') {
+    return <Eksternvej annonce={annonce} ophoerer={svar.ophoerer} />
+  }
+
+  // Annoncen er native, men adapteren har svaret med eksternt indhold.
+  // Saa modsiger de to hinanden, og der er ingen kontakt at vise. Det
+  // er en fejl hos OS — og en fejl bliver den neutrale visning, aldrig
+  // en betalingsopfordring og aldrig et halvt panel.
+  if (svar.indhold.slags !== 'native') {
+    return <Hentefejl proevIgen={proevIgen} venter={venter} />
+  }
+
+  const { kontakt, samtale } = svar.indhold
+  const oplyst = oplystTekst(kontakt.harMail, kontakt.harTelefon)
 
   async function vis() {
     setHenter(true); setVisfejl(false)
@@ -260,7 +313,7 @@ export function Kontaktpanel({
 
       {/* PRIMÆR handling. Den staar foerst og er den eneste fyldte knap. */}
       <Samtaleknap
-        samtale={svar.samtale} loginHref={loginHref}
+        samtale={samtale} loginHref={loginHref}
         start={start} starter={starter} paaAaben={paaAaben}
       />
       {startfejl && (
@@ -292,12 +345,7 @@ export function Kontaktpanel({
         <p className="kui-note">Udlejeren har ikke oplyst mail eller telefon.</p>
       )}
 
-      {/* Opsagt, men stadig betalt. En oplysning — ikke et salg. */}
-      {svar.ophoerer && (
-        <p className="kui-note" role="status">
-          Dit abonnement er opsagt. Du har adgang til {DATO.format(new Date(svar.ophoerer))}.
-        </p>
-      )}
+      <Ophoerslinje ophoerer={svar.ophoerer} />
 
       <p className="kui-note">Vi er ikke part i aftalen.</p>
     </div>

@@ -7,8 +7,18 @@
 //  kunne afprøve BRUGERFLADEN og de otte tilstande.
 //
 //  Navne, adresser og numre er opdigtede og skrevet, så det kan ses:
-//  «Attrup», «Prøvegade», «attrapudlejer.invalid», og telefonnummeret
-//  er Energistyrelsens reserverede prøveinterval.
+//  «Attrup», «Prøvegade» og `attrapudlejer.invalid` — `.invalid` er
+//  RFC 2606's reserverede topdomæne og kan aldrig slå op.
+//
+//  ⚠ Telefonnummeret har IKKE en tilsvarende garanti. En tidligere
+//  udgave af denne kommentar kaldte det «Energistyrelsens reserverede
+//  prøveinterval». Det er der ikke belæg for: Danmark har ingen
+//  almindeligt kendt prøveserie som den britiske 07700 900xxx, og
+//  20-serien er en ganske almindelig mobilserie, der kan være tildelt
+//  en rigtig abonnent. Nummeret er opdigtet af os, ikke reserveret af
+//  nogen — og det bør skiftes til noget, der beviseligt ikke kan
+//  tildeles, før prøvevisningen bruges i materiale, andre ser. Skriv
+//  aldrig en garanti, du ikke har efterprøvet.
 //
 //  ═══ ATTRAPPEN REGNER INGEN ADGANGSREGEL ═══
 //
@@ -27,7 +37,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type {
-  Annonce, Kontaktoplysninger, Kontaktport, Kontaktsvar, Startsvar,
+  Adgangsindhold, Annonce, Kontaktoplysninger, Kontaktport, Kontaktsvar, Startsvar,
 } from '../kontrakt'
 
 export type Scenarie =
@@ -48,6 +58,18 @@ export type Scenarie =
   | 'ekstern-home'
   | 'ekstern-cej'
   | 'ekstern-propstep'
+  // Eksterne annoncer under de OEVRIGE adgangstilstande. De findes,
+  // fordi en ekstern annonce nu spoerger adapteren som alle andre —
+  // og fordi et filter, der kun maaler den aabne tilstand, ville
+  // fastholde den gamle, forkerte regel uden at kunne se det.
+  | 'ekstern-betaling'
+  | 'ekstern-udloebet'
+  | 'ekstern-login'
+  | 'ekstern-fejl'
+  | 'ekstern-opsagt'
+  // Styrede kaploeb. Se noten ved ARMERET_EFTER.
+  | 'kaploeb-gammelt-svar'
+  | 'kaploeb-ordnet'
 
 const FORSINKELSE = { hurtig: 140, langsom: 1500 } as const
 const vent = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -121,10 +143,16 @@ const EKSTERN: Record<'home' | 'cej' | 'propstep', Annonce> = {
 }
 
 /** Hvilken annonce hører scenariet til? */
+const EKSTERNE_SCENARIER: Scenarie[] = [
+  'ekstern-home', 'ekstern-cej', 'ekstern-propstep',
+  'ekstern-betaling', 'ekstern-udloebet', 'ekstern-login',
+  'ekstern-fejl', 'ekstern-opsagt',
+]
+
 export function annoncenFor(s: Scenarie): Annonce {
-  if (s === 'ekstern-home') return EKSTERN.home
   if (s === 'ekstern-cej') return EKSTERN.cej
   if (s === 'ekstern-propstep') return EKSTERN.propstep
+  if (EKSTERNE_SCENARIER.includes(s)) return EKSTERN.home
   if (s === 'lange-tekster') return LANG
   return NATIV
 }
@@ -134,61 +162,130 @@ const OPLYSNINGER: Kontaktoplysninger = {
   telefon: '+45 20 00 00 00',
 }
 
+/**
+ * Hvornaar et styret kaploeb er «armeret», maalt fra attrappen blev
+ * lavet.
+ *
+ * ═══ HVORFOR TID OG IKKE KALDNUMMER ═══
+ *
+ * Proevevisningen koerer i StrictMode, og en monteringseffekt kaldes
+ * derfor setup → cleanup → setup. `hent()` loeber altsaa TO gange ved
+ * montering, ikke én. Et kaploeb, der talte kald («det tredje kald er
+ * det langsomme»), ville afhaenge af et tal, StrictMode aendrer — og
+ * proeven ville maale sig selv i stedet for produktet.
+ *
+ * Doeren aabner derfor paa TID: monteringens kald er faerdige laenge
+ * inden, og kontrollen venter bevidst, foer den trykker. Saa er det
+ * TRYKKENE, der danner kaploebet, uanset hvor mange gange React
+ * monterede.
+ */
+const ARMERET_EFTER = 800
+
 export function lavKontaktattrap(scenarie: Scenarie): Kontaktport {
   const grund = scenarie === 'langsom' ? FORSINKELSE.langsom : FORSINKELSE.hurtig
+  const eksternAnnonce = annoncenFor(scenarie).slags === 'ekstern'
+  const foedt = Date.now()
+  let armerede = 0
 
-  /** Ét sted afgør, om attrappen «har adgang». Bruges af begge kald. */
-  const svaret = (): Kontaktsvar => {
+  /**
+   * Adgangsverdikten. ÉT sted, og den er den SAMME for begge
+   * annoncetyper — det er hele rettelsen: en ekstern annonce faar
+   * ikke laengere en undtagelse.
+   */
+  const tilstanden = (): Kontaktsvar['tilstand'] => {
     switch (scenarie) {
-      case 'betaling-uden-adgang': return { tilstand: 'abonnement-kraevet' }
-      case 'udloebet': return { tilstand: 'abonnement-udloebet' }
-      case 'login-kraevet': return { tilstand: 'login-kraevet' }
-      case 'teknisk-fejl': return { tilstand: 'fejl' }
+      case 'betaling-uden-adgang':
+      case 'ekstern-betaling': return 'abonnement-kraevet'
+      case 'udloebet':
+      case 'ekstern-udloebet': return 'abonnement-udloebet'
+      case 'login-kraevet':
+      case 'ekstern-login': return 'login-kraevet'
+      case 'teknisk-fejl':
+      case 'ekstern-fejl': return 'fejl'
+      default: return 'adgang'
+    }
+  }
+
+  /** Hvad et ja aabner for. Afgjort af ANNONCEN, ikke af tilstanden. */
+  const indholdet = (): Adgangsindhold => {
+    if (eksternAnnonce) return { slags: 'ekstern' }
+    switch (scenarie) {
       case 'gratis':
         // Kontaktoplysningerne er aabne; samtalen kraever en konto.
-        // Login staar dér, hvor funktionen kraever det — og intet andet
-        // sted. Ingen pris, ingen abonnementsknap.
+        // Login staar dér, hvor funktionen kraever det — og intet
+        // andet sted. Ingen pris, ingen abonnementsknap.
         return {
-          tilstand: 'adgang',
+          slags: 'native',
           kontakt: { harMail: true, harTelefon: true },
           samtale: { slags: 'kraever-login' },
-          ophoerer: null,
         }
       case 'aktivt-abonnement':
         return {
-          tilstand: 'adgang',
+          slags: 'native',
           kontakt: { harMail: true, harTelefon: true },
           samtale: { slags: 'i-gang', samtaleId: 's1' },
-          ophoerer: null,
-        }
-      case 'opsagt-med-adgang':
-        return {
-          tilstand: 'adgang',
-          kontakt: { harMail: true, harTelefon: true },
-          samtale: { slags: 'kan-starte' },
-          // Opsagt, men betalt til og med denne dato. Adgangen er
-          // afgjort af `tilstand` — datoen er en oplysning ved siden af.
-          ophoerer: new Date(Date.now() + 19 * 86_400_000).toISOString(),
         }
       case 'ingen-kontaktoplysninger':
         return {
-          tilstand: 'adgang',
+          slags: 'native',
           kontakt: { harMail: false, harTelefon: false },
           samtale: { slags: 'kan-starte' },
-          ophoerer: null,
         }
       default:
         return {
-          tilstand: 'adgang',
+          slags: 'native',
           kontakt: { harMail: true, harTelefon: true },
           samtale: { slags: 'kan-starte' },
-          ophoerer: null,
         }
     }
   }
 
+  /** Opsagt, men betalt til og med denne dato. */
+  const ophoeret = (): string | null =>
+    (scenarie === 'opsagt-med-adgang' || scenarie === 'ekstern-opsagt')
+      ? new Date(Date.now() + 19 * 86_400_000).toISOString()
+      : null
+
+  const svaret = (): Kontaktsvar => {
+    const t = tilstanden()
+    if (t !== 'adgang') return { tilstand: t }
+    return { tilstand: 'adgang', indhold: indholdet(), ophoerer: ophoeret() }
+  }
+
+  /**
+   * De styrede kaploeb. Foer doeren aabner svarer attrappen `fejl`, saa
+   * panelet har en «Proev igen»-knap at trykke paa; derefter danner
+   * trykkene selv kaploebet.
+   *
+   * · `kaploeb-gammelt-svar`: foerste tryk henter et LANGSOMT «adgang»,
+   *   andet tryk et HURTIGT «udloebet». Det aeldste svar lander altsaa
+   *   sidst. Den rigtige slutning er LAAST.
+   * · `kaploeb-ordnet`: samme to svar, men de lander i den raekkefoelge,
+   *   de blev bedt om. Kontrollen er der, saa rettelsen ikke maa
+   *   «loese» kaploebet ved bare at kassere alt, der kommer sent.
+   */
+  const kaploeb = async (): Promise<Kontaktsvar> => {
+    if (Date.now() - foedt < ARMERET_EFTER) {
+      await vent(FORSINKELSE.hurtig)
+      return { tilstand: 'fejl' }
+    }
+    armerede += 1
+    const foerste = armerede === 1
+    if (scenarie === 'kaploeb-ordnet') {
+      await vent(foerste ? 200 : 700)
+    } else {
+      await vent(foerste ? 1400 : 150)
+    }
+    return foerste
+      ? { tilstand: 'adgang', indhold: indholdet(), ophoerer: null }
+      : { tilstand: 'abonnement-udloebet' }
+  }
+
+  const erKaploeb = scenarie === 'kaploeb-gammelt-svar' || scenarie === 'kaploeb-ordnet'
+
   return {
     async hentAdgang() {
+      if (erKaploeb) return kaploeb()
       await vent(grund)
       if (scenarie === 'porten-kaster') {
         // En AFVIST Promise — ikke et svar, der siger nej. Sådan ser en
@@ -203,7 +300,11 @@ export function lavKontaktattrap(scenarie: Scenarie): Kontaktport {
       const s = svaret()
       // Serveren kontrollerer IGEN. Se noten i hovedet.
       if (s.tilstand !== 'adgang') throw new Error('attrap: ingen adgang til kontaktoplysninger')
-      if (!s.kontakt.harMail && !s.kontakt.harTelefon) return { mail: null, telefon: null }
+      // En ekstern annonce har ingen kontaktoplysninger HOS OS. Kaldet
+      // hoerer ikke hjemme her, og attrappen lader som en server, der
+      // siger fra frem for at finde paa et svar.
+      if (s.indhold.slags !== 'native') throw new Error('attrap: ekstern annonce har ingen kontakt hos os')
+      if (!s.indhold.kontakt.harMail && !s.indhold.kontakt.harTelefon) return { mail: null, telefon: null }
       return OPLYSNINGER
     },
 

@@ -4,10 +4,15 @@
 //  Ingen hooks, ingen `'use client'` — den er ren visning og kan
 //  gengives fra en serverkomponent.
 //
-//  Kortet påstår KUN det, annoncen har med. Er stedet ikke oplyst,
-//  står der ikke et tomt felt; er annonceringsdatoen ukendt, skrives
-//  den ikke. Ingen pladsholdere, ingen opdigtede tal — samme regel som
-//  boligkortene.
+//  Kortet påstår KUN det, annoncen har med. Er stedet ikke oplyst, står
+//  der ikke et tomt felt. Ingen pladsholdere, ingen opdigtede tal —
+//  samme regel som boligkortene.
+//
+//  Er annonceringsdatoen ukendt, står der «Annonceret på ukendt
+//  tidspunkt» — altså den SIGES, den udelades ikke. Det er CLAUDE.md's
+//  regel om, at en manglende oplysning skal være synlig og ikke
+//  fraværende: et kort, der bare tier om datoen, ligner et kort, hvor
+//  ingen har spurgt.
 //
 //  Kildemærket står KUN på en ekstern annonce. På en udlejerannonce er
 //  svaret ikke kildens navn: der ER ingen kilde.

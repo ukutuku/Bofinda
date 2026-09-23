@@ -19,7 +19,21 @@
 //
 //  Den gemmer adapterens svar og giver det videre. Den lægger intet
 //  sammen, sammenligner ingen datoer og udleder ingenting af, hvad den
-//  fik. Se kontrakt.ts.
+//  fik. BEGGE annoncetyper spørger — også de eksterne. Se kontrakt.ts.
+//
+//  ═══ DET NYESTE SVAR VINDER, IKKE DET SIDST ANKOMNE ═══
+//
+//  Hvert kald, der kan ændre tilstanden, trækker et nummer. Når svaret
+//  kommer, tæller det KUN, hvis nummeret stadig er det højeste. Uden
+//  den regel afgjorde nettets luner udfaldet: to tryk på «Prøv igen»,
+//  hvor det ældste svar kom sidst, kunne lade et «adgang» overskrive
+//  en nyere lås — og panelet stod åbent, fordi et forældet svar kom
+//  for sent. Det samme gjaldt en lås fra `startSamtale`.
+//
+//  `levende` svarer på et ANDET spørgsmål (er komponenten monteret) og
+//  er derfor stadig sin egen ref. Og `venter` svarer på et TREDJE (er
+//  der noget undervejs overhovedet) og tælles derfor for sig — ellers
+//  ville en overhalet anmodning efterlade skeletttet stående for evigt.
 // ═══════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -62,42 +76,84 @@ export function Rejse({
     return () => { levende.current = false }
   }, [])
 
+  // ── Koesystemet: hvis svar taeller? ────────────────────────
+  // ÉT nummer for baade hent og start, saa de kan sammenlignes. En
+  // laasning fra start skal kunne overhale et adgangsopslag, og et
+  // NYERE adgangsopslag skal kunne overhale laasningen igen — ellers
+  // ville en genvunden adgang aldrig kunne aabne panelet.
+  const anmodning = useRef(0)
+  const nytNummer = () => ++anmodning.current
+  const gaelder = (nr: number) => anmodning.current === nr
+
+  // Et SELVSTAENDIGT taelleri. «Er der noget undervejs» er ikke det
+  // samme spoergsmaal som «hvis svar taeller», og de maa ikke afledes
+  // af hinanden: en overhalet anmodning skal stadig kunne rydde op
+  // efter sig selv, ellers hang skeletttet.
+  const undervejs = useRef(0)
+
   const hent = useCallback(() => {
-    // En ekstern annonce spoerger vi slet ikke om adgang til. Der er
-    // ingenting at laase op: linket til kildens egen annonce er
-    // offentligt. Se noten i Kontaktpanel.tsx.
-    if (annonce.slags === 'ekstern') return
+    // BEGGE annoncetyper spoerger. Den eksterne sprang foer over med
+    // den begrundelse, at kildens link er offentligt — men om kunden
+    // maa bruge det, er adapterens beslutning og ikke vores.
+    //
+    // «Proev igen» latches MED VILJE ikke. Et laas paa knappen ville
+    // skjule kaploebet i stedet for at loese det, og saa kunne
+    // kontrollen ikke fremprovokere det gennem brugerfladen. Nummeret
+    // nedenfor er rettelsen; knappen er ikke.
+    const nr = nytNummer()
+    undervejs.current += 1
     setVenter(true)
     setMelding('Henter …')
     port.hentAdgang(annonce.id)
       .then((d) => {
-        if (!levende.current) return
+        if (!levende.current || !gaelder(nr)) return
         setSvar(d)
         setMelding(d.tilstand === 'fejl' ? 'Kunne ikke hentes.' : '')
+        // Et nyt svar goer det forrige FORSOEG foraeldet, ikke kun det
+        // forrige svar: en startfejl fra dengang hoerer ikke til her
+        // mere. Og lukkes adgangen, maa beskedafsnittet ikke staa
+        // aabent og vente paa at blive lukket op igen af sig selv,
+        // naeste gang adgangen bliver god.
+        setStartfejl(false)
+        if (d.tilstand !== 'adgang') setAaben(false)
       })
       .catch(() => {
         // En afvist Promise er ikke et svar — men den maa ikke blive til
         // «ingen adgang». Den bliver til den neutrale fejl.
-        if (!levende.current) return
+        if (!levende.current || !gaelder(nr)) return
         setSvar({ tilstand: 'fejl' })
         setMelding('Kunne ikke hentes.')
       })
-      .finally(() => { if (levende.current) setVenter(false) })
-  }, [annonce, port])
+      .finally(() => {
+        // Taelles ALTID ned, ogsaa for et overhalet svar. Ellers stod
+        // «Henter …» tilbage efter en anmodning, ingen ventede paa.
+        undervejs.current = Math.max(0, undervejs.current - 1)
+        if (levende.current && undervejs.current === 0) setVenter(false)
+      })
+    // `annonce.id` og ikke `annonce`: kroppen bruger kun id'et, og en
+    // kalder, der laver objektet i sin egen gengivelse — hvad en
+    // boligside naturligt goer — ville ellers give en ny reference hver
+    // gang og dermed et nyt opslag ved HVER gengivelse. `start()` har
+    // hele tiden afhaengt af id'et; nu svarer de to ens.
+  }, [annonce.id, port])
 
   useEffect(() => { hent() }, [hent])
 
   const start = useCallback(() => {
+    // `iGang` og nummeret svarer paa hver sit: iGang forhindrer to
+    // samtaler i at blive oprettet af to klik i samme tik; nummeret
+    // afgoer, hvis svar der taeller, naar flere kald er undervejs.
     if (iGang.current) return
     iGang.current = true
+    const nr = nytNummer()
     setStarter(true)
     setStartfejl(false)
     port.startSamtale(annonce.id)
       .then((r) => {
-        if (!levende.current) return
+        if (!levende.current || !gaelder(nr)) return
         if (r.ok) {
-          setSvar((s) => (s?.tilstand === 'adgang'
-            ? { ...s, samtale: { slags: 'i-gang', samtaleId: r.samtaleId } }
+          setSvar((s) => (s?.tilstand === 'adgang' && s.indhold.slags === 'native'
+            ? { ...s, indhold: { ...s.indhold, samtale: { slags: 'i-gang', samtaleId: r.samtaleId } } }
             : s))
           setAaben(true)
           setMelding('Samtalen er åbnet.')
@@ -106,10 +162,12 @@ export function Rejse({
         if (r.grund === 'fejl') { setStartfejl(true); return }
         // Adgangen er aendret, siden svaret blev hentet. Hele panelet
         // laases, og beskedafsnittet lukkes — der er ingenting at vise.
+        // Nummeret ovenfor er dét, der holder laasen: et adgangsopslag,
+        // der var undervejs, da hun trykkede, maa ikke aabne den igen.
         setSvar({ tilstand: r.grund })
         setAaben(false)
       })
-      .catch(() => { if (levende.current) setStartfejl(true) })
+      .catch(() => { if (levende.current && gaelder(nr)) setStartfejl(true) })
       .finally(() => {
         iGang.current = false
         if (levende.current) setStarter(false)
@@ -141,8 +199,11 @@ export function Rejse({
         startfejl={startfejl}
         paaAaben={() => setAaben(true)}
       />
+      {/* `annonce.slags` staar her, fordi «ingen Bofinda-beskeder paa en
+          ekstern annonce» er et PRODUKTKRAV fra opgaven — ikke en
+          adgangsregel. Adgangen afgoeres stadig kun af `svar`. */}
       <Samtaleafsnit
-        aaben={aaben && svar?.tilstand === 'adgang'}
+        aaben={aaben && svar?.tilstand === 'adgang' && annonce.slags === 'native'}
         port={beskedport}
         loginHref={loginHref}
         abonnementHref={abonnementHref}

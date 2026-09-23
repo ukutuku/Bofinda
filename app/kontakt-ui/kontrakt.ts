@@ -79,7 +79,7 @@ export type Annonce =
 // ── Adgangen: hvad kunden må, funktion for funktion ─────────────
 
 /**
- * Hvad udlejeren HAR oplyst — ikke hvad hun har oplyst.
+ * OM udlejeren har oplyst noget — ikke HVAD hun har oplyst.
  *
  * ═══ ADRESSEN MÅ IKKE LIGGE I SVARET ═══
  *
@@ -132,7 +132,57 @@ export type Samtaleadgang =
   | { slags: 'kraever-login' }
 
 /**
- * Adapterens svar om ÉN native annonce.
+ * Hvad adgangen giver adgang TIL.
+ *
+ * ═══ HVORFOR DEN FINDES ═══
+ *
+ * Verdikten — `adgang`, en låsegrund eller `fejl` — er den SAMME for
+ * begge annoncetyper. Det er hele pointen: adapteren afgør begge. Det,
+ * der er forskelligt, er hvad et ja åbner for. En native annonce åbner
+ * for kontaktoplysninger og en samtale hos os; en ekstern åbner for
+ * vejen hen til kildens egen annonce.
+ *
+ * Alternativet — at lade `kontakt` og `samtale` stå på svaret for
+ * begge — ville tvinge adapteren til at finde på felter for en ekstern
+ * annonce, hvor de ikke betyder noget. CLAUDE.md: «Opfind aldrig data.»
+ */
+export type Adgangsindhold =
+  | {
+    slags: 'native'
+    /** KUN om der er noget. Værdierne hentes med `hentKontakt()`. */
+    kontakt: Kontaktoplyst
+    samtale: Samtaleadgang
+  }
+  /**
+   * Der er intet at bære.
+   *
+   * Vejen videre (`videreHref`) står på ANNONCEN og er ikke en
+   * hemmelighed — det er en offentlig adresse, som kilden selv
+   * udstiller. Det, adapteren afgør, er om kunden må BRUGE den, ikke
+   * hvad den er. Derfor er varianten tom, og derfor læser panelets
+   * eksterne gren den ikke: den har allerede fået sit ja.
+   */
+  | { slags: 'ekstern' }
+
+/**
+ * Adapterens svar om ÉN annonce — native eller ekstern.
+ *
+ * ═══ BEGGE ANNONCETYPER SPØRGER ═══
+ *
+ * Første udgave sprang adgangsopslaget over for eksterne annoncer med
+ * den begrundelse, at kildens link jo er offentligt. Det var en
+ * BETALINGSREGEL skrevet i browseren: «eksterne annoncer er altid
+ * åbne». Om reglen er rigtig eller forkert er ikke pointen — den er
+ * ikke brugerfladens at træffe, og den dag Supply mener noget andet,
+ * ville frontend stiltiende overtrumfe dem uden at nogen opdagede det.
+ * Opgavens krav er ordret, at brugerfladen ikke må «opfinde
+ * serverregler». Nu spørger begge typer, og begge gengiver svaret.
+ *
+ * ⚠ Det gør ikke `/go/<id>` beskyttet. Ruten afviser ganske vist en
+ * tilbagetrukket bolig (`status = 'active'` i `where`-leddet), men den
+ * spørger ikke om kundens adgang — og adressen kan dannes ud fra et
+ * bolig-id. En UI-rækkefølge er ikke en servervagt. Se
+ * SERVERINTEGRATION.md 1.7.
  *
  * ═══ «FEJL» ER IKKE «INGEN ADGANG» ═══
  *
@@ -151,9 +201,8 @@ export type Samtaleadgang =
 export type Kontaktsvar =
   | {
     tilstand: 'adgang'
-    /** KUN om der er noget. Værdierne hentes med `hentKontakt()`. */
-    kontakt: Kontaktoplyst
-    samtale: Samtaleadgang
+    /** Hvad ja'et åbner for. Se `Adgangsindhold`. */
+    indhold: Adgangsindhold
     /**
      * Er adgangen opsagt, men løber videre til en dato? ISO 8601.
      *
