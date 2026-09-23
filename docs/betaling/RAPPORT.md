@@ -1199,6 +1199,92 @@ abonnementet — og så er det nej den sidste spærring mod plan nummer to.
 Samme begrundelse som da attrappen fik Stripes status­regler for
 `release` og `update`.
 
+## Niende gennemgang: en godkendelse hører til det, den blev taget på
+
+Ét fund, U1, i to indgange. Reproduceret mod urørt `f1b27de` af
+gennemgangens egen probe og af mig selv gennem `stopForkertFornyelse`,
+`laegPlan` og `betalingstilsyn` mod PGlite.
+
+**Grundlaget er efterprøvet mod Git:** pakkens **41 kildefiler er
+byte-identiske med `f1b27de`**, og dens `input_zip_sha256` er identisk
+med den ZIP, jeg afleverede.
+
+### U1 · Et svar om B blev bogført som en godkendelse af C
+
+Begge indgange kontrollerede en plan og skrev derefter
+`plan_status = 'konfigureret'` **afgrænset på abonnements-id alene**.
+
+* `stopForkertFornyelse` beskyttede rettelsen af bindingen med en
+  compare-and-set — runde 8's egen rettelse — men **læste ikke dens
+  resultat**, og skrev godkendelsen ubetinget bagefter.
+* `laegPlan` beskyttede sin afsluttende godkendelse mod en opsigelse,
+  men ikke mod at rækken nu pegede på en anden plan end den, den lige
+  havde konfigureret og læst tilbage.
+
+**Målt:** plan B er korrekt og aktiv; midt i vinduet slipper en anden
+aktør B, opretter C på samme abonnement og bogfører C straks — præcis
+som `laegPlan` selv gør efter sit `create`. C har kun sin indledende
+fase, og vores egen `faserErRigtige` afviser den. Alligevel står C som
+`konfigureret`, og **tre tilsynskørsler laver nul kald om C**.
+
+Følgen er værre end den forkerte status: `laegPlan`,
+`stopForkertFornyelse` og `iFareForForkertFornyelse` springer alle
+`konfigureret` over. Rækken er usynlig, og den plan, der faktisk styrer
+abonnementet, bliver aldrig konfigureret. Det er en konkret lokal vej
+ind i den tilstand, jeg selv havde oplyst som forbehold i runde 8.
+
+**Rettelsen er plan-id'et i selve `update`'en** — ét lokalt, atomisk
+skridt, ikke en læsning efterfulgt af en beslutning. Nyere binding og
+nyere arbejde bevares uændret.
+
+**Et miss har to årsager, og de kræver hvert sit svar.** `laegPlan`
+svarede før `opsagt` på ethvert miss. Med bindingen i betingelsen ville
+et rent planskift have fået samme svar — en opdigtet kundebeslutning,
+og `skyldAfstemning` ville oven i købet have registreret
+afstemningsarbejde på den påstand. Spørgsmålet «står der en
+beslutning?» stilles derfor med **samme prædikat** som betingelsen,
+`INGEN_BESLUTNING`, ikke med en JS-kopi.
+
+| miss'ets årsag | svar | hvad der skrives |
+|---|---|---|
+| en beslutning står | `opsagt` | skyld, så afstemningen slipper planen |
+| bindingen skiftede | `oprettet` · `grundlaget_skiftede` | en note om hvorfor — og INTET om status |
+
+**Der skrives intet om status, og det er selve rettelsen.** Rækken står
+stadig som ikke-konfigureret, og næste kørsel tager den op med den nye
+binding som grundlag. Forsøgstallet røres heller ikke: der fejlede
+intet hos Stripe. Målt efter rettelsen: tilsynet tager C op, og den
+ender afklaret — konfigureret, når den kan lægges, og med stoppet
+fornyelse, når budgettet er brugt og faserne er forkerte.
+
+**Sikkerhedsstoppet svarer `grundlaget_skiftede`.** Hverken «rigtig»
+eller «fejlede»: `fejlede` ville have udløst ⚠⚠ «der er IKKE grebet
+ind» om noget, der ikke fejlede — samme slags usandhed som den, runde
+8's rækkefølge kom af.
+
+### Hvor det måles
+
+`scripts/test-betaling-runde9.ts` dækker **binding, status, svar og
+efterfølgende tilsyn** i begge indgange, med og uden planskift, og med
+en vagt om prøven selv: at overlappet faktisk fandt sted. `U1c` er
+modstykket — en RIGTIG opsigelse i vinduet svarer stadig `opsagt` og
+registrerer skylden.
+
+Overlappet dér er **styret med en hook**, ikke to forbindelser.
+Den samtidige udgave ligger på rigtig, isoleret PostgreSQL:
+
+* **§E6** er udvidet. Den kontrollerede før kun, at en nyere **binding**
+  overlevede korrektionen — og netop dét beviste ikke statusopdateringen.
+  Den måler nu også svaret, statussen og at rækken ikke er blevet
+  usynlig for tilsynet. Dens gamle assertion om `plan_er_rigtig` var i
+  sig selv den forkerte godkendelse.
+* **§E7** er ny og gør det samme for `laegPlan`, hvor en anden
+  forbindelse binder en ny plan, mens tilbagelæsningen holdes.
+
+Fem tilbagerulninger, hver i sin kopi — tre mod PGlite og to mod rigtig
+PostgreSQL — gør netop deres egen assertion rød. Arbejdstræet muteres
+ikke af nogen af dem.
+
 ## Det, der ikke er løst
 
 * **RLS på `storage.objects`** er stadig den eneste håndhævelse af

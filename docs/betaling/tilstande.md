@@ -101,6 +101,7 @@ nyt køb, og begge blokerer et skift til GRATIS. `betalt`, `udloebet` og
 | **I24** | «Bekræftet ikke gemt» og «ukendt udfald» er to svar. Et kast beviser ikke, at intet skete |
 | **I25** | En række, kørslen ikke fik FLYTTET, bruger ikke kørslens kapacitet |
 | **I26** | «Hvilken plan styrer abonnementet» besvares af KILDEN, ét sted. Vores binding er en ledetråd |
+| **I27** | En godkendelse bogføres KUN på det grundlag, den blev taget på |
 | **I7** | `adgang_til` flyttes kun frem. Altid. Uden undtagelse |
 
 I7 står sidst, fordi den er den eneste, der aldrig har været brudt, og
@@ -524,6 +525,61 @@ brugt som om det var en kendsgerning.
   straks efter sit `create`; en ubetinget korrektion kunne slette den
   med et svar, vi læste før den blev til. Og `eq(kolonne, null)` er
   aldrig sandt i SQL — den tomme binding prøves med `isNull`.
+
+**I27 kom til efter niende gennemgang.** Den er I21 flyttet fra
+afstemningen over på planbekræftelsen, og den ligner I26 nok til at
+blive forvekslet med den. Forskellen er værd at holde fast i: I26
+handler om, **hvad vi læser**; I27 om, **hvad vi skriver om det, vi
+læste**.
+
+· Begge indgange kontrollerede en plan og skrev derefter
+  `plan_status = 'konfigureret'` afgrænset på abonnements-id alene.
+  `stopForkertFornyelse` beskyttede oven i købet rettelsen af
+  bindingen med en compare-and-set — men læste ikke dens resultat, og
+  skrev godkendelsen ubetinget bagefter. `laegPlan` beskyttede sin
+  afsluttende godkendelse mod en opsigelse, men ikke mod at rækken nu
+  pegede på en anden plan end den, den lige havde læst tilbage.
+
+  Skifter bindingen i vinduet — en anden aktør slipper B og opretter
+  C, og C bogføres straks, præcis som `laegPlan` selv gør efter et
+  `create` — bliver et svar om B skrevet som en godkendelse af C.
+
+  **Følgen er værre end den forkerte status.** `laegPlan`,
+  `stopForkertFornyelse` og `iFareForForkertFornyelse` springer alle
+  `konfigureret` over. Rækken er dermed usynlig, og den plan, der
+  FAKTISK styrer abonnementet, bliver aldrig konfigureret. Målt: tre
+  tilsynskørsler med **nul** kald om C.
+
+  Betingelsen er plan-id'et i selve `update`'en — ét lokalt,
+  atomisk skridt, ikke en læsning efterfulgt af en beslutning.
+
+· **Et miss har to årsager, og de kræver hvert sit svar.**
+  `laegPlan` svarede før `opsagt` på ethvert miss. Med bindingen i
+  betingelsen ville et rent planskift også have fået det svar — en
+  opdigtet kundebeslutning, og `skyldAfstemning` ville oven i købet
+  have registreret afstemningsarbejde på den påstand.
+
+  Spørgsmålet «står der en beslutning?» stilles derfor med SAMME
+  prædikat som selve betingelsen, `INGEN_BESLUTNING`, ikke med en
+  JS-kopi af det.
+
+  | miss'ets årsag | svar | hvad der skrives |
+  |---|---|---|
+  | en beslutning står | `opsagt` | skyld, så afstemningen slipper planen |
+  | bindingen skiftede | `oprettet` (`laegPlan`) · `grundlaget_skiftede` (stoppet) | en note om hvorfor — og INTET om status |
+
+· **Der skrives intet om status, og det er selve rettelsen.** Rækken
+  står dermed stadig som ikke-konfigureret, og næste kørsel tager den
+  op — nu med den nye binding som grundlag. Forsøgstallet røres heller
+  ikke: der fejlede intet hos Stripe, og et opbrugt budget ville
+  spærre for netop den plan, der skal konfigureres.
+
+· **En godkendelse, der ikke kunne bogføres, er ikke en fejl.**
+  Sikkerhedsstoppet svarer derfor hverken «rigtig» eller «fejlede»,
+  men `grundlaget_skiftede`, og tilsynet skriver sin egen linje om
+  det. `fejlede` ville have udløst ⚠⚠ «der er IKKE grebet ind» om
+  noget, der ikke fejlede — samme slags usandhed som den, I26's
+  rækkefølge kom af.
 
 ## Hvornår en plan GÆLDER
 

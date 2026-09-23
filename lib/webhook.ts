@@ -987,14 +987,69 @@ export async function laegPlan(subId: string, ops: Stripeopsaetning): Promise<
     // Betingelsen goer laesningen og skrivningen til ÉT skridt i
     // basen. Rammer den nul raekker, vandt opsigelsen, og saa er
     // svaret det samme som ovenfor.
+    //
+    // ── OG TIL DEN PLAN, VI FAKTISK KONTROLLEREDE ───────
+    // Betingelsen daekkede kun «har kunden besluttet noget imens».
+    // Den daekkede ikke «peger raekken stadig paa den plan, jeg lige
+    // har konfigureret og laest tilbage». Skifter bindingen i vinduet
+    // — en anden aktoer slipper B og opretter C, og C bogfoeres
+    // straks, praecis som den her funktion selv goer efter et
+    // `create` — saa blev et svar om B skrevet som en godkendelse af
+    // C. Og C er ikke konfigureret: dens faser er kun den indledende.
+    //
+    // Derefter er raekken usynlig. `laegPlan` og
+    // `stopForkertFornyelse` springer `konfigureret` over, og
+    // `iFareForForkertFornyelse` udelukker den. Maalt: tre
+    // tilsynskoersler med NUL kald om C.
+    //
+    // Et kontrolresultat maa kun bogfoeres paa det grundlag, det
+    // blev taget paa. Derfor plan-id'et i betingelsen.
     const skrevet = await db.update(subscriptions)
       .set({ planStatus: 'konfigureret', planFejl: null, planForsoegtAt: new Date() })
-      .where(and(eq(subscriptions.stripeSubscriptionId, subId), ...INGEN_BESLUTNING))
+      .where(and(
+        eq(subscriptions.stripeSubscriptionId, subId),
+        eq(subscriptions.stripeScheduleId, planId),
+        ...INGEN_BESLUTNING,
+      ))
       .returning({ id: subscriptions.id })
     if (!skrevet.length) {
-      await skyldAfstemning(subId,
-        `planen blev lagt, mens kunden sagde op — afventer frigivelse (${planId})`)
-      return 'opsagt'
+      // ── TO AARSAGER, TO SVAR ──────────────────────────
+      // Betingelsen har nu to led, og de betyder ikke det samme. Den
+      // gamle kode svarede `opsagt` paa ethvert miss — og et rent
+      // planskift er ikke en opsigelse. At sige det ville vaere en
+      // opdigtet kundebeslutning, og `skyldAfstemning` ville oven i
+      // koebet registrere afstemningsarbejde paa den paastand.
+      //
+      // Spoergsmaalet «staar der en beslutning?» stilles med SAMME
+      // praedikat som ovenfor, ikke med en JS-kopi af det. To udgaver
+      // ville drive fra hinanden, og det er den fejlform, hele runde 5
+      // handlede om.
+      const [uroert] = await db.select({ n: count() }).from(subscriptions)
+        .where(and(eq(subscriptions.stripeSubscriptionId, subId), ...INGEN_BESLUTNING))
+      if (!uroert || uroert.n === 0) {
+        await skyldAfstemning(subId,
+          `planen blev lagt, mens kunden sagde op — afventer frigivelse (${planId})`)
+        return 'opsagt'
+      }
+      // Ingen beslutning. Saa var det bindingen: raekken peger paa en
+      // anden plan end den, vi kontrollerede.
+      //
+      // Der skrives INTET om status. Raekken staar dermed stadig som
+      // ikke-konfigureret, og `laegManglendePlaner` tager den igen —
+      // nu med den nye binding som grundlag. Forsoegstallet roeres
+      // heller ikke: der er ikke fejlet noget hos Stripe, og et
+      // opbrugt budget ville spaerre for den plan, der FAKTISK skal
+      // konfigureres.
+      const [naa] = await db.select({ plan: subscriptions.stripeScheduleId })
+        .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, subId)).limit(1)
+      await db.update(subscriptions)
+        .set({ planFejl: `bekræftelsen gjaldt ${planId}; rækken peger nu på `
+          + `${naa?.plan ?? 'ingen plan'} — den konfigureres i næste kørsel` })
+        .where(and(
+          eq(subscriptions.stripeSubscriptionId, subId),
+          ne(subscriptions.planStatus, 'konfigureret'),
+        ))
+      return 'oprettet'
     }
     return 'konfigureret'
   } catch (e) {
@@ -1404,7 +1459,8 @@ async function besluttetAfOs(subId: string, grund: string): Promise<number | nul
 
 export async function stopForkertFornyelse(
   ops: Stripeopsaetning, subId: string, grund: string,
-): Promise<'stoppet' | 'allerede' | 'fejlede' | 'ikke_noedvendig' | 'plan_er_rigtig'> {
+): Promise<'stoppet' | 'allerede' | 'fejlede' | 'ikke_noedvendig'
+  | 'plan_er_rigtig' | 'grundlaget_skiftede'> {
   const [a] = await db.select({
     plan: subscriptions.stripeScheduleId,
     planStatus: subscriptions.planStatus,
@@ -1516,9 +1572,43 @@ export async function stopForkertFornyelse(
         // Planen var der hele tiden, og den er rigtig. Saa er det
         // vores egen bogfoering, der var bagud — ikke kundens
         // abonnement, der var i fare. Skriv det, og lad hende vaere.
-        await db.update(subscriptions)
+        //
+        // ── MEN KUN OM DEN PLAN, VI FAKTISK KONTROLLEREDE ──
+        // Korrektionen ovenfor er betinget, og dens resultat blev ikke
+        // laest. Ramte den nul raekker, peger raekken paa en anden plan
+        // end den, vi lige har godkendt — og saa skrev den her
+        // ubetingede linje vores svar om B som en godkendelse af C.
+        // C er ikke konfigureret, og bagefter er raekken usynlig for
+        // baade `laegPlan`, `stopForkertFornyelse` og
+        // `iFareForForkertFornyelse`. Maalt: tre tilsynskoersler med
+        // NUL kald om C.
+        //
+        // Samme regel som i `laegPlan`: et kontrolresultat bogfoeres
+        // kun paa det grundlag, det blev taget paa.
+        const bekraeftet = await db.update(subscriptions)
           .set({ planStatus: 'konfigureret', planFejl: null, updatedAt: new Date() })
-          .where(eq(subscriptions.stripeSubscriptionId, subId))
+          .where(and(
+            eq(subscriptions.stripeSubscriptionId, subId),
+            eq(subscriptions.stripeScheduleId, styrer.id),
+          ))
+          .returning({ id: subscriptions.id })
+        if (!bekraeftet.length) {
+          // Grundlaget skiftede under os. Der skrives INTET om status:
+          // raekken staar stadig som ikke-konfigureret og bliver taget
+          // op igen — nu med den nye binding. Og der gribes ikke ind:
+          // vi har ikke set noget, der siger, at den nye plan er
+          // forkert. Svaret er derfor hverken «rigtig» eller «fejlede».
+          const [naa] = await db.select({ plan: subscriptions.stripeScheduleId })
+            .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, subId)).limit(1)
+          await db.update(subscriptions)
+            .set({ planFejl: `kontrollen gjaldt ${styrer.id}; rækken peger nu på `
+              + `${naa?.plan ?? 'ingen plan'} — den tages op igen` })
+            .where(and(
+              eq(subscriptions.stripeSubscriptionId, subId),
+              ne(subscriptions.planStatus, 'konfigureret'),
+            ))
+          return 'grundlaget_skiftede'
+        }
         return 'plan_er_rigtig'
       }
       // ── HER ER BESLUTNINGEN TAGET, OG FOERST HER ────────
@@ -2046,6 +2136,17 @@ export async function betalingstilsyn(o: Stripeopsaetning | null): Promise<strin
           `[betaling] ${f.sub}: planen ligger rigtigt hos Stripe — `
           + 'det var vores egen tilbagelæsning, der manglede. '
           + 'Fornyelsen er IKKE stoppet, og planen er nu bekræftet.',
+        )
+      } else if (r === 'grundlaget_skiftede') {
+        // Ikke en fejl og ikke en bekraeftelse. Planen skiftede,
+        // mens vi kontrollerede den gamle, saa vores svar gjaldt et
+        // grundlag, der ikke er raekkens laengere. Raekken staar
+        // stadig som ikke-konfigureret og bliver taget op igen.
+        linjer.push(
+          `[betaling] ${f.sub}: planen skiftede, mens den blev kontrolleret — `
+          + 'vores svar gjaldt den forrige plan og er IKKE bogført. '
+          + 'Fornyelsen er hverken stoppet eller bekræftet; '
+          + 'rækken tages op igen i næste kørsel.',
         )
       } else if (r === 'fejlede') {
         linjer.push(

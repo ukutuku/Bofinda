@@ -281,6 +281,37 @@ nødvendigt for at stå ned, ville en nedetid på netop dét opslag give
 rettet til den plan, Stripe faktisk bruger. Er der noget at se efter,
 er det, hvorfor vores bogføring kom bagud — ikke abonnementet.
 
+### «planen skiftede, mens den blev kontrolleret»
+
+    [betaling] sub_xxx: planen skiftede, mens den blev kontrolleret —
+    vores svar gjaldt den forrige plan og er IKKE bogført. Fornyelsen er
+    hverken stoppet eller bekræftet; rækken tages op igen i næste kørsel.
+
+Linjen betyder, at sikkerhedsstoppet nåede at kontrollere én plan, og at
+rækken imens kom til at pege på en anden. Godkendelsen gjaldt den
+forrige plan, så den er ikke skrevet.
+
+**Det er hverken en fejl eller en bekræftelse.** Der er ikke grebet ind,
+og der er ikke bogført noget om den nye plan. Rækken står som
+ikke-konfigureret og bliver taget op igen.
+
+**Det betyder for dig:** ser du linjen én gang, klarer næste kørsel det.
+Kommer den kørsel efter kørsel på den samme række, skifter noget planen
+hurtigere, end vi kan bekræfte den — og så skal nogen se efter, hvem der
+skriver `stripe_schedule_id`. `plan_fejl` på rækken siger hvilken plan
+kontrollen gjaldt, og hvilken rækken peger på nu.
+
+**Den samme regel gælder planlægningen.** `laegPlan` svarer `oprettet` i
+stedet for `konfigureret`, når rækken er kommet til at pege på en anden
+plan end den, funktionen læste tilbage. Den svarer **ikke** `opsagt` —
+et planskift er ikke en kundebeslutning, og der registreres ikke
+afstemningsarbejde på den påstand.
+
+**Hvorfor det betyder noget:** `konfigureret` udelukker en række fra
+både `laegPlan`, `stopForkertFornyelse` og fare-listen. En godkendelse,
+der gjaldt en anden plan, gør derfor rækken usynlig — og den plan, der
+faktisk styrer abonnementet, bliver aldrig konfigureret.
+
 ### Når en kunde siger, at opsigelsen ikke blev gemt
 
 Har hun set beskeden

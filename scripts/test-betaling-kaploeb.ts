@@ -874,21 +874,118 @@ try {
     ;(falsk.subscriptionSchedules as Record<string, unknown>).retrieve = rigtigHent
 
     const [e6] = await db.select({
-      plan: subscriptions.stripeScheduleId, stoppet: subscriptions.fornyelseStoppetAt,
-      opsagt: subscriptions.cancelAtPeriodEnd, adgang: subscriptions.adgangTil,
+      plan: subscriptions.stripeScheduleId, planStatus: subscriptions.planStatus,
+      stoppet: subscriptions.fornyelseStoppetAt,
+      opsagt: subscriptions.cancelAtPeriodEnd, opsagtAf: subscriptions.opsagtAfKundeAt,
+      adgang: subscriptions.adgangTil,
     }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
 
-    // VAGTEN OM PRØVEN SELV: naaede stoppet frem til korrektionen?
-    tjek('stoppet undersøgte den aktuelle plan og lod kunden være',
-      r === 'plan_er_rigtig', `r=${r}`)
-    // KERNEN: den nyere binding er ikke skrevet over.
-    tjek('  den NYERE binding overlevede korrektionen',
+    // VAGTEN OM PRØVEN SELV: skete overlappet faktisk?
+    tjek('den anden forbindelses binding nåede ind i vinduet',
       e6?.plan === c, `plan=${e6?.plan} (A=${a} B=${b} C=${c})`)
+    // ── SVARET ──────────────────────────────────────────
+    // Her stod `r === 'plan_er_rigtig'`. Det var netop den forkerte
+    // godkendelse, runde 9 handler om: svaret gjaldt B, mens rækken
+    // peger på C. Nu er svaret hverken «rigtig» eller «fejlede».
+    tjek('  SVAR: grundlaget skiftede under kontrollen',
+      r === 'grundlaget_skiftede', `r=${r}`)
+    // ── STATUS ──────────────────────────────────────────
+    // Bindingstesten alene beviste ikke det her. At bevare id'et og
+    // så give det en ANDEN plans godkendelse er lige så galt: bagefter
+    // springer både `laegPlan`, `stopForkertFornyelse` og
+    // `iFareForForkertFornyelse` rækken over.
+    tjek('  STATUS: C er ikke godkendt på B\u2019s kontrol',
+      e6?.planStatus !== 'konfigureret', `planStatus=${e6?.planStatus}`)
     tjek('  der blev ikke gemt en stopbeslutning', e6?.stoppet === null)
     tjek('  abonnementet er ikke opsagt', e6?.opsagt === false
+      && e6?.opsagtAf === null
       && falsk.abonnementer.get(sub)?.cancel_at_period_end !== true)
     tjek('  KUNDENS BETALTE ADGANG ER URØRT',
       e6?.adgang?.getTime() === adgangFoer)
+
+    // ── OG RÆKKEN ER IKKE BLEVET USYNLIG ────────────────
+    // Det er hele konsekvensen af den forkerte status. Tilsynet skal
+    // kunne tage C op bagefter.
+    const foerTilsyn = falsk.kald.length
+    await betalingstilsyn(OPS)
+    const omC = falsk.kald.slice(foerTilsyn).filter((k) => k.args[0] === c).length
+    tjek('  TILSYN: C bliver taget op bagefter', omC > 0, `kald om C=${omC}`)
+  }
+
+  // ═══ E7 · SAMME REGEL I PLANLAEGNINGEN, SAMTIDIGT ═══════
+  console.log('\n══ E7 · laegPlan godkender ikke en plan, en anden forbindelse lige har bundet ══')
+  {
+    // Niende gennemgangs U1, den anden indgang. `laegPlan` læser
+    // planen tilbage efter sin opdatering og godkender den. Skiftede
+    // bindingen i vinduet, gjaldt tilbagelæsningen den forrige plan.
+    //
+    // Som §E6 måles det her, fordi skrivningen kommer fra en ANDEN
+    // forbindelse: PGlite ville serialisere den ind før eller efter.
+    const u = await bruger('e7')
+    const sub = `sub_${randomUUID()}`
+    falsk.abonnementer.set(sub, { id: sub, cancel_at_period_end: false })
+    await behandl(h('checkout.session.completed',
+      { subscription: sub, client_reference_id: u, customer: 'cus_e7' }), OPS)
+    await behandl(h('invoice.paid', {
+      subscription: sub, customer: 'cus_e7',
+      lines: { data: [{ period: { start: nu(), end: nu() + 86400 },
+        pricing: { price_details: { price: OPS.introPrisId } } }] },
+    }), OPS)
+    const [klar] = await db.select({ plan: subscriptions.stripeScheduleId,
+      adgang: subscriptions.adgangTil })
+      .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+    const b = klar!.plan!
+    const adgangFoer = klar!.adgang!.getTime()
+    // Rækken står som ikke-færdigkonfigureret, så `laegPlan` kører igen.
+    await db.update(subscriptions)
+      .set({ planStatus: 'oprettet', planForsoeg: 1, planFejl: 'modelleret' })
+      .where(eq(subscriptions.stripeSubscriptionId, sub))
+
+    // PORTEN: hold planlægningen inde i sin TILBAGELÆSNING.
+    const iStripe = aftale(); const erNaaet = aftale()
+    const rigtigHent = (falsk.subscriptionSchedules as
+      { retrieve: (id: string) => Promise<unknown> }).retrieve
+      .bind(falsk.subscriptionSchedules)
+    let set = 0
+    ;(falsk.subscriptionSchedules as Record<string, unknown>).retrieve =
+      async (id: string) => {
+        const svar = await rigtigHent(id)
+        if (id === b && ++set === 2) { erNaaet.slip(); await iStripe.naaet }
+        return svar
+      }
+
+    const plan = laegPlan(sub, OPS)
+    await erNaaet.naaet
+    // En ANDEN forbindelse binder en ny plan — som `laegPlan` selv gør
+    // straks efter sit `create`.
+    const c = `sch_e7_C_${randomUUID()}`
+    await db.update(subscriptions)
+      .set({ stripeScheduleId: c, planStatus: 'oprettet' })
+      .where(eq(subscriptions.stripeSubscriptionId, sub))
+    iStripe.slip()
+    const r = await plan
+    ;(falsk.subscriptionSchedules as Record<string, unknown>).retrieve = rigtigHent
+
+    const [e7] = await db.select({
+      plan: subscriptions.stripeScheduleId, planStatus: subscriptions.planStatus,
+      opsagtAf: subscriptions.opsagtAfKundeAt, opsagt: subscriptions.cancelAtPeriodEnd,
+      skyldig: subscriptions.afstemningSkyldigAt, forsoeg: subscriptions.planForsoeg,
+      adgang: subscriptions.adgangTil,
+    }).from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, sub))
+
+    tjek('den anden forbindelses binding nåede ind i vinduet',
+      e7?.plan === c, `plan=${e7?.plan} (B=${b} C=${c})`)
+    tjek('  SVAR: ikke «konfigureret»', r !== 'konfigureret', `r=${r}`)
+    tjek('  …og ikke «opsagt» — et planskift er ikke en kundebeslutning',
+      r !== 'opsagt' && e7?.opsagtAf === null && e7?.opsagt === false,
+      `r=${r} opsagtAf=${e7?.opsagtAf}`)
+    tjek('  STATUS: C er ikke godkendt på B\u2019s tilbagelæsning',
+      e7?.planStatus !== 'konfigureret', `planStatus=${e7?.planStatus}`)
+    tjek('  der blev ikke registreret afstemningsarbejde på en falsk grund',
+      e7?.skyldig === null, `${e7?.skyldig}`)
+    tjek('  forsøgstallet er urørt', e7?.forsoeg === 1, `${e7?.forsoeg}`)
+    tjek('  KUNDENS BETALTE ADGANG ER URØRT',
+      e7?.adgang?.getTime() === adgangFoer)
   }
 
   // ═══ F · OPSIGELSE MOD ET IGANGVAERENDE PLANKALD ═════════
