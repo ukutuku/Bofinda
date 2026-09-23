@@ -842,6 +842,43 @@ Migration 0013 sår `native`, fordi den er den eneste kilde uden adapter. Får
 en prøve brug for det rigtige register, er svaret `sikreKilde()` over
 `KILDER` — ikke ny SQL.
 
+### En gentagelsesprøve beviser ikke, at et sidste led findes
+
+**PGlite returnerer den samme rækkefølge ved uafgjort `ORDER BY`.** En
+prøve, der kalder det samme fem gange og får det samme svar, siger
+derfor intet om, hvorvidt rangeringen har et entydigt sidste led. Den
+er grøn, både når leddet er der, og når det er fjernet.
+
+Målt: `ikkeRepraesentant` fik et stabilitetstjek, som skulle sikre
+`order by … , listings.id`. Modprøven fjernede leddet — og prøven blev
+grøn. Postgres lover intet om rækkefølgen, når `ORDER BY` er uafgjort;
+at den holder i praksis er et træk ved planen og datamængden, ikke en
+garanti. På en anden plan kan de to rækker bytte om.
+
+**Den slags skal måles i KILDEN.** `scripts/test-repraesentant.ts`
+læser `order by`-blokken og forlanger, at sidste led er
+`${listings.id}`. Adfærdsprøven bliver stående — den fanger en
+rangering, der vakler af andre grunde — men den er ikke vagten.
+
+Og et beslægtet trin: en prøve, hvis udfald afhænger af en tilfældig
+værdi, måler en møntkast. Samme fil lod først basen tildele UUID'er og
+var grøn i halvdelen af kørslerne med fejlen indført. Nu sættes id'erne
+eksplicit, så de peger den FORKERTE vej — prøven kan kun bestå, hvis
+reglen faktisk er der.
+
+**Samme familie som to andre fælder i dette repo:**
+
+| Fælden | Dækker ét tilfælde mindre, end man tror |
+|---|---|
+| `node_modules/` i `.gitignore` | Skråstregen matcher kun en MAPPE. Et symlink slap forbi og kom i versionsstyringen. |
+| `splice(-1)` | Læses som «fra enden» og fjerner ÉN post — ikke resten. Se `lib/ingest.ts` og `adapters/heimstaden.ts`. |
+| gentagelsesprøve mod uafgjort `ORDER BY` | Beviser stabilitet i denne plan, ikke at leddet findes. |
+
+Tegnet at holde øje med: **en kontrol, der ser rigtig ud, og hvis
+grønne resultat kan opstå af to grunde** — den ene er den, du ville
+måle, og den anden er tilfældet. Kan du ikke få den rød ved at
+indføre fejlen, måler den ikke det, du tror.
+
 ### Rettighedskontrollen — hvorfor den findes
 
 `npm run tjek:rettigheder` fejler, hvis noget i `public` mangler RLS eller
