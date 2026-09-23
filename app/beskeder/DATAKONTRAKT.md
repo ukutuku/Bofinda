@@ -294,6 +294,47 @@ Rækkefølgen er den, tingene spærrer for hinanden i.
 
 ---
 
+### 5.4 · ⚠ BLOKERENDE: `ukendt-tilstand` har ingen tekst i `Laast`
+
+**Oplyst af Supply.** Deres funktion er
+
+```ts
+adgang(): Promise<'adgang' | Laasegrund | 'ukendt-tilstand'>
+```
+
+— kontraktens union **plus ét ord**. Det fjerde ord kan ikke udtrykkes i
+de tre låsegrunde:
+
+* «Log ind» er forkert over for en, der **er** logget ind.
+* «Se abonnement» sender et menneske til kassen for **vores** fejl.
+
+Det er ikke en manglende oversættelse. Der er ingen rigtig af de tre.
+
+**Hvad der sker i dag, hvis ordet når frem.** `Laast` tager
+`grund: Laasegrund`, og teksterne står i et `Record<Laasegrund, Tekst>`.
+Et fjerde ord giver `undefined`, og `t.overskrift` **kaster**. Skulle
+nogen «løse» det ved at udvide typen uden at tilføje en tekst, falder
+`href`-udtrykket (`grund === 'login-kraevet' ? loginHref : abonnementHref`)
+igennem til abonnementsruten — altså netop kassen, for vores egen fejl.
+Den sikre fejl og den farlige ligger én linje fra hinanden.
+
+**Der findes allerede et svar i repoet.** Kontaktrejsen mødte samme
+spørgsmål og besvarede det: `tilLaasegrund` i
+`app/kontakt-ui/server/handlinger.ts` oversætter `ukendt_tilstand` til
+**ingen** låsegrund, og visningen viser den neutrale fejl med et
+genforsøg — aldrig en pris, aldrig en abonnementsknap. Beskedmodulet
+skal svare det samme; ellers giver de to flader forskellige svar på
+samme tilstand, og det er CLAUDE.md's dyreste fejltype.
+
+**Det, der mangler:** ikke en fjerde låsetekst, men en **femte
+visning** — den neutrale «vi kunne ikke bekræfte din adgang, prøv
+igen». En lås forklarer, hvad kunden skal gøre for at få adgang. Her
+er der intet, hun kan gøre; fejlen er vores.
+
+**Ikke bygget.** Noteret efter besked, bevidst udskudt. **`/beskeder`
+må ikke gå i luften før den findes** — et kast i låst visning er
+værre end den lås, den skulle erstatte.
+
 ## 6 · Hvad prøven måler — og hvad den ikke beviser
 
 `scripts/cloud/beskedkontrol.mjs` læser den **rå `page.content()`** — hele
