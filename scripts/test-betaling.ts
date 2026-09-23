@@ -23,6 +23,15 @@ import { levendeAbonnementer, saetTilstand } from '../lib/driftskift'
 import { behandl, periode, type Haendelse } from '../lib/webhook'
 import { faser, indsaetStripe, INTRO_OERE, NORMAL_OERE, opsaetning } from '../lib/stripe'
 import { startKoebFor } from '../lib/abonnement'
+import { saetAktiv } from '../lib/maaling'
+import { _saetKontekst } from '../lib/maaling-server'
+// De to kaldesteder KOERES i afsnit 9. Importen er statisk og ikke
+// dynamisk, saa `npm run typecheck` ogsaa daekker dem: doebes
+// `hentKontakt` om, fejler proeven ved oversaettelsen og ikke foerst i
+// en gren, nogen maaske ikke naar.
+import { hentKontakt } from '../app/bolig/[id]/kontakthandling'
+import { GET as goRute } from '../app/go/[id]/route'
+import { optag, roerer } from './sqlbaand'
 import { lavFalsk } from './stripefalsk/index'
 
 let fejl = 0
@@ -303,27 +312,187 @@ async function koer() {
 
   // ═══ 9 · KALDESTEDERNE SPOERGER FAKTISK ══════════════════════
   // Afsnit 1-8 proever REGLEN. De ville alle vaere groenne, selv om
-  // nogen slettede vagten i kontakthandling.ts eller i /go-ruten —
-  // og saa stod muren aaben, mens proeven sagde god for den. Det er
+  // nogen slettede vagten i kontakthandling.ts eller i /go-ruten — og
+  // saa stod muren aaben, mens proeven sagde god for den. Det er
   // praecis `sources.enabled`-fejlen, ét lag hoejere oppe.
   //
-  // Her laeses KILDEN til de to kaldesteder. Det er en svagere
-  // proeve end en koersel, og det siges der: ruterne kan ikke kaldes
-  // uden en Next-request. Men den fejler, hvis vagten forsvinder.
+  // Her KOERES de to kaldesteder. Foer stod der en tekstsoegning i
+  // deres kildefiler, og den kunne kun se den ene af de to maader, en
+  // vagt gaar tabt paa:
+  //
+  //   FJERNET  vagten er vaek         →  svaret baerer kontaktdata
+  //   FLYTTET  vagten staar BAG det   →  svaret er bit for bit det
+  //            beskyttede opslag         samme som det rigtige nej
+  //
+  // Den anden kan ikke ses paa returvaerdien, og det var netop den,
+  // tekstsoegningen lod passere. Paastanden var
+  //
+  //     t.indexOf('maaBruge(') < t.indexOf('db\n') + t.indexOf('await db')
+  //
+  // og den er sand af to grunde, der begge er UAFHAENGIGE af, hvor
+  // vagten staar. Det FOERSTE `maaBruge(` i kontakthandling.ts staar i
+  // kommentaren paa linje 23 — 1.400 tegn foer det rigtige kald — saa
+  // venstresiden peger ikke paa vagten. Og hoejresiden laegger TO
+  // positioner sammen (2.514 + 2.508 = 5.022) i stedet for at pege paa
+  // én, saa den er stoerre end hele filen. Flyttes vagten om bag
+  // opslaget, staar der stadig ✓, og annoncens beskyttede felter kan
+  // forlade basen, mens proeven er groen.
+  //
+  // Derfor SQL-BAANDET — de saetninger, driveren faktisk sendte under
+  // kaldet. Se scripts/sqlbaand.ts.
+  //
+  // ── HVAD DER ER ET BESKYTTET OPSLAG, OG HVAD DER IKKE ER ────
+  // Vagten slaar selv op i `drift` for at kunne svare, og muren
+  // bogfoerer sit eget nej i `haendelser`. Ingen af delene er en
+  // laesning af annoncens beskyttede felter. En proeve, der bare talte
+  // forespoergsler, ville blive roed af dem — derfor er maalingen
+  // TAENDT her, og derfor kraeves det positivt, at BEGGE staar paa
+  // baandet, samtidig med at `listings` ikke goer.
+  //
+  // ── DETEKTORENS EGEN PROEVE ─────────────────────────────────
+  // En maaler, der aldrig slaar ud, er et groent flueben uden
+  // daekning. Den TILLADTE vej maales med noejagtig samme maaler, og
+  // dér SKAL opslaget staa paa baandet. Bliver den linje roed, er det
+  // baandet, der er i stykker — ikke muren.
+  //
+  // ── HVAD DER IKKE NAAS AD DENNE VEJ ─────────────────────────
+  // `maaBruge()` uden bruger-id gaar gennem `hentBrugerId()`, som
+  // kraever et Next-request. Uden et saadant er der ingen session, saa
+  // de grunde, kaldestederne kan naa her, er `login_kraeves` og
+  // `ukendt_tilstand`. `abonnement_kraeves` proeves paa reglen i
+  // afsnit 5 og 8; kaldestederne forgrener sig ikke paa grunden — de
+  // spoerger og adlyder — saa adfaerden er daekket.
   console.log('\n══ 9 · Kaldestederne spoerger muren ══')
-  const { readFileSync } = await import('node:fs')
-  const kilder: [string, string][] = [
-    ['app/bolig/[id]/kontakthandling.ts', 'FUNKTION.kontakt'],
-    ['app/go/[id]/route.ts', 'FUNKTION.kildelink'],
-  ]
-  for (const [fil, funk] of kilder) {
-    const t = readFileSync(fil, 'utf8')
-    tjek(`${fil} kalder maaBruge(${funk})`,
-      t.includes('maaBruge(') && t.includes(funk))
-    tjek(`  og naegter FOER databasen roeres`,
-      t.indexOf('maaBruge(') < t.indexOf('db\n') + t.indexOf('await db'),
-      'opslaget maa ikke koere, naar adgangen er naegtet')
+  {
+    // Maalingen TAENDES, saa murens eget event faktisk skrives. Uden
+    // det kunne «ingen beskyttede opslag» vaere groent, fordi der slet
+    // ikke skete noget.
+    saetAktiv(true)
+    _saetKontekst({
+      miljoe: 'proeve', anonymousId: randomUUID(), sessionId: randomUUID(),
+      rute: '/bolig/[id]',
+    })
+
+    const [nativeKilde] = await db.select({ id: sources.id })
+      .from(sources).where(eq(sources.slug, 'native')).limit(1)
+    const udlejer = await nyBruger('udlejer-mur')
+    const MAIL = 'udlejer-mur@proeve.invalid'
+    const TLF = '+4512345678'
+    const KILDEURL = 'https://kilde.proeve.invalid/annonce/1'
+
+    const [nativeBolig] = await db.insert(listings).values({
+      sourceId: nativeKilde!.id, sourceType: 'native', externalKey: `mur-native-${S}`,
+      sourceUrl: 'https://bofinda.dk/bolig/mur', landlordId: udlejer,
+      addressRaw: 'Proevevej 1, 2300 Koebenhavn S', status: 'active',
+      contactEmail: MAIL, contactPhone: TLF,
+    }).returning({ id: listings.id })
+    const [scrapet] = await db.insert(listings).values({
+      sourceId: kilde!.id, sourceType: 'spider', externalKey: `mur-spider-${S}`,
+      sourceUrl: KILDEURL, addressRaw: 'Proevevej 2, 2300 Koebenhavn S', status: 'active',
+    }).returning({ id: listings.id })
+    const nId = nativeBolig!.id
+    const gId = scrapet!.id
+    const goKald = () => goRute(
+      new Request(`https://bofinda.dk/go/${gId}`), { params: Promise.resolve({ id: gId }) })
+    const foerste = (sql: string[], navn: string) => roerer(sql, navn)[0] ?? ''
+
+    // ── 9a · KONTAKT, adgang naegtet ──────────────────────────
+    await saetDrift('betaling')
+    const a = await optag(() => hentKontakt(nId))
+    tjek('hentKontakt: uden adgang udleveres ingen kontaktdata',
+      a.svar.mail === null && a.svar.telefon === null, JSON.stringify(a.svar))
+    tjek('  og grunden foelger med, saa siden kan sige hvorfor',
+      a.svar.naegtet === 'login_kraeves', String(a.svar.naegtet))
+    tjek('  INTET beskyttet annonceopslag skete',
+      roerer(a.sql, 'listings').length === 0, foerste(a.sql, 'listings'))
+    tjek('  kontaktfelterne forlod aldrig basen',
+      roerer(a.sql, 'contact_email').length === 0
+      && roerer(a.sql, 'contact_phone').length === 0,
+      foerste(a.sql, 'contact_email') || foerste(a.sql, 'contact_phone'))
+    tjek('  vagten spurgte faktisk basen — `drift` blev laest',
+      roerer(a.sql, 'drift').length > 0,
+      'ellers kunne linjerne ovenfor vaere groenne af, at INTET skete')
+    tjek('  og murens eget event blev skrevet — maaling er ikke et opslag',
+      roerer(a.sql, 'haendelser').length > 0,
+      'vagtens egne opslag og maalingen maa ikke forveksles med annoncefelterne')
+
+    // ── 9b · KONTAKT, adgang givet · POSITIV KONTROL ──────────
+    // Samme maaler paa den tilladte vej. Slaar den ikke ud her, maaler
+    // den ingenting, og 9a er et flueben uden daekning.
+    await saetDrift('gratis')
+    const b = await optag(() => hentKontakt(nId))
+    tjek('hentKontakt: med adgang udleveres kontaktdata',
+      b.svar.mail === MAIL && b.svar.telefon === TLF, JSON.stringify(b.svar))
+    tjek('  ingen naegtelse paa svaret', b.svar.naegtet === undefined)
+    tjek('  og opslaget STAAR paa baandet — maaleren slaar ud',
+      roerer(b.sql, 'listings').length > 0
+      && roerer(b.sql, 'contact_email').length > 0,
+      'uden den her linje kunne 9a vaere groen, fordi baandet var tomt')
+
+    // ── 9c · KONTAKT, teknisk fejl · INGEN betalingsopfordring ─
+    await db.delete(drift)
+    const c = await optag(() => hentKontakt(nId))
+    tjek('hentKontakt: uden driftstilstand naegtes adgangen',
+      c.svar.mail === null && c.svar.telefon === null, JSON.stringify(c.svar))
+    tjek('  og fejlen kaldes ikke «abonnement kraeves»',
+      c.svar.naegtet === 'ukendt_tilstand', String(c.svar.naegtet))
+    tjek('  intet beskyttet opslag ved vores EGEN fejl',
+      roerer(c.sql, 'listings').length === 0, foerste(c.sql, 'listings'))
+    await db.insert(drift).values({ id: true, tilstand: 'gratis' })
+
+    // ── 9d · /go/[id], adgang naegtet ─────────────────────────
+    _saetKontekst({
+      miljoe: 'proeve', anonymousId: randomUUID(), sessionId: randomUUID(),
+      rute: '/go/[id]',
+    })
+    await saetDrift('betaling')
+    const d = await optag(goKald)
+    const dSted = d.svar.headers.get('location') ?? ''
+    tjek('/go/[id]: uden adgang viderestilles der IKKE til kilden',
+      d.svar.status === 303 && dSted.startsWith('/abonnement?'),
+      `${d.svar.status} → ${dSted}`)
+    tjek('  kildens adresse staar ingen steder i svaret',
+      ![...d.svar.headers].some(([, v]) => v.includes('kilde.proeve.invalid')),
+      JSON.stringify([...d.svar.headers]))
+    tjek('  og grunden foelger med til koebssiden',
+      dSted.includes('grund=login_kraeves'), dSted)
+    tjek('  INTET beskyttet annonceopslag skete',
+      roerer(d.sql, 'listings').length === 0, foerste(d.sql, 'listings'))
+    tjek('  kildens URL forlod aldrig basen',
+      roerer(d.sql, 'source_url').length === 0, foerste(d.sql, 'source_url'))
+    tjek('  vagten spurgte faktisk basen — `drift` blev laest',
+      roerer(d.sql, 'drift').length > 0)
+    tjek('  og murens eget event blev skrevet',
+      roerer(d.sql, 'haendelser').length > 0)
+
+    // ── 9e · /go/[id], adgang givet · POSITIV KONTROL ─────────
+    await saetDrift('gratis')
+    const e = await optag(goKald)
+    tjek('/go/[id]: med adgang viderestilles der til kilden',
+      e.svar.status === 302 && e.svar.headers.get('location') === KILDEURL,
+      `${e.svar.status} → ${e.svar.headers.get('location')}`)
+    tjek('  og opslaget STAAR paa baandet — maaleren slaar ud',
+      roerer(e.sql, 'listings').length > 0 && roerer(e.sql, 'source_url').length > 0,
+      'uden den her linje kunne 9d vaere groen, fordi baandet var tomt')
+
+    // ── 9f · /go/[id], teknisk fejl · INGEN betalingsopfordring ─
+    await db.delete(drift)
+    const g = await optag(goKald)
+    const gSted = g.svar.headers.get('location') ?? ''
+    tjek('/go/[id]: uden driftstilstand viderestilles der ikke til kilden',
+      g.svar.status === 303 && gSted.startsWith('/abonnement?'),
+      `${g.svar.status} → ${gSted}`)
+    tjek('  og der staar ikke «abonnement kraeves» om VORES fejl',
+      gSted.includes('grund=ukendt_tilstand')
+      && !gSted.includes('grund=abonnement_kraeves'), gSted)
+    tjek('  intet beskyttet opslag ved vores EGEN fejl',
+      roerer(g.sql, 'listings').length === 0, foerste(g.sql, 'listings'))
+    await db.insert(drift).values({ id: true, tilstand: 'gratis' })
+
+    _saetKontekst(null)
+    saetAktiv(null)
   }
+
   // Koebsvejen maa ikke kunne kaldes i gratis tilstand. HANDLINGEN
   // proeves, ikke kildeteksten: en tekstsoegning efter vagtens navn kan
   // ikke se, om vagten faktisk fyrer, og den ville vaere groen paa en
@@ -349,7 +518,6 @@ async function koer() {
     delete process.env.STRIPE_PRIS_NORMAL
   }
 
-  void listings; void kilde
 }
 
 /** Et Stripe-haendelsesobjekt i rigtig form. Syntetisk indhold. */

@@ -25,6 +25,7 @@ import * as schema from '../db/schema'
 import { indsaetBase } from '../db/client'
 import { saetMiljoe } from '../lib/maaling'
 import { koerMigrationer, stubSupabase } from './pglite-skema.mjs'
+import { sqllogger } from './sqlbaand'
 
 export interface Testbase {
   luk: () => Promise<void>
@@ -49,7 +50,12 @@ export async function rejsTestbase(): Promise<Testbase> {
   const migrationer = await koerMigrationer(pg)
   // Samme forespørgsels-API, anden driver. drizzle-orm/pglite og
   // drizzle-orm/postgres-js deler grænseflade, men ikke type.
-  indsaetBase(drizzle(pg, { schema }) as never, () => pg.close())
+  //
+  // Loggeren er SQL-båndet, se scripts/sqlbaand.ts. Den er tavs, indtil
+  // en prøve udtrykkeligt optager, og den ændrer intet ved, hvad der
+  // køres — den ser kun med. Produktionens klient i db/client.ts har
+  // ingen logger og rører den aldrig.
+  indsaetBase(drizzle(pg, { schema, logger: sqllogger }) as never, () => pg.close())
   // I samme aandedrag som basen: en proeve kan ikke GLEMME at saette
   // miljoeet, og dermed kan den ikke skrive en raekke, der ligner
   // produktionens. Maalingen er stadig SLUKKET — saetAktiv(true) er den
