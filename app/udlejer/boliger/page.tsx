@@ -12,16 +12,25 @@ import type { Repraesentant } from '../../../lib/soeg'
 /**
  * Hvorfor vandt den anden annonce repraesentantvalget?
  *
- * Rangeringen i `ikkeRepraesentant` er billedantal, saa om totalen er
- * kendt, saa id'et. Vi siger kun den grund, der faktisk afgjorde det —
- * "flere billeder" om to annoncer med lige mange ville vaere en paastand,
- * vi ikke kan staa inde for.
+ * Raekkefoelgen her SKAL svare til `ikkeRepraesentant` i lib/soeg.ts:
+ * billedantal → kendt total → laveste total → id. Vi siger kun den
+ * grund, der faktisk afgjorde det — «flere billeder» om to annoncer med
+ * lige mange ville vaere en paastand, vi ikke kan staa inde for.
+ *
+ * ⚠ TRIN 3 KOM TIL EFTER RANGERINGEN. Da «laveste total» blev indfoert,
+ * stod den her funktion tilbage med tre grene: flere billeder, kendt
+ * total, eller «de to staar lige». Den sidste ville saa vaere USAND i
+ * netop de tilfaelde, det nye trin afgjorde — de staar ikke lige, den
+ * anden er billigere. En rangering og forklaringen paa den er to udtryk
+ * for samme spoergsmaal, og de skal aendres sammen.
  */
 function grunden(min: { billeder: number; total: number | null }, af: Repraesentant): string {
   if (af.billeder > min.billeder)
     return `den viser flere billeder — ${af.billeder} mod dine ${min.billeder}`
   if (af.harTotal && min.total == null)
     return 'den oplyser en samlet månedlig udgift, og det gør din ikke'
+  if (af.total != null && min.total != null && af.total < min.total)
+    return `den er billigere i alt — ${kr(af.total)} mod dine ${kr(min.total)} kr/md`
   return 'de to står lige på billeder og oplysninger, og valget faldt på den anden'
 }
 

@@ -237,6 +237,29 @@ export function ikkeRepraesentant(grundlag: SQL | undefined) {
             (select count(*) from listing_images i
               where i.listing_id = ${listings.id} and ${VISBAR_VAERT}) desc,
             (${listings.totalMonthly} is not null) desc,
+            -- Har BEGGE en kendt total, vinder den LAVESTE.
+            --
+            -- Foer stod der kun de to trin ovenfor, og saa faldt valget
+            -- mellem to kendte totaler paa id'et — en UUID. Maalt i
+            -- produktionen: Tolderlundsvej 48, 1. 9 i Odense stod to
+            -- gange hos samme kilde, 84 sekunder fra hinanden, til
+            -- 7.500 og 7.350 kr. Vi viste det ene tal, og hvilket
+            -- afhang af en lodtraekning, ingen havde besluttet.
+            --
+            -- Laveste er ikke vilkaarligt bedre. Men det er et VALG, og
+            -- et valg kan forsvares over for den, der ser tallet. En
+            -- UUID-lodtraekning kan ikke.
+            --
+            -- «nulls last» er udtrykkeligt, selv om trin 2 allerede har
+            -- sorteret de ukendte bagest: staar de to trin nogensinde i
+            -- en anden raekkefoelge, skal det her led ikke stille en
+            -- ukendt total foerst.
+            ${listings.totalMonthly} asc nulls last,
+            -- Sidste led. IKKE en tidsorden — «id» er en tilfaeldig
+            -- UUID (db/schema.ts). Den er her udelukkende for at goere
+            -- valget STABILT mellem koersler: uden et sidste, entydigt
+            -- led kan to raekker, der er ens paa alle de foregaaende,
+            -- bytte plads fra forespoergsel til forespoergsel.
             ${listings.id}
         ) as rn
       from ${listings}
@@ -272,6 +295,13 @@ export interface Repraesentant {
   adresse: string
   postnr: string | null
   by: string | null
+  /**
+   * Vinderens total. Baeres med, fordi den nu kan VAERE grunden til, at
+   * den vandt — og sætningen paa Mine annoncer skal kunne sige hvilken
+   * grund der afgjorde det. Uden tallet ville den falde tilbage paa «de
+   * to staar lige», og det ville vaere usandt, naar prisen afgjorde.
+   */
+  total: number | null
   /**
    * Parret bæres videre RÅT, og svaret udledes hos den, der skriver
    * sætningen. Der er ikke plads til det samme ord to steder: kortets
@@ -335,6 +365,7 @@ export async function repraesentantFor(ids: string[]): Promise<Map<string, Repra
       billeder: sql<number>`(select count(*)::int from ${listingImages} i
         where i.listing_id = ${listings.id} and ${VISBAR_VAERT})`,
       harTotal: sql<boolean>`(${listings.totalMonthly} is not null)`,
+      total: listings.totalMonthly,
       noegle,
     })
     .from(listings)
@@ -347,7 +378,7 @@ export async function repraesentantFor(ids: string[]): Promise<Map<string, Repra
     if (v) svar.set(t.id, {
       id: v.id, adresse: v.adresse, postnr: v.postnr, by: v.by,
       kildeNavn: v.kildeNavn, kildetype: v.kildetype,
-      billeder: v.billeder, harTotal: v.harTotal,
+      billeder: v.billeder, harTotal: v.harTotal, total: v.total,
     })
   }
   return svar

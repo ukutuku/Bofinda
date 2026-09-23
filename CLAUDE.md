@@ -248,8 +248,23 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   · **Rangeringen regnes på det FILTREREDE sæt.** Ellers taber en søgning
   på "kilde: LokalBolig" de boliger, hvor Propstep blev repræsentant —
   boligen ville forsvinde helt i stedet for at stå én gang.
-  · Repræsentanten er den med flest billeder, så den med kendt total, så
-  den ældste række. Sidste led er der, så valget er stabilt mellem kørsler.
+  · Repræsentanten vælges i fire trin: flest synlige billeder, så kendt
+  total før ukendt, så **den laveste total, når begge er kendte**, og til
+  sidst den laveste `listings.id`.
+  · **Sidste led er IKKE en tidsorden.** `id` er en tilfældig UUID
+  (`defaultRandom()`), så «den ældste række» — som der stod her før — er
+  forkert. Leddet er der udelukkende for at gøre valget STABILT mellem
+  kørsler: uden et sidste, entydigt led kan to rækker, der er ens på alle
+  de foregående trin, bytte plads fra forespørgsel til forespørgsel.
+  · Trin 3 kom til, fordi trin 4 ellers afgjorde prisen. Målt: samme bolig
+  hos samme kilde til 7.500 og 7.350 kr., og hvilket tal vi viste, afhang
+  af en UUID. Laveste er ikke vilkårligt bedre — men det er et valg, og et
+  valg kan forsvares over for den, der ser tallet. En lodtrækning kan ikke.
+  · **Rangeringen og forklaringen på den er to udtryk for samme
+  spørgsmål.** `grunden()` i `app/udlejer/boliger/page.tsx` fortæller en
+  udlejer, hvorfor hendes annonce tabte, og den har én gren pr. trin.
+  Ændres rangeringen, skal den med i samme ændring — ellers står der «de
+  to står lige» om et valg, prisen afgjorde.
   · **Alt der viser eller TÆLLER en liste skal gennem `udenDubletter`** —
   også områdesidernes statistik. Tæller brødteksten andet end listen under
   den, er den ene forkert.
