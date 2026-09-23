@@ -32,6 +32,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Gruppekort, Kort } from '../app/Boligkort'
 import { paaDansk } from '../lib/liste'
+import { grundlagstekst } from '../lib/grundlag'
 
 let fejl = 0
 const tjek = (navn: string, ok: boolean, note = '') => {
@@ -55,8 +56,14 @@ const BOLIG = {
   etage: null, doer: null, postnr: '9001', by: 'Prøveby',
   kilde: 'proeve', kildeNavn: 'Prøvekilde', kildetype: 'feed',
   match: 'unit', areal: 70, vaerelser: 3, type: 'lejlighed',
-  leje: 900_000, total: 1_050_000, poster: ['rent', 'heating', 'water'],
-  egenMaaler: null, billeder: 0, forside: null, billedforbehold: false,
+  // ⚠ ORDFORRÅDET ER `rent` · `heat` · `water` · `electricity` · `other`.
+  // Her stod `'heating'`, som ikke findes. Kortet gengav «husleje +
+  // heating + vand» — et engelsk ord midt i en dansk sætning — og
+  // ingen prøve så det, fordi fixturet går gennem `as never`.
+  // Samme fejl som i de første målingsbloktal. Feltet under hedder
+  // `elEgenMaaler`; `egenMaaler` var en død nøgle.
+  leje: 900_000, total: 1_050_000, poster: ['rent', 'heat', 'water'],
+  elEgenMaaler: null, billeder: 0, forside: null, billedforbehold: false,
   foerstSet: new Date('2026-09-01T00:00:00Z'), hosKilden: null,
   ledig: null, ogsaaHos: [], availabilityFacts: null,
 }
@@ -102,6 +109,33 @@ const gm = renderToStaticMarkup(createElement(Gruppekort as never, { g: GRUPPE, 
     !/reserveret/i.test(tekst), `«${tekst}»`)
   tjek('grundlagslinjen bærer ikke ansøgningsform',
     !/venteliste|almindelig/i.test(tekst), `«${tekst}»`)
+
+  // ═══ EL-UDSAGNET MÅ KUN STÅ I GRUNDLAGSLINJEN ═══
+  //
+  // Enkeltkortet havde denne vagt (test-grundlag, blok 4); gruppekortet
+  // havde den ikke. En modprøve viste hullet: en el-note ved siden af
+  // grundlagslinjen med et FRISK klassenavn passerede begge prøvefiler,
+  // fordi de kun talte `.el` og `.kort-grundlag`. Gruppekortet er
+  // netop dér, den fejl er landet før — 171 kort, siden 47.
+  //
+  // Udsagnene hentes fra `grundlagstekst` selv, ikke skrevet af: sidste
+  // led efter « · » ER el-udsagnet i alle tre tilstande. Ændres
+  // ordlyden, følger prøven med. ALLE tre tjekkes, ikke kun gruppens
+  // egen — ellers ville en genindført linje med en ANDEN tilstands
+  // ordlyd glide igennem.
+  const ELUDSAGN = (['ikke-med', 'egen-maaler', 'ukendt-daekning'] as const)
+    .map((el) => grundlagstekst({ totalKendt: true, el, poster: ['rent'] }).split(' · ')[1] ?? '')
+  tjek('alle tre el-udsagn kunne udledes af grundlagstekst',
+    ELUDSAGN.length === 3 && ELUDSAGN.every((u) => u.length > 0), ELUDSAGN.join(' / '))
+
+  const iLinjen = indhold(gm, 'kort-grundlag').join(' ')
+  tjek('gruppens eget el-udsagn står I grundlagslinjen',
+    ELUDSAGN.some((u) => iLinjen.includes(u)), `«${iLinjen}»`)
+
+  const udenGrundlag = gm.replace(/class="kort-grundlag"[^>]*>.*?</g, '')
+  const dubletter = ELUDSAGN.filter((u) => udenGrundlag.includes(u))
+  tjek('og INTET el-udsagn står uden for den',
+    dubletter.length === 0, dubletter.join(', ') || 'ingen')
 
   tjek('ansøgningsopdelingen har sin EGEN klasse',
     klasser(gm, 'gruppe-fordeling') === 1, `${klasser(gm, 'gruppe-fordeling')}`)

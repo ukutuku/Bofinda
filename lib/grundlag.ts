@@ -68,11 +68,24 @@ export interface Grundlagsspoergsmaal {
   poster: readonly string[] | null
 }
 
-/** «husleje + varme + vand», eller «husleje + aconto» når de ikke kan opregnes. */
+/**
+ * «husleje + varme + vand», eller «husleje + aconto» når de ikke kan opregnes.
+ *
+ * ⚠ EN UKENDT NØGLE GIVER DEN UOPREGNEDE FORM — den skrives ikke ud.
+ * Fallbacket var før `POSTNAVN[p] ?? p`, og så stod kildens engelske
+ * nøgle midt i en dansk sætning: en prøvebolig med `'heating'` (ordet
+ * hedder `heat`) gengav «husleje + heating + vand» på kortet, og ingen
+ * prøve så det. De to andre udveje er begge løgne: at printe nøglen
+ * siger ingenting, og at springe den over siger «acontoen dækker kun
+ * vand» om et beløb, der også dækker varme. Kan ét led ikke oversættes,
+ * kan listen ikke opregnes — og «husleje + aconto» er sandt uanset hvad
+ * det ukendte led er.
+ */
 function posterTekst(poster: readonly string[] | null): string {
   if (poster == null || poster.length === 0) return 'husleje + aconto'
-  const navne = poster.map((p) => POSTNAVN[p] ?? p)
-  return navne.length ? navne.join(' + ') : 'husleje + aconto'
+  const navne = poster.map((p) => POSTNAVN[p])
+  if (navne.some((n) => n == null)) return 'husleje + aconto'
+  return navne.join(' + ')
 }
 
 /**

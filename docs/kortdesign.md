@@ -393,3 +393,52 @@ De to, der forsvinder, er dem, der sagde det samme to gange.
 
 Ingen af dem ændrer strukturen. De blev ikke kørt, fordi
 containerens netværkspolitik spærrer 5432 og 6543.
+
+## Hvad modprøven fandt
+
+Modprøven — genindfør den separate el-linje, og se prøven blive rød —
+gav rødt som ventet, men først i **fjerde** forsøg fortalte den noget,
+vi ikke vidste. De tre forsøg er værd at skelne, fordi kun det sidste
+var en prøve af prøven og ikke af koden.
+
+| # | Hvad blev genindført | Rødt? | Hvad det viste |
+|---|---|---|---|
+| 1 | `Ellinje` ordret, på enkeltkortet | 3 røde i `test-grundlag`, 1 i `test-kortudsagn` | vagten virker |
+| 2 | en el-note med NY ordlyd og FRISK klassenavn, på enkeltkortet | 1 rød | indholdsvagten virker, ikke kun klassenavnet |
+| 3 | samme, men på **gruppekortet** | **grøn i begge filer** | **hul** |
+| 4 | samme, efter rettelsen | rød | hullet er lukket |
+
+**Hullet.** Enkeltkortet havde indholdsvagten («el-udsagnet står i
+grundlagslinjen og INTET andet sted»). Gruppekortet havde den ikke — det
+havde kun `klasser(gm, 'el') === 0` og «præcis én `.kort-grundlag`».
+Begge er tællinger af klassenavne, og et nyt klassenavn glider under
+dem begge. Gruppekortet er netop dér, denne fejl er landet før: 171
+kort uden el-linjen, siden 47 med to modstridende udsagn.
+
+Forsøg 1 alene ville have bekræftet, at vagten virker, og ladet hullet
+stå. **En modprøve, der kun genindfører fejlen i dens gamle form, prøver
+hukommelsen, ikke reglen.**
+
+Vagten henter nu de tre el-udsagn fra `grundlagstekst` selv — sidste led
+efter « · » — og tjekker **alle tre**, ikke kun gruppens egen. Ellers
+ville en genindført linje med en anden tilstands ordlyd glide igennem,
+hvilket er præcis hvad forsøg 3 gjorde.
+
+### Og en fejl i prøvens eget fixture
+
+`test-kortudsagn.ts` skrev `poster: ['rent', 'heating', 'water']`.
+Ordet hedder **`heat`**. `posterTekst` faldt tilbage på
+`POSTNAVN[p] ?? p`, så kortet gengav
+
+    husleje + heating + vand · el kommer oveni
+
+— et engelsk ord midt i en dansk sætning, på et prøvekort, i månedsvis,
+uden at noget blev rødt. Fixturet går gennem `as never`, så compileren
+så det ikke. Det er tredje gang `heating` for `heat` har ugyldiggjort
+noget i denne omgang.
+
+Fallbacket er nu væk. De to nærliggende udveje er begge løgne: at printe
+nøglen siger ingenting til hende, og at springe den over siger «acontoen
+dækker kun vand» om et beløb, der også dækker varme. Kan ét led ikke
+oversættes, kan listen ikke opregnes — og «husleje + aconto» er sandt,
+uanset hvad det ukendte led er. El-forbeholdet står der stadig.

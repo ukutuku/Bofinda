@@ -143,6 +143,46 @@ console.log('\n══ 4 · el-oplysningen kan ikke stå to steder ══')
   const udenfor = markup.replace(/class="kort-grundlag"[^>]*>.*?</g, '')
   tjek('el-udsagnet står i grundlagslinjen', iLinjen)
   tjek('og INTET andet sted i kortet', !/el kommer oveni/.test(udenfor))
+
+  // ═══ OG FOR HVER FORM, MED ALLE TRE ORDLYDE ═══
+  //
+  // Ovenstående prøver form A med form A's egen ordlyd. En modprøve
+  // viste, at det ikke rækker: en genindført el-note med en ANDEN
+  // tilstands ordlyd — eller på en anden form — glider igennem.
+  // Udsagnene udledes af `grundlagstekst` selv, så de følger ordlyden.
+  const ELUDSAGN = (['ikke-med', 'egen-maaler', 'ukendt-daekning'] as const)
+    .map((el) => grundlagstekst({ totalKendt: true, el, poster: ['rent'] }).split(' · ')[1] ?? '')
+  tjek('alle tre el-udsagn kunne udledes', ELUDSAGN.every((u) => u.length > 0),
+    ELUDSAGN.join(' / '))
+  for (const f of FORMER) {
+    const m = renderToStaticMarkup(createElement(Kort as never, {
+      b: { ...BASIS, ...f.b }, nu: NU,
+    }))
+    const ude = m.replace(/class="kort-grundlag"[^>]*>.*?</g, '')
+    const dubletter = ELUDSAGN.filter((u) => ude.includes(u))
+    tjek(`${f.navn}: intet el-udsagn uden for grundlagslinjen`,
+      dubletter.length === 0, dubletter.join(', ') || 'ingen')
+  }
+}
+
+console.log('\n══ 4b · en ukendt post kan ikke slippe ud som dansk tekst ══')
+{
+  // Fallbacket var `POSTNAVN[p] ?? p`, og så stod kildens engelske
+  // nøgle midt i sætningen. En prøvebolig med `'heating'` (ordet hedder
+  // `heat`) gengav «husleje + heating + vand» på kortet, og ingen
+  // prøve så det — fixturet går gennem `as never`.
+  const t = grundlagstekst({ totalKendt: true, el: 'ikke-med', poster: ['rent', 'heating', 'water'] })
+  tjek('den ukendte nøgle skrives ikke ud', !/heating/.test(t), `«${t}»`)
+
+  // Og den må ikke bare springes over: «husleje + vand» ville påstå,
+  // at acontoen kun dækker vand, om et beløb der også dækker varme.
+  // Kan ét led ikke oversættes, kan listen ikke opregnes.
+  tjek('og listen opregnes slet ikke', /^husleje \+ aconto/.test(t), `«${t}»`)
+  tjek('el-forbeholdet står der stadig', /el kommer oveni/.test(t), `«${t}»`)
+
+  // Kendte nøgler opregnes uaendret.
+  const k = grundlagstekst({ totalKendt: true, el: 'ikke-med', poster: ['rent', 'heat', 'water'] })
+  tjek('kendte nøgler opregnes som før', k.startsWith('husleje + varme + vand'), `«${k}»`)
 }
 
 console.log('\n══ 5 · kildetjek: ingen genindført el-linje ══')
