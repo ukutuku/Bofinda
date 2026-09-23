@@ -35,7 +35,11 @@ i `app/beskeder/DATAKONTRAKT.md` afsnit 1: typerne er udviklerhjælp, ikke
 autorisation, ikke filtrering og intet bevis for, at private data ikke
 forlader serveren.
 
-### 2.2 · `hentKontakt(boligId)` — og adgangen skal tjekkes IGEN
+### 2.2 · `hentKontakt(boligId)` — og adgangen skal tjekkes IGEN · **BYGGET**
+
+> **Status:** håndhævelsen findes nu i `lib/kontaktmur.ts` +
+> `app/kontakt-ui/server/`. Prøven er `scripts/test-kontaktmur.ts`, som
+> kører i `npm test`. **Beslutningen er stadig Supplys** — se 2.2b.
 
 `hentAdgang` gav en visningstilladelse, ikke en adgangskontrol. Adgangen
 kan være ændret siden. Kaldet skal derfor:
@@ -53,6 +57,57 @@ serverlag, der ikke gør.
 > *«Mailadresser står aldrig som rå tekst på en offentlig side.»*
 > Derfor er `kontakt` to booleans, og værdierne kommer først, når et
 > menneske trykker.
+
+### 2.2b · Bindingspunktet — og det ene sted, der skal rettes ved fletning
+
+`app/kontakt-ui/server/beslutning.ts` er ÉN funktion på én linje. Den
+svarer «ja» i dag, fordi betalingsmuren er slukket, og fordi CLAUDE.md
+siger det samme om kontaktfelterne: *«Muren er ÅBEN for native boliger
+indtil videre.»* Den **afgør** altså ikke noget; den gengiver.
+
+Ved fletning med betalingsserien skal kroppen blive:
+
+```ts
+import { FUNKTION, maaBruge } from '../../../lib/adgang'
+export const kontaktbeslutning = async (): Promise<Beslutning> => {
+  const svar = await maaBruge(FUNKTION.kontakt)
+  return svar.ok ? { ok: true } : { ok: false, grund: svar.grund }
+}
+```
+
+**Det er ikke et håb om, at nogen husker det.**
+`scripts/test-kontaktmur.ts` fejler, hvis `lib/adgang.ts` findes uden
+at bindingen bruger `maaBruge` fra den — grøn i dag, rød i samme
+sekund grenene mødes ukoblet. Modprøvet: mutationen `m6` lægger en
+`lib/adgang.ts` ind og giver rødt med teksten *«muren afgør nu noget,
+adgang.ts allerede afgør — to steder»*.
+
+En anden prøve i samme fil vogter den modsatte vej: `lib/kontaktmur.ts`
+må ikke selv nævne `subscriptions`, `drift`, `adgangTil` eller
+`hentBrugerId`. Modprøvet med `m5b`: *«muren er begyndt at afgøre
+selv»*.
+
+### 2.2c · ⚠ NYT FUND: `abonnement-udloebet` kan ikke nås gennem serverlaget
+
+Beslutningens `Grund` i `lib/adgang.ts` er
+
+    'abonnement_kraeves' | 'login_kraeves' | 'ukendt_tilstand'
+
+Der er **ingen** værdi for «udløbet». En udløbet periode falder ud af
+`gt(subscriptions.adgangTil, new Date())`, giver ingen række, og bliver
+til `abonnement_kraeves`.
+
+Brugerfladens tilstand 7 — *«Dit abonnement er udløbet. Genaktivér for
+at se kontaktoplysninger og læse dine beskeder. **Dine samtaler er ikke
+slettet.**»* — kan derfor ikke nås. Kunden får «Kontakt kræver
+abonnement» i stedet, og mister netop den sætning, der fortæller hende,
+at hendes beskeder stadig findes.
+
+Det er **ikke** noget, brugerfladen skal gætte sig til ud fra en dato:
+det ville være en adgangsregel regnet i browseren. Det hører til hos
+Supply — enten som en fjerde `Grund`, eller ved at `Adgangssvar` bærer
+«der var engang en periode, den er udløbet». Indtil da er tilstand 7
+kun nåelig gennem attrappen.
 
 ### 2.3 · `startSamtale(boligId)`
 
@@ -163,7 +218,7 @@ Fundet under gennemgangen af K1/K2/K3 og bevidst holdt uden for den
 runde, fordi opgaven bad om en afgrænset rettelse. De er skrevet ned med
 den konkrete rettelse, så næste runde er billig.
 
-### 6.1 · `hentKontakt` har ingen kanal til at sige «adgangen er lukket» — mellem
+### 6.1 · ~~`hentKontakt` har ingen kanal til at sige «adgangen er lukket»~~ — LØST
 
 Punkt 2.2 gør en adgangskontrol ved hvert `hentKontakt` obligatorisk.
 Men signaturen er `Promise<Kontaktoplysninger>`, så et nej kan kun
@@ -176,10 +231,15 @@ Retningen at fejle i er den sikre — en lukket adgang bliver til en
 neutral fejl og ikke til en betalingsopfordring — men brugeren får
 noget at vide, der ikke er sandt.
 
-**Rettelse:** giv `hentKontakt` samme form som `startSamtale`:
-`{ ok: true; ... } | { ok: false; grund: Laasegrund } | { ok: false; grund: 'fejl' }`.
-Så kan panelet låse på en låsegrund og kun sige «vores fejl», når det
-er vores fejl.
+**Løst — og det var Supply, der havde løst det først.** Deres udgave af
+`app/bolig/[id]/kontakthandling.ts` har `naegtet?: Grund` på svaret:
+præcis den kanal, jeg skrev manglede. Jeg har overtaget deres form i
+stedet for at opfinde en konkurrerende union.
+
+`lib/kontaktmur.ts` svarer nu `udleveret` · `naegtet` · `ukendt-bolig`,
+og `tilLaasegrund` i `app/kontakt-ui/server/handlinger.ts` oversætter
+til brugerfladens låsegrunde. `ukendt_tilstand` bliver til **ingen**
+låsegrund — den neutrale fejl.
 
 ### 6.2 · To svar på «har hun oplyst en mail?» — mellem
 
