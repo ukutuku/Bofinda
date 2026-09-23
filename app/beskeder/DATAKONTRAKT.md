@@ -331,6 +331,64 @@ visning** — den neutrale «vi kunne ikke bekræfte din adgang, prøv
 igen». En lås forklarer, hvad kunden skal gøre for at få adgang. Her
 er der intet, hun kan gøre; fejlen er vores.
 
+### Valget: `Beskedmodul` tager den bredere union — `Laasegrund` udvides IKKE
+
+Supply har overladt valget til os. Svaret er den bredere union, og
+grunden er ikke smag:
+
+**1 · `ukendt-tilstand` er ikke en låsegrund.** En lås siger «du må
+ikke», og den har altid en handling: log ind, køb, genaktivér. Det her
+siger «vi ved det ikke», og der er intet, hun kan gøre. Kalder vi den
+en låsegrund, lyver typenavnet — og det er typenavnet, den næste
+udvikler læser.
+
+**2 · `Laasegrund` er IKKE kun beskedmodulets.**
+`app/kontakt-ui/kontrakt.ts:37-39` importerer og **gen-eksporterer**
+den. Udvider vi unionen her, udvides kontaktrejsens kontrakt i samme
+sekund — og dér er beslutningen allerede truffet den modsatte vej:
+`tilLaasegrund` i `app/kontakt-ui/server/handlinger.ts` oversætter
+`ukendt_tilstand` til **ingen** låsegrund, og
+`scripts/test-kontaktmur.ts` efterprøver netop det. De to flader ville
+komme til at modsige hinanden, og prøven ville fange det som en fejl i
+kontaktrejsen — hvor fejlen slet ikke var.
+
+**3 · Compilerens hjælp forsvinder ikke.** Indvendingen mod den brede
+union er, at `Record<Laasegrund, …>` ellers tvinger hvert sted frem.
+Den holder, hvis modulet tager imod `Adgangstilstand` og **narrower**
+til `Laasegrund` ét sted — så peger compileren stadig på hvert
+`Record`, og det ene sted, der skal håndtere det fjerde ord, er
+synligt.
+
+Formen:
+
+```ts
+// kontrakt.ts — Laasegrund er UÆNDRET
+export type Laasegrund = 'login-kraevet' | 'abonnement-kraevet' | 'abonnement-udloebet'
+
+/** Svaret fra adgangskontrollen. Ikke en låsegrund — en tilstand. */
+export type Adgangstilstand = 'adgang' | Laasegrund | 'ukendt-tilstand'
+```
+
+`Laast` beholder `grund: Laasegrund` og bliver ved med at være
+lås-visningen: én forklaring, ÉN knap. Den neutrale tilstand får sin
+**egen** komponent uden knap.
+
+**Hvorfor ikke bare en fjerde gren inde i `Laast`:** fordi `Laast`s
+hele kontrakt er «forklaring + knap». En tilstand uden knap er ikke en
+lås, og lægger vi den ind, står `href`-udtrykket
+(`grund === 'login-kraevet' ? loginHref : abonnementHref`) stadig én
+linje væk fra den. Den fælde lukkes ved at holde de to visninger
+adskilt, ikke ved at huske på den.
+
+**Teksten er allerede skrevet** — den står på boligsiden i dag,
+`app/bolig/[id]/Kontakt.tsx` på `claude/betaling-og-adgangskontrol`:
+
+> **Vi kan ikke bekræfte din adgang lige nu.**
+> Prøv igen om lidt — det er en fejl hos os, ikke hos dig.
+
+Ingen knap. Den skal genbruges ordret, ikke skrives om: det er samme
+tilstand, og to formuleringer af den ville drive fra hinanden.
+
 **Ikke bygget.** Noteret efter besked, bevidst udskudt. **`/beskeder`
 må ikke gå i luften før den findes** — et kast i låst visning er
 værre end den lås, den skulle erstatte.
