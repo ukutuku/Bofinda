@@ -385,9 +385,28 @@ selv, fordi den læser Stripes svar og ser, at sluttilstanden er nået.
 **Køen giver aldrig op, og den udsulter ikke.** Tilbagetrækningen er
 ingen ventetid på forsøg 1-2, ti minutter fra 3., og loftet er en time
 — men aldrig ud over **fristen minus ti minutter**, så en fornyelse,
-der er nær, altid når et forsøg mere. Udvælgelsen tager **færrest
-forsøg først**: 25 rækker, der bliver ved at fejle, kan ikke holde
-nummer 26 ude, for nummer 26 har færre forsøg end dem alle.
+der er nær, altid når et forsøg mere.
+
+Udvælgelsen sorterer på **fire** nøgler, og rækkefølgen betyder noget:
+
+1. **hasteklassen** — en fornyelse inden for to timer frem eller én time
+   tilbage kommer først. Smal i begge ender med vilje: en evigt forfalden
+   række ville ellers ligge i hasteklassen for altid og udsulte resten.
+2. **færrest forsøg først** — inden for hver klasse, uændret.
+3. `current_period_end` — stabilt tiebreak.
+4. `afstemning_skyldig_at` — stabilt tiebreak.
+
+At sige «færrest forsøg først» alene er derfor for kort: 25 rækker, der
+bliver ved at fejle, kan ikke holde nummer 26 ude **inden for samme
+klasse** — men en hasteklasse-række går foran nummer 26, uanset hvor få
+forsøg hun har. De to egenskaber køber ikke hinanden; det er derfor,
+de står som to led og ikke som ét.
+
+**Og køen forsøger ikke nødvendigvis alle klare rækker i én kørsel.**
+Loftet er `25 × 4` = 100 forsøgte rækker, og er der flere end det,
+venter resten på næste kørsel. Det er ikke en fejl, men det er heller
+ikke en garanti for, at alle bliver forsøgt nu — se «Når køen ikke
+kommer videre» nedenfor, hvor linjen om loftet står.
 
 **Men kun når forsøget bliver bogført**, og det er værd at forstå.
 Forsøgstallet er vores eget, og det skrives i samme sætning som
@@ -463,18 +482,33 @@ Uden 1–3 virker GRATIS uændret; `startKoeb` svarer `stripe_mangler`.
 
 Der er **ét** åbent købsforsøg pr. konto — håndhævet af et delvist
 entydighedsindeks i basen, ikke kun af kode. Møder et nyt tryk et
-eksisterende, slås sessionen op hos Stripe, og der er tre udfald:
+eksisterende, slås sessionen op hos Stripe, og der er fire udfald:
 
 | Stripe siger | Hun får |
 |---|---|
 | sessionen er `open` | **samme** betalingsside igen |
-| sessionen er død (`expired`/`complete`) | rækken lukkes, og der begyndes **forfra** |
+| sessionen er `complete` | «Din betaling er gennemført. … Du skal ikke betale igen.» Reservationen **bevares** og spærrer et nyt køb, til afstemningen er på plads |
+| sessionen er `expired` (eller en anden død status) | rækken lukkes, og der begyndes **forfra** |
 | intet — opslaget fejlede | «du har et køb i gang», og rækken bliver stående |
 
-Det tredje er med vilje forsigtigt: et opslag, der ikke kunne laves, er
-ikke bevis for, at en session er ubetalbar. En reservation, ingen
-færdiggør, ryddes af **tiden** — `udloeber_at`, 35 minutter — ikke af
-det næste tryk.
+**`complete` og `expired` er ikke det samme, og det er med vilje.** En
+udløbet session kan ikke betales, og så er der intet at miste ved at
+lukke rækken. En gennemført kan der være betalt på, og rækken er det
+eneste, der står i vejen for, at kontoen får et køb mere oven i det.
+Derfor sættes den til `gennemfoert` og bliver stående, til afstemningen
+har bogført abonnementet.
+
+**`complete` er ikke i sig selv bevis for, at der ER betalt.** Stripes
+`payment_status` kan stadig være `unpaid`, og det betyder «betalingen
+behandles endnu», ikke «der kom intet». Netop derfor lukker vi ikke
+rækken på det: vi ved ikke nok til at kalde forsøget hverken betalt
+eller dødt. Se `docs/betaling/tilstande.md` om afstemningen, som gør
+det færdigt.
+
+Det sidste udfald er med vilje forsigtigt: et opslag, der ikke kunne
+laves, er ikke bevis for, at en session er ubetalbar. En reservation,
+ingen færdiggør, ryddes af **tiden** — `udloeber_at`, 35 minutter —
+ikke af det næste tryk.
 
 ## Timekørslens betalingstilsyn
 
