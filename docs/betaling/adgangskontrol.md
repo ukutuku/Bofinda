@@ -11,7 +11,7 @@ import { FUNKTION, maaBruge } from '../lib/adgang'
 
 const svar = await maaBruge(FUNKTION.beskeder)
 if (!svar.ok) {
-  // svar.grund: 'login_kraeves' | 'abonnement_kraeves' | 'ukendt_tilstand'
+  // svar.grund: se GRUNDE i lib/adgangsgrunde.ts — fire vaerdier
   // svar.tilstand: 'gratis' | 'betaling'
   return svar
 }
@@ -25,10 +25,61 @@ Reglen for beskeder er **allerede indbygget** i `FUNKTION.beskeder`:
 | GRATIS | login er nok — egne samtaler |
 | BETALING | kræver gyldigt abonnement |
 | opsagt, ikke udløbet | **adgang bevares** perioden ud |
-| udløbet | nægtes — beskederne slettes ikke |
+| udløbet | nægtes med `abonnement_udloebet` — beskederne slettes ikke |
 
 Ved udløb låses læsning og afsendelse. `maaBruge` siger kun *om* der er
 adgang; at beskederne **bevares**, er visningens ansvar at sige.
+
+## `adgang()` — oversætteren til beskedmodulet
+
+`app/beskeder/DATAKONTRAKT.md` §5.1 beder Supply om en funktion, ikke om
+en værdi. Den findes nu:
+
+```ts
+import { adgang } from '../lib/adgang'
+
+const tilstand = await adgang()      // 'adgang' | Laasegrund | 'ukendt-tilstand'
+```
+
+**Skriv aldrig din egen `Grund → Laasegrund`.** Gør man det, er der to
+steder, der afgør hvad brugeren ser — CLAUDE.md's dyreste regel, ét lag
+højere oppe. Oversættelsen er et `Record<Grund, …>`, så en femte grund
+ikke kan tilføjes uden at oversættelsen også bliver skrevet.
+
+**Returtypen er kontraktens union plus ét ord.** Kontrakten blev skrevet
+uden kendskab til `ukendt_tilstand`, og ingen af de tre låsegrunde kan
+udtrykke den: «log ind» er forkert over for en, der *er* logget ind, og
+«køb et abonnement» sender et menneske til kassen på grund af vores egen
+fejl. Derfor `'ukendt-tilstand'`.
+
+> ⚠ **Åben ende.** `Laast.tsx` mangler en tekst for `'ukendt-tilstand'`,
+> før `/beskeder` kan gå i luften. Den står her i stedet for at blive
+> lukket med en usandhed.
+
+## Hvordan «udløbet» skelnes fra «aldrig haft»
+
+Målt på `subscriptions.adgang_til`, **ikke** på om der findes en række:
+en række i `incomplete`, hvor betalingen aldrig gik igennem, har
+`adgang_til = null` og er altså «har aldrig haft».
+
+`slaaAdgangOp` spørger derfor `where adgang_til is not null` og
+sammenligner med `now()` i JS. Rækken med `MAX(adgang_til)` svarer på
+begge spørgsmål på én gang — er den i fremtiden, er der adgang; er den i
+fortiden, er den præcis den dato, adgangen løb ud. Stadig ét opslag og
+ét udtryk for «har hun adgang».
+
+**`isNotNull` er ikke et overflødigt filter.** `order by … desc` er
+NULLS FIRST i Postgres, så en række uden betaling ville vinde over den
+udløbne — og svaret blive «har aldrig haft» om en kunde, der *har* haft.
+Kombinationen opstår af sig selv: `lib/webhook.ts` indsætter
+`status = 'incomplete'` uden `adgang_til`, og 0023's delvise indeks
+tillader «én levende plus vilkårligt mange afsluttede». Afsnit 8b i
+`scripts/test-betaling.ts` har en prøve, der kun måler det.
+
+**Udløbsdatoen bæres ikke ud i visningen.** Vi kender den, men intet
+kaldested viser den, og et felt, ingen runtime-kode læser, er præcis den
+form, CLAUDE.md's første «må aldrig ske» handler om. Tilføjes den, skal
+formateringen afgøres først: serveren kører UTC på Vercel.
 
 ## Fire regler
 
@@ -51,14 +102,49 @@ Tilføj navnet til `FUNKTION` i `lib/adgang.ts` og giv den en regel i
 `maaBruge`. Sættet er lukket med vilje: en funktion, der ikke står der,
 kan ikke spørge.
 
-`scripts/test-betaling.ts` afsnit 9 læser kildeteksten på hvert
-kaldested og fejler, hvis vagten forsvinder. Tilføj dit kaldested der.
+`scripts/test-betaling.ts` afsnit 9 **kører** hvert kaldested og måler
+det på SQL-båndet (`scripts/sqlbaand.ts`). Tilføj dit kaldested der.
 
-Kildelæsningen er en **supplerende** kontrol, ikke prøven. Den kan ikke
-se, om vagten faktisk fyrer — kun at den står der. Købsvejens egen
-kontrol i samme afsnit kalder derfor `startKoebFor()` og måler, at
-GRATIS-afvisningen sker **før** noget eksternt kald. Skriv din prøve
-sådan, hvis du kan.
+> Her stod før, at afsnit 9 *læser kildeteksten*. Det gjorde den, og den
+> prøve blev fjernet i `ceb159c`: påstanden var sand af to grunde, der
+> begge var uafhængige af, hvor vagten stod, så den ville passere en
+> vagt flyttet om **bag** det beskyttede opslag. Dokumentet stod tilbage
+> og pegede på en prøve, der ikke fandtes.
+
+Skriv prøven som de andre i afsnittet: kald indgangen, og mål på båndet,
+at ingen sætning rører de beskyttede felter, når adgangen er nægtet — og
+at den **gør det** på den tilladte vej, så måleren har bevist, at den
+slår ud. En prøve, der kun læser kildetekst, kan ikke se, om vagten
+faktisk fyrer.
+
+## Noteret, ikke gjort
+
+Fundet under arbejdet med `abonnement_udloebet`. Hver af dem er et
+selvstændigt stykke arbejde, og ingen af dem blev lavet i den omgang.
+
+1. **`/min-side` siger «adgangen fortsætter indtil da» om en udløbet
+   række.** `app/min-side/Abonnement.tsx` viser linjen, når
+   `fornyesIkke && adgangTil` — og `fornyesIkke` er sand for en terminal
+   status, mens `adgangTil` på en udløbet række er en fortidig dato og
+   dermed truthy. Kunden, hvis periode løb ud i går, får at vide, at
+   adgangen fortsætter. Efter denne ændring siger to andre steder
+   samtidig, at abonnementet er udløbet.
+2. **`checkout_started` bærer ikke grunden.** `app/abonnement/handlinger.ts`
+   sender `{ funktion: 'kontakt', tilstand: 'betaling' }` — hårdkodet,
+   uden `grund`, uanset hvor kunden kom fra. Allowlisten kan bære den nye
+   værdi, men ingen afsender fylder feltet, så genaktiveringstragten er
+   ikke målbar endnu.
+3. **`?grund=` må aldrig læses som en kendsgerning.** `/go/[id]` lægger
+   den i adressen til `/abonnement`, og siden læser den ikke i dag.
+   Begynder den at gøre det, kan enhver sende et link, der påstår noget
+   om en fremmeds betalingshistorik. Udled det af basen, ikke af URL'en.
+4. **Fem udtryk for «har hun (haft) adgang».** `slaaAdgangOp`,
+   `abonnementForBruger` (som vælger en anden række: levende først,
+   ellers nyeste efter `oprettet_at`), `app/abonnement/page.tsx`,
+   `app/abonnement/kvittering/page.tsx` — og `gaeldendeTilbud()`, der
+   udleder «har hun betalt før» af `users.intro_brugt_at` på selvsamme
+   side. De er korrekte hver for sig i dag. Det er netop mønstret fra
+   CLAUDE.md-tabellen.
 
 ---
 

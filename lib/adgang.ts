@@ -35,10 +35,19 @@
 //  egen fejl ville vaere den samme loegn som et gaettet aconto-beloeb.
 // ═══════════════════════════════════════════════════════════════
 
-import { and, desc, eq, gt } from 'drizzle-orm'
+import { and, desc, eq, isNotNull } from 'drizzle-orm'
 import { db } from '../db/client'
 import { drift, subscriptions } from '../db/schema'
+import { GRUNDE, type Grund } from './adgangsgrunde'
 import { hentBrugerId } from './auth'
+// TYPE-import, og kun type. `app/beskeder/kontrakt.ts` er en REN fil —
+// ingen database, ingen React, ingen next/headers — og `import type`
+// slettes ved oversættelsen, så workeren i tsx aldrig ser den. Retningen
+// lib → app er ny i repoet og er et bevidst valg: kontrakten er
+// brugerfladens, og det er Supply, der skal opfylde den. Bandt vi os til
+// vores EGEN kopi af ordene i stedet, ville der være to lister over,
+// hvad brugerfladen kan vise — og de ville drive fra hinanden.
+import type { Laasegrund } from '../app/beskeder/kontrakt'
 
 export type Tilstand = 'gratis' | 'betaling'
 
@@ -56,11 +65,11 @@ export const FUNKTION = {
 } as const
 export type Funktion = typeof FUNKTION[keyof typeof FUNKTION]
 
-/** Hvorfor adgangen blev naegtet. Visningen vaelger tekst ud fra den. */
-export type Grund =
-  | 'abonnement_kraeves'   // BETALING, ingen gyldig adgang → vis koeb
-  | 'login_kraeves'        // funktionen kraever en konto
-  | 'ukendt_tilstand'      // vi kunne ikke laese tilstanden → vores fejl
+// Grundene bor i lib/adgangsgrunde.ts, som IKKE importerer databasen —
+// lib/maaling.ts skal kunne laese dem. De genudsendes her, saa
+// kaldestederne kun behoever at kende ét modul.
+export { GRUNDE }
+export type { Grund }
 
 export type Adgangssvar =
   | { ok: true; tilstand: Tilstand; adgangTil: Date | null }
@@ -99,36 +108,101 @@ export async function hentTilstand(): Promise<Tilstand | null> {
  */
 export async function harBetaltAdgang(brugerId: string): Promise<Date | null> {
   const svar = await adgangEller(brugerId)
-  return svar === 'fejl' ? null : svar
+  return svar.slags === 'adgang' ? svar.til : null
 }
 
 /**
+ * Hvad basen ved om hendes betalte perioder.
+ *
+ * FIRE udfald, fordi «aldrig», «udloebet» og «vi kunne ikke laese det»
+ * er tre forskellige sandheder. Kun den foerste maa sende nogen til
+ * kassen som foerstegangskoeber; kun den sidste er vores egen fejl.
+ */
+type Adgangsopslag =
+  | { slags: 'adgang'; til: Date }
+  | { slags: 'udloebet'; sidst: Date }
+  | { slags: 'aldrig' }
+  | { slags: 'fejl' }
+
+/**
  * Som `harBetaltAdgang`, men skelner «ingen adgang» fra «vi kunne ikke
- * finde ud af det».
+ * finde ud af det» — og «aldrig haft» fra «udloebet».
  *
  * Forskellen er ikke teknisk pedanteri: «ingen adgang» sender et
  * menneske til kassen, «vi kunne ikke finde ud af det» siger undskyld.
  * Blandes de to, opkraever vi nogen for vores egen databasefejl.
  */
-async function adgangEller(brugerId: string): Promise<Date | null | 'fejl'> {
+async function adgangEller(brugerId: string): Promise<Adgangsopslag> {
   try {
-    return await slaaAdgangOp(brugerId)
+    return await slaaAdgangOp(brugerId, new Date())
   } catch {
-    return 'fejl'
+    return { slags: 'fejl' }
   }
 }
 
-async function slaaAdgangOp(brugerId: string): Promise<Date | null> {
+/**
+ * ÉT opslag. ÉN sammenligning. ÉT `nu`.
+ *
+ * ═══ HVORFOR now() ER FLYTTET UD AF SQL'EN ═══
+ *
+ * Foer stod `gt(adgangTil, new Date())` i `where`, og saa faldt en
+ * UDLOEBET raekke ud af svaret praecis som ingen raekke. De to er ikke
+ * det samme, og brugeren skal kunne se forskellen — men forespoergslen
+ * kunne ikke udtrykke den.
+ *
+ * Nu spoerger `where` om noget andet: «findes der en betalt periode
+ * overhovedet». Raekken med MAX(adgang_til) svarer saa paa BEGGE
+ * spoergsmaal paa én gang — er den i fremtiden, er der adgang, og er
+ * den i fortiden, er den praecis den dato, adgangen loeb ud.
+ *
+ * Det er stadig ÉT udtryk for «har hun adgang»; det er bare flyttet fra
+ * SQL til JS. To forespoergsler — «findes en levende?» plus «findes en
+ * udloebet?» — ville vaere to `new Date()` paa hver sin klokke og
+ * dermed et nyt par udtryk for det samme spoergsmaal. Klokken skifter
+ * ikke: `gt()` bandt allerede JS' `Date` som parameter.
+ *
+ * ═══ HVORFOR isNotNull, OG IKKE «nulls last» ═══
+ *
+ * `order by … desc` er NULLS FIRST i Postgres. En raekke med
+ * `adgang_til = null` ville derfor vinde over hver eneste udloebet
+ * raekke — og svaret ville blive «har aldrig haft» om en kunde, der HAR
+ * haft. Maalt i PGlite, ikke formodet.
+ *
+ * Og kombinationen er ikke konstrueret: `lib/webhook.ts` indsaetter
+ * rutinemaessigt `status = 'incomplete'` uden `adgang_til`, og migration
+ * 0023's DELVISE indeks tillader netop «én levende plus vilkaarligt
+ * mange afsluttede». Det er altsaa den kunde, der lige er begyndt et
+ * nyt koeb — praecis hende, der skulle se «Genaktivér».
+ *
+ * Filteret ligger i `where` og ikke som et sorteringstillaeg: et
+ * tillaeg kan forsvinde i en oprydning, uden at forespoergslen holder
+ * op med at virke, og drizzle 0.38 har ingen `nullsLast()` paa `desc()`
+ * — det skulle skrives som raa `sql` og miste bindingen til kolonnen.
+ *
+ * `sub_adgang_idx (user_id, adgang_til)` fra 0022 passer uaendret:
+ * lighed paa `user_id`, baglaens scan efter den stoerste. Ingen ny
+ * migration, samme antal forespoergsler som foer — én.
+ */
+async function slaaAdgangOp(brugerId: string, nu: Date): Promise<Adgangsopslag> {
   const [r] = await db
     .select({ til: subscriptions.adgangTil })
     .from(subscriptions)
     .where(and(
       eq(subscriptions.userId, brugerId),
-      gt(subscriptions.adgangTil, new Date()),
+      // «Har hun NOGENSINDE betalt?» — ikke «har hun adgang NU».
+      // `adgang_til` skrives ét sted: den monotone skrivning i
+      // `invoice.paid`. Er den sat, ER der kommet penge.
+      isNotNull(subscriptions.adgangTil),
     ))
     .orderBy(desc(subscriptions.adgangTil))
     .limit(1)
-  return r?.til ?? null
+
+  if (!r?.til) return { slags: 'aldrig' }
+  // DEN ENESTE sammenligning. Stod den baade her og i `where`, var vi
+  // tilbage ved to udtryk for det samme spoergsmaal.
+  return r.til > nu
+    ? { slags: 'adgang', til: r.til }
+    : { slags: 'udloebet', sidst: r.til }
 }
 
 /**
@@ -164,17 +238,76 @@ export async function maaBruge(
   const id = brugerId ?? await hentBrugerId()
   if (!id) return { ok: false, tilstand, grund: 'login_kraeves', adgangTil: null }
 
-  const til = await adgangEller(id)
+  const opslag = await adgangEller(id)
   // Kunne opslaget ikke laves, er det VORES fejl — ikke en manglende
   // betaling. Fail-closed gaelder begge led: baade tilstanden og
   // abonnementet naegter ved fejl, men de siger hver sin sandhed om
   // hvorfor.
-  if (til === 'fejl') {
+  if (opslag.slags === 'fejl') {
     return { ok: false, tilstand, grund: 'ukendt_tilstand', adgangTil: null }
   }
-  return til
-    ? { ok: true, tilstand, adgangTil: til }
-    : { ok: false, tilstand, grund: 'abonnement_kraeves', adgangTil: null }
+  if (opslag.slags === 'adgang') {
+    return { ok: true, tilstand, adgangTil: opslag.til }
+  }
+  // DATOEN BAERES IKKE MED UD. Vi kender den (`opslag.sidst`), men intet
+  // kaldested viser den endnu, og et felt, ingen runtime-kode laeser, er
+  // praecis den form, CLAUDE.md's foerste «maa aldrig ske» handler om.
+  // Den tilfoejes den dag, et kaldested skal vise den — og saa skal
+  // formateringen afgoeres foerst: serveren koerer UTC paa Vercel, og
+  // `toLocaleString('da-DK')` paa et udloeb kl. 00.30 dansk tid skriver
+  // den forrige dato.
+  return {
+    ok: false,
+    tilstand,
+    adgangTil: null,
+    grund: opslag.slags === 'udloebet' ? 'abonnement_udloebet' : 'abonnement_kraeves',
+  }
+}
+
+/**
+ * Adgangstilstanden, oversat til beskedmodulets eget ord.
+ *
+ * ═══ HVORFOR OVERSAETTELSEN LIGGER HER ═══
+ *
+ * `app/beskeder/DATAKONTRAKT.md` §5.1 beder Supply om netop den her
+ * funktion — ikke om en vaerdi. Grunden staar i kontrakten selv:
+ * «Ingen komponent regner en adgangsregel.» Byggede vi kun den fjerde
+ * grund, ville beskedlagets serverside selv skulle skrive
+ * `Grund → Laasegrund`, og saa var der to steder, der afgjorde, hvad
+ * brugeren ser. Det er CLAUDE.md's dyreste regel, ét lag hoejere oppe.
+ *
+ * `Record<Grund, …>` og ikke en `switch`: en femte grund kan saa ikke
+ * tilfoejes uden at oversaettelsen ogsaa bliver skrevet. Oversaetteren
+ * fejler ved oversaettelsen, ikke i en gren, nogen maaske ikke naar.
+ *
+ * ═══ DEN FEMTE VAERDI, KONTRAKTEN IKKE KENDTE ═══
+ *
+ * Kontrakten skriver `Promise<'adgang' | Laasegrund>`. Den blev skrevet
+ * uden kendskab til `ukendt_tilstand`, og de tre laasegrunde kan ikke
+ * udtrykke den: «log ind» er forkert over for en, der ER logget ind, og
+ * «koeb et abonnement» sender et menneske til kassen paa grund af vores
+ * egen fejl — praecis det, `maaBruge` findes for at undgaa. Derfor er
+ * returtypen kontraktens union PLUS ét ord.
+ *
+ * Brugerfladen mangler dermed én tekst i `Laast.tsx`, foer `/beskeder`
+ * kan gaa i luften. Det er en aaben ende, og den staar her i stedet for
+ * at blive lukket med en usandhed.
+ */
+export type Beskedadgang = 'adgang' | Laasegrund | 'ukendt-tilstand'
+
+const TIL_LAASEGRUND: Record<Grund, Exclude<Beskedadgang, 'adgang'>> = {
+  login_kraeves: 'login-kraevet',
+  abonnement_kraeves: 'abonnement-kraevet',
+  abonnement_udloebet: 'abonnement-udloebet',
+  // VORES fejl. Aldrig en af de to abonnementsvaerdier: begge ville
+  // stille et menneske over for en betaling, fordi vi ikke kunne laese
+  // vores egen base.
+  ukendt_tilstand: 'ukendt-tilstand',
+}
+
+export async function adgang(brugerId?: string | null): Promise<Beskedadgang> {
+  const svar = await maaBruge(FUNKTION.beskeder, brugerId)
+  return svar.ok ? 'adgang' : TIL_LAASEGRUND[svar.grund]
 }
 
 /**

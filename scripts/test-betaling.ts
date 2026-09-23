@@ -18,7 +18,10 @@ import { randomUUID } from 'node:crypto'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { drift, listings, sources, subscriptions, users } from '../db/schema'
-import { FUNKTION, harBetaltAdgang, hentTilstand, maaBruge } from '../lib/adgang'
+import {
+  FUNKTION, GRUNDE, adgang, harBetaltAdgang, hentTilstand, maaBruge,
+} from '../lib/adgang'
+import { rens, type Haendelse as Maalehaendelse, type Kontekst } from '../lib/maaling'
 import { levendeAbonnementer, saetTilstand } from '../lib/driftskift'
 import { behandl, periode, type Haendelse } from '../lib/webhook'
 import { faser, indsaetStripe, INTRO_OERE, NORMAL_OERE, opsaetning } from '../lib/stripe'
@@ -309,6 +312,126 @@ async function koer() {
     !ukendt.ok && ukendt.grund !== 'abonnement_kraeves',
     'det ville sende et menneske til kassen paa grund af vores fejl')
   await db.insert(drift).values({ id: true, tilstand: 'gratis' })
+
+  // ═══ 8b · UDLOEBET ER IKKE «HAR ALDRIG HAFT» ═════════════════
+  // Frontends fund 2.2c: en udloebet periode faldt ud af
+  // `gt(adgangTil, now)` og gav ingen raekke — altsaa samme svar som
+  // en bruger, der aldrig har haft et abonnement. Tilstand 7 mistede
+  // dermed saetningen «Dine samtaler er ikke slettet».
+  //
+  // Seks brugere, seks situationer. Uden skellet svarer fem af dem det
+  // samme.
+  console.log('\n══ 8b · Udloebet er ikke «har aldrig haft» ══')
+  {
+    await saetDrift('betaling')
+    const sub = (u: string, s: 'canceled' | 'incomplete' | 'active', til: Date | null) =>
+      db.insert(subscriptions).values({
+        userId: u, stripeSubscriptionId: `sub_${randomUUID()}`, status: s, adgangTil: til,
+      })
+
+    const A = await nyBruger('grund-a')
+    const B = await nyBruger('grund-b'); await sub(B, 'canceled', iGaar())
+    const C = await nyBruger('grund-c'); await sub(C, 'incomplete', null)
+    // D er FAELDEN: en udloebet raekke OG en nyere, hvor betalingen
+    // aldrig gik igennem. Se nedenfor.
+    const D = await nyBruger('grund-d')
+    await sub(D, 'canceled', iGaar()); await sub(D, 'incomplete', null)
+    const E = await nyBruger('grund-e')
+    await sub(E, 'canceled', iGaar()); await sub(E, 'active', iMorgen())
+    const F = await nyBruger('grund-f'); await sub(F, 'active', iMorgen())
+
+    const svar = async (u: string) => {
+      const s = await maaBruge(FUNKTION.kontakt, u)
+      return s.ok ? 'ok' : s.grund
+    }
+    const sager: [string, string, string][] = [
+      [A, 'abonnement_kraeves', 'A · har aldrig haft et'],
+      [B, 'abonnement_udloebet', 'B · har haft et, det er udloebet'],
+      [C, 'abonnement_kraeves', 'C · en raekke, men aldrig betalt'],
+      [D, 'abonnement_udloebet', 'D · udloebet PLUS et nyt mislykket koeb'],
+      [E, 'ok', 'E · udloebet PLUS en ny levende'],
+      [F, 'ok', 'F · kun levende'],
+    ]
+    for (const [u, vent, navn] of sager) {
+      const fik = await svar(u)
+      tjek(navn, fik === vent, `fik ${fik}, ventede ${vent}`)
+    }
+
+    // ── DEN NAVNGIVNE isNotNull-PROEVE ────────────────────────
+    // Uden `isNotNull(adgangTil)` i `slaaAdgangOp` svarer D
+    // «abonnement_kraeves». Ikke fordi filteret er en smagssag, men
+    // fordi `order by … desc` er NULLS FIRST i Postgres: raekken uden
+    // betaling vinder over den udloebne, og svaret bliver «har aldrig
+    // haft» om en kunde, der HAR haft.
+    //
+    // Kombinationen er ikke konstrueret. `lib/webhook.ts` indsaetter
+    // `status = 'incomplete'` uden `adgang_til`, og 0023's DELVISE
+    // indeks tillader «én levende plus vilkaarligt mange afsluttede».
+    // Det er altsaa den kunde, der lige er begyndt et nyt koeb.
+    //
+    // Proeven staar for sig selv, fordi linjen ellers forsvinder ved
+    // naeste oprydning: den ser ud som et overfloedigt filter.
+    tjek('isNotNull: en udloebet raekke slaar en ubetalt, uanset raekkefoelgen',
+      await svar(D) === 'abonnement_udloebet',
+      'uden filteret vinder NULL i «order by adgang_til desc» (NULLS FIRST)')
+    const [raekkerneForD] = await db.select({ n: sql<number>`count(*)::int` })
+      .from(subscriptions).where(eq(subscriptions.userId, D))
+    tjek('  og praemissen holder: D HAR begge raekker',
+      raekkerneForD?.n === 2, `${raekkerneForD?.n} raekker`)
+
+    // ── OVERSAETTEREN, som DATAKONTRAKT.md §5.1 beder om ──────
+    // Bygges den ikke, skriver beskedlagets serverside selv
+    // `Grund → Laasegrund`, og saa er der to steder, der afgoer hvad
+    // brugeren ser.
+    const oversat: [string, string, string][] = [
+      [A, 'abonnement-kraevet', 'aldrig haft → «Beskeder kraever abonnement»'],
+      [B, 'abonnement-udloebet', 'udloebet → «Dit abonnement er udloebet»'],
+      [D, 'abonnement-udloebet', 'udloebet bag et mislykket koeb → stadig udloebet'],
+      [F, 'adgang', 'levende → adgang'],
+    ]
+    for (const [u, vent, navn] of oversat) {
+      const fik = await adgang(u)
+      tjek(`adgang(): ${navn}`, fik === vent, `fik ${fik}`)
+    }
+
+    // Gratis tilstand: beskeder kraever stadig login, og en bruger MED
+    // konto faar adgang uanset abonnement.
+    await saetDrift('gratis')
+    tjek('adgang(): i gratis tilstand er en konto nok',
+      await adgang(A) === 'adgang')
+    tjek('adgang(): uden konto er det login, ikke abonnement',
+      await adgang(null) === 'login-kraevet')
+
+    // ── VORES EGEN FEJL BLIVER ALDRIG EN BETALINGSOPFORDRING ──
+    await db.delete(drift)
+    const fejlsvar = await adgang(B)
+    tjek('adgang(): uden driftstilstand svares der «ukendt-tilstand»',
+      fejlsvar === 'ukendt-tilstand', String(fejlsvar))
+    tjek('  og ALDRIG en abonnementsvaerdi',
+      fejlsvar !== 'abonnement-kraevet' && fejlsvar !== 'abonnement-udloebet',
+      'det ville stille et menneske over for en betaling paa grund af VORES fejl')
+    await db.insert(drift).values({ id: true, tilstand: 'gratis' })
+
+    // ── ALLOWLISTEN ER SAMME VAERDI, IKKE EN AFSKRIFT ─────────
+    // `af: GRUNDE` i lib/maaling.ts. Proeven loeber HELE arrayet, saa
+    // en femte grund er daekket uden at nogen skal huske en linje her.
+    // Uden den ville `rens()` afvise eventet om den nye grund, og
+    // muren ville holde op med at taelle netop den gruppe — tavst.
+    const kontekst: Kontekst = {
+      miljoe: 'proeve', anonymousId: randomUUID(), sessionId: randomUUID(),
+      userId: null, researchSessionId: null, rute: '/bolig/[id]',
+    }
+    for (const g of GRUNDE) {
+      const h = {
+        navn: 'paywall_blocked',
+        props: { funktion: 'kontakt', grund: g, tilstand: 'betaling' },
+      } as unknown as Maalehaendelse
+      const r = rens(h, kontekst)
+      tjek(`maalingen kan baere grunden «${g}»`, r.ok,
+        r.ok ? '' : `${r.fejl.grund} (${r.fejl.detalje})`)
+    }
+    await saetDrift('gratis')
+  }
 
   // ═══ 9 · KALDESTEDERNE SPOERGER FAKTISK ══════════════════════
   // Afsnit 1-8 proever REGLEN. De ville alle vaere groenne, selv om

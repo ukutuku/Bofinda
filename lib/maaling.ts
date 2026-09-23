@@ -16,6 +16,8 @@
 
 // ─── Miljø ─────────────────────────────────────────────────────
 
+import { GRUNDE, type Grund } from './adgangsgrunde'
+
 export const MILJOEER = ['produktion', 'preview', 'udvikling', 'proeve'] as const
 export type Miljoe = (typeof MILJOEER)[number]
 
@@ -290,7 +292,12 @@ export interface KontaktklikProps { maal: 'mail' | 'telefon' }
 /** Muren stoppede nogen, eller nogen begyndte et koeb. */
 export interface MurProps {
   funktion: 'kontakt' | 'kildelink' | 'beskeder'
-  grund?: 'abonnement_kraeves' | 'login_kraeves' | 'ukendt_tilstand'
+  /**
+   * AFLEDT af lib/adgangsgrunde.ts, ikke skrevet af. En femte grund
+   * kan derfor ikke tilfoejes i muren uden at eventet ogsaa kan baere
+   * den — og allowlisten nedenfor bruger SAMME array.
+   */
+  grund?: Grund
   tilstand: 'gratis' | 'betaling'
 }
 /** Et abonnement skiftede tilstand. ALDRIG beloeb eller Stripe-id'er. */
@@ -455,12 +462,12 @@ export const ALLOWLIST: Record<Eventnavn, Record<string, Spec>> = {
   },
   paywall_blocked: {
     funktion: { slags: 'tekst', kraevet: true, af: ['kontakt', 'kildelink', 'beskeder'] },
-    grund: { slags: 'tekst', af: ['abonnement_kraeves', 'login_kraeves', 'ukendt_tilstand'] },
+    grund: { slags: 'tekst', af: GRUNDE },
     tilstand: { slags: 'tekst', kraevet: true, af: ['gratis', 'betaling'] },
   },
   checkout_started: {
     funktion: { slags: 'tekst', kraevet: true, af: ['kontakt', 'kildelink', 'beskeder'] },
-    grund: { slags: 'tekst', af: ['abonnement_kraeves', 'login_kraeves', 'ukendt_tilstand'] },
+    grund: { slags: 'tekst', af: GRUNDE },
     tilstand: { slags: 'tekst', kraevet: true, af: ['gratis', 'betaling'] },
   },
   subscription_activated: {

@@ -93,64 +93,82 @@ export function Kontakt({ id, harMail, harTelefon }: {
  * kan naa at trykke, foer man har set det hele.
  *
  * Boksen viser ALDRIG en koebsknap af sig selv: den vises kun, naar
- * serveren har svaret `abonnement_kraeves`, og det svar kan kun komme
- * i BETALING-tilstand.
+ * serveren har naegtet adgangen, og en betalingsgrund kan kun komme i
+ * BETALING-tilstand.
+ *
+ * ═══ EN TABEL, IKKE EN KAEDE MED EN CATCH-ALL ═══
+ *
+ * Her stod foer to `if` og et sidste `return`. Det sidste return var en
+ * TAVS fælde: en ny grund faldt igennem til teksten «Fra 9 kr.», og
+ * oversaetteren sagde ingenting. Netop `abonnement_udloebet` er den
+ * grund, hvor tallet er FORKERT — `users.intro_brugt_at` er sat paa en
+ * vendende kunde, saa `gaeldendeTilbud()` giver 'normal', og hun skal
+ * betale 349. Et forkert tal om kundens penge er vaerre end intet tal,
+ * og den fejl er rettet i den her fil én gang foer.
+ *
+ * `Record<Grund, …>` lukker vejen: en femte grund kan ikke tilfoejes
+ * uden en tekst, for saa oversaetter filen ikke.
  */
+interface Murtekst {
+  tekst: string
+  /** Den lille note under teksten. Udelades, naar vi intet kan love. */
+  note?: string
+  knap?: string
+  /** Giver den groenne betalingsramme. Kun naar det ER et koeb. */
+  betaling?: true
+}
+
+const MURTEKST: Record<NonNullable<Oplysninger['naegtet']>, Murtekst> = {
+  // VORES fejl. Send hende ikke til kassen for noget, vi selv har
+  // braekket — og lov ikke, at det virker om et oejeblik.
+  ukendt_tilstand: {
+    tekst: 'Vi kan ikke bekræfte din adgang lige nu. Prøv igen om lidt — '
+      + 'det er en fejl hos os, ikke hos dig.',
+  },
+  login_kraeves: {
+    tekst: 'Log ind for at se kontaktoplysningerne.',
+    knap: 'Log ind',
+  },
+  // Selve priserne staar paa /abonnement, hvor kontoens EGET tilbud er
+  // slaaet op. Boksen viste foer introprisen til alle — ogsaa til konti,
+  // der havde brugt den.
+  abonnement_kraeves: {
+    tekst: 'Kontaktoplysningerne er en del af abonnementet.',
+    note: 'Fra 9 kr. Abonnementet fornyes automatisk, indtil du siger op; '
+      + 'adgangen løber perioden ud. Priserne står samlet på næste side, '
+      + 'før du betaler.',
+    knap: 'Se abonnementet',
+    betaling: true,
+  },
+  // INGEN «fra 9 kr.» her. Introtilbuddet er brugt, og hendes pris er
+  // normalprisen. Vi siger hvad hun skal gøre, og lader tallet staa dér,
+  // hvor hendes eget tilbud er slaaet op.
+  abonnement_udloebet: {
+    tekst: 'Dit abonnement er udløbet. Genaktivér for at se '
+      + 'kontaktoplysningerne igen.',
+    note: 'Prisen står på næste side, før du betaler.',
+    knap: 'Genaktivér',
+    betaling: true,
+  },
+}
+
 function Betalingsboks({ grund, id }: {
   grund: NonNullable<Oplysninger['naegtet']>
   id: string
 }) {
-  const retur = `/bolig/${id}`
-
-  if (grund === 'ukendt_tilstand') {
-    // VORES fejl. Send hende ikke til kassen for noget, vi selv har
-    // brækket — og lov ikke, at det virker om et oejeblik.
-    return (
-      <div className="kontaktboks">
-        <strong>Kontakt udlejeren</strong>
-        <span>
-          Vi kan ikke bekræfte din adgang lige nu. Prøv igen om lidt —
-          det er en fejl hos os, ikke hos dig.
-        </span>
-      </div>
-    )
-  }
-
-  if (grund === 'login_kraeves') {
-    return (
-      <div className="kontaktboks">
-        <strong>Kontakt udlejeren</strong>
-        <span>Log ind for at se kontaktoplysningerne.</span>
-        {/* Gennem /abonnement, ikke /min-side. Min side laeser ingen
-            `retur`-parameter, saa vejen tilbage til boligen ville gaa
-            tabt i loginnet — og kunden lande et andet sted end det,
-            hun kom fra. /abonnement baerer den hele vejen. */}
-        <a className="knap" href={`/abonnement?retur=${encodeURIComponent(retur)}`}>
-          Log ind
-        </a>
-      </div>
-    )
-  }
+  const t = MURTEKST[grund]
+  // Gennem /abonnement, ikke /min-side. Min side laeser ingen
+  // `retur`-parameter, saa vejen tilbage til boligen ville gaa tabt i
+  // loginnet — og kunden lande et andet sted end det, hun kom fra.
+  // /abonnement baerer den hele vejen og skelner selv.
+  const maal = `/abonnement?retur=${encodeURIComponent(`/bolig/${id}`)}`
 
   return (
-    <div className="kontaktboks kontaktboks-betaling">
+    <div className={`kontaktboks${t.betaling ? ' kontaktboks-betaling' : ''}`}>
       <strong>Kontakt udlejeren</strong>
-      <span>
-        Kontaktoplysningerne er en del af abonnementet.
-      </span>
-      {/* Selve priserne staar paa /abonnement, hvor kontoens EGET
-          tilbud er slaaet op. Boksen her viste foer introprisen til
-          alle — ogsaa til konti, der havde brugt den, og som
-          `startKoeb()` ville tage normalprisen fra. Et forkert tal om
-          kundens penge er vaerre end intet tal. */}
-      <span className="kontaktnote">
-        Fra 9 kr. Abonnementet fornyes automatisk, indtil du siger op;
-        adgangen løber perioden ud. Priserne står samlet på næste side,
-        før du betaler.
-      </span>
-      <a className="knap" href={`/abonnement?retur=${encodeURIComponent(retur)}`}>
-        Se abonnementet
-      </a>
+      <span>{t.tekst}</span>
+      {t.note && <span className="kontaktnote">{t.note}</span>}
+      {t.knap && <a className="knap" href={maal}>{t.knap}</a>}
     </div>
   )
 }
