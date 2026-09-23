@@ -1,0 +1,224 @@
+  testbase: PGlite, 21 migrationer, ingen forbindelse ud af processen
+
+
+── Søgningens korrekthed ─────────────────────────────
+
+══ 1 · matchende boliger efter de 48 første kandidater ══
+  ✓ 1 · resultatet er IKKE falsk tomt  — 6 kort
+  ✓ 1 · matchende kort stemmer med facit  — 6 = 6
+  ✓ 1 · matchende boliger stemmer med facit  — 6 = 6
+  ✓ 1 · alle 6 matchende er med — ingen tabt bag de 60 første
+  ✓ 1 · og de viste kort er netop de matchende
+
+══ 2 · flere end 48 matchende kort ══
+  ✓ 2 · visningsgrænsen holder
+  ✓ 2 · totalen tæller hele det matchende sæt  — 55
+  ✓ 2 · matchende boliger stemmer
+  ✓ 2 · de tre tal er forskellige og bruges ikke som ét
+  ✓ 2 · komplet er sand — loftet blev ikke ramt
+
+══ 3 · gruppe med både matchende og ikke-matchende ══
+  ✓ 3 · den blandede gruppe vises som ÉT kort
+  ✓ 3 · kortet er et gruppekort
+  ✓ 3 · antal er HELE gruppen, ikke kun de matchende  — 5
+  ✓ 3 · availability-tællingerne går op med antal  — nu=2 senere=3
+  ✓ 3 · og de viser den rigtige fordeling
+  ✓ 3 · prisspændet dækker hele gruppen — samme sæt som antal  — 1000000–2002000
+  ✓ 3 · matchende BOLIGER er 2, ikke 5 — kortet er ikke boligtallet  — 2
+  ✓ 3 · og boliger dækket af de viste kort er 5
+
+══ 4 · ingen boliger matcher ══
+  ✓ 4 · nulresultat
+  ✓ 4 · nuloptælling — overskriften siger ikke 66  — 0
+  ✓ 4 · og de øvrige tal er også nul
+
+══ 5 · venteliste og reserveret ══
+  ✓ 5 · venteliste: kort stemmer med facit  — 1 = 1
+  ✓ 5 · venteliste: boliger stemmer med facit  — 1 = 1
+  ✓ 5 · reserveret: kort stemmer med facit  — 1 = 1
+  ✓ 5 · reserveret: boliger stemmer med facit  — 1 = 1
+  ✓ 5 · overtagelse=senere: kort stemmer med facit  — 1 = 1
+  ✓ 5 · overtagelse=senere: boliger stemmer med facit  — 3 = 3
+
+══ 6 · kombinationer af sted, pris, værelser og domæne ══
+  ✓ 6 · sted + nu  — kort 6/6 · boliger 6/6 · vist 6
+  ✓ 6 · sted + pris + nu  — kort 55/55 · boliger 55/55 · vist 48
+  ✓ 6 · pris der udelukker alt + nu  — kort 0/0 · boliger 0/0 · vist 0
+  ✓ 6 · by + nu  — kort 62/62 · boliger 63/63 · vist 48
+  ✓ 6 · by + værelser + senere  — kort 1/1 · boliger 3/3 · vist 1
+  ✓ 6 · sted uden domænefilter  — kort 1/1 · boliger 5/5 · vist 1
+  ✓ 6 · by uden domænefilter  — kort 124/124 · boliger 130/130 · vist 48
+  ✓ 6 · alt uden filtre  — kort 124/124 · boliger 130/130 · vist 48
+
+══ 7 · samme referencetidspunkt i liste og optælling ══
+  ✓ 7 · dagen før: hverken kort eller optælling har den
+  ✓ 7 · på dagen: begge har den
+  ✓ 7 · liste og optælling er aldrig uenige
+
+══ 8 · søgninger uden domænefilter ══
+  ✓ 8 · kort i alt stemmer med facit  — 125 = 125
+  ✓ 8 · boliger stemmer med facit  — 131 = 131
+  ✓ 8 · udsnittet er stadig højst 48
+  ✓ 8 · komplet
+  ✓ 8 · billigst/dyrest er sat
+
+══ 9 · overskrift og liste kan ikke modsige hinanden ══
+  ✓ 9 · ti søgninger: aldrig «N boliger» over en tom liste
+
+══ 10 · blandet gruppekort: hvad står der faktisk ══
+  ✓ 10A · gruppen vises, fordi ét medlem matcher
+  ✓ 10A · gruppemedlemskabet er UÆNDRET — alle fire er med
+  ✓ 10A · matchende er talt og er 1
+  ✓ 10A · prisintervallet dækker stadig hele gruppen  — 900000–2100000
+  ✓ 10A · arealspændet ligeså
+  ✓ 10A · availability-tællingerne går op med antal
+  ✓ 10A · kortet siger hvor mange der matcher  — ny bolig lige nu Blandvej 6000 Prøveby · 4 boliger 1 af 4 boliger matcher din søgning. Pris og areal dækker alle 4. 9.000–21.000 kr/md til udlejer El 
+  ✓ 10A · og at prisen dækker alle fire
+  ✓ 10A · linket siger ALLE adresser, ikke bare «de»
+  ✓ 10A · den billigste i intervallet matcher ikke — derfor linjen
+  ✓ 10A · efter klik ses hele gruppen — og kortet sagde det  — 4 boliger
+  ✓ 10A · matchende BOLIGER er 1, ikke 4
+
+══ 10B · to filtre, ingen bolig opfylder begge ══
+  ✓ 10B · hvert filter for sig giver gruppen
+  ✓ 10B · begge filtre giver INTET — ingen bolig opfylder hele søgningen  — 0 kort
+  ✓ 10B · og optællingen er også nul
+  ✓ 10B · facit er enig
+
+══ 10C · ukendt status ved siden af en matchende ══
+  ✓ 10C · den ukendte tæller IKKE som match
+  ✓ 10C · matchende er 1 af 2
+  ✓ 10C · markedsstatus: én reserveret, én ukendt
+  ✓ 10C · kortet siger det
+  ✓ 10C · og mærkatet «reserveret» står IKKE, fordi det ikke gælder alle
+
+══ 10D · en gruppe hvor alle matcher ══
+  ✓ 10D · matchende == antal
+  ✓ 10D · ingen forbeholdslinje, når intet er blandet  — ny bolig lige nu Allevej 6300 Prøveby · 2 boliger fra 10.000 kr/md i husleje Udlejer oplyser ikke aconto — spørg om varm
+  ✓ 10D · og linket siger «de», ikke «alle»
+  ✓ 10D · uden domænefilter er matchende null — spørgsmålet er ikke stillet
+  ✓ 10D · og kortet nævner det ikke
+
+══ 11 · partigennemgangen naar hele udbuddet ══
+  ✓ 11 · parti=1000: alle 55 findes, og svaret er komplet  — kortIAlt=55 komplet=true
+  ✓ 11 · parti=55: alle 55 findes, og svaret er komplet  — kortIAlt=55 komplet=true
+  ✓ 11 · parti=20: alle 55 findes, og svaret er komplet  — kortIAlt=55 komplet=true
+  ✓ 11 · parti=7: alle 55 findes, og svaret er komplet  — kortIAlt=55 komplet=true
+  ✓ 11 · parti=1: alle 55 findes, og svaret er komplet  — kortIAlt=55 komplet=true
+
+══ 11B · intet match i foerste parti, match senere ══
+  ✓ 11B · parti=10: de seks bag de 60 er naabare  — kortIAlt=6 vist=6 komplet=true
+  ✓ 11B · parti=30: de seks bag de 60 er naabare  — kortIAlt=6 vist=6 komplet=true
+  ✓ 11B · parti=61: de seks bag de 60 er naabare  — kortIAlt=6 vist=6 komplet=true
+
+══ 11C · afbrudt gennemgang er ikke et komplet svar ══
+  ✓ 11C · afbrudt: nul kort, men komplet er FALSK
+  ✓ 11C · et afbrudt nul er ikke et sikkert nulresultat — optællingen er uafkortet
+  ✓ 11C · delvis gennemgang: fundet noget, men komplet er stadig FALSK  — kortIAlt=3
+
+══ 11D · ægte nul ved fuldt gennemgået sæt ══
+  ✓ 11D · nul OG komplet — «Ingen boliger matcher» må stå
+
+══ 12 · alle sider gennemløbes uden mangler eller gentagelser ══
+  ✓ 12 · nyeste uden domænefilter: 129 kort, 3 sider  — raekker=129 unikke=129 kortIAlt=129
+  ✓ 12 · nyeste med domænefilter: 64 kort, 2 sider  — raekker=64 unikke=64 kortIAlt=64
+  ✓ 12 · pris_op uden domænefilter: 129 kort, 3 sider  — raekker=129 unikke=129 kortIAlt=129
+  ✓ 12 · pris_op med domænefilter: 64 kort, 2 sider  — raekker=64 unikke=64 kortIAlt=64
+  ✓ 12 · pris_ned uden domænefilter: 129 kort, 3 sider  — raekker=129 unikke=129 kortIAlt=129
+  ✓ 12 · pris_ned med domænefilter: 64 kort, 2 sider  — raekker=64 unikke=64 kortIAlt=64
+  ✓ 12 · areal_ned uden domænefilter: 129 kort, 3 sider  — raekker=129 unikke=129 kortIAlt=129
+  ✓ 12 · areal_ned med domænefilter: 64 kort, 2 sider  — raekker=64 unikke=64 kortIAlt=64
+  ✓ 12 · indflytning_op uden domænefilter: 129 kort, 3 sider  — raekker=129 unikke=129 kortIAlt=129
+  ✓ 12 · indflytning_op med domænefilter: 64 kort, 2 sider  — raekker=64 unikke=64 kortIAlt=64
+  ✓ 12 · indflytning_ned uden domænefilter: 129 kort, 3 sider  — raekker=129 unikke=129 kortIAlt=129
+  ✓ 12 · indflytning_ned med domænefilter: 64 kort, 2 sider  — raekker=64 unikke=64 kortIAlt=64
+  ✓ 12 · og ingen side viste mere end 48 kort  — 0 for store
+
+══ 12B · sidetal: gyldige og ugyldige ══
+  ✓ 12B · side 2 er et andet udsnit end side 1
+  ✓ 12B · side 1 og 2 overlapper ikke
+  ✓ 12B · side uden for rækkevidde: tomt udsnit, total uændret
+  ✓ 12B · og det er IKKE et nulresultat
+
+══ 12C · en gruppe deles ikke mellem sider ══
+  ✓ 12C · hvert gruppekort optræder præcis én gang  — 7 gruppekort
+
+══ 12D · side er navigation, ikke et filter ══
+  ✓ 12D · side når ikke Filtre
+  ✓ 12D · ?side=2 alene gør ikke forsiden til en søgning
+  ✓ 12D · side ændrer ikke antal_filtre
+  ✓ 12D · et sideskift giver ingen filterevents
+  ✓ 12D · ?side i Referer giver heller ingen
+  ✓ 12D · side kan ikke havne i en boligalarms kriterier
+
+══ 12E · pagineringens adresser ══
+  ✓ 12E · alle parametre bevares, også flerværdi  — /?by=K%C3%B8benhavn+S&type=hus&type=raekkehus&kort=0&flere=1&side=2
+  ✓ 12E · den gamle side udskiftes, ikke tilføjes
+  ✓ 12E · side 1 udelader parameteren helt  — /?by=K%C3%B8benhavn+S&type=hus&type=raekkehus&kort=0&flere=1
+  ✓ 12E · områdesidens basis bevares
+  ✓ 12E · og side 1 dér er den bare slug
+  ✓ 12E · faa sider vises alle
+  ✓ 12E · mange sider giver et kompakt vindue med huller  — [1,null,9,10,11,null,21]
+  ✓ 12E · den aktuelle side er altid med
+
+══ 12F · filtre anvendes før sideudsnittet ══
+  ✓ 12F · alle sider tilsammen = præcis det filtrerede sæt  — 65 = 65
+
+══ 12G · kandidatværnet: en afbrudt gennemgang lover intet eksakt ══
+  ✓ 12G · loftet fyrer: komplet er falsk, og tallet er lavere end det sande  — 3 < 6
+  ✓ 12G · uden loft er det samme svar komplet
+  ✓ 12G · en afbrudt gennemgang siger «mindst N sider»  — Side 1 Side 2 Næste → Vi nåede ikke hele udbuddet igennem — der er mindst 2 sider . Indsnæ
+  ✓ 12G · og den siger IKKE at den naaede hele udbuddet
+  ✓ 12G · en komplet gennemgang siger det ikke — noten er ikke pynt paa alting  — Side 1 Side 2 Side 3 Næste →
+  ✓ 12G · pageren tilbyder ingen side ud over dem, der faktisk er fundet  — tilbudt: 3, 3
+  ✓ 12G · «Naeste» findes ikke paa den sidste fundne side
+  ✓ 12G · nul kort ved afbrudt gennemgang er IKKE et sikkert nul
+  ✓ 12G · den eksakte optaelling er uafhaengig af loftet
+  ✓ 13 · uden maaling staar der ikke «Hver time»  — Ikke opgjort hvor hurtigt nye boliger når frem
+  ✓ 13 · uden maaling staar der ingen kadence overhovedet  — Ikke opgjort hvor hurtigt nye boliger når frem
+  ✓ 13 · uden maaling staar der intet tal  — Ikke opgjort hvor hurtigt nye boliger når frem
+  ✓ 13 · uden maaling loves der hverken «snart», «altid» eller «loebende»  — Ikke opgjort hvor hurtigt nye boliger når frem
+  ✓ 13 · fallbacken er synlig og siger, at det ikke er opgjort  — Ikke opgjort hvor hurtigt nye boliger når frem
+  ✓ 13 · 57 min. staar som det maalte tal, ikke som en afrunding  — 57 min. fra en bolig annonceres, til den står her (9 ud af 10)
+  ✓ 13 · praecis 60 min. staar stadig i minutter  — 60 min. fra en bolig annonceres, til den står her (9 ud af 10)
+  ✓ 13 · over en time skifter enheden til timer  — 1,5 timer fra en bolig annonceres, til den står her (9 ud af 10)
+  ✓ 13 · det maalte punkt siger ikke «ikke opgjort»
+  ✓ 13 · komponenten importerer hverken database, soegelag eller headers  — ingen importer
+  ✓ 14 · hvert avanceret filter har præcis én chip  — 13 chips, 13 talt
+  ✓ 14 · stedet er IKKE en chip — det staar i feltet og i overskriften
+  ✓ 14 · uden filtre er der ingen chips
+  ✓ 14 · hvert kryds fjerner præcis ét filter — hverken flere eller færre  — 13 chips efterprøvet
+  ✓ 14 · et kryds beholder alle de andre parametre  — /?sted=Attrapby&prisMin=8000&prisMax=20000&vaerelser=2&areal=40&kilde=proevekilde&fuld=1&type=lejlighed&type=hus&kaeledyr=1&udeplads=1&overtagelse=nu&venteliste=1&reserveret=1&sorter=pris_op&kort=0
+  ✓ 14 · et kryds nulstiller sidetallet
+  ✓ 14 · uden nogen parametre er adressen bare basis
+  ✓ 14 · hver gyldig sortering har et navn — begge længder  — 6 værdier
+  ✓ 14 · visningslisten dækker dem alle og intet andet
+  ✓ 14 · «nyeste» udelader parameteren — ingen anden adresse for samme side
+  ✓ 14 · en anden orden saettes, og den gamle ryger
+  ✓ 14 · sorteringen nulstiller ogsaa sidetallet
+  ✓ 14 · sorteringen roerer ikke filtrene
+
+══ 15 · gruppekortets adresser følger søgningen ══
+  ✓ 15 · makspris: kortets antal
+  ✓ 15 · makspris: kortet har et gruppelink
+  ✓ 15 · makspris: gruppesiden viser præcis kortets adresser  — 2 adresser, forventet 2
+  ✓ 15 · begge prisgrænser: kortets antal
+  ✓ 15 · begge prisgrænser: kortet har et gruppelink
+  ✓ 15 · begge prisgrænser: gruppesiden viser præcis kortets adresser  — 2 adresser, forventet 2
+  ✓ 15 · areal: kortets antal
+  ✓ 15 · areal: kortet har et gruppelink
+  ✓ 15 · areal: gruppesiden viser præcis kortets adresser  — 2 adresser, forventet 2
+  ✓ 15 · pris og indflytning: kortets antal
+  ✓ 15 · pris og indflytning: kortet har et gruppelink
+  ✓ 15 · pris og indflytning: gruppesiden viser præcis kortets adresser  — 2 adresser, forventet 2
+  ✓ 15 · blandet indflytning beholder forklaringen og begge adresser
+  ✓ 15 · typer, kilder og faciliteter: kortets antal
+  ✓ 15 · typer, kilder og faciliteter: kortet har et gruppelink
+  ✓ 15 · flere valgte typer og kilder overlever det delbare link
+  ✓ 15 · typer, kilder og faciliteter: gruppesiden viser præcis kortets adresser  — 2 adresser, forventet 2
+  ✓ 15 · uden prisfilter: kortets antal
+  ✓ 15 · uden prisfilter: kortet har et gruppelink
+  ✓ 15 · uden prisfilter: gruppesiden viser præcis kortets adresser  — 4 adresser, forventet 4
+
+  ALT GRØNT
+

@@ -141,3 +141,37 @@ Alabu-medarbejderen nødvendigvis sagde:
 
 Deres robots.txt forbyder crawling udtrykkeligt på skrift, og der er
 ingen tilladelse. Kræver skriftlig aftale først.
+
+## Billedaktiver i repoet
+
+Ikke en kilde til boligdata, men materiale, vi selv viser. Samme krav:
+hvem har lavet det, hvad giver licensen lov til, og hvor står det.
+
+### `public/hero-stue.jpg` — forsidens stemningsfoto
+
+| | |
+|---|---|
+| Motiv | Skandinavisk indrettet opholdsrum |
+| Fotograf | Taryn Elliott |
+| Kilde | https://www.pexels.com/photo/scandinavian-interior-of-a-living-room-9565782/ |
+| Licens | https://www.pexels.com/license/ |
+| Fil | 2048 × 1365 px · 636.485 bytes · JPEG, sRGB |
+| SHA256 | `a2b2795193c96f2508593dc1dca77f62ea986a10dd2600cef331e64e245d5b5f` |
+
+Pexels-licensen tillader kommerciel brug uden kreditering. **Vi krediterer
+alligevel** — «Stemningsfoto: Taryn Elliott / Pexels» står på hero'en
+selv, af samme grund som kortflisernes kreditering står på kortet: den,
+der har lavet motivet, skal kunne ses af den, der ser det.
+
+Ordet **«stemningsfoto»** er ikke pynt. Billedet er ikke en bolig, vi har
+til leje, og en forside, der viser en stue uden at sige hvad den er,
+lader læseren tro, at det er en annonce. Teksten siger, hvad billedet er.
+
+Bytes er **uændrede fra kilden** — ingen omkodning, ingen skalering,
+ingen retouchering. Beskæringen sker i CSS (`object-fit: cover` +
+`object-position`), så filen i repoet altid kan holdes op mod kildens.
+
+Licensen forbyder at identificerbare personer fremstilles i et
+nedsættende lys, og at billedet sælges videre som et selvstændigt
+produkt. Ingen af delene er på tale: der er ingen personer i motivet, og
+det bruges som baggrund på vores egen forside.

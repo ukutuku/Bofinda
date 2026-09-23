@@ -1,0 +1,7 @@
+{
+  "git": {
+    "deploymentEnabled": {
+      "feature/frontend-lancering-v2": false
+    }
+  }
+}

@@ -45,11 +45,20 @@ const vaelg = (xs) => xs[Math.floor(r() * xs.length)]
 const heltal = (a, b) => a + Math.floor(r() * (b - a + 1))
 
 // ─── Fiktiv geografi ───────────────────────────────────────────
+// KOORDINATERNE ER FIKTIVE og ligger i Nordsøen vest for Jylland — et
+// sted uden bebyggelse, så en prøvebolig aldrig kan forveksles med en
+// rigtig adresse, hvis et skærmbillede slipper ud af testmiljøet. Kortet
+// har stadig kyst i udsnittet, så man kan se, at det ER et kort.
+//
+// «Fiktivby» får BEVIDST ingen. Uden et område helt uden koordinater kan
+// den flade, der forklarer hvorfor kortet ikke kan vises, ikke afprøves
+// — og indtil nu havde INGEN af de 264 boliger koordinater, så kortet
+// var et tomt lærred på hver eneste søgning uden at nogen kunne se det.
 const OMRAADER = [
-  { postnr: '9001', by: 'Prøveby N' },
-  { postnr: '9002', by: 'Prøveby S' },
-  { postnr: '9003', by: 'Attrapby' },
-  { postnr: '9004', by: 'Fiktivby' },
+  { postnr: '9001', by: 'Prøveby N', lat: 56.30, lng: 7.40 },
+  { postnr: '9002', by: 'Prøveby S', lat: 56.12, lng: 7.46 },
+  { postnr: '9003', by: 'Attrapby', lat: 56.21, lng: 7.28 },
+  { postnr: '9004', by: 'Fiktivby', lat: null, lng: null },
 ]
 const VEJE = ['Prøvevej', 'Testagervej', 'Attrapvænget', 'Fiktivgade', 'Demostien',
   'Prøvehaven', 'Attrapallé', 'Testparken']
@@ -120,6 +129,11 @@ function bolig(o) {
     adresse, vej: o.vej, husnr,
     etage: o.etage ?? null, doer: o.doer ?? null,
     postnr: omr.postnr, by: omr.by,
+    // Spredt inden for ~5 km om områdets midte, så mærkerne ikke ligger
+    // oven i hinanden. `null` bæres videre som null — vi opfinder ikke en
+    // placering, kilden ikke har givet os.
+    lat: omr.lat == null ? null : (omr.lat + (r() - 0.5) * 0.05).toFixed(6),
+    lng: omr.lng == null ? null : (omr.lng + (r() - 0.5) * 0.09).toFixed(6),
     // Unikt pr. bolig, så intet skjules som utilsigtet dublet. Ét
     // bevidst par deler uuid nedenfor — dét skal skjules.
     unitUuid: o.unitUuid ?? `intern:v3:proeve:${id}`,
@@ -346,6 +360,7 @@ for (const b of boliger) {
     insert into listings (
       source_id, source_type, external_key, source_url, address_raw,
       street, house_number, floor, door, postal_code, city,
+      lat, lng,
       unit_address_uuid, address_match_level,
       property_type, size_m2, rooms, available_from,
       rent_monthly, utilities_heat, utilities_water, utilities_electricity,
@@ -357,6 +372,7 @@ for (const b of boliger) {
       ${KILDER.find((k) => k.slug === b.kilde)?.type ?? 'native'},
       ${b.eksternNoegle}, ${b.url}, ${b.adresse},
       ${b.vej}, ${b.husnr}, ${b.etage}, ${b.doer}, ${b.postnr}, ${b.by},
+      ${b.lat}, ${b.lng},
       ${b.unitUuid}, 'unit',
       ${b.type}, ${b.areal}, ${b.vaerelser}, ${b.ledig},
       ${b.leje}, ${b.varme}, ${b.vand}, ${b.el},
@@ -377,5 +393,7 @@ for (const b of boliger) {
 
 const [{ antal }] = await sql`select count(*)::int as antal from listings`
 const [{ billeder }] = await sql`select count(*)::int as billeder from listing_images`
-console.log(`✓ ${antal} boliger, ${billeder} billedrækker`)
+const [{ koord }] = await sql`
+  select count(*)::int as koord from listings where lat is not null and lng is not null`
+console.log(`✓ ${antal} boliger, ${billeder} billedrækker, ${koord} med koordinater`)
 await sql.end()

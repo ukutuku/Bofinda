@@ -40,7 +40,8 @@ for d in /proc/[0-9]*; do
   case "$egne" in *" $pid "*) continue ;; esac
   cmd=$(cat "$d/cmdline" 2>/dev/null | tr '\0' ' ') || continue
   [ -n "$cmd" ] || continue
-  for m in "next dev -p $BOFINDA_APPPORT" "scripts/cloud/aktiver.mjs"; do
+  for m in "next dev -p $BOFINDA_APPPORT" "next start -p $BOFINDA_APPPORT" \
+           "scripts/cloud/aktiver.mjs"; do
     case "$cmd" in *"$m"*) mine="$mine $pid" ;; esac
   done
 done
