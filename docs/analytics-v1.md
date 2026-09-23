@@ -82,7 +82,7 @@ udelukkende:
 > i ethvert tidsvindue. Går det ikke op, er instrumenteringen i stykker — ikke
 > markedet. Det er en prøve, og et bevidst brud på den er en af break-testene.
 
-### Serverside (17)
+### Serverside (21)
 
 | Event | Hvor | Påkrævet | Valgfrit | **Forbudt** | Kardinalitet | PII-risiko |
 |---|---|---|---|---|---|---|
@@ -103,6 +103,29 @@ udelukkende:
 | `signup_completed` | `lib/auth.ts`, første binding af `auth_user_id` | `user_id` | `bandt_eksisterende` | Samme | Lav | Høj |
 | `login_completed` | `app/udlejer/handlinger.ts`, `error === null` | `user_id` | — | Samme, plus tokens | Lav | Høj |
 | `server_action_failed` | Catch-grenene | `handling`, `fejlklasse` | — | **Fejlbeskeden** | Lav | Middel |
+| `paywall_blocked` | `app/bolig/[id]/kontakthandling.ts`, `app/go/[id]/route.ts` | `funktion`, `tilstand` | `grund` | **Hvad hun ville have set.** `listing_id` står i konvolutten; adressen, mailen og kildens URL aldrig | Lav | Lav |
+| `checkout_started` | `app/abonnement/handlinger.ts`, kun når `svar.ok` | `tilstand` | `funktion`, `grund` | Beløb, pris-id, Stripe-id'er, returadressen | Lav | Lav |
+| `subscription_activated` | **Ingen afsender endnu** — se noten nedenfor | — | `fase` | Beløb, Stripe-id'er, kortdata | Lav | Lav |
+| `subscription_canceled` | `app/abonnement/handlinger.ts`, kun når opsigelsen lykkedes | — | `fase` | Samme | Lav | Lav |
+
+> **`funktion` er påkrævet på `paywall_blocked` og valgfri på
+> `checkout_started`.** Muren ved altid, hvilken funktion den står foran —
+> kaldestedet navngiver den. Købssiden ved det ikke altid: kommer hun fra
+> /min-side eller et link, har ingen mur stået i vejen. Feltet stod før
+> hårdkodet som `'kontakt'`, også for en, der kom fra `/go/[id]`. Et
+> opdigtet felt er værre end et manglende — en tragt bygget på det peger
+> på den forkerte mur.
+>
+> **`grund` på `checkout_started` læses aldrig af `?grund=`.** Den udledes
+> af basen, med samme opslag muren brugte til at stoppe hende. Adressen
+> kan enhver skrive, og en påstand om et menneskes betalingshistorik må
+> ikke komme derfra.
+>
+> ⚠ **`subscription_activated` har ingen afsender.** Eventet står i
+> allowlisten og i `Haendelse`, men ingen kode skriver det. Tragten kan
+> derfor måle, at nogen begyndte et køb — ikke at det blev til et
+> abonnement. Hører hjemme i `invoice.paid` i `lib/webhook.ts`, dér hvor
+> adgangen faktisk opstår.
 
 ### Klientside (6)
 

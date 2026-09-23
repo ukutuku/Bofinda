@@ -142,11 +142,19 @@ selvstændigt stykke arbejde, og ingen af dem blev lavet i den omgang.
    en `LEVENDE` række — og `incomplete` er levende. For netop den kunde,
    der lige har forsøgt et nyt køb, ville knappen være en blindgyde.
    Vejen videre findes på boligsiden, hvor muren selv stiller den.
-2. **`checkout_started` bærer ikke grunden.** `app/abonnement/handlinger.ts`
-   sender `{ funktion: 'kontakt', tilstand: 'betaling' }` — hårdkodet,
-   uden `grund`, uanset hvor kunden kom fra. Allowlisten kan bære den nye
-   værdi, men ingen afsender fylder feltet, så genaktiveringstragten er
-   ikke målbar endnu.
+2. ~~**`checkout_started` bærer ikke grunden.**~~ **Rettet.** `grund`
+   udledes nu af basen med `koebsgrund()` — samme opslag, muren brugte til
+   at stoppe hende — så tragten kan skelne et første køb fra en
+   genaktivering. `funktion` udledes af den genopbyggede returvej og
+   **udelades**, når ingen mur stod i vejen; den er derfor ikke længere
+   `kraevet` på det event. `tilstand: 'betaling'` blev stående: den er sand
+   ved konstruktion, fordi `startKoebFor` kaster `gratis_tilstand` inde i
+   sin egen transaktion.
+
+   **Nyt fund undervejs:** `subscription_activated` står i allowlisten og i
+   `Haendelse`, men **ingen kode affyrer det**. Tragten kan måle, at nogen
+   begyndte et køb — ikke at det blev til et abonnement. Hører hjemme i
+   `invoice.paid`, dér hvor adgangen opstår.
 3. **`?grund=` må aldrig læses som en kendsgerning.** `/go/[id]` lægger
    den i adressen til `/abonnement`, og siden læser den ikke i dag.
    Begynder den at gøre det, kan enhver sende et link, der påstår noget

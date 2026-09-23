@@ -39,6 +39,7 @@ import { and, desc, eq, isNotNull } from 'drizzle-orm'
 import { db } from '../db/client'
 import { drift, subscriptions } from '../db/schema'
 import { GRUNDE, type Grund } from './adgangsgrunde'
+import type { KoebsstartProps } from './maaling'
 import { hentBrugerId } from './auth'
 // TYPE-import, og kun type. `app/beskeder/kontrakt.ts` er en REN fil —
 // ingen database, ingen React, ingen next/headers — og `import type`
@@ -308,6 +309,88 @@ const TIL_LAASEGRUND: Record<Grund, Exclude<Beskedadgang, 'adgang'>> = {
 export async function adgang(brugerId?: string | null): Promise<Beskedadgang> {
   const svar = await maaBruge(FUNKTION.beskeder, brugerId)
   return svar.ok ? 'adgang' : TIL_LAASEGRUND[svar.grund]
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  KOEBSSTARTEN — hvad tragten maa sige om et paabegyndt koeb.
+//
+//  `checkout_started` bar foer `funktion: 'kontakt'` haardkodet og
+//  ingen `grund` overhovedet. Begge dele er maalefejl med hver sin
+//  form: den ene er et OPDIGTET felt, den anden et MANGLENDE.
+//
+//  Uden `grund` kan genaktiveringstragten ikke maales — vi kan se, at
+//  nogen blev stoppet af muren, og at nogen begyndte et koeb, men ikke
+//  om det var den samme slags menneske.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Er det et FOERSTE koeb eller en GENAKTIVERING?
+ *
+ * ⚠ Returnerer KUN grunde til et nej — aldrig et ja. Den kan derfor
+ * ikke bruges som en mur: der findes ingen vaerdi, man kan lukke nogen
+ * ind paa. Enhver adgangsbeslutning skal stadig gennem `maaBruge()`,
+ * som ogsaa laeser `drift`.
+ *
+ * Kendsgerningen er den SAMME, muren brugte til at stoppe hende —
+ * samme opslag, samme raekkevalg. Ville vi udlede den af noget andet,
+ * var det to udtryk for ét spoergsmaal.
+ *
+ * `undefined` naar vi ikke ved det: et fejlet opslag, eller en bruger
+ * der har adgang (kan ikke naas her — `startKoeb` har allerede afvist
+ * med `har_allerede`). Feltet udelades da; et gaet i en tragt er en
+ * loegn, der ser ud som et tal.
+ */
+export type Koebsgrund = Extract<Grund, 'abonnement_kraeves' | 'abonnement_udloebet'>
+
+export async function koebsgrund(brugerId: string): Promise<Koebsgrund | undefined> {
+  const o = await adgangEller(brugerId)
+  if (o.slags === 'udloebet') return 'abonnement_udloebet'
+  if (o.slags === 'aldrig') return 'abonnement_kraeves'
+  return undefined
+}
+
+/**
+ * Hvilken mur sendte hende til koebssiden?
+ *
+ * Udledt af den GENOPBYGGEDE returvej — `betalingsRetur` i lib/retur.ts
+ * matcher mod et lukket saet moenstre og returnerer traefferen, ikke
+ * inddata. Strengen er altsaa vores egen, og vi handler i forvejen paa
+ * den: det er dér, hun sendes hen bagefter.
+ *
+ * ⚠ Det er IKKE det samme som at laese `?grund=` som en kendsgerning.
+ * Den ville vaere en paastand om HENDES betalingshistorik, taget fra en
+ * adresse, enhver kan skrive. Det her er en oplysning om, hvor
+ * browseren var — en maaledimension, ikke et udsagn om et menneske —
+ * og den maa aldrig bruges til andet.
+ *
+ * `undefined`, naar ingen mur stod i vejen: kom hun fra /min-side eller
+ * forsiden, er der intet at navngive, og saa udelades feltet.
+ */
+export function funktionFraRetur(retur: string): Funktion | undefined {
+  if (/^\/bolig\//i.test(retur)) return FUNKTION.kontakt
+  if (/^\/go\//i.test(retur)) return FUNKTION.kildelink
+  return undefined
+}
+
+/**
+ * Properties til `checkout_started`. Bygget ÉT sted, saa kaldestedet
+ * ikke kan komme til at opfinde dem igen.
+ *
+ * `tilstand: 'betaling'` er ikke et gaet: `startKoebFor` laeser `drift`
+ * `for share` inde i sin transaktion og kaster `gratis_tilstand`, hvis
+ * den ikke staar paa betaling. Eventet skrives kun, naar koebet
+ * lykkedes, saa tilstanden er sand ved konstruktion.
+ */
+export async function koebsstart(
+  brugerId: string, retur: string,
+): Promise<KoebsstartProps> {
+  const funktion = funktionFraRetur(retur)
+  const grund = await koebsgrund(brugerId)
+  return {
+    tilstand: 'betaling',
+    ...(funktion ? { funktion } : {}),
+    ...(grund ? { grund } : {}),
+  }
 }
 
 /**

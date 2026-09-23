@@ -19,7 +19,8 @@ import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { drift, listings, sources, subscriptions, users } from '../db/schema'
 import {
-  FUNKTION, GRUNDE, adgang, harBetaltAdgang, hentTilstand, maaBruge,
+  FUNKTION, GRUNDE, adgang, funktionFraRetur, harBetaltAdgang, hentTilstand,
+  koebsgrund, koebsstart, maaBruge,
 } from '../lib/adgang'
 import { rens, type Haendelse as Maalehaendelse, type Kontekst } from '../lib/maaling'
 import { levendeAbonnementer, saetTilstand } from '../lib/driftskift'
@@ -511,6 +512,80 @@ async function koer() {
     tjek('uden betalt periode staar der hverken det ene eller det andet',
       ingen.includes('Ingen betalt adgang')
       && !ingen.includes(FORTSAETTER) && !ingen.includes('udløbet'))
+    await saetDrift('gratis')
+  }
+
+  // ═══ 8d · KOEBSSTARTEN OPFINDER IKKE, HVOR HUN KOM FRA ═══
+  // `checkout_started` bar `funktion: 'kontakt'` haardkodet og ingen
+  // `grund` overhovedet. To maalefejl med hver sin form: ét OPDIGTET
+  // felt og ét MANGLENDE. Uden `grund` kan genaktiveringstragten ikke
+  // maales — vi kunne se, at nogen blev stoppet, og at nogen begyndte
+  // et koeb, men ikke om det var den samme slags menneske.
+  console.log('\n══ 8d · Koebsstarten opfinder ikke, hvor hun kom fra ══')
+  {
+    await saetDrift('betaling')
+    const sub = (u: string, s: 'canceled' | 'incomplete' | 'active', til: Date | null) =>
+      db.insert(subscriptions).values({
+        userId: u, stripeSubscriptionId: `sub_${randomUUID()}`, status: s, adgangTil: til,
+      })
+
+    // ── GRUNDEN kommer fra basen, ikke fra adressen ───────────
+    const foerste = await nyBruger('koebsgrund-foerste')
+    const vendende = await nyBruger('koebsgrund-vendende'); await sub(vendende, 'canceled', iGaar())
+    const bagEt = await nyBruger('koebsgrund-bag')
+    await sub(bagEt, 'canceled', iGaar()); await sub(bagEt, 'incomplete', null)
+    const harAdgang = await nyBruger('koebsgrund-adgang'); await sub(harAdgang, 'active', iMorgen())
+
+    tjek('en foerstegangskoeber giver «abonnement_kraeves»',
+      await koebsgrund(foerste) === 'abonnement_kraeves')
+    tjek('en VENDENDE kunde giver «abonnement_udloebet»',
+      await koebsgrund(vendende) === 'abonnement_udloebet',
+      'det er hele tragten: foerste koeb eller genaktivering')
+    tjek('  ogsaa naar der ligger et nyt, mislykket koeb foran',
+      await koebsgrund(bagEt) === 'abonnement_udloebet')
+    tjek('en bruger MED adgang giver ingen grund',
+      await koebsgrund(harAdgang) === undefined,
+      'der findes ingen vaerdi, man kan lukke nogen ind paa')
+
+    // ── FUNKTIONEN udledes af den GENOPBYGGEDE returvej ───────
+    const id = randomUUID()
+    tjek('/bolig/<uuid> → kontakt', funktionFraRetur(`/bolig/${id}`) === FUNKTION.kontakt)
+    tjek('/go/<uuid> → kildelink', funktionFraRetur(`/go/${id}`) === FUNKTION.kildelink)
+    tjek('/min-side → ingen mur, altsaa intet felt',
+      funktionFraRetur('/min-side') === undefined,
+      'her stod foer «kontakt» — ogsaa naar ingen mur havde staaet i vejen')
+    tjek('forsiden → intet felt', funktionFraRetur('/') === undefined)
+
+    // ── SAMMENSAETNINGEN ──────────────────────────────────────
+    const fraBolig = await koebsstart(vendende, `/bolig/${id}`)
+    tjek('koebsstart: vendende kunde fra boligsiden',
+      fraBolig.funktion === 'kontakt' && fraBolig.grund === 'abonnement_udloebet'
+      && fraBolig.tilstand === 'betaling', JSON.stringify(fraBolig))
+    const fraGo = await koebsstart(foerste, `/go/${id}`)
+    tjek('koebsstart: foerstegangskoeber fra kildelinket',
+      fraGo.funktion === 'kildelink' && fraGo.grund === 'abonnement_kraeves',
+      JSON.stringify(fraGo))
+    const fraMinSide = await koebsstart(foerste, '/min-side')
+    tjek('koebsstart: uden en mur UDELADES feltet — det opfindes ikke',
+      !('funktion' in fraMinSide) && fraMinSide.grund === 'abonnement_kraeves',
+      JSON.stringify(fraMinSide))
+
+    // ── OG MAALINGEN TAGER IMOD DEM ALLE TRE ──────────────────
+    // Uden at `funktion` blev valgfri i allowlisten, ville den
+    // SIDSTE blive afvist af rens() — og tragten ville tabe netop de
+    // koeb, ingen mur udloeste.
+    const kontekst: Kontekst = {
+      miljoe: 'proeve', anonymousId: randomUUID(), sessionId: randomUUID(),
+      userId: null, researchSessionId: null, rute: '/abonnement',
+    }
+    for (const [navn, props] of [
+      ['fra boligsiden', fraBolig], ['fra kildelinket', fraGo],
+      ['uden mur', fraMinSide],
+    ] as const) {
+      const r = rens({ navn: 'checkout_started', props } as unknown as Maalehaendelse, kontekst)
+      tjek(`maalingen tager imod koebsstarten ${navn}`, r.ok,
+        r.ok ? '' : `${r.fejl.grund} (${r.fejl.detalje})`)
+    }
     await saetDrift('gratis')
   }
 

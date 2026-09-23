@@ -160,7 +160,7 @@ export type Haendelse = Envelope & (
   // Betalingsmuren. Ingen af dem baerer beloeb, kunde-id eller
   // abonnements-id — kun AT noget skete, og i hvilken tilstand.
   | { navn: 'paywall_blocked'; props: MurProps }
-  | { navn: 'checkout_started'; props: MurProps }
+  | { navn: 'checkout_started'; props: KoebsstartProps }
   | { navn: 'subscription_activated'; props: AbonnementProps }
   | { navn: 'subscription_canceled'; props: AbonnementProps }
   | { navn: 'alert_started'; props: Tom }
@@ -289,7 +289,10 @@ export interface KildeProps {
 }
 export interface KontaktProps { har_mail: boolean; har_telefon: boolean }
 export interface KontaktklikProps { maal: 'mail' | 'telefon' }
-/** Muren stoppede nogen, eller nogen begyndte et koeb. */
+/**
+ * Muren stoppede nogen. Den VED hvilken funktion, den staar foran —
+ * kaldestedet navngiver den — saa `funktion` er paakraevet her.
+ */
 export interface MurProps {
   funktion: 'kontakt' | 'kildelink' | 'beskeder'
   /**
@@ -297,6 +300,22 @@ export interface MurProps {
    * kan derfor ikke tilfoejes i muren uden at eventet ogsaa kan baere
    * den — og allowlisten nedenfor bruger SAMME array.
    */
+  grund?: Grund
+  tilstand: 'gratis' | 'betaling'
+}
+
+/**
+ * Nogen begyndte et koeb. SAMME felter, men ikke samme viden.
+ *
+ * `funktion` er VALGFRI her, og det er ikke sjusk. Koebssiden ved ikke
+ * altid, hvilken mur der sendte hende: kom hun fra /min-side eller fra
+ * et link, har ingen mur staaet i vejen. Feltet stod foer som
+ * `funktion: 'kontakt'` haardkodet — ogsaa for en, der kom fra
+ * /go/[id]. Et opdigtet tal er vaerre end et manglende, og en tragt
+ * bygget paa det ville pege paa den forkerte mur.
+ */
+export interface KoebsstartProps {
+  funktion?: 'kontakt' | 'kildelink' | 'beskeder'
   grund?: Grund
   tilstand: 'gratis' | 'betaling'
 }
@@ -466,7 +485,8 @@ export const ALLOWLIST: Record<Eventnavn, Record<string, Spec>> = {
     tilstand: { slags: 'tekst', kraevet: true, af: ['gratis', 'betaling'] },
   },
   checkout_started: {
-    funktion: { slags: 'tekst', kraevet: true, af: ['kontakt', 'kildelink', 'beskeder'] },
+    // IKKE `kraevet`. Se KoebsstartProps: koebssiden ved det ikke altid.
+    funktion: { slags: 'tekst', af: ['kontakt', 'kildelink', 'beskeder'] },
     grund: { slags: 'tekst', af: GRUNDE },
     tilstand: { slags: 'tekst', kraevet: true, af: ['gratis', 'betaling'] },
   },
