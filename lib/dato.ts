@@ -41,6 +41,17 @@ const FORMAT = new Intl.DateTimeFormat('en-CA', {
   timeZone: KALENDERZONE, year: 'numeric', month: '2-digit', day: '2-digit',
 })
 
+/**
+ * Et tidspunkt, skrevet som et menneske i Danmark laeser det.
+ *
+ * Zonen er EKSPLICIT — se filens hoved. `toLocaleString('da-DK')` uden
+ * zone bruger SERVERENS, og Vercel koerer UTC: en periode, der udloeber
+ * kl. 00.30 dansk tid, ville blive skrevet med dagen foer. Det er en
+ * forkert DATO om nogens penge, produceret af en manglende indstilling.
+ */
+export const dansk = (t: Date): string =>
+  t.toLocaleString('da-DK', { timeZone: KALENDERZONE })
+
 /** Hvilken kalenderdag er dette oejeblik i Bofindas zone? */
 export function kalenderdag(t: Date): IsoDate {
   return FORMAT.format(t) as IsoDate

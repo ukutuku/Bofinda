@@ -14,7 +14,19 @@ export interface Abonnementsvisning {
     | { slags: 'opsigelse_undervejs' }
     | { slags: 'ukendt' }
   fornyesAt: string | null
-  adgangTil: string | null
+  /**
+   * Den betalte periode, AFGJORT paa serveren. Datoerne er allerede
+   * formateret, saa klienten hverken kan eller skal sammenligne dem.
+   *
+   * Her stod `adgangTil: string | null`. Et tidspunkt som streng siger
+   * ikke, om det er passeret — og sammen med `fornyesIkke`, der er sand
+   * for en terminal raekke, skrev panelet «Adgangen fortsaetter indtil
+   * da» om en periode, der loeb ud i gaar.
+   */
+  periode:
+    | { slags: 'loeber'; til: string }
+    | { slags: 'udloebet'; sidst: string }
+    | { slags: 'ingen' }
   /** BEKRAEFTET opsagt: hun bad om det, OG Stripe har bekraeftet det. */
   opsagt: boolean
   /** Hun bad om det; Stripe har ikke bekraeftet det endnu. */
@@ -63,7 +75,14 @@ export function Abonnement({ start }: { start: Abonnementsvisning | null }) {
     if (svar.ok) {
       setA((x) => (x ? { ...x, opsagt: true, opsigelseUndervejs: false,
         fornyesIkke: true, naeste: { slags: 'fornyes_ikke' }, fornyesAt: null } : x))
-      setMelding('Abonnementet er sagt op. Adgangen løber perioden ud.')
+      // SAMME SPOERGSMAAL, samme svar. Stod der «Adgangen løber
+      // perioden ud» fast, ville en kunde, hvis periode allerede var
+      // udloebet (fx `past_due`), faa den fjernede loegn tilbage ét
+      // klik senere. Opsigelsen flytter ikke perioden, saa `a.periode`
+      // er stadig det rigtige svar.
+      setMelding(a?.periode.slags === 'loeber'
+        ? 'Abonnementet er sagt op. Adgangen løber perioden ud.'
+        : 'Abonnementet er sagt op. Der bliver ikke trukket mere.')
       return
     }
     if (svar.fejl === 'ukendt') {
@@ -200,9 +219,15 @@ export function Abonnement({ start }: { start: Abonnementsvisning | null }) {
           <dt>Fornyes</dt>
           <dd>{a.fornyesAt ?? 'Fornyes ikke'}</dd>
         </div>
+        {/* Etiketten foelger kendsgerningen. «Adgang til» over en
+            fortidig dato laeser som et loefte om fremtiden. */}
         <div>
-          <dt>Adgang til</dt>
-          <dd>{a.adgangTil ?? 'Ingen betalt adgang'}</dd>
+          <dt>{a.periode.slags === 'udloebet' ? 'Adgang udløb' : 'Adgang til'}</dt>
+          <dd>
+            {a.periode.slags === 'loeber' ? a.periode.til
+              : a.periode.slags === 'udloebet' ? a.periode.sidst
+              : 'Ingen betalt adgang'}
+          </dd>
         </div>
       </dl>
       {melding && <p role="status">{melding}</p>}
@@ -218,9 +243,37 @@ export function Abonnement({ start }: { start: Abonnementsvisning | null }) {
             : 'Sig abonnementet op'}
         </button>
       )}
-      {a.fornyesIkke && a.adgangTil && (
+      {/* ── DEN SAETNING, DER LOEJ ────────────────────────────
+          Betingelsen var `fornyesIkke && adgangTil`. Ingen af de to
+          spoerger, om perioden stadig LOEBER: `fornyesIkke` er sand for
+          en terminal raekke, og en fortidig dato er lige saa truthy som
+          en fremtidig. En kunde, hvis periode loeb ud i gaar, fik at
+          vide, at adgangen fortsatte.
+
+          Nu spoerger den om praecis det, den paastaar. */}
+      {a.periode.slags === 'loeber' && a.fornyesIkke && (
         <p className="koebsnote">
-          Du har betalt til {a.adgangTil}. Adgangen fortsætter indtil da.
+          Du har betalt til {a.periode.til}. Adgangen fortsætter indtil da.
+        </p>
+      )}
+      {/* ── OG DET SANDE, NAAR DEN ER UDE ────────────────────
+          To formuleringer, fordi de to tilstande ikke er det samme.
+
+          Er fornyelsen bekraeftet stoppet, ER abonnementet slut, og der
+          staar de samme ord som i kontaktboksen paa boligsiden og i
+          beskedmodulets laaseskaerm.
+
+          Er den IKKE stoppet — `past_due`, `unpaid`, `incomplete` — er
+          abonnementet i live hos Stripe, mens den betalte periode er
+          loebet ud. «Dit abonnement er udloebet» ville dér staa lige
+          over «Status: Betaling mislykkedes» og knappen «Sig
+          abonnementet op». Saa siger vi det snaevrere, som er sandt
+          begge steder. */}
+      {a.periode.slags === 'udloebet' && (
+        <p className="koebsnote">
+          {a.fornyesIkke
+            ? 'Dit abonnement er udløbet.'
+            : 'Din betalte periode er udløbet.'}
         </p>
       )}
     </section>

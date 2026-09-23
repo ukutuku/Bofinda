@@ -30,6 +30,7 @@ import { Konto } from '../udlejer/Konto'
 import { Kvitteringsblok } from '../udlejer/Kvitteringsblok'
 import { logUd } from '../udlejer/handlinger'
 import { mitAbonnement } from '../../lib/abonnement'
+import { dansk } from '../../lib/dato'
 import { hentTilstand } from '../../lib/adgang'
 import { Abonnement } from './Abonnement'
 
@@ -185,8 +186,15 @@ export default async function Side(
     status: a.status, fase: a.fase,
     fornyelseStoppet: a.fornyelseStoppet,
     naeste: a.naeste,
-    fornyesAt: a.fornyesAt ? a.fornyesAt.toLocaleString('da-DK') : null,
-    adgangTil: a.adgangTil ? a.adgangTil.toLocaleString('da-DK') : null,
+    fornyesAt: a.fornyesAt ? dansk(a.fornyesAt) : null,
+    // Datoerne formateres HER, hvor de stadig er Date. Klienten faar
+    // et svar, ikke en raavare, den ikke kan sammenligne — det var dét,
+    // der lod panelet skrive «fortsaetter indtil da» om en fortidig dato.
+    periode: a.periode.slags === 'loeber'
+      ? { slags: 'loeber' as const, til: dansk(a.periode.til) }
+      : a.periode.slags === 'udloebet'
+        ? { slags: 'udloebet' as const, sidst: dansk(a.periode.sidst) }
+        : { slags: 'ingen' as const },
     opsagt: a.opsagt,
     opsigelseUndervejs: a.opsigelseUndervejs,
     fornyesIkke: a.fornyesIkke,

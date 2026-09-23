@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { renRetur } from '../../../lib/retur'
+import { dansk } from '../../../lib/dato'
 import { mitAbonnement } from '../../../lib/abonnement'
 import { hentBrugerId } from '../../../lib/auth'
 
@@ -27,7 +28,10 @@ export default async function Side({ searchParams }: {
   const retur = renRetur(sp.retur)
   const brugerId = await hentBrugerId()
   const abo = brugerId ? await mitAbonnement() : null
-  const harAdgang = !!abo?.adgangTil && abo.adgangTil > new Date()
+  // Sammenligningen sker i `abonnementForBruger`, ikke her. Se
+  // `Betaltperiode` i lib/abonnement.ts.
+  const periode = abo?.periode
+  const harAdgang = periode?.slags === 'loeber'
 
   return (
     <main className="side-smal">
@@ -36,7 +40,7 @@ export default async function Side({ searchParams }: {
         <>
           <p>
             Adgangen gælder til{' '}
-            <strong>{abo!.adgangTil!.toLocaleString('da-DK')}</strong>, og
+            <strong>{dansk(periode!.til)}</strong>, og
             abonnementet fornyes automatisk, indtil du siger op.
           </p>
           <p><a className="knap" href={retur}>Tilbage til boligen</a></p>

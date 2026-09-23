@@ -122,13 +122,26 @@ faktisk fyrer.
 Fundet under arbejdet med `abonnement_udloebet`. Hver af dem er et
 selvstændigt stykke arbejde, og ingen af dem blev lavet i den omgang.
 
-1. **`/min-side` siger «adgangen fortsætter indtil da» om en udløbet
-   række.** `app/min-side/Abonnement.tsx` viser linjen, når
-   `fornyesIkke && adgangTil` — og `fornyesIkke` er sand for en terminal
-   status, mens `adgangTil` på en udløbet række er en fortidig dato og
-   dermed truthy. Kunden, hvis periode løb ud i går, får at vide, at
-   adgangen fortsætter. Efter denne ændring siger to andre steder
-   samtidig, at abonnementet er udløbet.
+1. ~~**`/min-side` siger «adgangen fortsætter indtil da» om en udløbet
+   række.**~~ **Rettet.** `Abonnementsbillede.adgangTil: Date | null` er
+   erstattet af `Betaltperiode` — `{loeber|udloebet|ingen}` — så
+   sammenligningen med `now()` sker ét sted, i `abonnementForBruger`, og
+   kalderne forgrener på svaret i stedet for på en rå dato. Det lukkede
+   samtidig tre af de fem udtryk i punkt 4: `/abonnement/page.tsx` og
+   `/abonnement/kvittering/page.tsx` regnede hver sin.
+
+   Panelet siger nu to forskellige ting, fordi de to tilstande ikke er
+   det samme: er fornyelsen **bekræftet stoppet**, står der «Dit
+   abonnement er udløbet» — samme ord som kontaktboksen og låseskærmen.
+   Lever abonnementet stadig hos Stripe (`past_due`, `unpaid`), står der
+   «Din betalte periode er udløbet»; det andet ville stå lige over
+   «Status: Betaling mislykkedes» og knappen «Sig abonnementet op».
+
+   **Ikke gjort, med vilje:** der er ingen «Genaktivér»-knap på
+   /min-side. `startKoebFor` kaster `har_allerede`, så snart der findes
+   en `LEVENDE` række — og `incomplete` er levende. For netop den kunde,
+   der lige har forsøgt et nyt køb, ville knappen være en blindgyde.
+   Vejen videre findes på boligsiden, hvor muren selv stiller den.
 2. **`checkout_started` bærer ikke grunden.** `app/abonnement/handlinger.ts`
    sender `{ funktion: 'kontakt', tilstand: 'betaling' }` — hårdkodet,
    uden `grund`, uanset hvor kunden kom fra. Allowlisten kan bære den nye
@@ -138,13 +151,23 @@ selvstændigt stykke arbejde, og ingen af dem blev lavet i den omgang.
    den i adressen til `/abonnement`, og siden læser den ikke i dag.
    Begynder den at gøre det, kan enhver sende et link, der påstår noget
    om en fremmeds betalingshistorik. Udled det af basen, ikke af URL'en.
-4. **Fem udtryk for «har hun (haft) adgang».** `slaaAdgangOp`,
-   `abonnementForBruger` (som vælger en anden række: levende først,
-   ellers nyeste efter `oprettet_at`), `app/abonnement/page.tsx`,
-   `app/abonnement/kvittering/page.tsx` — og `gaeldendeTilbud()`, der
-   udleder «har hun betalt før» af `users.intro_brugt_at` på selvsamme
-   side. De er korrekte hver for sig i dag. Det er netop mønstret fra
-   CLAUDE.md-tabellen.
+4. **To udtryk tilbage for «har hun (haft) adgang»** — var fem.
+   `slaaAdgangOp` (MAX(adgang_til), vagtens) og `abonnementForBruger`
+   (levende række først, ellers nyeste efter `oprettet_at`, panelets)
+   vælger stadig hver sin række og kan være uenige: en kunde med en
+   udløbet periode **og** et nyt mislykket køb får `abonnement_udloebet`
+   af vagten, mens panelet viser den nye, ubetalte række. De tre, der
+   regnede selv, er lukket med `Betaltperiode`.
+
+   Dertil `gaeldendeTilbud()`, der udleder «har hun betalt før» af
+   `users.intro_brugt_at` — et tredje spørgsmål besvaret af en fjerde
+   kolonne, på selvsamme side.
+
+5. **Datoformatet.** `app/admin/drift/page.tsx` formaterer stadig med
+   `toLocaleString('da-DK')` uden zone. `lib/dato.ts` har `dansk()` med
+   `KALENDERZONE`, og filens egen regel er, at zonen er eksplicit
+   overalt. På Vercel kører serveren UTC, så et tidspunkt kl. 00.30
+   dansk tid skrives med dagen før.
 
 ---
 

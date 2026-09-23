@@ -46,7 +46,7 @@ export default async function Side({ searchParams }: {
     )
   }
 
-  if (abo?.adgangTil && abo.adgangTil > new Date()) {
+  if (abo?.periode.slags === 'loeber') {
     return (
       <main className="side-smal">
         <h1>Abonnement</h1>

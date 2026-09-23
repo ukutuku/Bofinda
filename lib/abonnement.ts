@@ -869,6 +869,24 @@ export async function sigOpFor(brugerId: string): Promise<Opsigelsessvar> {
   return { ok: true, bekraeftet: true, adgangTil: a.adgang }
 }
 
+/**
+ * Den betalte periode paa den raekke, panelet viser.
+ *
+ * ERSTATTER `adgangTil: Date | null`. Et blot og bart tidspunkt siger
+ * ikke, om det er passeret, og alle tre kaldere sammenlignede det selv
+ * — tre udtryk for ét spoergsmaal. Sammenligningen sker nu ÉT sted, her,
+ * og kalderne forgrener paa svaret.
+ *
+ * Det var praecis den fejl, der lod /min-side skrive «Du har betalt til
+ * {dato}. Adgangen fortsaetter indtil da» om en periode, der loeb ud i
+ * gaar: `fornyesIkke` er sand for en terminal raekke, og en FORTIDIG
+ * dato er lige saa truthy som en fremtidig.
+ */
+export type Betaltperiode =
+  | { slags: 'loeber'; til: Date }
+  | { slags: 'udloebet'; sidst: Date }
+  | { slags: 'ingen' }
+
 export interface Abonnementsbillede {
   status: string
   fase: 'intro' | 'normal' | null
@@ -927,7 +945,7 @@ export interface Abonnementsbillede {
    * tillaegge hende vores egen handling er en anden slags usandhed.
    */
   fornyesIkke: boolean
-  adgangTil: Date | null
+  periode: Betaltperiode
   opsagt: boolean
 }
 
@@ -1061,7 +1079,12 @@ export async function abonnementForBruger(brugerId: string): Promise<Abonnements
     // sandt: Stripe har den bogfoert, indtil opsigelsen er bekraeftet,
     // og at skjule den ville vaere det samme loefte forfra.
     fornyesAt: fornyesIkke ? null : a.slut,
-    adgangTil: a.adgang,
+    // ÉN sammenligning, ét `nu`. Kalderne faar svaret, ikke raavaren.
+    periode: !a.adgang
+      ? { slags: 'ingen' }
+      : a.adgang > new Date()
+        ? { slags: 'loeber', til: a.adgang }
+        : { slags: 'udloebet', sidst: a.adgang },
     opsagt,
     opsigelseUndervejs,
     fornyesIkke,

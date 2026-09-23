@@ -728,7 +728,7 @@ async function koer() {
     tjek('  og den viser, at abonnementet ER slut — ikke bare «Opsagt»',
       ui?.afsluttet === true && ui?.status === 'canceled',
       `afsluttet=${ui?.afsluttet} status=${ui?.status}`)
-    tjek('  KUNDENS BETALTE ADGANG ER URØRT', ui?.adgangTil !== null)
+    tjek('  KUNDENS BETALTE ADGANG ER URØRT', ui?.periode.slags !== 'ingen')
   }
 
   // ═════════════════════════════════════════════════════════════

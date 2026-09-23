@@ -25,7 +25,10 @@ import { rens, type Haendelse as Maalehaendelse, type Kontekst } from '../lib/ma
 import { levendeAbonnementer, saetTilstand } from '../lib/driftskift'
 import { behandl, periode, type Haendelse } from '../lib/webhook'
 import { faser, indsaetStripe, INTRO_OERE, NORMAL_OERE, opsaetning } from '../lib/stripe'
-import { startKoebFor } from '../lib/abonnement'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { abonnementForBruger, startKoebFor } from '../lib/abonnement'
+import { Abonnement, type Abonnementsvisning } from '../app/min-side/Abonnement'
 import { saetAktiv } from '../lib/maaling'
 import { _saetKontekst } from '../lib/maaling-server'
 // De to kaldesteder KOERES i afsnit 9. Importen er statisk og ikke
@@ -430,6 +433,84 @@ async function koer() {
       tjek(`maalingen kan baere grunden «${g}»`, r.ok,
         r.ok ? '' : `${r.fejl.grund} (${r.fejl.detalje})`)
     }
+    await saetDrift('gratis')
+  }
+
+  // ═══ 8c · «ADGANGEN FORTSAETTER INDTIL DA» — OM EN FORTIDIG DATO ═══
+  // /min-side skrev «Du har betalt til {dato}. Adgangen fortsætter
+  // indtil da» paa betingelsen `fornyesIkke && adgangTil`. Ingen af de
+  // to spoerger, om perioden stadig LOEBER: `fornyesIkke` er sand for
+  // en terminal raekke, og en FORTIDIG dato er lige saa truthy som en
+  // fremtidig. En kunde, hvis periode loeb ud i gaar, fik at vide, at
+  // adgangen fortsatte.
+  //
+  // To lag proeves hver for sig: KENDSGERNINGEN (kommer `periode`
+  // rigtigt ud af basen) og SAETNINGEN (skriver panelet det rigtige).
+  console.log('\n══ 8c · Panelet paastaar ikke adgang, der er loebet ud ══')
+  {
+    await saetDrift('betaling')
+    const sub = (u: string, s: 'canceled' | 'incomplete' | 'active',
+                 til: Date | null, opsagt = false) =>
+      db.insert(subscriptions).values({
+        userId: u, stripeSubscriptionId: `sub_${randomUUID()}`, status: s,
+        adgangTil: til, cancelAtPeriodEnd: opsagt,
+      })
+
+    // ── laget 1 · kendsgerningen ──────────────────────────────
+    const ud = await nyBruger('panel-udloebet'); await sub(ud, 'canceled', iGaar(), true)
+    const lb = await nyBruger('panel-loeber'); await sub(lb, 'active', iMorgen(), true)
+    const ig = await nyBruger('panel-ingen'); await sub(ig, 'incomplete', null)
+
+    const pUd = (await abonnementForBruger(ud))?.periode
+    const pLb = (await abonnementForBruger(lb))?.periode
+    const pIg = (await abonnementForBruger(ig))?.periode
+    tjek('en periode, der loeb ud i gaar, er «udloebet»',
+      pUd?.slags === 'udloebet', String(pUd?.slags))
+    tjek('en periode, der loeber til i morgen, er «loeber»',
+      pLb?.slags === 'loeber', String(pLb?.slags))
+    tjek('en raekke uden betaling er «ingen»',
+      pIg?.slags === 'ingen', String(pIg?.slags))
+
+    // ── laget 2 · saetningen ──────────────────────────────────
+    const vis = (p: Abonnementsvisning['periode'], fornyesIkke: boolean) =>
+      renderToStaticMarkup(createElement(Abonnement, {
+        start: {
+          status: 'canceled', fase: 'normal', naeste: { slags: 'fornyes_ikke' },
+          fornyesAt: null, periode: p, opsagt: true, fornyesIkke,
+        } satisfies Abonnementsvisning,
+      }))
+
+    const FORTSAETTER = 'Adgangen fortsætter indtil da'
+    const loeber = vis({ slags: 'loeber', til: '24.9.2026, 12.00.00' }, true)
+    tjek('en LOEBENDE periode faar stadig «fortsaetter indtil da»',
+      loeber.includes(FORTSAETTER),
+      'saetningen maa ikke bare slettes — den er sand her')
+    tjek('  og etiketten er «Adgang til»', loeber.includes('Adgang til'))
+
+    const udloebet = vis({ slags: 'udloebet', sidst: '22.9.2026, 12.00.00' }, true)
+    tjek('en UDLOEBET periode paastaar IKKE, at adgangen fortsaetter',
+      !udloebet.includes(FORTSAETTER),
+      'det var loegnen: en fortidig dato er lige saa truthy som en fremtidig')
+    tjek('  og den siger det samme som kontaktboksen paa boligsiden',
+      udloebet.includes('Dit abonnement er udløbet'))
+    tjek('  og etiketten er sat i datid',
+      udloebet.includes('Adgang udløb') && !udloebet.includes('Adgang til'))
+
+    // Lever abonnementet stadig hos Stripe (past_due, unpaid), er det
+    // PERIODEN der er ude — ikke abonnementet. «Dit abonnement er
+    // udloebet» ville staa lige over «Sig abonnementet op».
+    const levende = vis({ slags: 'udloebet', sidst: '22.9.2026, 12.00.00' }, false)
+    tjek('et LEVENDE abonnement med udloebet periode siger det snaevrere',
+      levende.includes('Din betalte periode er udløbet')
+      && !levende.includes('Dit abonnement er udløbet'),
+      'abonnementet lever; det er perioden, der er ude')
+    tjek('  og det paastaar heller ikke, at adgangen fortsaetter',
+      !levende.includes(FORTSAETTER))
+
+    const ingen = vis({ slags: 'ingen' }, true)
+    tjek('uden betalt periode staar der hverken det ene eller det andet',
+      ingen.includes('Ingen betalt adgang')
+      && !ingen.includes(FORTSAETTER) && !ingen.includes('udløbet'))
     await saetDrift('gratis')
   }
 
