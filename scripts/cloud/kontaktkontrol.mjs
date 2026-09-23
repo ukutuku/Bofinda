@@ -401,6 +401,21 @@ async function koer() {
   tjek((await login.getAttribute('href')) === '/min-side', 'og den peger paa login')
   tjek(await iSyne(s.getByRole('button', { name: 'Vis kontaktoplysninger' })),
     'kontaktoplysningerne er stadig aabne — login staar KUN ved samtalen')
+
+  // ═══ LOGIN SKAL STAA ALENE ═══
+  //
+  // Kravet er, at login kun vises dér, hvor funktionen kraever en konto.
+  // Uden de tre her var afsnittet groent, selv om panelet viste BAADE et
+  // login OG en fungerende «Skriv til udlejeren» ved siden af — altsaa
+  // stik imod det, tilstanden skal vise. Maalingen er den samme, som
+  // tilstand 1 og afsnit 2 allerede bruger.
+  const fyldte3 = await s.locator('.kui-panel .kui-handling').count()
+  tjek(fyldte3 === 1,
+    'gratis: præcis ÉN fyldt handling — login staar ALENE', `${fyldte3}`)
+  tjek((await s.getByRole('button', { name: 'Skriv til udlejeren' }).count()) === 0,
+    'gratis: samtalen kan ikke startes uden konto')
+  tjek((await s.locator('.bsk-modul').count()) === 0,
+    'gratis: ingen indbakke uden konto')
   await skud(s, '3-gratis', [390, 768, 1440])
 
   // ── 4 · Betaling uden adgang ──────────────────────────────
