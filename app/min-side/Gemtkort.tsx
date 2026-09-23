@@ -11,7 +11,7 @@ import type { GemtBolig } from '../../lib/favoritter'
 // Kortet laaner soegekortets egne byggesten frem for at skrive dem af.
 // `Ellinje` og `udenSted` er eksporteret netop derfor: en kopi ville
 // vaere to rigtige udtryk, der driver fra hinanden.
-import { Ellinje, kr, udenSted } from '../Boligkort'
+import { Grundlag, kr, udenSted } from '../Boligkort'
 import { billedUrl, breddeTilladt } from '../../lib/billede'
 import { eltilstand } from '../../lib/eloplysning'
 import { stort, typeord } from '../../lib/boligtype'
@@ -129,22 +129,21 @@ export function Gemtkort({ b }: { b: GemtBolig }) {
               <p className="gemt-pris ingen-pris">Prisen er ikke oplyst</p>
             )}
 
-            {/* Kender vi huslejen men ikke totalen, er manglen selve
-                oplysningen. Vi kan ikke skelne «udlejer opkraever intet»
-                fra «udlejer oplyser intet», saa vi paastaar ingen af
-                delene — vi siger, hvad hun skal spoerge om. Er heller
-                ikke huslejen kendt, staar der ikke to forbehold oven i
-                hinanden; linjen ovenfor har allerede sagt det. */}
-            {b.total == null && b.leje != null && (
-              <p className="ukendt">
-                Udlejer oplyser ikke aconto — spørg om varme og vand.
-              </p>
-            )}
+            {/* ÉN grundlagslinje, som paa begge soegekort — samme
+                komponent, samme regel, ét sted. Den afloeste den gule
+                aconto-boks OG el-linjen; se lib/grundlag.ts.
 
-            {/* En groen total maa aldrig staa uden at el er gjort rede
-                for. Komponenten er den samme, som begge soegekort
-                bruger; spoergsmaalet besvares ét sted. */}
-            <Ellinje tilstand={eltilstand(b)} />
+                Er HVERKEN total eller husleje kendt, staar der ingen
+                linje: prislinjen ovenfor har allerede sagt «Prisen er
+                ikke oplyst», og to forbehold oven i hinanden hjaelper
+                ingen. Det var ogsaa den gamle regel. */}
+            {(b.total != null || b.leje != null) && (
+              <Grundlag
+                totalKendt={b.total != null}
+                el={eltilstand(b)}
+                poster={b.poster}
+              />
+            )}
 
             {/* Kildens forbehold hoerer til ved billedet — men vises kun,
                 naar der ER et billede at tage forbehold for. */}

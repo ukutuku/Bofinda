@@ -89,13 +89,19 @@ const GRUPPE = {
 console.log('\n══ 1 · ét klassenavn, én betydning ══')
 const gm = renderToStaticMarkup(createElement(Gruppekort as never, { g: GRUPPE, nu: NU }))
 {
-  const antalEl = klasser(gm, 'el')
-  tjek('gruppekortet har PRÆCIS ÉN .el', antalEl === 1, `${antalEl}`)
-  const tekst = indhold(gm, 'el').join(' | ')
-  tjek('og den handler om EL', /el /i.test(tekst) || /Aconto er ét samlet beløb/.test(tekst),
-    `«${tekst}»`)
-  tjek('.el bærer ikke reservationsstatus', !/reserveret/i.test(tekst), `«${tekst}»`)
-  tjek('.el bærer ikke ansøgningsform', !/venteliste|almindelig/i.test(tekst), `«${tekst}»`)
+  // ⚠ `.el` FINDES IKKE LAENGERE. Posterlinjen og el-linjen er slaaet
+  // sammen til ÉN grundlagslinje — se lib/grundlag.ts. Den gamle
+  // paastand («præcis én .el») ville nu vaere en paastand om en klasse,
+  // ingen bruger, og dermed groen for evigt.
+  tjek('der er INGEN .el laengere — el staar i grundlagslinjen',
+    klasser(gm, 'el') === 0, `${klasser(gm, 'el')}`)
+  tjek('gruppekortet har PRÆCIS ÉN grundlagslinje',
+    klasser(gm, 'kort-grundlag') === 1, `${klasser(gm, 'kort-grundlag')}`)
+  const tekst = indhold(gm, 'kort-grundlag').join(' | ')
+  tjek('grundlagslinjen bærer ikke reservationsstatus',
+    !/reserveret/i.test(tekst), `«${tekst}»`)
+  tjek('grundlagslinjen bærer ikke ansøgningsform',
+    !/venteliste|almindelig/i.test(tekst), `«${tekst}»`)
 
   tjek('ansøgningsopdelingen har sin EGEN klasse',
     klasser(gm, 'gruppe-fordeling') === 1, `${klasser(gm, 'gruppe-fordeling')}`)
@@ -151,8 +157,12 @@ console.log('\n══ 1b · kildetjek: ingen genforening ══')
   const kilde = readFileSync('app/Boligkort.tsx', 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
   const antal = (kilde.match(/className="el"/g) ?? []).length
-  tjek('className="el" står PRÆCIS ét sted i kilden', antal === 1,
-    antal === 1 ? 'kun Ellinje' : `${antal} steder — er de tre betydninger genforenet?`)
+  tjek('className="el" findes SLET IKKE i kilden', antal === 0,
+    antal === 0 ? 'el staar i grundlagslinjen' : `${antal} steder — er el-linjen genindfoert?`)
+  // Grundlagslinjen maa kun gengives ÉT sted. To komponenter, der begge
+  // skriver den, ville vaere den gamle dobbelthed i ny form.
+  const antalGrund = (kilde.match(/className="kort-grundlag"/g) ?? []).length
+  tjek('kort-grundlag gengives præcis ét sted i kilden', antalGrund === 1, `${antalGrund}`)
   tjek('gruppe-fordeling findes som egen klasse',
     kilde.includes('className="gruppe-fordeling"'))
 }

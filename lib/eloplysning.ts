@@ -41,7 +41,7 @@ export function eltilstand(b: {
   total: number | null
   el: number | null
   elEgenMaaler: boolean | null
-  poster: string[] | null
+  poster: readonly string[] | null
 }): Eltilstand | null {
   if (b.total == null) return null
   if (b.el != null) return 'med'
@@ -57,5 +57,5 @@ export function eltilstand(b: {
  * 1.783 kr." og intet andet — hverken overskrift, note eller
  * specifikation siger, hvad beloebet daekker.
  */
-export const samletKlump = (poster: string[] | null): boolean =>
+export const samletKlump = (poster: readonly string[] | null): boolean =>
   poster != null && poster.includes('other') && !poster.some((p) => NAVNGIVNE.includes(p))

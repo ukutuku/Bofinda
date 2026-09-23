@@ -365,7 +365,7 @@ async function koer() {
       kunLeje.includes('kr/md i husleje') && !kunLeje.includes('til udlejer'))
     tjek('10C · og den er ikke groen', kunLeje.includes('gemt-pris kun-leje'))
     tjek('10C · manglen siges hoejt',
-      kunLeje.includes('Udlejer oplyser ikke aconto'))
+      kunLeje.includes('Spørg udlejeren om varme og vand'))
 
     const medTotal = kort({ ...medFoto, total: 1000000, leje: 900000,
       poster: ['rent', 'heat', 'water'] })
@@ -373,12 +373,12 @@ async function koer() {
       medTotal.includes('kr/md til udlejer') && !medTotal.includes('i husleje'))
     tjek('10C · og prisen er groen', /class="gemt-pris"/.test(medTotal))
     tjek('10C · og saa staar forbeholdet om aconto IKKE',
-      !medTotal.includes('Udlejer oplyser ikke aconto'))
+      !medTotal.includes('Spørg udlejeren om varme og vand'))
 
     // ── 10D · En groen total uden el-rede er forbudt ──────────────
     // Samme regel som paa de to soegekort, og nu med en tredje kaldere
     // af `Ellinje`. Den fejl stod paa 171 gruppekort, foer nogen saa den.
-    const ELTEKST = /El indgår ikke|el afregnes direkte|ét samlet beløb/
+    const ELTEKST = /el kommer oveni|el betaler du selv til elselskabet|ét samlet acontobeløb/
     for (const [navn, html] of [
       ['udspecificeret uden el', medTotal],
       ['samlet klump', kort({ ...medFoto, total: 1000000, poster: ['rent', 'other'] })],

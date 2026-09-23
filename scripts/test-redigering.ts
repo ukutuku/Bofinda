@@ -329,7 +329,7 @@ async function main() {
   // test paa betingelsen ville bestaa, selv om linjen blev flyttet ud af
   // det groenne korts gren.
   console.log('\n══ grøn total kræver el-forbehold ══')
-  const ELTEKST = /El indgår ikke|el afregnes direkte/
+  const ELTEKST = /el kommer oveni|el betaler du selv til elselskabet/
   const GROEN = /class="kort-pris"/
 
   const bolig = (o: Partial<Bolig>): Bolig => ({
@@ -1171,9 +1171,9 @@ async function main() {
   // korttyper drev fra hinanden sidst.
   console.log('\n══ ukendt total → ingen el-linje ══')
   const EL_TEKSTER = [
-    'El indgår ikke',
-    'Aconto er ét samlet beløb',
-    'el afregnes direkte',
+    'el kommer oveni',
+    'ét samlet acontobeløb',
+    'el betaler du selv til elselskabet',
   ]
   const harElLinje = (html: string) => EL_TEKSTER.some((t) => html.includes(t))
   for (const [navn, html] of [
@@ -1196,7 +1196,7 @@ async function main() {
   ] as const) {
     tjek(`${navn}: ingen el-linje`, !harElLinje(html),
       EL_TEKSTER.filter((t) => html.includes(t)).join(' + '))
-    tjek(`${navn}: men manglen siges`, html.includes('Udlejer oplyser ikke aconto'))
+    tjek(`${navn}: men manglen siges`, html.includes('Spørg udlejeren om varme og vand'))
   }
   // Praemissen: med en KENDT total skal el-linjen stadig komme. Ellers
   // ville proeven ovenfor bestaa ved at fjerne linjen helt.
@@ -1207,11 +1207,11 @@ async function main() {
   // "El er ikke med i tallet" og "vi ved ikke hvad der er i tallet" er to
   // forskellige udsagn. Kun det foerste kan aflaeses af udspecificerede
   // poster. Er acontoen ét samlet beloeb, KAN el ligge i klumpen — og saa
-  // er "El indgår ikke" en paastand, vi ikke har daekning for.
+  // er "el kommer oveni" en paastand, vi ikke har daekning for.
   //
   // Det er de 254 boliger fra LokalBolig, Propstep og Dacas.
-  const IKKE_MED = /El indgår ikke/
-  const UKENDT = /ét samlet beløb/
+  const IKKE_MED = /el kommer oveni/
+  const UKENDT = /ét samlet acontobeløb/
   const KLUMP = { poster: ['rent', 'other'], el: null, elEgenMaaler: null }
 
   tjek('udledningen: klump uden navngiven post → ukendt-daekning',
@@ -1228,7 +1228,7 @@ async function main() {
     ['gruppekort, én med samlet aconto',
       vis(createElement(Gruppekort, { nu: KORTNU, g: gruppe({ nogenUkendtDaekning: true }, KLUMP) }))],
   ] as const) {
-    tjek(`${navn}: siger IKKE "El indgår ikke"`, !IKKE_MED.test(html),
+    tjek(`${navn}: siger IKKE "el kommer oveni"`, !IKKE_MED.test(html),
       IKKE_MED.test(html) ? 'PÅSTÅR NOGET VI IKKE VED' : '')
     tjek(`${navn}: siger at beløbet er samlet`, UKENDT.test(html))
   }
@@ -1239,7 +1239,7 @@ async function main() {
     ['gruppekort, alle uden el', vis(createElement(Gruppekort,
       { nu: KORTNU, g: gruppe({ nogenUdenEl: true }) }))],
   ] as const) {
-    tjek(`${navn}: udspecificeret → "El indgår ikke"`, IKKE_MED.test(html))
+    tjek(`${navn}: udspecificeret → "el kommer oveni"`, IKKE_MED.test(html))
     const groen = GROEN.test(html)
     tjek(`${navn}: grøn total`, groen)
     tjek(`${navn}: og el gjort rede for`, !groen || ELTEKST.test(html),
@@ -1259,7 +1259,7 @@ async function main() {
   const egen = vis(createElement(Gruppekort,
     { nu: KORTNU, g: gruppe({ nogenUdenEl: true, alleUdenElHarEgenMaaler: true }) }))
   tjek('gruppekort med egen elmåler: kildens egen formulering',
-    /el afregnes direkte/.test(egen))
+    /el betaler du selv til elselskabet/.test(egen))
 
   // ── Layoutet skal foelge det VISBARE billede ────────────────
   // Kortets gitter har en 216px billedkolonne, og klassen `uden-billede`

@@ -1347,7 +1347,7 @@ try {
     tjek('4B · uden total siger den «i husleje»',
       kl.includes('kr/md i husleje') && !kl.includes('til udlejer'), kl.slice(0, 90))
     tjek('4B · og manglen siges højt',
-      kl.includes('Udlejer oplyser ikke aconto'))
+      kl.includes('Spørg udlejeren om varme og vand'))
     tjek('4B · og prisen er ikke den grønne',
       await kortFor('kunleje').locator('.gemt-pris.kun-leje').count() === 1)
 
@@ -1359,12 +1359,12 @@ try {
 
     // El: de fire tilstande, som de rammer et gemt kort.
     const klump = await tekst('klump')
-    tjek('4D · samlet aconto: «ét samlet beløb», ikke «indgår ikke»',
-      klump.includes('ét samlet beløb') && !klump.includes('El indgår ikke'), klump.slice(0, 120))
-    tjek('4D · udspecificeret uden el: «El indgår ikke»',
-      t.includes('El indgår ikke'))
+    tjek('4D · samlet aconto: «ét samlet acontobeløb», ikke «indgår ikke»',
+      klump.includes('ét samlet acontobeløb') && !klump.includes('el kommer oveni'), klump.slice(0, 120))
+    tjek('4D · udspecificeret uden el: «el kommer oveni»',
+      t.includes('el kommer oveni'))
     tjek('4D · el oplyst: ingen el-linje',
-      !(await tekst('fejler')).includes('El indgår ikke'))
+      !(await tekst('fejler')).includes('el kommer oveni'))
 
     // Ingen grøn total uden el gjort rede for — målt på hvert kort på
     // skærmen, ikke på en gengivelse.

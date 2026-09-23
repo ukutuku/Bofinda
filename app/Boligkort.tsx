@@ -14,7 +14,8 @@ import { medRetur } from '../lib/retur'
 import type { Favoritstatus } from '../lib/favoritter'
 import { Favoritknap } from './Favoritknap'
 import { Bladrekort } from './Bladrekort'
-import { eltilstand, type Eltilstand } from '../lib/eloplysning'
+import { eltilstand } from '../lib/eloplysning'
+import { grundlagstekst, type Grundlagsspoergsmaal } from '../lib/grundlag'
 // Typens navn kommer ÉT sted fra. Kortet og filtrene sagde før hver sit
 // om `andet`, og `villa` fandtes kun i den ene liste. Se lib/boligtype.ts.
 import { stort, typeord } from '../lib/boligtype'
@@ -126,10 +127,6 @@ const nogenlunde = (a: string, b: string) => {
   return skrael(a) === skrael(b)
 }
 
-const POSTNAVN: Record<string, string> = {
-  rent: 'husleje', heat: 'varme', water: 'vand',
-  electricity: 'el', other: 'øvrig aconto',
-}
 
 
 const areal = (min: number | null, max: number | null) =>
@@ -196,7 +193,6 @@ export function Kort({ b, nu, position, favorit, retur }: {
     b.areal != null ? `${b.areal} m²` : null,
   ].filter(Boolean).join(' · ')
 
-  const aconto = (b.poster ?? []).filter((p) => p !== 'rent').map((p) => POSTNAVN[p] ?? p)
   const vist = parsetAdresse(b)
   // Kildens streng baerer ofte postnr og by med. Vi viser dem én gang.
   const raaUdenSted = udenSted(b.adresse, b.postnr, b.by)
@@ -322,13 +318,27 @@ export function Kort({ b, nu, position, favorit, retur }: {
             Kender vi ikke totalen, staar huslejen der i stedet — men uden
             accentfarven, saa de to aldrig kan forveksles paa afstand. */}
         <div className="oekonomi-linje">
+          {/* ═══ MANGLEN STAAR I SELVE TALLET ═══
+
+              Foer var forskellen paa kendt og ukendt total baaret af
+              FARVEN alene — accent mod broedtekst. Den forsvinder i
+              graatone, for en farveblind, og paa et skaermbillede, og
+              den kan kun aflaeses ved at have et andet kort at
+              sammenligne med.
+
+              Nu siger etiketten det. «+ aconto (ikke oplyst)» goer
+              tallet synligt ufuldstaendigt i samme laesning — og det er
+              dét, der har fjernet den gule advarselsboks: naar manglen
+              staar i tallet, er der ikke noget tilbage at saette i en
+              advarselsfarve. 27 % er for ofte til at raabe og for tit
+              til at skjule. */}
           {b.total != null ? (
             <div className="kort-pris">
               {kr(b.total)} <small>kr/md til udlejer</small>
             </div>
           ) : (
             <div className="kort-pris kun-leje">
-              {kr(b.leje) ?? '—'} <small>kr/md i husleje</small>
+              {kr(b.leje) ?? '—'} <small>kr/md i husleje + aconto (ikke oplyst)</small>
             </div>
           )}
 
@@ -346,29 +356,22 @@ export function Kort({ b, nu, position, favorit, retur }: {
             </div>
           )}
 
-          {b.total == null && (
-            /* Manglen skal vaere synlig for brugeren, ikke bare fravaerende.
-               Vi kan ikke skelne "udlejer opkraever intet" fra "udlejer
-               oplyser intet", saa vi paastaar ingen af delene — vi siger,
-               hvad hun skal spoerge om. */
-            <span className="ukendt">
-              Udlejer oplyser ikke aconto — spørg om varme og vand.
-            </span>
-          )}
-          <Ellinje tilstand={eltilstand(b)} />
-          {/* Egen klasse, saa den kan saettes ned i vaegt uden at tage
-              indflytningsprisen med: begge var `.total`, og alderen paa en
-              annonce vejer ikke det samme som et beloeb, hun skal betale. */}
-          {!nyligt && (
-            <div className="total set-linje">
-              {b.hosKilden ? `annonceret ${siden(b.hosKilden)}` : `set ${siden(b.foerstSet)}`}
-            </div>
-          )}
-          {/* Egen linje nederst: den forklarer det store tal og skal staa
-              under det, ikke klemmes ind mellem de andre oplysninger. */}
-          {b.total != null && (
-            <div className="poster">{['husleje', ...aconto].join(' + ')}</div>
-          )}
+          {/* ═══ ÉN GRUNDLAGSLINJE, ALTID PRAECIS ÉN ═══
+
+              Den afloeser posterlinjen OG el-linjen. De svarede paa det
+              samme spoergsmaal — «hvad daekker tallet?» — fra hver sin
+              ende, stod to steder i raekkefoelgen, og skulle laeses
+              sammen for at give ét svar. Se lib/grundlag.ts og
+              docs/kortdesign.md.
+
+              Alderslinjen er flyttet til detaljesiden. Ny-maerkatet
+              bliver — hastighed er produktets loefte — men hvor gammel
+              en IKKE-ny annonce er, hoerer ikke til i oekonomiblokken. */}
+          <Grundlag
+            totalKendt={b.total != null}
+            el={eltilstand(b)}
+            poster={b.poster}
+          />
         </div>
 
         {/* Kortets fod, som referencens «Fra BoligPortal». Boligen vises
@@ -456,7 +459,6 @@ export function Gruppekort({ g, nu, position, filtre, favorit, retur }: {
     ? `${av.marked.reserveret} af ${g.antal} reserveret` : null
   const alleBopael = av.adgang.bopaelskrav === g.antal
 
-  const aconto = (r.poster ?? []).filter((p) => p !== 'rent').map((p) => POSTNAVN[p] ?? p)
   const forside = r.forside && billedUrl(r.forside, 400)
 
   // Er den dyreste mere end en fjerdedel over den billigste, skjuler et
@@ -580,7 +582,9 @@ export function Gruppekort({ g, nu, position, filtre, favorit, retur }: {
             {spredt
               ? <>{kr(g.prisMin)}–{kr(g.prisMax)}</>
               : <>fra {kr(g.prisMin)}</>}
-            {' '}<small>kr/md {n.total ? 'til udlejer' : 'i husleje'}</small>
+            {' '}<small>
+              kr/md {n.total ? 'til udlejer' : 'i husleje + aconto (ikke oplyst)'}
+            </small>
           </div>
 
           {g.indflytningMin != null && (
@@ -594,25 +598,37 @@ export function Gruppekort({ g, nu, position, filtre, favorit, retur }: {
             </div>
           )}
 
-          {!n.total && (
-            <span className="ukendt">
-              Udlejer oplyser ikke aconto — spørg om varme og vand.
-            </span>
-          )}
-          {/* Gruppen taler for flere boliger, saa det SVAGESTE udsagn
-              vinder. Er der bare én, hvis aconto vi ikke kender indholdet
-              af, kan kortet ikke sige "el indgaar ikke" om dem alle. */}
-          {/* `!n.total`, ikke `n.total == null`. Gruppenoegle.total er en
-              BOOLEAN — «er priserne kendte totaler» — saa `== null` var
-              aldrig sand, og vagten fyrede aldrig. Enkeltkortet spoerger
-              paa `b.total`, som er et BELOEB og godt kan vaere null. Samme
-              spoergsmaal, to typer, to udtryk. 47 gruppekort viste baade
-              «udlejer oplyser ikke aconto» og en el-linje. */}
-          <Ellinje tilstand={
-            !n.total || !g.nogenUdenEl ? null
-              : g.nogenUkendtDaekning ? 'ukendt-daekning'
-                : g.alleUdenElHarEgenMaaler ? 'egen-maaler' : 'ikke-med'
-          } />
+          {/* ═══ ÉN GRUNDLAGSLINJE — OGSAA HER ═══
+
+              Gruppen taler for flere boliger, saa det SVAGESTE udsagn
+              vinder. Er der bare én, hvis aconto vi ikke kender
+              indholdet af, kan kortet ikke sige «el indgaar ikke» om
+              dem alle.
+
+              ⚠ `!g.nogenUdenEl` gav FOER `null`, altsaa ingen linje —
+              og `null` betoed ogsaa «total ukendt». To vidt forskellige
+              tilstande, ét udtryk. Nu er de skilt ad: uden total er
+              svaret form B, og har ALLE et el-beloeb, er svaret 'med',
+              som opregner posterne uden forbehold.
+
+              `totalKendt` gives eksplicit. `n.total` er en BOOLEAN —
+              «er priserne kendte totaler» — hvor enkeltkortets `b.total`
+              er et BELOEB, der kan vaere null. Samme ord, to typer; det
+              kostede 47 gruppekort sidst.
+
+              Posterne kun naar de er ENS i hele gruppen. Ellers ville
+              repraesentantens saet staa som om det var alles, og saa
+              siger linjen «husleje + aconto», som er sandt for alle. */}
+          <Grundlag
+            totalKendt={n.total}
+            el={
+              !n.total ? null
+                : !g.nogenUdenEl ? 'med'
+                  : g.nogenUkendtDaekning ? 'ukendt-daekning'
+                    : g.alleUdenElHarEgenMaaler ? 'egen-maaler' : 'ikke-med'
+            }
+            poster={g.ensPoster ? r.poster : null}
+          />
 
           {/* «alle», naar kortet er blandet: linket foerer til hele
               gruppen, ikke til de matchende. Det skal staa foer klikket,
@@ -622,11 +638,6 @@ export function Gruppekort({ g, nu, position, filtre, favorit, retur }: {
             {g.antal} adresser →
           </div>
 
-          {/* Kun naar posterne er ens i hele gruppen. Ellers ville
-              repraesentantens saet staa som om det var alles. */}
-          {n.total && g.ensPoster && (
-            <div className="poster">{['husleje', ...aconto].join(' + ')}</div>
-          )}
         </div>
 
         {/* Kilderne kun naar det gaelder HELE gruppen — ellers ville
@@ -682,24 +693,25 @@ function Billedforbehold() {
 }
 
 /**
- * El-forbeholdet. Eksporteret, fordi den nu har TRE kaldere: enkeltkortet,
+ * Grundlagslinjen. Eksporteret, fordi den har TRE kaldere: enkeltkortet,
  * gruppekortet og Min sides gemte-kort. Reglen i CLAUDE.md er ikke, at de
- * tre skal «holdes ens» — det er, at spoergsmaalet besvares ét sted og
- * bruges derfra. Foerste gang de to foerste drev fra hinanden, stod der
- * baade «Udlejer oplyser ikke aconto» og en el-linje om den aconto paa 47
- * gruppekort.
+ * tre skal «holdes ens» — det er, at spoergsmaalet besvares ÉT sted og
+ * bruges derfra.
+ *
+ * ═══ DEN AFLOESTE TO LINJER ═══
+ *
+ * Foer stod der en posterlinje («husleje + varme + vand») og en el-linje
+ * («El indgaar ikke — udlejer oplyser ikke hvordan») hver sit sted i
+ * raekkefoelgen. De svarede paa det SAMME spoergsmaal fra hver sin ende,
+ * og de skulle laeses sammen for at give ét svar. Foerste gang de drev
+ * fra hinanden, stod der baade «Udlejer oplyser ikke aconto» og en
+ * el-linje om den aconto paa 47 gruppekort.
+ *
+ * Teksten regnes i lib/grundlag.ts — komponenten her gengiver den bare.
+ * Saa kan reglen proeves uden at gengive et kort.
  */
-export function Ellinje({ tilstand }: { tilstand: Eltilstand | null }) {
-  if (tilstand == null || tilstand === 'med') return null
-  return (
-    <div className="el">
-      {tilstand === 'egen-maaler'
-        ? 'Udlejer oplyser: el afregnes direkte med elselskabet'
-        : tilstand === 'ukendt-daekning'
-          ? 'Aconto er ét samlet beløb — det fremgår ikke om el er med'
-          : 'El indgår ikke — udlejer oplyser ikke hvordan'}
-    </div>
-  )
+export function Grundlag(s: Grundlagsspoergsmaal) {
+  return <div className="kort-grundlag">{grundlagstekst(s)}</div>
 }
 
 /**
