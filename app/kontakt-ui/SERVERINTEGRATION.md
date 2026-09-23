@@ -265,3 +265,44 @@ slutning, K3 retter her: at manglende `reactStrictMode` betyder, at
 Next 15 ikke slår StrictMode til. Efter det oplyste er den allerede
 rettet på kandidatgrenen (`9387f85`, `df15d65`), så den rettes **ikke**
 her — to rettelser af samme linje ville kollidere ved integration.
+
+### 6.10 · Måleudstyret: seks huller, registreret — lav
+
+Fundet ved en uafhængig gennemgang, hvor hvert fund blev givet til en
+skeptiker med besked på at afvise det. Disse seks overlevede. Ingen af
+dem er en produktfejl; alle er steder, hvor kontrollen kan være grøn,
+uden at egenskaben er efterprøvet.
+
+1. **`BETALING` er hardkodet** (`['9 kr.', '349 kr.', 'abonnement',
+   'Abonnement']`) i stedet for at blive udledt af `PRISFORLOEB` og
+   `abonnementHref`. Den rammer i dag kun prøvens abonnementslink, fordi
+   attrap-href'en tilfældigvis indeholder ordet «abonnement», og den
+   kender ingen af knapordene. Det er CLAUDE.md's «to udtryk på det
+   samme spørgsmål» i måleudstyret. *Samme familie som den ene røde
+   linje under denne rettelse: ordet «abonnement» står også i den
+   ærlige sætning «Dit abonnement er opsagt», og en ordliste kan ikke
+   skelne. Den måling er nu strukturel; de øvrige er det ikke.*
+2. **`hentKontakt` kan kun afvise i tilstande, hvor knappen slet ikke
+   gengives**, og attrappens `startSamtale` afviser aldrig sit løfte.
+   Tre fejlgrene i komponenterne er derfor uden for både prøvevisningens
+   og kontrollens rækkevidde. Rettes billigst **sammen med 6.1**, som
+   alligevel laver den gren om: afkobl `hentKontakt`s verdikt fra
+   `svaret()` og tilføj et scenarie, hvor adgangen lukker mellem
+   visning og tryk.
+3. **`c-ingen-key` er ikke umålelig gennem markup** — det var min
+   konklusion i forrige leverance, og den var for hurtig. Den er
+   umålelig med de nuværende scenarier, fordi der ikke findes en vej
+   fra *låst* tilbage til *adgang* uden at prøvevisningens eget
+   `key={scenarie}` afmonterer alt og gør målingen grøn ved
+   konstruktion. En knap, der giver attrappen en ny identitet uden at
+   skifte scenarie, ville åbne vejen.
+4. **Datoen måles kun på form** (`/Du har adgang til \d/`), ikke mod
+   den dato attrappen faktisk sendte. Det er det eneste sted,
+   brugerfladen formaterer en værdi fra serveren.
+5. **Genforsøget efter en mislykket samtalestart** kontrolleres kun for
+   at være *synligt*, ikke for at et nyt tryk faktisk starter et nyt
+   forsøg — hvilket er hele påstanden.
+6. **Ingen kontrol efterprøver, at StrictMode faktisk er aktiv** i
+   kontaktprøven. Beskedmodulet har `scripts/cloud/strictmodekontrol.mjs`
+   til netop det; kontaktrejsen har ikke. Indpakningen er der, men intet
+   måler, at den virker.
