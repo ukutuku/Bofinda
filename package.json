@@ -23,7 +23,7 @@
     "test:kerne": "BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/test-redigering.ts && BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/test-maaling.ts && BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/test-soegning.ts && BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/test-indflytning.ts",
     "test:adaptere": "BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/test-depositum.ts",
     "test:oekonomi": "BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/test-beskrivelse.ts && BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/test-genskriv.ts",
-    "test:besked": "echo '(ingen beskedproever paa main endnu)'",
+    "test:besked": "BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/test-kontaktmur.ts",
     "db:backup": "node --env-file-if-exists=.env scripts/backup.mjs",
     "db:backup:proev": "node --env-file-if-exists=.env scripts/proev-genskab.mjs",
     "tjek:noegler": "node --env-file-if-exists=.env scripts/tjek-noegler.mjs",
