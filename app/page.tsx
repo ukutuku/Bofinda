@@ -27,6 +27,7 @@ import {
 } from '../lib/filterpanel'
 import { Sider, sideUrl } from './Sider'
 import { returVaerdi } from '../lib/retur'
+import { paaDansk } from '../lib/liste'
 
 export const dynamic = 'force-dynamic'
 
@@ -1394,7 +1395,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           oprettet her. Og de aabner ikke hos en kilde. */}
       <footer className="bund">
         {fac.kilder.some((k) => k.slug !== 'native')
-          ? `Boliger fra ${fac.kilder.map((k) => k.navn).join(' og ')}.`
+          ? `Boliger fra ${paaDansk(fac.kilder.map((k) => k.navn))}.`
           : 'Annoncer oprettet af udlejere på Bofinda.'}
         {' '}Klik på en bolig for at åbne den hos kilden eller for at se
         udlejerens kontaktoplysninger.

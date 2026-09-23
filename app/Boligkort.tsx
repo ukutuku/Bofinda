@@ -520,17 +520,35 @@ export function Gruppekort({ g, nu, position, filtre, favorit, retur }: {
         </div>
 
         {/* Metalinjen som paa enkeltkortet: overtagelsen og de statusord,
-            der gaelder HELE gruppen. */}
-        <p className="kort-meta">{[ledig, ...status].join(' · ')}</p>
+            der gaelder HELE gruppen — OG den delvise reservation.
 
-        {/* Blandet ansøgningsform/markedsstatus vises som TAL — kortet må
-            ikke lade en delmængdes status tale for hele gruppen, og
-            unknown forsvinder aldrig ud af en blandet linje. Derfor staar
-            de HER og ikke som statusord ovenfor: «venteliste» om en
-            gruppe, hvor kun tre af otte er paa venteliste, ville vaere
-            repraesentanten, der talte for de andre. */}
-        {blandetAnsoegning && <div className="el">{blandetAnsoegning}</div>}
-        {delvisReserveret && <div className="el">{delvisReserveret}</div>}
+            ═══ SAMME FAKTUM, SAMME STED, SAMME UDSEENDE ═══
+
+            «reserveret» stod foer to steder paa gruppekortet: som ord
+            her, naar det gjaldt alle, og som en el-stylet div nedenfor,
+            naar det gjaldt nogle. Samme faktum, to steder, to
+            udseender — og enkeltkortet havde kun det ene. Nu staar
+            markedsstatus ÉT sted paa begge korttyper.
+
+            Det kvantificerede «1 af 10 reserveret» er stadig
+            kvantificeret: gruppen taler ikke for sine medlemmer, den
+            taeller dem. Det var aldrig placeringen, der bar den
+            aerlighed — det var tallet. */}
+        <p className="kort-meta">{[ledig, ...status, delvisReserveret].filter(Boolean).join(' · ')}</p>
+
+        {/* Ansoegningsformen er en OPDELING og ikke ét udsagn: «3
+            venteliste · 5 almindelig · 2 uoplyst». Den kan derfor ikke
+            foejes ind i metalinjen, som selv er ' · '-adskilt — de to
+            niveauer ville smelte sammen til én raekke ord. Den bliver
+            staaende som sin egen linje.
+
+            ⚠ EGEN KLASSE. Den delte foer `el` med el-forbeholdet og med
+            reservationslinjen: ét klassenavn, tre betydninger. En
+            stilaendring for el-forbeholdet ramte reservationsstatus, og
+            en maaling paa `.el` talte tre ting som én.
+            `scripts/test-kortudsagn.ts` fejler, hvis nogen genforener
+            dem. */}
+        {blandetAnsoegning && <div className="gruppe-fordeling">{blandetAnsoegning}</div>}
 
         {/* ── Det blandede kort ─────────────────────────────────
             Kortet staar i listen, fordi MINDST ét medlem matcher — det er
@@ -546,9 +564,10 @@ export function Gruppekort({ g, nu, position, filtre, favorit, retur }: {
             Vises kun, naar der ER filtreret paa domaenet OG gruppen er
             blandet. Er alle medlemmer med, er der intet at tage forbehold
             for, og en linje ville vaere stoej. Linjerne ovenfor bliver
-            staaende: de navngiver AKSEN («1 af 2 reserveret»), mens den
-            her svarer paa hele soegningen — ogsaa naar to filtre er sat,
-            hvor ingen enkelt akse kan svare. */}
+            staaende: de navngiver AKSEN («1 af 2 reserveret» i
+            metalinjen, ansoegningsopdelingen paa sin egen linje), mens
+            den her svarer paa hele soegningen — ogsaa naar to filtre er
+            sat, hvor ingen enkelt akse kan svare. */}
         {g.matchende != null && g.matchende < g.antal && (
           <div className="gruppe-match">
             <strong>{g.matchende} af {g.antal}</strong> boliger matcher din
