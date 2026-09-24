@@ -866,18 +866,36 @@ var grøn i halvdelen af kørslerne med fejlen indført. Nu sættes id'erne
 eksplicit, så de peger den FORKERTE vej — prøven kan kun bestå, hvis
 reglen faktisk er der.
 
-**Samme familie som to andre fælder i dette repo:**
+**Samme familie som tre andre fælder i dette repo:**
 
 | Fælden | Dækker ét tilfælde mindre, end man tror |
 |---|---|
 | `node_modules/` i `.gitignore` | Skråstregen matcher kun en MAPPE. Et symlink slap forbi og kom i versionsstyringen. |
 | `splice(-1)` | Læses som «fra enden» og fjerner ÉN post — ikke resten. Se `lib/ingest.ts` og `adapters/heimstaden.ts`. |
 | gentagelsesprøve mod uafgjort `ORDER BY` | Beviser stabilitet i denne plan, ikke at leddet findes. |
+| `grep --include=*.ts` | Ser ikke `.mjs`, `.sql`, `.md`. Svarer rent på et smallere spørgsmål — og siger ikke selv, at det var smallere. |
 
 Tegnet at holde øje med: **en kontrol, der ser rigtig ud, og hvis
 grønne resultat kan opstå af to grunde** — den ene er den, du ville
 måle, og den anden er tilfældet. Kan du ikke få den rød ved at
 indføre fejlen, måler den ikke det, du tror.
+
+**Den sidste række fortjener sin egen linje, for den rammer ikke en
+prøve, men en påstand om at have set efter.** En søgning efter
+`'heating'` blev kørt med `--include=*.ts --include=*.tsx`, fandt tre
+steder, og resultatet blev skrevet ind i en commit-besked som «en
+gennemsøgning af hele repoet». Der var fire. Den fjerde lå i
+`scripts/test-favoritforloeb-e2e.mjs`, og den var den eneste, der
+faktisk ramte et kort: e2e-prøven kører den rigtige app i en browser,
+og `Gemtkort` gengav «husleje + aconto», hvor der skulle have stået
+«husleje + varme».
+
+Filteret gav ikke et forkert svar. Det gav et rigtigt svar på et andet
+spørgsmål end det, der blev stillet — og en tom udgang ser ens ud,
+uanset om der ikke var noget, eller om man ikke kiggede. **Søg bredt
+først, indsnævr bagefter**, og skriv aldrig «hele repoet» i en
+begrundelse, hvis søgningen bar et `--include`, et `--type` eller en
+sti. Skriv, hvad der faktisk blev søgt igennem.
 
 ### Rettighedskontrollen — hvorfor den findes
 
