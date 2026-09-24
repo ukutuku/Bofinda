@@ -132,7 +132,7 @@ async function saet(sag: Sag, kildeId: string) {
     rooms: sag.kilde === HOME ? null : sag.vaerelser,
     rentMonthly: sag.leje,
     totalMonthly: sag.total,
-    totalMonthlyComponents: sag.total != null ? ['heating'] : null,
+    totalMonthlyComponents: sag.total != null ? ['heat'] : null,
     sourceCreatedAt: null,       // alarmens indkoeringsvagt skal ikke omgaas
   })
 }

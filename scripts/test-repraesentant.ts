@@ -69,7 +69,15 @@ async function koer() {
       addressMatchLevel: 'unit', unitAddressUuid: uuid,
       propertyType: 'lejlighed', sizeM2: 64, rooms: 2,
       rentMonthly: leje, totalMonthly: total,
-      totalMonthlyComponents: total == null ? null : ['rent', 'heating'],
+      // ⚠ ORDFORRÅDET ER `rent` · `heat` · `water` · `electricity` · `other`
+      // (lib/normalize.ts). Her stod `'heating'`, som ikke findes. Det
+      // ændrede ikke udfaldet her — `samletKlump` spørger kun, OM der
+      // er en navngiven post, og en ukendt nøgle er lige så lidt
+      // `other` som `heat` er. Men det er nøjagtig den streng, der
+      // ugyldiggjorde to målingsblokke, og en fixture, der taler et
+      // ordforråd, koden ikke kender, er en fælde, der venter på den
+      // næste, der kopierer linjen.
+      totalMonthlyComponents: total == null ? null : ['rent', 'heat'],
       status: 'active',
     }).returning({ id: listings.id })
     return r!.id

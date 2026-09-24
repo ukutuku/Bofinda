@@ -14,7 +14,13 @@
 //              vises. Vaerelsestallet indgaar IKKE. Raekkefoelgen er:
 //                  1. flest VISBARE billeder   (desc)
 //                  2. kendt total              (desc)
-//                  3. id                       (stabilt led)
+//                  3. LAVESTE kendte total     (asc, nulls last)
+//                  4. id                       (stabilt led)
+//
+//              Trin 3 kom til efter denne fil blev skrevet. Den stod
+//              med tre trin og var dermed en beskrivelse af en regel,
+//              der ikke laengere fandtes. Vaerelsestallet indgaar
+//              fortsat IKKE i nogen af de fire.
 //
 //  Trin 1 siger «de er den samme bolig». Trin 2 siger «og det er DEN
 //  her, vi viser». Rettelsen kan kun paavirke trin 1. Hvem der taber,
@@ -160,7 +166,7 @@ async function saet(r: Raekke, spor: string[]): Promise<string> {
     addressMatchLevel: 'access', accessAddressUuid: r.uuid,
     propertyType: 'lejlighed', sizeM2: 80, rooms: r.vaerelser,
     rentMonthly: 1200000, totalMonthly: r.total,
-    totalMonthlyComponents: r.total != null ? ['heating'] : null,
+    totalMonthlyComponents: r.total != null ? ['heat'] : null,
     sourceCreatedAt: null,
   }).returning({ id: listings.id })
   spor.push(l!.id)
