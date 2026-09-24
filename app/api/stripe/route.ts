@@ -29,7 +29,26 @@
 //  · I_GANG → 409 af samme grund: en anden behandler har kravet lige
 //    nu, men den kan doe midt i, og saa er der ingen til at faerdiggoere
 //    den. En ny levering er billig; en tabt betaling er det ikke.
-//  · Alt andet → 200.
+//
+//  MEN RUTEN OPREGNER DEM IKKE. Her stod foer «Alt andet → 200», og
+//  linjen nedenfor navngav `afventer` og `i_gang` med literaler. Det
+//  var en catch-all: en syvende vaerdi i `Udfald` ville lande i
+//  200-grenen og blive kvitteret som modtaget. Det er ikke en
+//  hypotese — det skete, da unionen sidst voksede (7327d42 tilfoejede
+//  netop `i_gang` og `afventer` uden at roere denne fil, og begge blev
+//  tavst 200).
+//
+//  Svaret slaas derfor op i `UDFALD` i lib/webhook.ts, som PORTEN i
+//  `behandl()` selv adlyder. En syvende vaerdi uden regel er en
+//  oversaetterfejl dér, ikke et tavst 200 her.
+//
+//  Og nej: ruten maa ikke i stedet LAESE `behandlet_at` paa raekken.
+//  Kolonnen er referatet af portens beslutning, skrevet af `faerdig()`
+//  NEDSTROEMS for fejlen — en vaerdi, porten har misforstaaet, har
+//  allerede faaet kolonnen sat, og en rute, der laeser den, ville
+//  svare 200 alligevel. Plus en laesning-efter-skrivning gennem
+//  pooleren paa hver eneste levering, for et svar `behandl()` havde i
+//  haanden.
 //
 //  Ingen generel try/catch om det hele: en fanget fejl, der svarede
 //  200, ville faa Stripe til at holde op med at proeve — og saa var
@@ -37,7 +56,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { NextResponse } from 'next/server'
-import { behandl, type Haendelse } from '../../../lib/webhook'
+import { behandl, UDFALD, type Haendelse } from '../../../lib/webhook'
 import { opsaetning, stripe } from '../../../lib/stripe'
 
 // Ruten maa aldrig prerendres eller caches: hver levering er ny.
@@ -69,10 +88,10 @@ export async function POST(req: Request) {
   }
 
   const udfald = await behandl(h, o)
-  // Kun et FAERDIGT udfald kvitteres. Se hovedet.
-  const uafsluttet = udfald === 'afventer' || udfald === 'i_gang'
+  // Kun et FAERDIGT udfald kvitteres — og «faerdigt» opslaas, det
+  // opregnes ikke. Se hovedet.
   return NextResponse.json({ udfald }, {
-    status: uafsluttet ? 409 : 200,
+    status: UDFALD[udfald].faerdig ? 200 : 409,
     headers: { 'Cache-Control': 'no-store' },
   })
 }

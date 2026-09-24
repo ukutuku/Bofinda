@@ -84,12 +84,100 @@ export interface Haendelse {
   data: { object: Ukendt }
 }
 
-export type Udfald =
-  | 'behandlet'
-  | 'gentagelse'   // set og faerdigbehandlet foer
-  | 'i_gang'       // en anden behandler har kravet lige nu
-  | 'ignoreret'    // ikke en haendelse, vi lytter paa
-  | 'forael'       // aeldre end det, raekken allerede baerer
+/**
+ * Hvad PORTEN i `behandl()` skal goere ved et udfald.
+ *
+ * En boolean var ikke nok, og det er ikke en smagssag: «ikke faerdig»
+ * daekker TO tilstande, og den forkerte efterbehandling er dyr begge
+ * veje.
+ *
+ *   · Er kravet en ANDENS, maa vi ikke frigive det. Gjorde vi det,
+ *     kunne to behandlere arbejde paa samme haendelse samtidig — og
+ *     det atomiske krav er netop det, der forhindrer det.
+ *   · Er kravet VORES, skal ALLE TRE skrivninger med. De kan ikke
+ *     udledes af et flag, og en noegle, der ser fuldstaendig ud, er
+ *     praecis det, der faar dem oversprunget:
+ *       `paabegyndt_at = null`  ellers svarer de naeste
+ *                               KRAV_TIMEOUT_MIN = 5 minutter 'i_gang'
+ *       `fejl` som COALESCE     den praecise grund vinder over den
+ *                               generelle, se porten
+ *       `naeste_forsoeg_at`     uden den staar raekken permanent som
+ *                               «klar», ligger forrest i
+ *                               `orderBy(stripe_oprettet_at)` og
+ *                               optager én af tilsynets 50 pladser i
+ *                               hver eneste time. Det er fund 6 igen,
+ *                               men nu sulter den ANDRES haendelser.
+ *
+ * Derfor en diskrimineret union og ikke et flag: en syvende vaerdi kan
+ * ikke noejes med `{ faerdig: false }` — det er en oversaetterfejl.
+ * Forfatteren SKAL svare paa, hvis krav det er, og er det vores, hvad
+ * der skal staa, naar behandleren ikke selv har skrevet en grund.
+ *
+ * Det fjerner ikke muligheden for at gaette `faerdig` forkert. Det
+ * goer, at et forkert gaet er forkert ÉT sted — og at raekken,
+ * statuskoden og tilsynets optaelling ikke kan sige tre forskellige
+ * ting.
+ */
+type Udfaldsregel =
+  | { faerdig: true }
+  | { faerdig: false; kravet: 'andens' }
+  | { faerdig: false; kravet: 'vores'; grund: string }
+
+/**
+ * DE SEKS UDFALD OG DERES REGEL — beregnet ét sted, laest tre.
+ *
+ * Spoergsmaalet «er det her udfald faerdigt?» stod foer tre steder som
+ * haandskrevne navnelister: porten paa :189, rutens statuskode
+ * (app/api/stripe/route.ts) og tilsynets optaelling i
+ * `behandlUbehandlede`. De tre var enige — men ved KONSTRUKTION, ikke
+ * ved haandhaevelse: alt der ikke er 'afventer' falder gennem porten
+ * til `faerdig()`, saa listerne gengav resultatet i stedet for at
+ * bestemme det.
+ *
+ * Det er sket foer. `3640549` havde fire udfald, alle faerdige, og
+ * ruten svarede `status: 200` ubetinget — korrekt. `7327d42` tilfoejede
+ * 'i_gang' OG 'afventer', begge IKKE faerdige, og roerte ikke ruten.
+ * Begge nye vaerdier blev tavst kvitteret med «proev ikke igen».
+ * `234f5f6` rettede det ved at NAVNGIVE de to — altsaa samme form én
+ * vaerdi laengere fremme.
+ *
+ * Typen afledes af tabellen, saa en vaerdi uden regel ikke kan skrives,
+ * og `Object.keys(UDFALD)` er den opregning, `scripts/test-udfald.ts`
+ * kraever en sag for.
+ */
+export const UDFALD = {
+  /** Anvendt. */
+  behandlet: { faerdig: true },
+  /** Set og faerdigbehandlet foer — af en anden levering, ikke af os. */
+  gentagelse: { faerdig: true },
+  /**
+   * Ikke en haendelse, vi lytter paa.
+   *
+   * NOTERET, IKKE LOEST: vaerdien baerer allerede TO domme. Porten
+   * ovenfor svarer 'ignoreret' om en TYPE uden for `LYTTER` — dér er
+   * «faerdig» rigtigt, der var intet at goere. Men behandlerne svarer
+   * SAMME vaerdi om en type, vi DA lytter paa, naar et paakraevet id
+   * manglede (`kassen`, `betalt`, `mislykkedes`, `spejl`). Den bliver
+   * ogsaa markeret faerdig og faar sin nyttelast ryddet, og kan derfor
+   * aldrig koeres om.
+   *
+   * I dag er det formentlig rigtigt — en engangsfaktura har ingen
+   * `subscription` — men sikkerheden hviler paa Stripes objektform, og
+   * den har allerede flyttet sig én gang (`current_period_*` rykkede
+   * fra Subscription til SubscriptionItem i stripe@22). Det er samme
+   * slags sammenfald som det, opslaget her findes for: en gren, der
+   * ikke venter paa en ny vaerdi, men allerede har slaaet to
+   * eksisterende sammen. Ikke efterproevet, ikke aendret.
+   */
+  ignoreret: { faerdig: true },
+  /** Aeldre end det, raekken allerede baerer. */
+  forael: { faerdig: true },
+  /**
+   * En anden behandler har kravet lige nu. Vi maa IKKE frigive det:
+   * det er hele meningen med det atomiske krav. Behandleren kan doe
+   * midt i, og saa frigiver KRAV_TIMEOUT_MIN kravet af sig selv.
+   */
+  i_gang: { faerdig: false, kravet: 'andens' },
   /**
    * AFVENTER er det udfald, der manglede. Haendelsen er gyldig, men
    * forudsaetningen er ikke kommet endnu — typisk en `invoice.paid`,
@@ -98,7 +186,10 @@ export type Udfald =
    * og den betalte periode er tabt for altid. Den var reproducerbar
    * paa 832d483.
    */
-  | 'afventer'
+  afventer: { faerdig: false, kravet: 'vores', grund: 'afventer forudsaetning' },
+} as const satisfies Record<string, Udfaldsregel>
+
+export type Udfald = keyof typeof UDFALD
 
 /** Et krav frigives, hvis behandleren doer. Stripe leverer igen. */
 const KRAV_TIMEOUT_MIN = 5
@@ -183,10 +274,45 @@ export async function behandl(h: Haendelse, o: Stripeopsaetning | null): Promise
       .where(eq(stripeEvents.id, h.id))
     throw e
   }
-  // AFVENTER markeres IKKE faerdig. Kravet frigives i stedet, saa
-  // Stripes naeste levering kan tage det op igen, naar forudsaetningen
-  // er kommet. Det er hele rettelsen af fund 1a.
-  if (udfald === 'afventer') {
+  // ── PORTEN ────────────────────────────────────────────────
+  // Her afgoeres det ene spoergsmaal: er haendelsen faerdig? Svaret
+  // OPSLAAS i `UDFALD` — det er ikke en liste, porten selv foerer.
+  // Ruten (app/api/stripe/route.ts) og tilsynets optaelling laeser
+  // samme opslag, saa de tre ikke kan drive fra hinanden.
+  //
+  // Foer stod her `if (udfald === 'afventer')`: én af seks vaerdier
+  // navngivet, alt andet gennem til `faerdig()`. Den var rigtig — men
+  // ved konstruktion, ikke ved haandhaevelse, og en syvende vaerdi
+  // ville derfor falde i den gren, der er uoprettelig: `faerdig()`
+  // rydder nyttelasten, og tilsynets koe kraever den.
+  const regel: Udfaldsregel = UDFALD[udfald]
+  if (!regel.faerdig) {
+    // ── 'andens' KAN IKKE VAERE SANDT HER ─────────────────────
+    // Naar vi er naaet til porten, ER kravet vores: vi tog det med den
+    // betingede UPDATE ovenfor, og 'i_gang' vender tilbage foer porten,
+    // netop fordi den IKKE fik kravet. Et udfald fra switchen med
+    // `kravet: 'andens'` er derfor en selvmodsigelse — og den maa ikke
+    // kunne bruges som en genvej uden om de tre skrivninger nedenfor.
+    //
+    // Vi kvitterer ikke, og vi tier ikke. Kravet frigives, grunden
+    // skrives, tilbagetraekningen saettes — og saa kastes der: ruten
+    // svarer 500, Stripe leverer igen, nyttelasten er i behold, og
+    // tilsynet taeller den som `fejlet` i driftlinjen hver time.
+    // En larmende, genoprettelig fejl er det modsatte af det tavse
+    // 200, hele det her opslag findes for at forhindre.
+    if (regel.kravet === 'andens') {
+      const besked = `udfaldet '${udfald}' naaede porten med kravet: 'andens'`
+        + ' — her er kravet altid vores. Ret reglen i UDFALD.'
+      await db.update(stripeEvents)
+        .set({ fejl: besked.slice(0, 500), paabegyndtAt: null,
+               naesteForsoegAt: naesteForsoeg(await forsoegstal(h.id)) })
+        .where(eq(stripeEvents.id, h.id))
+      throw new Error(besked)
+    }
+
+    // Kravet er VORES, og vi blev ikke faerdige. Kravet frigives, saa
+    // Stripes naeste levering kan tage det op igen, naar
+    // forudsaetningen er kommet. Det er hele rettelsen af fund 1a.
     await db.update(stripeEvents)
       .set({
         paabegyndtAt: null,
@@ -200,8 +326,12 @@ export async function behandl(h: Haendelse, o: Stripeopsaetning | null): Promise
         // Samme spoergsmaal, to svar: nu er det generelle et
         // FALDBACK, ikke en overskrivning. `fejl` er ryddet, da kravet
         // blev taget, saa det, der staar, er fra dette forsoeg.
-        fejl: sql`coalesce(${stripeEvents.fejl}, 'afventer forudsaetning')`,
+        // Faldbacken staar i `UDFALD`, saa en ny ikke-faerdig vaerdi
+        // ikke kan arve 'afventer forudsaetning' ved et uheld.
+        fejl: sql`coalesce(${stripeEvents.fejl}, ${regel.grund})`,
         // Tilbagetraekning, saa den ikke fortraenger de andre i koeen.
+        // Uden den staar raekken permanent som «klar» og optager én af
+        // de 50 pladser i hver koersel — og sulter ANDRES haendelser.
         naesteForsoegAt: naesteForsoeg(await forsoegstal(h.id)),
       })
       .where(eq(stripeEvents.id, h.id))
@@ -1960,8 +2090,12 @@ export async function behandlUbehandlede(
     if (!h || typeof h.id !== 'string' || !h.data) { fejlet++; continue }
     try {
       const u = await behandl(h, o)
-      if (u === 'afventer' || u === 'i_gang') afventer++
-      else behandlet++
+      // Samme opslag som porten og ruten. Stod foer som en ordret
+      // kopi af rutens to navne — og en ukendt vaerdi ville derfor
+      // staa som «faerdig» i driftlinjen, samtidig med at `tilbage`
+      // paa samme linje taeller den som ubehandlet.
+      if (UDFALD[u].faerdig) behandlet++
+      else afventer++
     } catch {
       // `behandl()` har allerede skrevet fejlen paa raekken og frigivet
       // kravet. Tilsynet maa ikke vaelte af én daarlig haendelse.

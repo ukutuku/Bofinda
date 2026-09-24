@@ -229,17 +229,48 @@ selvstændigt stykke arbejde, og ingen af dem blev lavet i den omgang.
 
 ## Webhookens udfald (tilføjet efter gennemgangen)
 
-`behandl()` svarer med ét af seks udfald. Beskedmodulet rører dem ikke,
-men de hører til kontrakten, fordi de afgør, hvornår adgang opstår:
+`behandl()` svarer med ét udfald. Beskedmodulet rører dem ikke, men de
+hører til kontrakten, fordi de afgør, hvornår adgang opstår.
 
-| Udfald | Betydning | Markeres færdig? | HTTP |
-|---|---|---|---|
-| `behandlet` | anvendt | ja | 200 |
-| `gentagelse` | set og færdigbehandlet før | — | 200 |
-| `ignoreret` | ikke en hændelse, vi lytter på | ja | 200 |
-| `forael` | adgangen flyttede sig ikke | ja | 200 |
-| **`i_gang`** | en anden behandler har kravet | **nej** | **409** |
-| **`afventer`** | gyldig, men forudsætningen mangler | **nej** | **409** |
+**Denne tabel er en HÅNDHOLDT KOPI, og den eneste der er tilbage.**
+Sandheden er `UDFALD` i `lib/webhook.ts`; porten i `behandl()`, rutens
+statuskode og tilsynets optælling læser alle tre dét opslag, og
+`scripts/test-udfald.ts` kræver en prøvesag for hver nøgle i det. Ingen
+oversætter kan holde markdown i takt — tilføjes et udfald, skal linjen
+her skrives i hånden. Prøven fejler på det manglende udfald, ikke på
+den manglende tabelrække.
+
+**Kolonnen «Markeres færdig?» har TRE tilstande, opslagets boolean har
+to.** `—` er `gentagelse`: rækken ER færdig, men blev det af en tidligere
+levering, ikke af denne. For ruten er `ja` og `—` det samme (200), og
+derfor er `UDFALD.gentagelse.faerdig = true` rigtigt — men fladningen er
+et tab af oplysning, og den står her.
+
+| Udfald | Betydning | Markeres færdig? | `UDFALD` | HTTP |
+|---|---|---|---|---|
+| `behandlet` | anvendt | ja | `faerdig: true` | 200 |
+| `gentagelse` | set og færdigbehandlet før | — | `faerdig: true` | 200 |
+| `ignoreret` | ikke en hændelse, vi lytter på | ja | `faerdig: true` | 200 |
+| `forael` | adgangen flyttede sig ikke | ja | `faerdig: true` | 200 |
+| **`i_gang`** | en anden behandler har kravet | **nej** | `kravet: 'andens'` | **409** |
+| **`afventer`** | gyldig, men forudsætningen mangler | **nej** | `kravet: 'vores'` | **409** |
+
+**Hvorfor opslaget ikke er en boolean.** «Ikke færdig» dækker to
+tilstande, og den forkerte efterbehandling er dyr begge veje. Er kravet
+en andens, må vi ikke frigive det — så kunne to behandlere arbejde på
+samme hændelse. Er det vores, skal alle tre skrivninger med:
+`paabegyndt_at = null` (ellers svarer de næste fem minutter `i_gang`),
+`fejl` som `coalesce`-faldback (den præcise grund vinder over den
+generelle), og `naeste_forsoeg_at` — uden den står rækken permanent som
+«klar», ligger forrest i køen og optager én af tilsynets 50 pladser i
+hver eneste kørsel. En boolean leverer ingen af dem, og en nøgle, der
+ser fuldstændig ud, er præcis det, der får dem oversprunget.
+
+**Og ruten må ikke i stedet læse `behandlet_at`.** Kolonnen er referatet
+af portens beslutning, skrevet af `faerdig()` NEDSTRØMS for den. Et
+udfald, porten har misforstået, har allerede fået kolonnen sat — en rute,
+der læser den, ville svare 200 alligevel. Samme tabte betaling, én
+forespørgsel mere.
 
 `afventer` er den vigtige. En `invoice.paid`, der overhaler sin
 `checkout.session.completed`, må ikke markeres færdig — gør man det,
