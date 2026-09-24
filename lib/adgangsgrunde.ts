@@ -46,3 +46,18 @@ export const GRUNDE = [
 
 /** Hvorfor adgangen blev nægtet. Visningen vælger tekst ud fra den. */
 export type Grund = typeof GRUNDE[number]
+
+/**
+ * Det, vi siger, naar vi ikke kunne finde ud af det.
+ *
+ * Saetningen stod tre steder i tre formuleringer — kontaktboksen,
+ * koebssiden og (slet ikke) kvitteringen. Den staar her, fordi
+ * `ukendt_tilstand` er ÉT udsagn: vores fejl, ikke hendes. Sagde to
+ * flader det paa hver sin maade, ville den ene blive rettet uden den
+ * anden — og en tredje kunne finde paa at tie.
+ *
+ * Filen er base-fri og importeres derfor ogsaa af klientkode.
+ */
+export const ADGANG_UKENDT =
+  'Vi kan ikke bekræfte din adgang lige nu. Prøv igen om lidt — '
+  + 'det er en fejl hos os, ikke hos dig.'

@@ -31,8 +31,8 @@ import { Kvitteringsblok } from '../udlejer/Kvitteringsblok'
 import { logUd } from '../udlejer/handlinger'
 import { mitAbonnement } from '../../lib/abonnement'
 import { dansk } from '../../lib/dato'
-import { hentTilstand } from '../../lib/adgang'
-import { Abonnement } from './Abonnement'
+import { betaltPeriode, hentTilstand, type Betaltperiode } from '../../lib/adgang'
+import { Abonnement, type Abonnementsvisning } from './Abonnement'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,6 +44,24 @@ export const metadata: Metadata = {
 }
 
 // ─── Siden ─────────────────────────────────────────────────────
+
+/**
+ * Serverens fire udfald → klientens fire. UDTOEMMENDE, uden `else`.
+ *
+ * Her stod en ternaer med et fald-igennem-else. Den ville have lagt et
+ * FJERDE udfald tavst i «ingen» — altsaa skrevet «Ingen betalt adgang»
+ * til en kunde, hvis opslag fejlede. `never`-vaernet goer det til en
+ * oversaetterfejl i stedet.
+ */
+function visPeriode(p: Betaltperiode): Abonnementsvisning['periode'] {
+  switch (p.slags) {
+    case 'loeber': return { slags: 'loeber', til: dansk(p.til) }
+    case 'udloebet': return { slags: 'udloebet', sidst: dansk(p.sidst) }
+    case 'aldrig': return { slags: 'ingen' }
+    case 'fejl': return { slags: 'fejl' }
+    default: { const u: never = p; return u }
+  }
+}
 
 export default async function Side(
   { searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> },
@@ -182,19 +200,16 @@ export default async function Side(
   // af det maa komme fra browseren.
   const tilstand = await hentTilstand()
   const a = tilstand === 'betaling' ? await mitAbonnement() : null
-  const abonnement = a && {
+  const periode = tilstand === 'betaling' ? await betaltPeriode(bruger.id) : null
+  const abonnement = a && periode && {
     status: a.status, fase: a.fase,
     fornyelseStoppet: a.fornyelseStoppet,
     naeste: a.naeste,
     fornyesAt: a.fornyesAt ? dansk(a.fornyesAt) : null,
-    // Datoerne formateres HER, hvor de stadig er Date. Klienten faar
-    // et svar, ikke en raavare, den ikke kan sammenligne — det var dét,
-    // der lod panelet skrive «fortsaetter indtil da» om en fortidig dato.
-    periode: a.periode.slags === 'loeber'
-      ? { slags: 'loeber' as const, til: dansk(a.periode.til) }
-      : a.periode.slags === 'udloebet'
-        ? { slags: 'udloebet' as const, sidst: dansk(a.periode.sidst) }
-        : { slags: 'ingen' as const },
+    // Perioden kommer fra MURENS opslag, ikke fra raekken ovenfor.
+    // De ti felter over den her linje er KONTRAKTEN; perioden er
+    // pengene, og de to besvares hvert sit sted.
+    periode: visPeriode(periode),
     opsagt: a.opsagt,
     opsigelseUndervejs: a.opsigelseUndervejs,
     fornyesIkke: a.fornyesIkke,

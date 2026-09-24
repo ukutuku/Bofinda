@@ -164,17 +164,60 @@ selvstændigt stykke arbejde, og ingen af dem blev lavet i den omgang.
    den i adressen til `/abonnement`, og siden læser den ikke i dag.
    Begynder den at gøre det, kan enhver sende et link, der påstår noget
    om en fremmeds betalingshistorik. Udled det af basen, ikke af URL'en.
-4. **To udtryk tilbage for «har hun (haft) adgang»** — var fem.
-   `slaaAdgangOp` (MAX(adgang_til), vagtens) og `abonnementForBruger`
-   (levende række først, ellers nyeste efter `oprettet_at`, panelets)
-   vælger stadig hver sin række og kan være uenige: en kunde med en
-   udløbet periode **og** et nyt mislykket køb får `abonnement_udloebet`
-   af vagten, mens panelet viser den nye, ubetalte række. De tre, der
-   regnede selv, er lukket med `Betaltperiode`.
+4. ~~**To udtryk tilbage for «har hun (haft) adgang».**~~ **Rettet** — og
+   tallet var forkert. «Tre lukket, to tilbage» var talt i SIDER, ikke i
+   spørgsmål: `/abonnement/page.tsx` og `/abonnement/kvittering/page.tsx`
+   bruger ikke ét eneste af `Abonnementsbillede`'s ti øvrige felter. De var
+   aldrig paneler. Rettelsen fjernede deres egne sammenligninger — rigtigt
+   — men førte to rene adgangsspørgsmål over på det opslag, der beskriver
+   en **kontrakt**. Antallet af sammenligninger faldt; antallet af steder,
+   der spurgte det svagere udtryk, steg fra ét til tre.
 
-   Dertil `gaeldendeTilbud()`, der udleder «har hun betalt før» af
-   `users.intro_brugt_at` — et tredje spørgsmål besvaret af en fjerde
-   kolonne, på selvsamme side.
+   Nu spørger alle tre `betaltPeriode()` i `lib/adgang.ts` — murens eget
+   opslag, `MAX(adgang_til)` over alle hendes rækker.
+   `abonnementForBruger` beholder sit rækkevalg og sine ti kontraktfelter:
+   status, fase, næste, fornyesAt, opsagt, opsigelseUndervejs, fornyesIkke,
+   afsluttet og fornyelseStoppet er egenskaber ved én kontrakt hos Stripe
+   og kan ikke udledes af `MAX(adgang_til)`. **Muren må aldrig læse
+   panelets række, og panelets ti felter må aldrig komme fra murens.**
+
+   **Prøven på, at det var ÉT spørgsmål:** svarene kunne ORDNES. Panelet
+   sagde aldrig mere adgang end muren gav, og nogle gange mindre — derfor
+   var det ikke et sikkerhedshul, men kunder der fik for lidt at vide.
+   To uenigheder målt over ni tilstande, begge i afsnit 8f:
+
+   | tilstand | muren | panelet |
+   |---|---|---|
+   | udløbet + nyere ubetalt | `udloebet` | `ingen` |
+   | ældre række rækker længst frem | `loeber` | `udloebet` |
+
+   Den anden var ikke forudset, og der er ikke fundet en vej, der
+   producerer tilstanden — `har_allerede` spærrer for et køb, mens en række
+   er levende. Men `order by oprettet_at` udelukker den ikke, hvor
+   `order by adgang_til` ville, og prøven koster ingenting.
+
+   **En fælles `periodeFor()`-hjælper blev fravalgt.** Sammenligningen var
+   allerede ordret den samme begge steder; uenigheden lå i ARGUMENTET. En
+   delt funktion ville have ladet to uenige rækkevalg svare gennem samme
+   kodelinje og samme ord — og gjort fejlen sværere at se, ikke mindre.
+
+   **Fejludfaldet kom med.** `kvittering/page.tsx` læste hverken `drift`
+   eller et fejludfald: kunne tilstanden ikke læses, sagde hver boligside
+   «det er en fejl hos os», mens kvitteringen i samme sekund sagde «Tak —
+   du har adgang». Sætningen bor nu ét sted, `ADGANG_UKENDT` i
+   `lib/adgangsgrunde.ts`, og alle fire flader bruger den.
+
+   **To ubrugte funktioner er slettet:** `maaKoebe` havde nul kaldere, og
+   `harBetaltAdgang` havde nul i produktionen — kun prøven. Begge var
+   eksporteret, prøvet og ubrugt, mens spørgsmålet blev besvaret ved siden
+   af. Det er `sources.enabled`-formen, og en funktion, ingen kalder, er en
+   fælde for den næste.
+
+   **Tilbage står `gaeldendeTilbud()`**, der udleder «har hun betalt før»
+   af `users.intro_brugt_at` — et beslægtet spørgsmål besvaret af en anden
+   kolonne i en anden tabel, på selvsamme købsside. Det er ikke det samme
+   spørgsmål (pris mod adgang), og de to kan være uenige: intro er brugt
+   for evigt, adgang løber ud.
 
 5. **Datoformatet.** `app/admin/drift/page.tsx` formaterer stadig med
    `toLocaleString('da-DK')` uden zone. `lib/dato.ts` har `dansk()` med

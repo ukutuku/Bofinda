@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { opsig } from '../abonnement/handlinger'
+import { ADGANG_UKENDT } from '../../lib/adgangsgrunde'
 
 export interface Abonnementsvisning {
   status: string
@@ -27,6 +28,8 @@ export interface Abonnementsvisning {
     | { slags: 'loeber'; til: string }
     | { slags: 'udloebet'; sidst: string }
     | { slags: 'ingen' }
+    /** Vi kunne ikke laese den. IKKE det samme som «ingen betalt adgang». */
+    | { slags: 'fejl' }
   /** BEKRAEFTET opsagt: hun bad om det, OG Stripe har bekraeftet det. */
   opsagt: boolean
   /** Hun bad om det; Stripe har ikke bekraeftet det endnu. */
@@ -226,6 +229,7 @@ export function Abonnement({ start }: { start: Abonnementsvisning | null }) {
           <dd>
             {a.periode.slags === 'loeber' ? a.periode.til
               : a.periode.slags === 'udloebet' ? a.periode.sidst
+              : a.periode.slags === 'fejl' ? 'Kunne ikke læses'
               : 'Ingen betalt adgang'}
           </dd>
         </div>
@@ -269,6 +273,11 @@ export function Abonnement({ start }: { start: Abonnementsvisning | null }) {
           over «Status: Betaling mislykkedes» og knappen «Sig
           abonnementet op». Saa siger vi det snaevrere, som er sandt
           begge steder. */}
+      {/* VORES fejl. Ikke «ingen betalt adgang» — det ville vaere et
+          udsagn om hendes penge, vi ikke har daekning for. */}
+      {a.periode.slags === 'fejl' && (
+        <p className="koebsnote">{ADGANG_UKENDT}</p>
+      )}
       {a.periode.slags === 'udloebet' && (
         <p className="koebsnote">
           {a.fornyesIkke

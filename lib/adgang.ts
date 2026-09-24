@@ -97,20 +97,6 @@ export async function hentTilstand(): Promise<Tilstand | null> {
   }
 }
 
-/**
- * Har brugeren en BETALT, endnu ikke udloebet adgangsperiode?
- *
- * Maalt paa `adgangTil`, ikke paa `status`. En opsagt bruger har
- * `cancel_at_period_end = true` og status `active` indtil perioden
- * loeber ud — hun har betalt for den tid og beholder den. En bruger,
- * hvis fornyelse MISLYKKEDES, har `past_due` og en `adgangTil`, der
- * ikke blev flyttet: hun falder ud, naar den gamle periode udloeber,
- * og ikke et sekund foer.
- */
-export async function harBetaltAdgang(brugerId: string): Promise<Date | null> {
-  const svar = await adgangEller(brugerId)
-  return svar.slags === 'adgang' ? svar.til : null
-}
 
 /**
  * Hvad basen ved om hendes betalte perioder.
@@ -119,21 +105,45 @@ export async function harBetaltAdgang(brugerId: string): Promise<Date | null> {
  * er tre forskellige sandheder. Kun den foerste maa sende nogen til
  * kassen som foerstegangskoeber; kun den sidste er vores egen fejl.
  */
-type Adgangsopslag =
-  | { slags: 'adgang'; til: Date }
+export type Betaltperiode =
+  | { slags: 'loeber'; til: Date }
   | { slags: 'udloebet'; sidst: Date }
   | { slags: 'aldrig' }
   | { slags: 'fejl' }
 
 /**
- * Som `harBetaltAdgang`, men skelner «ingen adgang» fra «vi kunne ikke
+ * DEN BETALTE PERIODE — en KENDSGERNING om hendes abonnement.
+ *
+ * ⚠ IKKE EN ADGANGSBESLUTNING. Den laeser ikke `drift` og kender ikke
+ * noedbremsen. Skal nogen LUKKES IND, gaar det gennem `maaBruge()`,
+ * som spoerger begge dele. Bruges den her som en mur, staar muren
+ * aaben, naar tilstanden slaas om — og det er praecis den fejl, hele
+ * lib/adgang.ts findes for at forhindre.
+ *
+ * Den er til de tre SIDER, der skal fortaelle hende, hvad der staar paa
+ * hendes abonnement: koebssiden, kvitteringen og Mit abonnement. De
+ * spoerger ikke om lov — de beskriver en kendsgerning — og de skal
+ * beskrive den SAMME som muren, ellers siger to skaerme hver sit om de
+ * samme penge.
+ *
+ * Raekkevalget er murens: MAX(adgang_til) over ALLE hendes raekker.
+ * Panelets eget raekkevalg (levende foerst, ellers nyeste efter
+ * oprettet_at) besvarer et andet spoergsmaal — hvilken KONTRAKT er
+ * hendes — og det bliver liggende i `abonnementForBruger`, hvor de ti
+ * kontraktfelter hoerer hjemme.
+ */
+export const betaltPeriode = (brugerId: string): Promise<Betaltperiode> =>
+  adgangEller(brugerId)
+
+/**
+ * Som `betaltPeriode`, men skelner «ingen adgang» fra «vi kunne ikke
  * finde ud af det» — og «aldrig haft» fra «udloebet».
  *
  * Forskellen er ikke teknisk pedanteri: «ingen adgang» sender et
  * menneske til kassen, «vi kunne ikke finde ud af det» siger undskyld.
  * Blandes de to, opkraever vi nogen for vores egen databasefejl.
  */
-async function adgangEller(brugerId: string): Promise<Adgangsopslag> {
+async function adgangEller(brugerId: string): Promise<Betaltperiode> {
   try {
     return await slaaAdgangOp(brugerId, new Date())
   } catch {
@@ -184,7 +194,7 @@ async function adgangEller(brugerId: string): Promise<Adgangsopslag> {
  * lighed paa `user_id`, baglaens scan efter den stoerste. Ingen ny
  * migration, samme antal forespoergsler som foer — én.
  */
-async function slaaAdgangOp(brugerId: string, nu: Date): Promise<Adgangsopslag> {
+async function slaaAdgangOp(brugerId: string, nu: Date): Promise<Betaltperiode> {
   const [r] = await db
     .select({ til: subscriptions.adgangTil })
     .from(subscriptions)
@@ -202,7 +212,7 @@ async function slaaAdgangOp(brugerId: string, nu: Date): Promise<Adgangsopslag> 
   // DEN ENESTE sammenligning. Stod den baade her og i `where`, var vi
   // tilbage ved to udtryk for det samme spoergsmaal.
   return r.til > nu
-    ? { slags: 'adgang', til: r.til }
+    ? { slags: 'loeber', til: r.til }
     : { slags: 'udloebet', sidst: r.til }
 }
 
@@ -247,7 +257,7 @@ export async function maaBruge(
   if (opslag.slags === 'fejl') {
     return { ok: false, tilstand, grund: 'ukendt_tilstand', adgangTil: null }
   }
-  if (opslag.slags === 'adgang') {
+  if (opslag.slags === 'loeber') {
     return { ok: true, tilstand, adgangTil: opslag.til }
   }
   // DATOEN BAERES IKKE MED UD. Vi kender den (`opslag.sidst`), men intet
@@ -393,12 +403,3 @@ export async function koebsstart(
   }
 }
 
-/**
- * Maa vi overhovedet VISE en betalingsboks?
- *
- * Kun i BETALING. I gratis tilstand findes der ingen koebsvej — hverken
- * en boks, en knap eller en checkout-handling, der kan kaldes direkte.
- */
-export async function maaKoebe(): Promise<boolean> {
-  return (await hentTilstand()) === 'betaling'
-}

@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import { renRetur } from '../../../lib/retur'
 import { dansk } from '../../../lib/dato'
-import { mitAbonnement } from '../../../lib/abonnement'
 import { hentBrugerId } from '../../../lib/auth'
+import { betaltPeriode, hentTilstand } from '../../../lib/adgang'
+import { ADGANG_UKENDT } from '../../../lib/adgangsgrunde'
 
 // ═══════════════════════════════════════════════════════════════
 //  Tilbagevenden fra Stripe.
@@ -27,11 +28,34 @@ export default async function Side({ searchParams }: {
   const sp = await searchParams
   const retur = renRetur(sp.retur)
   const brugerId = await hentBrugerId()
-  const abo = brugerId ? await mitAbonnement() : null
-  // Sammenligningen sker i `abonnementForBruger`, ikke her. Se
-  // `Betaltperiode` i lib/abonnement.ts.
-  const periode = abo?.periode
+  // MURENS opslag. Efter hinanden, ikke i Promise.all — se noten i
+  // app/page.tsx om pipelinede saetninger gennem transaction-pooleren.
+  const tilstand = await hentTilstand()
+  const periode = brugerId ? await betaltPeriode(brugerId) : null
   const harAdgang = periode?.slags === 'loeber'
+
+  // ── VI MAA IKKE SIGE «DU HAR ADGANG», NAAR VI IKKE VED DET ──
+  // Siden laeste foer hverken `drift` eller et fejludfald. Kunne
+  // tilstanden ikke laeses, sagde hver boligside «det er en fejl hos
+  // os» — mens kvitteringen i samme sekund sagde «Tak — du har
+  // adgang». To skaerme, samme sekund, modsat svar om de samme penge.
+  if (tilstand === null || periode?.slags === 'fejl') {
+    return (
+      <main className="side-smal">
+        <h1>Vi kan ikke bekræfte din adgang</h1>
+        <p>{ADGANG_UKENDT}</p>
+        <p>
+          <strong>Der er ikke trukket noget ekstra</strong>, og du skal
+          ikke betale igen.
+        </p>
+        <p>
+          <a href={`/abonnement/kvittering?retur=${encodeURIComponent(retur)}`}>Opdatér</a>
+          {' · '}
+          <a href={retur}>Tilbage</a>
+        </p>
+      </main>
+    )
+  }
 
   return (
     <main className="side-smal">
@@ -40,7 +64,7 @@ export default async function Side({ searchParams }: {
         <>
           <p>
             Adgangen gælder til{' '}
-            <strong>{dansk(periode!.til)}</strong>, og
+            <strong>{dansk((periode as { til: Date }).til)}</strong>, og
             abonnementet fornyes automatisk, indtil du siger op.
           </p>
           <p><a className="knap" href={retur}>Tilbage til boligen</a></p>

@@ -20,6 +20,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { and, eq, isNotNull, sql } from 'drizzle-orm'
+import { betaltPeriode } from '../lib/adgang'
 import { db } from '../db/client'
 import { checkoutForsoeg, drift, stripeEvents, subscriptions, users } from '../db/schema'
 import { behandl, betalingstilsyn, laegPlan,
@@ -728,7 +729,8 @@ async function koer() {
     tjek('  og den viser, at abonnementet ER slut — ikke bare «Opsagt»',
       ui?.afsluttet === true && ui?.status === 'canceled',
       `afsluttet=${ui?.afsluttet} status=${ui?.status}`)
-    tjek('  KUNDENS BETALTE ADGANG ER URØRT', ui?.periode.slags !== 'ingen')
+    tjek('  KUNDENS BETALTE ADGANG ER URØRT',
+      (await betaltPeriode(u)).slags !== 'aldrig')
   }
 
   // ═════════════════════════════════════════════════════════════

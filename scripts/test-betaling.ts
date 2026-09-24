@@ -19,9 +19,10 @@ import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { drift, haendelser, listings, sources, subscriptions, users } from '../db/schema'
 import {
-  FUNKTION, GRUNDE, adgang, funktionFraRetur, harBetaltAdgang, hentTilstand,
+  FUNKTION, GRUNDE, adgang, betaltPeriode, funktionFraRetur, hentTilstand,
   koebsgrund, koebsstart, maaBruge,
 } from '../lib/adgang'
+import { ADGANG_UKENDT } from '../lib/adgangsgrunde'
 import { rens, saetAktiv, type Haendelse as Maalehaendelse, type Kontekst } from '../lib/maaling'
 import { levendeAbonnementer, saetTilstand } from '../lib/driftskift'
 import { behandl, periode, type Haendelse } from '../lib/webhook'
@@ -151,7 +152,8 @@ async function koer() {
   const udloebet = await nyBruger('udloebet')
   await medAdgang(udloebet, iGaar(), { status: 'canceled' })
   tjek('udloebet adgang giver intet', !(await maaBruge(FUNKTION.kontakt, udloebet)).ok)
-  tjek('harBetaltAdgang er null ved udloeb', await harBetaltAdgang(udloebet) === null)
+  tjek('en udloebet periode giver ingen adgang',
+    (await betaltPeriode(udloebet)).slags === 'udloebet')
 
   const opsagt = await nyBruger('opsagt')
   await medAdgang(opsagt, iMorgen(), { cancelAtPeriodEnd: true })
@@ -214,7 +216,7 @@ async function koer() {
   const efter = (await db.select({ n: sql<number>`count(*)::int` }).from(subscriptions))[0]!.n
   tjek('skift til BETALING opretter ingen abonnementer', foer === efter, `${foer} → ${efter}`)
   tjek('gratis bruger er stadig uden adgang og uden raekke',
-    await harBetaltAdgang(uden) === null)
+    (await betaltPeriode(uden)).slags !== 'loeber')
 
   // ═══ 6 · WEBHOOKENS VAGTER ═══════════════════════════════════
   console.log('\n══ 6 · Webhooken: gentagelse, forsinkelse, adgang ══')
@@ -231,7 +233,8 @@ async function koer() {
   tjek('  status er incomplete', efterKasse?.status === 'incomplete')
   tjek('  og den giver INGEN adgang', efterKasse?.adgang === null,
     'et gennemfoert kasseforloeb er ikke en betaling')
-  tjek('  brugeren har stadig ingen adgang', await harBetaltAdgang(koeber) === null)
+  tjek('  brugeren har stadig ingen adgang',
+    (await betaltPeriode(koeber)).slags !== 'loeber')
 
   tjek('samme haendelse igen er en gentagelse',
     await behandl(kasse, OPS) === 'gentagelse')
@@ -289,8 +292,9 @@ async function koer() {
   const aBruger = await nyBruger('ejer-a')
   const bBruger = await nyBruger('ejer-b')
   await medAdgang(aBruger, iMorgen())
-  tjek('B har ingen adgang af at A har betalt', await harBetaltAdgang(bBruger) === null)
-  tjek('A har adgang', await harBetaltAdgang(aBruger) !== null)
+  tjek('B har ingen adgang af at A har betalt',
+    (await betaltPeriode(bBruger)).slags !== 'loeber')
+  tjek('A har adgang', (await betaltPeriode(aBruger)).slags === 'loeber')
 
   // Dobbeltklik: to LEVENDE raekker paa samme bruger er umuligt i basen.
   let toLevende = false
@@ -461,15 +465,15 @@ async function koer() {
     const lb = await nyBruger('panel-loeber'); await sub(lb, 'active', iMorgen(), true)
     const ig = await nyBruger('panel-ingen'); await sub(ig, 'incomplete', null)
 
-    const pUd = (await abonnementForBruger(ud))?.periode
-    const pLb = (await abonnementForBruger(lb))?.periode
-    const pIg = (await abonnementForBruger(ig))?.periode
+    const pUd = await betaltPeriode(ud)
+    const pLb = await betaltPeriode(lb)
+    const pIg = await betaltPeriode(ig)
     tjek('en periode, der loeb ud i gaar, er «udloebet»',
-      pUd?.slags === 'udloebet', String(pUd?.slags))
+      pUd.slags === 'udloebet', pUd.slags)
     tjek('en periode, der loeber til i morgen, er «loeber»',
-      pLb?.slags === 'loeber', String(pLb?.slags))
-    tjek('en raekke uden betaling er «ingen»',
-      pIg?.slags === 'ingen', String(pIg?.slags))
+      pLb.slags === 'loeber', pLb.slags)
+    tjek('en raekke uden betaling er «aldrig»',
+      pIg.slags === 'aldrig', pIg.slags)
 
     // ── laget 2 · saetningen ──────────────────────────────────
     const vis = (p: Abonnementsvisning['periode'], fornyesIkke: boolean) =>
@@ -643,6 +647,89 @@ async function koer() {
     _saetKontekst(null)
     saetAktiv(null)
     _saetDedup(null)
+  }
+
+  // ═══ 8f · DE TRE SIDER SPOERGER MUREN, IKKE PANELET ════════
+  // `periode` laa paa `Abonnementsbillede` og arvede dermed panelets
+  // raekkevalg: levende raekke foerst, ellers NYESTE efter oprettet_at.
+  // `adgang_til` indgik aldrig i det valg. Muren vaelger MAX(adgang_til)
+  // over ALLE raekker.
+  //
+  // De to er uenige i to maalte tilstande. Proeven paa, at det var ÉT
+  // spoergsmaal og ikke to: svarene kunne ORDNES — panelet sagde aldrig
+  // mere adgang end muren gav, og nogle gange mindre.
+  //
+  // Den anden uenighed var ikke forudset. Den kraever en AELDRE raekke,
+  // der raekker LAENGERE frem end en nyere. Jeg har ikke fundet en vej,
+  // der producerer den — `har_allerede` spaerrer for et koeb, mens en
+  // raekke er levende — men panelets `order by oprettet_at` udelukker
+  // den ikke. At ingen har fundet vejen er ikke det samme som, at den
+  // ikke findes, og proeven koster ingenting.
+  console.log('\n══ 8f · De tre sider spoerger muren ══')
+  {
+    await saetDrift('betaling')
+    const sub = (u: string, s: 'canceled' | 'incomplete' | 'active', til: Date | null) =>
+      db.insert(subscriptions).values({
+        userId: u, stripeSubscriptionId: `sub_${randomUUID()}`, status: s, adgangTil: til,
+      })
+
+    // ── UENIGHED 1 · udloebet bag et nyt, mislykket koeb ──────
+    // Panelets raekkevalg: den `incomplete` er LEVENDE og vinder →
+    // «ingen betalt adgang» om en kunde, der HAR betalt.
+    const bag = await nyBruger('uenig-bag')
+    await sub(bag, 'canceled', iGaar()); await sub(bag, 'incomplete', null)
+    const pBag = await betaltPeriode(bag)
+    const rBag = await abonnementForBruger(bag)
+    tjek('1 · udloebet bag et mislykket koeb: muren siger «udloebet»',
+      pBag.slags === 'udloebet', pBag.slags)
+    tjek('  og panelets raekke er en ANDEN — den ubetalte',
+      rBag?.status === 'incomplete',
+      'derfor maa siderne ikke spoerge den om adgang')
+
+    // ── UENIGHED 2 · aeldre raekke raekker laengst frem ───────
+    // Panelet vaelger den NYESTE (begge er terminale) og siger
+    // «udloebet» om en kunde, muren lukker ind.
+    const frem = await nyBruger('uenig-frem')
+    await sub(frem, 'canceled', iMorgen())   // aeldre, raekker laengst
+    await sub(frem, 'canceled', iGaar())     // nyere, udloebet
+    const pFrem = await betaltPeriode(frem)
+    const rFrem = await abonnementForBruger(frem)
+    tjek('2 · aeldre raekke raekker laengst frem: muren siger «loeber»',
+      pFrem.slags === 'loeber', pFrem.slags)
+    tjek('  og panelets raekke er den UDLOEBNE',
+      rFrem?.status === 'canceled' && (await maaBruge(FUNKTION.kontakt, frem)).ok,
+      'muren lukker hende ind — en side paa panelets raekke ville sige nej')
+
+    // ── ORDNINGEN · panelet lover aldrig mere end muren ───────
+    // Bryder den, er det ikke laengere «kunden faar for lidt at vide» —
+    // saa lover en side adgang, muren naegter.
+    for (const u of [bag, frem]) {
+      const v = await maaBruge(FUNKTION.kontakt, u)
+      const r = await abonnementForBruger(u)
+      const panelLover = r != null && r.status === 'active'
+      tjek(`  ordningen holder for ${u === bag ? 'uenighed 1' : 'uenighed 2'}`,
+        !(panelLover && !v.ok), 'panelet maa aldrig love mere adgang end muren giver')
+    }
+
+    // ── KONTRAKTEN BLEV, HVOR DEN HOERER HJEMME ──────────────
+    tjek('Abonnementsbillede baerer ikke laengere en periode',
+      rFrem != null && !('periode' in rFrem),
+      'de ti felter er kontrakten; pengene er murens')
+    tjek('  men kontraktens felter er der endnu',
+      rFrem != null && 'status' in rFrem && 'fase' in rFrem && 'naeste' in rFrem
+      && 'fornyesIkke' in rFrem && 'afsluttet' in rFrem)
+
+    // ── FEJLUDFALDET NAAR HELE VEJEN UD ──────────────────────
+    // Kvitteringen maa ikke sige «du har adgang», mens boligsiden
+    // siger «det er en fejl hos os». De to spoerger nu det samme.
+    await db.delete(drift)
+    const uAdgang = await nyBruger('uenig-fejl'); await sub(uAdgang, 'active', iMorgen())
+    const murenVedFejl = await maaBruge(FUNKTION.kontakt, uAdgang)
+    tjek('uden driftstilstand naegter muren med «ukendt_tilstand»',
+      !murenVedFejl.ok && murenVedFejl.grund === 'ukendt_tilstand')
+    tjek('  og saetningen om vores fejl findes ét sted',
+      ADGANG_UKENDT.includes('en fejl hos os'), ADGANG_UKENDT)
+    await db.insert(drift).values({ id: true, tilstand: 'gratis' })
   }
 
   // ═══ 9 · KALDESTEDERNE SPOERGER FAKTISK ══════════════════════
