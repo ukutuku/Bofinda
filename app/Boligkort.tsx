@@ -622,10 +622,19 @@ export function Gruppekort({ g, nu, position, filtre, favorit, retur }: {
           <Grundlag
             totalKendt={n.total}
             el={
+              // ⚠ SAMME GRENRAEKKEFOELGE SOM eltilstand() i lib/eloplysning.ts.
+              // Den stod omvendt: «ukendt-daekning» blev proevet foer
+              // «egen-maaler», hvor eltilstand proever «egen-maaler» foerst.
+              // Det gav ikke et forkert svar, fordi SQL'en bag
+              // nogenUkendtDaekning baerer en udlignende klausul
+              // («and electricity_own_meter is not true»), saa de to aldrig
+              // er sande samtidig. Men saa afhang svaret af, at en klausul
+              // i en ANDEN fil blev staaende — to udtryk for ét spoergsmaal,
+              // holdt ens i stedet for beregnet ét sted. Nu peger de samme vej.
               !n.total ? null
                 : !g.nogenUdenEl ? 'med'
-                  : g.nogenUkendtDaekning ? 'ukendt-daekning'
-                    : g.alleUdenElHarEgenMaaler ? 'egen-maaler' : 'ikke-med'
+                  : g.alleUdenElHarEgenMaaler ? 'egen-maaler'
+                    : g.nogenUkendtDaekning ? 'ukendt-daekning' : 'ikke-med'
             }
             poster={g.ensPoster ? r.poster : null}
           />

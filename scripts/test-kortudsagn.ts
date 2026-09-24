@@ -65,12 +65,12 @@ const BOLIG = {
   leje: 900_000, total: 1_050_000, poster: ['rent', 'heat', 'water'],
   elEgenMaaler: null, billeder: 0, forside: null, billedforbehold: false,
   foerstSet: new Date('2026-09-01T00:00:00Z'), hosKilden: null,
-  ledig: null, ogsaaHos: [], availabilityFacts: null,
+  ledigFra: null, ogsaaHos: [], availabilityFacts: null,
 }
 
 /** Gruppe med: delvis reservation + blandet ansøgning + el-forbehold. */
 const GRUPPE = {
-  noegle: { kilde: 'proeve', postnr: '9001', vej: 'Prøvegade', vaerelser: 3, total: true, landlordId: null },
+  noegle: { kilde: 'proeve', postnr: '9001', vej: 'Prøvegade', vaerelser: 3, total: true, ejer: null },
   antal: 10,
   repraesentant: BOLIG,
   prisMin: 1_050_000, prisMax: 1_100_000,
@@ -83,7 +83,7 @@ const GRUPPE = {
     // 3 venteliste / 7 almindelig → den blandede opdeling.
     ansoegning: { normal: 7, venteliste: 3, unknown: 0, conflict: 0 },
     adgang: { bopaelskrav: 0, medlemskrav: 0 },
-    tidligstSenere: null, ensDatoer: true,
+    tidligstSenere: null, ensSenereDato: true,
   },
   indflytningMin: null, indflytningMax: null,
   ensPoster: true,

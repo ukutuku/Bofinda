@@ -224,9 +224,9 @@ async function koer() {
       etage: null, doer: null, postnr: raa!.postalCode, by: raa!.city,
       kilde: SLUG, kildeNavn: 'Prøvekilde brugerområde', kildetype: 'spider',
       match: 'unit', areal: raa!.sizeM2, vaerelser: raa!.rooms, type: raa!.propertyType,
-      leje: raa!.rentMonthly, total: null, poster: [], egenMaaler: null,
+      leje: raa!.rentMonthly, total: null, poster: [], elEgenMaaler: null,
       billeder: 0, forside: null, billedforbehold: false,
-      foerstSet: new Date(), hosKilden: null, ledig: null, ogsaaHos: [],
+      foerstSet: new Date(), hosKilden: null, ledigFra: null, ogsaaHos: [],
       availabilityFacts: null,
     }
     let markup = ''

@@ -210,7 +210,7 @@ const lavBoligI = async (kildeId, praefiks, noegle, vej, husnr, vaerelser) => {
     values (${kildeId}, 'spider', ${`${praefiks}-${noegle}`},
       ${`https://eksempel.invalid/${praefiks}-${noegle}`}, 'active',
       ${`${vej} ${husnr}, ${POSTNR} Hjerteby`}, ${vej}, ${husnr}, ${POSTNR}, 'Hjerteby',
-      'lejlighed', 70, ${vaerelser}, 900000, 1000000, ${['heating']},
+      'lejlighed', 70, ${vaerelser}, 900000, 1000000, ${['rent', 'heat']},
       'access', ${`U-${praefiks}-${noegle}`})
     returning id`
   return r.id

@@ -181,9 +181,17 @@ export function hvor(f: Filtre) {
  * Den indre `from listings` skygger for den ydre, saa `hvor(f)` binder til
  * den indre tabel. Det er derfor filteret kan genbruges ordret.
  *
- * Repraesentanten er den med flest billeder; er de lige, den med kendt
- * total; er de stadig lige, den aeldste raekke, saa valget er stabilt
- * mellem koersler.
+ * Repraesentanten vaelges i FIRE trin: flest synlige billeder; er de lige,
+ * den med kendt total; har BEGGE en kendt total, den LAVESTE; og til sidst
+ * listings.id.
+ *
+ * ⚠ Sidste led er IKKE en tidsorden. Her stod «den aeldste raekke», og det
+ * har aldrig vaeret sandt: listings.id er uuid().defaultRandom() (db/schema.ts).
+ * Leddet er der udelukkende for at goere valget STABILT mellem koersler.
+ *
+ * Trin 3 kom til i 9eb4470. Beskrivelsen her stod tilbage med tre trin —
+ * altsaa en forklaring paa reglen, umiddelbart over reglen selv, som ikke
+ * laengere passede paa den. Selve raekkefoelgen staar i ikkeRepraesentant.
  */
 /**
  * "l2 er den samme bolig som den ydre række, hos en anden kilde."

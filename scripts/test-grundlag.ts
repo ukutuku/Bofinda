@@ -55,7 +55,7 @@ const BASIS = {
   // compileren — her vidste jeg ikke bedre.
   leje: 900_000, billeder: 0, forside: null, billedforbehold: false,
   foerstSet: new Date('2026-09-01T00:00:00Z'), hosKilden: null,
-  ledig: null, ogsaaHos: [], availabilityFacts: null, indflytning: null,
+  ledigFra: null, ogsaaHos: [], availabilityFacts: null, indflytning: null,
 }
 
 /** De fem tilstande, som de findes i produktionen. */
