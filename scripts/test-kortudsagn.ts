@@ -32,7 +32,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Gruppekort, Kort } from '../app/Boligkort'
 import { paaDansk } from '../lib/liste'
-import { grundlagstekst } from '../lib/grundlag'
+import { elUdsagn } from '../lib/grundlag'
 
 let fejl = 0
 const tjek = (navn: string, ok: boolean, note = '') => {
@@ -123,8 +123,12 @@ const gm = renderToStaticMarkup(createElement(Gruppekort as never, { g: GRUPPE, 
   // ordlyden, følger prøven med. ALLE tre tjekkes, ikke kun gruppens
   // egen — ellers ville en genindført linje med en ANDEN tilstands
   // ordlyd glide igennem.
+  // Hentes nu fra `elUdsagn` direkte. Foer blev de skrelt ud af
+  // grundlagslinjen med et split paa « · » — et greb, der kun virkede,
+  // saa laenge formatet tilfaeldigvis samarbejdede, og som ville tie
+  // stille den dag separatoren skiftede.
   const ELUDSAGN = (['ikke-med', 'egen-maaler', 'ukendt-daekning'] as const)
-    .map((el) => grundlagstekst({ totalKendt: true, el, poster: ['rent'] }).split(' · ')[1] ?? '')
+    .map((el) => elUdsagn(el) ?? '')
   tjek('alle tre el-udsagn kunne udledes af grundlagstekst',
     ELUDSAGN.length === 3 && ELUDSAGN.every((u) => u.length > 0), ELUDSAGN.join(' / '))
 

@@ -40,8 +40,15 @@
 
 import type { Eltilstand } from './eloplysning'
 
-/** Kildernes ordforråd for aconto-poster. Se lib/normalize.ts. */
-const POSTNAVN: Record<string, string> = {
+/**
+ * Kildernes ordforråd for aconto-poster.
+ *
+ * EKSPORTERET, fordi den stod skrevet af én gang til i `genererBeskrivelse`
+ * (lib/normalize.ts) — med et `?? k`-fallback, der skrev en ukendt nøgle
+ * råt ud midt i en dansk sætning. To ordbøger for ét spørgsmål, med
+ * modsat opførsel ved den nøgle, ingen af dem kendte.
+ */
+export const POSTNAVN: Record<string, string> = {
   rent: 'husleje', heat: 'varme', water: 'vand',
   electricity: 'el', other: 'øvrig aconto',
 }
@@ -89,6 +96,26 @@ function posterTekst(poster: readonly string[] | null): string {
 }
 
 /**
+ * Forbeholdet om el — de eneste tre formuleringer, der findes.
+ *
+ * Trukket ud, fordi de nu har TRE læsere: grundlagslinjen herunder,
+ * `genererBeskrivelse` i lib/normalize.ts, og prøverne. Prøverne hentede
+ * dem før ved at splitte grundlagslinjen på « · » — et greb, der kun
+ * virkede, så længe formatet tilfældigvis samarbejdede, og som ville tie
+ * stille den dag separatoren skiftede.
+ *
+ * `null` for 'med' og for ukendt total: der er intet forbehold at tage.
+ * For 'med' står el allerede i opregningen; uden en total er der ikke
+ * noget tal at tage forbehold FOR.
+ */
+export function elUdsagn(el: Eltilstand | null): string | null {
+  if (el === 'ukendt-daekning') return 'uvist om el er med'
+  if (el === 'egen-maaler') return 'el betaler du selv til elselskabet'
+  if (el === 'ikke-med') return 'el kommer oveni'
+  return null
+}
+
+/**
  * ÉN linje, altid. Kaldes af begge søgekorttyper og af Min sides
  * gemte-kort — spørgsmålet besvares ét sted og bruges derfra.
  */
@@ -102,12 +129,12 @@ export function grundlagstekst(s: Grundlagsspoergsmaal): string {
   // aconto» ville være en opremsning, der intet tilføjer; det, hun
   // mangler, er at vide, at el KAN ligge i klumpen.
   if (s.el === 'ukendt-daekning') {
-    return 'husleje + ét samlet acontobeløb · uvist om el er med'
+    return `husleje + ét samlet acontobeløb · ${elUdsagn(s.el)}`
   }
 
   const poster = posterTekst(s.poster)
-  if (s.el === 'egen-maaler') return `${poster} · el betaler du selv til elselskabet`
-  if (s.el === 'ikke-med') return `${poster} · el kommer oveni`
+  const forbehold = elUdsagn(s.el)
+  if (forbehold) return `${poster} · ${forbehold}`
   // 'med' — el er en navngiven post og står allerede i opregningen.
   // Og `null` med kendt total: kilden har gjort rede for det hele.
   return poster

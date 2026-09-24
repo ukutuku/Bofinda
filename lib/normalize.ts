@@ -11,6 +11,9 @@
 import type { AvailabilityFacts, RawListing } from './adapter'
 import { vaskAdresse } from './address'
 import { oereTilKroner } from './money'
+import { eltilstand } from './eloplysning'
+import { POSTNAVN, elUdsagn } from './grundlag'
+import { paaDansk } from './liste'
 
 export type Boligtype =
   | 'lejlighed' | 'hus' | 'raekkehus' | 'vaerelse' | 'studiebolig' | 'andet'
@@ -115,6 +118,11 @@ export function genererBeskrivelse(f: {
   rentMonthly: number | null
   totalMonthly: number | null
   totalMonthlyComponents: string[] | null
+  // De to felter er her UDELUKKENDE for at kunne kalde `eltilstand`.
+  // Uden dem maatte beskrivelsen afgoere el-spoergsmaalet selv, og saa
+  // havde vi et udtryk mere for noget, der allerede er beregnet ét sted.
+  utilitiesElectricity: number | null
+  electricityOwnMeter: boolean | null
   availableFrom: Date | null
 }): string | null {
   const kr = (o: number) => oereTilKroner(o).toLocaleString('da-DK')
@@ -137,17 +145,53 @@ export function genererBeskrivelse(f: {
 
   if (f.rentMonthly != null) {
     if (f.totalMonthly != null && f.totalMonthlyComponents) {
-      const navne: Record<string, string> = {
-        heat: 'varme', water: 'vand', electricity: 'el', other: 'øvrig aconto',
+      // ═══ «TIL UDLEJEREN», IKKE «DEN SAMLEDE UDGIFT» ═══
+      //
+      // Her stod «Med varme og vand er den samlede månedlige udgift
+      // 10.500 kr.» Det er en påstand om fuldstændighed om NØJAGTIG det
+      // tal, kortet tager forbehold for — og det er den «i alt», som
+      // prisetiketten blev døbt om for at undgå (el står uden for
+      // beløbet hos næsten alle kilder).
+      //
+      // Målt 24. september 2026: 2.090 rækker bar sætningen. 2.064 af
+      // dem i en el-tilstand, hvor den lover for meget; kun de 26 med el
+      // som navngiven post kunne bære den. Værst er de 28 egen-måler-
+      // boliger: detaljesiden skriver ordret «Det indgår ikke i
+      // beløbet», og beskrivelsen kaldte samme tal samlet. Modsatte
+      // påstande, samme skærm.
+      const tilstand = eltilstand({
+        total: f.totalMonthly,
+        el: f.utilitiesElectricity,
+        elEgenMaaler: f.electricityOwnMeter,
+        poster: f.totalMonthlyComponents,
+      })
+      // Forbeholdet er IKKE formuleret her. `elUdsagn` er de tre
+      // formuleringer, der findes, og kortet bruger de samme. Et femte
+      // udtryk for noget, der allerede er beregnet ét sted, er præcis
+      // det, denne ændring findes for at undgå.
+      const forbehold = elUdsagn(tilstand)
+
+      // Hvad dækker beløbet? Samme tre svar som grundlagslinjen giver,
+      // og ordret dens ord for klumpen.
+      let grundlag: string
+      if (tilstand === 'ukendt-daekning') {
+        grundlag = 'ét samlet acontobeløb'
+      } else {
+        const navne = f.totalMonthlyComponents
+          .filter((k) => k !== 'rent')
+          .map((k) => POSTNAVN[k])
+        // Kan ét led ikke oversættes — eller er der intet led — kan
+        // listen ikke opregnes. «aconto» er sandt uanset hvad det
+        // ukendte led er. Det gamle `?? k` skrev nøglen råt ud, og den
+        // tomme liste gav ordet «undefined» midt i sætningen.
+        grundlag = navne.length > 0 && !navne.some((x) => x == null)
+          ? paaDansk(navne)
+          : 'aconto'
       }
-      const aconto = f.totalMonthlyComponents.filter((k) => k !== 'rent').map((k) => navne[k] ?? k)
-      // Dansk opremsning: "varme, vand og el" — ikke "varme og vand og el".
-      const liste = aconto.length > 1
-        ? `${aconto.slice(0, -1).join(', ')} og ${aconto.at(-1)}`
-        : aconto[0]
+
       s.push(`Husleje ${kr(f.rentMonthly)} kr. om måneden. `
-        + `Med ${liste} er den samlede månedlige udgift `
-        + `${kr(f.totalMonthly)} kr.`)
+        + `Med ${grundlag} betales ${kr(f.totalMonthly)} kr. om måneden `
+        + `til udlejeren${forbehold ? ` — ${forbehold}` : ''}.`)
     } else {
       s.push(`Husleje ${kr(f.rentMonthly)} kr. om måneden. `
         + `Kilden oplyser ikke aconto, så den samlede udgift kendes ikke.`)
@@ -282,6 +326,8 @@ export async function normaliser(
       propertyType, rooms: r.rooms ?? null, sizeM2: r.sizeM2 ?? null,
       street: adr.street, houseNumber: adr.houseNumber, postalCode, city: adr.city,
       rentMonthly: r.rentMonthly ?? null, totalMonthly, totalMonthlyComponents,
+      utilitiesElectricity: r.utilitiesElectricity ?? null,
+      electricityOwnMeter: r.electricityOwnMeter ?? null,
       availableFrom,
     }),
   }

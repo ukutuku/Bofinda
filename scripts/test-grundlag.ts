@@ -25,7 +25,7 @@ import { readFileSync } from 'node:fs'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Kort } from '../app/Boligkort'
-import { grundlagstekst } from '../lib/grundlag'
+import { grundlagstekst, elUdsagn } from '../lib/grundlag'
 import { eltilstand } from '../lib/eloplysning'
 
 let fejl = 0
@@ -150,8 +150,10 @@ console.log('\n══ 4 · el-oplysningen kan ikke stå to steder ══')
   // viste, at det ikke rækker: en genindført el-note med en ANDEN
   // tilstands ordlyd — eller på en anden form — glider igennem.
   // Udsagnene udledes af `grundlagstekst` selv, så de følger ordlyden.
+  // Samme som i test-kortudsagn: hentet fra `elUdsagn`, ikke skrelt ud
+  // af grundlagslinjen med et split paa separatoren.
   const ELUDSAGN = (['ikke-med', 'egen-maaler', 'ukendt-daekning'] as const)
-    .map((el) => grundlagstekst({ totalKendt: true, el, poster: ['rent'] }).split(' · ')[1] ?? '')
+    .map((el) => elUdsagn(el) ?? '')
   tjek('alle tre el-udsagn kunne udledes', ELUDSAGN.every((u) => u.length > 0),
     ELUDSAGN.join(' / '))
   for (const f of FORMER) {
