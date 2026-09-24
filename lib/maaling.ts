@@ -161,7 +161,18 @@ export type Haendelse = Envelope & (
   // abonnements-id — kun AT noget skete, og i hvilken tilstand.
   | { navn: 'paywall_blocked'; props: MurProps }
   | { navn: 'checkout_started'; props: KoebsstartProps }
-  | { navn: 'subscription_activated'; props: AbonnementProps }
+  // `subscription_activated` stod her og er FJERNET. Adgangen opstaar i
+  // `invoice.paid`, og dér kan et event ikke skrives: webhookens request
+  // er STRIPES (ingen samtykke-cookie), og `betalingstilsyn()` koerer i
+  // workeren uden Next omkring sig — `kontekst()` giver null begge
+  // steder. Dertil er `haendelser.anonymous_id` og `session_id` NOT
+  // NULL, saa der findes ingen raekkeform for en serverfoedt
+  // kendsgerning uden browser. Et `spor()`-kald dér ville oversaette,
+  // koere og goere ingenting.
+  //
+  // Kendsgerningen findes i forvejen i `subscriptions.adgang_til`.
+  // Tragtens sidste led taelles derfor med en forespoergsel — se
+  // docs/analytics-v1.md, «Aktiveringer taelles i subscriptions».
   | { navn: 'subscription_canceled'; props: AbonnementProps }
   | { navn: 'alert_started'; props: Tom }
   | { navn: 'alert_created'; props: AlarmProps }
@@ -490,9 +501,9 @@ export const ALLOWLIST: Record<Eventnavn, Record<string, Spec>> = {
     grund: { slags: 'tekst', af: GRUNDE },
     tilstand: { slags: 'tekst', kraevet: true, af: ['gratis', 'betaling'] },
   },
-  subscription_activated: {
-    fase: { slags: 'tekst', af: ['intro', 'normal'] },
-  },
+  // Ingen `subscription_activated` — se noten i `Haendelse` ovenfor.
+  // Bliver den affyret ved en fejl, svarer `rens()` 'ukendt-event', og
+  // raekken skrives ikke. Det er den rigtige vej at svigte.
   subscription_canceled: {
     fase: { slags: 'tekst', af: ['intro', 'normal'] },
   },

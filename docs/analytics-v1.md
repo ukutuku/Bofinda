@@ -82,7 +82,7 @@ udelukkende:
 > i ethvert tidsvindue. Går det ikke op, er instrumenteringen i stykker — ikke
 > markedet. Det er en prøve, og et bevidst brud på den er en af break-testene.
 
-### Serverside (21)
+### Serverside (20)
 
 | Event | Hvor | Påkrævet | Valgfrit | **Forbudt** | Kardinalitet | PII-risiko |
 |---|---|---|---|---|---|---|
@@ -104,8 +104,7 @@ udelukkende:
 | `login_completed` | `app/udlejer/handlinger.ts`, `error === null` | `user_id` | — | Samme, plus tokens | Lav | Høj |
 | `server_action_failed` | Catch-grenene | `handling`, `fejlklasse` | — | **Fejlbeskeden** | Lav | Middel |
 | `paywall_blocked` | `app/bolig/[id]/kontakthandling.ts`, `app/go/[id]/route.ts` | `funktion`, `tilstand` | `grund` | **Hvad hun ville have set.** `listing_id` står i konvolutten; adressen, mailen og kildens URL aldrig | Lav | Lav |
-| `checkout_started` | `app/abonnement/handlinger.ts`, kun når `svar.ok` | `tilstand` | `funktion`, `grund` | Beløb, pris-id, Stripe-id'er, returadressen | Lav | Lav |
-| `subscription_activated` | **Ingen afsender endnu** — se noten nedenfor | — | `fase` | Beløb, Stripe-id'er, kortdata | Lav | Lav |
+| `checkout_started` | `app/abonnement/handlinger.ts`, kun når `svar.ok` | `tilstand`, `user_id` | `funktion`, `grund` | Beløb, pris-id, Stripe-id'er, returadressen | Lav | Lav |
 | `subscription_canceled` | `app/abonnement/handlinger.ts`, kun når opsigelsen lykkedes | — | `fase` | Samme | Lav | Lav |
 
 > **`funktion` er påkrævet på `paywall_blocked` og valgfri på
@@ -121,11 +120,77 @@ udelukkende:
 > kan enhver skrive, og en påstand om et menneskes betalingshistorik må
 > ikke komme derfra.
 >
-> ⚠ **`subscription_activated` har ingen afsender.** Eventet står i
-> allowlisten og i `Haendelse`, men ingen kode skriver det. Tragten kan
-> derfor måle, at nogen begyndte et køb — ikke at det blev til et
-> abonnement. Hører hjemme i `invoice.paid` i `lib/webhook.ts`, dér hvor
-> adgangen faktisk opstår.
+> **`checkout_started` bærer `user_id`.** Uden den kan tragtens to
+> halvdele ikke holdes op mod hinanden — se næste afsnit.
+
+## Aktiveringer tælles i `subscriptions`, ikke som et event
+
+Der er **intet `subscription_activated`-event**, og det er ikke en
+forglemmelse. Adgangen opstår i `invoice.paid` (`lib/webhook.ts`,
+skrivning 1), og dér kan et event ikke skrives:
+
+* **Webhookens request er Stripes.** Ingen samtykke-cookie, intet
+  `anonymous_id`, intet `session_id` — `kontekst()` giver null.
+  Målt: `laesSamtykke` på en tom cookiekurv svarer `uvalgt`.
+* **`betalingstilsyn()` kører i workeren**, i tsx uden Next omkring sig.
+  `kontekst()` returnerer null på sin første linje. Målt: 0 rækker
+  skrevet.
+* **Der findes ingen rækkeform for det.** `haendelser.anonymous_id` og
+  `session_id` er begge `not null` — præcis den spærring, afsnittets
+  løfte hviler på: *«Uden analytics-samtykke gemmes der ikke ét
+  individuelt event.»*
+
+Et `spor()`-kald i `invoice.paid` ville altså oversætte, køre og gøre
+ingenting. Kendsgerningen findes i forvejen og er eksakt:
+`subscriptions.adgang_til` er sat, når og kun når en faktura er betalt.
+
+```sql
+-- Aktiveringer. Et abonnement er aktiveret, når adgang_til er sat.
+-- Dateret på oprettet_at, som ikke flytter sig — current_period_start
+-- gør, ved hver fornyelse.
+select count(*) as aktiveringer
+from subscriptions
+where adgang_til is not null
+  and oprettet_at >= now() - interval '30 days';
+```
+
+```sql
+-- Konverteringen, på SAMME befolkning i tæller og nævner: kun brugere,
+-- der både gav samtykke OG begyndte et køb. Det er den eneste ærlige
+-- rate — og det er dét, user_id på checkout_started findes for.
+with startede as (
+  select distinct user_id
+  from haendelser
+  where event_name = 'checkout_started'
+    and user_id is not null
+    and occurred_at >= now() - interval '30 days'
+)
+select count(*) as startede,
+       count(*) filter (where exists (
+         select 1 from subscriptions s
+         where s.user_id = startede.user_id and s.adgang_til is not null
+       )) as aktiverede
+from startede;
+```
+
+> ⚠ **Del ALDRIG det første tal med antallet af `checkout_started`.**
+> `checkout_started` er samtykkebetinget; aktiveringer i `subscriptions`
+> er det ikke. De to har forskellig befolkning, og forholdet mellem dem
+> er derfor ikke en konverteringsrate — **det kan overstige 100 %**.
+>
+> Målt på en fixture med fire brugere: 2 aktiveringer og 2 påbegyndte
+> køb ser ud som 100 %, mens kun 1 af de 2, der begyndte, faktisk
+> aktiverede. Forskellen er den kunde, der betalte uden at have givet
+> samtykke, og som derfor aldrig fik et `checkout_started`.
+>
+> Den anden forespørgsel har ikke problemet: den tæller kun brugere, der
+> står i begge kolonner.
+
+**Dateringen er omtrentlig.** `oprettet_at` er, da abonnementsrækken
+blev skabt — ved `checkout.session.completed`, altså sekunder til
+minutter før betalingen. En række skabt lige før midnat og betalt lige
+efter havner i det tidligere døgn. Vi gemmer ikke et selvstændigt
+aktiveringstidspunkt, og et gæt på et ville være et opdigtet tal.
 
 ### Klientside (6)
 

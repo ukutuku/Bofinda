@@ -17,12 +17,12 @@
 import { randomUUID } from 'node:crypto'
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/client'
-import { drift, listings, sources, subscriptions, users } from '../db/schema'
+import { drift, haendelser, listings, sources, subscriptions, users } from '../db/schema'
 import {
   FUNKTION, GRUNDE, adgang, funktionFraRetur, harBetaltAdgang, hentTilstand,
   koebsgrund, koebsstart, maaBruge,
 } from '../lib/adgang'
-import { rens, type Haendelse as Maalehaendelse, type Kontekst } from '../lib/maaling'
+import { rens, saetAktiv, type Haendelse as Maalehaendelse, type Kontekst } from '../lib/maaling'
 import { levendeAbonnementer, saetTilstand } from '../lib/driftskift'
 import { behandl, periode, type Haendelse } from '../lib/webhook'
 import { faser, indsaetStripe, INTRO_OERE, NORMAL_OERE, opsaetning } from '../lib/stripe'
@@ -30,8 +30,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { abonnementForBruger, startKoebFor } from '../lib/abonnement'
 import { Abonnement, type Abonnementsvisning } from '../app/min-side/Abonnement'
-import { saetAktiv } from '../lib/maaling'
-import { _saetKontekst } from '../lib/maaling-server'
+import { _saetDedup, _saetKontekst, spor } from '../lib/maaling-server'
 // De to kaldesteder KOERES i afsnit 9. Importen er statisk og ikke
 // dynamisk, saa `npm run typecheck` ogsaa daekker dem: doebes
 // `hentKontakt` om, fejler proeven ved oversaettelsen og ikke foerst i
@@ -587,6 +586,63 @@ async function koer() {
         r.ok ? '' : `${r.fejl.grund} (${r.fejl.detalje})`)
     }
     await saetDrift('gratis')
+  }
+
+  // ═══ 8e · TRAGTENS TO HALVDELE KAN HOLDES OP MOD HINANDEN ═══
+  // Aktiveringer taelles i `subscriptions`, ikke som et event: adgangen
+  // opstaar i `invoice.paid`, og dér kan et event ikke skrives —
+  // webhookens request er Stripes, og tilsynet koerer i workeren. Se
+  // docs/analytics-v1.md.
+  //
+  // Saa er `user_id` paa `checkout_started` det eneste, der binder de to
+  // halvdele sammen. Uden den er der intet at matche paa, og tallene kan
+  // kun sammenlignes paa tvaers af to forskellige befolkninger — hvilket
+  // ikke er en konverteringsrate.
+  console.log('\n══ 8e · Koebsstarten baerer brugeren ══')
+  {
+    saetAktiv(true)
+    _saetKontekst({
+      miljoe: 'proeve', anonymousId: randomUUID(), sessionId: randomUUID(),
+      rute: '/abonnement',
+    })
+    _saetDedup(new Set())
+
+    const bruger = await nyBruger('tragt-bruger')
+    const foer = (await db.select().from(haendelser)).length
+    await spor({
+      navn: 'checkout_started',
+      props: { tilstand: 'betaling', grund: 'abonnement_kraeves', funktion: 'kontakt' },
+    } as unknown as Maalehaendelse, '/abonnement', { brugerId: bruger })
+
+    const raekker = await db.select().from(haendelser)
+    const skrevet = raekker[raekker.length - 1]
+    tjek('koebsstarten bliver skrevet', raekker.length === foer + 1)
+    tjek('  og user_id er brugerens — ikke null',
+      skrevet?.userId === bruger, String(skrevet?.userId),
+      )
+    tjek('  uden den kan tragten ikke matches',
+      skrevet?.eventName === 'checkout_started' && skrevet?.userId !== null)
+
+    // ── OG EVENTET, DER IKKE KAN SKRIVES, ER VAEK ─────────────
+    // Affyres `subscription_activated` ved en fejl, svarer `rens()`
+    // 'ukendt-event' i stedet for at skrive en raekke, ingen kan stole
+    // paa. Det er den rigtige vej at svigte.
+    const k: Kontekst = {
+      miljoe: 'proeve', anonymousId: randomUUID(), sessionId: randomUUID(),
+      userId: null, researchSessionId: null, rute: '/abonnement',
+    }
+    const afvist = rens(
+      { navn: 'subscription_activated', props: { fase: 'intro' } } as unknown as Maalehaendelse, k)
+    tjek('subscription_activated er ude af taksonomien',
+      !afvist.ok && afvist.fejl.grund === 'ukendt-event',
+      afvist.ok ? 'den blev accepteret' : afvist.fejl.grund)
+    tjek('  mens opsigelsen stadig kan skrives',
+      rens({ navn: 'subscription_canceled', props: {} } as unknown as Maalehaendelse, k).ok,
+      'kun den ene skulle fjernes')
+
+    _saetKontekst(null)
+    saetAktiv(null)
+    _saetDedup(null)
   }
 
   // ═══ 9 · KALDESTEDERNE SPOERGER FAKTISK ══════════════════════

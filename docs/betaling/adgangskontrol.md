@@ -151,10 +151,15 @@ selvstændigt stykke arbejde, og ingen af dem blev lavet i den omgang.
    ved konstruktion, fordi `startKoebFor` kaster `gratis_tilstand` inde i
    sin egen transaktion.
 
-   **Nyt fund undervejs:** `subscription_activated` står i allowlisten og i
-   `Haendelse`, men **ingen kode affyrer det**. Tragten kan måle, at nogen
-   begyndte et køb — ikke at det blev til et abonnement. Hører hjemme i
-   `invoice.paid`, dér hvor adgangen opstår.
+   **Fundet undervejs er lukket.** `subscription_activated` stod i
+   allowlisten uden afsender, og det kunne ikke få en: adgangen opstår i
+   `invoice.paid`, hvor webhookens request er Stripes (ingen
+   samtykke-cookie) og tilsynet kører i workeren uden Next. Dertil er
+   `haendelser.anonymous_id` og `session_id` `not null`. Eventet er
+   **fjernet** fra taksonomien; aktiveringer tælles i `subscriptions`.
+   Se docs/analytics-v1.md, «Aktiveringer tælles i subscriptions», for
+   forespørgslen og for fælden: forholdet mellem de to tal er ikke en
+   konverteringsrate.
 3. **`?grund=` må aldrig læses som en kendsgerning.** `/go/[id]` lægger
    den i adressen til `/abonnement`, og siden læser den ikke i dag.
    Begynder den at gøre det, kan enhver sende et link, der påstår noget

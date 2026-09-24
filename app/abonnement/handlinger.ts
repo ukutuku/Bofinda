@@ -26,10 +26,14 @@ export async function koeb(retur: string) {
     // kraever en session), og et gaet her ville vaere et tal uden
     // daekning.
     if (brugerId) {
+      // `brugerId` MED. Uden den staar `haendelser.user_id` null, og
+      // saa kan tragtens to halvdele ikke holdes op mod hinanden:
+      // aktiveringerne taelles i `subscriptions`, og uden et id er der
+      // intet at matche paa. Se docs/analytics-v1.md.
       await spor({
         navn: 'checkout_started',
         props: await koebsstart(brugerId, rent),
-      }, '/abonnement')
+      }, '/abonnement', { brugerId })
     }
   }
   return svar
