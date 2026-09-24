@@ -38,6 +38,35 @@ export interface Abonnementsvisning {
   fornyesIkke?: boolean
 }
 
+/**
+ * Etiket og vaerdi for hvert af periodens fire udfald.
+ *
+ * `Record<…>` og ikke en ternaerkaede: en femte vaerdi er saa en
+ * oversaetterfejl (TS2741, «Property … is missing») i stedet for tavst
+ * at blive til «Ingen betalt adgang» — et udsagn om hendes penge, vi
+ * ikke ville have daekning for.
+ */
+type Periodevisning = Abonnementsvisning['periode']
+
+/**
+ * Etiket og vaerdi for hvert af periodens fire udfald.
+ *
+ * En `switch` med `never`-vaern og ikke en ternaerkaede: en femte vaerdi
+ * er saa en oversaetterfejl i stedet for tavst at blive til «Ingen
+ * betalt adgang» — et udsagn om hendes penge, vi ikke ville have
+ * daekning for. Etiket og vaerdi vaelges i SAMME gren, saa de to ikke
+ * kan komme til at beskrive hver sit udfald.
+ */
+function adgangsraekke(p: Periodevisning): { etiket: string; vaerdi: string } {
+  switch (p.slags) {
+    case 'loeber': return { etiket: 'Adgang til', vaerdi: p.til }
+    case 'udloebet': return { etiket: 'Adgang udløb', vaerdi: p.sidst }
+    case 'ingen': return { etiket: 'Adgang til', vaerdi: 'Ingen betalt adgang' }
+    case 'fejl': return { etiket: 'Adgang til', vaerdi: 'Kunne ikke læses' }
+    default: { const u: never = p; return u }
+  }
+}
+
 const kr = (o: number) => (o / 100).toLocaleString('da-DK', { minimumFractionDigits: 2 })
 
 /**
@@ -223,15 +252,16 @@ export function Abonnement({ start }: { start: Abonnementsvisning | null }) {
           <dd>{a.fornyesAt ?? 'Fornyes ikke'}</dd>
         </div>
         {/* Etiketten foelger kendsgerningen. «Adgang til» over en
-            fortidig dato laeser som et loefte om fremtiden. */}
+            fortidig dato laeser som et loefte om fremtiden.
+
+            UDTOEMMENDE, uden fald-igennem. Her stod en ternaerkaede, der
+            endte paa 'Ingen betalt adgang' — ordret den streng,
+            never-vaernet i page.tsx blev indfoert for at undgaa.
+            Vaernet laa paa PRODUCENTEN; oversaettelsen har to ender, og
+            den her var stadig tavs. */}
         <div>
-          <dt>{a.periode.slags === 'udloebet' ? 'Adgang udløb' : 'Adgang til'}</dt>
-          <dd>
-            {a.periode.slags === 'loeber' ? a.periode.til
-              : a.periode.slags === 'udloebet' ? a.periode.sidst
-              : a.periode.slags === 'fejl' ? 'Kunne ikke læses'
-              : 'Ingen betalt adgang'}
-          </dd>
+          <dt>{adgangsraekke(a.periode).etiket}</dt>
+          <dd>{adgangsraekke(a.periode).vaerdi}</dd>
         </div>
       </dl>
       {melding && <p role="status">{melding}</p>}

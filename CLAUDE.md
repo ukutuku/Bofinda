@@ -538,6 +538,58 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   eller et tal, der tælles ét sted og filtreres et andet. Så snart de to
   ikke kan afledes af hinanden, er det et spørgsmål om tid.
 
+- **En oversættelse af en union skal være UDTØMMENDE. En ternær eller en
+  catch-all gør en ny værdi tavst FORKERT — ikke rød.**
+
+  Oversættelsen er *total*: hver værdi i unionen skal have et svar. Ender
+  kæden på et `else`, et sidste `return` eller et `?? fallback`, får en ny
+  værdi det svar, der tilfældigvis stod til sidst. Oversætteren siger
+  ingenting, prøverne bliver grønne, og en påstand, vi ikke har dækning
+  for, står på skærmen.
+
+  Det er sket **to gange på to dage**, begge gange hvor en ukendt værdi
+  blev til en forkert:
+
+  | sted | formen | hvad den nye værdi blev til |
+  |---|---|---|
+  | `Betalingsboks` i `app/bolig/[id]/Kontakt.tsx` | to `if` og et sidste `return` | `abonnement_udloebet` faldt igennem til «Fra 9 kr.» — og tallet er **forkert** for netop den kunde: `intro_brugt_at` er sat, så hun betaler 349 |
+  | oversættelsen af `Betaltperiode` i `app/min-side/page.tsx` | ternær med fald-igennem-`else` | et fjerde udfald ville lande i «ingen» — altså «Ingen betalt adgang» til en kunde, hvis opslag **fejlede** |
+
+  **De to former, der virker.** Begge er målt:
+
+  · `Record<Union, X>` — en manglende nøgle er `TS2741: Property
+    'abonnement_udloebet' is missing`.
+  · `switch` med et `never`-værn i `default` — en femte værdi er
+    `TS2322: Type '{ slags: "tilbagebetalt" … }' is not assignable to
+    type 'never'`.
+
+  ```ts
+  default: { const u: never = p; return u }
+  ```
+
+  **Værnet skal ligge i BEGGE ender.** `visPeriode` i
+  `app/min-side/page.tsx` fik sit `never`-værn, mens forbrugeren i
+  `Abonnement.tsx` stadig endte på en ternær med «Ingen betalt adgang» —
+  ordret den streng, værnet var indført for at undgå. En oversættelse har
+  en producent og en forbruger, og den er kun lukket, når begge er det.
+
+  **Reglen gælder VORES egne, lukkede unioner.** En fallback på inddata
+  udefra — en kilde, en URL, et Stripe-felt — er som regel rigtig: dér er
+  «noget vi ikke kender» en virkelig mulighed, og adapternes allowlist
+  bygger netop på at ignorere den. Forskellen er, om værdimængden er vores
+  at udtømme.
+
+  **Ventetiden er ikke hypotetisk.** `app/bolig/[id]/page.tsx` skriver i
+  dag «Kilden oplyser ikke ansøgningsformen» og «ikke oplyst» om status
+  `conflict` — og `lib/availability.ts` siger med rene ord, at «`unknown`
+  og `conflict` er IKKE det samme: conflict betyder, vi HAR evidens, og
+  den er indbyrdes uenig». Fald-igennem-grenen ventede ikke på en ny
+  værdi; den har allerede kollapset en eksisterende.
+
+  **Tegnet at holde øje med:** en `if`/ternær-kæde, hvis sidste gren ikke
+  nævner en værdi ved navn. Nævner de andre grene deres, og den sidste
+  ikke, er den en catch-all — også når den ser ud som et bevidst valg.
+
 - **En ny kilde skal tilføjes til `TILLADTE_VAERTER` i `lib/billede.ts` i
   SAMME ændring som adapteren — og du skal TÆLLE distinkte værter i kildens
   payload, ikke finde den første.** Glemmes en vært, returnerer
