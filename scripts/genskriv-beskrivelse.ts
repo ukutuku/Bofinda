@@ -126,6 +126,25 @@ function gammelBeskrivelse(f: {
 }
 
 /**
+ * De to oekonomisaetninger, den frosne generator kan skrive.
+ *
+ * Den AERLIGE er udledt: den indeholder ingen tal, saa den kan hentes
+ * ordret ud af generatoren selv ved at kalde den uden total. Den anden
+ * baerer beloeb og postnavne, saa af den kan kun det faste led staa her
+ * — og `scripts/test-genskriv.ts` kraever, at netop den streng findes i
+ * den frosne generator. Driver de fra hinanden, bliver proeven roed.
+ */
+const MARKOER_AERLIG = (() => {
+  const t = gammelBeskrivelse({
+    propertyType: null, rooms: null, sizeM2: null, street: null, houseNumber: null,
+    postalCode: null, city: null, rentMonthly: 100, totalMonthly: null,
+    totalMonthlyComponents: null, availableFrom: null,
+  }) ?? ''
+  return t.slice(t.indexOf('Kilden oplyser'))
+})()
+const MARKOER_TOTAL = 'er den samlede månedlige udgift'
+
+/**
  * En backup, ingen har taget, er ikke en backup — og en halv fil er
  * heller ikke. `scripts/backup.mjs` afslutter med «-- FÆRDIG», så den
  * linje er beviset for, at dumpet løb færdigt.
@@ -200,7 +219,8 @@ async function main() {
   // men hvor felterne siden har flyttet sig — og begge er noget andet
   // end en haandskrevet beskrivelse. Slaas de sammen til ét tal, kan
   // man ikke se, om reglen er for snaever eller helt rigtig.
-  type Grund = 'ingen-gammel-tekst' | 'vores-saetning-men-felterne-flyttet' | 'fremmed-tekst'
+  type Grund = 'ingen-gammel-tekst' | 'vores-saetning-men-felterne-flyttet'
+    | 'vores-aerlige-gren-men-felterne-flyttet' | 'fremmed-tekst'
   const fremmed: { id: string; slug: string; status: string; grund: Grund; gemt: string }[] = []
   const aendringer: { id: string; slug: string; status: string; foer: string; efter: string }[] = []
 
@@ -214,11 +234,26 @@ async function main() {
       // Baerer teksten VORES gamle saetning? Saa er den vores — men
       // felterne stemmer ikke laengere med den, og saa ved vi ikke,
       // hvilken version af dem saetningen blev skrevet af.
+      // ⚠ GENERATOREN HAR TO OEKONOMIGRENE, IKKE ÉN.
+      //
+      // Foerste udgave saa kun efter totalgrenens saetning, og en raekke
+      // med den AERLIGE gren — «Kilden oplyser ikke aconto …» — hvor et
+      // felt siden var flyttet, landede derfor under «fremmed-tekst»
+      // med forklaringen «haandskrevet eller anden herkomst». Det er
+      // faktuelt forkert: teksten ER vores.
+      //
+      // Efterproevet i PGlite med tre raekker — vores aerlige tekst med
+      // felterne i orden, samme tekst med vejnavnet flyttet, og en
+      // rigtig haandskrevet. De to sidste blev slaaet sammen til ét tal
+      // og var ikke til at skelne i rapporten.
+      const gemt = r.description ?? ''
       const grund: Grund = gammel == null
         ? 'ingen-gammel-tekst'
-        : (r.description ?? '').includes('er den samlede månedlige udgift')
+        : gemt.includes(MARKOER_TOTAL)
           ? 'vores-saetning-men-felterne-flyttet'
-          : 'fremmed-tekst'
+          : gemt.includes(MARKOER_AERLIG)
+            ? 'vores-aerlige-gren-men-felterne-flyttet'
+            : 'fremmed-tekst'
       fremmed.push({ id: r.id, slug: r.slug, status: r.status, grund, gemt: (r.description ?? '').slice(0, 90) })
       continue
     }
@@ -245,8 +280,10 @@ async function main() {
       const forklaring = g2 === 'ingen-gammel-tekst'
         ? 'den gamle generator ville intet have skrevet'
         : g2 === 'vores-saetning-men-felterne-flyttet'
-          ? 'bærer VORES sætning, men felterne stemmer ikke længere'
-          : 'teksten er ikke vores — håndskrevet eller anden herkomst'
+          ? 'bærer VORES totalsætning, men felterne stemmer ikke længere'
+          : g2 === 'vores-aerlige-gren-men-felterne-flyttet'
+            ? 'bærer VORES ærlige gren — den lover intet, så den er harmløs'
+            : 'teksten er ikke vores — håndskrevet eller anden herkomst'
       console.log(`    ${String(n2).padStart(5)}  ${g2.padEnd(38)} ${forklaring}`)
     }
   }
