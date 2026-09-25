@@ -18,16 +18,12 @@
 import { and, count, desc, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm'
 import { db, raekker } from '../db/client'
 import type Stripe from 'stripe'
-import { UAFSLUTTET, checkoutForsoeg, subscriptions, users } from '../db/schema'
+import { LEVENDE, UAFSLUTTET, checkoutForsoeg, erTerminal, erUafsluttet,
+  subscriptions, users } from '../db/schema'
 import { hentBrugerId } from './auth'
 import { NORMAL_OERE, fase, opsaetning, stripe, type Stripeopsaetning } from './stripe'
-import { TERMINALE, afstemAbonnement, noterOpsigelse } from './opsigelse'
+import { TIL_KUNDEN, afstemAbonnement, noterOpsigelse } from './opsigelse'
 import type { Opsigelsesudfald } from './opsigelse'
-
-/** Statusser, hvor abonnementet stadig lever hos Stripe. */
-export const LEVENDE = [
-  'trialing', 'active', 'past_due', 'incomplete', 'paused', 'unpaid',
-] as const
 
 export type Koebssvar =
   | { ok: true; url: string }
@@ -563,14 +559,25 @@ export async function lukAlleAabneKoeb(udf: Udfoerer = db): Promise<{
   // mellemtiden har faaet en ny reservation — hvilket er netop den
   // situation, de opstaar i. Sessionen lukkes; raekkens status roeres
   // ikke.
-  const efterladte = uafsluttede.filter(
-    (x) => x.status !== 'aaben' && x.status !== 'gennemfoert')
+  //    «Afgjort» UDLEDES nu af UAFSLUTTET i stedet for at staa skrevet
+  //    af som `!== 'aaben' && !== 'gennemfoert'`.
+  const efterladte = uafsluttede.filter((x) => !erUafsluttet(x.status))
 
   if (!o) {
     // INGEN opsaetning = intet kald = ingen bekraeftet lukning.
     // Foer talte de som lukkede uden at Stripe var spurgt.
+    //
+    // TALLET MAALES, DET SUMMERES IKKE AF SPANDENE. Her stod
+    // `aabne.length + efterladte.length`, og de tre spande daekker kun
+    // alt, saa laenge UAFSLUTTET er praecis {aaben, gennemfoert}. En
+    // tredje uafsluttet tilstand ville falde ud af dem alle tre og
+    // blive talt til NUL — «0 uafklarede» ved siden af et afvist
+    // gratis-skift, som er ordret den fejltype, `aabneKoeb()` nedenfor
+    // findes for at forhindre. Den faar stadig ingen HANDLING i
+    // loekkerne nedenfor, og det er en aegte mangel den dag den
+    // opstaar — men tallet skal ikke ogsaa lyve om den.
     return {
-      lukkede: 0, uafklarede: aabne.length + efterladte.length,
+      lukkede: 0, uafklarede: uafsluttede.length - gennemfoerte.length,
       gennemfoerte: gennemfoerte.length,
       detaljer: ['Stripe er ikke konfigureret, så sessionerne kan ikke lukkes.'],
     }
@@ -865,7 +872,9 @@ export async function sigOpFor(brugerId: string): Promise<Opsigelsessvar> {
   //
   // `ikke_bekraeftet` er derimod netop det, N1 handler om: vi VED det
   // ikke. Saa siger vi det.
-  if (u === 'ikke_bekraeftet') return { ok: false, fejl: 'afventer', adgangTil: a.adgang }
+  // Opslaget bor ved siden af unionen i lib/opsigelse.ts, saa et sjette
+  // udfald er en oversaetterfejl dér — ikke et stiltiende ja her.
+  if (TIL_KUNDEN[u] === 'afventer') return { ok: false, fejl: 'afventer', adgangTil: a.adgang }
   return { ok: true, bekraeftet: true, adgangTil: a.adgang }
 }
 
@@ -1032,7 +1041,7 @@ export async function abonnementForBruger(brugerId: string): Promise<Abonnements
   // en automatik, der ikke fandtes. Samme svar som N1: udsagnet skal
   // hvile paa den bekraeftede sluttilstand, og et doedt abonnement
   // ER en bekraeftet sluttilstand.
-  const afsluttet = (TERMINALE as readonly string[]).includes(a.status)
+  const afsluttet = erTerminal(a.status)
   const fornyesIkke = a.opsagt || afsluttet
   const opsagt = anmodet && fornyesIkke
   const opsigelseUndervejs = anmodet && !fornyesIkke

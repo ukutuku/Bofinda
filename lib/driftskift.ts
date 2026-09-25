@@ -29,8 +29,8 @@
 
 import { count, eq, inArray, sql } from 'drizzle-orm'
 import { db, raekker } from '../db/client'
-import { drift, subscriptions, users } from '../db/schema'
-import { LEVENDE, aabneKoeb, lukAlleAabneKoeb } from './abonnement'
+import { LEVENDE, drift, subscriptions, users } from '../db/schema'
+import { aabneKoeb, lukAlleAabneKoeb } from './abonnement'
 import type { Tilstand } from './adgang'
 
 export type Skiftesvar =

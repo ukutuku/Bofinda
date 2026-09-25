@@ -31,9 +31,10 @@
 
 import { and, asc, count, eq, gt, inArray, isNotNull, isNull, lt, lte, ne, notInArray, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
-import { UAFSLUTTET, checkoutForsoeg, stripeEvents, subscriptions, users } from '../db/schema'
+import { TERMINALE, UAFSLUTTET, checkoutForsoeg, erTerminal, erTerminalTekst,
+  stripeEvents, subscriptions, users } from '../db/schema'
 import { INTRO_TIMER, fase, faser, stripe, type Stripeopsaetning } from './stripe'
-import { INGEN_BESLUTNING, RYD_SAET, TERMINALE, afstemSkyldige, bindingUroert,
+import { INGEN_BESLUTNING, RYD_SAET, afstemSkyldige, bindingUroert,
   planDerStyrer, planGaelder, skalFornyelsenStoppes, skyldAfstemning } from './opsigelse'
 
 /** De haendelser, vi handler paa. Alt andet kvitteres og ignoreres. */
@@ -543,7 +544,10 @@ const ikkeTerminal = () => or(
  * `deleted` skal kunne skrive `canceled` hen over `active`.
  */
 const maaSpejle = (stempel: Date, nyStatus: string) =>
-  (TERMINALE as readonly string[]).includes(nyStatus)
+  // `nyStatus` er BLANDET: to kaldere sender en literal, den tredje
+  // sender Stripes egen streng videre. Derfor `erTerminalTekst`, som
+  // tager `string` — her ER en ukendt vaerdi en virkelig mulighed.
+  erTerminalTekst(nyStatus)
     ? nyereEnd(stempel)
     : and(nyereEnd(stempel), ikkeTerminal())
 
@@ -1510,7 +1514,7 @@ export async function afstemGennemfoerteKoeb(ops: Stripeopsaetning): Promise<{
       }
       const [nu2] = await db.select({ status: subscriptions.status })
         .from(subscriptions).where(eq(subscriptions.stripeSubscriptionId, subId)).limit(1)
-      const doedt = nu2 && (TERMINALE as readonly string[]).includes(nu2.status)
+      const doedt = nu2 !== undefined && erTerminal(nu2.status)
       await db.update(checkoutForsoeg)
         .set({ status: doedt ? 'afbrudt' : 'betalt',
                afstemtAt: new Date(), lukketAt: new Date() })
@@ -1602,7 +1606,7 @@ export async function stopForkertFornyelse(
   if (!a) return 'ikke_noedvendig'
   if (a.planStatus === 'konfigureret') return 'ikke_noedvendig'
   // Et doedt abonnement fornyes ikke, og en allerede opsagt heller ikke.
-  if ((TERMINALE as readonly string[]).includes(a.status)) return 'ikke_noedvendig'
+  if (erTerminal(a.status)) return 'ikke_noedvendig'
   // Kundens EGEN opsigelse er ogsaa «allerede». Uden `opsagtAf` kunne
   // tilsynet vinde kaploebet mod hende og skrive
   // `fornyelse_stoppet_at` — og saa stod der «VI har stoppet

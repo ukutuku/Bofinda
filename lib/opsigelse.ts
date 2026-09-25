@@ -33,7 +33,7 @@
 
 import { and, asc, count, eq, inArray, isNotNull, isNull, lte, notInArray, or, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/client'
-import { subscriptions } from '../db/schema'
+import { erTerminal, erTerminalTekst, subscriptions } from '../db/schema'
 import { stripe, type Stripeopsaetning } from './stripe'
 
 /** Statusser, hvor en plan stadig kan styre et abonnement. */
@@ -260,20 +260,43 @@ export type Opsigelsesudfald =
   | 'nyt_arbejde'
 
 /**
- * Statusser, et abonnement ikke kommer tilbage fra.
+ * HVAD KUNDEN FAAR AT VIDE — ét opslag, ikke en fald-igennem.
  *
- * ÉN LISTE, ÉT STED. Den stod her under ét navn og i webhooken under
- * et andet — to identiske lister, der svarede paa noejagtig samme
- * spoergsmaal i hver sin fil. Kommentaren her sagde «delt med
- * webhooken»; det var den ikke, den var kopieret. To udtryk, der ikke
- * kan afledes af hinanden, er et spoergsmaal om tid — og doedsvagten
- * i `afstemAbonnement` gjorde netop den her liste baerende et nyt sted.
+ * `sigOpFor` i lib/abonnement.ts navngav ÉN vaerdi ('ikke_bekraeftet')
+ * og svarede `bekraeftet: true` om alt andet. De fem nuvaerende udfald
+ * er alle placeret rigtigt af den form — men ved sammenfald, ikke ved
+ * haandhaevelse, og et sjette udfald ville arve kundens ja uden at
+ * nogen havde taget stilling. Det er samme klasse som el-forbeholdet:
+ * en paastand, vi ikke har daekning for, til den der betaler.
  *
- * Den bor i `lib/opsigelse.ts`, fordi webhooken i forvejen importerer
- * herfra og ikke omvendt. Navnet er webhookens, saa dens kaldesteder
- * er uaendrede.
+ * Et `Record` over hele unionen goer en sjette vaerdi til en
+ * OVERSAETTELSESFEJL (TS2741) i stedet for et stiltiende ja. Se reglen
+ * i CLAUDE.md om udtoemmende oversaettelser.
+ *
+ * Placeringen af hver vaerdi kommer fra dens egen doc-kommentar
+ * ovenfor, ikke fra hvad koden tilfaeldigvis gjorde:
+ *   · `afstemt`                 bekraeftet hos Stripe OG bogfoert
+ *   · `bekraeftet_ikke_bogfoert` «pengene er i sikkerhed, og kunden maa
+ *                                faa det at vide» — kun vores egen
+ *                                oprydning mangler
+ *   · `ikke_noedvendig`         sluttilstanden holdt i forvejen
+ *   · `ikke_bekraeftet`         vi VED det ikke — og saa siger vi det
+ *   · `nyt_arbejde`             «kunden faar sit ja»; raekken bliver i
+ *                                koeen, men det er ikke hendes sag
  */
-export const TERMINALE = ['canceled', 'incomplete_expired', 'expired'] as const
+export const TIL_KUNDEN = {
+  afstemt: 'bekraeftet',
+  bekraeftet_ikke_bogfoert: 'bekraeftet',
+  ikke_noedvendig: 'bekraeftet',
+  ikke_bekraeftet: 'afventer',
+  nyt_arbejde: 'bekraeftet',
+} as const satisfies Record<Opsigelsesudfald, 'bekraeftet' | 'afventer'>
+
+// TERMINALE bor nu i `db/schema.ts` sammen med `LEVENDE`, bundet til
+// `subStatusEnum` med `satisfies`. Den stod her, fordi webhooken i
+// forvejen importerer herfra — men de to lister er hinandens
+// komplement, og et komplement, der bor i to filer, kan ikke proeves
+// som ét. Se partitionsproeven i scripts/test-migrationer.ts.
 
 /**
  * ÉT SPOERGSMAAL, ÉT STED: skal fornyelsen stoppes for den her raekke?
@@ -380,7 +403,7 @@ export async function afstemAbonnement(
 
   // Et doedt abonnement fornyes ikke og kan ikke opsiges. Skylden
   // ryddes; der er ikke noget at afstemme.
-  if ((TERMINALE as readonly string[]).includes(a.status)) {
+  if (erTerminal(a.status)) {
     if (!await ryd(subId, [eq(subscriptions.afstemningGen, a.gen ?? 0)])) {
       return 'nyt_arbejde'
     }
@@ -421,9 +444,11 @@ export async function afstemAbonnement(
     // det er doedt, saa ER sluttilstanden naaet: et doedt abonnement
     // fornyes ikke. Vi spejler status og rydder skylden.
     const statusHosStripe = typeof abo?.status === 'string' ? abo.status : null
-    if (statusHosStripe && (TERMINALE as readonly string[]).includes(statusHosStripe)) {
+    if (statusHosStripe && erTerminalTekst(statusHosStripe)) {
       await db.update(subscriptions)
-        .set({ status: statusHosStripe as never, updatedAt: new Date() })
+        // `erTerminalTekst` snaevrer, saa Stripes streng kan skrives i
+        // enum-kolonnen uden en cast. Foer stod her `as never`.
+        .set({ status: statusHosStripe, updatedAt: new Date() })
         .where(eq(subscriptions.stripeSubscriptionId, subId))
       if (!await ryd(subId, [eq(subscriptions.afstemningGen, a.gen ?? 0)])) {
         return 'nyt_arbejde'

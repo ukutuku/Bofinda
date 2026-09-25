@@ -59,6 +59,89 @@ export const koebStatusEnum = pgEnum('koeb_status', [
 export const UAFSLUTTET = ['aaben', 'gennemfoert'] as const satisfies
   readonly (typeof koebStatusEnum.enumValues)[number][]
 
+const UAFSLUTTET_SAET: ReadonlySet<string> = new Set(UAFSLUTTET)
+
+/**
+ * Er koebsforsoeget uafsluttet?
+ *
+ * Findes, saa komplementet kan UDLEDES i stedet for skrives af.
+ * `lukAlleAabneKoeb` havde `x.status !== 'aaben' && x.status !==
+ * 'gennemfoert'` — UAFSLUTTET vendt om, i haanden. En tredje
+ * uafsluttet tilstand ville falde tavst ned i «efterladte» og faa sin
+ * Stripe-session lukket, mens raekkens status blev staaende.
+ */
+export const erUafsluttet = (s: (typeof koebStatusEnum.enumValues)[number]): boolean =>
+  UAFSLUTTET_SAET.has(s)
+
+/**
+ * ABONNEMENTETS NI STATUSSER, DELT I TO — og delingen er bundet.
+ *
+ * `sub_status` har ni vaerdier, og spoergsmaalet «lever abonnementet?»
+ * blev besvaret tre steder af haandskrevne navnelister: `LEVENDE` i
+ * lib/abonnement.ts, `TERMINALE` i lib/opsigelse.ts og
+ * indekspraedikatet i `sub_en_levende_pr_bruger` (0023). Fjorten
+ * laesere, tre sprog, ingen af dem afledt af enummet.
+ *
+ * De to lister er hinandens komplement, og det er ikke en iagttagelse
+ * — det er noget koden ALLEREDE regner med: `ikkeTerminal()` i
+ * lib/webhook.ts spoerger `notInArray(status, TERMINALE)` og mener
+ * «levende». Holder partitionen op med at vaere udtoemmende, siger de
+ * to udtryk forskellige ting om den samme raekke, uden at nogen linje
+ * er forkert.
+ *
+ * `satisfies` binder hvert MEDLEM til enummet, saa en tastefejl ikke
+ * kan oversaettes. Den kan ikke fange en UDELADELSE — en tiende
+ * enum-vaerdi, ingen placerer. Det goer partitionsproeven i
+ * scripts/test-migrationer.ts, som opregner enummet ved koerselstid og
+ * kraever, at unionen er hele maengden og snittet tomt.
+ *
+ * Begge lister bor HER og ikke i lib/, af samme grund som `UAFSLUTTET`
+ * ovenfor: proeven koerer i ren tsx uden Next, og lib/abonnement.ts
+ * traekker `next/headers` med gennem ./auth.
+ */
+export type Substatus = (typeof subStatusEnum.enumValues)[number]
+
+/** Statusser, hvor abonnementet stadig lever hos Stripe. */
+export const LEVENDE = [
+  'trialing', 'active', 'past_due', 'incomplete', 'paused', 'unpaid',
+] as const satisfies readonly Substatus[]
+
+/**
+ * Statusser, et abonnement ikke kommer tilbage fra.
+ *
+ * ÉN LISTE, ÉT STED. Den stod engang i `lib/opsigelse.ts` under ét navn
+ * og i webhooken under et andet — to identiske lister, der svarede paa
+ * noejagtig samme spoergsmaal i hver sin fil.
+ */
+export const TERMINALE = [
+  'canceled', 'incomplete_expired', 'expired',
+] as const satisfies readonly Substatus[]
+
+export type Terminalstatus = (typeof TERMINALE)[number]
+
+const TERMINALT: ReadonlySet<string> = new Set(TERMINALE)
+
+/**
+ * Er DEN HER raekkes status terminal?
+ *
+ * Argumentet er `Substatus`, ikke `string`: vaerdien er skrevet gennem
+ * en enum-kolonne og kan ikke vaere noget uden for de ni. En tastefejl
+ * er derfor en oversaetterfejl — hvilket `(TERMINALE as readonly
+ * string[]).includes(...)` netop slog fra dér, hvor det var relevant.
+ */
+export const erTerminal = (s: Substatus): boolean => TERMINALT.has(s)
+
+/**
+ * Er den streng, STRIPE sendte, terminal?
+ *
+ * Her ER en ukendt vaerdi en virkelig mulighed — Stripe kan svare med
+ * en status, vores enum ikke kender — saa argumentet er `string`, og
+ * det er med vilje. CLAUDE.md siger det udtrykkeligt: en fald-igennem
+ * paa inddata udefra er som regel rigtig. Til gengaeld SNAEVRER den,
+ * saa svaret kan skrives i kolonnen uden en cast.
+ */
+export const erTerminalTekst = (s: string): s is Terminalstatus => TERMINALT.has(s)
+
 // Hvor praecist adressen kunne slaas op i det officielle register.
 //   unit   = enhedsadresse, inkl. etage og doer. Én bestemt bolig.
 //   access = adgangsadresse, opgangen. Vi ved hvilken opgang, ikke hvilken doer.
