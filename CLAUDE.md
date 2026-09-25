@@ -55,8 +55,42 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   Filen må ikke importere databasen: udlejerformularen er en
   klientkomponent, og et værdi-import derfra trak engang `postgres` med ind
   i browserbundtet og væltede hele appen på `Can't resolve 'net'`.
-  `FACILITETER` er typebundet til `FACILITET`, så en tastefejl i et
-  facilitetsord ikke kan oversættes. Formularen spørger om dem, fordi
+  `FACILITETER` er typebundet til `FACILITET` — men **bindingen dækker
+  kun den ene halvdel**, og det er værd at vide hvilken.
+
+  | | fanges? | hvordan |
+  |---|---|---|
+  | en FORKERT værdi — «kæledyr tilladte» | ja | `satisfies` afviser et ord uden for unionen |
+  | en MANGLENDE værdi — et nyt filterord, formularen ikke spørger om | **nej, ikke af bindingen alene** | et `readonly X[]` må have enhver længde |
+
+  Den manglende er den farlige: kommer et nyt ord i `FACILITET` uden at
+  nå formularen, kan ingen udlejer krydse det af, mens filteret skjuler
+  hver eneste annonce, der mangler det. Præcis den følge, listen findes
+  for at forhindre.
+
+  **Og her er en udeladelse med vilje.** `altan eller terrasse` er CEJ's
+  samlede ord — en KILDES skrivemåde, ikke et spørgsmål, man kan stille
+  en udlejer. At tvinge fuldstændighed ville rette en fejl, der ikke var
+  der.
+
+  Derfor er svaret en **deling**, ikke en fuldstændighed: hvert ord i
+  `FACILITET` skal stå enten i `FACILITETER` eller i `IKKE_I_FORMULAREN`,
+  og en typevagt gør det rødt ved oversættelsen, hvis et ord står ingen
+  af stederne. Et nyt ord tvinger dermed et VALG frem for en tilføjelse.
+
+  **Samme skel gælder `LAASEGRUNDE` i `app/beskeder/kontrakt.ts`**, hvor
+  svaret er det modsatte: dér SKAL listen være hele unionen, så unionen
+  udledes af listen (`type Laasegrund = (typeof LAASEGRUNDE)[number]`).
+  Så kan der ikke findes en låsegrund, listen ikke har — ikke fordi
+  nogen husker det, men fordi den ikke kan skrives.
+
+  **Tegnet at holde øje med:** en konstant, der navngiver medlemmerne af
+  en union, med en annotation af formen `readonly X[]`. Den læses som
+  «det er dem her» og betyder «det er nogle af dem». Spørg så, hvilken
+  af de to den skal være — fuldstændig eller delt — og håndhæv dét.
+  `scripts/test-binding.ts` måler begge, fordi `npm test` kører gennem
+  `tsx` og ikke typetjekker: en slettet typevagt ville ellers ikke blive
+  rød. Formularen spørger om dem, fordi
   filtrene ellers skjuler hver eneste udlejerannonce for altid.
 - **Rækkefølgen i `billeder`-arrayet ER `listing_images.position`, og det
   første billede er forsidebilledet.** Udlejeren bestemmer den ved at
