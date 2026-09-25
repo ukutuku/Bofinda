@@ -590,6 +590,52 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   nævner en værdi ved navn. Nævner de andre grene deres, og den sidste
   ikke, er den en catch-all — også når den ser ud som et bevidst valg.
 
+  **En prøve over de NUVÆRENDE værdier kan ikke fange en tilbagerullet
+  allowlist.** Det er ikke en svaghed ved prøverne. Det er formens egen
+  logik, og det er grunden til, at hullet i webhookens `Udfald` overlevede
+  to commits.
+
+  Rul én læser tilbage til sin gamle navneliste — lad
+  `app/api/stripe/route.ts` skrive `udfald === 'afventer' || udfald ===
+  'i_gang'` igen — og kør hele suiten. Den er **grøn**. De nuværende seks
+  værdier er jo enige med navnelisten; det er kun den syvende, der ikke
+  er. Målt som modprøve **m3** i `3db4f5d`: med en syvende værdi til stede
+  er prøven rød, uden er den grøn. Det var nøjagtig den tilstand, der lod
+  `7327d42` føde to nye værdier uden at røre ruten, og `234f5f6` rette det
+  ved at navngive dem — altså samme form, én værdi længere fremme.
+
+  Prøven kan derfor ikke bygges af tilfælde. Den skal **opregne mængden
+  ved kørselstid og kræve en sag for hvert medlem.**
+  `scripts/test-udfald.ts` går `Object.keys(UDFALD)` igennem og fejler med
+  medlemmets navn, hvis der ikke er en sag for det. Det gør den *manglende
+  prøve* rød i stedet for at lade den manglende værdi være tavs — og det
+  kræver, at mængden findes som en VÆRDI ved kørselstid, ikke kun som en
+  type. Typen afledes af værdien (`type Udfald = keyof typeof UDFALD`),
+  aldrig omvendt; en type alene kan ingen prøve opregne.
+
+  Og prøven må **ikke** sammenligne læserne med hinanden. Læser de samme
+  opslag, er de enige per definition, og den kunne aldrig fejle — samme
+  fælde som prøven, der udleder mellemgruppen som resten. Den skal holde
+  opslagets PÅSTAND op mod virkeligheden: hvad står der i basen, og hvad
+  svarer ruten.
+
+  **Hvad den stadig ikke fanger, og det skal ikke oversælges.** Skriver
+  forfatteren det forkerte svar for den nye værdi — `faerdig: true` om
+  noget, der ikke er færdigt — adlyder koden opslaget, virkeligheden
+  retter sig efter det, og alt er indbyrdes enigt. Målt som **m7**: grøn.
+  Gevinsten er ikke, at et forkert svar bliver umuligt. Den er, at et
+  forkert svar nu er forkert ÉT sted i stedet for tre, og at rækken,
+  statuskoden og optællingen ikke længere kan sige hver sit.
+
+  **Og en selvmodsigelse, typen kan bære, skal fanges larmende.** Opslaget
+  i `lib/webhook.ts` lader et udfald sige `kravet: 'andens'`, men når
+  porten er nået, ER kravet vores — den kombination er umulig. Porten
+  frigiver kravet, skriver grunden, sætter tilbagetrækningen og **kaster**:
+  ruten svarer 500, Stripe leverer igen, nyttelasten er i behold, og
+  tilsynet tæller den som `fejlet` hver time. En larmende, genoprettelig
+  fejl er det modsatte af det tavse 200, hele opslaget findes for at
+  forhindre.
+
 - **En ny kilde skal tilføjes til `TILLADTE_VAERTER` i `lib/billede.ts` i
   SAMME ændring som adapteren — og du skal TÆLLE distinkte værter i kildens
   payload, ikke finde den første.** Glemmes en vært, returnerer
