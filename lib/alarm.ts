@@ -584,10 +584,65 @@ export async function ryd(): Promise<RydResultat> {
     ))
     .returning({ id: savedSearches.id })
 
-  // 4. Brugere uden nogen søgning. En mailadresse uden en søgning bag er
-  //    en oplysning uden formål.
+  // 4. Alarmbrugerrækker, der ikke længere har noget formål.
+  //
+  //    Begrundelsen er uændret: en mailadresse, der kun blev oprettet
+  //    for at bære en gemt søgning, har intet formål, når søgningen er
+  //    væk. Men `users` bærer ikke kun alarmens adresser. `opretSoegning`
+  //    genbruger rækken på mailadressen (`onConflictDoUpdate`), så den
+  //    samme række kan være en KONTO med favoritter, en udlejer med
+  //    annoncer eller en part i en samtale.
+  //
+  //    Prædikatet var derfor bredere end begrundelsen — det spurgte KUN
+  //    om `saved_searches` — og det gik galt på to måder:
+  //
+  //    · HØJT. `listings.landlord_id`, `conversations.tenant_id`,
+  //      `conversations.landlord_id` og `messages.sender_id` er
+  //      ON DELETE NO ACTION. Postgres kaster, `ryd()` bobler op gennem
+  //      `scripts/import.ts`, og kørslen stopper på linjen FØR
+  //      betalingstilsynet, `matchAlarmer()` og `sendAlarmer()`. Det er
+  //      dét, der sker i produktionen i dag: alle kilder når igennem,
+  //      og så dør kørslen. Ingen får besked om nye boliger.
+  //    · STILLE. `favorites` og `subscriptions` er ON DELETE CASCADE.
+  //      Der er ingen spærring: rækken forsvinder, favoritterne med den,
+  //      og intet kaster. Den halvdel har endnu ikke nået noget — der er
+  //      i dag én kandidat, og den har kastet fra første kørsel — men
+  //      den venter kun på en kandidat uden en NO ACTION-reference.
+  //
+  //    Rettelsen er at spørge om ALLE fremmednøgler til `users` plus de
+  //    to bindinger, der ikke er fremmednøgler her: kontoen
+  //    (`auth_user_id`) og Stripe-kunden. En konto uden favoritter og
+  //    uden søgninger er ikke overflødig — hun har bare ikke nået noget
+  //    endnu.
+  //
+  //    Fremmednøglerne bliver stående, og der er ingen try/catch: kaster
+  //    den her sætning, er der en relation, listen ikke kender, og så
+  //    SKAL kørslen stoppe, indtil et menneske har set på den. En fanget
+  //    fejl ville gøre den næste manglende relation usynlig.
+  //
+  //    `haendelser.user_id` er med vilje IKKE på listen. Den er den
+  //    eneste user-kolonne uden fremmednøgle, netop fordi den skal kunne
+  //    nulstilles ved sletteret — se db/schema.ts. Den må ikke holde en
+  //    tom alarmrække i live.
+  //
+  //    LISTEN ER TILSTRÆKKELIG HER, IKKE FULDSTÆNDIG. Betalingsgrenen
+  //    tilføjer `drift.aendret_af` (0021) og `checkout_forsoeg.user_id`
+  //    (0024); ingen af de to tabeller findes i denne grens migrationer,
+  //    som slutter ved 0020. Begge hører til konti, så `auth_user_id is
+  //    null` fanger dem allerede — men den dag de kommer med, skal de
+  //    navngives, for listen skal være fuldstændig og ikke bare nok.
   const d = await db.delete(users)
-    .where(sql`not exists (select 1 from saved_searches ss where ss.user_id = ${users.id})`)
+    .where(and(
+      isNull(users.authUserId),
+      isNull(users.stripeCustomerId),
+      sql`not exists (select 1 from saved_searches t where t.user_id = ${users.id})`,
+      sql`not exists (select 1 from favorites     t where t.user_id = ${users.id})`,
+      sql`not exists (select 1 from subscriptions t where t.user_id = ${users.id})`,
+      sql`not exists (select 1 from listings      t where t.landlord_id = ${users.id})`,
+      sql`not exists (select 1 from conversations t where t.tenant_id = ${users.id})`,
+      sql`not exists (select 1 from conversations t where t.landlord_id = ${users.id})`,
+      sql`not exists (select 1 from messages      t where t.sender_id = ${users.id})`,
+    ))
     .returning({ id: users.id })
 
   return {
