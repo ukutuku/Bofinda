@@ -114,6 +114,27 @@ async function main() {
   tjek('backup-spærringen sidder på --skriv',
     /if \(skriv\)[\s\S]{0,200}backupErTaget\(\)/.test(kilde_))
 
+  // ═══ BEGGE ØKONOMIGRENE SKAL KENDES ═══
+  //
+  // Generatoren har to: totalgrenen og den ærlige. Første udgave af
+  // klassificeringen så kun efter den første, så en række med den
+  // ærlige gren og et flyttet felt blev meldt som «håndskrevet eller
+  // anden herkomst» — faktuelt forkert om vores egen tekst.
+  //
+  // MARKOER_AERLIG udledes af den frosne generator og kan ikke drive.
+  // MARKOER_TOTAL er en literal, fordi sætningen bærer beløb — derfor
+  // kræver prøven her, at netop den streng findes i den frosne
+  // generator. Rettes den ene uden den anden, bliver det rødt.
+  tjek('klassificeringen kender begge økonomigrene',
+    /vores-aerlige-gren-men-felterne-flyttet/.test(kilde_))
+  tjek('MARKOER_AERLIG udledes af den frosne generator',
+    /const MARKOER_AERLIG = \(\(\) => \{[\s\S]{0,400}gammelBeskrivelse\(/.test(kilde_))
+  const total = kilde_.match(/const MARKOER_TOTAL = '([^']+)'/)?.[1]
+  tjek('MARKOER_TOTAL findes i den frosne generator',
+    total != null && kilde_.includes(total) &&
+    new RegExp(`function gammelBeskrivelse[\\s\\S]*${total.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(kilde_),
+    total ?? 'ikke fundet')
+
   await db.delete(listings).where(eq(listings.sourceId, kilde!.id))
   await db.delete(sources).where(eq(sources.id, kilde!.id))
   console.log(fejl ? `\n  ${fejl} FEJLEDE\n` : '\n  ALT GRØNT\n')
