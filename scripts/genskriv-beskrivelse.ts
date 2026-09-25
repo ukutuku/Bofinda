@@ -194,7 +194,14 @@ async function main() {
     .where(and(ne(listings.sourceType, 'native'), isNotNull(listings.description)))
 
   let uaendret = 0
-  const fremmed: { id: string; slug: string; gemt: string }[] = []
+  // Skip-grundene holdes ADSKILT. «Ikke vores» er ikke ét faenomen: en
+  // raekke, hvor den gamle generator slet intet ville have skrevet, er
+  // noget andet end en raekke, hvis tekst BAERER vores gamle saetning,
+  // men hvor felterne siden har flyttet sig — og begge er noget andet
+  // end en haandskrevet beskrivelse. Slaas de sammen til ét tal, kan
+  // man ikke se, om reglen er for snaever eller helt rigtig.
+  type Grund = 'ingen-gammel-tekst' | 'vores-saetning-men-felterne-flyttet' | 'fremmed-tekst'
+  const fremmed: { id: string; slug: string; status: string; grund: Grund; gemt: string }[] = []
   const aendringer: { id: string; slug: string; status: string; foer: string; efter: string }[] = []
 
   for (const r of raekker) {
@@ -204,7 +211,15 @@ async function main() {
     // Provenienskontrollen. Stemmer det gemte ikke ORDRET med den gamle
     // generators output, er teksten ikke vores at skrive om.
     if (gammel == null || r.description !== gammel) {
-      fremmed.push({ id: r.id, slug: r.slug, gemt: (r.description ?? '').slice(0, 90) })
+      // Baerer teksten VORES gamle saetning? Saa er den vores — men
+      // felterne stemmer ikke laengere med den, og saa ved vi ikke,
+      // hvilken version af dem saetningen blev skrevet af.
+      const grund: Grund = gammel == null
+        ? 'ingen-gammel-tekst'
+        : (r.description ?? '').includes('er den samlede månedlige udgift')
+          ? 'vores-saetning-men-felterne-flyttet'
+          : 'fremmed-tekst'
+      fremmed.push({ id: r.id, slug: r.slug, status: r.status, grund, gemt: (r.description ?? '').slice(0, 90) })
       continue
     }
 
@@ -213,10 +228,28 @@ async function main() {
     aendringer.push({ id: r.id, slug: r.slug, status: r.status, foer: r.description!, efter: ny })
   }
 
-  console.log(`  gennemgået      ${raekker.length} rækker (ikke-native, med beskrivelse)`)
-  console.log(`  uændret         ${uaendret}`)
-  console.log(`  ikke vores      ${fremmed.length}  (rørt: 0)`)
-  console.log(`  ville ændres    ${aendringer.length}`)
+  const baererSaetningen = raekker.filter((r) => (r.description ?? '').includes('er den samlede månedlige udgift')).length
+
+  console.log(`\n  gennemgået            ${raekker.length} rækker (ikke-native, med beskrivelse)`)
+  console.log(`  heraf med sætningen   ${baererSaetningen}`)
+  console.log('  ' + '─'.repeat(52))
+  console.log(`  matcher ordret        ${aendringer.length}   -> ville skrives`)
+  console.log(`  matcher, men ens      ${uaendret}   -> ingen ændring nødvendig`)
+  console.log(`  springes over         ${fremmed.length}   -> RØRES IKKE`)
+
+  const grunde = new Map<string, number>()
+  for (const f of fremmed) grunde.set(f.grund, (grunde.get(f.grund) ?? 0) + 1)
+  if (grunde.size) {
+    console.log('\n  hvorfor de springes over:')
+    for (const [g2, n2] of [...grunde].sort((a, b) => b[1] - a[1])) {
+      const forklaring = g2 === 'ingen-gammel-tekst'
+        ? 'den gamle generator ville intet have skrevet'
+        : g2 === 'vores-saetning-men-felterne-flyttet'
+          ? 'bærer VORES sætning, men felterne stemmer ikke længere'
+          : 'teksten er ikke vores — håndskrevet eller anden herkomst'
+      console.log(`    ${String(n2).padStart(5)}  ${g2.padEnd(38)} ${forklaring}`)
+    }
+  }
 
   const prSlug = new Map<string, { aktiv: number; inaktiv: number }>()
   for (const a of aendringer) {
@@ -224,17 +257,36 @@ async function main() {
     if (a.status === 'active') t.aktiv++; else t.inaktiv++
     prSlug.set(a.slug, t)
   }
-  if (prSlug.size) {
+  const spr = new Map<string, number>()
+  for (const f of fremmed) spr.set(f.slug, (spr.get(f.slug) ?? 0) + 1)
+
+  const alleSlugs = [...new Set([...prSlug.keys(), ...spr.keys()])]
+  if (alleSlugs.length) {
     console.log('\n  pr. kilde:')
-    for (const [slug, t] of [...prSlug].sort((a, b) => (b[1].aktiv + b[1].inaktiv) - (a[1].aktiv + a[1].inaktiv))) {
-      console.log(`    ${slug.padEnd(16)} aktive ${String(t.aktiv).padStart(5)} · inaktive ${String(t.inaktiv).padStart(5)}`)
+    console.log(`    ${'kilde'.padEnd(16)} ${'skrives'.padStart(8)} ${'(aktive'.padStart(8)} ${'inaktive)'.padStart(10)} ${'springes over'.padStart(14)}`)
+    const raek = alleSlugs.map((slug) => {
+      const t = prSlug.get(slug) ?? { aktiv: 0, inaktiv: 0 }
+      return { slug, aktiv: t.aktiv, inaktiv: t.inaktiv, skip: spr.get(slug) ?? 0 }
+    }).sort((a, b) => (b.aktiv + b.inaktiv + b.skip) - (a.aktiv + a.inaktiv + a.skip))
+    for (const r of raek) {
+      console.log(`    ${r.slug.padEnd(16)} ${String(r.aktiv + r.inaktiv).padStart(8)} ${String(r.aktiv).padStart(8)} ${String(r.inaktiv).padStart(10)} ${String(r.skip).padStart(14)}`)
     }
+    const sum = raek.reduce((a, r) => ({
+      skriv: a.skriv + r.aktiv + r.inaktiv, aktiv: a.aktiv + r.aktiv,
+      inaktiv: a.inaktiv + r.inaktiv, skip: a.skip + r.skip,
+    }), { skriv: 0, aktiv: 0, inaktiv: 0, skip: 0 })
+    console.log(`    ${'I ALT'.padEnd(16)} ${String(sum.skriv).padStart(8)} ${String(sum.aktiv).padStart(8)} ${String(sum.inaktiv).padStart(10)} ${String(sum.skip).padStart(14)}`)
   }
 
   if (fremmed.length) {
-    console.log(`\n  ${fremmed.length} rækker røres IKKE, fordi teksten ikke stemmer med den gamle generator:`)
-    for (const f of fremmed.slice(0, 10)) console.log(`    [${f.slug}] ${f.gemt}…`)
-    if (fremmed.length > 10) console.log(`    … og ${fremmed.length - 10} til`)
+    console.log('\n  eksempler paa de sprungne — TRE PR. GRUND, saa ingen grund skjules')
+    console.log('  af en anden, der tilfaeldigvis er hyppigere:')
+    for (const g2 of grunde.keys()) {
+      const af = fremmed.filter((f) => f.grund === g2)
+      console.log(`\n    ── ${g2} (${af.length}) ──`)
+      for (const f of af.slice(0, 3)) console.log(`      [${f.slug}/${f.status}] ${f.gemt}…`)
+      if (af.length > 3) console.log(`      … og ${af.length - 3} til`)
+    }
   }
 
   if (aendringer.length) {
@@ -254,7 +306,12 @@ async function main() {
     console.log('\nIntet skrevet. Kør med --skriv.')
   }
 
-  await raw.end()
+  // Mod produktionen lukker den en rigtig forbindelse. Mod testbasen
+  // findes der ingen socket at lukke, og et kast HER ville komme EFTER
+  // hele rapporten er skrevet ud — altsaa en roed slutlinje under et
+  // resultat, der var i orden. Scriptet skal kunne toerkoeres mod
+  // testbasen uden at se ud som om det fejlede.
+  try { await raw.end() } catch { /* testbasen har ingen socket */ }
 }
 
 main().catch((e) => { console.error(e); process.exit(1) })
