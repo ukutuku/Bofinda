@@ -11,6 +11,7 @@ import { db } from '../db/client'
 import { alertMatches, crawlRuns, listings, savedSearches, sources, users } from '../db/schema'
 import { availabilityFor, harDomaenefilter, hvor, matcherDomaene, type Filtre } from './soeg'
 import { INDKOERING_TIMER } from './indkoering'
+import { typeord } from './boligtype'
 
 /** Kriterierne gemmes som `Filtre`. Læses tilbage med samme form. */
 const somFiltre = (c: Record<string, unknown>): Filtre => c as Filtre
@@ -203,11 +204,6 @@ export async function ventende() {
 }
 
 /** Kriterierne som en linje, så det kan ses hvad søgningen faktisk beder om. */
-const TYPENAVN: Record<string, string> = {
-  lejlighed: 'lejlighed', hus: 'hus', raekkehus: 'rækkehus',
-  vaerelse: 'værelse', studiebolig: 'studiebolig', andet: 'anden bolig',
-}
-
 export function beskrivFiltre(c: Record<string, unknown>): string {
   const f = somFiltre(c)
   const d: string[] = []
@@ -222,7 +218,7 @@ export function beskrivFiltre(c: Record<string, unknown>): string {
   // De nye filtre SKAL med her. Beskrivelsen står på bekræftelsessiden og i
   // gem-boksen, og en søgning, der filtrerer på mere, end den fortæller, er
   // en søgning brugeren ikke kan gennemskue.
-  if (f.boligtyper?.length) d.push(f.boligtyper.map((t) => TYPENAVN[t] ?? t).join(' el. '))
+  if (f.boligtyper?.length) d.push(f.boligtyper.map((t) => typeord(t) ?? t).join(' el. '))
   if (f.overtagelse === 'nu') d.push('kan overtages nu')
   if (f.overtagelse === 'senere') d.push('kan overtages senere')
   if (f.ansoegningsform === 'venteliste') d.push('venteliste')

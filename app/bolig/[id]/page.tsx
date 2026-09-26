@@ -11,6 +11,7 @@ import { Kontakt } from './Kontakt'
 import { Maaling } from '../../Maaling'
 import { Landkort } from '../../Landkort'
 import { maalingstilstand, spor } from '../../../lib/maaling-server'
+import { typenavn } from '../../../lib/boligtype'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,11 +35,6 @@ function siden(d: Date): string {
   if (dg < 31) return `${dg} ${dg === 1 ? 'dag' : 'dage'} siden`
   const m = Math.round(dg / 30)
   return `${m} ${m === 1 ? 'måned' : 'måneder'} siden`
-}
-
-const TYPENAVN: Record<string, string> = {
-  lejlighed: 'Lejlighed', raekkehus: 'Rækkehus', hus: 'Hus',
-  vaerelse: 'Værelse', studiebolig: 'Studiebolig', andet: 'Bolig',
 }
 
 function adresselinje(b: BoligDetalje): string {
@@ -176,7 +172,7 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
     b.areal != null ? { ikon: 'maal', v: `${b.areal} m²`, e: 'boligareal' } : null,
     b.vaerelser != null
       ? { ikon: 'doer', v: `${b.vaerelser}`, e: b.vaerelser === 1 ? 'værelse' : 'værelser' } : null,
-    b.type ? { ikon: 'hus', v: TYPENAVN[b.type] ?? b.type, e: 'boligtype' } : null,
+    b.type ? { ikon: 'hus', v: typenavn(b.type), e: 'boligtype' } : null,
   ].filter((x): x is { ikon: string; v: string; e: string } => !!x)
 
   /**
@@ -598,7 +594,7 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
           <section className="blok" id="boligen">
             <h2>Boligen</h2>
             <dl className="fakta2">
-              {b.type && <><dt>Boligtype</dt><dd>{TYPENAVN[b.type] ?? b.type}</dd></>}
+              {b.type && <><dt>Boligtype</dt><dd>{typenavn(b.type)}</dd></>}
               {b.areal != null && <><dt>Areal</dt><dd>{b.areal} m²</dd></>}
               {b.vaerelser != null && <><dt>Værelser</dt><dd>{b.vaerelser}</dd></>}
               {b.etage && (

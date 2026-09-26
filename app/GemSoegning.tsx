@@ -3,6 +3,7 @@ import { spor } from '../lib/maaling-server'
 import { antalFiltre } from '../lib/maalingsoeg'
 import type { Filtre, Soegeparametre } from '../lib/soeg'
 import { filtreFraParametre, harFiltre } from '../lib/soeg'
+import { typenavn } from '../lib/boligtype'
 
 // ═══════════════════════════════════════════════════════════════
 //  «Få besked om nye boliger som disse»
@@ -17,14 +18,9 @@ import { filtreFraParametre, harFiltre } from '../lib/soeg'
 // ═══════════════════════════════════════════════════════════════
 
 /** Menneskeligt navn til søgningen, af filtrene selv. */
-const TYPENAVN: Record<string, string> = {
-  lejlighed: 'Lejlighed', hus: 'Hus', raekkehus: 'Rækkehus',
-  vaerelse: 'Værelse', studiebolig: 'Studiebolig', andet: 'Bolig',
-}
-
 function navngiv(f: Filtre): string {
   const d: string[] = []
-  if (f.boligtyper?.length === 1) d.push(TYPENAVN[f.boligtyper[0]!] ?? f.boligtyper[0]!)
+  if (f.boligtyper?.length === 1) d.push(typenavn(f.boligtyper[0]!))
   if (f.vaerelserMin != null) d.push(`${f.vaerelserMin}+ vær.`)
   if (f.arealMin != null) d.push(`${f.arealMin}+ m²`)
   const sted = f.postnr ?? f.by
