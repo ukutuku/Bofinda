@@ -65,7 +65,7 @@ Står der `[UDFYLDES]`, mangler oplysningen, og linjen kan ikke bæres.
 | **CEJ** | `[UDFYLDES]` | `[UDFYLDES]` | `[UDFYLDES]` | telefon, optaget med samtykke | `[UDFYLDES — værter: ? · endpoints: ? · nøgle: ? · billeder fra hvilken vært: ?]` — white-label fra `bolig.io`; afklar hvem der ejer dataene |
 | **Laros A/S** | `[UDFYLDES]` | `[UDFYLDES]` | 2026-09-07 | telefon, optaget med samtykke | **Udfyldt, se nedenfor.** Bred tilladelse til at hente, behandle og vise deres offentlige boligannoncer og billeder på Bofinda — liste- og detaljesider, alle relevante offentlige boligfelter, brug og visning af billeder, relevante nuværende værter/endpoints, link tilbage til Laros og deres ansøgningsflow, løbende opdatering. Ingen begrænsninger eller forbehold stillet. |
 | **Alabu Bolig** | `[UDFYLDES]` | `[UDFYLDES]` | 2026-09-07 | telefon, optaget med samtykke | **Udfyldt, se nedenfor.** Fuld tilladelse til at hente, behandle og vise alle deres offentlige boligannoncer på Bofinda — liste- og detaljedata, alle relevante offentlige boligfelter, brug og visning af billeder, løbende crawling og opdatering, relevante nuværende værter/endpoints, link tilbage til Alabu Bolig og deres ansøgningsflow. Ingen begrænsninger eller forbehold stillet. |
-| **EDC** | ikke oplyst | formentlig administrativ medarbejder, usikkert | ikke oplyst | telefon — **ejerens gengivelse, ingen skriftlig dokumentation**; om samtalen er optaget, er ikke oplyst | **Se nedenfor.** Ret til at scrape, hvad vi vil, på deres hjemmeside, og til at køre bot på `www.edc.dk` (ejerens gengivelse). Kan kun dække EDC's egne sager — ikke boligportal.dk-annoncerne i deres lejeindeks. **Ubesvaret:** om § 11 b-forbeholdet er ophævet udtrykkeligt · om løbende import og visning er dækket. **Uafklaret:** om tilladelsen overhovedet binder EDC — se forbeholdet nedenfor |
+| **EDC** | ikke oplyst | formentlig administrativ medarbejder, usikkert | ikke oplyst | telefon — **ejerens gengivelse, ingen skriftlig dokumentation**; om samtalen er optaget, er ikke oplyst | **Ikke forfulgt 2026-09-26 — se nedenfor.** Ret til at scrape, hvad vi vil, på deres hjemmeside, og til at køre bot på `www.edc.dk` (ejerens gengivelse). Kan kun dække EDC's egne sager — ikke boligportal.dk-annoncerne i deres lejeindeks. **Ubesvaret:** om § 11 b-forbeholdet er ophævet udtrykkeligt · om løbende import og visning er dækket. **Uafklaret:** om tilladelsen overhovedet binder EDC — se forbeholdet nedenfor |
 
 ---
 
@@ -147,7 +147,7 @@ Alabu-medarbejderen nødvendigvis sagde:
 | **Ansøgning** | Knappen «Jeg vil gerne kontaktes» ved hver bolig åbner en kontaktformular (navn, telefon, e-mail, besked), som sendes til Alabu. Vi linker til boligens egen side; formularen hentes ikke og udfyldes ikke. Om en ansøger skal være opskrevet på deres venteliste, siger siderne ikke — se `lib/kildekontrakt.ts`. |
 | **Persondata** | Ingen i liste- eller detaljepayloadet ud over Alabus egne kontaktoplysninger i fritekstfeltet `Description`, som ikke gemmes. Adapteren plukker kun boligfelter ved navn; billedernes `Name`/`Description`/`Photographer` læses ikke. |
 
-## EDC — mundtlig, ejerens gengivelse, uden dokumentation, om den binder EDC er uafklaret
+## EDC — ikke forfulgt · mundtlig, ejerens gengivelse, uden dokumentation, om den binder EDC er uafklaret
 
 Det, der står her, er projektejerens gengivelse af en telefonsamtale med
 EDC, skrevet ned efter hukommelsen den 26. september 2026. Der findes
@@ -179,6 +179,51 @@ huskes ikke, og rollen er usikker.
 
 Kvalitetsmålingen af aconto, depositum, dato og status er **ikke kørt**. Den
 kræver sagssiderne.
+
+### Konklusion 26. september 2026: ikke forfulgt
+
+EDC er ikke forfulgt, af to grunde:
+
+1. **Bot-testen blev afvist** (tabellen ovenfor). Uden sagssiderne kan hverken
+   økonomi, dato eller status måles, og der kan ikke bygges noget.
+2. **Det målte fra september viser en lille egen beholdning.** Ca. 97 % af
+   lejeindeksets tæller (12.191 den 6. september) var boligportal.dk-annoncer
+   via feed uden egen side på edc.dk. EDC's egne sager var 374 den 7.
+   september og er 425 den 26. september. 52 af de 374 (14 %) fandtes
+   allerede hos os: 41 hos Propstep, 9 hos LokalBolig og 2 hos CEJ
+   (`docs/supply-kortlaegning-2026-09-06.md`).
+
+**Hvad september siger om økonomien.** Rapporten 6. september beskrev
+SSR-JSON'en på EDC's sager med «fuld adresse, depositum (mdr. + kr.),
+forudbetalt, aconto, «Ledig fra»-dato og isRented/isContractSigned-flag».
+Revisionen 7. september fastholdt det for EDC's egne sager: «SSR-JSON'en er
+som beskrevet, men kun for EDC-egne sager» (oprindelig tekst i `31a4574`,
+revideret i `7636a95`). Det er felter
+set i payloaden, ikke optalt. Hvor mange sager der har dem udfyldt, og om
+acontoen er specificeret eller én klump, står ingen steder. Den fulde probe,
+`edc-probe-2026-09-07.md`, ligger ikke i repoet. September er derfor ikke
+belæg for, at EDC mangler aconto eller depositum.
+
+### Hvad der skulle til
+
+1. **CHEQ-whitelisting af `BofindaBot`.** Samtalen kan starte med
+   Azure-referencen `20260926T061644Z-16dd9bcdcdb9fhn8hC1DTT47fs00000005q0000000000g1v`
+   — kaldet kl. 06:16:44 UTC den 26. september, som CHEQ afviste med
+   `Code: 2`. Svaret siger ikke, om spærringen sidder på User-Agent eller på
+   IP. Sidder den på IP, skal EDC have adressen på den maskine, der skal
+   hente. Vi skifter ikke User-Agent for at komme igennem (`lib/fetch.ts:99`).
+2. **§ 11 b:** om tilladelsen udtrykkeligt ophæver forbeholdet mod tekst- og
+   datamining.
+3. **Løbende brug:** om tilladelsen dækker løbende import og visning på
+   Bofinda og ikke kun en måling.
+4. **Hvem hos EDC der kan binde selskabet.** Tilladelsen kom formentlig fra
+   en administrativ medarbejder, som næppe har stillingsfuldmagt til at
+   fravige vilkårene — og vilkårene krævede i september skriftlig aftale for
+   enhver brug.
+
+Er de fire på plads, er næste skridt kvalitetsmålingen, som den var
+planlagt: 40–45 af de egne sager, jævnt fordelt efter postnummer, 1,5
+sekund mellem kald, målt mod felterne i `lib/kildekontrakt.ts`.
 
 ## BoligPortal — ikke en kilde
 
