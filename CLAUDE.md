@@ -821,7 +821,7 @@ der skal til for også at sikre filerne i storage-bucket'en.
 
 ## Dækker ét tilfælde mindre, end man tror
 
-Syv fælder med samme form: **et værn, der læses som udtømmende, og som
+Otte fælder med samme form: **et værn, der læses som udtømmende, og som
 ikke er det.** De fanger noget — og netop derfor ser de ud som om de
 fanger resten. Hver af dem har kostet mindst én omgang i dette repo.
 
@@ -834,13 +834,29 @@ fanger resten. Hver af dem har kostet mindst én omgang i dette repo.
 | `git grep` over `refs/heads refs/remotes` | Ser kun de refs, der ER HENTET. En gren, ingen har fetchet, findes ikke for søgningen. |
 | en påstand om «ændringen» | …hvor det målte var en DELMÆNGDE af den. Filteret ligger her i sætningens subjekt, ikke i kommandoen. |
 | `FACILITETER` bundet til `Facilitetsord` | Fanger en forkert VÆRDI, ikke en manglende. `readonly X[]` må have enhver længde — også nul. Se nedenfor. |
+| en scanner forankret til linjestart (`^`) | Ser kun kopier, hvor nøglen står FØRST på linjen. En kopi med flere nøgler pr. linje slipper forbi — og det var netop den form, alle de fundne kopier havde. |
 
-**De tre midterste er de samme to gange.** Ved `--include` kan filteret
+**Fire af dem er den samme fejl fire gange.** Ved `--include` kan filteret
 SES i kommandoen. Ved `git grep` over refs er der intet at se: kommandoen
 ligner en søgning over alle grene og søger i det, der tilfældigvis ligger
-lokalt. Og i den sjette ligger filteret i det, sætningen handler OM.
+lokalt. I den sjette ligger filteret i det, sætningen handler OM. Og i den
+ottende ligger det i **regexet** — et `^` gør scanneren til en
+linjescanner, og den slags kopier står sjældent alene på deres linje.
 
-Konkret, alle tre gange: en søgning efter `'heating'` blev kørt med
+Den ottende er den lærerigste, fordi modprøven BESTOD. En scanner skulle
+finde kopier af boligtype-kortet; den var forankret til linjestart, og
+modprøven — læg en kopi ind, se scanneren blive rød — gav grønt, fordi
+kopien havde to nøgler på linjen. Da ankeret blev fjernet, kom der en
+kopi frem, ingen havde set: inline i `genererBeskrivelse`.
+
+**Og den form er reglen, ikke undtagelsen.** Kortet står tre steder på
+main — `lib/normalize.ts`, `app/GemSoegning.tsx` og
+`app/bolig/[id]/page.tsx` — og alle tre har tre nøgler på hver af to
+linjer. Én af dem har endda nøglerne i en anden rækkefølge end de to
+andre, hvilket er driften, der allerede er sket. En linjeforankret
+scanner ville have meldt nul.
+
+Konkret, de tre af dem: en søgning efter `'heating'` blev kørt med
 `--include=*.ts --include=*.tsx`, fandt tre steder, og blev skrevet ned
 som «en gennemsøgning af hele repoet». Der var fire — den fjerde i en
 `.mjs`-fil, og den eneste, der faktisk ramte et kort. Dernæst en søgning
