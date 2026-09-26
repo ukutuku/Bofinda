@@ -24,6 +24,7 @@
     "tjek:noegler": "node --env-file-if-exists=.env scripts/tjek-noegler.mjs",
     "test:prod": "BOFINDA_PROEV_PRODUKTION=1 tsx --tsconfig tsconfig.scripts.json --env-file-if-exists=.env scripts/test-redigering.ts",
     "tjek:rettigheder": "tsx --tsconfig tsconfig.scripts.json --env-file-if-exists=.env scripts/tjek-rettigheder.ts",
+    "proeve:storage:staging": "NODE_USE_ENV_PROXY=1 tsx --tsconfig tsconfig.scripts.json scripts/proeve-storage-staging.ts",
     "maaling:vis": "BILLED_HEMMELIGHED=proeve-hemmelighed-kun-til-proever tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/vis-maaling.ts",
     "cloud:op": "scripts/cloud/op.sh",
     "cloud:ned": "scripts/cloud/ned.sh",
