@@ -7,11 +7,12 @@ telefon, optaget med samtykke** — for EDC er det dog ikke oplyst, om
 samtalen er optaget. Ikke robots.txt. Robots.txt er kun det, vi tjekker
 ved siden af — et signal til fremmede, ikke en aftale.
 
-**Ingen af tilladelserne kan i dag dokumenteres.** Den 26. september 2026
-stod der 60 pladsholdere på 20 tabelrækker i filen, og alle 14 kilder i
-tabellen nedenfor mangler i det mindste navnet på den, der gav lov. At
+**Ingen af tilladelserne kan i dag dokumenteres.** Alle 14 kilder i
+tabellen nedenfor mangler i det mindste navnet på den, der gav lov. For de
+13 står det som pladsholder — den 26. september 2026 var der 54 på 17
+tabelrækker. For EDC står der «ikke oplyst», fordi navnet ikke huskes. At
 tilladelserne er mundtlige, er stadig rigtigt. Men en mundtlig tilladelse
-uden navn, rolle og dato kan ingen efterprøve. Tal efter med
+uden navn, rolle og dato kan ingen efterprøve. Tal pladsholderne efter med
 `grep '^|' docs/kildetilladelser.md | grep -o UDFYLDES | wc -l`.
 
 Filen findes, fordi et `Disallow`, vi ignorerer, om et halvt år ligner en
@@ -64,7 +65,7 @@ Står der `[UDFYLDES]`, mangler oplysningen, og linjen kan ikke bæres.
 | **CEJ** | `[UDFYLDES]` | `[UDFYLDES]` | `[UDFYLDES]` | telefon, optaget med samtykke | `[UDFYLDES — værter: ? · endpoints: ? · nøgle: ? · billeder fra hvilken vært: ?]` — white-label fra `bolig.io`; afklar hvem der ejer dataene |
 | **Laros A/S** | `[UDFYLDES]` | `[UDFYLDES]` | 2026-09-07 | telefon, optaget med samtykke | **Udfyldt, se nedenfor.** Bred tilladelse til at hente, behandle og vise deres offentlige boligannoncer og billeder på Bofinda — liste- og detaljesider, alle relevante offentlige boligfelter, brug og visning af billeder, relevante nuværende værter/endpoints, link tilbage til Laros og deres ansøgningsflow, løbende opdatering. Ingen begrænsninger eller forbehold stillet. |
 | **Alabu Bolig** | `[UDFYLDES]` | `[UDFYLDES]` | 2026-09-07 | telefon, optaget med samtykke | **Udfyldt, se nedenfor.** Fuld tilladelse til at hente, behandle og vise alle deres offentlige boligannoncer på Bofinda — liste- og detaljedata, alle relevante offentlige boligfelter, brug og visning af billeder, løbende crawling og opdatering, relevante nuværende værter/endpoints, link tilbage til Alabu Bolig og deres ansøgningsflow. Ingen begrænsninger eller forbehold stillet. |
-| **EDC** | `[UDFYLDES]` | `[UDFYLDES]` | `[UDFYLDES]` | telefon — **ejerens gengivelse, ingen skriftlig dokumentation**; om samtalen er optaget, er ikke oplyst | **Se nedenfor.** Ret til at scrape, hvad vi vil, på deres hjemmeside, og til at køre bot på `www.edc.dk` (ejerens gengivelse). Kan kun dække EDC's egne sager — ikke boligportal.dk-annoncerne i deres lejeindeks. **Ubesvaret:** om § 11 b-forbeholdet er ophævet udtrykkeligt · om løbende import og visning er dækket |
+| **EDC** | ikke oplyst | formentlig administrativ medarbejder, usikkert | ikke oplyst | telefon — **ejerens gengivelse, ingen skriftlig dokumentation**; om samtalen er optaget, er ikke oplyst | **Se nedenfor.** Ret til at scrape, hvad vi vil, på deres hjemmeside, og til at køre bot på `www.edc.dk` (ejerens gengivelse). Kan kun dække EDC's egne sager — ikke boligportal.dk-annoncerne i deres lejeindeks. **Ubesvaret:** om § 11 b-forbeholdet er ophævet udtrykkeligt · om løbende import og visning er dækket. **Uafklaret:** om tilladelsen overhovedet binder EDC — se forbeholdet nedenfor |
 
 ---
 
@@ -146,13 +147,14 @@ Alabu-medarbejderen nødvendigvis sagde:
 | **Ansøgning** | Knappen «Jeg vil gerne kontaktes» ved hver bolig åbner en kontaktformular (navn, telefon, e-mail, besked), som sendes til Alabu. Vi linker til boligens egen side; formularen hentes ikke og udfyldes ikke. Om en ansøger skal være opskrevet på deres venteliste, siger siderne ikke — se `lib/kildekontrakt.ts`. |
 | **Persondata** | Ingen i liste- eller detaljepayloadet ud over Alabus egne kontaktoplysninger i fritekstfeltet `Description`, som ikke gemmes. Adapteren plukker kun boligfelter ved navn; billedernes `Name`/`Description`/`Photographer` læses ikke. |
 
-## EDC — mundtlig, ejerens gengivelse, uden dokumentation
+## EDC — mundtlig, ejerens gengivelse, uden dokumentation, om den binder EDC er uafklaret
 
 Det, der står her, er projektejerens gengivelse af en telefonsamtale med
 EDC, skrevet ned efter hukommelsen den 26. september 2026. Der findes
 ingen skriftlig dokumentation, og det er ikke oplyst, om samtalen er
 optaget. Tilladelsen blev samme dag først omtalt som skriftlig og derefter
-rettet til mundtlig; det er den rettede udgave, der står her.
+rettet til mundtlig; det er den rettede udgave, der står her. Navn og dato
+huskes ikke, og rollen er usikker.
 
 | | |
 |---|---|
@@ -160,9 +162,10 @@ rettet til mundtlig; det er den rettede udgave, der står her.
 | **Hvad den ikke kan dække** | EDC's lejeindeks viser også annoncer fra boligportal.dk via feed — ved proben 7. september ca. 97 % af det samlede udbud, kendetegnet ved `source: "boligportal.dk"`, `isEdcCase: false` og en absolut boligportal-URL (`docs/supply-kortlaegning-2026-09-06.md`). Det er BoligPortals indhold. EDC kan ikke give lov til det, og BoligPortal kræver sin egen skriftlige aftale (`CLAUDE.md`). Tilladelsen gælder derfor kun EDC's egne sager. |
 | **Ubesvaret: § 11 b** | EDC's vilkår havde ved proben 7. september et forbehold mod tekst- og datamining efter ophavsretslovens § 11 b og krævede skriftlig aftale for enhver brug. Om aftalen ophæver forbeholdet udtrykkeligt, er ikke besvaret — og heller ikke, hvordan en mundtlig aftale forholder sig til vilkårenes krav om skriftlighed. |
 | **Ubesvaret: omfang** | Om tilladelsen dækker løbende import og visning på Bofinda, eller kun målingen. |
+| **Forbehold — ejeren tager stilling** | Tilladelsen blev givet af en medarbejder, der formentlig var administrativ. En administrativ medarbejder har næppe stillingsfuldmagt til at fravige selskabets egne vilkår. **Om tilladelsen binder EDC, er derfor uafklaret** — ud over de to ubesvarede spørgsmål ovenfor. |
 | **Begrænsninger** | Ingen nævnt i gengivelsen. |
-| **Oplyst af** | `[UDFYLDES — navn]`, `[UDFYLDES — rolle]` |
-| **Dato** | `[UDFYLDES]` — samtalens dato er ikke oplyst. Skrevet ned 2026-09-26. |
+| **Oplyst af** | Navn: ikke oplyst. Rolle: formentlig administrativ medarbejder, usikkert. |
+| **Dato** | Ikke oplyst. Skrevet ned 2026-09-26. |
 | **Form** | Telefon. Ejerens gengivelse efter hukommelsen. Ingen skriftlig dokumentation. Om samtalen er optaget: ikke oplyst. |
 
 **Tekniske facts — målt, ikke fra samtalen.** Tilføjes, når bot-testen og
