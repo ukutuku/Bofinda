@@ -88,10 +88,18 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   annonce der vises i stedet, og hvorfor den vandt. Det er vores eget
   princip vendt indad: en udlejer, der tror hun er synlig, mens hun ikke er,
   er samme fejl som en total, der lader som om aconto er kendt.
-  Repræsentanten vælges stadig på billedantal — bureauannoncen med tyve
-  billeder er den bedre visning for den, der søger bolig. Løsningen er at
+  **En udlejerannonce vises aldrig i stedet for en scrapet annonce for
+  samme bolig** — det er første trin i rangeringen (`UDLEJERANNONCE` i
+  `lib/soeg.ts`), og det gælder uanset billeder og pris. Løsningen er at
   fortælle udlejeren det, ikke at lade hende vinde. Se `repraesentantFor`
   i `lib/soeg.ts`; den bygger ikke sin egen rangering.
+  **Når reglen afgør valget, siger forklaringen reglen** — ikke «flere
+  billeder», heller ikke når kilden tilfældigvis har flest. `grunden()` i
+  `app/udlejer/boliger/page.tsx` læser `af.udlejerannonce`, som er beregnet
+  af det samme SQL-udtryk som rangeringen. Og slutningen skifter med: «du
+  kan rette den» ville love, at en rettelse hjalp, og det gør den ikke.
+  Teksten siger, at det er en fast regel for alle udlejere og ikke en
+  vurdering af hendes annonce.
 - **En manglende oplysning skal være synlig, ikke fraværende.** Kender vi
   ikke totalen, skriver kortet "Udlejer oplyser ikke aconto — spørg om varme
   og vand." Vi kan ikke skelne "udlejer opkræver intet" fra "udlejer oplyser
@@ -262,8 +270,20 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   · **Rangeringen regnes på det FILTREREDE sæt.** Ellers taber en søgning
   på "kilde: LokalBolig" de boliger, hvor Propstep blev repræsentant —
   boligen ville forsvinde helt i stedet for at stå én gang.
-  · Repræsentanten er den med flest billeder, så den med kendt total, så
-  den ældste række. Sidste led er der, så valget er stabilt mellem kørsler.
+  · Repræsentanten vælges i fire trin: **kildens annonce før udlejerens**,
+  så flest unikke visbare billeder, så kendt total før ukendt, og til
+  sidst den laveste `listings.id`. Det sidste led er IKKE en tidsorden —
+  `id` er en tilfældig UUID, så «den ældste række», som der stod her før,
+  var forkert. Leddet er der kun for at gøre valget stabilt mellem kørsler.
+  · **Første trin er en regel, ikke en tælling.** Valget faldt før på
+  billedantal, og en udlejerannonce kunne skjule kildens annonce for samme
+  bolig ved at have flere billeder — bag en åben kontaktmur. En bedre
+  tælling kunne ikke lukke det (se nedenfor); reglen gør, uanset hvordan
+  billederne tælles. Mellem to udlejerannoncer afgør reglen intet, og så
+  vælges der på billeder. `npm test` prøver reglen mod en kilde med nul
+  visbare billeder og tællingen mellem to kilder — prøvede man tællingen
+  mod en udlejerannonce, ville «21 kopier taber» bestå af den forkerte
+  grund.
   · **Alt der viser eller TÆLLER en liste skal gennem `udenDubletter`** —
   også områdesidernes statistik. Tæller brødteksten andet end listen under
   den, er den ene forkert.
@@ -280,17 +300,17 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   `opdaterBolig`, FØR der skrives). `npm test` prøver 21 kopier mod 20
   unikke og bliver rød uden `distinct`. Kortets eget billedtal tæller
   stadig rækker, for det er dem, galleriet viser.
-  · **Hullet er indsnævret, ikke lukket.** «Unik» er en byte-ens streng:
-  `x.jpg#0` … `#19` og `?v=0` … `?v=19` er 20 unikke billeder af én fil,
-  en URL der ikke kan hentes tæller også (`VISBAR_VAERT` ser kun på
-  værten), og samme foto uploadet igen får en ny sti. Målt i PGlite: 20
-  varianter af én URL slog en scrapet bolig med 19 rigtige billeder. Det
-  er **loftet på 20**, der begrænser angrebet — før var der intet — ikke
-  `distinct`. Løft aldrig loftet i tillid til, at tællingen beskytter.
-  Rækker over loftet fra før tæller fuldt med, til udlejeren gemmer igen
-  (e3649f23 har 31). Så længe repræsentanten vælges på billedantal, kan en
-  udlejerannonce skjule en scrapet bolig med færre end 20 billeder; at
-  lukke det kræver en regel i rangeringen, ikke en bedre tælling.
+  · **Tællingen kan snydes; derfor er første trin en regel.** «Unik» er en
+  byte-ens streng: `x.jpg#0` … `#19` og `?v=0` … `?v=19` er 20 unikke
+  billeder af én fil, en URL der ikke kan hentes tæller også
+  (`VISBAR_VAERT` ser kun på værten), og samme foto uploadet igen får en
+  ny sti. Målt i PGlite: 20 varianter af én URL slog en scrapet bolig med
+  19 rigtige billeder — før reglen. Mod kildens annonce betyder det intet
+  længere. **Mellem to udlejerannoncer** gælder det stadig: den ene kan
+  puste sig op og skjule den anden, og der er det **loftet på 20**, der
+  begrænser det, ikke `distinct`. Løft aldrig loftet i tillid til, at
+  tællingen beskytter. Rækker over loftet fra før tæller fuldt med, til
+  udlejeren gemmer igen (e3649f23 har 31).
   · **Skriv `${listings}.id`, ikke `${listings.id}`, i et sql-felt i en
   select uden join.** Drizzle skriver kolonnen om til et bart `"id"`
   (`isSingleTable`), og i en underforespørgsel binder det til den INDERSTE

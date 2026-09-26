@@ -159,6 +159,7 @@ async function main() {
   const udlejer = { id: u!.id, authUserId: 'test', email: u!.email, navn: null }
   let id = ''
   let rivalId = ''
+  let rival2Id = ''
   let proevekildeId = ''
   const ekstra: { boliger: string[]; brugere: string[]; kilder: string[] } =
     { boliger: [], brugere: [], kilder: [] }
@@ -1554,79 +1555,106 @@ async function main() {
         listingId: rivalId, externalUrl: `${VIST_VAERT}/r${n}.jpg`, position: n,
       })))
 
+    const billederPaa = async (bolig: string, liste: string[]) => {
+      await db.delete(listingImages).where(eq(listingImages.listingId, bolig))
+      if (liste.length) await db.insert(listingImages).values(
+        liste.map((externalUrl, position) => ({ listingId: bolig, externalUrl, position })))
+    }
+    const vises = async (bolig: string) =>
+      (await soeg({ postnr: FULDT.postnr }, 500)).some((b) => b.id === bolig)
+
+    // ── Reglen: kildens annonce vises altid frem for udlejerens ──
+    // Foerste trin i `ikkeRepraesentant` (UDLEJERANNONCE i lib/soeg.ts).
+    // Valget faldt foer paa billeder, og en udlejerannonce kunne skjule
+    // kildens annonce for samme bolig ved at have flere — bag en aaben
+    // kontaktmur. En bedre taelling kunne ikke lukke det: «unik» er en
+    // byte-ens streng. Reglen goer.
+    console.log('\n══ kildens annonce vises altid frem for en udlejerannonce ══')
     const efterRival = await maerkat()
     tjek('med dublet: mærkatet siger IKKE udgivet', efterRival.slags === 'dublet',
       efterRival.slags)
     tjek('med dublet: den peger på den rigtige annonce',
       efterRival.slags === 'dublet' && efterRival.af.id === rivalId)
-    tjek('med dublet: og begrundelsen passer — flere billeder',
-      efterRival.slags === 'dublet' && efterRival.af.billeder === 4)
+    // Forklaringen skal sige REGLEN, ikke billederne — ogsaa her, hvor
+    // rivalen tilfaeldigvis har flest (4 mod 2). `grunden()` laeser feltet.
+    tjek('med dublet: grunden er reglen, ikke billederne',
+      efterRival.slags === 'dublet' && efterRival.af.udlejerannonce === false)
     tjek('med dublet: hun er FAKTISK ude af søgningen', !(await iSoegningen()))
 
-    // Rangeringen skal ogsaa taelle VISBARE billeder. Giver vi rivalen
-    // sine fire billeder paa en vaert, vi ikke kan vise fra, har den nul —
-    // og saa skal HUN vinde med sine to. Uden filtreringen i
-    // `ikkeRepraesentant` ville rivalens fire raa raekker slaa hendes to.
-    await db.delete(listingImages).where(eq(listingImages.listingId, rivalId))
-    await db.insert(listingImages).values(
-      [0, 1, 2, 3].map((n) => ({
-        listingId: rivalId, externalUrl: `${SKJULT_VAERT}/r${n}.jpg`, position: n,
-      })))
-    const usynligRival = await maerkat()
-    tjek('rival med billeder vi ikke kan vise taber valget',
-      usynligRival.slags === 'udgivet', usynligRival.slags)
-    tjek('… og så er HUN i søgningen', await iSoegningen())
+    // Reglen er absolut. Hun faar 20 unikke billeder; kilden faar fire paa
+    // en vaert, vi ikke kan vise — altsaa nul. Foer reglen vandt hun.
+    await billederPaa(id, urler(20, 'hendes'))
+    await billederPaa(rivalId, [0, 1, 2, 3].map((n) => `${SKJULT_VAERT}/r${n}.jpg`))
+    const regel = await maerkat()
+    tjek('reglen: 20 unikke billeder slår IKKE en kilde med nul visbare',
+      regel.slags === 'dublet' && regel.af.id === rivalId, regel.slags)
+    tjek('reglen: kildens annonce står i søgningen', await vises(rivalId))
+    tjek('reglen: hendes gør ikke', !(await iSoegningen()))
+    // Og tallene i forklaringen er stadig de aerlige — reglen pynter ikke
+    // paa dem, den er bare ikke grunden.
+    tjek('reglen: vinderens tal er stadig 0 visbare',
+      regel.slags === 'dublet' && regel.af.billeder === 0,
+      regel.slags === 'dublet' ? String(regel.af.billeder) : regel.slags)
+    await billederPaa(id, FULDT.billeder)
 
-    // ── 21 kopier af samme URL maa ikke slaa 20 unikke ───────────
-    // Rangeringen talte RAEKKER. Et skjult felt mere i formularen var nok
-    // til at gemme den samme URL 21 gange, og saa vandt udlejerannoncen
-    // over en scrapet bolig med 20 rigtige billeder paa samme adresse:
-    // kildens annonce forsvandt fra soegningen, og kontaktmuren er aaben
-    // for native. Hendes raekker saettes DIREKTE i basen, uden om
-    // formularen — rangeringen skal holde, uanset hvordan de kom ind.
-    console.log('\n══ 21 kopier af samme URL må ikke slå 20 unikke billeder ══')
-    const billederPaa = async (bolig: string, liste: string[]) => {
-      await db.delete(listingImages).where(eq(listingImages.listingId, bolig))
-      await db.insert(listingImages).values(
-        liste.map((externalUrl, position) => ({ listingId: bolig, externalUrl, position })))
-    }
+    // ── Mellem ligestillede: UNIKKE, VISBARE billeder ─────────────
+    // Reglen skelner kun kilde fra udlejer. Taellingen skal derfor proeves
+    // mellem to annoncer, reglen IKKE skelner: to fra kilden. Proevede vi
+    // den mod hendes, ville «21 kopier taber» bestaa af den forkerte grund
+    // — hun taber jo altid nu. Hun staar i samme gruppe og er skjult hele
+    // vejen; spoergsmaalet er, hvem af de to der vises.
+    console.log('\n══ mellem to kilder: 21 kopier må ikke slå 20 unikke ══')
+    const [rival2] = await db.insert(listings).values({
+      ...resten,
+      sourceId: fremmed!.id,
+      sourceType: 'feed',
+      sourceCreatedAt: null,
+      externalKey: `proeve-dublet2-${Date.now()}`,
+      sourceUrl: 'https://eksempel.invalid/dublet2',
+      landlordId: null, contactEmail: null, contactPhone: null,
+    }).returning()
+    rival2Id = rival2!.id
     const kildensTyve = Array.from({ length: 20 }, (_, n) => `${VIST_VAERT}/kilde${n}.jpg`)
-    await billederPaa(rivalId, kildensTyve)
-    await billederPaa(id, Array(21).fill(`${VIST_VAERT}/kopi.jpg`))
+    await billederPaa(rival2Id, kildensTyve)
+    await billederPaa(rivalId, Array(21).fill(`${VIST_VAERT}/kopi.jpg`))
+    tjek('21 kopier: den med 20 unikke vises', await vises(rival2Id))
+    tjek('21 kopier: den med kopierne gør ikke', !(await vises(rivalId)))
     const kopier = await maerkat()
-    tjek('21 kopier: hun TABER til kildens 20 unikke',
-      kopier.slags === 'dublet' && kopier.af.id === rivalId, kopier.slags)
-    tjek('21 kopier: kildens annonce står i søgningen',
-      (await soeg({ postnr: FULDT.postnr }, 500)).some((b) => b.id === rivalId))
-    tjek('21 kopier: hendes gør ikke', !(await iSoegningen()))
-    // Forklaringen paa Mine annoncer skal sige de tal, rangeringen BRUGTE.
-    // Talte `mineBoliger` stadig raekker, stod der «20 mod dine 21» — og
-    // `grunden()` ville falde igennem til «de to står lige».
-    tjek('forklaringen: vinderen har 20',
-      kopier.slags === 'dublet' && kopier.af.billeder === 20,
-      kopier.slags === 'dublet' ? String(kopier.af.billeder) : kopier.slags)
-    const hendesTal = (await mineBoliger(udlejer)).find((b) => b.id === id)!.billeder
-    tjek('forklaringen: hun har 1, ikke 21', hendesTal === 1, String(hendesTal))
+    tjek('forklaringen: vinderen er den med 20 unikke, og tallet er 20',
+      kopier.slags === 'dublet' && kopier.af.id === rival2Id && kopier.af.billeder === 20,
+      kopier.slags === 'dublet' ? `${kopier.af.id === rival2Id} ${kopier.af.billeder}` : kopier.slags)
 
     // Kontrollen. Taeller rangeringen stadig billeder? 21 UNIKKE skal slaa
-    // kildens 20. Uden den her kunne proeven ovenfor bestaa, fordi en
-    // udlejerannonce altid taber — og saa maalte den ikke distinct.
-    await billederPaa(id, Array.from({ length: 21 }, (_, n) => `${VIST_VAERT}/egen${n}.jpg`))
-    const unikke = await maerkat()
-    tjek('kontrol: 21 unikke SLÅR kildens 20', unikke.slags === 'udgivet', unikke.slags)
-    tjek('kontrol: og hun står i søgningen', await iSoegningen())
-    // Vinderens tal skal OGSAA vaere unikke. Med 20 unikke hos rivalen
-    // giver raekker og unikke det samme, og saa kunne `repraesentantFor`
-    // taelle raekker, uden at nogen proeve saa det. Rivalen faar derfor 5
-    // kopier oven i sine 20: rangeringen og forklaringen skal begge sige 20.
-    await billederPaa(id, FULDT.billeder)
-    await billederPaa(rivalId, [...kildensTyve, ...Array(5).fill(kildensTyve[0]!)])
+    // 20. Ellers kunne proeven ovenfor bestaa af en anden grund end distinct.
+    await billederPaa(rivalId, Array.from({ length: 21 }, (_, n) => `${VIST_VAERT}/egen${n}.jpg`))
+    tjek('kontrol: 21 unikke SLÅR 20', await vises(rivalId) && !(await vises(rival2Id)))
+
+    // Rangeringen taeller VISBARE billeder. Fire paa en vaert, vi ikke kan
+    // vise fra, er nul — og taber til to, vi kan.
+    await billederPaa(rivalId, [0, 1, 2, 3].map((n) => `${SKJULT_VAERT}/r${n}.jpg`))
+    await billederPaa(rival2Id, kildensTyve.slice(0, 2))
+    tjek('fire billeder vi ikke kan vise taber til to, vi kan',
+      await vises(rival2Id) && !(await vises(rivalId)))
+
+    // Vinderens tal skal OGSAA vaere unikke: med 20 unikke giver raekker og
+    // unikke det samme, og saa kunne `repraesentantFor` taelle raekker, uden
+    // at nogen proeve saa det. 5 kopier oven i: forklaringen skal sige 20.
+    await billederPaa(rival2Id, [...kildensTyve, ...Array(5).fill(kildensTyve[0]!)])
     const medKopier = await maerkat()
     tjek('vinderen med 5 kopier: forklaringen siger 20, ikke 25',
       medKopier.slags === 'dublet' && medKopier.af.billeder === 20,
       medKopier.slags === 'dublet' ? String(medKopier.af.billeder) : medKopier.slags)
-    // Tilbage til de to billeder, resten af proeven regner med.
+
+    // Og hendes eget tal — «dine N» — er ogsaa unikt. Hendes raekker saettes
+    // DIREKTE i basen, uden om formularen.
+    await billederPaa(id, Array(21).fill(`${VIST_VAERT}/kopi.jpg`))
+    const hendesTal = (await mineBoliger(udlejer)).find((b) => b.id === id)!.billeder
+    tjek('forklaringen: hendes eget tal er 1, ikke 21', hendesTal === 1, String(hendesTal))
     await billederPaa(id, FULDT.billeder)
+
+    await db.delete(listingImages).where(eq(listingImages.listingId, rival2Id))
+    await db.delete(listings).where(eq(listings.id, rival2Id))
+    rival2Id = ''
 
     // Og tilbage igen, saa proeven ikke bare maaler at noget forsvandt.
     await db.delete(listingImages).where(eq(listingImages.listingId, rivalId))
@@ -3522,6 +3550,10 @@ async function main() {
     if (rivalId) {
       await db.delete(listingImages).where(eq(listingImages.listingId, rivalId))
       await db.delete(listings).where(eq(listings.id, rivalId))
+    }
+    if (rival2Id) {
+      await db.delete(listingImages).where(eq(listingImages.listingId, rival2Id))
+      await db.delete(listings).where(eq(listings.id, rival2Id))
     }
     // Efter rivalen: boligerne peger paa kilden.
     if (proevekildeId) await db.delete(sources).where(eq(sources.id, proevekildeId))

@@ -101,7 +101,7 @@ export const VISBAR_VAERT = sql`substring(i.external_url from '^https?://([^/?#]
  *
  * `npm test` proever 21 kopier mod 20 unikke.
  *
- * ═══ HVAD DISTINCT IKKE KAN — HULLET ER INDSNAEVRET, IKKE LUKKET ═══
+ * ═══ HVAD DISTINCT IKKE KAN ═══
  *
  * Unik betyder byte-ens URL-streng, og intet andet. Varianter af ÉN fil —
  * `…/x.jpg#0` … `#19`, `?v=0` … `?v=19` — er 20 unikke. En URL, der slet
@@ -110,12 +110,13 @@ export const VISBAR_VAERT = sql`substring(i.external_url from '^https?://([^/?#]
  * PGlite: 20 varianter af én URL slog en scrapet bolig med 19 rigtige
  * billeder.
  *
- * Det, der begraenser angrebet, er LOFTET paa 20 i skrivevejen
- * (lib/billedloft.ts) — foer var der intet loft. `distinct` fjerner kun
- * de identiske kopier, og raekker over loftet, der ligger i basen fra
- * foer, taeller fuldt med. En udlejerannonce kan stadig skjule en scrapet
- * bolig med faerre end 20 billeder. At lukke det kraever en regel i
- * rangeringen, ikke en bedre taelling; se CLAUDE.md.
+ * Derfor er det ikke taellingen, der beskytter kildens annonce, men
+ * reglen i `UDLEJERANNONCE`: en udlejerannonce vises aldrig i stedet for
+ * en scrapet for samme bolig, uanset billeder. Taellingen afgoer kun
+ * mellem ligestillede — to kilder, eller to udlejerannoncer. Mellem to
+ * udlejerannoncer er det stadig LOFTET paa 20 (lib/billedloft.ts), der
+ * begraenser, hvor meget den ene kan puste sig op; raekker over loftet fra
+ * foer taeller fuldt med, til udlejeren gemmer igen. Se CLAUDE.md.
  *
  * ═══ HVORFOR `${listings}.id` OG IKKE `${listings.id}` ═══
  *
@@ -278,6 +279,30 @@ const DEDUPNOEGLE = sql`case
   else null
 end`
 
+/**
+ * Er boligen en udlejerannonce? FOERSTE trin i repraesentantvalget: findes
+ * den samme bolig hos en af kilderne, vises kildens annonce altid frem for
+ * en udlejers — uanset billeder og pris.
+ *
+ * ═══ HVORFOR EN REGEL OG IKKE EN BEDRE TAELLING ═══
+ *
+ * Valget faldt foer paa billedantal, og en udlejerannonce med samme adresse
+ * som en scrapet bolig kunne skjule kildens annonce ved at have flere
+ * billeder. Taellingen kan ikke lukke det: «unik» er en byte-ens streng, saa
+ * `x.jpg#0` … `#19` er 20 unikke, og samme foto uploadet igen faar en ny
+ * sti. En bedre taelling flytter kun graensen. Reglen lukker det, uanset
+ * hvordan billederne taelles — og kontaktmuren er aaben for native, saa en
+ * kopi af en rigtig annonce ville faa henvendelserne.
+ *
+ * Udtrykket staar ét sted og bruges baade af rangeringen og af
+ * `repraesentantFor`, saa forklaringen paa Mine annoncer (`grunden()`) laeser
+ * praecis det, valget faldt paa — ikke en kopi af praedikatet i JS.
+ *
+ * Mellem to udlejerannoncer afgoer reglen intet, og saa vaelges der paa
+ * billeder som foer. Se CLAUDE.md.
+ */
+export const UDLEJERANNONCE = sql<boolean>`(${listings.sourceType} = 'native')`
+
 export function ikkeRepraesentant(grundlag: SQL | undefined) {
   return sql`${listings.id} in (
     select d.id from (
@@ -285,6 +310,8 @@ export function ikkeRepraesentant(grundlag: SQL | undefined) {
         row_number() over (
           partition by ${DEDUPNOEGLE}
           order by
+            -- Kildens annonce foer udlejerens — se UDLEJERANNONCE.
+            ${UDLEJERANNONCE} asc,
             -- UNIKKE billeder, ikke raekker — se UNIKKE_BILLEDER.
             ${UNIKKE_BILLEDER} desc,
             (${listings.totalMonthly} is not null) desc,
@@ -326,6 +353,13 @@ export interface Repraesentant {
   kilde: string
   billeder: number
   harTotal: boolean
+  /**
+   * Er vinderen selv en udlejerannonce? Er den det IKKE, vandt den paa
+   * foerste trin — reglen om kildens annonce — og saa er billeder og
+   * total ikke grunden, uanset hvad tallene siger. Beregnet af
+   * `UDLEJERANNONCE`, det samme udtryk som rangeringen bruger.
+   */
+  udlejerannonce: boolean
 }
 
 /**
@@ -372,6 +406,7 @@ export async function repraesentantFor(ids: string[]): Promise<Map<string, Repra
       // Samme tal, som rangeringen brugte. Se UNIKKE_BILLEDER.
       billeder: UNIKKE_BILLEDER,
       harTotal: sql<boolean>`(${listings.totalMonthly} is not null)`,
+      udlejerannonce: UDLEJERANNONCE,
       noegle,
     })
     .from(listings)
@@ -384,6 +419,7 @@ export async function repraesentantFor(ids: string[]): Promise<Map<string, Repra
     if (v) svar.set(t.id, {
       id: v.id, adresse: v.adresse, postnr: v.postnr, by: v.by,
       kilde: v.kilde, billeder: v.billeder, harTotal: v.harTotal,
+      udlejerannonce: v.udlejerannonce,
     })
   }
   return svar
