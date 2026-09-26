@@ -90,16 +90,21 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   er samme fejl som en total, der lader som om aconto er kendt.
   **En udlejerannonce vises aldrig i stedet for en scrapet annonce for
   samme bolig** — det er første trin i rangeringen (`UDLEJERANNONCE` i
-  `lib/soeg.ts`), og det gælder uanset billeder og pris. Løsningen er at
-  fortælle udlejeren det, ikke at lade hende vinde. Se `repraesentantFor`
-  i `lib/soeg.ts`; den bygger ikke sin egen rangering.
+  `lib/soeg.ts`), og det gælder uanset billeder. Løsningen er at fortælle
+  udlejeren det, ikke at lade hende vinde. Se `repraesentantFor` i
+  `lib/soeg.ts`; den bygger ikke sin egen rangering.
   **Når reglen afgør valget, siger forklaringen reglen** — ikke «flere
-  billeder», heller ikke når kilden tilfældigvis har flest. `grunden()` i
-  `app/udlejer/boliger/page.tsx` læser `af.udlejerannonce`, som er beregnet
-  af det samme SQL-udtryk som rangeringen. Og slutningen skifter med: «du
-  kan rette den» ville love, at en rettelse hjalp, og det gør den ikke.
-  Teksten siger, at det er en fast regel for alle udlejere og ikke en
-  vurdering af hendes annonce.
+  billeder», heller ikke når kilden tilfældigvis har flest. Forklaringen
+  bor i `forklaring()` i `app/udlejer/boliger/forklaring.ts`, en ren fil,
+  så `npm test` kan prøve teksten i begge grene. Den læser
+  `af.udlejerannonce`, beregnet af det samme SQL-udtryk som rangeringen.
+  **Skriv aldrig «en rettelse ændrer ikke valget».** Det er falsk: retter
+  hun adresse, areal, værelser eller husleje, kan dedup-nøglen skifte, og
+  på access-niveau er «samme bolig» kun et gæt — samme opgang, areal,
+  værelser og leje. Sandt er, at *flere billeder* ikke ændrer valget, og
+  at etage og dør skiller to lejligheder i samme opgang. Heller ikke
+  «altid» eller «uanset pris»: pris er ikke et trin, og rangeringen regnes
+  på det filtrerede sæt.
 - **En manglende oplysning skal være synlig, ikke fraværende.** Kender vi
   ikke totalen, skriver kortet "Udlejer oplyser ikke aconto — spørg om varme
   og vand." Vi kan ikke skelne "udlejer opkræver intet" fra "udlejer oplyser
@@ -281,9 +286,18 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   tælling kunne ikke lukke det (se nedenfor); reglen gør, uanset hvordan
   billederne tælles. Mellem to udlejerannoncer afgør reglen intet, og så
   vælges der på billeder. `npm test` prøver reglen mod en kilde med nul
-  visbare billeder og tællingen mellem to kilder — prøvede man tællingen
-  mod en udlejerannonce, ville «21 kopier taber» bestå af den forkerte
-  grund.
+  visbare billeder, to udlejerannoncer mod hinanden, og tællingen mellem
+  to SCRAPEDE annoncer (på samme prøvekilde — rangeringen ser ikke på
+  kilden). Prøvede man tællingen mod en udlejerannonce, ville «21 kopier
+  taber» bestå af den forkerte grund.
+  · **Reglen følger det filtrerede sæt.** Passer kildens annonce ikke et
+  pris-, facilitets- eller kildefilter, vises udlejerens for samme bolig.
+  Den står da ikke *i stedet for* kildens — kildens er ikke med i den
+  søgning. To følger, der er kendte og ikke rettet: grundlagslinjen under
+  et facilitetsfilter tæller repræsentanten i den UFILTREREDE søgning, så
+  den kan sige «vises ikke» om en tavs kildes bolig, som listen viser via
+  udlejerens annonce; og kildens kort kan skrive «også hos Bofinda» om en
+  udlejerannonce, brugeren ikke kan nå fra kortet.
   · **Alt der viser eller TÆLLER en liste skal gennem `udenDubletter`** —
   også områdesidernes statistik. Tæller brødteksten andet end listen under
   den, er den ene forkert.

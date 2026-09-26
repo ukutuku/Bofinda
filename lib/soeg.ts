@@ -224,20 +224,6 @@ export function hvor(f: Filtre) {
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * Rækkerne der ikke blev repræsentant for deres bolig.
- *
- * Rangeringen regnes paa DET FILTREREDE saet, ikke paa hele basen. Ellers
- * ville en soegning paa "kilde: LokalBolig" tabe de boliger, hvor Propstep
- * blev valgt — boligen ville forsvinde helt i stedet for at staa én gang.
- *
- * Den indre `from listings` skygger for den ydre, saa `hvor(f)` binder til
- * den indre tabel. Det er derfor filteret kan genbruges ordret.
- *
- * Repraesentanten er den med flest billeder; er de lige, den med kendt
- * total; er de stadig lige, den aeldste raekke, saa valget er stabilt
- * mellem koersler.
- */
-/**
  * "l2 er den samme bolig som den ydre række, hos en anden kilde."
  *
  * Skrevet ud i stedet for at genbruge DEDUPNOEGLE, fordi den indre tabel
@@ -281,8 +267,9 @@ end`
 
 /**
  * Er boligen en udlejerannonce? FOERSTE trin i repraesentantvalget: findes
- * den samme bolig hos en af kilderne, vises kildens annonce altid frem for
- * en udlejers — uanset billeder og pris.
+ * den samme bolig hos en af kilderne, vises kildens annonce frem for en
+ * udlejers — uanset billeder. Inden for det filtrerede saet, som al
+ * rangering her; se `ikkeRepraesentant`.
  *
  * ═══ HVORFOR EN REGEL OG IKKE EN BEDRE TAELLING ═══
  *
@@ -303,6 +290,26 @@ end`
  */
 export const UDLEJERANNONCE = sql<boolean>`(${listings.sourceType} = 'native')`
 
+/**
+ * Rækkerne der ikke blev repræsentant for deres bolig.
+ *
+ * Rangeringen regnes paa DET FILTREREDE saet, ikke paa hele basen. Ellers
+ * ville en soegning paa "kilde: LokalBolig" tabe de boliger, hvor Propstep
+ * blev valgt — boligen ville forsvinde helt i stedet for at staa én gang.
+ * For reglen om kildens annonce betyder det: passer kildens annonce ikke
+ * filteret, vises udlejerens. Den staar saa ikke I STEDET FOR kildens —
+ * kildens er ikke med i den soegning.
+ *
+ * Den indre `from listings` skygger for den ydre, saa `hvor(f)` binder til
+ * den indre tabel. Det er derfor filteret kan genbruges ordret.
+ *
+ * Repraesentanten vaelges i fire trin: kildens annonce foer udlejerens
+ * (`UDLEJERANNONCE`), saa flest unikke visbare billeder (`UNIKKE_BILLEDER`),
+ * saa kendt total foer ukendt, saa laveste `id`. Det sidste er IKKE en
+ * tidsorden — `id` er en tilfaeldig UUID — men goer valget stabilt mellem
+ * koersler. Forklaringen til udlejeren foelger samme raekkefoelge:
+ * app/udlejer/boliger/forklaring.ts.
+ */
 export function ikkeRepraesentant(grundlag: SQL | undefined) {
   return sql`${listings.id} in (
     select d.id from (

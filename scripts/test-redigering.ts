@@ -87,6 +87,7 @@ import {
   type Boliginput,
 } from '../lib/udlejer'
 import { MAKS_BILLEDER, tjekBilleder } from '../lib/billedloft'
+import { forklaring } from '../app/udlejer/boliger/forklaring'
 
 let fejl = 0
 const tjek = (navn: string, ok: boolean, note = '') => {
@@ -1507,8 +1508,9 @@ async function main() {
     tjek('udeplads-filteret finder hende (altan)', await medFilter({ udeplads: true }))
     tjek('kæledyrsfilteret gør IKKE — hun sagde det ikke', !(await medFilter({ kaeledyr: true })))
 
-    // En anden kilde annoncerer den samme bolig — samme enhedsnoegle — og
-    // har flere billeder. Saa vinder den repraesentantvalget.
+    // En anden kilde annoncerer den samme bolig — samme enhedsnoegle. Saa
+    // vinder den repraesentantvalget: kildens annonce vises altid frem for
+    // en udlejerannonce (UDLEJERANNONCE i lib/soeg.ts), uanset billeder.
     // Rivalen SKAL vaere ikke-native — det er den vej dedup og
     // repraesentantvalg gaar, og det er det, proeven maaler. Men den maa
     // ikke laane en RIGTIG kilde.
@@ -1534,6 +1536,9 @@ async function main() {
       enabled: false,
     }).returning()
     proevekildeId = fremmed!.id
+    // Oprydningen i `finally` sletter pr. KILDE, ikke kun de id'er, proeven
+    // naaede at samle op — ogsaa under `test:prod`, som skriver i produktionen.
+    ekstra.kilder.push(fremmed!.id)
     const [hendes] = await db.select().from(listings).where(eq(listings.id, id))
     const { id: _glem, ...resten } = hendes!
     const [rival] = await db.insert(listings).values({
@@ -1569,16 +1574,29 @@ async function main() {
     // kildens annonce for samme bolig ved at have flere — bag en aaben
     // kontaktmur. En bedre taelling kunne ikke lukke det: «unik» er en
     // byte-ens streng. Reglen goer.
-    console.log('\n══ kildens annonce vises altid frem for en udlejerannonce ══')
+    console.log('\n══ kildens annonce vises frem for en udlejerannonce ══')
     const efterRival = await maerkat()
     tjek('med dublet: mærkatet siger IKKE udgivet', efterRival.slags === 'dublet',
       efterRival.slags)
     tjek('med dublet: den peger på den rigtige annonce',
       efterRival.slags === 'dublet' && efterRival.af.id === rivalId)
-    // Forklaringen skal sige REGLEN, ikke billederne — ogsaa her, hvor
-    // rivalen tilfaeldigvis har flest (4 mod 2). `grunden()` laeser feltet.
-    tjek('med dublet: grunden er reglen, ikke billederne',
+    tjek('med dublet: vinderen er ikke en udlejerannonce',
       efterRival.slags === 'dublet' && efterRival.af.udlejerannonce === false)
+    // Forklaringen skal sige REGLEN, ikke billederne — ogsaa her, hvor
+    // rivalen tilfaeldigvis har flest (4 mod 2). Byttes grenene i
+    // forklaring.ts om, star der «flere billeder», og saa er det roedt.
+    // Og den maa ikke sige «du kan rette den»: det ville love, at en
+    // rettelse hjalp, og for flere billeder goer den ikke.
+    const hende = (await mineBoliger(udlejer)).find((b) => b.id === id)!
+    const regeltekst = efterRival.slags === 'dublet' ? forklaring(hende, efterRival.af) : null
+    tjek('forklaringen: grunden er kilden, ikke billederne',
+      regeltekst?.grund === `den kommer fra ${efterRival.slags === 'dublet' ? efterRival.af.kilde : ''}`,
+      String(regeltekst?.grund))
+    tjek('forklaringen: flere billeder ændrer ikke valget — og intet løfte om rettelse',
+      !!regeltekst && regeltekst.slutning.includes('flere billeder ændrer ikke valget')
+      && !regeltekst.slutning.includes('rette den'))
+    tjek('forklaringen: den peger på etage og dør, hvis det ikke er samme bolig',
+      !!regeltekst && regeltekst.slutning.includes('også etage og dør'))
     tjek('med dublet: hun er FAKTISK ude af søgningen', !(await iSoegningen()))
 
     // Reglen er absolut. Hun faar 20 unikke billeder; kilden faar fire paa
@@ -1603,7 +1621,7 @@ async function main() {
     // den mod hendes, ville «21 kopier taber» bestaa af den forkerte grund
     // — hun taber jo altid nu. Hun staar i samme gruppe og er skjult hele
     // vejen; spoergsmaalet er, hvem af de to der vises.
-    console.log('\n══ mellem to kilder: 21 kopier må ikke slå 20 unikke ══')
+    console.log('\n══ mellem to scrapede annoncer: 21 kopier må ikke slå 20 unikke ══')
     const [rival2] = await db.insert(listings).values({
       ...resten,
       sourceId: fremmed!.id,
@@ -1630,10 +1648,11 @@ async function main() {
     tjek('kontrol: 21 unikke SLÅR 20', await vises(rivalId) && !(await vises(rival2Id)))
 
     // Rangeringen taeller VISBARE billeder. Fire paa en vaert, vi ikke kan
-    // vise fra, er nul — og taber til to, vi kan.
+    // vise fra, er nul — og taber til tre, vi kan. Tre og ikke to: hun har
+    // selv to, og med to ville udfaldet hvile paa reglen og ikke paa taellingen.
     await billederPaa(rivalId, [0, 1, 2, 3].map((n) => `${SKJULT_VAERT}/r${n}.jpg`))
-    await billederPaa(rival2Id, kildensTyve.slice(0, 2))
-    tjek('fire billeder vi ikke kan vise taber til to, vi kan',
+    await billederPaa(rival2Id, kildensTyve.slice(0, 3))
+    tjek('fire billeder vi ikke kan vise taber til tre, vi kan',
       await vises(rival2Id) && !(await vises(rivalId)))
 
     // Vinderens tal skal OGSAA vaere unikke: med 20 unikke giver raekker og
@@ -1662,6 +1681,48 @@ async function main() {
     rivalId = ''
     tjek('uden dublet: mærkatet siger udgivet igen', (await maerkat()).slags === 'udgivet')
     tjek('uden dublet: og hun er i søgningen igen', await iSoegningen())
+
+    // ── To udlejerannoncer: reglen er neutral, billederne afgoer ──
+    // En anden udlejer annoncerer samme bolig. Reglen skelner kun kilde fra
+    // udlejer, saa her afgoer billederne — og forklaringen skal sige det,
+    // med «du kan rette den». Uden den her proeve kunne `udlejerannonce`
+    // hardcodes til false, og alt var groent.
+    console.log('\n══ to udlejerannoncer på samme bolig: billederne afgør ══')
+    const [anden] = await db.insert(users)
+      .values({ email: `test-anden-udlejer-${Date.now()}@example.com`, role: 'landlord' })
+      .returning()
+    ekstra.brugere.push(anden!.id)
+    const [hendesRaekke] = await db.select().from(listings).where(eq(listings.id, id))
+    const { id: _hId, ...hendesKolonner } = hendesRaekke!
+    const [andenAnnonce] = await db.insert(listings).values({
+      ...hendesKolonner,
+      externalKey: `proeve-anden-udlejer-${Date.now()}`,
+      landlordId: anden!.id,
+    }).returning()
+    ekstra.boliger.push(andenAnnonce!.id)
+    await db.insert(listingImages).values([0, 1, 2, 3].map((n) => ({
+      listingId: andenAnnonce!.id, externalUrl: `${VIST_VAERT}/anden${n}.jpg`, position: n,
+    })))
+    const mellemUdlejere = await maerkat()
+    tjek('to udlejere: hun med 2 taber til den med 4',
+      mellemUdlejere.slags === 'dublet' && mellemUdlejere.af.id === andenAnnonce!.id,
+      mellemUdlejere.slags)
+    tjek('to udlejere: vinderen ER en udlejerannonce',
+      mellemUdlejere.slags === 'dublet' && mellemUdlejere.af.udlejerannonce === true)
+    const billedtekst = mellemUdlejere.slags === 'dublet'
+      ? forklaring((await mineBoliger(udlejer)).find((b) => b.id === id)!, mellemUdlejere.af) : null
+    tjek('to udlejere: forklaringen siger billederne — 4 mod dine 2',
+      billedtekst?.grund === 'den viser flere billeder — 4 mod dine 2', String(billedtekst?.grund))
+    tjek('to udlejere: og hun kan rette den',
+      !!billedtekst && billedtekst.slutning.includes('du kan rette den'))
+    // Modstykket: med flest billeder vinder hun — reglen holder hende ikke
+    // nede mod en anden udlejer.
+    await billederPaa(id, urler(5, 'flest'))
+    tjek('to udlejere: med 5 mod 4 vinder hun', (await maerkat()).slags === 'udgivet')
+    await billederPaa(id, FULDT.billeder)
+    await db.delete(listingImages).where(eq(listingImages.listingId, andenAnnonce!.id))
+    await db.delete(listings).where(eq(listings.id, andenAnnonce!.id))
+    tjek('to udlejere: uden den anden er hun udgivet igen', (await maerkat()).slags === 'udgivet')
 
     // ── Loftet og dubletterne haandhaeves paa SERVEREN ───────────
     // Ikke kun i tjekBilleder: i selve skrivevejen, og FOER noget skrives.
