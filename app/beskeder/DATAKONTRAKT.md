@@ -54,6 +54,95 @@ Det, typen giver os, er at `{ tilstand: 'login-kraevet' }` ikke **har** et
 `samtaler`-felt, så den vej ind er lukket ved et uheld. Vejen ind ved en
 fejl i serverlaget er ikke lukket af noget her.
 
+### Når to moduler oversætter mellem hver sin union
+
+**Reglen: begge sider skal fejle på en ny værdi — eller den ene skal eje
+mængden.** Går kun den ene i stykker, er den anden side tavst uenig, og
+det er den farlige halvdel: værdien findes i kontrakten, brugerfladen
+kan gengive den, og producenten udsender den aldrig. Modulet ser
+komplet ud, mens én tilstand er uopnåelig.
+
+`Laasegrund` er præcis den form i dag. Mængden ejes her
+(`app/beskeder/kontrakt.ts`). Supply oversætter sin **egen** union til
+den i `lib/adgang.ts`:
+
+```ts
+const TIL_LAASEGRUND: Record<Grund, Exclude<Beskedadgang, 'adgang'>> = { … }
+```
+
+Nøglerne er `Grund`, ikke `Laasegrund`. Opslaget er altså udtømmende
+over Supplys mængde og siger **ingenting** om vores.
+
+**Målt.** En fjerde værdi tilføjet til `Laasegrund` giver præcis én
+oversætterfejl i hele repoet:
+
+```
+app/beskeder/Laast.tsx(43,7): error TS2741:
+  Property 'karantaene' is missing in type '{ … }'
+  but required in type 'Record<Laasegrund, Tekst>'
+```
+
+`Laast.tsx` går rødt, fordi dens `Record` er nøglet på `Laasegrund`.
+`lib/adgang.ts` oversætter uden en lyd: den nye værdi udvider blot
+værditypen, og en bredere værditype gør aldrig et eksisterende opslag
+ugyldigt. `LAASEGRUNDE` fanger den heller ikke — `readonly Laasegrund[]`
+tillader en delmængde.
+
+**Og den tavse læser, der gør mest skade, er vores egen.** `erLaast`
+(`kontrakt.ts:191`) er en TYPE-PRÆDIKAT med en navneliste som krop:
+
+```ts
+export const erLaast = (t: Indbakke['tilstand'] | Samtaletraad['tilstand']): t is Laasegrund =>
+  t === 'login-kraevet' || t === 'abonnement-kraevet' || t === 'abonnement-udloebet'
+```
+
+Et `t is X` er det ene sted, hvor oversætteren tager dig på ordet. Den
+kontrollerer **ikke**, at kroppen faktisk afgør `X` — så en fjerde
+låsegrund giver `false`, uden en lyd, og prædikatet lyver. Følgen er
+sporet hele vejen:
+
+| | |
+|---|---|
+| `Beskedmodul.tsx:233` | `if (erLaast(d.tilstand))` er falsk → der låses ikke |
+| `Beskedmodul.tsx:240` | tråden sættes `{slags:'klar'}` med en ikke-`adgang`-krop |
+| `Beskedmodul.tsx:336` | `aaben` bliver `null`, fordi `tilstand !== 'adgang'` |
+| `Beskedmodul.tsx:386` | brugeren læser **«Samtalen findes ikke længere.»** |
+
+Hendes samtale er ikke væk. Den er låst. Det er samme fejl som en
+udgivet annonce, der står som «udgivet», mens den ikke kan findes —
+bare vendt om, og om hendes egen korrespondance.
+
+**De to udveje, og valget skal træffes bevidst:**
+
+1. **Begge sider fejler.** Forbrugerens oversættelse nøgles på den
+   DELTE union, ikke på sin egen — et `Record<Laasegrund, …>` eller et
+   `never`-værn, der nævner hver `Laasegrund`. Så er en ny værdi en
+   oversætterfejl i begge moduler.
+2. **Den ene ejer mængden.** Ejeren eksporterer både unionen og
+   afbildningen, og den anden side forbruger den kun. Så er der ét sted
+   at rette, og spørgsmålet om «begge sider» opstår ikke.
+
+**To tegn at holde øje med:**
+
+* et `Record<A, B>`, hvor `A` er din egen union og `B` er den andens.
+  Det er udtømmende over `A` og blindt over `B` — nøjagtig den form,
+  der kun brækker i den ene ende.
+* et **type-prædikat** `(x): x is A` med en navneliste som krop.
+  Oversætteren efterprøver aldrig kroppen mod `A`, så prædikatet kan
+  blive usandt uden at nogen linje bliver rød. Skal kroppen opregne,
+  så lad den læse en liste, der ER bundet til `A` — og giv listen en
+  prøve, der kræver et medlem ad gangen.
+
+Og en oversætter kan ikke fange alt: mangler der en prøve, der opregner
+den delte mængde ved kørselstid og kræver, at hvert medlem faktisk kan
+produceres, er «uopnåelig tilstand» stadig usynlig. Se
+`scripts/test-udfald.ts` for formen — `Object.keys` over mængden, én sag
+pr. medlem.
+
+**Indtil videre er ingen af de to udveje valgt.** En ny låsegrund kræver
+derfor en ændring i begge moduler, og kun dette går i stykker af sig
+selv. Sig til, når I tilføjer en.
+
 ---
 
 ## 2 · De fire tilstande
