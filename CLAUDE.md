@@ -55,9 +55,23 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   Filen må ikke importere databasen: udlejerformularen er en
   klientkomponent, og et værdi-import derfra trak engang `postgres` med ind
   i browserbundtet og væltede hele appen på `Can't resolve 'net'`.
-  `FACILITETER` er typebundet til `FACILITET`, så en tastefejl i et
-  facilitetsord ikke kan oversættes. Formularen spørger om dem, fordi
-  filtrene ellers skjuler hver eneste udlejerannonce for altid.
+  `FACILITETER` er typebundet til `FACILITET` — men **bindingen dækker
+  kun den ene halvdel.** Den fanger en forkert værdi: skriver nogen
+  «kæledyr tilladte», fejler oversættelsen. Den fanger IKKE en manglende,
+  for annotationen `readonly { vaerdi: Facilitetsord; navn: string }[]`
+  tillader enhver længde — også en kortere end unionen.
+
+  Målt: `Facilitetsord` har fem medlemmer, `FACILITETER` fire. Det
+  manglende er `altan eller terrasse`, CEJ's samlede ord. **Den udeladelse
+  er med vilje** — det er en KILDES skrivemåde, ikke et spørgsmål, man kan
+  stille en udlejer — så fuldstændighed ville rette en fejl, der ikke var
+  der. Svaret er derfor en DELING og ikke en fuldstændighed: hvert ord
+  skal stå enten i formularlisten eller på en navngiven liste over de
+  bevidst udeladte, håndhævet af en typevagt. Så tvinger et femte ord et
+  VALG frem for en tilføjelse. Ikke bygget endnu.
+
+  Formularen spørger om dem, fordi filtrene ellers skjuler hver eneste
+  udlejerannonce for altid.
 - **Rækkefølgen i `billeder`-arrayet ER `listing_images.position`, og det
   første billede er forsidebilledet.** Udlejeren bestemmer den ved at
   trække miniaturerne eller bruge pilene; de skjulte felter sendes i
@@ -804,6 +818,73 @@ en delt mappe og ikke sendes i en mail.
 
 Se README for hvad dumpet indeholder, hvordan det læses tilbage, og hvad
 der skal til for også at sikre filerne i storage-bucket'en.
+
+## Dækker ét tilfælde mindre, end man tror
+
+Syv fælder med samme form: **et værn, der læses som udtømmende, og som
+ikke er det.** De fanger noget — og netop derfor ser de ud som om de
+fanger resten. Hver af dem har kostet mindst én omgang i dette repo.
+
+| Fælden | Hvad den IKKE dækker |
+|---|---|
+| `node_modules/` i `.gitignore` | Skråstregen matcher kun en MAPPE. Et symlink slap forbi og kom i versionsstyringen (`abad7ae`). Løst: mønstret står nu uden skråstreg. |
+| `splice(-1)` | Læses som «fra enden» og fjerner ÉN post — ikke resten. Se `lib/ingest.ts` og `adapters/heimstaden.ts`. |
+| en gentagelsesprøve mod et uafgjort `ORDER BY` | Beviser stabilitet i DENNE forespørgselsplan, ikke at det afgørende led findes. Kald den samme forespørgsel fem gange, og Postgres svarer gerne det samme — også når leddet er fjernet. |
+| `grep --include=*.ts` | Ser ikke `.mjs`, `.sql`, `.md`. Svarer rent på et smallere spørgsmål — og siger ikke selv, at det var smallere. |
+| `git grep` over `refs/heads refs/remotes` | Ser kun de refs, der ER HENTET. En gren, ingen har fetchet, findes ikke for søgningen. |
+| en påstand om «ændringen» | …hvor det målte var en DELMÆNGDE af den. Filteret ligger her i sætningens subjekt, ikke i kommandoen. |
+| `FACILITETER` bundet til `Facilitetsord` | Fanger en forkert VÆRDI, ikke en manglende. `readonly X[]` må have enhver længde — også nul. Se nedenfor. |
+
+**De tre midterste er de samme to gange.** Ved `--include` kan filteret
+SES i kommandoen. Ved `git grep` over refs er der intet at se: kommandoen
+ligner en søgning over alle grene og søger i det, der tilfældigvis ligger
+lokalt. Og i den sjette ligger filteret i det, sætningen handler OM.
+
+Konkret, alle tre gange: en søgning efter `'heating'` blev kørt med
+`--include=*.ts --include=*.tsx`, fandt tre steder, og blev skrevet ned
+som «en gennemsøgning af hele repoet». Der var fire — den fjerde i en
+`.mjs`-fil, og den eneste, der faktisk ramte et kort. Dernæst en søgning
+over refs, der meldte «findes ikke i nogen gren» om noget, der lå på en
+gren, ingen havde hentet. Og sidst en påstand om, at «ingen af commits'ene
+rører `Boligkort.tsx`» — sand om de tre udvalgte skiver, usand om grenen,
+de kom fra.
+
+**Ingen af de tre søgninger var forkerte.** Det var PÅSTANDEN om, hvad de
+havde dækket. Det er den sætning, der skal være sand — ikke kommandoen.
+Søg bredt først, indsnævr bagefter; og skriv aldrig «hele repoet» eller
+«nogen gren», hvis søgningen bar et `--include`, en sti eller et sæt refs.
+Skriv, hvad der faktisk blev søgt igennem, og om hvad.
+
+### Tegnet at holde øje med
+
+**Et værn, hvis grønne resultat kan opstå af to grunde** — den ene er den,
+du ville måle, og den anden er tilfældet. Kan du ikke få det rødt ved at
+indføre fejlen med vilje, måler det ikke det, du tror.
+
+For et array, der navngiver medlemmerne af en union, er prøven konkret:
+tilføj et medlem til unionen UDEN at lægge det i arrayet. Bliver det ikke
+rødt, er annotationen udvidende, og listen er «nogle af dem» og ikke «dem
+her».
+
+### Og den modsatte form: lad det koste ingenting at glemme
+
+Det samme kan bygges, så fælden ikke findes. Vercel-deployment var før
+spærret med en liste i `vercel.json` over grene, der IKKE måtte bygge — en
+denylist, hvor en ny gren var ubeskyttet, indtil nogen huskede at tilføje
+den. At glemme kostede et preview, hvis `DATABASE_URL` i Preview-scope
+peger på produktionsbasen.
+
+**Filen findes ikke længere** (slettet i `fed1dd1` med begrundelsen «en
+regel for én gren hører ikke her»), så led ikke efter den — spærringen
+ligger nu uden for repoet.
+
+Det er nu et Ignored Build Step, der kun lader `main` bygge:
+
+    [ "$VERCEL_GIT_COMMIT_REF" = "main" ] && exit 1 || exit 0
+
+Samme skifte som allowlisten i adapterne: nye felter ignoreres, indtil
+nogen bevidst tilføjer dem. **Vælg den form, hvor det er gratis at
+glemme** — så behøver værnet ikke være udtømmende for at være sikkert.
 
 ## Testbasen
 
