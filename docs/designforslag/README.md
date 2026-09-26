@@ -1,5 +1,7 @@
 # Designforslag: tallene bærer
 
+> **Runde 2 — de fem greb** (hero, øjenbryn, svævende søgekort, billedforhold og farvebånd), set i den kørende app: [GREB.md](GREB.md). Det, der står nedenfor, er grundarbejdet og står ved magt.
+
 26. september 2026. Et forslag, ikke en ændring. `app/globals.css` og
 `app/Boligkort.tsx` er ikke rørt: frontend arbejder på kort-hierarkiet på
 `opgave/kontakt-ui`, og forslaget skal lægges ind oven på deres skiver.

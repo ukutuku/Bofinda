@@ -1,7 +1,7 @@
 // Henter de to skrifter fra Google Fonts (kun latin) og skriver fonte.css
 // med vægtintervaller, så variable vægte som 640 og 690 tegnes rigtigt —
 // ligesom next/font gør i appen.
-//     node fonte.mjs <arbejdsmappe>
+//     node fonte.mjs <arbejdsmappe> [--haand]
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 const A = process.argv[2]
@@ -10,6 +10,8 @@ const FAMILIER = [
   ['Inter', 'Inter:wght@100..900', 'normal', '100 900'],
   ['IBM Plex Sans', 'IBM+Plex+Sans:wght@100..700', 'normal', '100 700'],
   ['IBM Plex Sans', 'IBM+Plex+Sans:ital,wght@1,100..700', 'italic', '100 700'],
+  // Kun til håndskriftsvarianten i greb.css.
+  ...(process.argv.includes('--haand') ? [['Caveat', 'Caveat:wght@400..700', 'normal', '400 700']] : []),
 ]
 const ud = []
 for (const [navn, spec, stil, vaegt] of FAMILIER) {

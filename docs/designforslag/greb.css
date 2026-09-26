@@ -1,0 +1,190 @@
+/* ═══════════════════════════════════════════════════════════════
+   GREB — laget over forslag.css. De fem strukturgreb fra referencerne:
+   hero i fuld bredde, øjenbryn, svævende søgekort, konstant billed-
+   forhold og farvebånd med ét svævende kort. Tonen er et velsat
+   regnskab: sikre tal, rigelig luft, ingen udsmykning.
+
+   Kun CSS her. Det, der kræver ny markup (faner, felter i søgekortet,
+   kortet på båndet, håndskriften), står i greb.js som en MOCKUP af den
+   markup, page.tsx skal have — ikke som noget, der skal sendes.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Mørk teal som FLADE. Teal som tal betyder stadig kun «hele
+     betalingen til udlejer er kendt». Fladen er afsender: ét bånd og én
+     primær handling pr. side. Aldrig i tekst, aldrig på et tal. */
+  --flade-groen: #083a34;
+  --flade-groen-hover: #0b4a42;
+  --svaev: 0 1px 2px rgba(20,22,26,.05), 0 12px 32px rgba(20,22,26,.09);
+  --svaev-let: 0 1px 2px rgba(20,22,26,.04), 0 6px 18px rgba(20,22,26,.06);
+}
+
+/* ── 1 · Hero i fuld bredde ─────────────────────────────────────
+   Fotoet skal SES. I dag er højre halvdel sløret med 8–32 % hvidt og
+   venstre med 94–97 %, så motivet står som en grå skygge. Nu: rent
+   underlag under teksten (venstre 40 %), og så fotoet uden slør. */
+.hero { padding-top: var(--l-8); background: var(--bg); }
+.hero-billede img { object-position: 60% 50%; }
+.hero.har-foto::after {
+  background: linear-gradient(90deg,
+    rgba(247,245,241,.97) 0%, rgba(247,245,241,.95) 34%,
+    rgba(247,245,241,.70) 44%, rgba(247,245,241,0) 58%);
+}
+@media (max-width: 900px) {
+  /* Mobilen må ikke betale for greb, den ikke har plads til. Det første
+     kort stod 571 px nede og må ikke rykke længere ned (db4746b fik det
+     ned fra 821). Derfor samme luft som i dag og manchetten i trin 2. */
+  /* 48 og ikke 32: ved under 40 px rammer øjenbrynet fotokrediteringen
+     øverst til højre (målt 1,24:1 bag teksten; samme kollision som
+     db4746b løste). */
+  .hero { padding-top: var(--l-7); margin-bottom: 24px; }
+  .hero h1 { margin-bottom: var(--l-2); font-size: var(--t-5); }
+  .hero-manchet { font-size: var(--t-2); }
+  .hero-oejenbryn { margin-bottom: var(--l-2); }
+  .hero-soeg { margin-top: var(--l-4); transform: translateY(24px); }
+  /* Smal skærm: teksten står over hele fotoet, så sløret går lodret —
+     tæt øverst, hvor teksten er, åbent nederst, hvor kortet ligger. */
+  .hero.har-foto::after {
+    background: linear-gradient(180deg,
+      rgba(247,245,241,.95) 0%, rgba(247,245,241,.92) 55%,
+      rgba(247,245,241,.55) 80%, rgba(247,245,241,.35) 100%);
+  }
+}
+.hero h1 { max-width: 20ch; margin-bottom: var(--l-4); }
+.hero-manchet { max-width: 40ch; color: var(--blaek); }
+
+/* ── 2 · Øjenbryn ───────────────────────────────────────────────
+   Versaler, spatieret, lille, dæmpet. Grå, ikke teal: teal er et
+   udsagn om et beløb. Reglen: et øjenbryn står over en OVERSKRIFT,
+   aldrig over et tal — railens etiket forbliver sætningsstil. */
+.hero-oejenbryn, .ub-oejenbryn, .sektion-oejenbryn {
+  font-size: 12px; font-weight: var(--v-2); letter-spacing: .14em;
+  text-transform: uppercase; color: var(--daempet); margin: 0 0 var(--l-3);
+}
+
+/* ── 3 · Søgekortet, der svæver ind over heroens underkant ─────── */
+.hero-soeg { transform: translateY(48px); margin-top: var(--l-7); }
+.hero { margin-bottom: 48px; }
+.hero form.filtre {
+  background: var(--kort); border: 0; border-radius: 16px;
+  box-shadow: var(--svaev); padding: var(--l-3) var(--l-3) var(--l-3);
+}
+/* Faner hæftet ovenpå kortet (markup: greb.js). */
+.soeg-faner { display: flex; gap: 2px; margin: 0 0 -1px var(--l-4); position: relative; z-index: 1; }
+.soeg-faner a {
+  display: inline-flex; align-items: center; gap: var(--l-2); min-height: 44px;
+  padding: 0 var(--l-4); font-size: var(--t-2); color: var(--daempet); text-decoration: none;
+  background: rgba(255,255,255,.72); border-radius: 12px 12px 0 0;
+}
+.soeg-faner a b { font-weight: var(--v-1); color: var(--daempet); font-variant-numeric: tabular-nums; }
+.soeg-faner a[aria-current="page"] { background: var(--kort); color: var(--blaek); font-weight: var(--v-2); }
+.hero .soegebar { display: flex; align-items: stretch; gap: 0; }
+/* Felterne: tynd lodret streg imellem, label over, værdi under. */
+.hero .soegefelt, .soegefelt-ekstra {
+  padding: var(--l-2) var(--l-4); border-right: 1px solid var(--linje); min-width: 0;
+}
+.hero .sf-sted { flex: 1.6 1 0; }
+.soegefelt-ekstra { flex: 1 1 0; display: flex; flex-direction: column; justify-content: center; }
+.hero .soegefelt label, .soegefelt-ekstra label {
+  font-size: var(--t-1); font-weight: var(--v-2); color: var(--blaek); margin-bottom: 2px;
+}
+.soegefelt-ekstra span { font-size: var(--t-2); color: var(--daempet); }
+.hero .soegefelt input { font-size: var(--t-2); }
+.hero .filterknap {
+  border: 0; background: none; margin: 0 var(--l-2); color: var(--blaek);
+}
+/* Én mørkegrøn handling pr. side: «Søg» i søgekortet, «Se annoncen» i
+   boligsidens rail. Alt andet, der kan trykkes på, er blæk. */
+.oek-kort .knap { background: var(--flade-groen); border-color: var(--flade-groen); }
+.oek-kort .knap:hover { background: var(--flade-groen-hover); border-color: var(--flade-groen-hover); }
+.soegeknap, .hero .soegeknap {
+  background: var(--flade-groen); border-color: var(--flade-groen); color: #fff;
+  border-radius: 12px; min-height: 56px; padding: 0 var(--l-5); font-size: var(--t-2);
+}
+.soegeknap:hover { background: var(--flade-groen-hover); border-color: var(--flade-groen-hover); }
+.hero .populaere { margin: var(--l-3) var(--l-4) var(--l-1); font-size: var(--t-1); }
+.hero .populaere a { color: var(--blaek); font-weight: var(--v-1); margin-right: var(--l-3); }
+.hero .pop-navn { color: var(--daempet); margin-right: var(--l-2); }
+@media (max-width: 900px) {
+  /* Smal skærm beholder den kompakte linje: den blev skåret fra 243 til
+     178 px høj af en grund (resultatdesign.md). De ekstra felter bor i
+     filtervinduet dér. */
+  .soegefelt-ekstra { display: none; }
+  .hero .soegebar { flex-wrap: wrap; }
+  .hero .soegefelt { border-right: 0; flex-basis: 100%; }
+  .soeg-faner { overflow-x: auto; margin-left: 0; }
+}
+@media (max-width: 560px) {
+  /* Telefonen får ikke fanerne: de koster en række over søgekortet, og
+     typerne står i «Filtre». Folden vejer tungere end referencen. */
+  .soeg-faner { display: none; }
+  .soeg-faner a { padding: 0 var(--l-3); font-size: var(--t-1); white-space: nowrap; min-height: 40px; }
+  .hero form.filtre { padding: var(--l-2); }
+}
+
+/* ── 4 · Resultatnettet: svævende kort ─────────────────────────
+   Billedforholdet er allerede konstant (16:9, object-fit: cover,
+   målt 12/12). Det, der mangler, er elevationen: kortene ligger i dag
+   fladt på sandbunden med en hårstreg. */
+.kort { border-color: transparent; box-shadow: var(--svaev-let); border-radius: 16px; }
+.kort:hover { box-shadow: var(--svaev); border-color: transparent; }
+.kort-billede { border-radius: 0; }
+.maerkat.m-ny { font-weight: var(--v-2); }
+
+/* ── 5 · Farvebånd i fuld bredde med ét svævende kort ──────────
+   Båndet går til skærmkanten; indholdet holder rammens bredde. Flad
+   mørk teal — gradienten sluttede i den udfasede #14624f. */
+.udlejerbaand {
+  grid-column: fuld-start / fuld-slut; border-radius: 0; margin: var(--l-8) 0 0;
+  background: var(--flade-groen);
+  /* Procent af gitterfeltet, ikke 100vw: 100vw tæller rullebjælken med
+     og giver vandret rul (samme fælde som `.galleri`s note). */
+  padding: var(--l-8) max(var(--ramme-luft), calc((100% - var(--ramme)) / 2));
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px);
+  gap: var(--l-6); align-items: center;
+}
+.udlejerbaand .ub-oejenbryn { color: rgba(255,255,255,.72); }
+.udlejerbaand h2 { font-size: var(--t-5); font-weight: var(--v-3); letter-spacing: var(--sp-tal); color: #fff; }
+.udlejerbaand p { color: rgba(255,255,255,.86); font-size: var(--t-2); }
+.ub-knap { margin-top: var(--l-5); background: #fff; color: var(--blaek); border-radius: 12px; }
+.ub-tekst { display: flex; flex-direction: column; align-items: flex-start; }
+/* Det svævende kort: tal vi kan dokumentere (markup: greb.js). */
+.ub-kort {
+  background: var(--kort); color: var(--blaek); border-radius: 16px;
+  box-shadow: 0 18px 48px rgba(0,0,0,.28); padding: var(--l-5);
+}
+.ub-kort .uk-etiket { font-size: 12px; font-weight: var(--v-2); letter-spacing: .14em;
+  text-transform: uppercase; color: var(--daempet); margin: 0 0 var(--l-3); }
+.ub-kort dl { margin: 0; display: grid; gap: var(--l-3); }
+.ub-kort dl div { display: grid; grid-template-columns: 96px 1fr; align-items: baseline; gap: var(--l-3);
+  padding-bottom: var(--l-3); border-bottom: 1px solid var(--linje); }
+.ub-kort dl div:last-child { border-bottom: 0; padding-bottom: 0; }
+.ub-kort dt { font-size: var(--t-5); font-weight: var(--v-3); letter-spacing: var(--sp-tal);
+  font-variant-numeric: tabular-nums; line-height: 1.1; text-align: right; }
+.ub-kort dt.kendt { color: var(--kendt); }
+.ub-kort dd { margin: 0; font-size: var(--t-2); color: var(--blaek); }
+.ub-kort .uk-note { margin: var(--l-4) 0 0; font-size: var(--t-1); color: var(--daempet); font-style: italic; }
+/* Talstriben beholder de tal, kortet på båndet ikke viser, og fylder
+   bredden ud med dem i stedet for at stå med tomme celler. */
+.talstribe { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+@media (max-width: 760px) {
+  .udlejerbaand { grid-template-columns: 1fr; padding-top: var(--l-7); padding-bottom: var(--l-7); }
+}
+
+/* ── Boligsiden uden billeder ───────────────────────────────────
+   Den stiplede kasse på 100 px ligner et element, der ikke nåede at
+   indlæse. Oplysningen bliver — som en linje, ikke som en tom ramme. */
+.ingen-billeder {
+  border: 0; background: none; padding: 0; margin: var(--l-2) 0 0; min-height: 0;
+  text-align: left; font-size: var(--t-1); font-style: italic; color: var(--daempet);
+}
+
+/* ── Variant: håndskrift ────────────────────────────────────────
+   Kun i varianten (greb.js sætter .hero-haand). Et enkelt menneskeligt
+   greb — ikke en stil. Caveat, Google Fonts, selvhostes som Plex. */
+.hero-haand {
+  font-family: 'Caveat', cursive; font-size: 34px; font-weight: 500; line-height: 1;
+  color: var(--flade-groen); margin: var(--l-4) 0 0; transform: rotate(-4deg);
+  transform-origin: left center; display: inline-block;
+}
+@media (max-width: 900px) { .hero-haand { font-size: 26px; margin-top: var(--l-3); } }

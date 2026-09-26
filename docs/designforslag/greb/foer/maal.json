@@ -1,0 +1,170 @@
+{
+ "forside-1440": {
+  "kort": 12,
+  "medFoto": 10,
+  "rammeForhold": [
+   1.778
+  ],
+  "kildeForhold": [
+   1.333
+  ],
+  "objectFit": [
+   "cover"
+  ],
+  "korthoejder": [
+   446,
+   443,
+   437,
+   443,
+   421,
+   468,
+   446,
+   468,
+   271,
+   249,
+   437,
+   443
+  ],
+  "foersteKortY": 599,
+  "overloeb": 0,
+  "kontrast": {
+   ".hero-oejenbryn": 8.52,
+   ".hero h1": 15.56,
+   ".hero-manchet": 10.88,
+   ".hero-haand": null
+  }
+ },
+ "soegning-1440": {
+  "kort": 12,
+  "medFoto": 11,
+  "rammeForhold": [
+   1.778
+  ],
+  "kildeForhold": [
+   1.333
+  ],
+  "objectFit": [
+   "cover"
+  ],
+  "korthoejder": [
+   418,
+   385,
+   450,
+   431,
+   249,
+   385,
+   406,
+   431,
+   431,
+   385,
+   431,
+   406
+  ],
+  "foersteKortY": 380,
+  "overloeb": 0
+ },
+ "bolig-billeder-1440": {
+  "kort": 0,
+  "medFoto": 0,
+  "rammeForhold": [],
+  "kildeForhold": [],
+  "objectFit": [],
+  "korthoejder": [],
+  "foersteKortY": null,
+  "overloeb": 0
+ },
+ "bolig-uden-1440": {
+  "kort": 0,
+  "medFoto": 0,
+  "rammeForhold": [],
+  "kildeForhold": [],
+  "objectFit": [],
+  "korthoejder": [],
+  "foersteKortY": null,
+  "overloeb": 0
+ },
+ "forside-390": {
+  "kort": 12,
+  "medFoto": 10,
+  "rammeForhold": [
+   1.778
+  ],
+  "kildeForhold": [
+   1.332
+  ],
+  "objectFit": [
+   "cover"
+  ],
+  "korthoejder": [
+   405,
+   420,
+   413,
+   401,
+   379,
+   445,
+   405,
+   426,
+   271,
+   249,
+   413,
+   420
+  ],
+  "foersteKortY": 571,
+  "overloeb": 0,
+  "kontrast": {
+   ".hero-oejenbryn": 7.64,
+   ".hero h1": 9.39,
+   ".hero-manchet": 6.4,
+   ".hero-haand": null
+  }
+ },
+ "soegning-390": {
+  "kort": 12,
+  "medFoto": 11,
+  "rammeForhold": [
+   1.778
+  ],
+  "kildeForhold": [
+   1.332
+  ],
+  "objectFit": [
+   "cover"
+  ],
+  "korthoejder": [
+   413,
+   379,
+   445,
+   426,
+   249,
+   379,
+   401,
+   426,
+   426,
+   379,
+   426,
+   401
+  ],
+  "foersteKortY": 361,
+  "overloeb": 0
+ },
+ "bolig-billeder-390": {
+  "kort": 0,
+  "medFoto": 0,
+  "rammeForhold": [],
+  "kildeForhold": [],
+  "objectFit": [],
+  "korthoejder": [],
+  "foersteKortY": null,
+  "overloeb": 0
+ },
+ "bolig-uden-390": {
+  "kort": 0,
+  "medFoto": 0,
+  "rammeForhold": [],
+  "kildeForhold": [],
+  "objectFit": [],
+  "korthoejder": [],
+  "foersteKortY": null,
+  "overloeb": 0
+ }
+}
