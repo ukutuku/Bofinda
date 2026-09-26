@@ -1,0 +1,240 @@
+/* ═══════════════════════════════════════════════════════════════
+   FORSLAG — lægges OVEN PÅ app/globals.css (kontakt-ui), rører den ikke.
+   Tre dele: typografi, farve, rytme. Alt er tokens; reglerne herunder
+   peger kun tokens på de selektorer, der findes i dag.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Typografi ─────────────────────────────────────────────
+     Seks trin i stedet for 38. Tekstenden i små spring, fordi den
+     læses; talenden i kvarter (×4/3 fra 18), fordi den skimmes. */
+  --skrift: 'IBM Plex Sans';
+  --t-1: 13px;   /* fodnote, meta, kilde, mærkat — gulvet */
+  --t-2: 15px;   /* brødtekst, adresse, poster, forbehold */
+  --t-3: 18px;   /* korttitel, sektionstitel, nøgletal */
+  --t-4: 24px;   /* kortets beløb, sammenligningens tal */
+  --t-5: 32px;   /* sidens h1, indflytningsbeløbet */
+  --t-6: 42px;   /* railens månedlige beløb, forsidens hero */
+
+  --v-1: 400;    /* tekst */
+  --v-2: 600;    /* etiketter, titler */
+  --v-3: 700;    /* beløb, h1 */
+
+  --lh-tal: 1.1;
+  --lh-titel: 1.3;
+  --lh-tekst: 1.5;
+
+  /* To sperringer: stram fra trin 4 og op, ellers ingen. */
+  --sp-tal: -0.02em;
+
+  /* ── Farve ─────────────────────────────────────────────────
+     Accenten betyder ÉN ting: hele betalingen til udlejer er kendt.
+     Alt, der er en handling, er blæk. Alt andet er gråt. */
+  --kendt:      #0f4d43;   /* brandarkets Mørk Teal, uændret */
+  --blaek:      #14161a;   /* tekst OG handling */
+  --blaek-hover:#2d3138;
+
+  /* De gamle navne peges om, så de 94 anvendelser af --accent bliver
+     til handling (blæk) uden at røre en eneste regel. Kun de to steder,
+     der betyder «kendt» (.kort-pris og .oek-tal), og ordmærket peges
+     tilbage på --kendt nedenfor. */
+  --accent:     var(--blaek);
+  --accent-mrk: var(--blaek-hover);
+  --accent-lys: #ecebe6;
+
+  /* To grå, ikke tre. --svag og --daempet var to navne for samme farve
+     (#626975 / #5f6672, 1,05:1 imellem). Den ene er gjort mørkere, så
+     13 px kan læses: 7,1:1 mod sandbunden. */
+  --daempet:    #4d5452;
+  --svag:       var(--daempet);
+  --linje:      #e3dfd6;
+  --linje-svag: #eeebe4;
+
+  /* Ravgul skifter betydning. Før: «en oplysning mangler». Nu: «noget
+     står i vejen for dig» — en formularfejl, en annonce der ikke er
+     synlig, et filter der fjerner hele kilder. En manglende oplysning er
+     ikke en undtagelse: forbeholdene fordeler sig 46/27/25 % (9c9174e),
+     så der er ingen normaltilstand at advare om. Værdierne er uændrede. */
+
+  /* ── Rytme ────────────────────────────────────────────────
+     4 px-gitter. Små trin inde i en gruppe, store mellem grupper. */
+  --l-1: 4px;  --l-2: 8px;  --l-3: 12px; --l-4: 16px;
+  --l-5: 24px; --l-6: 32px; --l-7: 48px; --l-8: 64px;
+
+  --fokus: 2px solid var(--blaek);
+}
+/* Den ene undtagelse fra skalaen: iOS zoomer ind på et felt under 16 px.
+   Den regel står allerede i globals.css og skal blive. */
+/* På en telefon trækkes de tre øverste trin sammen. Rækkefølgen er den
+   samme: railens beløb er stadig større end sidens h1. */
+@media (max-width: 560px) {
+  :root { --t-5: 28px; --t-6: 36px; }
+}
+
+body {
+  font-family: var(--skrift), ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: var(--t-2); line-height: var(--lh-tekst);
+}
+h1, h2, h3 { letter-spacing: 0; }
+
+/* ── Handling: blæk, og links understreges ─────────────────── */
+/* Ordmærket er afsender, ikke betydning — brandets ene plads. */
+.maerke, .maerke:hover { color: var(--kendt); }
+.topnav a { font-size: var(--t-2); font-weight: var(--v-1); }
+.topnav a.nav-primaer, .tophandlinger .nav-primaer { font-size: var(--t-2); font-weight: var(--v-2); }
+button, .knap { font-weight: var(--v-2); }
+.detalje-sti { font-size: var(--t-1); gap: var(--l-2); }
+.detalje-sti a { text-decoration: underline; text-decoration-color: var(--linje);
+  text-underline-offset: 3px; }
+.detalje-sti .sti-tilbage { color: var(--blaek); }
+
+/* ═══ BOLIGKORTET ═════════════════════════════════════════════ */
+.liste { gap: var(--l-5); }
+.kort { border-radius: var(--r); box-shadow: none; }
+.kort:hover { border-color: #cfc9bc; box-shadow: var(--skygge); }
+.kort-krop { padding: var(--l-4) var(--l-4) var(--l-4); }
+/* Uden foto: samme venstrekant som naboerne. De 52 px til højre er
+   favoritknappens plads på kontakt-ui og skal blive. */
+.kort.uden-billede .kort-krop { padding: var(--l-4) 52px var(--l-4) var(--l-4); }
+@container boligkort (max-width: 460px) {
+  .kort-krop { padding: var(--l-4); }
+  .oekonomi-linje { margin-top: var(--l-4); gap: var(--l-1) var(--l-4); }
+  .kort-fod { padding-top: var(--l-3); }
+}
+
+/* Gruppe 1 — hvad og hvor. Tæt inde i gruppen. */
+.kort-overskrift { font-size: var(--t-3); font-weight: var(--v-2);
+  line-height: var(--lh-titel); letter-spacing: 0; }
+.adresse { font-size: var(--t-2); font-weight: var(--v-1); color: var(--daempet);
+  margin-top: 0; }
+.kort-meta { font-size: var(--t-1); color: var(--daempet); margin-top: var(--l-1); }
+
+/* Gruppe 2 — hvad det koster. Luft FØR gruppen, ikke inde i den. */
+.oekonomi-linje { margin-top: var(--l-4); padding-bottom: var(--l-4); gap: var(--l-1) var(--l-4); }
+.kort-pris { font-size: var(--t-4); font-weight: var(--v-3); line-height: var(--lh-tal);
+  letter-spacing: var(--sp-tal); color: var(--kendt); font-variant-numeric: tabular-nums; }
+.kort-pris small { font-size: var(--t-2); font-weight: var(--v-1); color: var(--daempet);
+  letter-spacing: 0; margin-left: var(--l-1); }
+/* Kun huslejen: blæk og normal vægt. Et delbeløb står ikke fedt. */
+.kort-pris.kun-leje { color: var(--blaek); font-weight: var(--v-1); }
+.kort-indflytning { font-size: var(--t-2); color: var(--daempet); margin-top: var(--l-1); }
+.kort-indflytning b { font-size: var(--t-2); font-weight: var(--v-2); color: var(--blaek); margin-left: var(--l-1); }
+/* Forbeholdet i læsestørrelse — aldrig småt. Kursiv er Bofindas egen
+   stemme om data: forbehold og «ikke oplyst». Romersk er data. */
+.kort-grundlag, .el, .poster, .ukendt {
+  font-size: var(--t-2); line-height: var(--lh-tekst); color: var(--blaek);
+  font-style: italic; margin-top: 0; background: none; padding: 0; border-radius: 0; }
+
+/* Gruppe 3 — hvem der har den. */
+.kort-fod { padding-top: var(--l-3); margin-top: auto; border-top-color: var(--linje-svag); font-size: var(--t-1); }
+.kort-fod .kilder { display: flex; flex-wrap: wrap; gap: 0; }
+.maerkat { font-size: var(--t-1); font-weight: var(--v-2); }
+.m-kilde { background: none; padding: 0; color: var(--daempet); }
+.m-kilde + .m-kilde::before { content: '·'; margin: 0 var(--l-2); color: var(--daempet); }
+.kilder .m-kilde:not(:first-child) { background: none; box-shadow: none; }
+.m-ny { background: var(--kort); color: var(--blaek); }
+.kort-antal { font-size: var(--t-1); }
+
+/* ═══ BOLIGSIDEN ══════════════════════════════════════════════ */
+.detalje-hoved { margin-top: var(--l-5); }
+.detalje-hoved h1 { font-size: var(--t-5); font-weight: var(--v-3); letter-spacing: var(--sp-tal); line-height: var(--lh-tal); }
+.detalje-hoved .sted { font-size: var(--t-2); margin-top: var(--l-2); }
+.noegletal { margin-top: var(--l-5); padding: var(--l-4) 0; gap: var(--l-4) var(--l-3); }
+.noegletal li::before { background: var(--daempet); opacity: 1; width: 20px; height: 20px; }
+.noegletal strong { font-size: var(--t-3); font-weight: var(--v-2); letter-spacing: 0; }
+.noegletal span { font-size: var(--t-1); color: var(--daempet); }
+.detalje-hoved .maerkater:empty { display: none; }
+.galleri { margin-top: 0; }
+/* Afsnitsnavigationen er ankerlinks, ikke faner — den har aldrig en valgt
+   fane. Derfor ingen fanestreg, men links, der ser ud som links. */
+.afsnitsnav { margin: var(--l-6) 0 var(--l-4); box-shadow: none; gap: var(--l-5); }
+.afsnitsnav a { font-size: var(--t-2); font-weight: var(--v-1); color: var(--blaek); padding: var(--l-3) 0;
+  border-bottom: 0; text-decoration: underline; text-decoration-color: var(--linje); text-underline-offset: 4px; }
+.afsnitsnav a:hover { text-decoration-color: var(--blaek); border-bottom: 0; color: var(--blaek); }
+
+/* Railen — deklarationen. */
+.oek-kort { padding: var(--l-5); border-color: var(--linje); border-radius: var(--r); }
+.oek-etiket { font-size: var(--t-2); font-weight: var(--v-2); text-transform: none;
+  letter-spacing: 0; color: var(--blaek); }
+.oek-tal { font-size: var(--t-6); font-weight: var(--v-3); letter-spacing: var(--sp-tal);
+  line-height: var(--lh-tal); margin: var(--l-1) 0 var(--l-4); color: var(--kendt); }
+.oek-tal .enhed, .oek-tal2 .enhed { font-size: var(--t-3); font-weight: var(--v-1);
+  color: var(--daempet); letter-spacing: 0; margin-left: var(--l-1); }
+.oek-tal.ukendt-tal { color: var(--blaek); font-weight: var(--v-1); }
+.oek-tal2 { font-size: var(--t-5); font-weight: var(--v-3); letter-spacing: var(--sp-tal);
+  margin: var(--l-1) 0 var(--l-4); }
+.oek-poster { border-top: 1px solid var(--linje); }
+.oek-poster li { font-size: var(--t-2); padding: var(--l-1) 0; border-bottom-color: var(--linje); }
+.oek-poster li:last-child { border-bottom: 1px solid var(--linje); }
+.oek-poster span { color: var(--blaek); }
+.oek-poster b { font-weight: var(--v-1); font-variant-numeric: tabular-nums; }
+.oek-note { font-size: var(--t-2); color: var(--daempet); font-style: italic; line-height: var(--lh-tekst); margin-top: var(--l-3); }
+.oek-indflytning { margin-top: var(--l-5); padding-top: 0; border-top: 0; }
+.oek-kort .knap { margin-top: var(--l-5); font-size: var(--t-2); padding: var(--l-3) var(--l-4); border-radius: var(--r-s); }
+.oek-kilde { font-size: var(--t-1); color: var(--daempet); margin-top: var(--l-3); }
+.oek-mangler { background: none; padding: 0; }
+.oek-mangler strong, .oek-mangler span { color: var(--blaek); }
+
+/* Railen klæber kun, hvor den kan stå hel. Den er ca. 700 px med et
+   el-forbehold og en indflytningsnote, og den klæber 78 px fra toppen —
+   på en 768 px laptop lå CTA'en under kanten allerede før forslaget. */
+@media (max-height: 860px) { .oekonomi { position: static; } }
+
+/* Afsnittene. */
+.blok { padding: var(--l-5); margin-bottom: var(--l-5); border-radius: var(--r); box-shadow: none; }
+.blok h2 { font-size: var(--t-3); font-weight: var(--v-2); margin-bottom: var(--l-4); letter-spacing: 0; }
+.sammenligning .sml-dom { font-size: var(--t-4); line-height: var(--lh-titel); letter-spacing: var(--sp-tal); margin-bottom: var(--l-4); }
+.sammenligning .sml-dom strong { font-weight: var(--v-3); }
+.sml-grundlag { font-size: var(--t-2); color: var(--daempet); }
+.sml-tal { gap: var(--l-2) var(--l-6); }
+.sml-tal dt { font-size: var(--t-1); font-weight: var(--v-2); text-transform: none;
+  letter-spacing: 0; color: var(--daempet); }
+.sml-tal dd { font-size: var(--t-3); font-weight: var(--v-2); }
+.fakta2 dt, .fakta2 dd { font-size: var(--t-2); }
+.fakta2 dd { font-weight: var(--v-1); }
+.fakta2 dt { color: var(--daempet); }
+.mangler { color: var(--blaek); font-style: italic; font-weight: var(--v-1); }
+.billedforbehold, p.billedforbehold { font-style: italic; color: var(--blaek); }
+.note, .metode summary { font-size: var(--t-1); color: var(--daempet); }
+.chips li { font-size: var(--t-2); }
+.brodtekst { font-size: var(--t-2); color: var(--blaek); }
+.sidefod .ramme { font-size: var(--t-1); color: var(--daempet); }
+
+/* ═══ UDEN FOR BILLEDERNE — samme tokens ═════════════════════ */
+:focus-visible { outline: var(--fokus); outline-offset: 2px; }
+.populaere a, .begraensning a, .afmeld .note a, .broedkrumme a {
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--linje); }
+/* Valgt er ikke det samme som hover: valgt er blæk-fyld, hover er sand. */
+.sort-pille.valgt { background: var(--blaek); color: var(--kort); border-color: var(--blaek); }
+/* Afkrydset er fyld, hover er kun en kant — de var den samme kant før. */
+.valgknap input:checked + span { background: var(--blaek); color: var(--kort); border-color: var(--blaek); }
+.valgknap input:checked + span b { color: var(--kort); }
+/* Trinbjælken: nu = fyld, gjort = ring, kommende = flad. Tre former,
+   ikke to toner på 1,00:1. Et flueben i markup ville gøre det helt. */
+.trinbjaelke .gjort button span { background: var(--kort); color: var(--blaek); box-shadow: inset 0 0 0 2px var(--blaek); }
+/* Status er en oplysning, ikke en advarsel: ordet bærer den. */
+.m-vent { background: var(--kort); color: var(--blaek); box-shadow: inset 0 0 0 1px var(--linje); }
+/* Kaskadefejl i dag: `.resultathoved .prisnote` (samme specificitet,
+   senere i filen) gør noten om tavse kilder grå på ravgul. */
+.resultathoved .prisnote.advarsel, .resultathoved .prisnote.advarsel strong { color: var(--advarsel); }
+.maerke-boble.valgt { background: var(--blaek); color: var(--kort); }
+.side-nu { background: var(--blaek); color: var(--kort); }
+/* Forsiden: én h2-størrelse. Hero'en vokser ikke: den er allerede
+   sidens tungeste element og bærer ingen påstand. */
+.hero h1 { font-size: var(--t-6); font-weight: var(--v-3); line-height: var(--lh-tal); letter-spacing: var(--sp-tal); }
+.hero-oejenbryn, .ub-oejenbryn { font-size: var(--t-1); font-weight: var(--v-2); text-transform: none;
+  letter-spacing: 0; color: var(--daempet); }
+.hero-manchet { font-size: var(--t-3); color: var(--blaek); }
+.listetitel, .sektion-titel, .udlejerbaand h2, .sidetitel h1 { line-height: var(--lh-titel); }
+.listetitel, .sektion-titel, .udlejerbaand h2 { font-size: var(--t-4); font-weight: var(--v-2); }
+.sidetitel h1 { font-size: var(--t-5); font-weight: var(--v-3); }
+/* Talstriben blev bevidst sat ned fra 22 px accent («tungere end noget
+   andet på skærmen», runde-2). Den må ikke konkurrere med kortets pris. */
+.punkter strong { color: var(--blaek); font-size: var(--t-3); }
+/* Luften mellem sektioner: 48, og 64 under sidens sidste. Før 12
+   forskellige værdier mellem 14 og 72. */
+.sektion { margin-top: var(--l-7); }
+.ramme { padding-bottom: var(--l-8); }
+/* Udlejerbåndet er sidens mindst vigtige afsnit for en lejer og får den
+   roligste flade — ikke den eneste mørke. */
+.udlejerbaand { background: var(--bg-dyb); color: var(--blaek); }
