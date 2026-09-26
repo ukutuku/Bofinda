@@ -16,6 +16,7 @@ import { Favoritknap } from '../../Favoritknap'
 import { favoritIder, statusFor } from '../../../lib/favoritter'
 import { maalingstilstand, spor } from '../../../lib/maaling-server'
 import { RETUR_PARAM, returUrl } from '../../../lib/retur'
+import { typenavn } from '../../../lib/boligtype'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,11 +30,6 @@ const MDR = ['januar', 'februar', 'marts', 'april', 'maj', 'juni',
 
 const dato = (d: Date | null) =>
   d ? `${d.getDate()}. ${MDR[d.getMonth()]} ${d.getFullYear()}` : null
-
-const TYPENAVN: Record<string, string> = {
-  lejlighed: 'Lejlighed', raekkehus: 'Rækkehus', hus: 'Hus',
-  vaerelse: 'Værelse', studiebolig: 'Studiebolig', andet: 'Bolig',
-}
 
 function adresselinje(b: BoligDetalje): string {
   const vej = [b.vej, b.husnr].filter(Boolean).join(' ')
@@ -186,7 +182,7 @@ export default async function Side({ params, searchParams }: {
     b.areal != null ? { ikon: 'maal', v: `${b.areal} m²`, e: 'boligareal' } : null,
     b.vaerelser != null
       ? { ikon: 'doer', v: `${b.vaerelser}`, e: b.vaerelser === 1 ? 'værelse' : 'værelser' } : null,
-    b.type ? { ikon: 'hus', v: TYPENAVN[b.type] ?? b.type, e: 'boligtype' } : null,
+    b.type ? { ikon: 'hus', v: typenavn(b.type), e: 'boligtype' } : null,
   ].filter((x): x is { ikon: string; v: string; e: string } => !!x)
 
   /**
@@ -631,7 +627,7 @@ export default async function Side({ params, searchParams }: {
           <section className="blok" id="boligen">
             <h2>Boligen</h2>
             <dl className="fakta2">
-              {b.type && <><dt>Boligtype</dt><dd>{TYPENAVN[b.type] ?? b.type}</dd></>}
+              {b.type && <><dt>Boligtype</dt><dd>{typenavn(b.type)}</dd></>}
               {b.areal != null && <><dt>Areal</dt><dd>{b.areal} m²</dd></>}
               {b.vaerelser != null && <><dt>Værelser</dt><dd>{b.vaerelser}</dd></>}
               {b.etage && (

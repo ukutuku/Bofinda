@@ -11,6 +11,7 @@
 import type { AvailabilityFacts, RawListing } from './adapter'
 import { vaskAdresse } from './address'
 import { oereTilKroner } from './money'
+import { typenavn } from './boligtype'
 
 export type Boligtype =
   | 'lejlighed' | 'hus' | 'raekkehus' | 'vaerelse' | 'studiebolig' | 'andet'
@@ -120,8 +121,11 @@ export function genererBeskrivelse(f: {
   const kr = (o: number) => oereTilKroner(o).toLocaleString('da-DK')
   const s: string[] = []
 
-  const type = f.propertyType ? { lejlighed:'Lejlighed', hus:'Hus', raekkehus:'Rækkehus',
-    vaerelse:'Værelse', studiebolig:'Studiebolig', andet:'Bolig' }[f.propertyType] : 'Bolig'
+  // Typen aabner saetningen, saa den skal have stort forbogstav. Navnet
+  // kommer fra lib/boligtype.ts; det er den sjette kopi, der laa her.
+  // «Bolig» er IKKE `andet`s navn — det er faldbacken for en raekke
+  // UDEN en type, og de to faldt foer sammen i det samme ord.
+  const type = f.propertyType ? typenavn(f.propertyType) : 'Bolig'
   const dele = [
     f.rooms != null ? `${f.rooms} ${f.rooms === 1 ? 'værelse' : 'værelser'}` : null,
     f.sizeM2 != null ? `${f.sizeM2} m²` : null,

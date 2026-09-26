@@ -6,6 +6,7 @@ import {
 import { erEgenAnnonce } from '../../lib/kilde'
 import { RETUR_PARAM, returUrl } from '../../lib/retur'
 import { spor } from '../../lib/maaling-server'
+import { typeord } from '../../lib/boligtype'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,11 +32,6 @@ export const dynamic = 'force-dynamic'
 // ═══════════════════════════════════════════════════════════════
 
 export const metadata = { robots: { index: false } }
-
-const TYPEORD: Record<string, string> = {
-  lejlighed: 'lejligheder', raekkehus: 'rækkehuse', hus: 'huse',
-  villa: 'villaer', vaerelse: 'værelser',
-}
 
 export default async function Side(
   { searchParams }: { searchParams: Promise<Soegeparametre> },
@@ -89,7 +85,7 @@ export default async function Side(
   }, '/gruppe')
 
   const typer = new Set(boliger.map((b) => b.type))
-  const ord = typer.size === 1 ? (TYPEORD[[...typer][0] ?? ''] ?? 'boliger') : 'boliger'
+  const ord = typer.size === 1 ? (typeord([...typer][0] ?? null, true) ?? 'boliger') : 'boliger'
 
   // Prisen er ikke en nøgledel, så gruppen har et spænd. Det regnes af
   // de boliger, der faktisk står på siden — ikke af nøglen.
