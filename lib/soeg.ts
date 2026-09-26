@@ -81,6 +81,57 @@ export type Sortering = (typeof SORTERINGER)[number]
 export const VISBAR_VAERT = sql`substring(i.external_url from '^https?://([^/?#]+)') = any(array[${
   sql.join([...TILLADTE_VAERTER].map((v) => sql`${v}`), sql`, `)}]::text[])`
 
+/**
+ * Antal UNIKKE, visbare billeder paa boligen i den ydre forespoergsel.
+ *
+ * Det er det tal, repraesentantvalget rangerer paa, og derfor ogsaa det
+ * tal, forklaringen paa valget skal bruge — baade vinderens
+ * (`repraesentantFor`) og udlejerens egen (`mineBoliger`). Tre steder,
+ * ét udtryk: rangeringen og forklaringen paa den er to udtryk for samme
+ * spoergsmaal.
+ *
+ * ═══ HVORFOR DISTINCT ═══
+ *
+ * Rangeringen talte RAEKKER. Formularen gemte hvad som helst, klienten
+ * sendte, og loftet paa 20 stod kun i browseren — saa 21 kopier af én
+ * URL paa en udlejerannonce slog en scrapet bolig med 20 rigtige billeder
+ * paa samme adresse. Kildens annonce forsvandt fra soegningen, kortet
+ * skrev «også hos <kilde>», og kontaktmuren er aaben for native. Det
+ * kraevede ingen fremmed sti — kun udlejerens egen, lovlige URL, gentaget.
+ *
+ * `npm test` proever 21 kopier mod 20 unikke.
+ *
+ * ═══ HVAD DISTINCT IKKE KAN — HULLET ER INDSNAEVRET, IKKE LUKKET ═══
+ *
+ * Unik betyder byte-ens URL-streng, og intet andet. Varianter af ÉN fil —
+ * `…/x.jpg#0` … `#19`, `?v=0` … `?v=19` — er 20 unikke. En URL, der slet
+ * ikke kan hentes, taeller ogsaa: `VISBAR_VAERT` ser kun paa vaerten.
+ * Samme foto uploadet igen faar en ny sti og taeller igen. Maalt i
+ * PGlite: 20 varianter af én URL slog en scrapet bolig med 19 rigtige
+ * billeder.
+ *
+ * Det, der begraenser angrebet, er LOFTET paa 20 i skrivevejen
+ * (lib/billedloft.ts) — foer var der intet loft. `distinct` fjerner kun
+ * de identiske kopier, og raekker over loftet, der ligger i basen fra
+ * foer, taeller fuldt med. En udlejerannonce kan stadig skjule en scrapet
+ * bolig med faerre end 20 billeder. At lukke det kraever en regel i
+ * rangeringen, ikke en bedre taelling; se CLAUDE.md.
+ *
+ * ═══ HVORFOR `${listings}.id` OG IKKE `${listings.id}` ═══
+ *
+ * I en select fra ÉN tabel skriver Drizzle hver kolonne i et sql-felt om
+ * til et bart navn (`isSingleTable` i drizzle-orm/pg-core/dialect.js):
+ * `${listings.id}` bliver til `"id"`. Inde i underforespoergslen binder
+ * det bare navn til `listing_images.id` — den inderste tabel — og
+ * taellingen bliver 0. Det skete i `mineBoliger`, som ingen join har: «dine
+ * N» i forklaringen paa Mine annoncer var ALTID 0, saa en udlejer, der
+ * tabte paa noget ANDET end billeder, fik at vide, at den anden viste
+ * flere billeder «mod dine 0». Tabellen som tabel skrives ikke om, saa
+ * referencen holder, uanset hvor mange tabeller den ydre forespoergsel har.
+ */
+export const UNIKKE_BILLEDER = sql<number>`(select count(distinct i.external_url)::int
+  from listing_images i where i.listing_id = ${listings}.id and ${VISBAR_VAERT})`
+
 /** Boligen oplyser MINDST én facilitet. Tom liste = kilden tier. */
 const OPLYST = sql`jsonb_array_length(coalesce(${listings.amenities}, '[]'::jsonb)) > 0`
 
@@ -234,8 +285,8 @@ export function ikkeRepraesentant(grundlag: SQL | undefined) {
         row_number() over (
           partition by ${DEDUPNOEGLE}
           order by
-            (select count(*) from listing_images i
-              where i.listing_id = ${listings.id} and ${VISBAR_VAERT}) desc,
+            -- UNIKKE billeder, ikke raekker — se UNIKKE_BILLEDER.
+            ${UNIKKE_BILLEDER} desc,
             (${listings.totalMonthly} is not null) desc,
             ${listings.id}
         ) as rn
@@ -318,8 +369,8 @@ export async function repraesentantFor(ids: string[]): Promise<Map<string, Repra
       postnr: listings.postalCode,
       by: listings.city,
       kilde: sources.name,
-      billeder: sql<number>`(select count(*)::int from ${listingImages} i
-        where i.listing_id = ${listings.id} and ${VISBAR_VAERT})`,
+      // Samme tal, som rangeringen brugte. Se UNIKKE_BILLEDER.
+      billeder: UNIKKE_BILLEDER,
       harTotal: sql<boolean>`(${listings.totalMonthly} is not null)`,
       noegle,
     })

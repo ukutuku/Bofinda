@@ -15,14 +15,15 @@
 //  hentBolig i lib/soeg.ts, hvor felterne ikke engang står i select.
 // ═══════════════════════════════════════════════════════════════
 
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { isoDato } from './dato'
 import { db } from '../db/client'
 import { listingImages, listings, sources } from '../db/schema'
 import { kanonisk, paenDoer, SimpelAdressevask } from './address'
 import { normaliser } from './normalize'
 import type { Udlejer } from './auth'
-import { repraesentantFor, VISBAR_VAERT, type Repraesentant } from './soeg'
+import { repraesentantFor, UNIKKE_BILLEDER, type Repraesentant } from './soeg'
+import { tjekBilleder } from './billedloft'
 
 export interface Boliginput {
   /** Adskilte felter. De samles KUN til visning, aldrig til parsning. */
@@ -277,7 +278,23 @@ function fraFormular(n: Awaited<ReturnType<typeof normaliser>>, i: Boliginput) {
   }
 }
 
+/**
+ * Billedlisten tjekkes FOER den foerste skrivning, i begge skriveveje.
+ *
+ * Loftet stod kun i browseren, og `gemBolig` gemte hvad som helst,
+ * klienten sendte. Tjekket ligger her og ikke i server action'en, af
+ * samme grund som `tjekAdresse`: saa kan det proeves uden en formular —
+ * og saa gaelder det for enhver kalder, ikke kun for den ene formular.
+ * Staar det efter en skrivning, er det for sent: `opdaterBolig` sletter
+ * billedraekkerne, foer den indsaetter de nye.
+ */
+function billederEllerKast(i: Boliginput) {
+  const galt = tjekBilleder(i.billeder)
+  if (galt) throw new Error(galt)
+}
+
 export async function opretBolig(u: Udlejer, i: Boliginput): Promise<string> {
+  billederEllerKast(i)
   // Id'et laves foerst, saa sourceUrl kan pege paa boligens egen side.
   // Kolonnen er NOT NULL, og en native bolig har ingen kilde at pege paa.
   const id = crypto.randomUUID()
@@ -302,6 +319,7 @@ export async function opretBolig(u: Udlejer, i: Boliginput): Promise<string> {
 
 export async function opdaterBolig(u: Udlejer, id: string, i: Boliginput): Promise<void> {
   await minEllerKast(u, id)
+  billederEllerKast(i)
   const n = await normaliser(somRaa(i, id, `${base()}/bolig/${id}`), await vasketAdresse(i))
   await db.update(listings)
     .set(fraFormular(n, i))
@@ -378,8 +396,9 @@ export async function mineBoliger(u: Udlejer) {
     areal: listings.sizeM2,
     vaerelser: listings.rooms,
     oprettet: listings.firstSeenAt,
-    billeder: sql<number>`(select count(*)::int from ${listingImages} i
-      where i.listing_id = ${listings.id} and ${VISBAR_VAERT})`,
+    // Samme tal, repraesentantvalget rangerer paa — det er «dine N» i
+    // forklaringen paa, hvorfor en anden annonce vandt. Se UNIKKE_BILLEDER.
+    billeder: UNIKKE_BILLEDER,
   })
     .from(listings)
     .where(eq(listings.landlordId, u.id))

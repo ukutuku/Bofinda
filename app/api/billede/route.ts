@@ -2,8 +2,18 @@
 //  Billed-proxyen.
 //
 //  Henter kildens billede, skalerer og konverterer til WebP, og sender
-//  det videre. Kildens URL naar aldrig browseren, og browseren naar
-//  aldrig kilden.
+//  det videre. Browseren naar aldrig kilden: den henter kun fra os, og
+//  kilden ser ikke vores brugeres IP-adresser.
+//
+//  ⚠ MEN BROWSEREN SER KILDENS URL. Her stod foer, at den aldrig gjorde,
+//  og det var forkert: `u` herunder ER kildens URL, og `billedUrl()` i
+//  lib/billede.ts saetter den ordret i hver <img>. For udlejerbilleder er
+//  det den fulde signerede lager-URL — token, der gaelder i ti aar, og
+//  udlejerens auth-uid som mappenavn. Signaturen `s` beskytter kun mod, at
+//  fremmede bruger proxyen til vilkaarlige adresser; den skjuler intet.
+//  At kommentaren sagde andet, er grunden til, at ingen saa, at en udlejer
+//  kunne kopiere en andens billed-URL fra en offentlig side ind i sin egen
+//  annonce. Se db/migrations/0014_storage.sql.
 // ═══════════════════════════════════════════════════════════════
 
 import { BREDDER, breddeTilladt, signaturOk, vaertTilladt, type Bredde } from '../../../lib/billede'
