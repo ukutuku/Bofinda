@@ -111,7 +111,11 @@ security definer
 set search_path = public, storage, pg_catalog
 as $$
 declare
-  l_frist timestamptz := now() + make_interval(mins => greatest(1, least(minutter, 15)));
+  -- Negativt minuttal er tilladt MED VILJE: proeven 'selvudloeb-fyrer'
+  -- svaekker med et udloeb i FORTIDEN og kraever, at svaekkelsen saa IKKE
+  -- gaelder. Fjernes 'now() < frist' fra praedikatet, ville en udloebet
+  -- politik alligevel aabne — og den proeve bliver roed. Loftet er 15 min.
+  l_frist timestamptz := now() + make_interval(mins => least(greatest(minutter, -60), 15));
   l_pred  text;
   l_navne text[] := '{}';
 begin

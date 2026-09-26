@@ -405,6 +405,38 @@ const PROEVER: Proeve<Ctx>[] = [
     },
   },
 
+  // ─ Selvudloebet: det loefte, der baerer SQL-filen ─
+  {
+    id: 'selvudloeb-fyrer', gruppe: 'Selvudloeb', slags: 'graense', bevis: { via: 'positiv-kontrol' },
+    beskriv: 'en svaekkelse med udloeb i FORTIDEN gaelder IKKE (og en gyldig aabner — kontrol)',
+    koer: async (ctx) => {
+      // Uden dette loefte staar staging aaben, hvis en doed koersel ikke naar
+      // at rydde op. Bevis at fristen fyrer: en udloebet select-svaekkelse maa
+      // ikke aabne, mens en gyldig skal. Er de ens, maaler proeven intet —
+      // og fjernes 'now() < frist' fra SQL'en, aabner den udloebede ogsaa.
+      const navn = await saaObjekt(ctx, ctx.A, 'selvudloeb.jpg')
+      const b = somKonto(ctx.B, ctx.publishable)
+      let udloebetBlokeret = false
+      let gyldigAaben = false
+      await ctx.priv.svaekk('select', -1) // frist i fortiden
+      try {
+        udloebetBlokeret = !(await hentAuth(b, navn)).ok
+      } finally {
+        await ctx.priv.fjern()
+      }
+      await ctx.priv.svaekk('select', 3) // gyldig
+      try {
+        gyldigAaben = (await hentAuth(b, navn)).ok
+      } finally {
+        await ctx.priv.fjern()
+      }
+      return (udloebetBlokeret && gyldigAaben)
+        ? ok('udloebet svaekkelse blokerede, gyldig aabnede — fristen fyrer')
+        : nej(`udloebet blokerede=${udloebetBlokeret}, gyldig aabnede=${gyldigAaben} `
+          + `(er begge ens, maaler proeven ikke udloebet — tjek 'now() < frist' i SQL'en)`)
+    },
+  },
+
   // ─ KENDTE HULLER (fund, ikke groenne proever) ─
   {
     id: 'hul-token-uden-om-rls', gruppe: 'Kendte huller', slags: 'hul',
@@ -417,6 +449,28 @@ const PROEVER: Proeve<Ctx>[] = [
       return (r.http === 200 && !!r.bytes?.length)
         ? ok('en URL fra HTML\'en henter filen uden apikey og uden JWT — 0014 spoerges aldrig')
         : nej(`uventet: http ${r.http} (politikken ser nu ud til at gaelde ved brug)`)
+    },
+  },
+  {
+    id: 'hul-fremmed-url-kaede', gruppe: 'Kendte huller', slags: 'hul',
+    beskriv: 'en URL hoestet fra A\'s annonce serverer sit indhold til en ANDEN konto (B)',
+    koer: async (ctx) => {
+      // Storage-leddet i fund 4: en signeret URL fra A's offentlige HTML
+      // virker for B. At B derefter kan MONTERE den paa sin egen annonce er
+      // app-leddet (gemBolig/skrivBilleder validerer ikke oprindelsen) — se
+      // issue om fund 4. Her maales det, staging kan maale: at kapabiliteten
+      // ikke er bundet til A's session.
+      const navn = await saaObjekt(ctx, ctx.A, 'hoestet.jpg')
+      const url = await signeretUrl(somKonto(ctx.A, ctx.publishable), navn, 600)
+      if (!url) return nej('ingen signeret URL')
+      const forventet = await hentBytes(url)
+      const forventetHash = forventet.bytes ? sha256(forventet.bytes) : ''
+      // B henter A's URL, som var den hoestet fra HTML'en. Bearer=B's JWT.
+      const bHent = await hentBytes(url, { apikey: ctx.publishable, Authorization: `Bearer ${ctx.B.jwt}` })
+      const bHash = bHent.bytes ? sha256(bHent.bytes) : ''
+      return (bHent.http === 200 && bHash === forventetHash && !!bHash)
+        ? ok('B henter A\'s billede via den hoestede URL — kapabiliteten er ikke kontobundet')
+        : nej(`B fik http ${bHent.http}, indhold matcher=${bHash === forventetHash}`)
     },
   },
   {

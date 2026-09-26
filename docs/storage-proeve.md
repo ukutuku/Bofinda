@@ -13,6 +13,19 @@ anonymt kald. Det er den prøve, CLAUDE.md siger mangler:
 Den kan **ikke** køre mod PGlite (som ikke har Storage) og **må aldrig**
 køre mod produktionen.
 
+## Status: endnu ikke kørt
+
+**Dette er en prøve, der er klar til at køre — ikke en måling.** Prøverne
+er typechecket, og vagterne er smoke-testet (den nægter at køre uden
+staging-nøgler, med en `DATABASE_URL` i processen, og med en forkert
+nøgletype). Men **ingen assertion har kørt mod en rigtig Storage endnu**,
+fordi staging-nøglerne ikke var sat, da prøven blev skrevet. Sig derfor
+ikke, at politikken *er* målt — kun at prøven er klar til at måle den.
+
+Når den har kørt første gang, skrives resultatet ind her: hver prøves
+udfald og exit-kode, og for enhver, der lander på 2 «grønt men ubevist»,
+hvorfor. Indtil da står dette afsnit som det er.
+
 ## Hvorfor den findes
 
 En anden undersøgelse viste, at `billedUrl()` lægger den signerede
@@ -90,6 +103,17 @@ En prøve, der ikke kan bevises at fejle, beviser ingenting. Derfor:
   prøven — den rigtige sti henter, den forkerte afvises — så prøven kan
   fejle begge veje uden en politik-svækkelse.
 
+### Selvudløbet bærer SQL-filen
+
+Svækkelserne åbner kun staging, fordi de udløber af sig selv — hvis
+udløbet ikke fyrer, står staging åben efter en død kørsel. Det løfte er
+ikke gratis; det måles. Prøven `selvudloeb-fyrer` svækker med et udløb i
+**fortiden** og kræver, at svækkelsen så **ikke** gælder (en anden konto
+kan stadig ikke læse), mens en gyldig svækkelse åbner (kontrol). Er de to
+ens, måler prøven ingenting — og fjerner nogen `now() < frist` fra
+`db/staging/storage-proeve.sql`, ville den udløbede svækkelse også åbne, og
+prøven bliver rød. Så kan udløbstjekket ikke fjernes i stilhed.
+
 ## Kendte huller: fund, ikke grønne prøver
 
 Nogle ting er per design usikre i dag. En prøve, der krævede den ønskede
@@ -110,8 +134,16 @@ De bekræftede huller i dag:
   At slette er derfor ikke en tilbagekaldelse.
 - **Udlejerens auth-uid står i den signerede URL** — og dermed i offentlig
   HTML. Samme klasse læk som den, `landlord_id`-reglen lukkede.
+- **En URL høstet fra A's annonce serverer sit indhold til en anden konto**
+  (`hul-fremmed-url-kaede`). Det er storage-leddet i en kæde: stien er
+  offentlig, tokenet er ti-årigt og kan ikke trækkes tilbage, og
+  `gemBolig`/`skrivBilleder` validerer ikke, at en billed-URL stammer fra
+  den skrivende brugers egen mappe. Kæden — høst 20 URL'er, montér dem på
+  egen annonce, vind billedrangeringen, fortræng ejeren med hans egne
+  billeder — hører til sit eget issue (fund 4). App-leddet (skrivningen)
+  kan ikke måles herfra; det måles i app-laget.
 
-Rettelserne på de tre hører til hver sit kort uden for denne opgave. Når de
+Rettelserne hører til hver sit kort/issue uden for denne opgave. Når de
 laves, vil `◆ HUL`-prøverne skifte status og pege på, at prøven skal
 opdateres — det er meningen.
 
