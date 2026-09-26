@@ -264,11 +264,25 @@ export async function soegninger() {
 // ═══════════════════════════════════════════════════════════════
 
 import { inArray } from 'drizzle-orm'
-import { maaSendeTil, sendMail } from './mail'
+import { maaSendeTil, sendMail, type MailResultat } from './mail'
 import { eltilstand } from './eloplysning'
+import { besked } from './koersel'
 
 /** Højst én mail i timen per søgning, uanset hvor tit importen kører. */
 const MINDST_MELLEM_MAILS_MIN = 60
+
+/**
+ * Testsaede for afsendelsen. Kun scripts/test-*.ts saetter den.
+ *
+ * Findes af samme grund som `_saetKontekst` i lib/maaling-server.ts og
+ * `indsaetBase` i db/client.ts: graensen nedenfor faenger et kast fra
+ * `sendMail`, og et kast kan ikke fremkaldes udefra — `maaSendeTil`
+ * spaerrer FOER fetch'et, naar noeglerne mangler, saa en proeve uden net
+ * rammer den pæne vej og aldrig den, vi vil sikre. En graense, ingen har
+ * set fejle, er ingen graense.
+ */
+let _sender: typeof sendMail | null = null
+export function _saetSender(f: typeof sendMail | null) { _sender = f }
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000'
 const kr = (o: number | null) => o == null ? '—' : (o / 100).toLocaleString('da-DK')
@@ -362,8 +376,25 @@ ${l.uvis ? '<div style="color:#8a5300;font-size:12.5px;margin-top:5px">Kan være
 Du får denne mail, fordi du har gemt en søgning på Bofinda.
 <a href="${afmeldUrl}" style="color:#9aa1ac">Afmeld</a>.</p></div>`
 
-    const r = await sendMail({ til: f.modtager, emne, tekst, html,
-      afmeldUrl: afmeldPost, afmeldSideUrl: afmeldUrl })
+    // GRAENSE PR. MODTAGER. `sendMail` haandterer selv en spaerring og et
+    // 4xx/5xx-svar ved at returnere `{ sendt: false, grund }` — men en
+    // TRANSPORTFEJL (timeout paa 20 s, reset, DNS, TLS) kaster, og kastet
+    // gik foer hele vejen ud gennem denne loekke og ud af scripts/import.ts.
+    // Ét netvaerksglip hos én modtager kostede altsaa resten af koeen.
+    //
+    // `sent_at` saettes ikke, saa traeffene staar i koeen og proeves igen.
+    // BEMAERK prisen ved det: et timeout kan vaere udloest EFTER at Resend
+    // accepterede mailen, og da sendes den igen naeste koersel. Det er den
+    // afvejning, docstringen ovenfor beskriver — muligt dublet frem for
+    // muligt tavst tab — og den bliver foerst unoedvendig med en
+    // `Idempotency-Key` paa kaldet. Den er ikke bygget her.
+    let r: MailResultat
+    try {
+      r = await (_sender ?? sendMail)({ til: f.modtager, emne, tekst, html,
+        afmeldUrl: afmeldPost, afmeldSideUrl: afmeldUrl })
+    } catch (e) {
+      r = { sendt: false, grund: `transportfejl: ${besked(e)}` }
+    }
     if (r.sendt) {
       // Først når mailen ER afsendt.
       await db.update(alertMatches)
