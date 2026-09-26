@@ -174,28 +174,53 @@ og resten.
 
 ### 3. Hvor bæres betydning af farve alene
 
-Kontrasten i parentes er lysheden mellem de to tilstande. Under 3:1
-kan de ikke skelnes uden kulør, og det gælder også i gråtone og med
-deuteranopi. «Ja» betyder, at intet andet end farven skiller dem ad.
-«Delvist» betyder, at der er en anden bærer, men at den er svag.
+36 steder med farvetilstande blev gennemgået, alle 726 regler i
+`globals.css` og de betingede klasser i `app/` på main og kontakt-ui.
+Hvert fund blev derefter prøvet af to skeptikere, der skulle forsøge at
+afvise det. Den ene så på, om teksten ved siden af faktisk bærer
+forskellen. Den anden omregnede farverne til gråtone og deuteranopi.
+Nedenfor står de fund, som mindst én skeptiker bekræftede, og som ingen
+af dem afviste.
 
-| Sted | Tilstande | Lyshed | Andet end farve | Kun farve | Forslaget |
-|---|---|---|---|---|---|
-| **Kortets pris** (`.kort-pris` / `.kun-leje`) og railens `.oek-tal` / `.ukendt-tal` | kendt total / kun husleje | 1,87:1 | Etiketten: «til udlejer» mod «i husleje» (på kontakt-ui «+ aconto (ikke oplyst)») i 12,5 px grå | delvist. **Med deuteranopi ser den kendte total lysere og svagere ud end huslejen**, så vægten vender | 700 mod 400. Etiketten i 15 px |
-| **Sortering** (`.sort-pille.valgt`) | valgt / hover | 1,15:1 | `aria-current`, som ikke ses. Valgt og hover har **samme regel** | ja | Valgt er blæk-fyld, hover er sand |
-| **Afkrydsningspillerne** i filtervinduet | afkrydset / ikke | 1,15:1 | Intet flueben. Hover giver samme accentkant som afkrydset | ja | Afkrydset er blæk-fyld |
-| **Trinbjælken** i udlejerformularen (`.trinbjaelke .gjort`) | gjort / kommende | 1,00:1 i fladen | Intet flueben | ja | Nu er fyld, gjort er ring, kommende er flad. Et flueben i markup ville gøre det helt |
-| **Links i grå tekst** (`.populaere a`, `.begraensning a`, `.afmeld .note a`, `.broedkrumme a`) | link / tekst | 1,76:1, brødkrummen 1,05:1 | Ingen understregning | ja | Understreges |
-| **Kilderne i kortets fod** (`.kilder .m-kilde:not(:first-child)`) | viser boligen / også hos | 1,15:1 | Kun i `title` | ja | Alle kilder står ens, adskilt af «·» |
-| **Landkortets valgte mærke** (`.maerke-boble.valgt`) | valgt / ikke | 1,53:1 | `scale(1.18)`. Ravgul betyder «fejl» andre steder | delvist | Blæk-fyld |
-| **Statusmærkater** på boligsiden (`.m-ny` / `.m-vent`) | «almindelig ansøgning» / «venteliste», «reserveret» | – | Ordene står der, men vurderingen (grøn er godt, ravgul er pas på) bæres af farven | delvist | Ens neutrale mærkater. Ordet bærer |
-| **Gruppekortets billedtæller** (kontakt-ui, `.gruppekort .kort-antal`) | gruppe / enkeltbolig | – | Teksten «1/8» handler om billeder, ikke om gruppen | ja, men titlen «5 rækkehuse» redder kortet | Blæk som enkeltkortets |
-| **Manglende svar i «Boligen»** (`.fakta2 .mangler` mod `dt`) | svar mangler / etiket | 1,05:1 | Intet. De to grå er den samme | betydningen er **tabt**, ikke kun farvebåret | Kursiv blæk |
+Tallet i parentes er lysheden mellem de to tilstande. Under 3:1 kan de
+ikke skelnes uden kulør.
 
-Tre steder bærer allerede tilstanden i form og ord, og de er mønstret
-for resten: favoritknappen på kontakt-ui (fyldt hjerte og ramme),
-sidenavigationens nuværende side (fyld, vægt 650 og `aria-current`) og
-kortets prisetiket på kontakt-ui, som siger manglen i ord.
+| Sted | Tilstande | Andet end farve | Kun farve | Forslaget |
+|---|---|---|---|---|
+| **Kortets pris** | kendt total / kun husleje (1,87:1) | Etiketten, to ord i 12,5 px grå. **Med deuteranopi ser den kendte total lysere og svagere ud end huslejen**, så vægten vender | delvist · **høj** | 700 mod 400, etiketten i 15 px |
+| **Gemte boligers pris** (kontakt-ui, `.gemt-pris`) | kendt total / kun husleje | Etiketten siger «i husleje», mens søgekortet siger «i husleje + aconto (ikke oplyst)». Samme spørgsmål har to udtryk | delvist · middel | Samme to former som kortet. Ordlyden hører til frontend |
+| **Valgpillerne i filtervinduet** | valgt / ikke (fladen 1,15:1) | Intet flueben, samme vægt (540), input skjult. Hover giver samme kant som valgt | **ja** · middel | Valgt er blæk-fyld, hover er kun en kant |
+| **Favoritknappen, når gemningen fejler** (kontakt-ui) | fejlet / normal | Kun `title`, som kun ses ved hover. Hjertet vender tilbage og ligner et tryk, der ikke blev registreret | **ja** · middel | Kræver synlig tekst eller `aria-live`. Det er markup og hører til frontend |
+| **Kvitteringen efter skift af adgangskode** (kontakt-ui) | lykkedes / udlogningen fejlede (striben 1,21:1) | Overskriften er ens i begge. Forskellen står først i andet afsnit | delvist · middel | Kræver sin egen overskrift. Markup |
+| **Landkortets valgte mærke** | valgt / ikke (ravgul mod teal, 1,53:1) | `scale(1.18)` | delvist · middel | Vendes om: hvid med blæk-ring. Ravgul betyder «fejl» andre steder |
+| **Sorteringsmenuen** | valgt / hover (samme regel) | Opsummeringen «Sortér: Nyeste» over listen og `aria-current`. I den åbne liste er der intet | delvist · lav | Valgt er blæk-fyld, hover er sand |
+| **Links midt i tekst** (`.begraensning a`, `.afmeld .note a`, forsøgsnoten) | link / tekst (1,76:1) | Ingen understregning | ja · lav | Understreges |
+| **OSM-krediteringens links** | link / tekst (2,56:1, 10,5 px) | Understregning kun ved hover | ja · lav | Understreges. Krediteringen skjules aldrig |
+| **Slipfeltet** hos udlejer | fil over feltet / hvile | Teksten skifter ikke. Kantens lyshed skifter | delvist · lav | Kanten bliver optrukket, ikke kun farvet |
+| **Kortet, når dets mærke klikkes** | fremhævet / normal | Rulningen, som centrerer kortet. Ringen er 1,06:1 mod bunden | delvist · lav | Ring i blæk |
+| **Trinbjælken** hos udlejer | gjort / kommende (1,00:1) | Rækkefølgen. Det aktuelle trin er tydeligt med fyld | delvist · lav | Nu er fyld, gjort er ring, kommende er flad |
+
+**Afvist af begge skeptikere**, altså ikke båret af farve alene:
+sidenavigationens aktuelle side (fyld og vægt), railens beløb (etiketten
+skifter ord), statusmærkaterne (hvert har sit ord), kildemærkaterne
+(fyldet var aldrig tænkt som en betydning), gruppekort mod enkeltkort
+(titlen og «fra»), prissammenligningen og talstribens «Ikke opgjort».
+Tre af dem er mønstret for resten, fordi de bærer tilstanden i form og ord:
+favoritknappens *gemt*-tilstand på kontakt-ui (fyldt hjerte og ramme),
+metalinjens statusord og prissammenligningen.
+
+**To steder, hvor problemet ikke er farven, men at der slet ingen bærer
+er:**
+- **Brødkrummens links** står i `--daempet`, og teksten omkring i
+  `--svag`. Det er 1,05:1, samme grå, og der er ingen understregning.
+  Forslaget understreger dem.
+- **Manglende svar i «Boligen»** (`.fakta2 .mangler`) står i samme grå
+  som etiketten ved siden af. Forslaget sætter dem i kursiv blæk.
+
+**Fundet undervejs:** alarmmailen (`lib/alarm.ts:359`, `:479`) bruger
+stadig den gamle accent `#14624f` til en kendt pris og til
+bekræftelsesknappen. Den skal med, når `--kendt` lander. På Mine annoncer
+står «Udgiv igen» i samme røde som «Fjern».
 
 ---
 
@@ -280,10 +305,13 @@ Talenden bruger kvarter, ×4/3 fra 18, fordi den skimmes (24 → 32 → 42).
   farve. Valgt er blæk-fyld, og hover er sand, så de to ikke længere er
   identiske.
 - **Mekanikken.** `--accent` peges om til `--blaek`, så alle 94
-  anvendelser skifter uden at røre en regel. Kun `.kort-pris`, `.oek-tal`
-  og ordmærket peges tilbage på `--kendt`. Ved indlægning bør navnene
-  rettes (`--accent` → `--handling`), men omdirigeringen gør, at første
-  skridt ikke kan glemme en anvendelse.
+  anvendelser (112 på kontakt-ui) skifter uden at røre en regel. Kun de
+  tre steder, hvor accenten betyder «kendt», peges tilbage på `--kendt`:
+  `.kort-pris`, `.oek-tal` og `.gemt-pris` på Min side. Det samme gælder
+  ordmærket. Omdirigeringen har en bagside: et fjerde «kendt»-sted, som
+  ingen har fundet, bliver stille sort. Derfor skal navnene rettes ved
+  indlægning (`--accent` → `--handling`) og hvert sted tages stilling
+  til.
 - **To grå, ikke tre.** `--svag` slås sammen med `--daempet`, som gøres
   mørkere (`#4d5452`, 7,1:1), så 13 px kan læses på sand.
 - **Ikoner er grå.** Nøgletallenes ikoner var accent ved .8. De pynter,

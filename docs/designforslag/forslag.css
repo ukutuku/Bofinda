@@ -35,9 +35,9 @@
   --blaek-hover:#2d3138;
 
   /* De gamle navne peges om, så de 94 anvendelser af --accent bliver
-     til handling (blæk) uden at røre en eneste regel. Kun de to steder,
-     der betyder «kendt» (.kort-pris og .oek-tal), og ordmærket peges
-     tilbage på --kendt nedenfor. */
+     til handling (blæk) uden at røre en eneste regel. Kun de tre steder,
+     der betyder «kendt» (.kort-pris, .oek-tal og .gemt-pris på Min side),
+     og ordmærket peges tilbage på --kendt nedenfor. */
   --accent:     var(--blaek);
   --accent-mrk: var(--blaek-hover);
   --accent-lys: #ecebe6;
@@ -217,7 +217,18 @@ button, .knap { font-weight: var(--v-2); }
 /* Kaskadefejl i dag: `.resultathoved .prisnote` (samme specificitet,
    senere i filen) gør noten om tavse kilder grå på ravgul. */
 .resultathoved .prisnote.advarsel, .resultathoved .prisnote.advarsel strong { color: var(--advarsel); }
-.maerke-boble.valgt { background: var(--blaek); color: var(--kort); }
+/* Kortmærker er blæk; det valgte vendes om (hvidt med blæk-ring) og
+   skaleres. Før var det ravgult, 1,53:1 mod de andre. */
+.maerke-boble.valgt { background: var(--kort); color: var(--blaek); border-color: var(--blaek); }
+.kort.fremhaevet { border-color: var(--blaek); box-shadow: 0 0 0 2px var(--blaek), var(--skygge); }
+/* Min sides gemte boliger siger det samme som kortet — samme to former. */
+.gemt-pris { color: var(--kendt); font-weight: var(--v-3); }
+.gemt-pris.kun-leje { color: var(--blaek); font-weight: var(--v-1); }
+/* Slipfeltet: kanten bliver fuldt optrukket, ikke kun farvet. */
+.slipfelt.over { border-style: solid; border-color: var(--blaek); background: var(--kort); }
+/* OSM-krediteringens links (10,5 px blå uden understregning i dag).
+   Krediteringen må aldrig skjules; den må gerne kunne ses som links. */
+.leaflet-control-attribution a { text-decoration: underline; }
 .side-nu { background: var(--blaek); color: var(--kort); }
 /* Forsiden: én h2-størrelse. Hero'en vokser ikke: den er allerede
    sidens tungeste element og bærer ingen påstand. */
