@@ -32,7 +32,9 @@ import { alertMatches, crawlRuns, fetchFailures, hostBlocks, listingImages, list
 import { matchAlarmer } from '../lib/alarm'
 import { byForPostnr } from '../lib/omraade'
 import { laesBolig as dacasLaes } from '../adapters/dacas'
+import { readFileSync } from 'node:fs'
 import { laesSag as homeLaes } from '../adapters/home'
+import { noeglerISag, sagstypeFor } from './home-felter'
 import { laes as balderLaes } from '../adapters/balder'
 import { findSearchResponse as cejFind, laes as cejLaes } from '../adapters/cej'
 import {
@@ -539,6 +541,258 @@ async function main() {
     hjemSag.availableFrom === '2026-10-01', String(hjemSag.availableFrom))
   tjek('… og lejen er sagens egen', hjemSag.rentMonthly === 1200000,
     String(hjemSag.rentMonthly))
+
+  // ── home.dk: optaellingen af feltnavne ───────────────────────
+  // `scripts/home-felter.ts` findes, fordi adapteren IKKE saetter
+  // deposit, prepaidRent og rooms, og fordi ingen har maalt, hvad de
+  // hedder i payloaden. Vaerktoejet TAELLER noeglerne i stedet for at
+  // slaa et formodet navn op — og det er netop en optaelling, der skal
+  // kunne stoles paa, for den bliver grundlaget for at udvide
+  // adapterens allowlist.
+  //
+  // Fixturen er konstrueret og laegger NABOENS sag foerst, som den
+  // eksisterende home-fixture ovenfor. Naboen har et beloebsfelt, SAGEN
+  // IKKE HAR (`rentalDepositUkendt`) og et ekstra stats-felt — saa en
+  // ubunden «foerste objekt med et offer»-laesning ville rapportere
+  // naboens feltnavne som boligens. Det er praecis den fejl, en
+  // optaelling maa vaere immun over for: den ville faa os til at skrive
+  // et feltnavn ind i adapteren, som den maalte bolig ikke har.
+  console.log('\n══ home.dk: feltoptaelling bundet til sagens id ══')
+  const HF_FLAD: unknown[] = [
+    'meta',                                                    // 0
+    { id: 2, offer: 3, stats: 6 },                             // 1  NABOEN — foerst
+    'NABO1',                                                   // 2
+    { rentalPricePerMonth: 4, rentalDepositUkendt: 5 },        // 3  EKSTRA beloebsfelt
+    { amount: 9000 },                                          // 4
+    { amount: 27000 },                                         // 5
+    { floorArea: 7, naboFelt: 8 },                             // 6  EKSTRA stats-felt
+    55,                                                        // 7
+    'kun-hos-naboen',                                          // 8
+    { id: 10, offer: 11, stats: 14 },                          // 9  SAGEN
+    'SAG1',                                                    // 10
+    { rentalPricePerMonth: 12, rentalUtilitiesPerMonth: 13 },  // 11
+    { amount: 12000 },                                         // 12
+    { amount: 1100 },                                          // 13
+    { floorArea: 15 },                                         // 14
+    70,                                                        // 15
+    { id: 17, offer: 18 },                                     // 16  TREDJE — uden stats
+    '177P000001',                                              // 17
+    {},                                                        // 18  tomt offer
+  ]
+
+  const hfSag = noeglerISag(HF_FLAD, 'SAG1')
+  tjek('præmis: naboens sag står FØRST i den flade liste',
+    JSON.stringify(HF_FLAD).indexOf('NABO1') < JSON.stringify(HF_FLAD).indexOf('SAG1'))
+  tjek('offer-nøglerne er SAGENS egne',
+    hfSag.offer.some((k) => k.startsWith('rentalPricePerMonth:'))
+    && hfSag.offer.some((k) => k.startsWith('rentalUtilitiesPerMonth:')),
+    hfSag.offer.join(' · '))
+  tjek('naboens ekstra beløbsfelt lækker IKKE ind som sagens',
+    !hfSag.offer.some((k) => k.startsWith('rentalDepositUkendt:')),
+    hfSag.offer.join(' · '))
+  tjek('stats-nøglerne er sagens egne — naboens ekstra felt er ude',
+    hfSag.stats.some((k) => k.startsWith('floorArea:'))
+    && !hfSag.stats.some((k) => k.startsWith('naboFelt:')),
+    hfSag.stats.join(' · '))
+  tjek('beløbsformede felter findes, og kun sagens',
+    hfSag.beloebsformede.join(',') === 'offer.rentalPricePerMonth,offer.rentalUtilitiesPerMonth',
+    hfSag.beloebsformede.join(','))
+
+  // Manglende felt er ikke en fejl — det er et tomt svar. En kilde, der
+  // ikke har `stats` paa en sag, skal give en tom liste, ikke et kast:
+  // fravaeret er selve maaleresultatet.
+  const hfUden = noeglerISag(HF_FLAD, '177P000001')
+  tjek('en sag uden stats giver tom liste, ikke et kast',
+    hfUden.stats.length === 0 && hfUden.offer.length === 0)
+  tjek('… og den har ingen beløbsformede felter at rapportere',
+    hfUden.beloebsformede.length === 0, hfUden.beloebsformede.join(','))
+
+  // Sagstypen kan ses paa sagsnummeret (adapterens eget hoved), og de to
+  // typer har dokumenteret forskellig dataform — derfor skal BEGGE maales.
+  tjek('sagstype: 177P… er projektlejemål',
+    sagstypeFor('177P009058') === 'projekt')
+  tjek('sagstype: 1770021465 er almindelig sag',
+    sagstypeFor('1770021465') === 'almindelig')
+  tjek('sagstype: ukendt form gættes ikke', sagstypeFor('SAG1') === 'ukendt')
+
+  // PRIVATLIV: optaellingen maa aldrig baere vaerdier ud. Allowlisten
+  // findes, fordi kilders datamodeller baerer sagsbehandlernoter med
+  // navne og telefonnumre paa nuvaerende lejere. Et vaerktoej, der
+  // dumpede hele objektet, ville vaere den lige vej uden om reglen.
+  const udskrift = JSON.stringify(hfSag)
+  tjek('optællingen bærer NAVNE, ikke værdier',
+    !udskrift.includes('12000') && !udskrift.includes('1100')
+    && !udskrift.includes('kun-hos-naboen') && !udskrift.includes('70'),
+    udskrift)
+
+  // ── home.dk: depositum, forudbetalt leje og vaerelser ────────
+  // MOD DE RIGTIGE KILDEPROEVER. scripts/kildeproever/home/ rummer to
+  // hentede detaljesider fra 15. sep. 2026 — én projektsag og én
+  // almindelig — reduceret til de maalte felter med ORIGINALE indekser
+  // og uaendrede kildevaerdier. Belaegget (url, tidspunkt, SHA-256) staar
+  // i feltbelaeg.json ved siden af.
+  //
+  // De to sagstyper proeves hver for sig, fordi de har forskellig
+  // dataform: projektsagen har `rentalUtilitiesPerMonth: null`, altsaa
+  // et fravaerende aconto-beloeb, hvor den almindelige har et tal.
+  console.log('\n══ home.dk: depositum, forudbetalt og vaerelser fra kilden ══')
+  const proeveFlad = (fil: string): unknown[] =>
+    JSON.parse(readFileSync(new URL(`./kildeproever/home/${fil}`, import.meta.url), 'utf8'))
+  const gitterFor = (id: string) => ({
+    id, url: `https://home.dk/sag-${id}/`, adresse: 'Prøvevej 1, 2300 København S',
+    postnr: '2300', areal: undefined, leje: undefined, type: 'lejlighed',
+    billeder: [] as string[],
+  })
+
+  // Projektsag 177P009541 — kildens egne tal: leje 14.300, depositum
+  // 42.900, forudbetalt 14.300, 2 vaerelser, INTET aconto-beloeb.
+  const pSag = homeLaes(proeveFlad('177P009541-nuxt-minimal.json'),
+    gitterFor('177P009541'), 'https://home.dk/sag-177P009541/')
+  tjek('projektsag: depositum er kildens 42.900 kr. i øre',
+    pSag.deposit === 4290000, String(pSag.deposit))
+  tjek('projektsag: forudbetalt leje er kildens 14.300 kr. i øre',
+    pSag.prepaidRent === 1430000, String(pSag.prepaidRent))
+  tjek('projektsag: værelsestallet er kildens 2', pSag.rooms === 2, String(pSag.rooms))
+  tjek('projektsag: huslejen er uændret 14.300 kr.',
+    pSag.rentMonthly === 1430000, String(pSag.rentMonthly))
+  tjek('projektsag: aconto er null hos kilden og forbliver UKENDT',
+    pSag.utilitiesOther === undefined, String(pSag.utilitiesOther))
+  // Kilden oplyser ingen samlet indflytningspris, og vi laegger ikke
+  // delene sammen: en sum, vi selv havde regnet, ville se lige saa
+  // sikker ud som en oplyst.
+  tjek('projektsag: indflytningsprisen er IKKE regnet af delene',
+    pSag.moveInCost === undefined, String(pSag.moveInCost))
+
+  // Almindelig sag 1770021346 — leje 15.800, aconto 600, depositum
+  // 15.800, forudbetalt 15.800, 2 vaerelser.
+  const aSag = homeLaes(proeveFlad('1770021346-nuxt-minimal.json'),
+    gitterFor('1770021346'), 'https://home.dk/sag-1770021346/')
+  tjek('almindelig sag: depositum er kildens 15.800 kr. i øre',
+    aSag.deposit === 1580000, String(aSag.deposit))
+  tjek('almindelig sag: forudbetalt leje er kildens 15.800 kr. i øre',
+    aSag.prepaidRent === 1580000, String(aSag.prepaidRent))
+  tjek('almindelig sag: værelsestallet er kildens 2', aSag.rooms === 2, String(aSag.rooms))
+  tjek('almindelig sag: aconto er kildens 600 kr.',
+    aSag.utilitiesOther === 60000, String(aSag.utilitiesOther))
+  tjek('almindelig sag: indflytningsprisen er IKKE regnet af delene',
+    aSag.moveInCost === undefined, String(aSag.moveInCost))
+
+  // ── Syntetiske randtilfaelde — IKKE kildeobservationer ───────
+  // Det her er opdigtede payloads i home.dk's form, bygget til at proeve
+  // tre ting, de to hentede sager ikke daekker: et oplyst NUL, et helt
+  // fravaerende felt, og en nabosag med andre vaerdier. De maa aldrig
+  // omtales som en tredje maaling af kilden.
+  console.log('\n══ home.dk: nul, manglende felt og nabosag (syntetisk) ══')
+
+  // Oplyst nul: kilden siger 0 kr. Det er et UDSAGN og skal overleve som
+  // 0 — ikke smelte sammen med «ikke oplyst». Samme skel som aconto-
+  // reglen: «udlejer opkraever intet» og «udlejer oplyser intet» er to
+  // forskellige saetninger, og vi paastaar ikke den ene om den anden.
+  const NUL_FLAD: unknown[] = [
+    'meta',                                                    // 0
+    { id: 2, offer: 3, stats: 8 },                             // 1
+    'NUL1',                                                    // 2
+    { rentalSecurityDeposit: 4, rentalPricePrePaid: 6 },       // 3
+    { amount: 5 },                                             // 4
+    0,                                                         // 5  oplyst NUL
+    { amount: 7 },                                             // 6
+    0,                                                         // 7  oplyst NUL
+    { rooms: 9 },                                              // 8
+    0,                                                         // 9  oplyst NUL
+  ]
+  const nulSag = homeLaes(NUL_FLAD, gitterFor('NUL1'), 'https://home.dk/x')
+  tjek('et oplyst nul bevares som 0 — ikke som ukendt',
+    nulSag.deposit === 0 && nulSag.prepaidRent === 0,
+    `${nulSag.deposit} / ${nulSag.prepaidRent}`)
+  tjek('… og det gælder også værelsestallet', nulSag.rooms === 0, String(nulSag.rooms))
+
+  // Manglende felter: sagen har hverken depositum, forudbetalt eller
+  // stats. Tre gange undefined — og ingen nuller opfundet undervejs.
+  const TOM_FLAD: unknown[] = [
+    'meta',                                                    // 0
+    { id: 2, offer: 3 },                                       // 1  intet stats
+    'TOM1',                                                    // 2
+    { rentalPricePerMonth: 4 },                                // 3  kun leje
+    { amount: 5 },                                             // 4
+    12000,                                                     // 5
+  ]
+  const tomSag = homeLaes(TOM_FLAD, gitterFor('TOM1'), 'https://home.dk/x')
+  tjek('manglende felter forbliver UKENDTE — ingen nuller opfindes',
+    tomSag.deposit === undefined && tomSag.prepaidRent === undefined
+    && tomSag.rooms === undefined,
+    `${tomSag.deposit} / ${tomSag.prepaidRent} / ${tomSag.rooms}`)
+  tjek('… men huslejen læses stadig', tomSag.rentMonthly === 1200000,
+    String(tomSag.rentMonthly))
+
+  // Nabosag med ANDRE vaerdier, lagt FOERST i den flade liste — samme
+  // faelde som ledigdatoen havde foer id-bindingen. Naboens depositum er
+  // 99.000 og sagens 42.900; en ubunden laesning ville tage naboens, og
+  // tallet ville se lige saa rigtigt ud som et rigtigt.
+  const NABO_FLAD: unknown[] = [
+    'meta',                                                    // 0
+    { id: 2, offer: 3, stats: 9 },                             // 1  NABOEN — foerst
+    'NABO9',                                                   // 2
+    { rentalSecurityDeposit: 4, rentalPricePrePaid: 6 },       // 3
+    { amount: 5 },                                             // 4
+    99000,                                                     // 5  naboens depositum
+    { amount: 7 },                                             // 6
+    88000,                                                     // 7  naboens forudbetalte
+    88,                                                        // 8
+    { rooms: 11 },                                             // 9
+    { id: 12, offer: 13, stats: 19 },                          // 10 SAGEN
+    7,                                                         // 11 naboens 7 vaerelser
+    'SAG9',                                                    // 12
+    { rentalSecurityDeposit: 14, rentalPricePrePaid: 16 },     // 13
+    { amount: 15 },                                            // 14
+    42900,                                                     // 15 sagens depositum
+    { amount: 17 },                                            // 16
+    14300,                                                     // 17 sagens forudbetalte
+    2,                                                         // 18 sagens 2 vaerelser
+    { rooms: 18 },                                             // 19
+  ]
+  const naboSag = homeLaes(NABO_FLAD, gitterFor('SAG9'), 'https://home.dk/x')
+  tjek('præmis: naboens sag står FØRST i den flade liste',
+    JSON.stringify(NABO_FLAD).indexOf('NABO9') < JSON.stringify(NABO_FLAD).indexOf('SAG9'))
+  tjek('depositum er SAGENS 42.900 — ikke naboens 99.000',
+    naboSag.deposit === 4290000, String(naboSag.deposit))
+  tjek('forudbetalt leje er SAGENS 14.300 — ikke naboens 88.000',
+    naboSag.prepaidRent === 1430000, String(naboSag.prepaidRent))
+  tjek('værelsestallet er SAGENS 2 — ikke naboens 7',
+    naboSag.rooms === 2, String(naboSag.rooms))
+
+  // ── Hele vejen gennem normaliseringen ────────────────────────
+  // Proeverne ovenfor stopper ved adapterens RawListing. Det er ikke nok
+  // til at sige, at felterne NAAR frem: `normaliser` er det lag, der
+  // oversaetter til raekken, og det er dér `?? null` kunne komme til at
+  // sluge et oplyst nul. Den her proever kaeden paa den RIGTIGE
+  // kildeproeve, saa paastanden om ende-til-ende har en roed linje bag sig.
+  const HJEM_VASK: VasketAdresse = {
+    street: 'Ørestads Boulevard', houseNumber: '34A', floor: '4', door: null,
+    postalCode: '2300', city: 'København S',
+    unitAddressUuid: crypto.randomUUID(), accessAddressUuid: null,
+    addressMatchLevel: 'unit', lat: null, lng: null,
+  }
+  const pNorm = await normaliser(pSag, HJEM_VASK)
+  tjek('normaliseret: værelser, depositum og forudbetalt når frem i øre',
+    pNorm.rooms === 2 && pNorm.deposit === 4290000 && pNorm.prepaidRent === 1430000,
+    `${pNorm.rooms} / ${pNorm.deposit} / ${pNorm.prepaidRent}`)
+  tjek('normaliseret: indflytningsprisen er STADIG ikke regnet af delene',
+    pNorm.moveInCost === null, String(pNorm.moveInCost))
+  // Projektsagen har ingen aconto, saa der er ingen total at vise. Vi
+  // gaetter ikke en total ud af huslejen alene.
+  tjek('normaliseret: uden aconto er der ingen total',
+    pNorm.totalMonthly === null, String(pNorm.totalMonthly))
+
+  // Et oplyst nul skal ogsaa overleve normaliseringen — `?? null` lader
+  // 0 passere, men det er praecis den slags, der stille kunne aendre sig.
+  const nulNorm = await normaliser(nulSag, HJEM_VASK)
+  tjek('normaliseret: et oplyst nul er stadig 0, ikke null',
+    nulNorm.deposit === 0 && nulNorm.prepaidRent === 0 && nulNorm.rooms === 0,
+    `${nulNorm.deposit} / ${nulNorm.prepaidRent} / ${nulNorm.rooms}`)
+  const tomNorm = await normaliser(tomSag, HJEM_VASK)
+  tjek('normaliseret: manglende felter er null, ikke 0',
+    tomNorm.deposit === null && tomNorm.prepaidRent === null && tomNorm.rooms === null,
+    `${tomNorm.deposit} / ${tomNorm.prepaidRent} / ${tomNorm.rooms}`)
 
   // ── UI læser DOMÆNET — aldrig legacy ─────────────────────────
   // Fixturerne er bygget så legacy og domæne SIGER NOGET FORSKELLIGT.
