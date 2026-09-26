@@ -821,9 +821,15 @@ der skal til for også at sikre filerne i storage-bucket'en.
 
 ## Dækker ét tilfælde mindre, end man tror
 
-Otte fælder med samme form: **et værn, der læses som udtømmende, og som
-ikke er det.** De fanger noget — og netop derfor ser de ud som om de
-fanger resten. Hver af dem har kostet mindst én omgang i dette repo.
+Ni fælder. De **otte første** har samme form: et værn, der læses som
+udtømmende, og som ikke er det. De fanger noget — og netop derfor ser de
+ud som om de fanger resten.
+
+Den **niende** står for sig, og den er værre: et værn, der måler **sig
+selv** i stedet for koden. De otte måler noget rigtigt, blot mindre; den
+niende måler ikke det, den handler om.
+
+Hver af dem har kostet mindst én omgang i dette repo.
 
 | Fælden | Hvad den IKKE dækker |
 |---|---|
@@ -835,6 +841,7 @@ fanger resten. Hver af dem har kostet mindst én omgang i dette repo.
 | en påstand om «ændringen» | …hvor det målte var en DELMÆNGDE af den. Filteret ligger her i sætningens subjekt, ikke i kommandoen. |
 | `FACILITETER` bundet til `Facilitetsord` | Fanger en forkert VÆRDI, ikke en manglende. `readonly X[]` må have enhver længde — også nul. Se nedenfor. |
 | en scanner forankret til linjestart (`^`) | Ser kun kopier, hvor nøglen står FØRST på linjen. En kopi med flere nøgler pr. linje slipper forbi — og det var netop den form, alle de fundne kopier havde. |
+| en prøve, der bygger sit eget forlæg | Dækker slet ikke koden. Isoleringsflagene lå i trinlisten i `scripts/import.ts`; prøven byggede sine egne trin med sine egne flag. Vendes hvert eneste flag i koden, er sættet fortsat grønt — prøven så aldrig på dem. |
 
 **Fire af dem er den samme fejl fire gange.** Ved `--include` kan filteret
 SES i kommandoen. Ved `git grep` over refs er der intet at se: kommandoen
@@ -848,6 +855,31 @@ finde kopier af boligtype-kortet; den var forankret til linjestart, og
 modprøven — læg en kopi ind, se scanneren blive rød — gav grønt, fordi
 kopien havde to nøgler på linjen. Da ankeret blev fjernet, kom der en
 kopi frem, ingen havde set: inline i `genererBeskrivelse`.
+
+**Den niende er den samme sygdom et lag længere ude.** Ved den ottende var
+værnet rigtigt monteret og bare for smalt. Ved den niende var værnet
+monteret på en kopi. Kørselsgrænserne bar hvert trins isoleringsflag i
+`scripts/import.ts`, og prøven byggede sine egne trin med sine egne flag.
+Den bekræftede, at mekanikken respekterer et flag — sandt og nyttigt — og
+læstes som om den havde bekræftet, at flagene var sat rigtigt. Målt:
+vendes hvert eneste flag, altså genindføres den fejl, der havde kostet fem
+døgn uden ét alarmvarsel, er hele sættet fortsat «ALT GRØNT».
+
+Modprøverne var samme fejl endnu et lag dybere. De kørte mod en
+`for`-løkke, der var defineret i prøvefilen og ikke rørte produktionskode,
+og målte dermed, at en løkke med bare `await` kaster — sandt uanset hvad
+der står i `lib/`. Da mekanikken blev lavet om til ikke at isolere noget,
+blev alle tre modprøver grønne. De fluebén, der var indført for at opfylde
+reglen «et flueben, der ikke kan blive rødt, er ingen prøve», var selv den
+slags.
+
+Rettelsen er repoets egen regel vendt mod prøven: **svarer to udtryk på
+det samme spørgsmål, skal de beregnes ét sted** — og en prøve er det ene
+af de to udtryk. Flagene skal ligge i én tabel, som BÅDE produktionen og
+prøven læser, og modprøven skal køre mod den rigtige mekanik med en ændret
+tabel. Sådan er det gjort i `lib/koersel.ts` (PR #19), og efter rettelsen
+gælder: ét vendt flag → 2 røde, alle flag vendt → 11, fjernet afhængighed
+→ 4. Rækken her står uafhængigt af den PR — fælden er formen, ikke filen.
 
 **Og den form er reglen, ikke undtagelsen.** Kortet står tre steder på
 main — `lib/normalize.ts`, `app/GemSoegning.tsx` og
@@ -876,6 +908,12 @@ Skriv, hvad der faktisk blev søgt igennem, og om hvad.
 **Et værn, hvis grønne resultat kan opstå af to grunde** — den ene er den,
 du ville måle, og den anden er tilfældet. Kan du ikke få det rødt ved at
 indføre fejlen med vilje, måler det ikke det, du tror.
+
+**Og indfør bruddet dér, hvor produktionen læser — ikke i prøvens eget
+forlæg.** Bygger prøven sin egen udgave af det, den handler om, når
+bruddet aldrig frem til det, der måles, og modprøven er grøn ved
+konstruktion. Spørg derfor, før du stoler på et flueben: læser prøven og
+koden det SAMME sted? Gør de ikke, prøver de hver sin ting.
 
 For et array, der navngiver medlemmerne af en union, er prøven konkret:
 tilføj et medlem til unionen UDEN at lægge det i arrayet. Bliver det ikke
