@@ -869,10 +869,12 @@ Hver af dem har kostet mindst én omgang i dette repo.
 | `git grep` over `refs/heads refs/remotes` | Ser kun de refs, der ER HENTET. En gren, ingen har fetchet, findes ikke for søgningen. |
 | en påstand om «ændringen» | …hvor det målte var en DELMÆNGDE af den. Filteret ligger her i sætningens subjekt, ikke i kommandoen. |
 | `FACILITETER` bundet til `Facilitetsord` | Fanger en forkert VÆRDI, ikke en manglende. `readonly X[]` må have enhver længde — også nul. Se nedenfor. |
-| en scanner forankret til linjestart (`^`) | Ser kun kopier, hvor nøglen står FØRST på linjen. En kopi med flere nøgler pr. linje slipper forbi — og det var netop den form, alle de fundne kopier havde. |
+| en scanner forankret til linjestart (`^`) | Ser kun kopier, hvor nøglen står FØRST på linjen. Alle seks kopier havde flere nøgler pr. linje, så scanneren meldte fire af seks — et tal, der ser ud som et svar. |
 | en prøve, der bygger sit eget forlæg | Dækker slet ikke koden. Isoleringsflagene lå i trinlisten i `scripts/import.ts`; prøven byggede sine egne trin med sine egne flag. Vendes hvert eneste flag i koden, er sættet fortsat grønt — prøven så aldrig på dem. |
+| en søgning på VÆRDIEN (`'Lejlighed'`) | Finder kun den ene af tre skrivemåder. Nøglen er ens i alle kopier; værdien er netop det, en drevet kopi har ændret. |
+| `??` og et sidste `else` | Dækker rigeligt — men falder mod det STÆRKESTE udsagn. Se nedenfor; det er en anden akse end de ti andre. |
 
-**Fire af dem er den samme fejl fire gange.** Ved `--include` kan filteret
+**Fem af dem er den samme fejl fem gange.** Ved `--include` kan filteret
 SES i kommandoen. Ved `git grep` over refs er der intet at se: kommandoen
 ligner en søgning over alle grene og søger i det, der tilfældigvis ligger
 lokalt. I den sjette ligger filteret i det, sætningen handler OM. Og i den
@@ -884,6 +886,48 @@ finde kopier af boligtype-kortet; den var forankret til linjestart, og
 modprøven — læg en kopi ind, se scanneren blive rød — gav grønt, fordi
 kopien havde to nøgler på linjen. Da ankeret blev fjernet, kom der en
 kopi frem, ingen havde set: inline i `genererBeskrivelse`.
+
+**Og tallet var fire af seks, ikke nul.** Rækken stod først med tre
+kopier og «ville have meldt nul». Målt: der var SEKS, og to af dem havde
+kun ét linjeindledende opslag hver, så en linjeforankret scanner passerer
+tærsklen på de fire øvrige. **Fire er farligere end nul.** Nul får dig til
+at kigge efter; fire ser ud som et svar. Rækken blev svagere af at stå
+med nul, for den handler netop om et værn, hvis resultat virker
+troværdigt.
+
+**Den tiende forklarer, hvorfor de to optællinger var tre og seks.** To
+gennemgange af den samme commit gav forskellige tal, og forskellen er
+målt, ikke gættet: `git grep -l "'Lejlighed'"` gav præcis tre filer,
+`git grep -l "lejlighed:"` gav seks. De tre var dem med stort
+forbogstav i VÆRDIEN; de tre andre skrev `'lejlighed'` med småt eller
+`'lejligheder'` i flertal. En søgning på værdien finder derfor kun den
+ene af tre skrivemåder, mens nøglen er den samme alle seks steder — og en
+kopi, der har drevet, har per definition drevet i værdien. Søg på det,
+der er ens, ikke på det, der varierer. Stemmer to målinger af det samme
+ikke, er det ikke en uenighed at afgøre, men et spørgsmål om, hvad de
+hver især dækkede.
+
+**Den ellevte er en anden akse, og den hører alligevel her.** De ti andre
+handler om et værn, der dækker for LIDT. Denne handler om, hvilken VEJ en
+fejl falder. Et `??` og et sidste `else` dækker altid — de tager enhver
+værdi — men de lander på den gren, der tilfældigvis stod til sidst, og i
+tre målte tilfælde var det det mest vidtgående udsagn på skærmen:
+
+| udsagnet | hvad det falder fra |
+|---|---|
+| «El indgår ikke — udlejer oplyser ikke hvordan» (`app/Boligkort.tsx`, sidste gren i `Ellinje`) | en femte `Eltilstand`. Netop den påstand, den fjerde tilstand blev indført for at fjerne: den må kun siges, når posterne ER udspecificerede. |
+| «Fra 9 kr.» | et `?? 'intro'` på et tilbud, der var `null`, fordi brugerrækken ikke kunne læses — altså et prisløfte bygget på VORES læsefejl. |
+| «Fornyes ikke» | et `??` på en dato, der manglede. Det stærkeste løfte, vi kan give om en kundes penge. |
+
+De to sidste ligger i betalingsarbejdet, som ikke er på `main` endnu, og
+står derfor uden stier. Den første kan slås op.
+
+Reglen er ikke «brug aldrig et `??`». Den er: **vælg den sidste gren
+bevidst, og lad den være den mest forsigtige.** Falder en ukendt værdi ned
+i «vi ved det ikke», koster den en unødig forsigtighed. Falder den ned i
+«el er ikke med» eller «fra 9 kr.», har vi sagt noget til et menneske, vi
+ikke havde dækning for. Er der ingen forsigtig gren at falde i, er det et
+tegn på, at oversættelsen skal være udtømmende i stedet.
 
 **Den niende er den samme sygdom et lag længere ude.** Ved den ottende var
 værnet rigtigt monteret og bare for smalt. Ved den niende var værnet
