@@ -13,10 +13,16 @@
 //  Det var ikke hygiejne: repraesentantvalget i dedup'en taeller billeder,
 //  og en udlejerannonce med samme adresse som en scrapet bolig kunne
 //  vinde valget med 21 kopier af én URL mod kildens 20 billeder — og
-//  skjule kildens annonce i soegningen, bag en aaben kontaktmur. Det,
-//  der lukker hullet, er at rangeringen taeller UNIKKE billeder (se
-//  `UNIKKE_BILLEDER` i lib/soeg.ts). Loftet og dublet-afvisningen her er,
-//  at vi ikke gemmer det, vi ikke vil vise.
+//  skjule kildens annonce i soegningen, bag en aaben kontaktmur.
+//
+//  ═══ LOFTET ER DEN EGENTLIGE GRAENSE ═══
+//
+//  Rangeringen taeller nu UNIKKE billeder (`UNIKKE_BILLEDER` i
+//  lib/soeg.ts), men «unik» er en byte-ens streng: `x.jpg#0` … `#19` er
+//  20 unikke, og dublet-tjekket nedenfor ser dem heller ikke. Det, der
+//  holder tallet nede, er loftet. Loeft det ikke i tillid til, at
+//  `distinct` beskytter — det goer det kun mod identiske kopier.
+//  Hullet er indsnaevret fra ubegraenset til 20, ikke lukket.
 //
 //  Maalt i produktionen 26. september 2026: én aktiv annonce har 31
 //  billeder. Den er fra foer loftet i browseren; udlejeren troede, der

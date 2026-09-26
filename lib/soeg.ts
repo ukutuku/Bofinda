@@ -99,13 +99,23 @@ export const VISBAR_VAERT = sql`substring(i.external_url from '^https?://([^/?#]
  * skrev «også hos <kilde>», og kontaktmuren er aaben for native. Det
  * kraevede ingen fremmed sti — kun udlejerens egen, lovlige URL, gentaget.
  *
- * Loftet og dublet-afvisningen paa serveren (lib/billedloft.ts) holder
- * nye dubletter ude. Det er DET HER, der lukker hullet: ogsaa raekker,
- * der kom ind foer — eller ad en vej, vi ikke kender — kan ikke puste
- * tallet op. `npm test` proever 21 kopier mod 20 unikke.
+ * `npm test` proever 21 kopier mod 20 unikke.
  *
- * Unik betyder samme URL-streng. Samme foto uploadet to gange faar to
- * stier og taeller to; det kan SQL ikke se.
+ * ═══ HVAD DISTINCT IKKE KAN — HULLET ER INDSNAEVRET, IKKE LUKKET ═══
+ *
+ * Unik betyder byte-ens URL-streng, og intet andet. Varianter af ÉN fil —
+ * `…/x.jpg#0` … `#19`, `?v=0` … `?v=19` — er 20 unikke. En URL, der slet
+ * ikke kan hentes, taeller ogsaa: `VISBAR_VAERT` ser kun paa vaerten.
+ * Samme foto uploadet igen faar en ny sti og taeller igen. Maalt i
+ * PGlite: 20 varianter af én URL slog en scrapet bolig med 19 rigtige
+ * billeder.
+ *
+ * Det, der begraenser angrebet, er LOFTET paa 20 i skrivevejen
+ * (lib/billedloft.ts) — foer var der intet loft. `distinct` fjerner kun
+ * de identiske kopier, og raekker over loftet, der ligger i basen fra
+ * foer, taeller fuldt med. En udlejerannonce kan stadig skjule en scrapet
+ * bolig med faerre end 20 billeder. At lukke det kraever en regel i
+ * rangeringen, ikke en bedre taelling; se CLAUDE.md.
  *
  * ═══ HVORFOR `${listings}.id` OG IKKE `${listings.id}` ═══
  *

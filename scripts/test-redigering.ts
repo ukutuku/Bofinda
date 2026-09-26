@@ -218,7 +218,9 @@ async function main() {
     /har 31 billeder.*plads til 20.*Fjern 11 billeder/.test(tjekBilleder(urler(31)) ?? ''),
     String(tjekBilleder(urler(31))))
   tjek('én dublet afvises', tjekBilleder([`${VIST_VAERT}/a.jpg`, `${VIST_VAERT}/a.jpg`]) !== null)
-  tjek('21 kopier afvises', tjekBilleder(Array(21).fill(`${VIST_VAERT}/a.jpg`)) !== null)
+  // Under loftet, saa det er dublet-reglen og ikke loftet, der afviser.
+  tjek(`${MAKS_BILLEDER} kopier afvises (dubletter under loftet)`,
+    tjekBilleder(Array(MAKS_BILLEDER).fill(`${VIST_VAERT}/a.jpg`)) !== null)
 
   // ── Byen udledes af postnummeret ─────────────────────────────
   // ── Ingen tabel maa staa aaben ───────────────────────────────
@@ -1613,6 +1615,16 @@ async function main() {
     const unikke = await maerkat()
     tjek('kontrol: 21 unikke SLÅR kildens 20', unikke.slags === 'udgivet', unikke.slags)
     tjek('kontrol: og hun står i søgningen', await iSoegningen())
+    // Vinderens tal skal OGSAA vaere unikke. Med 20 unikke hos rivalen
+    // giver raekker og unikke det samme, og saa kunne `repraesentantFor`
+    // taelle raekker, uden at nogen proeve saa det. Rivalen faar derfor 5
+    // kopier oven i sine 20: rangeringen og forklaringen skal begge sige 20.
+    await billederPaa(id, FULDT.billeder)
+    await billederPaa(rivalId, [...kildensTyve, ...Array(5).fill(kildensTyve[0]!)])
+    const medKopier = await maerkat()
+    tjek('vinderen med 5 kopier: forklaringen siger 20, ikke 25',
+      medKopier.slags === 'dublet' && medKopier.af.billeder === 20,
+      medKopier.slags === 'dublet' ? String(medKopier.af.billeder) : medKopier.slags)
     // Tilbage til de to billeder, resten af proeven regner med.
     await billederPaa(id, FULDT.billeder)
 
