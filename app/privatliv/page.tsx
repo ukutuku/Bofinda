@@ -79,8 +79,9 @@ export default function Side() {
       <ul>
         <li>
           Supabase (Irland) — database og fillager. Billeder, du uploader til
-          en annonce, gemmes i et privat lager hos Supabase og vises kun
-          gennem vores egen billedtjeneste.
+          en annonce, gemmes hos Supabase. Billedet vises via en signeret
+          adresse, som indgår i annoncens offentlige side og i dag er gyldig i
+          op til ti år; adressen giver kun adgang til det ene billede.
         </li>
         <li>Vercel Inc. — hosting af hjemmesiden, USA</li>
         <li>Railway Corp. — kørsel af boligimporten, USA</li>
@@ -249,8 +250,11 @@ export default function Side() {
         kontaktvej har ingen funktion.
       </p>
       <p>
-        Oplysningerne slettes, når du fjerner annoncen eller din konto. Du kan
-        til enhver tid rette dem under Mine annoncer.
+        Du kan til enhver tid rette oplysningerne under Mine annoncer. Når du
+        fjerner en annonce, skjules den fra søgningen, men oplysningerne og de
+        uploadede billeder slettes ikke automatisk i dag. Vil du have dem
+        slettet, kan du skrive til{' '}
+        <a href="mailto:info@bofinda.dk">info@bofinda.dk</a>.
       </p>
       <p>
         For boliger, vi henter fra andre portaler, viser vi ikke
