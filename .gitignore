@@ -1,4 +1,20 @@
-node_modules/
+# UDEN SKRÅSTREG, og det er ikke en smagssag.
+#
+# Her stod «node_modules/». Skråstregen betyder «kun en mappe med det
+# navn» — et SYMLINK med samme navn slipper forbi. Og symlinks er ikke
+# et særtilfælde her: hvert arbejdstræ får sin egen, der peger på
+# hovedtræets, så pakkerne ikke hentes ned én gang pr. gren.
+#
+# Følgen var, at node_modules stod som usporet i ethvert nyt
+# arbejdstræ, og et enkelt «git add -A» lagde den i versionsstyringen.
+# Det skete i abad7ae, hvor den måtte fjernes igen — og fælden har
+# siden kostet tre gange mere: hver gang en gren blev skåret, stod
+# «?? node_modules» i git status og skulle omgås ved at lægge filerne
+# i indekset ved NAVN i stedet for med -A.
+#
+# En omgåelse, der afhænger af at nogen husker den, er ikke en
+# spærring. Uden skråstreg dækker mønstret begge former.
+node_modules
 .next/
 .env
 .env.local
