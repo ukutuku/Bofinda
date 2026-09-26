@@ -900,7 +900,7 @@ var grøn i halvdelen af kørslerne med fejlen indført. Nu sættes id'erne
 eksplicit, så de peger den FORKERTE vej — prøven kan kun bestå, hvis
 reglen faktisk er der.
 
-**Samme familie som tre andre fælder i dette repo:**
+**Samme familie som fire andre fælder i dette repo:**
 
 | Fælden | Dækker ét tilfælde mindre, end man tror |
 |---|---|
@@ -908,6 +908,7 @@ reglen faktisk er der.
 | `splice(-1)` | Læses som «fra enden» og fjerner ÉN post — ikke resten. Se `lib/ingest.ts` og `adapters/heimstaden.ts`. |
 | gentagelsesprøve mod uafgjort `ORDER BY` | Beviser stabilitet i denne plan, ikke at leddet findes. |
 | `grep --include=*.ts` | Ser ikke `.mjs`, `.sql`, `.md`. Svarer rent på et smallere spørgsmål — og siger ikke selv, at det var smallere. |
+| `git grep` over `refs/heads refs/remotes` | Ser kun de refs, der ER HENTET. En gren, ingen har fetchet, findes ikke for søgningen. |
 
 Tegnet at holde øje med: **en kontrol, der ser rigtig ud, og hvis
 grønne resultat kan opstå af to grunde** — den ene er den, du ville
@@ -930,6 +931,22 @@ uanset om der ikke var noget, eller om man ikke kiggede. **Søg bredt
 først, indsnævr bagefter**, og skriv aldrig «hele repoet» i en
 begrundelse, hvis søgningen bar et `--include`, et `--type` eller en
 sti. Skriv, hvad der faktisk blev søgt igennem.
+
+**Og det gælder git lige så meget som filnavne.** Anden gang, samme
+form: Supply henviste til `TIL_LAASEGRUND` i `lib/adgang.ts`, og en
+søgning over `refs/heads` og `refs/remotes` fandt ingenting. Konklusionen
+blev meldt som «findes ikke i nogen gren». Den findes — på
+`claude/betaling-og-adgangskontrol`, som bare ikke var hentet endnu. Et
+`git fetch origin` bagefter, og den var der.
+
+`git grep` over refs søger kun i det, der ligger lokalt. **Refs er også
+et filter, og det er usynligt**, for der er ingen `--include` at se i
+kommandoen. Vil man udtale sig om «nogen gren», skal der et `git fetch`
+foran, og ellers skal sætningen lyde «i de grene, jeg har hentet».
+
+Bemærk hvad de to fælder har til fælles: begge gange var det ikke
+søgningen, der var forkert, men **påstanden om, hvad den havde dækket**.
+Det er den sætning, der skal være sand — ikke kommandoen.
 
 ### Rettighedskontrollen — hvorfor den findes
 
