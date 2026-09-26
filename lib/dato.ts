@@ -45,3 +45,36 @@ const FORMAT = new Intl.DateTimeFormat('en-CA', {
 export function kalenderdag(t: Date): IsoDate {
   return FORMAT.format(t) as IsoDate
 }
+
+/**
+ * Hvor laenge siden var det? Som en dansk saetning, der kan staa efter
+ * et udsagnsord: «annonceret for 3 timer siden», «set af os lige nu».
+ *
+ * `Date.now()` staar inde i funktionen. Availability-laget faar sit
+ * `referenceNow` udefra; det her er en visningsstreng ved siden af, og
+ * den maa ikke skifte betydning, fordi den flyttede fil.
+ *
+ * ── HVORFOR DEN LIGGER HER OG IKKE I EN SENERE SKIVE ─────────
+ *
+ * Funktionen hoerer oprindeligt til 25ded34, som er en del af
+ * kortudsagns-skiven (S6). app/beskeder/tid.ts og
+ * app/kontakt-ui/Annoncekort.tsx importerer den, og de er DENNE skive.
+ * Uden de elleve linjer her kan skiven ikke oversaettes, og saa var den
+ * ikke laengere fri — den ville skulle merges EFTER S6.
+ *
+ * Elleve linjer duplikeret er billigere end en raekkefoelgebinding
+ * mellem to skiver, der ellers ikke deler noget. Naar S6 lander,
+ * konflikter den her — og oploesningen er at beholde ÉN af dem,
+ * ikke at have to.
+ */
+export function siden(d: Date): string {
+  const min = Math.round((Date.now() - d.getTime()) / 60000)
+  if (min < 1) return 'lige nu'
+  if (min < 60) return `for ${min} min. siden`
+  const t = Math.round(min / 60)
+  if (t < 24) return `for ${t} ${t === 1 ? 'time' : 'timer'} siden`
+  const dg = Math.round(t / 24)
+  if (dg < 31) return `for ${dg} ${dg === 1 ? 'dag' : 'dage'} siden`
+  const m = Math.round(dg / 30)
+  return `for ${m} ${m === 1 ? 'måned' : 'måneder'} siden`
+}

@@ -1,0 +1,131 @@
+/* ═══════════════════════════════════════════════════════════════
+   Kontaktrejsens egen CSS.
+
+   LIGGER HER OG IKKE I app/globals.css. Samme valg som
+   app/beskeder/beskeder.css: globals.css er 3.577 linjer, som hver
+   eneste side betaler for, og rejsen er sit eget område. Next.js'
+   App Router tillader et stylesheet-import fra en hvilken som helst
+   komponent i `app/`; `Rejse.tsx` importerer den ét sted.
+
+   TOKENS ER DE FÆLLES. Farver, radier, skygger og mellemrum kommer fra
+   `:root` i globals.css. Et eget farvesæt her ville blive et andet
+   Bofinda ved første rettelse af mærkefarven.
+
+   PRÆFIKSET `kui-` følger husets skik: `kort-` på boligkortet, `fd-` i
+   filterdialogen, `bsk-` i beskedmodulet.
+
+   ⚠ DEN GLOBALE `button`-REGEL i globals.css giver HVER `<button>`
+   accentfarve, hvid tekst, `white-space: nowrap` og
+   `display: inline-block`. Den primære handling skal netop se sådan
+   ud, så den arves med vilje — men en handling, der skal bryde over
+   to linjer på 390 px, skal nulstille `nowrap`.
+   ═══════════════════════════════════════════════════════════════ */
+
+.kui-rejse { display: grid; gap: 16px; max-width: 640px; }
+
+/* ─── Annoncen ──────────────────────────────────────────────── */
+.kui-annonce {
+  background: var(--kort); border: 1px solid var(--linje);
+  border-radius: var(--r); box-shadow: var(--skygge-flad);
+  padding: 18px 20px;
+}
+.kui-annonce-hoved {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+.kui-annonce-titel { margin: 0; font-size: 17px; font-weight: 650; overflow-wrap: anywhere; }
+/* Kildemærket staar KUN paa en ekstern annonce. */
+.kui-kilde {
+  flex: 0 0 auto; font-size: 12px; font-weight: 600; color: var(--accent-mrk);
+  background: var(--accent-lys); border-radius: var(--r-pille); padding: 3px 10px;
+}
+.kui-adresse { margin: 4px 0 0; font-size: 14.5px; overflow-wrap: anywhere; }
+.kui-sted { color: var(--daempet); }
+.kui-annonce-fod { margin: 10px 0 0; font-size: 11.5px; color: var(--svag); line-height: 1.5; }
+
+/* ─── Panelet ───────────────────────────────────────────────── */
+.kui-panel {
+  background: var(--kort); border: 1px solid var(--linje);
+  border-radius: var(--r); box-shadow: var(--skygge-flad);
+  padding: 18px 20px 20px;
+  display: grid; gap: 10px; justify-items: start;
+}
+.kui-titel { margin: 0; font-size: 16px; font-weight: 650; overflow-wrap: anywhere; }
+.kui-tekst { margin: 0; font-size: 14px; color: var(--daempet); line-height: 1.55; }
+.kui-note { margin: 0; font-size: 12px; color: var(--svag); line-height: 1.5; }
+
+/* Prisen staar som ÉN saetning og brydes aldrig op. Se PRISFORLOEB. */
+.kui-pris {
+  margin: 0; font-size: 13.5px; font-weight: 560; color: var(--tekst);
+  background: var(--sand); border-radius: var(--r-s); padding: 9px 12px;
+  line-height: 1.5; justify-self: stretch;
+}
+
+/* Den PRIMÆRE handling. Én pr. panel, og den arver den globale
+   knapregels accentfarve. `nowrap` nulstilles: «Se annoncen hos
+   home.dk» skal kunne bryde paa 390 px i stedet for at skubbe
+   panelet bredere end skaermen. */
+.kui-handling {
+  margin-top: 2px; min-height: 44px; white-space: normal; text-align: center;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 10px 20px; max-width: 100%;
+}
+.kui-handling:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.kui-sekundaer {
+  min-height: 44px; display: inline-flex; align-items: center;
+  padding: 9px 16px; white-space: normal;
+}
+.kui-sekundaer:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.kui-kontakt {
+  justify-self: stretch; display: grid; gap: 8px; justify-items: start;
+  border-top: 1px solid var(--linje-svag); padding-top: 12px; margin-top: 2px;
+}
+.kui-linjefejl { margin: 0; font-size: 13px; color: var(--vaek); }
+
+/* ─── Låst og fejl ──────────────────────────────────────────── */
+.kui-laast { border-color: var(--linje); }
+/* Fejlen er DÆMPET med vilje. Den maa ikke ligne en betalingsmur, og
+   den maa ikke ligne noget, brugeren har gjort forkert. */
+.kui-fejl { background: var(--bg-dyb); }
+
+/* ─── Skelet ────────────────────────────────────────────────── */
+.kui-skelet { gap: 12px; }
+.kui-skeletlinje {
+  display: block; height: 12px; border-radius: var(--r-xs); background: var(--linje-svag);
+  animation: kui-puls 1.4s ease-in-out infinite;
+}
+.kui-skeletlinje.bred { width: 62%; }
+.kui-skeletlinje.mellem { width: 88%; }
+.kui-skeletlinje.knap { width: 160px; height: 40px; border-radius: var(--r-s); }
+@keyframes kui-puls { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .kui-skeletlinje { animation: none; } }
+
+/* ─── Beskedafsnittet ───────────────────────────────────────── */
+.kui-beskeder { display: grid; gap: 10px; }
+.kui-afsnitstitel { margin: 6px 0 0; font-size: 18px; font-weight: 650; }
+.kui-afsnitstitel:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--r-xs);
+}
+/* Beskedmodulet er bredere end rejsens spalte og skal have lov. Det er
+   en indbakke, ikke en boks. */
+.kui-beskeder .bsk-modul { max-width: none; }
+
+/* ─── 390 px ──────────────────────────────────────────────────
+   ⚠ 719 px er IKKE afledt af beskedmodulets grænse, selv om tallet er
+   det samme. Dér deler den to paneler op; her handler den om panelets
+   polstring og om, at den primære handling skal fylde bredden paa en
+   telefon. To selvstændige valg, der tilfældigvis rammer samme tal —
+   den ene kan ændres uden den anden. */
+@media (max-width: 719px) {
+  .kui-annonce, .kui-panel { padding-left: 15px; padding-right: 15px; }
+  /* Paa en telefon fylder den primære handling bredden. Den er det,
+     man kom for, og en 120 px knap midt i et panel er svaer at ramme. */
+  .kui-handling { justify-self: stretch; width: 100%; }
+}
+
+/* Rejsen staar i én spalte; beskedmodulet har sine egne to. Over
+   1080 px faar spalten lov at blive lidt bredere, saa lange adresser
+   og lange kildenavne ikke bryder unoedigt. */
+@media (min-width: 1080px) { .kui-rejse { max-width: 720px; } }
+.kui-rejse:has(.kui-beskeder) { max-width: none; }
