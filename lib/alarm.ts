@@ -280,6 +280,17 @@ const MINDST_MELLEM_MAILS_MIN = 60
  * spaerrer FOER fetch'et, naar noeglerne mangler, saa en proeve uden net
  * rammer den pæne vej og aldrig den, vi vil sikre. En graense, ingen har
  * set fejle, er ingen graense.
+ *
+ * KENDT BEGRAENSNING: saedet erstatter HELE `sendMail`, altsaa ogsaa de tre
+ * spaerringer i lib/mail.ts — herunder indkoeringsventilen
+ * `ALARM_TILLADTE_MODTAGERE`. Et saede, der svarer `{ sendt: true }`, faar
+ * derfor `sent_at` og `last_notified_at` sat paa en modtager, ventilen
+ * ville have afvist. Det kan ikke naa produktionen i dag: de eneste kaldere
+ * er scripts/test-koersel.ts, og `test:kerne` koerer hver proevefil i sin
+ * egen tsx-proces uden `--env-file`, saa `_sender` kan hverken overleve
+ * mellem filer eller moede en rigtig `RESEND_API_KEY`. Men beskyttelsen er
+ * omgivelsernes, ikke saedets. Skal den vaere saedets, skal saedet ligge
+ * UNDER `maaSendeTil` og kun erstatte transporten.
  */
 let _sender: typeof sendMail | null = null
 export function _saetSender(f: typeof sendMail | null) { _sender = f }
@@ -294,6 +305,8 @@ export interface SendResultat {
   antal: number
   sendt: boolean
   grund?: string
+  /** Se `MailResultat.fejl` i lib/mail.ts. Politik er ikke en fejl. */
+  fejl?: true
 }
 
 /**
@@ -388,24 +401,48 @@ Du får denne mail, fordi du har gemt en søgning på Bofinda.
     // afvejning, docstringen ovenfor beskriver — muligt dublet frem for
     // muligt tavst tab — og den bliver foerst unoedvendig med en
     // `Idempotency-Key` paa kaldet. Den er ikke bygget her.
+    // GRAENSE PR. MODTAGER. `sendMail` haandterer selv en spaerring og et
+    // 4xx/5xx-svar ved at returnere `{ sendt: false }` — men en
+    // TRANSPORTFEJL (timeout paa 20 s, reset, DNS, TLS) kaster, og kastet
+    // gik foer hele vejen ud gennem denne loekke og ud af scripts/import.ts.
+    // Ét netvaerksglip hos én modtager kostede altsaa resten af koeen.
+    //
+    // Ordet «afsendelse» og ikke «transport»: et kast her behoever ikke
+    // vaere transporten. Se lib/mail.ts, hvor et ulaeseligt svar paa et
+    // 200 nu regnes som SENDT — for det er det.
     let r: MailResultat
     try {
       r = await (_sender ?? sendMail)({ til: f.modtager, emne, tekst, html,
         afmeldUrl: afmeldPost, afmeldSideUrl: afmeldUrl })
     } catch (e) {
-      r = { sendt: false, grund: `transportfejl: ${besked(e)}` }
+      r = { sendt: false, fejl: true, grund: `afsendelse fejlede: ${besked(e)}` }
     }
     if (r.sendt) {
       // Først når mailen ER afsendt.
-      await db.update(alertMatches)
-        .set({ sentAt: sql`now()` })
-        .where(inArray(alertMatches.id, g.map((x) => x.matchId)))
-      await db.update(savedSearches)
-        .set({ lastNotifiedAt: sql`now()` })
-        .where(eq(savedSearches.id, f.soegningId))
+      //
+      // Bogfoeringen ligger INDE i graensen. Laa den udenfor — som i foerste
+      // udgave — kostede et databaseglip her stadig resten af koeen, og det
+      // er samme fejlklasse, graensen findes for. Mislykkes maerkningen, ER
+      // mailen sendt, og naeste koersel sender den IGEN: en garanteret
+      // dublet, ikke en mulig. Loggen skal sige praecis det, saa den, der
+      // laeser den, ved hvad der skete — og de oevrige modtagere skal
+      // stadig forsoeges.
+      try {
+        await db.update(alertMatches)
+          .set({ sentAt: sql`now()` })
+          .where(inArray(alertMatches.id, g.map((x) => x.matchId)))
+        await db.update(savedSearches)
+          .set({ lastNotifiedAt: sql`now()` })
+          .where(eq(savedSearches.id, f.soegningId))
+      } catch (e) {
+        ud.push({ soegning: navn, modtager: f.modtager, antal: g.length,
+          sendt: true, fejl: true,
+          grund: `sendt, men ikke maerket: ${besked(e)} — dublet naeste koersel` })
+        continue
+      }
     }
     ud.push({ soegning: navn, modtager: f.modtager, antal: g.length,
-      sendt: r.sendt, grund: r.grund })
+      sendt: r.sendt, grund: r.grund, ...(r.fejl ? { fejl: r.fejl } : {}) })
   }
   return ud
 }

@@ -2,10 +2,12 @@
 //   npm run import            alle RIGTIGE kilder
 //   npm run import -- dummy   én kilde; testkilder kun her
 //
-//  KOERSELSGRAENSERNE staar i lib/koersel.ts. Hvert trin herunder er
-//  markeret isoleret eller ikke, og begrundelsen staar ved trinet.
-//  Filen er med vilje tynd: orkestreringen er flyttet ud, saa den kan
-//  proeves — se scripts/test-koersel.ts.
+//  KOERSELSGRAENSERNE staar i lib/koersel.ts — baade mekanikken og
+//  TABELLERNE `GRAENSER` og `AFHAENGIGHEDER`. Flagene staar med vilje IKKE
+//  her: laa de i trinlisten nedenfor, kunne ingen proeve se dem, og hele
+//  proevesaettet blev groent, selv naar hvert eneste flag var vendt om.
+//  Begrundelsen for hvert flag staar ved tabellen; her staar kun, hvad
+//  trinet GOER.
 import { KILDER, findKilde, rigtigeKilder, tilladTestkilder } from '../adapters'
 import { koerAlle, formatResultat } from '../lib/scheduler'
 import { koerKilde, RUNNER } from '../lib/ingest'
@@ -21,17 +23,13 @@ const slug = process.argv[2]
 let valgte: typeof KILDER = []
 
 const trin: Trin[] = [
-  // UISOLERET med vilje. Uden kilderegistret er der intet at arbejde paa,
-  // og de foelgende trin ville arbejde paa et tomt grundlag. Men den skal
-  // fejle HOERBART: slutlinjen navngiver nu trinet, hvor der foer intet
-  // blev skrevet overhovedet.
+  // Kilderegistret og startlinjen.
   //
   // GRAENSEN FOR DENNE GRAENSE: et kast i modul-importerne ovenfor sker,
   // foer denne fil koerer, og kan ikke fanges herfra. Da er der stadig
   // ingen output — det er ikke daekket, og det skal ikke se daekket ud.
   {
     navn: 'opstart',
-    isoleret: false,
     koer: async () => {
       // Navngives en kilde udtrykkeligt, maa den vaere en testkilde. Ellers ikke.
       if (slug) tilladTestkilder()
@@ -51,60 +49,40 @@ const trin: Trin[] = [
     },
   },
 
-  // ISOLERET. En fejlet kilde giver faerre nye boliger, ikke forkerte
-  // match — trinnene efter er uafhaengige.
-  //
-  // `koerAlle` isolerer i forvejen hver kilde for sig (lib/scheduler.ts).
-  // Denne graense daekker resten: enkeltkilde-vejen nedenfor, som FOER
-  // stod helt ubeskyttet, saa `npm run import -- dummy` kunne vaelte hele
-  // koerslen paa et kast, `koerAlle` ville have fanget.
+  // Kilderne. `koerAlle` isolerer i forvejen hver kilde for sig
+  // (lib/scheduler.ts). Denne graense daekker resten: enkeltkilde-vejen
+  // nedenfor, som FOER stod helt ubeskyttet, saa `npm run import -- dummy`
+  // kunne vaelte hele koerslen paa et kast, `koerAlle` ville have fanget.
   {
     navn: 'kilder',
-    isoleret: true,
     koer: async () => {
       // Resultatet skrives, saa snart hver kilde er faerdig — ikke til sidst.
       if (slug) {
         const k = valgte[0]!
-        ud(formatResultat(await koerKilde(k.adapter, k.navn, { baseUrl: k.baseUrl })))
-      } else {
-        await koerAlle(valgte, (r) => ud(formatResultat(r)))
+        const r = await koerKilde(k.adapter, k.navn, { baseUrl: k.baseUrl })
+        ud(formatResultat(r))
+        if (r.status === 'failed') throw new Error(`kilden ${r.kilde} fejlede`)
+        return
+      }
+      const r = await koerAlle(valgte, (x) => ud(formatResultat(x)))
+      // RAPPORTÉR, naar intet lykkedes. `koerAlle` fanger pr. kilde, saa
+      // trinet kaster ellers ikke — og en koersel, hvor ingen kilde kom
+      // igennem, ville afslutte med «import afsluttet» og exitkode 0.
+      // `exitkode` kan kun se, om et trin kastede; derfor kaster vi.
+      if (r.length && r.every((x) => x.status === 'failed')) {
+        throw new Error(`alle ${r.length} kilder fejlede`)
       }
     },
   },
 
-  // ISOLERET. Ryd FOER matchning: en soegning, der skal slettes, skal ikke
-  // foerst samle traef op.
+  // Oprydning af brugerdata. Ryd FOER matchning: en soegning, der skal
+  // slettes, skal ikke foerst samle traef op.
   //
-  // UENIGHED, SKREVET UD. `ryd()` siger selv i lib/alarm.ts, at der med
-  // vilje ikke er try/catch om dens sletninger: kaster de, er der en
-  // relation, listen ikke kender, og saa «SKAL koerslen stoppe, indtil et
-  // menneske har set paa den». Det argument staar — men det blev skrevet,
-  // da et stop var TAVST. Det er det ikke laengere: et isoleret trins fejl
-  // giver `[oprydning] FEJLEDE: …`, slutlinjen «import afsluttet · fejl i:
-  // oprydning» og exitkode ≠ 0, paa hver eneste koersel. Den naeste
-  // manglende relation er altsaa ikke usynlig; den er navngivet hver time.
-  //
-  // Og skaden, isoleringen forhindrer, er maalt: fem doegn uden matchning
-  // og udsendelse. Skaden, den kunne risikere, er daekket andetsteds —
-  // afsendelsen har sine EGNE vaern uafhaengigt af `ryd()`:
-  // `isNotNull(confirmedAt)` i `ventende` og `matchAlarmer`, og
-  // `if (!f.paaMail || f.afmeldt)` i `sendAlarmer`. En halvfaerdig `ryd()`
-  // kan derfor ikke sende mail til en afmeldt eller ubekraeftet modtager.
-  // Det, der bliver tilbage, er retentionsgaeld — ikke en forkert mail.
-  //
-  // Skal det alligevel vaere fail-stop, er det ÉT ord: `isoleret: false`.
-  // Graensen inde i `ryd()` selv er uaendret; den her er paa kaldstedet.
-  //
-  // Afhaengigheden er BLOED, og netop derfor er trinet isoleret. Fejler
-  // `ryd()`, samler en soegning, der burde vaere væk, traef i én cyklus
-  // mere — og de forsvinder med soegningen ved naeste gennemfoerte `ryd()`,
-  // fordi `alert_matches` cascader. Matchningen bliver altsaa let
-  // OVERINKLUDERENDE i én time. Det er ulige mindre skade end fem doegn
-  // uden matchning og udsendelse, som er hvad den ubeskyttede udgave
-  // faktisk kostede.
+  // UISOLERET — se begrundelsen ved `GRAENSER` i lib/koersel.ts. Kort: kun
+  // to af `ryd()`s tre sletninger er daekket af vaern i sendevejen; den
+  // tredje, 24-maaneders-loeftet, har intet andet vaern end `ryd()` selv.
   {
     navn: 'oprydning',
-    isoleret: true,
     koer: async () => {
       const r = await ryd()
       if (r.ubekraeftede || r.afmeldte || r.forgamle || r.foraeldreloese) {
@@ -114,18 +92,15 @@ const trin: Trin[] = [
     },
   },
 
-  // ISOLERET. Analytics-retention koerer med her, ikke i sin egen cron:
-  // timekoerslen findes allerede, og et expires_at-felt uden en faktisk
-  // sletteproces er ikke retention.
+  // Analytics-retention koerer med her, ikke i sin egen cron: timekoerslen
+  // findes allerede, og et expires_at-felt uden en faktisk sletteproces er
+  // ikke retention.
   //
   // Dagsaggregatet skrives FOERST — ellers ville de raekker, oprydningen
-  // lige har slettet, mangle i trenden for altid. Den indre raekkefoelge
-  // er altsaa HAARD, og de to hoerer inden for samme graense. Graensen er
-  // uaendret; den udtrykkes nu gennem koerTrin som de oevrige, saa der er
-  // ét graenselag og ikke to.
+  // lige har slettet, mangle i trenden for altid. Den indre raekkefoelge er
+  // altsaa HAARD, og de to hoerer inden for samme graense.
   {
     navn: 'maaling',
-    isoleret: true,
     koer: async () => {
       const opdateret = await opdaterDagsaggregat()
       const slettet = await ryddHaendelser()
@@ -135,12 +110,9 @@ const trin: Trin[] = [
     },
   },
 
-  // ISOLERET. Koeen kan holde raekker fra tidligere koersler, saa at sende
-  // uden at have matchet er strengt bedre end ingen af delene.
-  // Der SENDES ikke her — koeen fyldes kun.
+  // Matchningen fylder koeen. Der SENDES ikke her.
   {
     navn: 'match',
-    isoleret: true,
     koer: async () => {
       for (const a of await matchAlarmer()) {
         ud(`[alarm] ${a.soegning}: ${a.nyeTraef} nye træf`)
@@ -148,17 +120,29 @@ const trin: Trin[] = [
     },
   },
 
-  // ISOLERET. Afsendelsen spaerrer sig selv, hvis noeglerne mangler eller
-  // modtageren ikke staar paa listen — se lib/mail.ts. Og `sendAlarmer`
-  // isolerer desuden PR. MODTAGER indeni, saa ét transporttimeout ikke
-  // koster resten af koeen.
+  // Udsendelsen. Springes over, hvis `match` fejlede — se
+  // `AFHAENGIGHEDER` i lib/koersel.ts: en halvt fyldt koe ville blive sendt
+  // som om den var fuldstaendig.
+  //
+  // `sendAlarmer` isolerer desuden PR. MODTAGER indeni, saa ét glip ikke
+  // koster resten af koeen — afsendelsen OG bogfoeringen.
   {
     navn: 'mail',
-    isoleret: true,
     koer: async () => {
-      for (const r of await sendAlarmer()) {
-        ud(`[mail] ${r.soegning} → ${r.modtager}: ${r.antal} boliger — `
-          + (r.sendt ? 'SENDT' : `ikke sendt (${r.grund})`))
+      const r = await sendAlarmer()
+      for (const x of r) {
+        ud(`[mail] ${x.soegning} → ${x.modtager}: ${x.antal} boliger — `
+          + (x.sendt ? 'SENDT' : `ikke sendt (${x.grund})`))
+      }
+      // RAPPORTÉR, naar en afsendelse gik galt. Graensen pr. modtager
+      // oversaetter et kast til et resultat, saa trinet kaster ellers ikke,
+      // og en koersel hvor INGEN fik mail ville give exitkode 0. `fejl` er
+      // sat af lib/mail.ts og kun ved fejl — en afvist modtager, en
+      // manglende noegle og 60-minutters-uret er politik, ikke fejl.
+      const daarlige = r.filter((x) => x.fejl)
+      if (daarlige.length) {
+        throw new Error(`${daarlige.length} af ${r.length} mails gik galt: `
+          + daarlige.map((x) => `${x.modtager} (${x.grund})`).join(' · '))
       }
     },
   },
@@ -185,7 +169,7 @@ try {
 // «afbrudt», ikke en garanti.
 //
 // MAALT: `npm run import -- <ukendt kilde>` uden DATABASE_URL gjorde netop
-// det. `sql` er en lazy getter (db/client.ts:170), der bygger klienten ved
+// det. `sql` er en lazy getter (db/client.ts), der bygger klienten ved
 // adgang, saa `sql.end()` kastede — efter at afbrudt-linjen var skrevet.
 // Foer denne omgang laa `sql.end()` i oevrigt sidst i filen og blev
 // sprunget helt over, hver gang noget kastede.
