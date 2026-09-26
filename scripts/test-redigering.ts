@@ -84,6 +84,7 @@ import {
   mineBoliger, opdaterBolig, opretBolig, renTekst, somFormular, tjekAdresse,
   type Boliginput,
 } from '../lib/udlejer'
+import { MAKS_BILLEDER, tjekBilleder } from '../lib/billedloft'
 
 let fejl = 0
 const tjek = (navn: string, ok: boolean, note = '') => {
@@ -200,6 +201,22 @@ async function main() {
   tjek('tom dør går igennem', ok('', { doer: null }))
   tjek('dør - afvises', !ok('', { doer: '-' }))
   tjek('dør "for enden af gangen" afvises', !ok('', { doer: 'for enden af gangen' }))
+
+  // ── Billedlisten: loft og dubletter ──────────────────────────
+  // Loftet stod kun i browseren, og serveren gemte hvad som helst. Reglen
+  // bor i lib/billedloft.ts, saa formularen og serveren laeser det samme tal.
+  console.log('\n══ billedlisten: loft og dubletter ══')
+  const urler = (n: number, navn = 'b') =>
+    Array.from({ length: n }, (_, k) => `${VIST_VAERT}/${navn}${k}.jpg`)
+  tjek(`${MAKS_BILLEDER} unikke går igennem`, tjekBilleder(urler(MAKS_BILLEDER)) === null)
+  tjek('ingen billeder går igennem', tjekBilleder([]) === null)
+  tjek(`${MAKS_BILLEDER + 1} afvises`, tjekBilleder(urler(MAKS_BILLEDER + 1)) !== null)
+  // Det tal, der staar i produktionen i dag: én annonce har 31.
+  tjek('31 billeder: beskeden siger, hvor mange der skal væk',
+    /har 31 billeder.*plads til 20.*Fjern 11 billeder/.test(tjekBilleder(urler(31)) ?? ''),
+    String(tjekBilleder(urler(31))))
+  tjek('én dublet afvises', tjekBilleder([`${VIST_VAERT}/a.jpg`, `${VIST_VAERT}/a.jpg`]) !== null)
+  tjek('21 kopier afvises', tjekBilleder(Array(21).fill(`${VIST_VAERT}/a.jpg`)) !== null)
 
   // ── Byen udledes af postnummeret ─────────────────────────────
   // ── Ingen tabel maa staa aaben ───────────────────────────────
@@ -1304,12 +1321,95 @@ async function main() {
       usynligRival.slags === 'udgivet', usynligRival.slags)
     tjek('… og så er HUN i søgningen', await iSoegningen())
 
+    // ── 21 kopier af samme URL maa ikke slaa 20 unikke ───────────
+    // Rangeringen talte RAEKKER. Et skjult felt mere i formularen var nok
+    // til at gemme den samme URL 21 gange, og saa vandt udlejerannoncen
+    // over en scrapet bolig med 20 rigtige billeder paa samme adresse:
+    // kildens annonce forsvandt fra soegningen, og kontaktmuren er aaben
+    // for native. Hendes raekker saettes DIREKTE i basen, uden om
+    // formularen — rangeringen skal holde, uanset hvordan de kom ind.
+    console.log('\n══ 21 kopier af samme URL må ikke slå 20 unikke billeder ══')
+    const billederPaa = async (bolig: string, liste: string[]) => {
+      await db.delete(listingImages).where(eq(listingImages.listingId, bolig))
+      await db.insert(listingImages).values(
+        liste.map((externalUrl, position) => ({ listingId: bolig, externalUrl, position })))
+    }
+    const kildensTyve = Array.from({ length: 20 }, (_, n) => `${VIST_VAERT}/kilde${n}.jpg`)
+    await billederPaa(rivalId, kildensTyve)
+    await billederPaa(id, Array(21).fill(`${VIST_VAERT}/kopi.jpg`))
+    const kopier = await maerkat()
+    tjek('21 kopier: hun TABER til kildens 20 unikke',
+      kopier.slags === 'dublet' && kopier.af.id === rivalId, kopier.slags)
+    tjek('21 kopier: kildens annonce står i søgningen',
+      (await soeg({ postnr: FULDT.postnr }, 500)).some((b) => b.id === rivalId))
+    tjek('21 kopier: hendes gør ikke', !(await iSoegningen()))
+    // Forklaringen paa Mine annoncer skal sige de tal, rangeringen BRUGTE.
+    // Talte `mineBoliger` stadig raekker, stod der «20 mod dine 21» — og
+    // `grunden()` ville falde igennem til «de to står lige».
+    tjek('forklaringen: vinderen har 20',
+      kopier.slags === 'dublet' && kopier.af.billeder === 20,
+      kopier.slags === 'dublet' ? String(kopier.af.billeder) : kopier.slags)
+    const hendesTal = (await mineBoliger(udlejer)).find((b) => b.id === id)!.billeder
+    tjek('forklaringen: hun har 1, ikke 21', hendesTal === 1, String(hendesTal))
+
+    // Kontrollen. Taeller rangeringen stadig billeder? 21 UNIKKE skal slaa
+    // kildens 20. Uden den her kunne proeven ovenfor bestaa, fordi en
+    // udlejerannonce altid taber — og saa maalte den ikke distinct.
+    await billederPaa(id, Array.from({ length: 21 }, (_, n) => `${VIST_VAERT}/egen${n}.jpg`))
+    const unikke = await maerkat()
+    tjek('kontrol: 21 unikke SLÅR kildens 20', unikke.slags === 'udgivet', unikke.slags)
+    tjek('kontrol: og hun står i søgningen', await iSoegningen())
+    // Tilbage til de to billeder, resten af proeven regner med.
+    await billederPaa(id, FULDT.billeder)
+
     // Og tilbage igen, saa proeven ikke bare maaler at noget forsvandt.
     await db.delete(listingImages).where(eq(listingImages.listingId, rivalId))
     await db.delete(listings).where(eq(listings.id, rivalId))
     rivalId = ''
     tjek('uden dublet: mærkatet siger udgivet igen', (await maerkat()).slags === 'udgivet')
     tjek('uden dublet: og hun er i søgningen igen', await iSoegningen())
+
+    // ── Loftet og dubletterne haandhaeves paa SERVEREN ───────────
+    // Ikke kun i tjekBilleder: i selve skrivevejen, og FOER noget skrives.
+    // `opdaterBolig` sletter billedraekkerne, foer den indsaetter de nye —
+    // en afvisning bagefter ville have toemt annoncen.
+    console.log('\n══ loftet og dubletterne håndhæves på serveren ══')
+    const hendesBilleder = async () => JSON.stringify(
+      await db.select({ u: listingImages.externalUrl, p: listingImages.position })
+        .from(listingImages).where(eq(listingImages.listingId, id))
+        .orderBy(listingImages.position))
+    const afvisning = async (f: () => Promise<unknown>) => {
+      try { await f(); return null } catch (e) { return (e as Error).message }
+    }
+    const [raekken] = await db.select().from(listings).where(eq(listings.id, id))
+    const billederFoer = await hendesBilleder()
+    const somHun = somFormular(raekken!)
+    for (const [navn, liste, ord] of [
+      [`${MAKS_BILLEDER + 1} billeder`, urler(MAKS_BILLEDER + 1, 'over'), `plads til ${MAKS_BILLEDER}`],
+      ['en dublet', [`${VIST_VAERT}/d.jpg`, `${VIST_VAERT}/d.jpg`], 'flere gange'],
+    ] as const) {
+      const m = await afvisning(() => opdaterBolig(udlejer, id, { ...somHun, billeder: [...liste] }))
+      tjek(`opdatér med ${navn}: afvist med en forklaring`, !!m && m.includes(ord), String(m))
+      tjek(`opdatér med ${navn}: billederne er urørte`, (await hendesBilleder()) === billederFoer)
+      const [efter] = await db.select().from(listings).where(eq(listings.id, id))
+      tjek(`opdatér med ${navn}: rækken er urørt`, ens(raekken, efter))
+    }
+    const mineAntal = async () => (await mineBoliger(udlejer)).length
+    const antalFoer = await mineAntal()
+    for (const [navn, liste] of [
+      [`${MAKS_BILLEDER + 1} billeder`, urler(MAKS_BILLEDER + 1, 'ny')],
+      ['en dublet', [`${VIST_VAERT}/d.jpg`, `${VIST_VAERT}/d.jpg`]],
+    ] as const) {
+      const m = await afvisning(() => opretBolig(udlejer, { ...FULDT, billeder: [...liste] }))
+      tjek(`opret med ${navn}: afvist`, m != null, String(m))
+      tjek(`opret med ${navn}: ingen annonce oprettet`, (await mineAntal()) === antalFoer)
+    }
+    // Modstykket: loftet selv skal kunne gemmes, ellers bestod proeven ved
+    // at afvise alt.
+    await opdaterBolig(udlejer, id, { ...somHun, billeder: urler(MAKS_BILLEDER, 'loft') })
+    tjek(`opdatér med præcis ${MAKS_BILLEDER}: gemt`,
+      JSON.parse(await hendesBilleder()).length === MAKS_BILLEDER)
+    await opdaterBolig(udlejer, id, { ...somHun, billeder: FULDT.billeder })
 
     // ── Grundlaget under "Fuld økonomi kendt" ────────────────────
     // Tre grupper: fuld, kun samlet aconto, ingen total. De kommer alle

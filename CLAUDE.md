@@ -253,6 +253,25 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   · **Alt der viser eller TÆLLER en liste skal gennem `udenDubletter`** —
   også områdesidernes statistik. Tæller brødteksten andet end listen under
   den, er den ene forkert.
+  · **Billederne tælles UNIKT i rangeringen — og ét sted:
+  `UNIKKE_BILLEDER` i `lib/soeg.ts`.** Rangeringen talte rækker, og loftet
+  på 20 stod kun i browseren. Så slog 21 kopier af udlejerens egen,
+  lovlige URL en scrapet bolig med 20 rigtige billeder på samme adresse:
+  kildens annonce forsvandt fra søgningen, kortet skrev «også hos
+  <kilde>», og kontaktmuren er åben for native. Der skulle ingen fremmed
+  sti til. Tallet bruges af rangeringen, af `repraesentantFor` (vinderens
+  tal) og af `mineBoliger` («dine N») — forklaringen skal sige det tal,
+  valget faldt på. Loftet og dublet-afvisningen på serveren
+  (`tjekBilleder` i `lib/billedloft.ts`, kaldt øverst i `opretBolig` og
+  `opdaterBolig`, FØR der skrives) er hygiejne; det er `distinct`, der
+  lukker hullet. `npm test` prøver 21 kopier mod 20 unikke og bliver rød
+  uden `distinct`. Kortets eget billedtal tæller stadig rækker, for det er
+  dem, galleriet viser.
+  · **Skriv `${listings}.id`, ikke `${listings.id}`, i et sql-felt i en
+  select uden join.** Drizzle skriver kolonnen om til et bart `"id"`
+  (`isSingleTable`), og i en underforespørgsel binder det til den INDERSTE
+  tabel. `mineBoliger`s billedtal var derfor altid 0, og Mine annoncer
+  skrev «flere billeder — 4 mod dine 0» til en udlejer med fire.
   · Kortet navngiver alle kilderne. På et gruppekort kun når det gælder
   HELE gruppen: repræsentanten må ikke tale for de andre.
   · `hvor()` er urørt. Alarmen matcher stadig på de enkelte rækker.
