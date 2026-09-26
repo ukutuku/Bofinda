@@ -168,8 +168,17 @@ huskes ikke, og rollen er usikker.
 | **Dato** | Ikke oplyst. Skrevet ned 2026-09-26. |
 | **Form** | Telefon. Ejerens gengivelse efter hukommelsen. Ingen skriftlig dokumentation. Om samtalen er optaget: ikke oplyst. |
 
-**Tekniske facts — målt, ikke fra samtalen.** Tilføjes, når bot-testen og
-kvalitetsmålingen er kørt.
+**Tekniske facts — målt 26. september 2026, ikke fra samtalen.**
+
+| | |
+|---|---|
+| **robots.txt** | `www.edc.dk/robots.txt`: `User-agent: *` · `Allow:/` · `Disallow:/umbraco` · `Disallow:/swagger` · `Sitemap: https://www.edc.dk/sitemap.xml`. Svarede 200 til `BofindaBot`. |
+| **Sitemap** | `sitemap.xml` er et indeks over 11 delkort. `sitemap-cases-1.xml` (2,6 MB) har 12.247 sager, hvoraf 425 ligger under `/leje/`: 390 lejligheder, 31 rækkehuse og 4 villaer, alle med 8-cifret sagsnummer. Den 7. september var der 374. Begge filer svarede 200 til `BofindaBot`. |
+| **Bot-test** | 2026-09-26 kl. 06:16:44 UTC, ét kald med vores rigtige User-Agent (`BofindaBot/1.0 (+https://bofinda.dk/bot; kontakt@bofinda.dk)`) til `/leje/lejlighed/1264-koebenhavn-k/store-kongensgade-100-2-10/11810014/`: **403**, krop `Blocked by CHEQ. Code: 2`. Azure-reference `20260926T061644Z-16dd9bcdcdb9fhn8hC1DTT47fs00000005q0000000000g1v` — den kan EDC slå op. Samme udfald som 7. september. Der er ikke hentet flere sagssider, og User-Agent'en er ikke ændret. |
+| **Hvad svaret ikke siger** | Om CHEQ spærrer på User-Agent, på IP-adressen (kaldet kom fra et cloud-datacenter) eller på noget tredje. Tilladelsen løser det juridiske, ikke det tekniske: EDC skal selv lukke `BofindaBot` igennem i CHEQ, før sagssiderne kan hentes. |
+
+Kvalitetsmålingen af aconto, depositum, dato og status er **ikke kørt**. Den
+kræver sagssiderne.
 
 ## BoligPortal — ikke en kilde
 
