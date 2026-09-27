@@ -37,6 +37,11 @@ export default function Side() {
           de søgekriterier, du har valgt (postnummer, by, pris, værelser,
           areal, kilde)
         </li>
+        <li>
+          et navn til søgningen, så du kan kende den igen — det du selv
+          skriver i feltet, eller et, vi laver af kriterierne, hvis du lader
+          det stå tomt
+        </li>
         <li>tidspunktet for oprettelsen og for hver besked, vi sender</li>
       </ul>
       <p>
@@ -102,9 +107,11 @@ export default function Side() {
       </p>
       <p>
         <strong>Vi måler ikke, før du har sagt ja.</strong> Har du ikke
-        taget stilling, eller har du sagt nej, registrerer vi ingenting om
-        dit besøg — hverken med eller uden numre — og vi gemmer intet i din
-        browser.
+        taget stilling, eller har du sagt nej, registrerer vi ingen
+        besøgsstatistik — hverken med eller uden numre. Før du vælger,
+        gemmer vi ikke engang dit valg; siger du nej, husker vi selve
+        svaret i en nødvendig cookie, så vi ikke spørger igen ved hvert
+        besøg. Den indeholder kun dit valg.
       </p>
 
       <Valg />
@@ -151,9 +158,8 @@ export default function Side() {
       <p>
         Skriver du et bynavn, vi ikke kender, gemmer vi ikke det, du skrev —
         kun at søgningen gjaldt et sted, vi ikke kender. Vores leverandører
-        kan have din IP-adresse i deres egne driftslogs i kort tid, men vi
-        henter den ikke ind i vores statistik og bruger den ikke til at
-        genkende dig.
+        kan have din IP-adresse i deres egne driftslogs. Vi henter den ikke
+        ind i vores statistik og bruger den ikke til at genkende dig.
       </p>
 
       <h3>Genkendelse på tværs af besøg</h3>
