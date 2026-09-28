@@ -912,13 +912,18 @@ der skal til for også at sikre filerne i storage-bucket'en.
 
 ## Dækker ét tilfælde mindre, end man tror
 
-Ni fælder. De **otte første** har samme form: et værn, der læses som
+Elleve fælder. De **otte første** har samme form: et værn, der læses som
 udtømmende, og som ikke er det. De fanger noget — og netop derfor ser de
 ud som om de fanger resten.
 
 Den **niende** står for sig, og den er værre: et værn, der måler **sig
 selv** i stedet for koden. De otte måler noget rigtigt, blot mindre; den
 niende måler ikke det, den handler om.
+
+Den **tiende** er den niendes slægtning: prøven ser på den rigtige kode,
+men kun på den fil, teksten står i — ikke på det modul, teksten lover
+noget om. Den **ellevte** er slet ikke et værn, men en note, der læses som
+et: en fejl, der er skrevet ned, ligner en fejl, der er håndteret.
 
 Hver af dem har kostet mindst én omgang i dette repo.
 
@@ -933,6 +938,8 @@ Hver af dem har kostet mindst én omgang i dette repo.
 | `FACILITETER` bundet til `Facilitetsord` | Fanger en forkert VÆRDI, ikke en manglende. `readonly X[]` må have enhver længde — også nul. Se nedenfor. |
 | en scanner forankret til linjestart (`^`) | Ser kun kopier, hvor nøglen står FØRST på linjen. En kopi med flere nøgler pr. linje slipper forbi — og det var netop den form, alle de fundne kopier havde. |
 | en prøve, der bygger sit eget forlæg | Dækker slet ikke koden. Isoleringsflagene lå i trinlisten i `scripts/import.ts`; prøven byggede sine egne trin med sine egne flag. Vendes hvert eneste flag i koden, er sættet fortsat grønt — prøven så aldrig på dem. |
+| brugervendt tekst i en ren fil, prøvet i `npm test` | Teksten, ikke løftet. Brugervendt tekst, der gør et udsagn om systemet, lægges i en ren fil uden database, så den kan prøves — det er rigtigt. Men en påstand om ET ANDET modul kan ikke prøves der: den skal have sin egen prøve, hvor modulet bor. «Den kan stadig åbnes på sit eget link» handler om `hentBolig`, og prøven af forklaringsfilen var grøn, også hvis linket gav 404. En ren fil gør teksten prøvbar og løftet uprøvbart, hvis man ikke passer på. |
+| en kendt fejl skrevet ned som «kendt følge» | Brugeren. En kendt usand brugervendt sætning er en fejl, ikke en følge. Den skal rettes, eller ændringen skal vente. At skrive den ned er ikke at have løst den — siden blev ved med at sige den, hver gang den blev vist. |
 
 **Fire af dem er den samme fejl fire gange.** Ved `--include` kan filteret
 SES i kommandoen. Ved `git grep` over refs er der intet at se: kommandoen
@@ -994,11 +1001,38 @@ Søg bredt først, indsnævr bagefter; og skriv aldrig «hele repoet» eller
 «nogen gren», hvis søgningen bar et `--include`, en sti eller et sæt refs.
 Skriv, hvad der faktisk blev søgt igennem, og om hvad.
 
+**Den tiende og den ellevte kom i samme omgang.** Forklaringen på Mine
+annoncer blev flyttet ud af siden til `app/udlejer/boliger/forklaring.ts`,
+en ren fil uden database, så `npm test` kunne gøre TEKSTEN rød. Det er det
+rigtige greb for brugervendt tekst, der udtaler sig om systemet, og det
+bliver stående. Men teksten lovede også to ting om andre moduler: at
+annoncen «kan stadig åbnes på sit eget link» (`hentBolig` og
+detaljeruten), og at den kan komme frem, når kilden tager boligen ned
+(`koerKilde`). Prøverne viste, at sætningerne blev PRODUCERET — ikke at
+linket VIRKEDE, eller at afmeldingen skete. Det greb, der gjorde teksten
+prøvbar, gjorde løftet uprøvbart dér. Løfterne prøves nu, hvor modulerne
+bor: `hentBolig` på en annonce, der er skjult bag kildens, og afmeldingen
+gennem den rigtige `koerKilde` — og modprøverne vender produktionskoden,
+ikke teksten.
+
+Samtidig stod to sætninger i CLAUDE.md som «kendte følger, ikke rettet»:
+linjen under et facilitetsfilter kunne sige «vises ikke» om en bolig,
+listen viste gennem udlejerens annonce, og kildens kort kunne skrive «også
+hos Bofinda» om en annonce, brugeren ikke kunne nå. Begge var usande over
+for den, der læste siden. At de stod skrevet ned, gjorde dem ikke sande —
+det viste bare, at vi vidste det. Samme regel som «privatlivspolitikken
+skal beskrive det, koden gør», og den gælder hver sætning på hver side:
+**teksten følger koden, eller ændringen venter.**
+
 ### Tegnet at holde øje med
 
 **Et værn, hvis grønne resultat kan opstå af to grunde** — den ene er den,
 du ville måle, og den anden er tilfældet. Kan du ikke få det rødt ved at
 indføre fejlen med vilje, måler det ikke det, du tror.
+
+**For tekst i en ren fil: spørg for hvert udsagn, hvilket modul det
+handler om.** Er det ikke filen selv, skal udsagnet have en prøve dér,
+hvor modulet bor — og modprøven skal bryde modulet, ikke teksten.
 
 **Og indfør bruddet dér, hvor produktionen læser — ikke i prøvens eget
 forlæg.** Bygger prøven sin egen udgave af det, den handler om, når
