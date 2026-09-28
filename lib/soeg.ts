@@ -6,7 +6,7 @@
 //  query'en — ikke i skabelonen.
 // ═══════════════════════════════════════════════════════════════
 
-import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, ne, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, ne, sql, type AnyColumn, type SQL } from 'drizzle-orm'
 import { db } from '../db/client'
 import { listingImages, listings, sources } from '../db/schema'
 import { FACILITET } from './faciliteter'
@@ -224,15 +224,32 @@ export function hvor(f: Filtre) {
 // ═══════════════════════════════════════════════════════════════
 
 /**
+ * Er raekken en udlejerannonce? Taget som funktion af kolonnen, fordi
+ * spoergsmaalet stilles baade om den ydre raekke (`UDLEJERANNONCE`) og om
+ * aliaset `l2` i `SAMME_BOLIG_ANDEN_KILDE` — og to skrivemaader af samme
+ * praedikat driver fra hinanden.
+ */
+const erUdlejerannonce = (kildetype: SQL | AnyColumn) => sql<boolean>`(${kildetype} = 'native')`
+
+/**
  * "l2 er den samme bolig som den ydre række, hos en anden kilde."
  *
  * Skrevet ud i stedet for at genbruge DEDUPNOEGLE, fordi den indre tabel
  * har sit eget alias og udtrykket ville binde til den forkerte. Betingelsen
  * SKAL matche nøglen nedenfor — samme to niveauer, samme husnummerkrav.
+ *
+ * Udlejerannoncer er IKKE en anden kilde her. Kortet skrev «også hos
+ * Bofinda» om kildens annonce, naar en udlejer havde samme bolig — men
+ * udlejerens annonce er netop den, reglen skjuler bag kildens (se
+ * `UDLEJERANNONCE`), saa brugeren kunne ikke naa den fra kortet. Et
+ * link dertil ville aabne den vej, reglen lukker. Omvendt staar kilden
+ * stadig paa udlejerens kort, naar hendes vises: kildens annonce findes
+ * og kan findes hos kilden.
  */
 const SAMME_BOLIG_ANDEN_KILDE = sql`(
   l2.status = 'active'
   and l2.source_id <> ${listings.sourceId}
+  and not ${erUdlejerannonce(sql`l2.source_type`)}
   and (
     (${listings.addressMatchLevel} = 'unit' and l2.address_match_level = 'unit'
       and l2.unit_address_uuid = ${listings.unitAddressUuid})
@@ -288,7 +305,7 @@ end`
  * Mellem to udlejerannoncer afgoer reglen intet, og saa vaelges der paa
  * billeder som foer. Se CLAUDE.md.
  */
-export const UDLEJERANNONCE = sql<boolean>`(${listings.sourceType} = 'native')`
+export const UDLEJERANNONCE = erUdlejerannonce(listings.sourceType)
 
 /**
  * Rækkerne der ikke blev repræsentant for deres bolig.
@@ -350,6 +367,50 @@ export function ikkeRepraesentant(grundlag: SQL | undefined) {
  */
 export const udenDubletter = (grundlag: SQL | undefined) =>
   and(grundlag, sql`not ${ikkeRepraesentant(grundlag)}`)
+
+/**
+ * Har BOLIGEN — ikke kun den raekke, der blev repraesentant — en raekke i
+ * `saet`? Det er praecis betingelsen for, at boligen staar i
+ * `udenDubletter(saet)`: rangeringen beholder én raekke pr. noegle. Uden
+ * noegle er raekken sin egen bolig.
+ *
+ * Til tal, der taeller én soegning og udtaler sig om en ANDEN. Grundlaget
+ * under facilitetsfiltrene taeller soegningen uden dem og siger, hvad et
+ * kryds goer. Men rangeringen regnes paa det filtrerede saet, saa et kryds
+ * kan goere en anden raekke for samme bolig til repraesentant: kildens
+ * annonce uden faciliteter vinder uden filter, og med «Elevator» er den ude
+ * og udlejerens med elevator vises. Talte linjen repraesentanten, stod
+ * boligen under «mangler oplysninger og vises ikke» — mens listen viste den.
+ * Det samme gaelder to kilder, hvor den ene oplyser faciliteter.
+ *
+ * Underforespoergslen er ukorreleret — den indre `from listings` skygger for
+ * den ydre, som i `ikkeRepraesentant` — saa Postgres regner den én gang og
+ * ikke pr. raekke.
+ */
+function boligenErI(saet: SQL | undefined) {
+  const s = saet ?? sql`true`
+  return sql<boolean>`(${s} or (${DEDUPNOEGLE} is not null and ${DEDUPNOEGLE} in (
+    select ${DEDUPNOEGLE} from ${listings}
+    inner join ${sources} on ${sources.id} = ${listings.sourceId}
+    where ${s} and ${DEDUPNOEGLE} is not null)))`
+}
+
+/**
+ * Grundlaget under facilitetsfiltrene, talt pr. BOLIG i soegningen `f`.
+ *
+ * «Nævner det» er de boliger, krydset VISER: `hvor` med filteret sat, altsaa
+ * praecis det praedikat, listen bruger. «Mangler oplysninger og vises ikke»
+ * er de boliger, hvor INGEN af raekkerne i soegningen oplyser faciliteter —
+ * dem kan intet kryds vise. Se `boligenErI`.
+ */
+function facilitetsgrundlagPrBolig(f: Filtre) {
+  return {
+    oplyst: boligenErI(and(hvor(f), OPLYST)),
+    kaeledyr: boligenErI(hvor({ ...f, kaeledyr: true })),
+    elevator: boligenErI(hvor({ ...f, elevator: true })),
+    udeplads: boligenErI(hvor({ ...f, udeplads: true })),
+  }
+}
 
 /** Den annonce vi viser i stedet for en, der tabte repraesentantvalget. */
 export interface Repraesentant {
@@ -1265,6 +1326,7 @@ export async function hentGruppe(n: Gruppenoegle, f?: Filtre) {
  */
 export async function opsummering(f: Filtre, referenceNow: Date = new Date()) {
   if (harDomaenefilter(f)) return opsummeringMedDomaene(f, referenceNow)
+  const fac = facilitetsgrundlagPrBolig(f)
   const [r] = await db
     .select({
       antal: sql<number>`count(*)::int`,
@@ -1273,16 +1335,16 @@ export async function opsummering(f: Filtre, referenceNow: Date = new Date()) {
       fuld: sql<number>`count(*) filter (where ${FULD})::int`,
       billigst: sql<number | null>`min(${PRIS})`,
       dyrest: sql<number | null>`max(${PRIS})`,
-      // Grundlaget under facilitetsfiltrene. Aggregaterne koster ingenting
-      // oveni den scanning, der alligevel sker — samme argument som for
-      // facetternes fire tal i én forespørgsel.
-      oplyser: sql<number>`count(*) filter (where ${OPLYST})::int`,
-      tier: sql<number>`count(*) filter (where not ${OPLYST})::int`,
+      // Grundlaget under facilitetsfiltrene, talt pr. BOLIG og ikke pr.
+      // repraesentant — se `facilitetsgrundlagPrBolig`. Samme forespoergsel;
+      // underforespoergslerne regnes én gang hver.
+      oplyser: sql<number>`count(*) filter (where ${fac.oplyst})::int`,
+      tier: sql<number>`count(*) filter (where not ${fac.oplyst})::int`,
       // De samme prædikater som filtrene selv bruger. To definitioner ville
       // betyde, at tallet og filteret kunne sige hver sit.
-      kaeledyr: sql<number>`count(*) filter (where ${harFacilitet(FACILITET.kaeledyr)})::int`,
-      elevator: sql<number>`count(*) filter (where ${harFacilitet(FACILITET.elevator)})::int`,
-      udeplads: sql<number>`count(*) filter (where ${harFacilitet(FACILITET.udeplads)})::int`,
+      kaeledyr: sql<number>`count(*) filter (where ${fac.kaeledyr})::int`,
+      elevator: sql<number>`count(*) filter (where ${fac.elevator})::int`,
+      udeplads: sql<number>`count(*) filter (where ${fac.udeplads})::int`,
       // Boligtyperne, talt paa DENNE soegning. Se `boligtypegrundlag`
       // nedenfor for hvorfor de ikke maa komme fra `facetter()`.
       ...typeaggregater(),
@@ -1326,6 +1388,7 @@ export type Opsummering = Awaited<ReturnType<typeof opsummering>>
  * og saa ville filteret og tallet kunne sige hver sit.
  */
 async function opsummeringMedDomaene(f: Filtre, referenceNow: Date) {
+  const fac = facilitetsgrundlagPrBolig(f)
   const raekker = await db
     .select({
       kilde: sources.slug,
@@ -1334,10 +1397,10 @@ async function opsummeringMedDomaene(f: Filtre, referenceNow: Date) {
       harTotal: sql<boolean>`${listings.totalMonthly} is not null`,
       harIndflytning: sql<boolean>`${listings.moveInCost} is not null`,
       fuld: sql<boolean>`${FULD}`,
-      oplyst: sql<boolean>`${OPLYST}`,
-      kaeledyr: sql<boolean>`${harFacilitet(FACILITET.kaeledyr)}`,
-      elevator: sql<boolean>`${harFacilitet(FACILITET.elevator)}`,
-      udeplads: sql<boolean>`${harFacilitet(FACILITET.udeplads)}`,
+      oplyst: fac.oplyst,
+      kaeledyr: fac.kaeledyr,
+      elevator: fac.elevator,
+      udeplads: fac.udeplads,
       type: listings.propertyType,
     })
     .from(listings)
@@ -1379,7 +1442,9 @@ async function opsummeringMedDomaene(f: Filtre, referenceNow: Date) {
  *
  * "Oplyser" maales paa BOLIGEN, ikke paa kilden. En findbolig-annonce med en
  * tom facilitetsliste ved vi lige saa lidt om som en fra LokalBolig, der
- * aldrig sender nogen.
+ * aldrig sender nogen. Og boligen er ALLE dens annoncer i soegningen, ikke
+ * kun den, der blev repraesentant: et kryds kan vise en anden af dem. Se
+ * `boligenErI`.
  *
  * Det er `opsummering` paa den samme soegning UDEN de tre facilitetsfiltre —
  * ikke en ny forespoergsel med sin egen definition. Med filtrene paa ville
@@ -1461,12 +1526,18 @@ export interface Tavsekilder {
  * tavse kilder allerede vaek, og saa ville svaret altid vaere tomt.
  * Koeres kun naar et facilitetsfilter er sat, hvilket er den eneste gang
  * linjen vises.
+ *
+ * `antal` er de boliger derfra, filteret FAKTISK fjerner. Har en anden
+ * annonce for samme bolig — en udlejers, eller en kilde der oplyser
+ * faciliteter — det, krydset beder om, viser listen boligen gennem den, og
+ * saa er den ikke «ude». Se `boligenErI`. En tavs kilde, hvis boliger alle
+ * vises paa den maade, naevnes ikke: linjen ville sige «ude» om ingenting.
  */
 export async function tavseKilder(f: Filtre): Promise<Tavsekilder> {
   const r = await db
     .select({
       navn: sources.name,
-      antal: sql<number>`count(*)::int`,
+      antal: sql<number>`count(*) filter (where not ${boligenErI(hvor(f))})::int`,
       oplyser: sql<number>`count(*) filter (where ${OPLYST})::int`,
     })
     .from(listings)
@@ -1481,7 +1552,7 @@ export async function tavseKilder(f: Filtre): Promise<Tavsekilder> {
       ne(listings.sourceType, 'native'),
     ))
     .groupBy(sources.name)
-  const tavse = r.filter((x) => x.oplyser === 0)
+  const tavse = r.filter((x) => x.oplyser === 0 && x.antal > 0)
   return {
     navne: tavse.map((x) => x.navn).sort(),
     antal: tavse.reduce((a, x) => a + x.antal, 0),

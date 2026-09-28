@@ -104,7 +104,16 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   værelser og leje. Sandt er, at *flere billeder* ikke ændrer valget, og
   at etage og dør skiller to lejligheder i samme opgang. Heller ikke
   «altid» eller «uanset pris»: pris er ikke et trin, og rangeringen regnes
-  på det filtrerede sæt.
+  på det filtrerede sæt. Derfor står betingelsen i teksten: kildens annonce
+  vises frem for hendes «i hver søgning, den passer til», og overskriften er
+  «Vises ikke i søgninger, hvor en anden annonce for samme bolig også
+  passer» — ikke «Vises ikke i søgningen». Mærkatet siger «vises ikke
+  altid».
+  **Løfter om andre moduler prøves, hvor modulerne bor** — ikke i
+  forklaringsfilen. «Kan stadig åbnes på sit eget link» prøves mod
+  `hentBolig`, mens hun er skjult; «tager vi deres annonce ud af
+  søgningen» prøves gennem den rigtige `koerKilde`, der afmelder kildens
+  række. Begge i `scripts/test-redigering.ts`.
 - **En manglende oplysning skal være synlig, ikke fraværende.** Kender vi
   ikke totalen, skriver kortet "Udlejer oplyser ikke aconto — spørg om varme
   og vand." Vi kan ikke skelne "udlejer opkræver intet" fra "udlejer oplyser
@@ -137,10 +146,13 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 
   Når et facilitetsfilter er sat, står der desuden, hvilke kilder der
   forsvinder helt: *"Dacas, LokalBolig og findbolig.nu oplyser aldrig
-  faciliteter. Med et facilitetsfilter er alle 399 boliger derfra ude — også
+  faciliteter. Med et facilitetsfilter er 399 boliger derfra ude — også
   dem der har det, du søger."* Navnene beregnes af `tavseKilder` i
   `lib/soeg.ts`, ikke skrives ind, så linjen retter sig selv, hvis en kilde
-  skifter praksis. **Vores egen native-kilde tælles ikke med der:**
+  skifter praksis. Tallet er de boliger, filteret FAKTISK fjerner: vises en
+  af dem gennem en anden annonce for samme bolig — en udlejers, eller en
+  kilde der oplyser faciliteten — er den ikke ude og tælles ikke. Derfor
+  står der ikke «alle». **Vores egen native-kilde tælles ikke med der:**
   udlejerformularen spørger om faciliteter, så "oplyser aldrig" ville være
   faktuelt forkert om den — at én annonce ikke har krydset noget af, er ikke
   en datapraksis. De native tavse tælles stadig i "oplyser ingen".
@@ -167,6 +179,14 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   sat, er forespørgslen ordret den samme, og forsiden genbruger svaret i
   stedet for at spørge igen. Forsiden kører to forespørgsler pr. visning,
   og det tal har været dyrt at få ned.
+  **Tallene tælles pr. BOLIG, ikke pr. repræsentant** (`boligenErI` i
+  `lib/soeg.ts`). Rangeringen regnes på det filtrerede sæt, så et kryds kan
+  vise en anden annonce for samme bolig end den, der vinder uden filter.
+  Talte linjen repræsentanten, stod en bolig under «mangler oplysninger og
+  vises ikke», mens listen viste den gennem udlejerens annonce. «N nævner
+  det» er derfor præcis det antal, krydset viser, og `npm test`
+  sammenligner de to. Underforespørgslerne er ukorrelerede og regnes én
+  gang hver (hashed SubPlan), ikke pr. række.
 - **Prisetiketten hedder "til udlejer", ikke "i alt".** Tallet er husleje
   plus den aconto, kilden opkræver — alt hvad der betales til udlejeren.
   Det er sandt, uanset om el er oplyst. "I alt" var det ikke: el står
@@ -293,11 +313,13 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   · **Reglen følger det filtrerede sæt.** Passer kildens annonce ikke et
   pris-, facilitets- eller kildefilter, vises udlejerens for samme bolig.
   Den står da ikke *i stedet for* kildens — kildens er ikke med i den
-  søgning. To følger, der er kendte og ikke rettet: grundlagslinjen under
-  et facilitetsfilter tæller repræsentanten i den UFILTREREDE søgning, så
-  den kan sige «vises ikke» om en tavs kildes bolig, som listen viser via
-  udlejerens annonce; og kildens kort kan skrive «også hos Bofinda» om en
-  udlejerannonce, brugeren ikke kan nå fra kortet.
+  søgning. Valget er bevidst: hendes annonce bærer det, søgningen beder
+  om, og alternativet fjerner boligen fra en søgning, den hører til i.
+  **Teksterne følger valget, ikke omvendt.** Forklaringen på Mine annoncer
+  siger betingelsen; grundlagslinjen under facilitetsfiltrene og linjen om
+  tavse kilder tæller pr. bolig; og en udlejerannonce står aldrig under
+  «også hos». Her stod før to «kendte følger» — to usande sætninger til
+  brugerne, skrevet ned i stedet for rettet. Se «Dækker ét tilfælde mindre».
   · **Alt der viser eller TÆLLER en liste skal gennem `udenDubletter`** —
   også områdesidernes statistik. Tæller brødteksten andet end listen under
   den, er den ene forkert.
@@ -332,6 +354,12 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   skrev «flere billeder — 4 mod dine 0» til en udlejer med fire.
   · Kortet navngiver alle kilderne. På et gruppekort kun når det gælder
   HELE gruppen: repræsentanten må ikke tale for de andre.
+  · **En udlejerannonce står aldrig under «også hos».** Reglen skjuler den
+  bag kildens annonce, så brugeren kan ikke nå den fra kildens kort, og et
+  link ville åbne netop den vej, reglen lukker. Undtagelsen står i
+  `SAMME_BOLIG_ANDEN_KILDE` via `erUdlejerannonce` — samme udtryk som
+  `UDLEJERANNONCE`. Den anden vej er uændret: vises hendes, står kilden
+  på hendes kort.
   · `hvor()` er urørt. Alarmen matcher stadig på de enkelte rækker.
 - **Gruppering er en visning, aldrig et filter.** Ens boliger — samme kilde,
   postnummer, vejnavn og værelsestal — vises som ét kort med et link til de

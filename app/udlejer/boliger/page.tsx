@@ -48,8 +48,12 @@ export default async function Side() {
                     <span className={`maerkat ${
                       synlig.slags === 'udgivet' ? 'm-ny'
                       : synlig.slags === 'fjernet' ? 'm-vaek' : 'm-vent'}`}>
+                      {/* «vises ikke altid» og ikke «vises ikke» for en dublet:
+                          i en søgning, den anden annonce ikke passer til,
+                          vises hendes. Se `overskrift` i forklaring.ts. */}
                       {synlig.slags === 'udgivet' ? 'udgivet'
-                       : synlig.slags === 'fjernet' ? 'fjernet' : 'vises ikke'}
+                       : synlig.slags === 'fjernet' ? 'fjernet'
+                       : synlig.slags === 'dublet' ? 'vises ikke altid' : 'vises ikke'}
                     </span>
                   </div>
                 </div>
@@ -61,9 +65,8 @@ export default async function Side() {
                 {synlig.slags === 'dublet' && f && (
                   <div className="synlighed">
                     <p>
-                      <strong>Vises ikke i søgningen.</strong> Vi har fundet
-                      en anden annonce for den samme bolig og viser den i
-                      stedet: <a href={`/bolig/${synlig.af.id}`}>{synlig.af.adresse}</a>
+                      <strong>{f.overskrift}</strong> Den viser vi
+                      i stedet: <a href={`/bolig/${synlig.af.id}`}>{synlig.af.adresse}</a>
                       {/* Er vinderen selv en udlejerannonce, er «hos Bofinda»
                           maerkeligt for en, der staar paa Bofinda. Samme felt
                           som forklaringen — ikke en kopi af praedikatet. */}

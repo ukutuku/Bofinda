@@ -16,6 +16,13 @@
 import type { Repraesentant } from '../../../lib/soeg'
 
 export interface Forklaring {
+  /**
+   * Den fede indledning. Betinget, som rangeringen er: den regnes paa det
+   * FILTREREDE saet, saa i en soegning, den anden annonce ikke passer til,
+   * vises hendes. Her stod «Vises ikke i søgningen.» — ubetinget, lige over
+   * en forklaring, der sagde det modsatte.
+   */
+  overskrift: string
   /** Leddet efter «Den blev valgt, fordi …». */
   grund: string
   /** Hvad det betyder for hende, og hvad hun kan goere. */
@@ -37,31 +44,53 @@ export interface Forklaring {
  *     eller husleje, kan dedup-noeglen skifte, og paa access-niveau er
  *     «samme bolig» kun et gaet (samme opgang, areal, vaerelser og leje).
  *     Er det to forskellige lejligheder, er etage og doer vejen ud.
- *   · «kan blive vist igen» — ikke «bliver»: en anden udlejerannonce paa
- *     samme bolig kan stadig vinde paa billeder.
+ *   · «i hver søgning, den passer til» — rangeringen regnes paa det
+ *     filtrerede saet. Passer kildens annonce ikke et filter, er den ikke
+ *     med, og saa kan hendes blive vist. Uden betingelsen ville hun kunne
+ *     finde sin annonce i en soegning lige efter at have laest, at den
+ *     ikke vises.
+ *   · «tager vi deres annonce ud af søgningen, når vi opdager det» —
+ *     `koerKilde` afmelder en raekke, kilden ikke laengere viser, men kun
+ *     naar koerslen gaar gennem sikringen; ellers ved en senere koersel.
+ *     Derfor ikke «ved næste hentning».
+ *   · «kan din blive vist» og «kan din vises i stedet» — ikke «bliver»: en
+ *     anden udlejerannonce paa samme bolig kan stadig vinde paa billeder.
+ *
+ * ═══ HVAD EN REN FIL IKKE KAN PROEVE ═══
+ *
+ * Filen goer TEKSTEN proevbar. Men to udsagn her er loefter om andre
+ * moduler: «kan stadig åbnes på sit eget link» handler om `hentBolig` og
+ * detaljeruten, og «tager vi deres annonce ud af søgningen» om `koerKilde`.
+ * Dem kan en proeve af den her fil ikke se — den ville bestaa, ogsaa hvis
+ * linket gav 404. De proeves derfor dér, hvor modulerne bor, i
+ * scripts/test-redigering.ts. Se CLAUDE.md, «Dækker ét tilfælde mindre».
  */
 export function forklaring(
   min: { billeder: number; total: number | null }, af: Repraesentant,
 ): Forklaring {
+  const overskrift = 'Vises ikke i søgninger, hvor en anden annonce for samme bolig også passer.'
   if (!af.udlejerannonce) {
     return {
+      overskrift,
       grund: `den kommer fra ${af.kilde}`,
-      slutning: 'Vi viser hver bolig én gang, og står den også hos en af de sider, '
-        + 'vi henter boliger fra, viser vi den annonce frem for udlejerens egen. '
-        + 'Det gælder alle udlejere og er ikke en vurdering af din annonce, så '
-        + 'flere billeder ændrer ikke valget. Er det ikke den samme bolig, så tjek, '
-        + 'at adressen er rigtig — også etage og dør. Din annonce er ikke fjernet: '
-        + 'den kan stadig åbnes på sit eget link, og forsvinder boligen fra de '
-        + 'sider, vi henter fra, kan den blive vist igen.',
+      slutning: 'Vi viser hver bolig én gang. Står den også hos en af de sider, '
+        + 'vi henter boliger fra, viser vi den annonce frem for udlejerens egen i '
+        + 'hver søgning, den passer til — i en søgning, den ikke passer til, kan '
+        + 'din blive vist. Det gælder alle udlejere og er ikke en vurdering af din '
+        + 'annonce, så flere billeder ændrer ikke valget. Er det ikke den samme '
+        + 'bolig, så tjek, at adressen er rigtig — også etage og dør. Din annonce '
+        + 'er ikke fjernet: den kan stadig åbnes på sit eget link. Tages boligen '
+        + 'ned de steder, vi henter den fra, tager vi deres annonce ud af '
+        + 'søgningen, når vi opdager det — og så kan din vises i stedet.',
     }
   }
   const slutning = 'Din annonce er ikke fjernet: den kan stadig åbnes på sit eget '
     + 'link, og du kan rette den.'
   if (af.billeder > min.billeder) {
-    return { grund: `den viser flere billeder — ${af.billeder} mod dine ${min.billeder}`, slutning }
+    return { overskrift, grund: `den viser flere billeder — ${af.billeder} mod dine ${min.billeder}`, slutning }
   }
   if (af.harTotal && min.total == null) {
-    return { grund: 'den oplyser en samlet månedlig udgift, og det gør din ikke', slutning }
+    return { overskrift, grund: 'den oplyser en samlet månedlig udgift, og det gør din ikke', slutning }
   }
-  return { grund: 'de to står lige på billeder og oplysninger, og valget faldt på den anden', slutning }
+  return { overskrift, grund: 'de to står lige på billeder og oplysninger, og valget faldt på den anden', slutning }
 }

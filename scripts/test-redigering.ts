@@ -78,9 +78,10 @@ import { billedUrl, TILLADTE_VAERTER } from '../lib/billede'
 import { eltilstand } from '../lib/eloplysning'
 import type { Bolig, Filtre, Gruppe } from '../lib/soeg'
 import {
-  facilitetsgrundlag, hvor, NYHEDSDATO, oekonomigrundlag, opsummering, soeg,
+  facilitetsgrundlag, hentBolig, hvor, NYHEDSDATO, oekonomigrundlag, opsummering, soeg,
   soegGrupperet, tavseKilder, udenDubletter,
 } from '../lib/soeg'
+import { dedupNoegle } from '../lib/dedup'
 import { FACILITET } from '../lib/faciliteter'
 import {
   mineBoliger, opdaterBolig, opretBolig, renTekst, somFormular, tjekAdresse,
@@ -1399,43 +1400,57 @@ async function main() {
     // `antal - tier - har`, ville summen gå op per definition, og prøven
     // ville ikke kunne fejle. De tre grupper skal måles hver for sig og
     // tilsammen dække alle boliger.
-    const OPLYST = dsql`jsonb_array_length(coalesce(${listings.amenities}, '[]'::jsonb)) > 0`
-    const harSql = (navne: readonly string[]) => dsql`jsonb_exists_any(
-      coalesce(${listings.amenities}, '[]'::jsonb),
-      array[${dsql.join(navne.map((n) => dsql`${n}`), dsql`, `)}]::text[])`
+    //
+    // Og de tælles pr. BOLIG, ikke pr. repræsentant. Rangeringen regnes på
+    // det filtrerede sæt, så et kryds kan vise en ANDEN annonce for samme
+    // bolig end den, der vinder uden filter — og så var «vises ikke» usandt
+    // om en bolig, listen viste. Grupperingen sker her i JS med
+    // `dedupNoegle` fra lib/dedup.ts, ikke med `boligenErI` i lib/soeg.ts:
+    // prøven må ikke låne det udtryk, den prøver.
+    const raekkerIS = await db.select({
+      id: listings.id, amenities: listings.amenities,
+      addressMatchLevel: listings.addressMatchLevel,
+      unitAddressUuid: listings.unitAddressUuid,
+      accessAddressUuid: listings.accessAddressUuid,
+      sizeM2: listings.sizeM2, rooms: listings.rooms,
+      rentMonthly: listings.rentMonthly, houseNumber: listings.houseNumber,
+    }).from(listings).innerJoin(sources, eq(sources.id, listings.sourceId))
+      .where(hvor({}))
+    const boligerIS = new Map<string, typeof raekkerIS>()
+    for (const r of raekkerIS) {
+      const k = dedupNoegle(r) ?? `alene:${r.id}`
+      boligerIS.set(k, [...(boligerIS.get(k) ?? []), r])
+    }
+    const facListe = (r: (typeof raekkerIS)[number]) =>
+      Array.isArray(r.amenities) ? (r.amenities as string[]) : []
     for (const nøgle of ['kaeledyr', 'elevator', 'udeplads'] as const) {
-      const [m] = await db.select({
-        alle: dsql<number>`count(*)::int`,
-        har: dsql<number>`count(*) filter (where ${harSql(FACILITET[nøgle])})::int`,
-        uden: dsql<number>`count(*) filter (where ${OPLYST}
-          and not ${harSql(FACILITET[nøgle])})::int`,
-        tier: dsql<number>`count(*) filter (where not ${OPLYST})::int`,
-      }).from(listings).innerJoin(sources, eq(sources.id, listings.sourceId))
-        .where(udenDubletter(hvor({})))
-      const { alle, har, uden, tier } = m!
-      // To paastande, der foer stod i én linje og skjulte hinanden.
-      //
-      // DEN FOERSTE: at de tre praedikater deler saettet uden overlap og
-      // uden hul. Maales i SAMME forespoergsel, mod dens egen count(*).
-      // Ikke tautologisk: `uden` har sit eget praedikat (`OPLYST and not
-      // har`), ikke `alle - tier - har`. Overlapper to praedikater, eller
-      // opstaar der et hul, brister summen.
+      const harDen = (r: (typeof raekkerIS)[number]) =>
+        facListe(r).some((a) => (FACILITET[nøgle] as readonly string[]).includes(a))
+      const alleB = [...boligerIS.values()]
+      const alle = alleB.length
+      const har = alleB.filter((b) => b.some(harDen)).length
+      const uden = alleB.filter((b) =>
+        b.some((r) => facListe(r).length > 0) && !b.some(harDen)).length
+      const tier = alleB.filter((b) => b.every((r) => facListe(r).length === 0)).length
+      // DEN FOERSTE: at de tre grupper deler boligerne uden overlap og
+      // uden hul. `uden` har sit eget praedikat, ikke `alle - tier - har`:
+      // en bolig med faciliteten, men uden oplyste faciliteter, ville
+      // briste summen.
       tjek(`${nøgle}: de tre grupper dækker alle boliger`,
         har + uden + tier === alle,
         `${har} + ${uden} + ${tier} = ${har + uden + tier}, i alt ${alle}`)
-      // DEN ANDEN: at grundlaget beskriver netop DET saet. Foer stod den
-      // gemt inde i summen ovenfor — mod `g.antal` fra en anden
-      // forespoergsel — og saa var det eneste, der kunne gaa galt, netop
-      // det her. Nu staar det for sig, med sin egen fejlbesked.
+      // DEN ANDEN: at grundlaget beskriver netop DET saet — og at dedup'en i
+      // SQL og beskrivelsen i lib/dedup.ts grupperer ens.
       tjek(`${nøgle}: grundlaget beskriver samme sæt`, alle === g.antal,
         `${g.antal} mod ${alle}`)
       tjek(`${nøgle}: linjens tal er det målte`, har === g[nøgle], `${g[nøgle]} mod ${har}`)
-      // Navnet lovede foer mere end det maaler: det er ikke boligerne, der
-      // proeves, men at grundlagets `tier` er det samme tal, proeven selv
-      // taeller. Den KAN fejle — den binder lib/soeg.ts' `OPLYST` til
-      // proevens egen kopi — og den bliver staaende.
       tjek(`${nøgle}: grundlagets tavse er de målte tavse`, tier === g.tier,
         `${g.tier} mod ${tier}`)
+      // DEN TREDJE: «N nævner det» er de boliger, krydset VISER. Målt på
+      // listens egen vej — `opsummering` med filteret sat — ikke på grundlaget.
+      const vist = (await opsummering({ [nøgle]: true })).antal
+      tjek(`${nøgle}: «nævner det» er det antal, krydset viser`, vist === g[nøgle],
+        `${g[nøgle]} mod ${vist}`)
     }
 
     // ── Tællingen skal tælle VISBARE billeder ────────────────────
@@ -1599,6 +1614,30 @@ async function main() {
       !!regeltekst && regeltekst.slutning.includes('også etage og dør'))
     tjek('med dublet: hun er FAKTISK ude af søgningen', !(await iSoegningen()))
 
+    // ── Løftet «den kan stadig åbnes på sit eget link» ───────────
+    // Et udsagn om hentBolig og detaljeruten, ikke om forklaring.ts. Den
+    // rene fil kan vise, at TEKSTEN produceres — ikke at linket VIRKER.
+    // /bolig/[id] giver 404 på netop én betingelse: at hentBolig svarer
+    // null (app/bolig/[id]/page.tsx). Så det er hentBolig, der prøves, og
+    // mens hun er skjult bag kildens annonce.
+    const paaLink = await hentBolig(id)
+    tjek('med dublet: hendes annonce kan stadig åbnes på sit eget link',
+      paaLink?.id === id, String(paaLink?.id))
+
+    // ── «også hos» må ikke nævne en annonce, brugeren ikke kan nå ──
+    // Kildens kort skrev «også hos Bofinda» om hendes annonce — den, reglen
+    // netop skjuler. Fra kortet kunne brugeren ikke nå den.
+    const kildensKort = (await soeg({ postnr: FULDT.postnr }, 500)).find((b) => b.id === rivalId)
+    tjek('kildens kort nævner ikke udlejerannoncen under «også hos»',
+      !!kildensKort && kildensKort.ogsaaHos.length === 0, JSON.stringify(kildensKort?.ogsaaHos))
+    // Og på forsiden, som går gennem soegGrupperet. Gruppekortets
+    // `alleOgsaaAndetsteds` bygger på det samme SAMME_BOLIG_ANDEN_KILDE.
+    const kildensVisning = (await soegGrupperet({ postnr: FULDT.postnr }, 500)).visninger
+      .find((v) => v.slags === 'bolig' && v.bolig.id === rivalId)
+    tjek('heller ikke på forsidens kort',
+      kildensVisning?.slags === 'bolig' && kildensVisning.bolig.ogsaaHos.length === 0,
+      kildensVisning?.slags === 'bolig' ? JSON.stringify(kildensVisning.bolig.ogsaaHos) : 'ikke fundet')
+
     // Reglen er absolut. Hun faar 20 unikke billeder; kilden faar fire paa
     // en vaert, vi ikke kan vise — altsaa nul. Foer reglen vandt hun.
     await billederPaa(id, urler(20, 'hendes'))
@@ -1614,6 +1653,66 @@ async function main() {
       regel.slags === 'dublet' && regel.af.billeder === 0,
       regel.slags === 'dublet' ? String(regel.af.billeder) : regel.slags)
     await billederPaa(id, FULDT.billeder)
+
+    // ── Reglen følger det FILTREREDE sæt — og teksterne med den ──
+    // Rangeringen regnes på det filtrerede sæt. Passer kildens annonce ikke
+    // et filter, er den ikke med i den søgning, og så vises hendes. Det er
+    // valgt med vilje: hendes annonce bærer det, søgningen beder om, og
+    // alternativet fjerner boligen fra en søgning, den hører til i. Så er
+    // det teksterne, der skal følge: forklaringen på Mine annoncer, linjen
+    // under facilitetsfiltrene og linjen om tavse kilder.
+    console.log('\n══ reglen følger det filtrerede sæt ══')
+    const PROEVEKILDE = fremmed!.name
+    const fElev = { postnr: FULDT.postnr, elevator: true }
+    // Udgangspunktet: kildens annonce har samme faciliteter som hendes.
+    const grundFoer = await facilitetsgrundlag(fElev)
+    await db.update(listings).set({ amenities: [] }).where(eq(listings.id, rivalId))
+    const iElevator = await soeg(fElev, 500)
+    tjek('filter, kildens annonce passer ikke: hendes vises',
+      iElevator.some((b) => b.id === id))
+    tjek('filter, kildens annonce passer ikke: kildens gør ikke',
+      !iElevator.some((b) => b.id === rivalId))
+    tjek('uden filteret er det stadig kildens', (await vises(rivalId)) && !(await iSoegningen()))
+    // Forklaringen må derfor ikke sige det ubetinget. Hun kan læse den og
+    // derefter finde sin annonce i netop sådan en søgning.
+    const betinget = await maerkat()
+    const betingetTekst = betinget.slags === 'dublet'
+      ? forklaring((await mineBoliger(udlejer)).find((b) => b.id === id)!, betinget.af) : null
+    tjek('forklaringen: betingelsen står i sætningen om kildens annonce',
+      !!betingetTekst && betingetTekst.slutning.includes('frem for udlejerens egen i hver søgning, den passer til'),
+      String(betingetTekst?.slutning))
+    tjek('forklaringen: og i overskriften',
+      !!betingetTekst && betingetTekst.overskrift.includes('hvor en anden annonce for samme bolig også passer'),
+      String(betingetTekst?.overskrift))
+    // Hendes kort nævner kilden: kildens annonce findes og kan nås hos kilden.
+    // Kontrollen for prøven af kildens kort ovenfor — uden den kunne «også
+    // hos» være slået helt fra, og den var grøn.
+    const hendesKort = iElevator.find((b) => b.id === id)
+    tjek('hendes kort nævner kilden under «også hos»',
+      !!hendesKort && hendesKort.ogsaaHos.includes(PROEVEKILDE), JSON.stringify(hendesKort?.ogsaaHos))
+    // Grundlagslinjen under «Elevator»: boligen vises gennem hendes annonce,
+    // så den må hverken stå under «mangler oplysninger og vises ikke» eller
+    // mangle under «nævner det». Før talte linjen repræsentanten uden filter
+    // — kildens annonce uden faciliteter — og sagde «vises ikke».
+    const grundEfter = await facilitetsgrundlag(fElev)
+    tjek('grundlagslinjen: boligen står ikke under «vises ikke», når listen viser den',
+      grundEfter.tier === grundFoer.tier, `${grundEfter.tier} mod ${grundFoer.tier} før`)
+    tjek('grundlagslinjen: den står under «nævner det»',
+      grundEfter.elevator === grundFoer.elevator, `${grundEfter.elevator} mod ${grundFoer.elevator} før`)
+    const vistMedKryds = (await opsummering(fElev)).antal
+    tjek('grundlagslinjen: «nævner det» er det antal, krydset viser',
+      grundEfter.elevator === vistMedKryds, `${grundEfter.elevator} mod ${vistMedKryds}`)
+    // Linjen om tavse kilder: «… er N boliger derfra ude». Prøvekildens
+    // eneste bolig vises gennem hendes, så den er ikke ude.
+    const tkElevator = await tavseKilder(fElev)
+    tjek('tavse kilder: prøvekilden nævnes ikke — dens bolig vises gennem hendes',
+      !tkElevator.navne.includes(PROEVEKILDE), tkElevator.navne.join(', '))
+    // Modstykket: et kryds, hun heller ikke passer. Så ER boligen ude.
+    const tkKaeledyr = await tavseKilder({ postnr: FULDT.postnr, kaeledyr: true })
+    tjek('tavse kilder: med et kryds, hun heller ikke passer, nævnes den',
+      tkKaeledyr.navne.includes(PROEVEKILDE) && tkKaeledyr.antal >= 1,
+      `${tkKaeledyr.navne.join(', ')} · ${tkKaeledyr.antal}`)
+    await db.update(listings).set({ amenities: resten.amenities }).where(eq(listings.id, rivalId))
 
     // ── Mellem ligestillede: UNIKKE, VISBARE billeder ─────────────
     // Reglen skelner kun kilde fra udlejer. Taellingen skal derfor proeves
@@ -1724,6 +1823,56 @@ async function main() {
     await db.delete(listings).where(eq(listings.id, andenAnnonce!.id))
     tjek('to udlejere: uden den anden er hun udgivet igen', (await maerkat()).slags === 'udgivet')
 
+    // ── «Tages boligen ned …, tager vi deres annonce ud af søgningen» ──
+    // Et løfte om importen, ikke om forklaringen, så det prøves gennem den
+    // rigtige koerKilde: en kilde annoncerer hendes bolig og holder så op.
+    // Rækken skrives af importen, og status sættes ikke i hånden — ellers
+    // målte prøven sit eget forlæg og ikke afmeldingen. Kun i testbasen:
+    // en importkørsel mod produktionen er ikke en prøve.
+    if (!MOD_PRODUKTION) {
+      console.log('\n══ tager kilden boligen ned, kan hendes vises ══')
+      const [hun] = await db.select().from(listings).where(eq(listings.id, id))
+      const afmeldListe = new Set(['a1', 'a2'])
+      const afmeldUrl = (n: string) => `https://proeve-afmeld.invalid/${n}`
+      const afmeldAdapter: SourceAdapter = {
+        id: `proeve-afmeld-${Date.now()}`, sourceType: 'spider', host: 'proeve-afmeld.invalid',
+        async discover() {
+          return [...afmeldListe].map((n) => ({ externalKey: n, url: afmeldUrl(n) }))
+        },
+        async extract(url: string): Promise<RawListing> {
+          const n = url.split('/').pop()!
+          // a1 er hendes bolig, som en kilde ville skrive den. a2 er en anden
+          // bolig hos samme kilde, så den næste kørsel ikke er tom: en kilde,
+          // der pludselig finder under halvdelen af medianen, afmelder intet.
+          return n === 'a1'
+            ? {
+              externalKey: n, sourceUrl: url, address: hun!.addressRaw, imageUrls: [],
+              rentMonthly: hun!.rentMonthly ?? undefined,
+              sizeM2: hun!.sizeM2 ?? undefined, rooms: hun!.rooms ?? undefined,
+            }
+            : {
+              externalKey: n, sourceUrl: url, address: 'Fyldvej 3, 2300 København S',
+              imageUrls: [], rentMonthly: 800000,
+            }
+        },
+      }
+      const KILDENAVN = 'Prøve: afmelding'
+      await koerKilde(afmeldAdapter, KILDENAVN)
+      const [afmeldKilde] = await db.select().from(sources)
+        .where(eq(sources.slug, afmeldAdapter.id))
+      ekstra.kilder.push(afmeldKilde!.id)
+      const mens = await maerkat()
+      tjek('kilden annoncerer hendes bolig: kildens annonce vises i stedet',
+        mens.slags === 'dublet' && mens.af.kilde === KILDENAVN,
+        mens.slags === 'dublet' ? mens.af.kilde : mens.slags)
+      tjek('og hun kan stadig åbnes på sit eget link', (await hentBolig(id))?.id === id)
+      afmeldListe.delete('a1')
+      const efterNed = await koerKilde(afmeldAdapter, KILDENAVN)
+      tjek('kilden holder op: koerKilde afmelder dens annonce',
+        efterNed.afmeldte === 1, JSON.stringify(efterNed))
+      tjek('og så vises hendes', (await maerkat()).slags === 'udgivet' && (await iSoegningen()))
+    }
+
     // ── Loftet og dubletterne haandhaeves paa SERVEREN ───────────
     // Ikke kun i tjekBilleder: i selve skrivevejen, og FOER noget skrives.
     // `opdaterBolig` sletter billedraekkerne, foer den indsaetter de nye —
@@ -1801,7 +1950,9 @@ async function main() {
     // ALDRIG faciliteter, saa et kryds fjerner dem helt. Navnene beregnes,
     // saa linjen retter sig selv — men saa skal den ogsaa vaere sand.
     console.log('\n══ tavse kilder ══')
-    const tk = await tavseKilder({})
+    // Med et facilitetsfilter, som siden kalder den: linjen siger, hvad
+    // krydset fjerner, og uden et kryds fjerner det ingenting.
+    const tk = await tavseKilder({ elevator: true })
     await tjekProd('der findes tavse kilder at nævne',
       () => tk.navne.length > 0, () => tk.navne.join(', '))
     await tjekProd('de dækker et positivt antal boliger',
@@ -1816,7 +1967,7 @@ async function main() {
     const facFoer = (await db.select({ a: listings.amenities })
       .from(listings).where(eq(listings.id, id)))[0]!.a
     await db.update(listings).set({ amenities: [] }).where(eq(listings.id, id))
-    const tkTavs = await tavseKilder({})
+    const tkTavs = await tavseKilder({ elevator: true })
     await db.update(listings).set({ amenities: facFoer }).where(eq(listings.id, id))
     tjek('vores egen kilde nævnes ikke, heller ikke når den ER tavs',
       !tkTavs.navne.includes('Bofinda'), tkTavs.navne.join(', '))

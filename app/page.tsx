@@ -1097,10 +1097,12 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           /* Frafaldet er ikke jævnt fordelt. Tre kilder oplyser aldrig
              faciliteter, så et kryds fjerner dem HELT — filteret er også et
              kildefilter. Navnene beregnes, så linjen retter sig selv, hvis en
-             kilde skifter praksis. */
+             kilde skifter praksis. Ikke «alle N»: vises en af deres boliger
+             gennem en anden annonce, der oplyser faciliteten, er den ikke
+             ude, og så tælles den ikke — se `tavseKilder`. */
           <p className="prisnote advarsel">
             <strong>{sammenskriv(tavse.navne)}</strong> oplyser aldrig faciliteter.
-            {' '}Med et facilitetsfilter er alle {tavse.antal.toLocaleString('da-DK')}
+            {' '}Med et facilitetsfilter er {tavse.antal.toLocaleString('da-DK')}
             {' '}boliger derfra ude — også dem der har det, du søger.
           </p>
         )}
