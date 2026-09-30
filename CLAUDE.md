@@ -88,10 +88,40 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   annonce der vises i stedet, og hvorfor den vandt. Det er vores eget
   princip vendt indad: en udlejer, der tror hun er synlig, mens hun ikke er,
   er samme fejl som en total, der lader som om aconto er kendt.
-  Repræsentanten vælges stadig på billedantal — bureauannoncen med tyve
-  billeder er den bedre visning for den, der søger bolig. Løsningen er at
-  fortælle udlejeren det, ikke at lade hende vinde. Se `repraesentantFor`
-  i `lib/soeg.ts`; den bygger ikke sin egen rangering.
+  **En udlejerannonce vises aldrig i stedet for en scrapet annonce for
+  samme bolig** — det er første trin i rangeringen (`UDLEJERANNONCE` i
+  `lib/soeg.ts`), og det gælder uanset billeder. Løsningen er at fortælle
+  udlejeren det, ikke at lade hende vinde. Se `repraesentantFor` i
+  `lib/soeg.ts`; den bygger ikke sin egen rangering.
+  **Når reglen afgør valget, siger forklaringen reglen** — ikke «flere
+  billeder», heller ikke når kilden tilfældigvis har flest. Forklaringen
+  bor i `forklaring()` i `app/udlejer/boliger/forklaring.ts`, en ren fil,
+  så `npm test` kan prøve teksten — alle fire grene kaldes. Den læser
+  `af.udlejerannonce`, beregnet af det samme SQL-udtryk som rangeringen.
+  **Skriv aldrig «en rettelse ændrer ikke valget».** Det er falsk: retter
+  hun adresse, areal, værelser eller husleje, kan dedup-nøglen skifte, og
+  på access-niveau er «samme bolig» kun et gæt — samme opgang, areal,
+  værelser og leje. Sandt er, at *flere billeder* ikke ændrer valget, og
+  at etage og dør skiller to lejligheder i samme opgang. Heller ikke
+  «altid» eller «uanset pris»: pris er ikke et trin, og rangeringen regnes
+  på det filtrerede sæt. Derfor står betingelsen i teksten: kildens annonce
+  vises frem for hendes «i hver søgning, den passer til», og overskriften er
+  «Vises ikke i søgninger, hvor denne annonce for samme bolig også passer:»
+  efterfulgt af linket — ikke «Vises ikke i søgningen», og heller ikke
+  «…hvor en anden annonce…»: en anden udlejers annonce med færre billeder
+  taber til hende, og passer den og ikke kildens, KAN hendes vises —
+  ikke «vises»: falder kildens annonce på et domænefilter, er den stadig
+  repræsentant i SQL og fjernes først i JS, og så vises ingen af dem.
+  Mærkatet siger «vises ikke altid».
+  **Løfter om andre moduler prøves, hvor modulerne bor** — ikke i
+  forklaringsfilen. «Kan stadig åbnes på sit eget link» prøves mod
+  `hentBolig`, mens hun er skjult; «tager vi deres annonce ud af
+  søgningen» prøves gennem den rigtige `koerKilde`, der afmelder kildens
+  række; og «tjek, at adressen er rigtig — også etage og dør» gennem
+  `opdaterBolig`: med en dør (enhedsniveau) skal en anden etage eller dør
+  skille hende fra kildens annonce. Uden dør er hun på opgangsniveau, hvor
+  etagen ikke er i nøglen, og så er det døren, der skiller. Alle i
+  `scripts/test-redigering.ts`.
 - **En manglende oplysning skal være synlig, ikke fraværende.** Kender vi
   ikke totalen, skriver kortet "Udlejer oplyser ikke aconto — spørg om varme
   og vand." Vi kan ikke skelne "udlejer opkræver intet" fra "udlejer oplyser
@@ -124,10 +154,20 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 
   Når et facilitetsfilter er sat, står der desuden, hvilke kilder der
   forsvinder helt: *"Dacas, LokalBolig og findbolig.nu oplyser aldrig
-  faciliteter. Med et facilitetsfilter er alle 399 boliger derfra ude — også
+  faciliteter. Med et facilitetsfilter er 399 boliger derfra ude — også
   dem der har det, du søger."* Navnene beregnes af `tavseKilder` i
   `lib/soeg.ts`, ikke skrives ind, så linjen retter sig selv, hvis en kilde
-  skifter praksis. **Vores egen native-kilde tælles ikke med der:**
+  skifter praksis. Tallet er de boliger, filteret FAKTISK fjerner: vises en
+  af dem gennem en anden annonce for samme bolig — en udlejers, eller en
+  kilde der oplyser faciliteten — er den ikke ude og tælles ikke. Derfor
+  står der ikke «alle». Med et domænefilter (overtagelse, ansøgningsform,
+  markedsstatus) tælles i JS: «ude» er de boliger, der står på listen UDEN
+  kryds og ikke på listen MED, begge efter domænefilteret, som siden selv
+  regner dem. Før talte linjen også boliger, domænefilteret allerede havde
+  fjernet; og det er ikke nok at spørge, om en række har faciliteten, for
+  med krydset bliver den række repræsentant, og passer den ikke domænet,
+  forsvinder boligen alligevel. Det koster én forespørgsel mere, kun når
+  både et domænefilter og et facilitetsfilter er sat. **Vores egen native-kilde tælles ikke med der:**
   udlejerformularen spørger om faciliteter, så "oplyser aldrig" ville være
   faktuelt forkert om den — at én annonce ikke har krydset noget af, er ikke
   en datapraksis. De native tavse tælles stadig i "oplyser ingen".
@@ -136,9 +176,13 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   to: hvor mange der oplyser faciliteten, hvor mange der oplyser faciliteter
   uden den, og hvor mange der intet oplyser. Tallene skal gå op med det
   samlede antal — gør de ikke det, mangler brugeren en gruppe uden at kunne
-  se hvilken. `npm test` tæller de tre uafhængigt og sammenligner; en prøve,
-  der udleder mellemgruppen som resten, ville gå op per definition og aldrig
-  kunne fejle.
+  se hvilken. Siden regner midtergruppen som resten (`antal − tier −
+  faciliteten`), så linjen går op af sig selv. `npm test` tæller derfor de
+  tre grupper pr. bolig i JS, hver med sit eget prædikat, og sammenligner
+  hver af dem med grundlaget — også midtergruppen, som siden regner den.
+  En prøve, der i stedet lagde tre tal sammen og holdt summen op mod
+  totalen, ville gå op per definition og aldrig kunne fejle. Den stod der,
+  og den er fjernet.
 - **Et filter skal gøre rede for, hvad det udelader.** De tre
   facilitetsfiltre udelukker boliger, hvor faciliteterne er ukendte — det
   er det eneste ærlige, for vi ved ikke om de har elevator. Men så skal der
@@ -152,8 +196,25 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   under et filter, der lige havde skjult 435 boliger. `facilitetsgrundlag`
   i `lib/soeg.ts` er `opsummering` på netop det grundlag; er ingen af de tre
   sat, er forespørgslen ordret den samme, og forsiden genbruger svaret i
-  stedet for at spørge igen. Forsiden kører to forespørgsler pr. visning,
-  og det tal har været dyrt at få ned.
+  stedet for at spørge igen. Hver forespørgsel mere på forsiden koster, og
+  tallet har været dyrt at få ned — se de målte tal under «Sider med flere
+  forespørgsler».
+  **Tallene tælles pr. BOLIG, ikke pr. repræsentant** (`boligenErI` i
+  `lib/soeg.ts`). Rangeringen regnes på det filtrerede sæt, så et kryds kan
+  vise en anden annonce for samme bolig end den, der vinder uden filter.
+  Talte linjen repræsentanten, stod en bolig under «mangler oplysninger og
+  vises ikke», mens listen viste den gennem udlejerens annonce. «N nævner
+  det» er derfor præcis det antal, krydset viser, og `npm test`
+  sammenligner de to — **for krydset alene og uden domænefilter.**
+  Grundlaget fjerner alle tre facilitetsfiltre, så med to kryds tæller
+  hver linje sin facilitet for sig. Overtagelse, ansøgningsform
+  og markedsstatus afgøres i JS på repræsentanten, og `hvor()` kender dem
+  ikke. Har en boligs annoncer hver sin status, kan tallet derfor afvige
+  fra det, krydset viser. Ingen af linjens sætninger bliver usand af det:
+  boligen nævner faciliteten, og «vises ikke» står kun ved dem, der intet
+  oplyser. Et præcist tal kræver repræsentanten pr. kryds og pr. domæne og
+  er ikke bygget. Underforespørgslerne er ukorrelerede og regnes én gang
+  hver (hashed SubPlan), ikke pr. række.
 - **Prisetiketten hedder "til udlejer", ikke "i alt".** Tallet er husleje
   plus den aconto, kilden opkræver — alt hvad der betales til udlejeren.
   Det er sandt, uanset om el er oplyst. "I alt" var det ikke: el står
@@ -262,8 +323,37 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   · **Rangeringen regnes på det FILTREREDE sæt.** Ellers taber en søgning
   på "kilde: LokalBolig" de boliger, hvor Propstep blev repræsentant —
   boligen ville forsvinde helt i stedet for at stå én gang.
-  · Repræsentanten er den med flest billeder, så den med kendt total, så
-  den ældste række. Sidste led er der, så valget er stabilt mellem kørsler.
+  · Repræsentanten vælges i fire trin: **kildens annonce før udlejerens**,
+  så flest unikke visbare billeder, så kendt total før ukendt, og til
+  sidst den laveste `listings.id`. Det sidste led er IKKE en tidsorden —
+  `id` er en tilfældig UUID, så «den ældste række», som der stod her før,
+  var forkert. Leddet er der kun for at gøre valget stabilt mellem kørsler.
+  · **Hvert led er NULL-frit ved konstruktion**, ikke ved held. `desc`
+  sætter NULL først og `asc` sidst, og et NULL i første led ville flytte
+  en bolig uden at nogen prøve så det. `UDLEJERANNONCE` er derfor `is not
+  distinct from 'native'`, ikke `= 'native'` — `source_type` er NOT NULL
+  i dag, men det er kolonnens egenskab, ikke udtrykkets. Et nyt led skal
+  have samme egenskab; `npm test` giver udtrykket et NULL-input direkte.
+  · **Første trin er en regel, ikke en tælling.** Valget faldt før på
+  billedantal, og en udlejerannonce kunne skjule kildens annonce for samme
+  bolig ved at have flere billeder — bag en åben kontaktmur. En bedre
+  tælling kunne ikke lukke det (se nedenfor); reglen gør, uanset hvordan
+  billederne tælles. Mellem to udlejerannoncer afgør reglen intet, og så
+  vælges der på billeder. `npm test` prøver reglen mod en kilde med nul
+  visbare billeder, to udlejerannoncer mod hinanden, og tællingen mellem
+  to SCRAPEDE annoncer (på samme prøvekilde — rangeringen ser ikke på
+  kilden). Prøvede man tællingen mod en udlejerannonce, ville «21 kopier
+  taber» bestå af den forkerte grund.
+  · **Reglen følger det filtrerede sæt.** Passer kildens annonce ikke et
+  pris-, facilitets- eller kildefilter, vises udlejerens for samme bolig.
+  Den står da ikke *i stedet for* kildens — kildens er ikke med i den
+  søgning. Valget er bevidst: hendes annonce bærer det, søgningen beder
+  om, og alternativet fjerner boligen fra en søgning, den hører til i.
+  **Teksterne følger valget, ikke omvendt.** Forklaringen på Mine annoncer
+  siger betingelsen; grundlagslinjen under facilitetsfiltrene og linjen om
+  tavse kilder tæller pr. bolig; og en udlejerannonce står aldrig under
+  «også hos». Her stod før to «kendte følger» — to usande sætninger til
+  brugerne, skrevet ned i stedet for rettet. Se «Dækker ét tilfælde mindre».
   · **Alt der viser eller TÆLLER en liste skal gennem `udenDubletter`** —
   også områdesidernes statistik. Tæller brødteksten andet end listen under
   den, er den ene forkert.
@@ -280,17 +370,17 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   `opdaterBolig`, FØR der skrives). `npm test` prøver 21 kopier mod 20
   unikke og bliver rød uden `distinct`. Kortets eget billedtal tæller
   stadig rækker, for det er dem, galleriet viser.
-  · **Hullet er indsnævret, ikke lukket.** «Unik» er en byte-ens streng:
-  `x.jpg#0` … `#19` og `?v=0` … `?v=19` er 20 unikke billeder af én fil,
-  en URL der ikke kan hentes tæller også (`VISBAR_VAERT` ser kun på
-  værten), og samme foto uploadet igen får en ny sti. Målt i PGlite: 20
-  varianter af én URL slog en scrapet bolig med 19 rigtige billeder. Det
-  er **loftet på 20**, der begrænser angrebet — før var der intet — ikke
-  `distinct`. Løft aldrig loftet i tillid til, at tællingen beskytter.
-  Rækker over loftet fra før tæller fuldt med, til udlejeren gemmer igen
-  (e3649f23 har 31). Så længe repræsentanten vælges på billedantal, kan en
-  udlejerannonce skjule en scrapet bolig med færre end 20 billeder; at
-  lukke det kræver en regel i rangeringen, ikke en bedre tælling.
+  · **Tællingen kan snydes; derfor er første trin en regel.** «Unik» er en
+  byte-ens streng: `x.jpg#0` … `#19` og `?v=0` … `?v=19` er 20 unikke
+  billeder af én fil, en URL der ikke kan hentes tæller også
+  (`VISBAR_VAERT` ser kun på værten), og samme foto uploadet igen får en
+  ny sti. Målt i PGlite: 20 varianter af én URL slog en scrapet bolig med
+  19 rigtige billeder — før reglen. Mod kildens annonce betyder det intet
+  længere. **Mellem to udlejerannoncer** gælder det stadig: den ene kan
+  puste sig op og skjule den anden, og der er det **loftet på 20**, der
+  begrænser det, ikke `distinct`. Løft aldrig loftet i tillid til, at
+  tællingen beskytter. Rækker over loftet fra før tæller fuldt med, til
+  udlejeren gemmer igen (e3649f23 har 31).
   · **Skriv `${listings}.id`, ikke `${listings.id}`, i et sql-felt i en
   select uden join.** Drizzle skriver kolonnen om til et bart `"id"`
   (`isSingleTable`), og i en underforespørgsel binder det til den INDERSTE
@@ -298,6 +388,12 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   skrev «flere billeder — 4 mod dine 0» til en udlejer med fire.
   · Kortet navngiver alle kilderne. På et gruppekort kun når det gælder
   HELE gruppen: repræsentanten må ikke tale for de andre.
+  · **En udlejerannonce står aldrig under «også hos».** Reglen skjuler den
+  bag kildens annonce, så brugeren kan ikke nå den fra kildens kort, og et
+  link ville åbne netop den vej, reglen lukker. Undtagelsen står i
+  `SAMME_BOLIG_ANDEN_KILDE` via `erUdlejerannonce` — samme udtryk som
+  `UDLEJERANNONCE`. Den anden vej er uændret: vises hendes, står kilden
+  på hendes kort.
   · `hvor()` er urørt. Alarmen matcher stadig på de enkelte rækker.
 - **Gruppering er en visning, aldrig et filter.** Ens boliger — samme kilde,
   postnummer, vejnavn og værelsestal — vises som ét kort med et link til de
@@ -341,8 +437,17 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 - **Sider med flere forespørgsler kører dem efter hinanden, ikke i
   `Promise.all`.** Samtidige kæder bliver til pipelinede sætninger gennem
   Supavisor i transaction mode, og det var dét, der væltede ved den ottende
-  forespørgsel. Rækkefølgen koster ingenting nu, hvor `facetter()` og
-  `forsidetal()` er cachede: to forespørgsler pr. sidevisning mod otte før.
+  forespørgsel. Rækkefølgen koster noget — forespørgslerne venter på
+  hinanden — og det er prisen, der er valgt. Hvor meget den koster i tid,
+  er ikke målt; antallet er.
+  **Målt 30. september 2026** ved at kalde den rigtige `app/page.tsx` mod
+  testbasen og tælle forespørgslerne. Med varm cache er det 4 pr. visning
+  uden filtre: `soegGrupperet` 2, `availabilityGrundlag` 1 og `opsummering`
+  1. Med «fuld økonomi» er det 5, og med et facilitetsfilter 6
+  (`facilitetsgrundlag` og `tavseKilder`). Med kold cache kommer 5 mere oveni
+  (`facetter` 3, `forsidetal` 2). Main og PR #31 gav samme tal. Her stod
+  «to forespørgsler pr. sidevisning mod otte før» — det holdt ikke.
+  Med måling og samtykke kommer 1–2 INSERT i `haendelser` oveni, i `after()`.
 - **`facetter()` og `forsidetal()` caches i fem minutter** i `app/cache.ts`.
   De regnes på hele bestanden, og importen kører én gang i timen. Cachen
   ligger i app-laget og ikke i `lib/`: `next/cache` hører til webappen, og
@@ -850,13 +955,18 @@ der skal til for også at sikre filerne i storage-bucket'en.
 
 ## Dækker ét tilfælde mindre, end man tror
 
-Ni fælder. De **otte første** har samme form: et værn, der læses som
+Elleve fælder. De **otte første** har samme form: et værn, der læses som
 udtømmende, og som ikke er det. De fanger noget — og netop derfor ser de
 ud som om de fanger resten.
 
 Den **niende** står for sig, og den er værre: et værn, der måler **sig
 selv** i stedet for koden. De otte måler noget rigtigt, blot mindre; den
 niende måler ikke det, den handler om.
+
+Den **tiende** er den niendes slægtning: prøven ser på den rigtige kode,
+men kun på den fil, teksten står i — ikke på det modul, teksten lover
+noget om. Den **ellevte** er slet ikke et værn, men en note, der læses som
+et: en fejl, der er skrevet ned, ligner en fejl, der er håndteret.
 
 Hver af dem har kostet mindst én omgang i dette repo.
 
@@ -871,6 +981,8 @@ Hver af dem har kostet mindst én omgang i dette repo.
 | `FACILITETER` bundet til `Facilitetsord` | Fanger en forkert VÆRDI, ikke en manglende. `readonly X[]` må have enhver længde — også nul. Se nedenfor. |
 | en scanner forankret til linjestart (`^`) | Ser kun kopier, hvor nøglen står FØRST på linjen. En kopi med flere nøgler pr. linje slipper forbi — og det var netop den form, alle de fundne kopier havde. |
 | en prøve, der bygger sit eget forlæg | Dækker slet ikke koden. Isoleringsflagene lå i trinlisten i `scripts/import.ts`; prøven byggede sine egne trin med sine egne flag. Vendes hvert eneste flag i koden, er sættet fortsat grønt — prøven så aldrig på dem. |
+| brugervendt tekst i en ren fil, prøvet i `npm test` | Teksten, ikke løftet. Brugervendt tekst, der gør et udsagn om systemet, lægges i en ren fil uden database, så den kan prøves — det er rigtigt. Men en påstand om ET ANDET modul kan ikke prøves der: den skal have sin egen prøve, hvor modulet bor. «Den kan stadig åbnes på sit eget link» handler om `hentBolig`, og prøven af forklaringsfilen var grøn, også hvis linket gav 404. En ren fil gør teksten prøvbar og løftet uprøvbart, hvis man ikke passer på. **Og en ren fil holder kun, hvis også dens hjælpefunktioner er rene** — en formatteringshjælper fra en komponent er det sjældent. Fletteopskriften til `opgave/kontakt-ui` ville have hentet `kr` fra `app/Boligkort` ind i `forklaring.ts`, og `Boligkort` importerer `lib/soeg` og dermed databasen. Intet ville have set det: `db/client.ts` forbinder først ved første brug, så en import-prøve bliver ikke rød, og prøverne kører under testbasen. `scripts/test-rene-filer.ts` måler derfor importgrafen med esbuild og tillader kun andre rene filer — en allowlist, så en ny hjælper skal på listen og selv bliver vogtet. |
+| en kendt fejl skrevet ned som «kendt følge» | Brugeren. En kendt usand brugervendt sætning er en fejl, ikke en følge. Den skal rettes, eller ændringen skal vente. At skrive den ned er ikke at have løst den — siden blev ved med at sige den, hver gang den blev vist. |
 
 **Fire af dem er den samme fejl fire gange.** Ved `--include` kan filteret
 SES i kommandoen. Ved `git grep` over refs er der intet at se: kommandoen
@@ -932,11 +1044,38 @@ Søg bredt først, indsnævr bagefter; og skriv aldrig «hele repoet» eller
 «nogen gren», hvis søgningen bar et `--include`, en sti eller et sæt refs.
 Skriv, hvad der faktisk blev søgt igennem, og om hvad.
 
+**Den tiende og den ellevte kom i samme omgang.** Forklaringen på Mine
+annoncer blev flyttet ud af siden til `app/udlejer/boliger/forklaring.ts`,
+en ren fil uden database, så `npm test` kunne gøre TEKSTEN rød. Det er det
+rigtige greb for brugervendt tekst, der udtaler sig om systemet, og det
+bliver stående. Men teksten lovede også to ting om andre moduler: at
+annoncen «kan stadig åbnes på sit eget link» (`hentBolig` og
+detaljeruten), og at den kan komme frem, når kilden tager boligen ned
+(`koerKilde`). Prøverne viste, at sætningerne blev PRODUCERET — ikke at
+linket VIRKEDE, eller at afmeldingen skete. Det greb, der gjorde teksten
+prøvbar, gjorde løftet uprøvbart dér. Løfterne prøves nu, hvor modulerne
+bor: `hentBolig` på en annonce, der er skjult bag kildens, og afmeldingen
+gennem den rigtige `koerKilde` — og modprøverne vender produktionskoden,
+ikke teksten.
+
+Samtidig stod to sætninger i CLAUDE.md som «kendte følger, ikke rettet»:
+linjen under et facilitetsfilter kunne sige «vises ikke» om en bolig,
+listen viste gennem udlejerens annonce, og kildens kort kunne skrive «også
+hos Bofinda» om en annonce, brugeren ikke kunne nå. Begge var usande over
+for den, der læste siden. At de stod skrevet ned, gjorde dem ikke sande —
+det viste bare, at vi vidste det. Samme regel som «privatlivspolitikken
+skal beskrive det, koden gør», og den gælder hver sætning på hver side:
+**teksten følger koden, eller ændringen venter.**
+
 ### Tegnet at holde øje med
 
 **Et værn, hvis grønne resultat kan opstå af to grunde** — den ene er den,
 du ville måle, og den anden er tilfældet. Kan du ikke få det rødt ved at
 indføre fejlen med vilje, måler det ikke det, du tror.
+
+**For tekst i en ren fil: spørg for hvert udsagn, hvilket modul det
+handler om.** Er det ikke filen selv, skal udsagnet have en prøve dér,
+hvor modulet bor — og modprøven skal bryde modulet, ikke teksten.
 
 **Og indfør bruddet dér, hvor produktionen læser — ikke i prøvens eget
 forlæg.** Bygger prøven sin egen udgave af det, den handler om, når

@@ -192,15 +192,15 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // pris staar som ét. Grupperingen er kun en visning — alarmen matcher
   // stadig paa de enkelte boliger gennem hvor().
   //
-  // Efter hinanden, ikke i Promise.all. Webappen har ÉN forbindelse i
-  // puljen (transaction-pooleren, se db/client.ts), og fire samtidige
-  // kæder bliver til pipelinede sætninger paa den ene forbindelse. Det
-  // holdt lige akkurat, indtil facetter fik en forespørgsel mere — saa
-  // hang hver eneste listeside i minutter. Samlet tager de otte
-  // forespørgsler under et sekund i raekke.
+  // Efter hinanden, ikke i Promise.all. Samtidige kæder bliver til
+  // pipelinede sætninger gennem transaction-pooleren (se db/client.ts).
+  // Dengang webappen havde ÉN forbindelse i puljen, holdt det lige
+  // akkurat, indtil facetter fik en forespørgsel mere — saa hang hver
+  // eneste listeside i minutter. Puljen er fem nu; rækkefølgen er blevet.
   //
-  // De to sidste er cachede (se app/cache.ts) og rammer sjældent basen.
-  // Tilbage er to forespørgsler pr. sidevisning mod otte før.
+  // facetter() og forsidetal() er cachede (se app/cache.ts) og rammer
+  // sjældent basen. Her stod «tilbage er to forespørgsler pr.
+  // sidevisning» — det holdt ikke; de målte tal står i CLAUDE.md.
   // ReferenceNow: ét eksplicit nu pr. request, brugt af BAADE soegning,
   // kort og grundlag — saa alle laeser samme klokke.
   const nu = new Date()
@@ -231,7 +231,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   const grundlag = facFiltre ? await facilitetsgrundlag(f, nu) : sum
   // Kun naar hun faktisk har krydset af. Uden et filter er linjen en
   // advarsel mod noget, hun ikke har gjort.
-  const tavse = facFiltre ? await tavseKilder(f) : { navne: [], antal: 0 }
+  const tavse = facFiltre ? await tavseKilder(f, nu) : { navne: [], antal: 0 }
   // Samme kneb: er filteret ikke sat, er det ordret samme forespørgsel som
   // `sum`, og så koster grundlagslinjen ingenting.
   const oek = f.fuldOekonomi ? await oekonomigrundlag(f, nu) : sum
@@ -1097,10 +1097,12 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           /* Frafaldet er ikke jævnt fordelt. Tre kilder oplyser aldrig
              faciliteter, så et kryds fjerner dem HELT — filteret er også et
              kildefilter. Navnene beregnes, så linjen retter sig selv, hvis en
-             kilde skifter praksis. */
+             kilde skifter praksis. Ikke «alle N»: vises en af deres boliger
+             gennem en anden annonce, der oplyser faciliteten, er den ikke
+             ude, og så tælles den ikke — se `tavseKilder`. */
           <p className="prisnote advarsel">
             <strong>{sammenskriv(tavse.navne)}</strong> oplyser aldrig faciliteter.
-            {' '}Med et facilitetsfilter er alle {tavse.antal.toLocaleString('da-DK')}
+            {' '}Med et facilitetsfilter er {tavse.antal.toLocaleString('da-DK')}
             {' '}boliger derfra ude — også dem der har det, du søger.
           </p>
         )}
