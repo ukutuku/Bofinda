@@ -452,14 +452,16 @@ const PROEVER: Proeve<Ctx>[] = [
     },
   },
   {
-    id: 'hul-fremmed-url-kaede', gruppe: 'Kendte huller', slags: 'hul',
-    beskriv: 'en URL hoestet fra A\'s annonce serverer sit indhold til en ANDEN konto (B)',
+    // KARAKTERISERING, IKKE EN PROEVE AF VORES KODE. Denne maaler en
+    // egenskab ved SUPABASES signerede URL'er: de er baerer-tokens og ikke
+    // kontobundne. Vaerdien er, at hvis Supabase en dag aendrer det, faar vi
+    // det at vide — men den siger INTET om vores egen adgangskontrol. Den
+    // baerer storage-leddet i fund 4: at en URL hoestet fra A's annonce
+    // virker for enhver, ogsaa konto B. App-leddet (gemBolig/skrivBilleder
+    // validerer ikke oprindelsen) maales i app-laget — se issuet om fund 4.
+    id: 'karakter-signeret-url-baerer', gruppe: 'Karakterisering (Supabase, ikke os)', slags: 'hul',
+    beskriv: 'Supabase-egenskab: en signeret URL er et baerer-token — den serverer til en ANDEN konto (B)',
     koer: async (ctx) => {
-      // Storage-leddet i fund 4: en signeret URL fra A's offentlige HTML
-      // virker for B. At B derefter kan MONTERE den paa sin egen annonce er
-      // app-leddet (gemBolig/skrivBilleder validerer ikke oprindelsen) — se
-      // issue om fund 4. Her maales det, staging kan maale: at kapabiliteten
-      // ikke er bundet til A's session.
       const navn = await saaObjekt(ctx, ctx.A, 'hoestet.jpg')
       const url = await signeretUrl(somKonto(ctx.A, ctx.publishable), navn, 600)
       if (!url) return nej('ingen signeret URL')

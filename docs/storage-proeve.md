@@ -134,16 +134,22 @@ De bekræftede huller i dag:
   At slette er derfor ikke en tilbagekaldelse.
 - **Udlejerens auth-uid står i den signerede URL** — og dermed i offentlig
   HTML. Samme klasse læk som den, `landlord_id`-reglen lukkede.
-- **En URL høstet fra A's annonce serverer sit indhold til en anden konto**
-  (`hul-fremmed-url-kaede`). Det er storage-leddet i en kæde: stien er
-  offentlig, tokenet er ti-årigt og kan ikke trækkes tilbage, og
-  `gemBolig`/`skrivBilleder` validerer ikke, at en billed-URL stammer fra
-  den skrivende brugers egen mappe. Kæden — høst 20 URL'er, montér dem på
-  egen annonce, vind billedrangeringen, fortræng ejeren med hans egne
-  billeder — hører til sit eget issue (fund 4). App-leddet (skrivningen)
-  kan ikke måles herfra; det måles i app-laget.
+Rettelserne hører til hver sit kort/issue uden for denne opgave.
 
-Rettelserne hører til hver sit kort/issue uden for denne opgave. Når de
+### Karakterisering: en egenskab ved Supabase, ikke ved vores kode
+
+Én prøve står for sig selv, i sin egen gruppe: `karakter-signeret-url-baerer`.
+Den måler, at Supabases signerede URL'er er **bærer-tokens** — en URL
+høstet fra A's annonce serverer sit indhold til en anden konto (B) og til
+en anonym. Det er en egenskab ved **Supabase**, ikke ved vores
+adgangskontrol; den skal derfor ikke læses som dækning af vores egen kode.
+Værdien er, at hvis Supabase en dag ændrer det, får vi det at vide.
+
+Den bærer storage-leddet i fund 4-kæden (høst en billed-URL fra en
+konkurrents annonce, montér den på din egen). App-leddet —
+`gemBolig`/`skrivBilleder` validerer ikke, at en billed-URL stammer fra
+den skrivende brugers egen mappe — kan ikke måles herfra; det måles i
+app-laget. Se issuet om fund 4. Når de
 laves, vil `◆ HUL`-prøverne skifte status og pege på, at prøven skal
 opdateres — det er meningen.
 
