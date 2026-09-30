@@ -2034,7 +2034,11 @@ async function main() {
       tjek('tavse kilder med domænefilter: kilden nævnes, og boligen tælles som ude',
         tkRes.navne.includes(KONTRAKTNAVN) && tkRes.antal === 1,
         `${tkRes.navne.join(', ')} · ${tkRes.antal}`)
+      // Straks væk igen — ikke først i `finally`. Slug'en er unik, og
+      // alarmprøven længere nede opretter sin egen 'propstep' (samme mønster,
+      // samme vagt); stod denne her stadig, kastede den insert.
       await db.delete(listings).where(eq(listings.id, reserveret!.id))
+      await db.delete(sources).where(eq(sources.id, kontraktkilde!.id))
     }
 
     // ── «Tages boligen ned …, tager vi deres annonce ud af søgningen» ──
