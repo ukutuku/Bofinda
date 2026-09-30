@@ -1,0 +1,1199 @@
+{
+  "data": "SYNTETISK. Isoleret lokal testbase 127.0.0.1:55432/bofinda_test (frø 20260908, 280 aktive boliger, 279 synlige efter dedup; byer Attrapby, Prøveby N, Prøveby S, Fiktivby). IKKE produktionen — tallene siger intet om produktionens omfang.",
+  "maalt": "2026-09-30T14:50:25.638Z",
+  "enhed": "Beløb i øre, som i basen. Tekstfelter er formateret som chippen (kr i app/Boligkort.tsx).",
+  "metode": "soeg(f, 100000) og opsummering(f) fra lib/soeg.ts, begge gennem hvorVist() (samme dedup og filtre som siden). f = filtreFraParametre({ sted }). Tre grupper talt uafhængigt af rækkerne: kendt total (total != null), kun husleje (total == null, husleje != null), uden pris (begge null). Krydstjek: antal, medTotal, min og max skal være lig opsummering()s. Områdesiderne: statistik() fra lib/omraade.ts, klassificeret mod samme sted-søgning (grundlaget krydstjekket).",
+  "attrapby": {
+    "url": "/?sted=Attrapby",
+    "antal": 71,
+    "kendtTotal": 65,
+    "kunHusleje": 6,
+    "udenPris": 0,
+    "kunHuslejeBeloeb": [
+      {
+        "husleje": 736000,
+        "tekst": "7.360 kr/md",
+        "adresse": "Enkeltvej 26 16, 9003 Attrapby",
+        "kilde": "test-beta",
+        "endepunkt": null,
+        "pladsTilOevreEndepunkt": 1803000,
+        "kendteMedStoerreAconto": 0
+      },
+      {
+        "husleje": 1032000,
+        "tekst": "10.320 kr/md",
+        "adresse": "Manglervej 3, 9003 Attrapby",
+        "kilde": "test-alfa",
+        "endepunkt": null,
+        "pladsTilOevreEndepunkt": 1507000,
+        "kendteMedStoerreAconto": 0
+      },
+      {
+        "husleje": 1039000,
+        "tekst": "10.390 kr/md",
+        "adresse": "Enkeltvej 6 74, 9003 Attrapby",
+        "kilde": "test-gamma",
+        "endepunkt": null,
+        "pladsTilOevreEndepunkt": 1500000,
+        "kendteMedStoerreAconto": 0
+      },
+      {
+        "husleje": 2078000,
+        "tekst": "20.780 kr/md",
+        "adresse": "Enkeltvej 46 19, 9003 Attrapby",
+        "kilde": "test-alfa",
+        "endepunkt": null,
+        "pladsTilOevreEndepunkt": 461000,
+        "kendteMedStoerreAconto": 0
+      },
+      {
+        "husleje": 2129000,
+        "tekst": "21.290 kr/md",
+        "adresse": "Enkeltvej 66 8, 9003 Attrapby",
+        "kilde": "test-gamma",
+        "endepunkt": null,
+        "pladsTilOevreEndepunkt": 410000,
+        "kendteMedStoerreAconto": 0
+      },
+      {
+        "husleje": 2320000,
+        "tekst": "23.200 kr/md",
+        "adresse": "Enkeltvej 86 41, 9003 Attrapby",
+        "kilde": "test-beta",
+        "endepunkt": null,
+        "pladsTilOevreEndepunkt": 219000,
+        "kendteMedStoerreAconto": 0
+      }
+    ],
+    "vistSpaend": {
+      "billigst": 727000,
+      "dyrest": 2539000,
+      "tekst": "7.270–25.390 kr/md"
+    },
+    "nedreEndepunkt": "total",
+    "oevreEndepunkt": "total",
+    "endepunkterDerErHusleje": 0,
+    "spaendKunKendteTotaler": {
+      "min": 727000,
+      "max": 2539000,
+      "tekst": "7.270–25.390 kr/md"
+    },
+    "spaendKunRenHusleje": {
+      "min": 736000,
+      "max": 2320000,
+      "tekst": "7.360–23.200 kr/md"
+    },
+    "totalEndepunkter": {
+      "laveste": {
+        "id": "6501b0ef-7393-40e4-8b66-b74bee20edb3",
+        "adresse": "Enkeltvej 94 28, 9003 Attrapby",
+        "total": 727000,
+        "husleje": 677000
+      },
+      "hoejeste": {
+        "id": "cf0f413f-da77-49fe-a560-34fbca319cd2",
+        "adresse": "Attrapvænget 4 18, 9003 Attrapby",
+        "total": 2539000,
+        "husleje": 2449000
+      }
+    },
+    "acontoBlandtKendteTotaler": {
+      "antal": 65,
+      "min": 50000,
+      "median": 90000,
+      "max": 90000
+    },
+    "krydstjekModOpsummering": {
+      "antal": true,
+      "medTotal": true,
+      "spaend": true
+    },
+    "gengiver": {
+      "spaend": true,
+      "medTotal": true,
+      "antal": true
+    },
+    "forslagetsTekst": "65 med samlet pris til udlejer, 7.270–25.390 kr/md · 6 kun med husleje, 7.360–23.200 kr/md",
+    "konklusion": "Begge endepunkter er kendte totaler. Spændet regnet kun af kendte totaler er det samme som det viste. De 6 rene huslejer ligger inde i spændet og er usynlige i linjen."
+  },
+  "proevebyN": {
+    "url": "/?sted=Prøveby N (samme mængde som /?sted=9001)",
+    "antal": 76,
+    "kendtTotal": 69,
+    "kunHusleje": 7,
+    "udenPris": 0,
+    "kunHuslejeBeloeb": [
+      {
+        "husleje": 611000,
+        "tekst": "6.110 kr/md",
+        "adresse": "Enkeltvej 36 26, 9001 Prøveby N",
+        "kilde": "test-gamma",
+        "endepunkt": "nedre"
+      },
+      {
+        "husleje": 805000,
+        "tekst": "8.050 kr/md",
+        "adresse": "Enkeltvej 76 53, 9001 Prøveby N",
+        "kilde": "test-alfa",
+        "endepunkt": null
+      },
+      {
+        "husleje": 1386000,
+        "tekst": "13.860 kr/md",
+        "adresse": "Enkeltvej 16 67, 9001 Prøveby N",
+        "kilde": "test-alfa",
+        "endepunkt": null
+      },
+      {
+        "husleje": 1464000,
+        "tekst": "14.640 kr/md",
+        "adresse": "Enkeltvej 96 50, 9001 Prøveby N",
+        "kilde": "test-gamma",
+        "endepunkt": null
+      },
+      {
+        "husleje": 1565000,
+        "tekst": "15.650 kr/md",
+        "adresse": "Manglervej 5, 9001 Prøveby N",
+        "kilde": "test-alfa",
+        "endepunkt": null
+      },
+      {
+        "husleje": 1693000,
+        "tekst": "16.930 kr/md",
+        "adresse": "Manglervej 1, 9001 Prøveby N",
+        "kilde": "test-alfa",
+        "endepunkt": null
+      },
+      {
+        "husleje": 1843000,
+        "tekst": "18.430 kr/md",
+        "adresse": "Enkeltvej 56 64, 9001 Prøveby N",
+        "kilde": "test-beta",
+        "endepunkt": null
+      }
+    ],
+    "vistSpaend": {
+      "billigst": 611000,
+      "dyrest": 2401000,
+      "tekst": "6.110–24.010 kr/md"
+    },
+    "nedreEndepunkt": "husleje",
+    "oevreEndepunkt": "total",
+    "spaendKunKendteTotaler": {
+      "min": 745000,
+      "max": 2401000,
+      "tekst": "7.450–24.010 kr/md"
+    },
+    "spaendKunRenHusleje": {
+      "min": 611000,
+      "max": 1843000,
+      "tekst": "6.110–18.430 kr/md"
+    },
+    "totalEndepunkter": {
+      "laveste": {
+        "id": "6be945b0-403c-4c5f-b005-40e651cc8f48",
+        "adresse": "Enkeltvej 4 36, 9001 Prøveby N",
+        "total": 745000,
+        "husleje": 695000
+      },
+      "hoejeste": {
+        "id": "4dd4ddce-8dfd-4f39-919d-c99b8ffc9e0b",
+        "adresse": "Prøvevej 2 14, 9001 Prøveby N",
+        "total": 2401000,
+        "husleje": 2351000
+      }
+    },
+    "acontoBlandtKendteTotaler": {
+      "antal": 69,
+      "min": 50000,
+      "median": 70000,
+      "max": 90000
+    },
+    "krydstjekModOpsummering": {
+      "antal": true,
+      "medTotal": true,
+      "spaend": true
+    },
+    "forslagetsTekst": "69 med samlet pris til udlejer, 7.450–24.010 kr/md · 7 kun med husleje, 6.110–18.430 kr/md",
+    "konklusion": "Nedre endepunkt 6.110 er en ren husleje (Enkeltvej 36 26). Laveste kendte total er 7.450. Det er runde 1-eksemplet «6.110–24.010»."
+  },
+  "univers": {
+    "beskrivelse": "Hvert postnummer og hver by blandt aktive boliger, plus bekræftede, ikke-afmeldte gemte søgninger. I seedet er hver by præcis ét postnummer, så de 8 søgninger er 4 steder talt to gange.",
+    "postnr": {
+      "soegninger": 4,
+      "viserSpaend": 4,
+      "blandet": 4,
+      "endepunktErHusleje": 1,
+      "fordeling": {
+        "ren-total": 0,
+        "ren-husleje": 0,
+        "blandet-inde": 3,
+        "blandet-nedre": 1,
+        "blandet-oevre": 0,
+        "blandet-begge": 0,
+        "intet-spaend": 0
+      },
+      "boligerBagBlandede": 279,
+      "krydstjekAfviger": []
+    },
+    "by": {
+      "soegninger": 4,
+      "viserSpaend": 4,
+      "blandet": 4,
+      "endepunktErHusleje": 1,
+      "fordeling": {
+        "ren-total": 0,
+        "ren-husleje": 0,
+        "blandet-inde": 3,
+        "blandet-nedre": 1,
+        "blandet-oevre": 0,
+        "blandet-begge": 0,
+        "intet-spaend": 0
+      },
+      "boligerBagBlandede": 279,
+      "krydstjekAfviger": []
+    },
+    "gemt": {
+      "soegninger": 0,
+      "viserSpaend": 0,
+      "blandet": 0,
+      "endepunktErHusleje": 0,
+      "fordeling": {
+        "ren-total": 0,
+        "ren-husleje": 0,
+        "blandet-inde": 0,
+        "blandet-nedre": 0,
+        "blandet-oevre": 0,
+        "blandet-begge": 0,
+        "intet-spaend": 0
+      },
+      "boligerBagBlandede": 0,
+      "krydstjekAfviger": []
+    },
+    "gemteUdenFiltre": 0,
+    "samlet": {
+      "soegninger": 8,
+      "viserSpaend": 8,
+      "blandet": 8,
+      "endepunktErHusleje": 2,
+      "distinkteSteder": 4,
+      "distinkteStederMedHuslejeEndepunkt": 1
+    },
+    "pr_soegning": [
+      {
+        "univers": "postnr",
+        "navn": "9001",
+        "slags": "blandet-nedre",
+        "antal": 76,
+        "kendtTotal": 69,
+        "kunHusleje": 7,
+        "udenPris": 0,
+        "vist": "6.110–24.010 kr/md",
+        "kunTotaler": "7.450–24.010",
+        "kunHusleje_spaend": "6.110–18.430",
+        "nedre": "husleje",
+        "oevre": "total",
+        "krydstjek": {
+          "antal": true,
+          "medTotal": true,
+          "spaend": true
+        },
+        "forslag": "69 med samlet pris til udlejer, 7.450–24.010 kr/md · 7 kun med husleje, 6.110–18.430 kr/md"
+      },
+      {
+        "univers": "postnr",
+        "navn": "9002",
+        "slags": "blandet-inde",
+        "antal": 70,
+        "kendtTotal": 62,
+        "kunHusleje": 8,
+        "udenPris": 0,
+        "vist": "6.690–40.480 kr/md",
+        "kunTotaler": "6.690–40.480",
+        "kunHusleje_spaend": "9.030–19.690",
+        "nedre": "total",
+        "oevre": "total",
+        "krydstjek": {
+          "antal": true,
+          "medTotal": true,
+          "spaend": true
+        },
+        "forslag": "62 med samlet pris til udlejer, 6.690–40.480 kr/md · 8 kun med husleje, 9.030–19.690 kr/md"
+      },
+      {
+        "univers": "postnr",
+        "navn": "9003",
+        "slags": "blandet-inde",
+        "antal": 71,
+        "kendtTotal": 65,
+        "kunHusleje": 6,
+        "udenPris": 0,
+        "vist": "7.270–25.390 kr/md",
+        "kunTotaler": "7.270–25.390",
+        "kunHusleje_spaend": "7.360–23.200",
+        "nedre": "total",
+        "oevre": "total",
+        "krydstjek": {
+          "antal": true,
+          "medTotal": true,
+          "spaend": true
+        },
+        "forslag": "65 med samlet pris til udlejer, 7.270–25.390 kr/md · 6 kun med husleje, 7.360–23.200 kr/md"
+      },
+      {
+        "univers": "postnr",
+        "navn": "9004",
+        "slags": "blandet-inde",
+        "antal": 62,
+        "kendtTotal": 56,
+        "kunHusleje": 6,
+        "udenPris": 0,
+        "vist": "6.840–24.450 kr/md",
+        "kunTotaler": "6.840–24.450",
+        "kunHusleje_spaend": "10.710–19.650",
+        "nedre": "total",
+        "oevre": "total",
+        "krydstjek": {
+          "antal": true,
+          "medTotal": true,
+          "spaend": true
+        },
+        "forslag": "56 med samlet pris til udlejer, 6.840–24.450 kr/md · 6 kun med husleje, 10.710–19.650 kr/md"
+      },
+      {
+        "univers": "by",
+        "navn": "Attrapby",
+        "slags": "blandet-inde",
+        "antal": 71,
+        "kendtTotal": 65,
+        "kunHusleje": 6,
+        "udenPris": 0,
+        "vist": "7.270–25.390 kr/md",
+        "kunTotaler": "7.270–25.390",
+        "kunHusleje_spaend": "7.360–23.200",
+        "nedre": "total",
+        "oevre": "total",
+        "krydstjek": {
+          "antal": true,
+          "medTotal": true,
+          "spaend": true
+        },
+        "forslag": "65 med samlet pris til udlejer, 7.270–25.390 kr/md · 6 kun med husleje, 7.360–23.200 kr/md"
+      },
+      {
+        "univers": "by",
+        "navn": "Fiktivby",
+        "slags": "blandet-inde",
+        "antal": 62,
+        "kendtTotal": 56,
+        "kunHusleje": 6,
+        "udenPris": 0,
+        "vist": "6.840–24.450 kr/md",
+        "kunTotaler": "6.840–24.450",
+        "kunHusleje_spaend": "10.710–19.650",
+        "nedre": "total",
+        "oevre": "total",
+        "krydstjek": {
+          "antal": true,
+          "medTotal": true,
+          "spaend": true
+        },
+        "forslag": "56 med samlet pris til udlejer, 6.840–24.450 kr/md · 6 kun med husleje, 10.710–19.650 kr/md"
+      },
+      {
+        "univers": "by",
+        "navn": "Prøveby N",
+        "slags": "blandet-nedre",
+        "antal": 76,
+        "kendtTotal": 69,
+        "kunHusleje": 7,
+        "udenPris": 0,
+        "vist": "6.110–24.010 kr/md",
+        "kunTotaler": "7.450–24.010",
+        "kunHusleje_spaend": "6.110–18.430",
+        "nedre": "husleje",
+        "oevre": "total",
+        "krydstjek": {
+          "antal": true,
+          "medTotal": true,
+          "spaend": true
+        },
+        "forslag": "69 med samlet pris til udlejer, 7.450–24.010 kr/md · 7 kun med husleje, 6.110–18.430 kr/md"
+      },
+      {
+        "univers": "by",
+        "navn": "Prøveby S",
+        "slags": "blandet-inde",
+        "antal": 70,
+        "kendtTotal": 62,
+        "kunHusleje": 8,
+        "udenPris": 0,
+        "vist": "6.690–40.480 kr/md",
+        "kunTotaler": "6.690–40.480",
+        "kunHusleje_spaend": "9.030–19.690",
+        "nedre": "total",
+        "oevre": "total",
+        "krydstjek": {
+          "antal": true,
+          "medTotal": true,
+          "spaend": true
+        },
+        "forslag": "62 med samlet pris til udlejer, 6.690–40.480 kr/md · 8 kun med husleje, 9.030–19.690 kr/md"
+      }
+    ]
+  },
+  "omraadesider": {
+    "beskrivelse": "statistik() i lib/omraade.ts regner sit eget coalesce(total, husleje) og skriver det som «Huslejen går fra A til B» og i metabeskrivelsen «Husleje A–B kr. om måneden». Her tælles sider, hvor et endepunkt, der kaldes husleje, er en kendt total.",
+    "antalSider": 8,
+    "klassificeret": 8,
+    "endepunktErTotal": 8,
+    "beggeEndepunkterTotal": 6,
+    "sider": [
+      {
+        "slug": "proeveby-n",
+        "antal": 76,
+        "medTotal": 69,
+        "vist": "Huslejen går fra 6.110 kr. til 24.010 kr.",
+        "nedre": "husleje",
+        "oevre": "total",
+        "sammeGrundlagSomSoegning": true,
+        "huslejenForAlleBoliger": "6.110–23.510 kr."
+      },
+      {
+        "slug": "9001",
+        "antal": 76,
+        "medTotal": 69,
+        "vist": "Huslejen går fra 6.110 kr. til 24.010 kr.",
+        "nedre": "husleje",
+        "oevre": "total",
+        "sammeGrundlagSomSoegning": true,
+        "huslejenForAlleBoliger": "6.110–23.510 kr."
+      },
+      {
+        "slug": "attrapby",
+        "antal": 71,
+        "medTotal": 65,
+        "vist": "Huslejen går fra 7.270 kr. til 25.390 kr.",
+        "nedre": "total",
+        "oevre": "total",
+        "sammeGrundlagSomSoegning": true,
+        "huslejenForAlleBoliger": "6.770–24.490 kr."
+      },
+      {
+        "slug": "9003",
+        "antal": 71,
+        "medTotal": 65,
+        "vist": "Huslejen går fra 7.270 kr. til 25.390 kr.",
+        "nedre": "total",
+        "oevre": "total",
+        "sammeGrundlagSomSoegning": true,
+        "huslejenForAlleBoliger": "6.770–24.490 kr."
+      },
+      {
+        "slug": "proeveby-s",
+        "antal": 70,
+        "medTotal": 62,
+        "vist": "Huslejen går fra 6.690 kr. til 40.480 kr.",
+        "nedre": "total",
+        "oevre": "total",
+        "sammeGrundlagSomSoegning": true,
+        "huslejenForAlleBoliger": "6.190–39.980 kr."
+      },
+      {
+        "slug": "9002",
+        "antal": 70,
+        "medTotal": 62,
+        "vist": "Huslejen går fra 6.690 kr. til 40.480 kr.",
+        "nedre": "total",
+        "oevre": "total",
+        "sammeGrundlagSomSoegning": true,
+        "huslejenForAlleBoliger": "6.190–39.980 kr."
+      },
+      {
+        "slug": "fiktivby",
+        "antal": 62,
+        "medTotal": 56,
+        "vist": "Huslejen går fra 6.840 kr. til 24.450 kr.",
+        "nedre": "total",
+        "oevre": "total",
+        "sammeGrundlagSomSoegning": true,
+        "huslejenForAlleBoliger": "6.340–23.550 kr."
+      },
+      {
+        "slug": "9004",
+        "antal": 62,
+        "medTotal": 56,
+        "vist": "Huslejen går fra 6.840 kr. til 24.450 kr.",
+        "nedre": "total",
+        "oevre": "total",
+        "sammeGrundlagSomSoegning": true,
+        "huslejenForAlleBoliger": "6.340–23.550 kr."
+      }
+    ]
+  },
+  "browser": {
+    "app": "http://127.0.0.1:3100 (next dev, samme testbase), 1440 px, samtykke «Kun det nødvendige»",
+    "Attrapby": {
+      "url": "http://127.0.0.1:3100/?sted=Attrapby",
+      "overskrift": "",
+      "chips": [
+        "65 med samlet pris til udlejer",
+        "0 med indflytningspris",
+        "7.270–25.390 kr/md"
+      ]
+    },
+    "Prøveby N": {
+      "url": "http://127.0.0.1:3100/?sted=Pr%C3%B8veby%20N",
+      "overskrift": "",
+      "chips": [
+        "69 med samlet pris til udlejer",
+        "0 med indflytningspris",
+        "6.110–24.010 kr/md"
+      ]
+    },
+    "/lejeboliger/attrapby": {
+      "fakta": "Vi har 71 lejeboliger i Attrapby lige nu — 19 lejligheder, 17 studieboliger, 16 værelser, 10 huse, 8 rækkehuse, 1 boliger. Huslejen går fra 7.270 kr. til 25.390 kr. om måneden, i gennemsnit 16.572 kr. Den typiske bolig er 84 m².",
+      "beskrivelse": "71 lejeboliger i Attrapby. Husleje 7.270–25.390 kr. om måneden. Se den månedlige betaling til udlejer, ikke bare huslejen."
+    },
+    "/lejeboliger/proeveby-n": {
+      "fakta": "Vi har 76 lejeboliger i Prøveby N lige nu — 24 værelser, 17 lejligheder, 13 studieboliger, 12 rækkehuse, 8 huse, 2 boliger. Huslejen går fra 6.110 kr. til 24.010 kr. om måneden, i gennemsnit 17.047 kr. Den typiske bolig er 84 m².",
+      "beskrivelse": "76 lejeboliger i Prøveby N. Husleje 6.110–24.010 kr. om måneden. Se den månedlige betaling til udlejer, ikke bare huslejen."
+    },
+    "overskriftAttrapby": "Lejeboliger i Attrapby(71)",
+    "skaermbilleder": [
+      "chip-Attrapby.png",
+      "chip-Pr-veby-N.png"
+    ]
+  },
+  "forslagFraTidligereTur": {
+    "kilde": "Assistentens svar 26. september 2026 på brugerens besked «… «6.110–24.010 kr/md» blander kendte totaler med rene huslejer …» (transskript 7926e86c…, promptId a9ccc22d).",
+    "citat": "69 med samlet pris til udlejer, 12.750–24.010 kr/md · 7 kun med husleje, 6.110–9.800 kr/md · 0 med indflytningspris",
+    "regler": [
+      "Hvert spænd står ved sin egen optælling. Et husleje-spænd kaldes aldrig «til udlejer».",
+      "Gruppen «kun med husleje» vises, når den ikke er tom. Tallene går op med det samlede antal. Har nogle boliger slet ingen pris, står de som «N uden pris».",
+      "Er der kun én pris i gruppen, står der «12.750 kr/md», ikke «12.750–12.750».",
+      "Hvis alle har kendt total, står der kun den første gruppe. Hvis ingen har, står der kun den anden."
+    ],
+    "fravalgtAlternativ": "Kun de kendte totaler («… kr/md til udlejer»): huslejegruppen falder stille ud af linjen.",
+    "bemaerkning": "Beløbene i eksemplet var ikke målt (turen havde ingen databaseadgang). Antallene 69/7 passer med Prøveby N; målt i dag er spændene 7.450–24.010 og 6.110–18.430.",
+    "maaltAttrapby": "65 med samlet pris til udlejer, 7.270–25.390 kr/md · 6 kun med husleje, 7.360–23.200 kr/md",
+    "maaltProevebyN": "69 med samlet pris til udlejer, 7.450–24.010 kr/md · 7 kun med husleje, 6.110–18.430 kr/md"
+  },
+  "kodesteder": {
+    "main_og_denne_gren": {
+      "PRIS": "lib/soeg.ts:119 (kommentaren 107–118; 115–117: «skal mærkes som sådan der, hvor de vises»)",
+      "opsummering_sql": "lib/soeg.ts:1172–1202 (billigst/dyrest 1180–1181)",
+      "opsummering_domaene": "lib/soeg.ts:1234–1275 (billigst/dyrest 1263–1264)",
+      "chip": "app/page.tsx:1044–1051 (spændet 1048–1050)",
+      "omraade_statistik": "lib/omraade.ts:114–140 (gennemsnitLeje/billigst/dyrest 122–124)",
+      "omraade_side": "app/lejeboliger/[slug]/page.tsx:75–77 og 83 (metabeskrivelse), 173–177 (brødtekst)"
+    },
+    "opgave_kontakt_ui_fdb61f5": {
+      "opsummering": "lib/soeg.ts:1226 (billigst/dyrest 1234–1235), 1288 (1317–1318)",
+      "chip": "app/page.tsx:1109–1116 (spændet 1113–1115)",
+      "omraade_statistik": "lib/omraade.ts:122–124",
+      "omraade_side": "app/lejeboliger/[slug]/page.tsx:77–79 og 85, 183–185"
+    }
+  },
+  "proeve": {
+    "kommando": "env -u DATABASE_URL -u DATABASE_URL_DIRECT ROD=$PWD npx tsx --tsconfig tsconfig.scripts.json maal-prisspaend.mjs --proeve",
+    "resultat": "exit 0 — alle fem postnumre (ren-total, ren-husleje, blandet-inde, blandet-nedre, blandet-oevre), byen, forslagsteksten for 9004 og 9005 (inkl. «1 uden pris») og den ene gemte søgning klassificeret som facit; krydstjek mod opsummering() stemmer overalt.",
+    "originalScript": "spaend/maal-spaend.mjs --proeve: exit 0, fire postnumre, byen og den gemte søgning som facit."
+  },
+  "produktionKommando": "ROD=$PWD npx tsx --tsconfig tsconfig.scripts.json --env-file=.env maal-prisspaend.mjs --base --json prisspaend-prod.json",
+  "raa": {
+    "maal": "127.0.0.1:55432/bofinda_test",
+    "maalt": "2026-09-30T14:50:25.638Z",
+    "opsummering": {
+      "postnr": {
+        "soegninger": 4,
+        "viserSpaend": 4,
+        "blandet": 4,
+        "endepunktErHusleje": 1,
+        "fordeling": {
+          "ren-total": 0,
+          "ren-husleje": 0,
+          "blandet-inde": 3,
+          "blandet-nedre": 1,
+          "blandet-oevre": 0,
+          "blandet-begge": 0,
+          "intet-spaend": 0
+        },
+        "boligerBagBlandede": 279,
+        "krydstjekAfviger": []
+      },
+      "by": {
+        "soegninger": 4,
+        "viserSpaend": 4,
+        "blandet": 4,
+        "endepunktErHusleje": 1,
+        "fordeling": {
+          "ren-total": 0,
+          "ren-husleje": 0,
+          "blandet-inde": 3,
+          "blandet-nedre": 1,
+          "blandet-oevre": 0,
+          "blandet-begge": 0,
+          "intet-spaend": 0
+        },
+        "boligerBagBlandede": 279,
+        "krydstjekAfviger": []
+      },
+      "gemt": {
+        "soegninger": 0,
+        "viserSpaend": 0,
+        "blandet": 0,
+        "endepunktErHusleje": 0,
+        "fordeling": {
+          "ren-total": 0,
+          "ren-husleje": 0,
+          "blandet-inde": 0,
+          "blandet-nedre": 0,
+          "blandet-oevre": 0,
+          "blandet-begge": 0,
+          "intet-spaend": 0
+        },
+        "boligerBagBlandede": 0,
+        "krydstjekAfviger": []
+      }
+    },
+    "gemteUdenFiltre": 0,
+    "detalje": {
+      "sted": "Attrapby",
+      "url": "/?sted=Attrapby",
+      "antal": 71,
+      "medTotal": 65,
+      "kendtTotal": 65,
+      "kunHusleje": 6,
+      "udenPris": 0,
+      "vist": {
+        "billigst": 727000,
+        "dyrest": 2539000,
+        "tekst": "7.270–25.390 kr/md",
+        "chips": [
+          "65 med samlet pris til udlejer",
+          "0 med indflytningspris",
+          "7.270–25.390 kr/md"
+        ]
+      },
+      "slags": "blandet-inde",
+      "nedreEndepunkt": "total",
+      "oevreEndepunkt": "total",
+      "spaendKunTotal": {
+        "min": 727000,
+        "max": 2539000
+      },
+      "spaendKunHusleje": {
+        "min": 736000,
+        "max": 2320000
+      },
+      "kunHuslejeRaekker": [
+        {
+          "id": "78a8f1c0-7789-4e9f-9b2f-e1c392078ae0",
+          "adresse": "Enkeltvej 26 16, 9003 Attrapby",
+          "kilde": "test-beta",
+          "husleje": 736000,
+          "endepunkt": null,
+          "pladsTilOevreEndepunkt": 1803000,
+          "kendteMedStoerreAconto": 0
+        },
+        {
+          "id": "92d3cb27-6aea-4f75-b41f-83f49e41b5bd",
+          "adresse": "Manglervej 3, 9003 Attrapby",
+          "kilde": "test-alfa",
+          "husleje": 1032000,
+          "endepunkt": null,
+          "pladsTilOevreEndepunkt": 1507000,
+          "kendteMedStoerreAconto": 0
+        },
+        {
+          "id": "6f2af307-2151-4bfd-92f1-76400bb51ccd",
+          "adresse": "Enkeltvej 6 74, 9003 Attrapby",
+          "kilde": "test-gamma",
+          "husleje": 1039000,
+          "endepunkt": null,
+          "pladsTilOevreEndepunkt": 1500000,
+          "kendteMedStoerreAconto": 0
+        },
+        {
+          "id": "1418acb4-46e1-4a23-96ff-5ace95d6f84c",
+          "adresse": "Enkeltvej 46 19, 9003 Attrapby",
+          "kilde": "test-alfa",
+          "husleje": 2078000,
+          "endepunkt": null,
+          "pladsTilOevreEndepunkt": 461000,
+          "kendteMedStoerreAconto": 0
+        },
+        {
+          "id": "67882564-07b5-4a67-b48d-44da151d3fa5",
+          "adresse": "Enkeltvej 66 8, 9003 Attrapby",
+          "kilde": "test-gamma",
+          "husleje": 2129000,
+          "endepunkt": null,
+          "pladsTilOevreEndepunkt": 410000,
+          "kendteMedStoerreAconto": 0
+        },
+        {
+          "id": "e3a633c0-0a17-4056-8b70-76a46002189b",
+          "adresse": "Enkeltvej 86 41, 9003 Attrapby",
+          "kilde": "test-beta",
+          "husleje": 2320000,
+          "endepunkt": null,
+          "pladsTilOevreEndepunkt": 219000,
+          "kendteMedStoerreAconto": 0
+        }
+      ],
+      "udenPrisRaekker": [],
+      "totalEndepunkter": {
+        "laveste": {
+          "id": "6501b0ef-7393-40e4-8b66-b74bee20edb3",
+          "adresse": "Enkeltvej 94 28, 9003 Attrapby",
+          "total": 727000,
+          "husleje": 677000
+        },
+        "hoejeste": {
+          "id": "cf0f413f-da77-49fe-a560-34fbca319cd2",
+          "adresse": "Attrapvænget 4 18, 9003 Attrapby",
+          "total": 2539000,
+          "husleje": 2449000
+        }
+      },
+      "passer": {
+        "antal": true,
+        "medTotal": true,
+        "spaend": true
+      },
+      "forslag": "65 med samlet pris til udlejer, 7.270–25.390 kr/md · 6 kun med husleje, 7.360–23.200 kr/md",
+      "acontoBlandtKendte": {
+        "antal": 65,
+        "min": 50000,
+        "median": 90000,
+        "max": 90000
+      }
+    },
+    "soegninger": {
+      "postnr": [
+        {
+          "navn": "9001",
+          "slags": "blandet-nedre",
+          "nedre": "husleje",
+          "oevre": "total",
+          "passer": {
+            "antal": true,
+            "medTotal": true,
+            "spaend": true
+          },
+          "antal": 76,
+          "medTotal": 69,
+          "medIndflytning": 0,
+          "kendtTotal": 69,
+          "kunHusleje": 7,
+          "udenPris": 0,
+          "vist": {
+            "billigst": 611000,
+            "dyrest": 2401000,
+            "tekst": "6.110–24.010 kr/md",
+            "chips": [
+              "69 med samlet pris til udlejer",
+              "0 med indflytningspris",
+              "6.110–24.010 kr/md"
+            ]
+          },
+          "spaendKunTotal": {
+            "min": 745000,
+            "max": 2401000
+          },
+          "spaendKunHusleje": {
+            "min": 611000,
+            "max": 1843000
+          },
+          "forslag": "69 med samlet pris til udlejer, 7.450–24.010 kr/md · 7 kun med husleje, 6.110–18.430 kr/md"
+        },
+        {
+          "navn": "9002",
+          "slags": "blandet-inde",
+          "nedre": "total",
+          "oevre": "total",
+          "passer": {
+            "antal": true,
+            "medTotal": true,
+            "spaend": true
+          },
+          "antal": 70,
+          "medTotal": 62,
+          "medIndflytning": 0,
+          "kendtTotal": 62,
+          "kunHusleje": 8,
+          "udenPris": 0,
+          "vist": {
+            "billigst": 669000,
+            "dyrest": 4048000,
+            "tekst": "6.690–40.480 kr/md",
+            "chips": [
+              "62 med samlet pris til udlejer",
+              "0 med indflytningspris",
+              "6.690–40.480 kr/md"
+            ]
+          },
+          "spaendKunTotal": {
+            "min": 669000,
+            "max": 4048000
+          },
+          "spaendKunHusleje": {
+            "min": 903000,
+            "max": 1969000
+          },
+          "forslag": "62 med samlet pris til udlejer, 6.690–40.480 kr/md · 8 kun med husleje, 9.030–19.690 kr/md"
+        },
+        {
+          "navn": "9003",
+          "slags": "blandet-inde",
+          "nedre": "total",
+          "oevre": "total",
+          "passer": {
+            "antal": true,
+            "medTotal": true,
+            "spaend": true
+          },
+          "antal": 71,
+          "medTotal": 65,
+          "medIndflytning": 0,
+          "kendtTotal": 65,
+          "kunHusleje": 6,
+          "udenPris": 0,
+          "vist": {
+            "billigst": 727000,
+            "dyrest": 2539000,
+            "tekst": "7.270–25.390 kr/md",
+            "chips": [
+              "65 med samlet pris til udlejer",
+              "0 med indflytningspris",
+              "7.270–25.390 kr/md"
+            ]
+          },
+          "spaendKunTotal": {
+            "min": 727000,
+            "max": 2539000
+          },
+          "spaendKunHusleje": {
+            "min": 736000,
+            "max": 2320000
+          },
+          "forslag": "65 med samlet pris til udlejer, 7.270–25.390 kr/md · 6 kun med husleje, 7.360–23.200 kr/md"
+        },
+        {
+          "navn": "9004",
+          "slags": "blandet-inde",
+          "nedre": "total",
+          "oevre": "total",
+          "passer": {
+            "antal": true,
+            "medTotal": true,
+            "spaend": true
+          },
+          "antal": 62,
+          "medTotal": 56,
+          "medIndflytning": 0,
+          "kendtTotal": 56,
+          "kunHusleje": 6,
+          "udenPris": 0,
+          "vist": {
+            "billigst": 684000,
+            "dyrest": 2445000,
+            "tekst": "6.840–24.450 kr/md",
+            "chips": [
+              "56 med samlet pris til udlejer",
+              "0 med indflytningspris",
+              "6.840–24.450 kr/md"
+            ]
+          },
+          "spaendKunTotal": {
+            "min": 684000,
+            "max": 2445000
+          },
+          "spaendKunHusleje": {
+            "min": 1071000,
+            "max": 1965000
+          },
+          "forslag": "56 med samlet pris til udlejer, 6.840–24.450 kr/md · 6 kun med husleje, 10.710–19.650 kr/md"
+        }
+      ],
+      "by": [
+        {
+          "navn": "Attrapby",
+          "slags": "blandet-inde",
+          "nedre": "total",
+          "oevre": "total",
+          "passer": {
+            "antal": true,
+            "medTotal": true,
+            "spaend": true
+          },
+          "antal": 71,
+          "medTotal": 65,
+          "medIndflytning": 0,
+          "kendtTotal": 65,
+          "kunHusleje": 6,
+          "udenPris": 0,
+          "vist": {
+            "billigst": 727000,
+            "dyrest": 2539000,
+            "tekst": "7.270–25.390 kr/md",
+            "chips": [
+              "65 med samlet pris til udlejer",
+              "0 med indflytningspris",
+              "7.270–25.390 kr/md"
+            ]
+          },
+          "spaendKunTotal": {
+            "min": 727000,
+            "max": 2539000
+          },
+          "spaendKunHusleje": {
+            "min": 736000,
+            "max": 2320000
+          },
+          "forslag": "65 med samlet pris til udlejer, 7.270–25.390 kr/md · 6 kun med husleje, 7.360–23.200 kr/md"
+        },
+        {
+          "navn": "Fiktivby",
+          "slags": "blandet-inde",
+          "nedre": "total",
+          "oevre": "total",
+          "passer": {
+            "antal": true,
+            "medTotal": true,
+            "spaend": true
+          },
+          "antal": 62,
+          "medTotal": 56,
+          "medIndflytning": 0,
+          "kendtTotal": 56,
+          "kunHusleje": 6,
+          "udenPris": 0,
+          "vist": {
+            "billigst": 684000,
+            "dyrest": 2445000,
+            "tekst": "6.840–24.450 kr/md",
+            "chips": [
+              "56 med samlet pris til udlejer",
+              "0 med indflytningspris",
+              "6.840–24.450 kr/md"
+            ]
+          },
+          "spaendKunTotal": {
+            "min": 684000,
+            "max": 2445000
+          },
+          "spaendKunHusleje": {
+            "min": 1071000,
+            "max": 1965000
+          },
+          "forslag": "56 med samlet pris til udlejer, 6.840–24.450 kr/md · 6 kun med husleje, 10.710–19.650 kr/md"
+        },
+        {
+          "navn": "Prøveby N",
+          "slags": "blandet-nedre",
+          "nedre": "husleje",
+          "oevre": "total",
+          "passer": {
+            "antal": true,
+            "medTotal": true,
+            "spaend": true
+          },
+          "antal": 76,
+          "medTotal": 69,
+          "medIndflytning": 0,
+          "kendtTotal": 69,
+          "kunHusleje": 7,
+          "udenPris": 0,
+          "vist": {
+            "billigst": 611000,
+            "dyrest": 2401000,
+            "tekst": "6.110–24.010 kr/md",
+            "chips": [
+              "69 med samlet pris til udlejer",
+              "0 med indflytningspris",
+              "6.110–24.010 kr/md"
+            ]
+          },
+          "spaendKunTotal": {
+            "min": 745000,
+            "max": 2401000
+          },
+          "spaendKunHusleje": {
+            "min": 611000,
+            "max": 1843000
+          },
+          "forslag": "69 med samlet pris til udlejer, 7.450–24.010 kr/md · 7 kun med husleje, 6.110–18.430 kr/md"
+        },
+        {
+          "navn": "Prøveby S",
+          "slags": "blandet-inde",
+          "nedre": "total",
+          "oevre": "total",
+          "passer": {
+            "antal": true,
+            "medTotal": true,
+            "spaend": true
+          },
+          "antal": 70,
+          "medTotal": 62,
+          "medIndflytning": 0,
+          "kendtTotal": 62,
+          "kunHusleje": 8,
+          "udenPris": 0,
+          "vist": {
+            "billigst": 669000,
+            "dyrest": 4048000,
+            "tekst": "6.690–40.480 kr/md",
+            "chips": [
+              "62 med samlet pris til udlejer",
+              "0 med indflytningspris",
+              "6.690–40.480 kr/md"
+            ]
+          },
+          "spaendKunTotal": {
+            "min": 669000,
+            "max": 4048000
+          },
+          "spaendKunHusleje": {
+            "min": 903000,
+            "max": 1969000
+          },
+          "forslag": "62 med samlet pris til udlejer, 6.690–40.480 kr/md · 8 kun med husleje, 9.030–19.690 kr/md"
+        }
+      ],
+      "gemt": []
+    },
+    "omraadeOpsum": {
+      "sider": 8,
+      "klassificeret": 8,
+      "endepunktErTotal": 8,
+      "beggeEndepunkterTotal": 6
+    },
+    "omraader": [
+      {
+        "slug": "proeveby-n",
+        "slags": "by",
+        "vaerdi": "Prøveby N",
+        "antal": 76,
+        "medTotal": 69,
+        "vist": "Huslejen går fra 6.110 kr. til 24.010 kr.",
+        "nedre": "husleje",
+        "oevre": "total",
+        "sammeGrundlag": true,
+        "spaendAfHuslejeAlle": {
+          "min": 611000,
+          "max": 2351000
+        }
+      },
+      {
+        "slug": "9001",
+        "slags": "postnummer",
+        "vaerdi": "9001",
+        "antal": 76,
+        "medTotal": 69,
+        "vist": "Huslejen går fra 6.110 kr. til 24.010 kr.",
+        "nedre": "husleje",
+        "oevre": "total",
+        "sammeGrundlag": true,
+        "spaendAfHuslejeAlle": {
+          "min": 611000,
+          "max": 2351000
+        }
+      },
+      {
+        "slug": "attrapby",
+        "slags": "by",
+        "vaerdi": "Attrapby",
+        "antal": 71,
+        "medTotal": 65,
+        "vist": "Huslejen går fra 7.270 kr. til 25.390 kr.",
+        "nedre": "total",
+        "oevre": "total",
+        "sammeGrundlag": true,
+        "spaendAfHuslejeAlle": {
+          "min": 677000,
+          "max": 2449000
+        }
+      },
+      {
+        "slug": "9003",
+        "slags": "postnummer",
+        "vaerdi": "9003",
+        "antal": 71,
+        "medTotal": 65,
+        "vist": "Huslejen går fra 7.270 kr. til 25.390 kr.",
+        "nedre": "total",
+        "oevre": "total",
+        "sammeGrundlag": true,
+        "spaendAfHuslejeAlle": {
+          "min": 677000,
+          "max": 2449000
+        }
+      },
+      {
+        "slug": "proeveby-s",
+        "slags": "by",
+        "vaerdi": "Prøveby S",
+        "antal": 70,
+        "medTotal": 62,
+        "vist": "Huslejen går fra 6.690 kr. til 40.480 kr.",
+        "nedre": "total",
+        "oevre": "total",
+        "sammeGrundlag": true,
+        "spaendAfHuslejeAlle": {
+          "min": 619000,
+          "max": 3998000
+        }
+      },
+      {
+        "slug": "9002",
+        "slags": "postnummer",
+        "vaerdi": "9002",
+        "antal": 70,
+        "medTotal": 62,
+        "vist": "Huslejen går fra 6.690 kr. til 40.480 kr.",
+        "nedre": "total",
+        "oevre": "total",
+        "sammeGrundlag": true,
+        "spaendAfHuslejeAlle": {
+          "min": 619000,
+          "max": 3998000
+        }
+      },
+      {
+        "slug": "fiktivby",
+        "slags": "by",
+        "vaerdi": "Fiktivby",
+        "antal": 62,
+        "medTotal": 56,
+        "vist": "Huslejen går fra 6.840 kr. til 24.450 kr.",
+        "nedre": "total",
+        "oevre": "total",
+        "sammeGrundlag": true,
+        "spaendAfHuslejeAlle": {
+          "min": 634000,
+          "max": 2355000
+        }
+      },
+      {
+        "slug": "9004",
+        "slags": "postnummer",
+        "vaerdi": "9004",
+        "antal": 62,
+        "medTotal": 56,
+        "vist": "Huslejen går fra 6.840 kr. til 24.450 kr.",
+        "nedre": "total",
+        "oevre": "total",
+        "sammeGrundlag": true,
+        "spaendAfHuslejeAlle": {
+          "min": 634000,
+          "max": 2355000
+        }
+      }
+    ]
+  }
+}

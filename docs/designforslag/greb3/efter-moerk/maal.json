@@ -1,0 +1,212 @@
+{
+ "variant": "efter",
+ "mobil": "moerk",
+ "lag": "dette lag",
+ "foto": {
+  "_hvad": "Forsidefotoet som ÉT objekt. I appen svarer det til HERO_STANDARD i app/page.tsx, som i dag bærer url og kredit; forslaget lægger fokus og slør til. Skiftes fotoet, skiftes alle felter i samme ændring. Slør-værdierne sættes efter maal-foto.mjs, ikke efter øjemål.",
+  "url": "/hero-stue.jpg",
+  "kredit": "Stemningsfoto: Taryn Elliott / Pexels",
+  "licens": "Pexels-licensen, https://www.pexels.com/license/ — kreditering ikke påkrævet",
+  "kreditVedBilledet": false,
+  "fokus": "60% 50%",
+  "fokusSmal": "50% 66%",
+  "sloer": 0.95,
+  "sloerSmal": 0.6
+ },
+ "maal": {
+  "forside-390": {
+   "kort": 12,
+   "medFoto": 10,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.332
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    412,
+    435,
+    438,
+    461,
+    461,
+    510,
+    461,
+    487,
+    328,
+    302,
+    435,
+    461
+   ],
+   "foersteKortY": 605,
+   "overloeb": 0,
+   "kontrast": {
+    "øjenbryn": {
+     "vaerst": 5.72,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1.71,
+     "alfaMin": 0.5,
+     "farve": "rgba(255, 255, 255, 0.84)",
+     "px": 12
+    },
+    "h1": {
+     "vaerst": 7.08,
+     "taerskel": 3,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1.81,
+     "alfaMin": 0.25,
+     "farve": "rgb(255, 255, 255)",
+     "px": 28
+    },
+    "manchet": {
+     "vaerst": 6.21,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1.61,
+     "alfaMin": 0.5,
+     "farve": "rgba(255, 255, 255, 0.94)",
+     "px": 15
+    }
+   },
+   "foto": {
+    "frihoejde": 251,
+    "tegningBevaret": 0.43
+   },
+   "kreditering": {
+    "findes": true,
+    "hvor": "fodnote",
+    "y": 24942,
+    "iFoersteVisning": false,
+    "px": 12,
+    "farve": "rgb(77, 84, 82)",
+    "baggrund": "rgba(0, 0, 0, 0)",
+    "kontrast": 7.13
+   },
+   "populaere": {
+    "raekker": 2,
+    "byKanter": [
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 43,
+    "overloeb": false
+   },
+   "populaereBelastet": {
+    "raekker": 3,
+    "byKanter": [
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 67,
+    "overloeb": false
+   }
+  },
+  "forside-360": {
+   "kort": 12,
+   "medFoto": 10,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.333
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    395,
+    418,
+    444,
+    444,
+    444,
+    493,
+    444,
+    493,
+    351,
+    302,
+    418,
+    444
+   ],
+   "foersteKortY": 628,
+   "overloeb": 0,
+   "kontrast": {
+    "øjenbryn": {
+     "vaerst": 5.72,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1.7,
+     "alfaMin": 0.5,
+     "farve": "rgba(255, 255, 255, 0.84)",
+     "px": 12
+    },
+    "h1": {
+     "vaerst": 7.05,
+     "taerskel": 3,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1.77,
+     "alfaMin": 0.3,
+     "farve": "rgb(255, 255, 255)",
+     "px": 28
+    },
+    "manchet": {
+     "vaerst": 5.95,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1.5,
+     "alfaMin": 0.5,
+     "farve": "rgba(255, 255, 255, 0.94)",
+     "px": 15
+    }
+   },
+   "foto": {
+    "frihoejde": 275,
+    "tegningBevaret": 0.43
+   },
+   "kreditering": {
+    "findes": true,
+    "hvor": "fodnote",
+    "y": 24933,
+    "iFoersteVisning": false,
+    "px": 12,
+    "farve": "rgb(77, 84, 82)",
+    "baggrund": "rgba(0, 0, 0, 0)",
+    "kontrast": 7.13
+   },
+   "populaere": {
+    "raekker": 2,
+    "byKanter": [
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 43,
+    "overloeb": false
+   },
+   "populaereBelastet": {
+    "raekker": 4,
+    "byKanter": [
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 90,
+    "overloeb": false
+   }
+  }
+ }
+}

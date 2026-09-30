@@ -1,0 +1,456 @@
+{
+ "variant": "efter",
+ "mobil": "baand",
+ "lag": "dette lag",
+ "foto": {
+  "_hvad": "Forsidefotoet som ÉT objekt. I appen svarer det til HERO_STANDARD i app/page.tsx, som i dag bærer url og kredit; forslaget lægger fokus og slør til. Skiftes fotoet, skiftes alle felter i samme ændring. Slør-værdierne sættes efter maal-foto.mjs, ikke efter øjemål.",
+  "url": "/hero-stue.jpg",
+  "kredit": "Stemningsfoto: Taryn Elliott / Pexels",
+  "licens": "Pexels-licensen, https://www.pexels.com/license/ — kreditering ikke påkrævet",
+  "kreditVedBilledet": false,
+  "fokus": "60% 50%",
+  "fokusSmal": "50% 66%",
+  "sloer": 0.95,
+  "sloerSmal": 0.6
+ },
+ "maal": {
+  "forside-1440": {
+   "kort": 12,
+   "medFoto": 10,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.333
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    452,
+    452,
+    478,
+    479,
+    479,
+    504,
+    478,
+    504,
+    305,
+    279,
+    452,
+    479
+   ],
+   "foersteKortY": 649,
+   "overloeb": 0,
+   "kontrast": {
+    "øjenbryn": {
+     "vaerst": 6.4,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1,
+     "alfaMin": 0.8,
+     "farve": "rgb(77, 84, 82)",
+     "px": 12
+    },
+    "h1": {
+     "vaerst": 14.8,
+     "taerskel": 3,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1,
+     "alfaMin": 0.4,
+     "farve": "rgb(20, 22, 26)",
+     "px": 42
+    },
+    "manchet": {
+     "vaerst": 14.35,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1,
+     "alfaMin": 0.55,
+     "farve": "rgb(20, 22, 26)",
+     "px": 18
+    }
+   },
+   "foto": {
+    "frihoejde": 351,
+    "tegningBevaret": 0.65
+   },
+   "kreditering": {
+    "findes": true,
+    "hvor": "fodnote",
+    "y": 9998,
+    "iFoersteVisning": false,
+    "px": 12,
+    "farve": "rgb(77, 84, 82)",
+    "baggrund": "rgba(0, 0, 0, 0)",
+    "kontrast": 7.13
+   },
+   "populaere": {
+    "raekker": 1,
+    "byKanter": [
+     137
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 20,
+    "overloeb": false
+   },
+   "populaereBelastet": {
+    "raekker": 1,
+    "byKanter": [
+     137
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 20,
+    "overloeb": false
+   }
+  },
+  "soegning-1440": {
+   "kort": 12,
+   "medFoto": 11,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.333
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    416,
+    439,
+    514,
+    491,
+    302,
+    416,
+    491,
+    465,
+    468,
+    416,
+    468,
+    443
+   ],
+   "foersteKortY": 398,
+   "overloeb": 0
+  },
+  "bolig-billeder-1440": {
+   "kort": 0,
+   "medFoto": 0,
+   "rammeForhold": [],
+   "kildeForhold": [],
+   "objectFit": [],
+   "korthoejder": [],
+   "foersteKortY": null,
+   "overloeb": 0
+  },
+  "bolig-uden-1440": {
+   "kort": 0,
+   "medFoto": 0,
+   "rammeForhold": [],
+   "kildeForhold": [],
+   "objectFit": [],
+   "korthoejder": [],
+   "foersteKortY": null,
+   "overloeb": 0
+  },
+  "forside-390": {
+   "kort": 12,
+   "medFoto": 10,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.332
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    412,
+    435,
+    438,
+    461,
+    461,
+    510,
+    461,
+    487,
+    328,
+    302,
+    435,
+    461
+   ],
+   "foersteKortY": 671,
+   "overloeb": 0,
+   "kontrast": {
+    "øjenbryn": {
+     "vaerst": 7.13,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": false,
+     "raa": null,
+     "alfaMin": null,
+     "farve": "rgb(77, 84, 82)",
+     "px": 12
+    },
+    "h1": {
+     "vaerst": 16.63,
+     "taerskel": 3,
+     "bestaar": true,
+     "paaFoto": false,
+     "raa": null,
+     "alfaMin": null,
+     "farve": "rgb(20, 22, 26)",
+     "px": 28
+    },
+    "manchet": {
+     "vaerst": 16.63,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": false,
+     "raa": null,
+     "alfaMin": null,
+     "farve": "rgb(20, 22, 26)",
+     "px": 15
+    }
+   },
+   "foto": {
+    "frihoejde": 130,
+    "tegningBevaret": 1
+   },
+   "kreditering": {
+    "findes": true,
+    "hvor": "fodnote",
+    "y": 25008,
+    "iFoersteVisning": false,
+    "px": 12,
+    "farve": "rgb(77, 84, 82)",
+    "baggrund": "rgba(0, 0, 0, 0)",
+    "kontrast": 7.13
+   },
+   "populaere": {
+    "raekker": 2,
+    "byKanter": [
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 43,
+    "overloeb": false
+   },
+   "populaereBelastet": {
+    "raekker": 3,
+    "byKanter": [
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 67,
+    "overloeb": false
+   }
+  },
+  "soegning-390": {
+   "kort": 12,
+   "medFoto": 11,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.332
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    412,
+    435,
+    510,
+    487,
+    302,
+    412,
+    488,
+    461,
+    464,
+    412,
+    464,
+    439
+   ],
+   "foersteKortY": 398,
+   "overloeb": 0
+  },
+  "bolig-billeder-390": {
+   "kort": 0,
+   "medFoto": 0,
+   "rammeForhold": [],
+   "kildeForhold": [],
+   "objectFit": [],
+   "korthoejder": [],
+   "foersteKortY": null,
+   "overloeb": 0
+  },
+  "bolig-uden-390": {
+   "kort": 0,
+   "medFoto": 0,
+   "rammeForhold": [],
+   "kildeForhold": [],
+   "objectFit": [],
+   "korthoejder": [],
+   "foersteKortY": null,
+   "overloeb": 0
+  },
+  "forside-360": {
+   "kort": 12,
+   "medFoto": 10,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.333
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    395,
+    418,
+    444,
+    444,
+    444,
+    493,
+    444,
+    493,
+    351,
+    302,
+    418,
+    444
+   ],
+   "foersteKortY": 684,
+   "overloeb": 0,
+   "kontrast": {
+    "øjenbryn": {
+     "vaerst": 7.13,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": false,
+     "raa": null,
+     "alfaMin": null,
+     "farve": "rgb(77, 84, 82)",
+     "px": 12
+    },
+    "h1": {
+     "vaerst": 16.63,
+     "taerskel": 3,
+     "bestaar": true,
+     "paaFoto": false,
+     "raa": null,
+     "alfaMin": null,
+     "farve": "rgb(20, 22, 26)",
+     "px": 28
+    },
+    "manchet": {
+     "vaerst": 16.63,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": false,
+     "raa": null,
+     "alfaMin": null,
+     "farve": "rgb(20, 22, 26)",
+     "px": 15
+    }
+   },
+   "foto": {
+    "frihoejde": 120,
+    "tegningBevaret": 1
+   },
+   "kreditering": {
+    "findes": true,
+    "hvor": "fodnote",
+    "y": 24989,
+    "iFoersteVisning": false,
+    "px": 12,
+    "farve": "rgb(77, 84, 82)",
+    "baggrund": "rgba(0, 0, 0, 0)",
+    "kontrast": 7.13
+   },
+   "populaere": {
+    "raekker": 2,
+    "byKanter": [
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 43,
+    "overloeb": false
+   },
+   "populaereBelastet": {
+    "raekker": 4,
+    "byKanter": [
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 90,
+    "overloeb": false
+   }
+  },
+  "soegning-360": {
+   "kort": 12,
+   "medFoto": 11,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.333
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    395,
+    418,
+    493,
+    493,
+    302,
+    395,
+    493,
+    444,
+    470,
+    395,
+    493,
+    444
+   ],
+   "foersteKortY": 434,
+   "overloeb": 0
+  },
+  "bolig-billeder-360": {
+   "kort": 0,
+   "medFoto": 0,
+   "rammeForhold": [],
+   "kildeForhold": [],
+   "objectFit": [],
+   "korthoejder": [],
+   "foersteKortY": null,
+   "overloeb": 0
+  },
+  "bolig-uden-360": {
+   "kort": 0,
+   "medFoto": 0,
+   "rammeForhold": [],
+   "kildeForhold": [],
+   "objectFit": [],
+   "korthoejder": [],
+   "foersteKortY": null,
+   "overloeb": 0
+  }
+ }
+}

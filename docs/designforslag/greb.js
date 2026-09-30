@@ -11,6 +11,35 @@ window.__bofindaForslag = (variant = {}) => {
   const $ = (s, r = document) => r.querySelector(s)
   const tal = (el) => (el ? el.textContent.replace(/\D/g, '') : '')
 
+  // ── Fotoet: ét objekt (i appen HERO_STANDARD, her heltefoto.json) ─
+  // url, kredit, fokus og slør følges ad. greb.css læser variablerne;
+  // intet andet sted i laget kender motivet.
+  const hero = $('.hero.har-foto')
+  const foto = variant.foto
+  if (hero && foto) {
+    const img = $('.hero-billede img', hero)
+    if (img && foto.url && img.getAttribute('src') !== foto.url) img.src = foto.url
+    const s = hero.style
+    if (foto.fokus) s.setProperty('--hero-fokus', foto.fokus)
+    if (foto.fokusSmal) s.setProperty('--hero-fokus-smal', foto.fokusSmal)
+    if (foto.sloer != null) s.setProperty('--hero-sloer', String(foto.sloer))
+    if (foto.sloerSmal != null) s.setProperty('--hero-sloer-smal', String(foto.sloerSmal))
+  }
+  // ── Telefonens variant: A «baand» eller B «moerk» (greb.css § 6) ──
+  if (hero && variant.mobil) hero.classList.add(`m-${variant.mobil}`)
+
+  // ── Krediteringen flytter til sidens fodnote (greb.css § 7) ───────
+  // Teksten kommer fra fotoobjektet, ellers fra den kreditering, siden
+  // selv skrev — aldrig fra en tredje kilde.
+  const kr = $('.hero-kredit'), bund = $('footer.bund')
+  if (kr && bund && !$('.fotokredit', bund)) {
+    const s = document.createElement('span')
+    s.className = 'fotokredit'
+    s.textContent = `${(foto && foto.kredit) || kr.textContent.trim()}.`
+    bund.append(' ', s)
+    kr.remove()
+  }
+
   // ── Faner hæftet ovenpå søgekortet: boligtyper med boliger ──────
   const form = $('.hero-soeg form.filtre')
   if (form && !$('.soeg-faner')) {
@@ -41,8 +70,33 @@ window.__bofindaForslag = (variant = {}) => {
     manchet.insertAdjacentHTML('afterend', '<p class="hero-haand" aria-hidden="true">Hjem starter her</p>')
   }
 
+  // ── Nul-chippen: «0 med indflytningspris» tegnes ikke ───────────
+  // Tærsklen er N = 0 og ingen andel. Fraværet forsvinder ikke: det står
+  // som én sætning under rækken, for chippen er i dag det ENESTE sted,
+  // det står (kortet og boligsiden tier, når prisen mangler). «N med
+  // samlet pris til udlejer» får ingen tærskel — ved 0 er den rækkens
+  // vigtigste oplysning. Antallet er titlens «(N)», ikke kortenes.
+  const optael = $('.optaelling')
+  if (optael && !optael.dataset.nul) {
+    const nul = [...optael.children].find((c) => /^0 med indflytningspris$/.test(c.textContent.trim()))
+    const antal = tal($('.titeltal'))
+    if (nul) {
+      nul.remove(); optael.dataset.nul = '1'
+      const p = document.createElement('p')
+      p.className = 'prisnote'
+      const hvem = !antal ? 'boligerne' : antal === '1' ? 'boligen' : `de ${Number(antal).toLocaleString('da-DK')}`
+      p.textContent = `Ingen indflytningspris for ${hvem} — spørg udlejeren.`
+      optael.after(p)
+    }
+  }
+
   // ── Mærkaten: «Ny i dag» / «Ny i går» / «Ny · N dage» ──────────
-  // Samme kilde som i dag: source_created_at, ellers first_seen_at.
+  // KUN ORDLYDEN er forslaget. Mockuppen gætter dagen ud fra siden()'s
+  // afrundede tekst, fordi markuppen ikke bærer datoen — og det er
+  // forkert: «for 20 timer siden» er i går, hvis klokken er 08. I appen
+  // skal ordet regnes af NYHEDSDATO (så indkøringsvagten følger med) og
+  // kalenderdagen i København (kalenderdag() i lib/dato.ts), ét sted
+  // for begge korttyper. Se GREB-3.md, «Observationen».
   for (const m of document.querySelectorAll('.maerkat.m-ny')) {
     const t = m.textContent
     const d = /(\d+) dag/.exec(t)
@@ -62,7 +116,7 @@ window.__bofindaForslag = (variant = {}) => {
       <p class="uk-etiket">Talt i dag</p>
       <dl>
         <div><dt>${Number(boliger).toLocaleString('da-DK')}</dt><dd>ledige lejeboliger${kilder ? ` fra ${kilder} kilder` : ''}</dd></div>
-        <div><dt class="kendt">${Number(kendt).toLocaleString('da-DK')}</dt><dd>med hele den månedlige betaling til udlejer${pct != null ? ` (${pct} %)` : ''}</dd></div>
+        <div><dt>${Number(kendt).toLocaleString('da-DK')}</dt><dd>med hele den månedlige betaling til udlejer${pct != null ? ` (${pct} %)` : ''}</dd></div>
       </dl>
       <p class="uk-note">Talt af alle synlige boliger, dubletter fjernet. Samme tal som søgningen.</p>
     </aside>`)

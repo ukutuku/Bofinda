@@ -78,8 +78,10 @@ body {
 h1, h2, h3 { letter-spacing: 0; }
 
 /* ── Handling: blæk, og links understreges ─────────────────── */
-/* Ordmærket er afsender, ikke betydning — brandets ene plads. */
-.maerke, .maerke:hover { color: var(--kendt); }
+/* Ordmærket er blæk. Runde 1 gav det --kendt som «brandets ene
+   plads»; det gjorde teal til to ting — et kendt beløb OG et navn — og
+   stod i den første linje, øjet møder. Grøn tekst er kun et beløb. */
+.maerke, .maerke:hover { color: var(--blaek); }
 .topnav a { font-size: var(--t-2); font-weight: var(--v-1); }
 .topnav a.nav-primaer, .tophandlinger .nav-primaer { font-size: var(--t-2); font-weight: var(--v-2); }
 button, .knap { font-weight: var(--v-2); }

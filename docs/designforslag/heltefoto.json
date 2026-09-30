@@ -1,0 +1,11 @@
+{
+  "_hvad": "Forsidefotoet som ÉT objekt. I appen svarer det til HERO_STANDARD i app/page.tsx, som i dag bærer url og kredit; forslaget lægger fokus og slør til. Skiftes fotoet, skiftes alle felter i samme ændring. Slør-værdierne sættes efter maal-foto.mjs, ikke efter øjemål.",
+  "url": "/hero-stue.jpg",
+  "kredit": "Stemningsfoto: Taryn Elliott / Pexels",
+  "licens": "Pexels-licensen, https://www.pexels.com/license/ — kreditering ikke påkrævet",
+  "kreditVedBilledet": false,
+  "fokus": "60% 50%",
+  "fokusSmal": "50% 66%",
+  "sloer": 0.95,
+  "sloerSmal": 0.60
+}

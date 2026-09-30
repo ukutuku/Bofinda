@@ -1,5 +1,7 @@
 # Runde 2: de fem greb
 
+> Runde 3 retter mobilen, fotoet, farven på «Søg» og mærkatens omdøbning: [GREB-3.md](GREB-3.md). Det, der står her, gælder, hvor runde 3 ikke siger andet.
+
 26. september 2026. Grundarbejdet fra runde 1 står: IBM Plex Sans, seks
 trin, 4 px-gitter, og teal betyder kun «hele betalingen til udlejer er
 kendt» ([README.md](README.md)). Her er laget ovenpå: fuldbreddefoto,

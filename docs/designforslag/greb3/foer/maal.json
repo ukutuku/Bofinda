@@ -1,0 +1,450 @@
+{
+ "variant": "foer",
+ "mobil": null,
+ "lag": "dette lag",
+ "foto": null,
+ "maal": {
+  "forside-1440": {
+   "kort": 12,
+   "medFoto": 10,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.333
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    421,
+    437,
+    446,
+    443,
+    443,
+    468,
+    446,
+    468,
+    271,
+    249,
+    437,
+    443
+   ],
+   "foersteKortY": 599,
+   "overloeb": 0,
+   "kontrast": {
+    "øjenbryn": {
+     "vaerst": 8.52,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1,
+     "alfaMin": 0.75,
+     "farve": "rgb(15, 77, 67)",
+     "px": 12.5
+    },
+    "h1": {
+     "vaerst": 15.56,
+     "taerskel": 3,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1,
+     "alfaMin": 0.4,
+     "farve": "rgb(20, 22, 26)",
+     "px": 48
+    },
+    "manchet": {
+     "vaerst": 10.88,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1,
+     "alfaMin": 0.65,
+     "farve": "rgb(44, 51, 61)",
+     "px": 17
+    }
+   },
+   "foto": {
+    "frihoejde": 298,
+    "tegningBevaret": 0.54
+   },
+   "kreditering": {
+    "findes": true,
+    "hvor": "hero",
+    "y": 87,
+    "iFoersteVisning": true,
+    "px": 11,
+    "farve": "rgb(255, 255, 255)",
+    "baggrund": "rgba(20, 22, 26, 0.66)",
+    "kontrast": 7.14
+   },
+   "populaere": {
+    "raekker": 1,
+    "byKanter": [
+     144
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 20,
+    "overloeb": false
+   },
+   "populaereBelastet": {
+    "raekker": 1,
+    "byKanter": [
+     144
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 20,
+    "overloeb": false
+   }
+  },
+  "soegning-1440": {
+   "kort": 12,
+   "medFoto": 11,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.333
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    385,
+    418,
+    450,
+    431,
+    249,
+    385,
+    431,
+    406,
+    431,
+    385,
+    431,
+    406
+   ],
+   "foersteKortY": 380,
+   "overloeb": 0
+  },
+  "bolig-billeder-1440": {
+   "kort": 0,
+   "medFoto": 0,
+   "rammeForhold": [],
+   "kildeForhold": [],
+   "objectFit": [],
+   "korthoejder": [],
+   "foersteKortY": null,
+   "overloeb": 0
+  },
+  "bolig-uden-1440": {
+   "kort": 0,
+   "medFoto": 0,
+   "rammeForhold": [],
+   "kildeForhold": [],
+   "objectFit": [],
+   "korthoejder": [],
+   "foersteKortY": null,
+   "overloeb": 0
+  },
+  "forside-390": {
+   "kort": 12,
+   "medFoto": 10,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.332
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    379,
+    413,
+    405,
+    420,
+    401,
+    445,
+    405,
+    426,
+    271,
+    249,
+    413,
+    420
+   ],
+   "foersteKortY": 571,
+   "overloeb": 0,
+   "kontrast": {
+    "øjenbryn": {
+     "vaerst": 7.64,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 4.03,
+     "alfaMin": 0.15,
+     "farve": "rgb(15, 77, 67)",
+     "px": 12.5
+    },
+    "h1": {
+     "vaerst": 9.39,
+     "taerskel": 3,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1,
+     "alfaMin": 0.4,
+     "farve": "rgb(20, 22, 26)",
+     "px": 30
+    },
+    "manchet": {
+     "vaerst": 6.4,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1,
+     "alfaMin": 0.65,
+     "farve": "rgb(44, 51, 61)",
+     "px": 15.5
+    }
+   },
+   "foto": {
+    "frihoejde": 221,
+    "tegningBevaret": 0.39
+   },
+   "kreditering": {
+    "findes": true,
+    "hvor": "hero",
+    "y": 75,
+    "iFoersteVisning": true,
+    "px": 10.5,
+    "farve": "rgb(255, 255, 255)",
+    "baggrund": "rgba(20, 22, 26, 0.66)",
+    "kontrast": 6.49
+   },
+   "populaere": {
+    "raekker": 2,
+    "byKanter": [
+     144,
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 45,
+    "overloeb": false
+   },
+   "populaereBelastet": {
+    "raekker": 3,
+    "byKanter": [
+     144,
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 70,
+    "overloeb": false
+   }
+  },
+  "soegning-390": {
+   "kort": 12,
+   "medFoto": 11,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.332
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    379,
+    413,
+    445,
+    426,
+    249,
+    379,
+    426,
+    401,
+    426,
+    379,
+    426,
+    401
+   ],
+   "foersteKortY": 361,
+   "overloeb": 0
+  },
+  "bolig-billeder-390": {
+   "kort": 0,
+   "medFoto": 0,
+   "rammeForhold": [],
+   "kildeForhold": [],
+   "objectFit": [],
+   "korthoejder": [],
+   "foersteKortY": null,
+   "overloeb": 0
+  },
+  "bolig-uden-390": {
+   "kort": 0,
+   "medFoto": 0,
+   "rammeForhold": [],
+   "kildeForhold": [],
+   "objectFit": [],
+   "korthoejder": [],
+   "foersteKortY": null,
+   "overloeb": 0
+  },
+  "forside-360": {
+   "kort": 12,
+   "medFoto": 10,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.333
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    363,
+    396,
+    388,
+    403,
+    403,
+    449,
+    409,
+    428,
+    289,
+    249,
+    396,
+    403
+   ],
+   "foersteKortY": 571,
+   "overloeb": 0,
+   "kontrast": {
+    "øjenbryn": {
+     "vaerst": 7.69,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 4.15,
+     "alfaMin": 0.1,
+     "farve": "rgb(15, 77, 67)",
+     "px": 12.5
+    },
+    "h1": {
+     "vaerst": 9.39,
+     "taerskel": 3,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1,
+     "alfaMin": 0.4,
+     "farve": "rgb(20, 22, 26)",
+     "px": 30
+    },
+    "manchet": {
+     "vaerst": 6.4,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1,
+     "alfaMin": 0.65,
+     "farve": "rgb(44, 51, 61)",
+     "px": 15.5
+    }
+   },
+   "foto": {
+    "frihoejde": 221,
+    "tegningBevaret": 0.39
+   },
+   "kreditering": {
+    "findes": true,
+    "hvor": "hero",
+    "y": 75,
+    "iFoersteVisning": true,
+    "px": 10.5,
+    "farve": "rgb(255, 255, 255)",
+    "baggrund": "rgba(20, 22, 26, 0.66)",
+    "kontrast": 6.49
+   },
+   "populaere": {
+    "raekker": 2,
+    "byKanter": [
+     144,
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 45,
+    "overloeb": false
+   },
+   "populaereBelastet": {
+    "raekker": 3,
+    "byKanter": [
+     144,
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 70,
+    "overloeb": false
+   }
+  },
+  "soegning-360": {
+   "kort": 12,
+   "medFoto": 11,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.333
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    363,
+    396,
+    449,
+    428,
+    249,
+    363,
+    431,
+    403,
+    409,
+    363,
+    409,
+    384
+   ],
+   "foersteKortY": 361,
+   "overloeb": 0
+  },
+  "bolig-billeder-360": {
+   "kort": 0,
+   "medFoto": 0,
+   "rammeForhold": [],
+   "kildeForhold": [],
+   "objectFit": [],
+   "korthoejder": [],
+   "foersteKortY": null,
+   "overloeb": 15
+  },
+  "bolig-uden-360": {
+   "kort": 0,
+   "medFoto": 0,
+   "rammeForhold": [],
+   "kildeForhold": [],
+   "objectFit": [],
+   "korthoejder": [],
+   "foersteKortY": null,
+   "overloeb": 15
+  }
+ }
+}
