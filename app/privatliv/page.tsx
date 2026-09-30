@@ -49,10 +49,14 @@ export default function Side() {
         ingen brugerkonto.
       </p>
       <p>
-        Bruger du kun boligsøgningen uden at oprette en alarm, og uden at
-        sige ja til statistik, behandler vi ingen personoplysninger om dig.
-        Siger du ja til statistik, gemmer vi to tilfældige numre i din
-        browser — se afsnittet nedenfor.
+        Bruger du kun boligsøgningen uden at oprette en alarm, måler vi ikke
+        dit besøg, og før du siger ja til statistik, gemmer vi intet i din
+        browser. Men for at siden kan vises, sender din browser din
+        IP-adresse til vores hosting, og på boligsider henter den desuden
+        kortet fra OpenStreetMap. Det sker, fordi det er nødvendigt for at
+        vise dig det, du har bedt om, og kræver ikke samtykke — se «Hvem
+        oplysningerne deles med» nedenfor. Siger du ja til statistik, gemmer
+        vi to tilfældige numre i din browser — se afsnittet om statistik.
       </p>
 
       <h2>Formål og retsgrundlag</h2>
@@ -80,7 +84,7 @@ export default function Side() {
 
       <h2>Hvem oplysningerne deles med</h2>
       <p>Vi sælger eller udlejer ikke oplysninger til nogen.</p>
-      <p>Vi bruger disse databehandlere til at drive tjenesten:</p>
+      <p>Disse databehandlere kontakter vores server på dine vegne:</p>
       <ul>
         <li>
           Supabase (Irland) — database og fillager. Billeder, du uploader til
@@ -97,6 +101,28 @@ export default function Side() {
         standardkontraktbestemmelser og, hvor det er relevant, EU-US Data
         Privacy Framework.
       </p>
+      <p>
+        Nogle tjenester taler din browser med <em>direkte</em>, uden om vores
+        server. De modtager derfor din IP-adresse:
+      </p>
+      <ul>
+        <li>
+          Supabase (Irland) — når du logger ind og når du uploader billeder
+          til en annonce, går det direkte fra din browser til Supabase.
+        </li>
+        <li>
+          OpenStreetMap-fonden (Storbritannien) — på boligsider henter din
+          browser kortfliserne direkte fra OpenStreetMap. Fliserne hentes ét
+          kortfelt ad gangen, og feltets koordinater står i adressen
+          (<code>{'{z}/{x}/{y}'}</code>). OpenStreetMap modtager derfor din
+          IP-adresse sammen med det kortudsnit, du får vist — altså omtrent
+          hvor boligen ligger. Kortet vises, fordi det er en funktion, du
+          vil have; retsgrundlaget er vores legitime interesse i at vise et
+          kort, jf. artikel 6, stk. 1, litra f. Storbritannien er af
+          EU-Kommissionen anerkendt som et land med et tilstrækkeligt
+          beskyttelsesniveau.
+        </li>
+      </ul>
 
       <h2 id="statistik">Statistik om brugen af siden</h2>
       <p>
