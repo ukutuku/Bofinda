@@ -1485,8 +1485,8 @@ async function opsummeringMedDomaene(f: Filtre, referenceNow: Date) {
  *
  * Er ingen af de tre sat, er `where` ORDRET den samme som `opsummering`s, og
  * saa skal kalderen genbruge det svar i stedet for at spoerge igen. Se
- * app/page.tsx. Forsiden koerer to forespoergsler pr. visning, og det tal
- * har vaeret dyrt at faa ned.
+ * app/page.tsx. Hver forespoergsel mere paa forsiden koster; de maalte tal
+ * staar i CLAUDE.md under «Sider med flere forespørgsler».
  */
 export const facilitetsgrundlag = (f: Filtre, referenceNow?: Date) =>
   opsummering({ ...f, kaeledyr: false, elevator: false, udeplads: false }, referenceNow)

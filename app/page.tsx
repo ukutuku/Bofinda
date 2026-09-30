@@ -200,7 +200,9 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // forespørgsler under et sekund i raekke.
   //
   // De to sidste er cachede (se app/cache.ts) og rammer sjældent basen.
-  // Tilbage er to forespørgsler pr. sidevisning mod otte før.
+  // Her stod «tilbage er to forespørgsler pr. sidevisning». Målt 30.
+  // september 2026 er det fire med varm cache og seks med et
+  // facilitetsfilter — tallene og metoden står i CLAUDE.md.
   // ReferenceNow: ét eksplicit nu pr. request, brugt af BAADE soegning,
   // kort og grundlag — saa alle laeser samme klokke.
   const nu = new Date()

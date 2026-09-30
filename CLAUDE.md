@@ -177,8 +177,9 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   under et filter, der lige havde skjult 435 boliger. `facilitetsgrundlag`
   i `lib/soeg.ts` er `opsummering` på netop det grundlag; er ingen af de tre
   sat, er forespørgslen ordret den samme, og forsiden genbruger svaret i
-  stedet for at spørge igen. Forsiden kører to forespørgsler pr. visning,
-  og det tal har været dyrt at få ned.
+  stedet for at spørge igen. Hver forespørgsel mere på forsiden koster, og
+  tallet har været dyrt at få ned — se de målte tal under «Sider med flere
+  forespørgsler».
   **Tallene tælles pr. BOLIG, ikke pr. repræsentant** (`boligenErI` i
   `lib/soeg.ts`). Rangeringen regnes på det filtrerede sæt, så et kryds kan
   vise en anden annonce for samme bolig end den, der vinder uden filter.
@@ -410,7 +411,15 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   `Promise.all`.** Samtidige kæder bliver til pipelinede sætninger gennem
   Supavisor i transaction mode, og det var dét, der væltede ved den ottende
   forespørgsel. Rækkefølgen koster ingenting nu, hvor `facetter()` og
-  `forsidetal()` er cachede: to forespørgsler pr. sidevisning mod otte før.
+  `forsidetal()` er cachede.
+  **Målt 30. september 2026** ved at kalde den rigtige `app/page.tsx` mod
+  testbasen og tælle forespørgslerne. Med varm cache er det 4 pr. visning
+  uden filtre: `soegGrupperet` 2, `availabilityGrundlag` 1 og `opsummering`
+  1. Med «fuld økonomi» er det 5, og med et facilitetsfilter 6
+  (`facilitetsgrundlag` og `tavseKilder`). Med kold cache kommer 5 mere oveni
+  (`facetter` 3, `forsidetal` 2). Main og PR #31 gav samme tal. Her stod
+  «to forespørgsler pr. sidevisning mod otte før» — det holdt ikke.
+  Med måling og samtykke kommer 1–2 INSERT i `haendelser` oveni, i `after()`.
 - **`facetter()` og `forsidetal()` caches i fem minutter** i `app/cache.ts`.
   De regnes på hele bestanden, og importen kører én gang i timen. Cachen
   ligger i app-laget og ikke i `lib/`: `next/cache` hører til webappen, og
@@ -944,7 +953,7 @@ Hver af dem har kostet mindst én omgang i dette repo.
 | `FACILITETER` bundet til `Facilitetsord` | Fanger en forkert VÆRDI, ikke en manglende. `readonly X[]` må have enhver længde — også nul. Se nedenfor. |
 | en scanner forankret til linjestart (`^`) | Ser kun kopier, hvor nøglen står FØRST på linjen. En kopi med flere nøgler pr. linje slipper forbi — og det var netop den form, alle de fundne kopier havde. |
 | en prøve, der bygger sit eget forlæg | Dækker slet ikke koden. Isoleringsflagene lå i trinlisten i `scripts/import.ts`; prøven byggede sine egne trin med sine egne flag. Vendes hvert eneste flag i koden, er sættet fortsat grønt — prøven så aldrig på dem. |
-| brugervendt tekst i en ren fil, prøvet i `npm test` | Teksten, ikke løftet. Brugervendt tekst, der gør et udsagn om systemet, lægges i en ren fil uden database, så den kan prøves — det er rigtigt. Men en påstand om ET ANDET modul kan ikke prøves der: den skal have sin egen prøve, hvor modulet bor. «Den kan stadig åbnes på sit eget link» handler om `hentBolig`, og prøven af forklaringsfilen var grøn, også hvis linket gav 404. En ren fil gør teksten prøvbar og løftet uprøvbart, hvis man ikke passer på. **Og en ren fil holder kun, hvis også dens hjælpefunktioner er rene** — en formatteringshjælper fra en komponent er det sjældent. Fletteopskriften til `opgave/kontakt-ui` ville have hentet `kr` fra `app/Boligkort` ind i `forklaring.ts`, og `Boligkort` importerer `lib/soeg` og dermed databasen. |
+| brugervendt tekst i en ren fil, prøvet i `npm test` | Teksten, ikke løftet. Brugervendt tekst, der gør et udsagn om systemet, lægges i en ren fil uden database, så den kan prøves — det er rigtigt. Men en påstand om ET ANDET modul kan ikke prøves der: den skal have sin egen prøve, hvor modulet bor. «Den kan stadig åbnes på sit eget link» handler om `hentBolig`, og prøven af forklaringsfilen var grøn, også hvis linket gav 404. En ren fil gør teksten prøvbar og løftet uprøvbart, hvis man ikke passer på. **Og en ren fil holder kun, hvis også dens hjælpefunktioner er rene** — en formatteringshjælper fra en komponent er det sjældent. Fletteopskriften til `opgave/kontakt-ui` ville have hentet `kr` fra `app/Boligkort` ind i `forklaring.ts`, og `Boligkort` importerer `lib/soeg` og dermed databasen. Intet ville have set det: `db/client.ts` forbinder først ved første brug, så en import-prøve bliver ikke rød, og prøverne kører under testbasen. `scripts/test-rene-filer.ts` måler derfor importgrafen med esbuild og tillader kun andre rene filer — en allowlist, så en ny hjælper skal på listen og selv bliver vogtet. |
 | en kendt fejl skrevet ned som «kendt følge» | Brugeren. En kendt usand brugervendt sætning er en fejl, ikke en følge. Den skal rettes, eller ændringen skal vente. At skrive den ned er ikke at have løst den — siden blev ved med at sige den, hver gang den blev vist. |
 
 **Fire af dem er den samme fejl fire gange.** Ved `--include` kan filteret
