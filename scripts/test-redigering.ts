@@ -1721,7 +1721,9 @@ async function main() {
     // forklaring.ts: retter hun etagen eller døren i sin egen formular, skal
     // hun skilles fra kildens annonce. Ellers beder teksten hende gøre noget,
     // der ikke hjælper. Før stod det kun som tekst i prøven, og etagen kunne
-    // fjernes fra enhedsnøglen med hele npm test grøn.
+    // fjernes fra enhedsnøglen med hele npm test grøn. Prøven gælder
+    // enhedsniveau (hun har en dør); uden dør er etagen ikke i nøglen, og
+    // så er det døren, der skiller — se CLAUDE.md.
     const [foerRet] = await db.select().from(listings).where(eq(listings.id, id))
     const hendesFormular = { ...somFormular(foerRet!), billeder: FULDT.billeder }
     await opdaterBolig(udlejer, id, { ...hendesFormular, etage: '4' })
@@ -1947,39 +1949,93 @@ async function main() {
     // ── Forklaringens to sidste grene: trin 3 og 4 i rangeringen ──
     // De kaldtes af ingen prøve, og trin 3 kunne vendes med hele npm test
     // grøn. Den anden får lige så mange billeder som hende, så billederne
-    // ikke afgør.
+    // ikke afgør. Hvem af de to der taber, hentes på taberens egen ejers
+    // Mine annoncer.
     await billederPaa(andenAnnonce!.id, [0, 1].map((n) => `${VIST_VAERT}/anden${n}.jpg`))
-    const [hendesTotal] = await db.select({ t: listings.totalMonthly })
-      .from(listings).where(eq(listings.id, id))
-    await db.update(listings).set({ totalMonthly: null }).where(eq(listings.id, id))
-    const udenTotal = await maerkat()
-    const totaltekst = udenTotal.slags === 'dublet'
-      ? forklaring((await mineBoliger(udlejer)).find((b) => b.id === id)!, udenTotal.af) : null
-    tjek('trin 3: lige mange billeder — den med kendt total vinder',
-      udenTotal.slags === 'dublet' && udenTotal.af.id === andenAnnonce!.id, udenTotal.slags)
+    const andenUdlejer = { id: anden!.id, authUserId: 'test', email: anden!.email, navn: null }
+    // Trin 4 — id'et — er tilfældigt fordelt mellem de to. Den med LAVEST
+    // id mister derfor sin total, så trin 3 og trin 4 peger hver sin vej: en
+    // fjernet trin 3-linje giver så den forkerte vinder hver gang, ikke kun
+    // når de to UUID'er tilfældigvis falder rigtigt.
+    const lav = id < andenAnnonce!.id
+      ? { id, ejer: udlejer } : { id: andenAnnonce!.id, ejer: andenUdlejer }
+    const hoej = lav.id === id
+      ? { id: andenAnnonce!.id, ejer: andenUdlejer } : { id, ejer: udlejer }
+    const [lavTotal] = await db.select({ t: listings.totalMonthly })
+      .from(listings).where(eq(listings.id, lav.id))
+    await db.update(listings).set({ totalMonthly: null }).where(eq(listings.id, lav.id))
+    const lavSyn = (await mineBoliger(lav.ejer)).find((b) => b.id === lav.id)!
+    tjek('trin 3: lige mange billeder — den med kendt total vinder, også over et lavere id',
+      lavSyn.synlighed.slags === 'dublet' && lavSyn.synlighed.af.id === hoej.id,
+      lavSyn.synlighed.slags)
+    const totaltekst = lavSyn.synlighed.slags === 'dublet'
+      ? forklaring(lavSyn, lavSyn.synlighed.af) : null
     tjek('trin 3: forklaringen siger den samlede udgift',
       totaltekst?.grund === 'den oplyser en samlet månedlig udgift, og det gør din ikke',
       String(totaltekst?.grund))
-    await db.update(listings).set({ totalMonthly: hendesTotal!.t }).where(eq(listings.id, id))
-    // Trin 4: lige på billeder og på total, så id'et afgør. Hvem der taber,
-    // afhænger af to tilfældige UUID'er — så forklaringen hentes hos den,
-    // der tabte, på dens egen ejers Mine annoncer.
-    const andenUdlejer = { id: anden!.id, authUserId: 'test', email: anden!.email, navn: null }
-    const hunSyn = await maerkat()
-    const [taberId, taberEjer] = hunSyn.slags === 'dublet'
-      ? [id, udlejer] as const : [andenAnnonce!.id, andenUdlejer] as const
-    const taber = (await mineBoliger(taberEjer)).find((b) => b.id === taberId)!
-    const vinderId = taberId === id ? andenAnnonce!.id : id
-    tjek('trin 4: lige på alt — præcis én af dem er skjult, og det er den med højest id',
-      taber.synlighed.slags === 'dublet' && taber.synlighed.af.id === vinderId
-      && vinderId < taberId, `${taber.synlighed.slags} · vinder ${vinderId.slice(0, 8)} mod ${taberId.slice(0, 8)}`)
-    const ligetekst = taber.synlighed.slags === 'dublet' ? forklaring(taber, taber.synlighed.af) : null
+    // Totalen sættes tilbage — og dermed er den lave række den senest
+    // skrevne, så den står sidst i tabellen. Trin 4: lige på billeder og
+    // total, så id'et afgør, og den med lavest id vinder. En VENDT id-linje
+    // giver den forkerte vinder hver gang. En FJERNET overlader valget til
+    // den rækkefølge, rækkerne kommer i, og den er ikke fast — rækkefølgen
+    // her gør den bare til den forkerte i den plan, Postgres vælger. Et
+    // bevis for alle planer er det ikke (fælde 3 i CLAUDE.md).
+    await db.update(listings).set({ totalMonthly: lavTotal!.t }).where(eq(listings.id, lav.id))
+    const hoejSyn = (await mineBoliger(hoej.ejer)).find((b) => b.id === hoej.id)!
+    tjek('trin 4: lige på alt — den med højest id er skjult bag den med lavest',
+      hoejSyn.synlighed.slags === 'dublet' && hoejSyn.synlighed.af.id === lav.id,
+      `${hoejSyn.synlighed.slags} · lav ${lav.id.slice(0, 8)} · høj ${hoej.id.slice(0, 8)}`)
+    const ligetekst = hoejSyn.synlighed.slags === 'dublet'
+      ? forklaring(hoejSyn, hoejSyn.synlighed.af) : null
     tjek('trin 4: forklaringen siger, at de står lige',
       ligetekst?.grund === 'de to står lige på billeder og oplysninger, og valget faldt på den anden',
       String(ligetekst?.grund))
     await db.delete(listingImages).where(eq(listingImages.listingId, andenAnnonce!.id))
     await db.delete(listings).where(eq(listings.id, andenAnnonce!.id))
     tjek('to udlejere: uden den anden er hun udgivet igen', (await maerkat()).slags === 'udgivet')
+
+    // ── Linjen om tavse kilder med domænefilter: den positive vej ──
+    // Prøven i regelblokken kræver kun, at linjen TIER om en bolig, domænet
+    // allerede har fjernet. Her kræves, at den TALER: en kildes reserverede
+    // annonce står på listen uden kryds, og med krydset forsvinder boligen,
+    // fordi krydset gør hendes annonce til repræsentant, og den passer ikke
+    // domænet. Før talte linjen ikke den bolig med — en af rækkerne HAVDE
+    // faciliteten — og domænegrenen kunne tie helt med alt grønt.
+    // Kontrakten slås op på slug'en, så prøvekilden hedder 'propstep'. Kun i
+    // testbasen, hvor ingen rigtig kilde har den slug.
+    if (!MOD_PRODUKTION) {
+      console.log('\n══ tavse kilder med domænefilter: den positive vej ══')
+      const KONTRAKTNAVN = 'Prøvekilde med kontrakt (kun til prøver)'
+      const [kontraktkilde] = await db.insert(sources).values({
+        slug: 'propstep', name: KONTRAKTNAVN, sourceType: 'spider',
+        baseUrl: 'https://proeve-kontrakt.invalid', enabled: false,
+      }).returning()
+      ekstra.kilder.push(kontraktkilde!.id)
+      const [hendesNu] = await db.select().from(listings).where(eq(listings.id, id))
+      const { id: _kId, ...hendesK } = hendesNu!
+      const [reserveret] = await db.insert(listings).values({
+        ...hendesK,
+        sourceId: kontraktkilde!.id,
+        sourceType: 'spider',
+        sourceCreatedAt: null,
+        externalKey: `proeve-kontrakt-${Date.now()}`,
+        sourceUrl: 'https://proeve-kontrakt.invalid/1',
+        landlordId: null, contactEmail: null, contactPhone: null,
+        amenities: [],
+        availabilityFacts: { rawStatus: 'Reserved' },
+      }).returning()
+      const fRes = { postnr: FULDT.postnr, markedsstatus: 'reserveret' as const }
+      tjek('forudsætning: uden kryds står kildens reserverede annonce på listen',
+        (await soeg(fRes, 500)).some((b) => b.id === reserveret!.id))
+      tjek('forudsætning: med krydset forsvinder boligen — hendes annonce passer ikke domænet',
+        !(await soeg({ ...fRes, elevator: true }, 500))
+          .some((b) => b.id === reserveret!.id || b.id === id))
+      const tkRes = await tavseKilder({ ...fRes, elevator: true })
+      tjek('tavse kilder med domænefilter: kilden nævnes, og boligen tælles som ude',
+        tkRes.navne.includes(KONTRAKTNAVN) && tkRes.antal === 1,
+        `${tkRes.navne.join(', ')} · ${tkRes.antal}`)
+      await db.delete(listings).where(eq(listings.id, reserveret!.id))
+    }
 
     // ── «Tages boligen ned …, tager vi deres annonce ud af søgningen» ──
     // Et løfte om importen, ikke om forklaringen, så det prøves gennem den

@@ -1594,39 +1594,56 @@ export async function tavseKilder(
     // De taelles stadig med i "oplyser ingen" paa grundlagslinjen.
     ne(listings.sourceType, 'native'),
   )
-  // Ude = krydset fjerner boligen: INGEN af dens raekker har det, krydset
-  // beder om. Se `boligenErI`.
-  const ude = sql<boolean>`not ${boligenErI(hvor(f))}`
-
-  // ── Med domaenefilter: talt i JS, som i `opsummeringMedDomaene` ──
+  // ── Med domaenefilter: to lister, talt i JS ──────────────────
   // Overtagelse, ansoegningsform og markedsstatus kan ikke udtrykkes i SQL.
   // Uden dem taltes ogsaa boliger, domaenefilteret ALLEREDE havde fjernet,
   // og linjen sagde «N boliger derfra er ude» om boliger, soegningen uden
-  // kryds heller ikke viste. `oplyser` taelles stadig paa hele grundlaget:
-  // «oplyser aldrig» er en paastand om kilden, ikke om de raekker, et
-  // domaenefilter lod passere.
+  // kryds heller ikke viste.
+  //
+  // «Ude» er her boliger paa listen UDEN kryds og ikke paa listen MED —
+  // begge efter domaenefilteret, som siden selv regner dem. Det er ikke
+  // nok at spoerge, om nogen raekke har faciliteten (`boligenErI`): med
+  // krydset bliver den raekke repraesentant, og passer den ikke domaenet,
+  // forsvinder boligen alligevel. Listen med kryds tager alle kilder med,
+  // ogsaa udlejerannoncer, for boligen kan vises gennem én.
+  //
+  // `oplyser` taelles paa hele grundlaget, som i SQL-grenen: «oplyser
+  // aldrig» er en paastand om kilden, ikke om de raekker, et domaenefilter
+  // lod passere.
   if (harDomaenefilter(f)) {
-    const raekker = await db
+    const noegle = sql<string>`coalesce(${DEDUPNOEGLE}, ${listings}.id::text)`
+    const uden = await db
       .select({
         navn: sources.name,
         kilde: sources.slug,
         availabilityFacts: listings.availabilityFacts,
         oplyst: sql<boolean>`${OPLYST}`,
-        ude,
+        noegle,
       })
       .from(listings)
       .innerJoin(sources, eq(sources.id, listings.sourceId))
       .where(grundlag)
+    const med = await db
+      .select({ kilde: sources.slug, availabilityFacts: listings.availabilityFacts, noegle })
+      .from(listings)
+      .innerJoin(sources, eq(sources.id, listings.sourceId))
+      .where(hvorVist(f))
+    const vistMedKryds = new Set(med
+      .filter((x) => matcherDomaene(f, availabilityFor(x, referenceNow)))
+      .map((x) => x.noegle))
     const pr = new Map<string, { oplyser: number; antal: number }>()
-    for (const x of raekker) {
+    for (const x of uden) {
       const k = pr.get(x.navn) ?? { oplyser: 0, antal: 0 }
       if (x.oplyst) k.oplyser++
-      if (x.ude && matcherDomaene(f, availabilityFor(x, referenceNow))) k.antal++
+      if (matcherDomaene(f, availabilityFor(x, referenceNow)) && !vistMedKryds.has(x.noegle)) k.antal++
       pr.set(x.navn, k)
     }
     return tavseAf([...pr].map(([navn, k]) => ({ navn, ...k })))
   }
 
+  // Uden domaenefilter er listen med kryds `hvorVist(f)`, og boligen staar
+  // paa den, netop naar en af dens raekker er i `hvor(f)`. Se `boligenErI`.
+  const ude = sql<boolean>`not ${boligenErI(hvor(f))}`
   const r = await db
     .select({
       navn: sources.name,

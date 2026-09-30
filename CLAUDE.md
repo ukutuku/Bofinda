@@ -109,15 +109,19 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   «Vises ikke i søgninger, hvor denne annonce for samme bolig også passer:»
   efterfulgt af linket — ikke «Vises ikke i søgningen», og heller ikke
   «…hvor en anden annonce…»: en anden udlejers annonce med færre billeder
-  taber til hende, og passer den og ikke kildens, vises hendes. Mærkatet
-  siger «vises ikke altid».
+  taber til hende, og passer den og ikke kildens, KAN hendes vises —
+  ikke «vises»: falder kildens annonce på et domænefilter, er den stadig
+  repræsentant i SQL og fjernes først i JS, og så vises ingen af dem.
+  Mærkatet siger «vises ikke altid».
   **Løfter om andre moduler prøves, hvor modulerne bor** — ikke i
   forklaringsfilen. «Kan stadig åbnes på sit eget link» prøves mod
   `hentBolig`, mens hun er skjult; «tager vi deres annonce ud af
   søgningen» prøves gennem den rigtige `koerKilde`, der afmelder kildens
   række; og «tjek, at adressen er rigtig — også etage og dør» gennem
-  `opdaterBolig`: en anden etage eller dør skal skille hende fra kildens
-  annonce. Alle i `scripts/test-redigering.ts`.
+  `opdaterBolig`: med en dør (enhedsniveau) skal en anden etage eller dør
+  skille hende fra kildens annonce. Uden dør er hun på opgangsniveau, hvor
+  etagen ikke er i nøglen, og så er det døren, der skiller. Alle i
+  `scripts/test-redigering.ts`.
 - **En manglende oplysning skal være synlig, ikke fraværende.** Kender vi
   ikke totalen, skriver kortet "Udlejer oplyser ikke aconto — spørg om varme
   og vand." Vi kan ikke skelne "udlejer opkræver intet" fra "udlejer oplyser
@@ -157,9 +161,13 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   af dem gennem en anden annonce for samme bolig — en udlejers, eller en
   kilde der oplyser faciliteten — er den ikke ude og tælles ikke. Derfor
   står der ikke «alle». Med et domænefilter (overtagelse, ansøgningsform,
-  markedsstatus) tælles i JS, som i `opsummeringMedDomaene`: før talte
-  linjen også boliger, domænefilteret allerede havde fjernet, og sagde
-  «ude» om boliger, søgningen uden kryds heller ikke viste. **Vores egen native-kilde tælles ikke med der:**
+  markedsstatus) tælles i JS: «ude» er de boliger, der står på listen UDEN
+  kryds og ikke på listen MED, begge efter domænefilteret, som siden selv
+  regner dem. Før talte linjen også boliger, domænefilteret allerede havde
+  fjernet; og det er ikke nok at spørge, om en række har faciliteten, for
+  med krydset bliver den række repræsentant, og passer den ikke domænet,
+  forsvinder boligen alligevel. Det koster én forespørgsel mere, kun når
+  både et domænefilter og et facilitetsfilter er sat. **Vores egen native-kilde tælles ikke med der:**
   udlejerformularen spørger om faciliteter, så "oplyser aldrig" ville være
   faktuelt forkert om den — at én annonce ikke har krydset noget af, er ikke
   en datapraksis. De native tavse tælles stadig i "oplyser ingen".

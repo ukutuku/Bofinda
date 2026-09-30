@@ -50,7 +50,7 @@ export default async function Side() {
                       : synlig.slags === 'fjernet' ? 'm-vaek' : 'm-vent'}`}>
                       {/* «vises ikke altid» og ikke «vises ikke» for en dublet:
                           i en søgning, den anden annonce ikke passer til,
-                          vises hendes. Se `overskrift` i forklaring.ts. */}
+                          KAN hendes vises. Se `overskrift` i forklaring.ts. */}
                       {synlig.slags === 'udgivet' ? 'udgivet'
                        : synlig.slags === 'fjernet' ? 'fjernet'
                        : synlig.slags === 'dublet' ? 'vises ikke altid' : 'vises ikke'}

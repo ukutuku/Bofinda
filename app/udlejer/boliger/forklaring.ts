@@ -24,8 +24,11 @@ export interface Forklaring {
    * forklaring, der sagde det modsatte. Dernaest «…hvor en anden annonce
    * for samme bolig også passer», og det var for bredt: en ANDEN udlejers
    * annonce med faerre billeder taber til hende, og passer den og ikke
-   * kildens, vises hendes. Det er DEN annonce, der vises i stedet, hun ikke
-   * kan staa ved siden af — ikke enhver anden.
+   * kildens, kan hendes vises. Det er DEN annonce, der vises i stedet, hun
+   * ikke kan staa ved siden af — ikke enhver anden. («Kan», ikke «vises»:
+   * falder kildens annonce paa et domaenefilter, er den stadig
+   * repraesentant i SQL og fjernes foerst bagefter, og saa vises ingen af
+   * dem; det samme, hvis en anden kilde har boligen.)
    */
   overskrift: string
   /** Leddet efter «Den blev valgt, fordi …». */
@@ -48,7 +51,10 @@ export interface Forklaring {
  *     ikke valget» ville vaere FALSK: retter hun adresse, areal, vaerelser
  *     eller husleje, kan dedup-noeglen skifte, og paa access-niveau er
  *     «samme bolig» kun et gaet (samme opgang, areal, vaerelser og leje).
- *     Er det to forskellige lejligheder, er etage og doer vejen ud.
+ *     Er det to forskellige lejligheder, er etage og doer vejen ud — med
+ *     doer (enhedsniveau) skiller begge; uden doer er hun paa opgangs-
+ *     niveau, hvor etagen ikke er i noeglen, og saa er det doeren, der
+ *     skiller. Teksten beder hende tjekke begge, og det er sandt.
  *   · «i hver søgning, den passer til» — rangeringen regnes paa det
  *     filtrerede saet. Passer kildens annonce ikke et filter, er den ikke
  *     med, og saa kan hendes blive vist. Uden betingelsen ville hun kunne
