@@ -232,9 +232,16 @@ export function hvor(f: Filtre) {
  * Den indre `from listings` skygger for den ydre, saa `hvor(f)` binder til
  * den indre tabel. Det er derfor filteret kan genbruges ordret.
  *
- * Repraesentanten er den med flest billeder; er de lige, den med kendt
- * total; er de stadig lige, den aeldste raekke, saa valget er stabilt
- * mellem koersler.
+ * Repraesentanten vaelges i TRE trin: flest UNIKKE synlige billeder; er de
+ * lige, den med kendt total; er de stadig lige, listings.id.
+ *
+ * ⚠ Sidste led er IKKE en tidsorden. Her stod «den aeldste raekke», og det
+ * har aldrig vaeret sandt: listings.id er uuid().defaultRandom() (db/schema.ts),
+ * altsaa tilfaeldig. Leddet er der udelukkende for at goere valget STABILT
+ * mellem koersler — ikke for at foretraekke den, vi saa foerst.
+ *
+ * Selve raekkefoelgen staar i ikkeRepraesentant nedenfor, og den er det
+ * autoritative udtryk; denne beskrivelse skal foelge den.
  */
 /**
  * "l2 er den samme bolig som den ydre række, hos en anden kilde."
@@ -323,7 +330,15 @@ export interface Repraesentant {
   adresse: string
   postnr: string | null
   by: string | null
-  kilde: string
+  /**
+   * Parret baeres videre RAAT, og svaret udledes hos den, der skriver
+   * saetningen. Der er ikke plads til det samme ord to steder: kortets
+   * maerkat hedder «Udlejeren selv», mens Mine annoncer skriver «… hos
+   * udlejeren selv» midt i en saetning. Ét spoergsmaal, to tekster — se
+   * `erEgenAnnonce` og `kildeetiket` i lib/kilde.ts.
+   */
+  kildeNavn: string
+  kildetype: string | null
   billeder: number
   harTotal: boolean
 }
@@ -368,7 +383,13 @@ export async function repraesentantFor(ids: string[]): Promise<Map<string, Repra
       adresse: listings.addressRaw,
       postnr: listings.postalCode,
       by: listings.city,
-      kilde: sources.name,
+      // Hvem vandt — til linjen paa Mine annoncer: «… viser den i
+      // stedet: <adresse> hos X». Taber en udlejer til en ANDEN
+      // udlejerannonce, skrev `sources.name` «hos Bofinda» om en annonce,
+      // der ikke er hentet nogen steder. Typen foelger med, saa sidens
+      // egen saetning kan udlede svaret ét sted; se lib/kilde.ts.
+      kildeNavn: sources.name,
+      kildetype: listings.sourceType,
       // Samme tal, som rangeringen brugte. Se UNIKKE_BILLEDER.
       billeder: UNIKKE_BILLEDER,
       harTotal: sql<boolean>`(${listings.totalMonthly} is not null)`,
@@ -383,7 +404,8 @@ export async function repraesentantFor(ids: string[]): Promise<Map<string, Repra
     const v = efterNoegle.get(t.noegle)
     if (v) svar.set(t.id, {
       id: v.id, adresse: v.adresse, postnr: v.postnr, by: v.by,
-      kilde: v.kilde, billeder: v.billeder, harTotal: v.harTotal,
+      kildeNavn: v.kildeNavn, kildetype: v.kildetype,
+      billeder: v.billeder, harTotal: v.harTotal,
     })
   }
   return svar
