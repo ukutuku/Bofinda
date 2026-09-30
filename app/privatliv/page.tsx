@@ -84,7 +84,7 @@ export default function Side() {
 
       <h2>Hvem oplysningerne deles med</h2>
       <p>Vi sælger eller udlejer ikke oplysninger til nogen.</p>
-      <p>Disse databehandlere kontakter vores server på dine vegne:</p>
+      <p>Disse databehandlere behandler oplysninger for os:</p>
       <ul>
         <li>
           Supabase (Irland) — database og fillager. Billeder, du uploader til
