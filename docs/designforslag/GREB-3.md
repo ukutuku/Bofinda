@@ -267,7 +267,7 @@ en kendt total. På alle 8 områdesider er mindst ét «husleje»-endepunkt en
 total.
 
 Sendt som issue til Frontend med tallene, kodestederne, forslaget fra runde 1
-og en acceptprøve, der fejler i dag: <!-- ISSUE -->. Scriptet, der giver
+og en acceptprøve, der fejler i dag: [ukutuku/Bofinda#36](https://github.com/ukutuku/Bofinda/issues/36). Scriptet, der giver
 produktionens tal, er [`maalinger/maal-prisspaend.mjs`](maalinger/maal-prisspaend.mjs)
 (kun `select`, med `--proeve` mod PGlite). Det er ikke rettet her.
 
