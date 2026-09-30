@@ -161,9 +161,13 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   to: hvor mange der oplyser faciliteten, hvor mange der oplyser faciliteter
   uden den, og hvor mange der intet oplyser. Tallene skal gå op med det
   samlede antal — gør de ikke det, mangler brugeren en gruppe uden at kunne
-  se hvilken. `npm test` tæller de tre uafhængigt og sammenligner; en prøve,
-  der udleder mellemgruppen som resten, ville gå op per definition og aldrig
-  kunne fejle.
+  se hvilken. Siden regner midtergruppen som resten (`antal − tier −
+  faciliteten`), så linjen går op af sig selv. `npm test` tæller derfor de
+  tre grupper pr. bolig i JS, hver med sit eget prædikat, og sammenligner
+  hver af dem med grundlaget — også midtergruppen, som siden regner den.
+  En prøve, der i stedet lagde tre tal sammen og holdt summen op mod
+  totalen, ville gå op per definition og aldrig kunne fejle. Den stod der,
+  og den er fjernet.
 - **Et filter skal gøre rede for, hvad det udelader.** De tre
   facilitetsfiltre udelukker boliger, hvor faciliteterne er ukendte — det
   er det eneste ærlige, for vi ved ikke om de har elevator. Men så skal der
@@ -186,8 +190,14 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   Talte linjen repræsentanten, stod en bolig under «mangler oplysninger og
   vises ikke», mens listen viste den gennem udlejerens annonce. «N nævner
   det» er derfor præcis det antal, krydset viser, og `npm test`
-  sammenligner de to. Underforespørgslerne er ukorrelerede og regnes én
-  gang hver (hashed SubPlan), ikke pr. række.
+  sammenligner de to — **uden domænefilter.** Overtagelse, ansøgningsform
+  og markedsstatus afgøres i JS på repræsentanten, og `hvor()` kender dem
+  ikke. Har en boligs annoncer hver sin status, kan tallet derfor afvige
+  fra det, krydset viser. Ingen af linjens sætninger bliver usand af det:
+  boligen nævner faciliteten, og «vises ikke» står kun ved dem, der intet
+  oplyser. Et præcist tal kræver repræsentanten pr. kryds og pr. domæne og
+  er ikke bygget. Underforespørgslerne er ukorrelerede og regnes én gang
+  hver (hashed SubPlan), ikke pr. række.
 - **Prisetiketten hedder "til udlejer", ikke "i alt".** Tallet er husleje
   plus den aconto, kilden opkræver — alt hvad der betales til udlejeren.
   Det er sandt, uanset om el er oplyst. "I alt" var det ikke: el står
@@ -410,8 +420,9 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 - **Sider med flere forespørgsler kører dem efter hinanden, ikke i
   `Promise.all`.** Samtidige kæder bliver til pipelinede sætninger gennem
   Supavisor i transaction mode, og det var dét, der væltede ved den ottende
-  forespørgsel. Rækkefølgen koster ingenting nu, hvor `facetter()` og
-  `forsidetal()` er cachede.
+  forespørgsel. Rækkefølgen koster noget — forespørgslerne venter på
+  hinanden — og det er prisen, der er valgt. Hvor meget den koster i tid,
+  er ikke målt; antallet er.
   **Målt 30. september 2026** ved at kalde den rigtige `app/page.tsx` mod
   testbasen og tælle forespørgslerne. Med varm cache er det 4 pr. visning
   uden filtre: `soegGrupperet` 2, `availabilityGrundlag` 1 og `opsummering`

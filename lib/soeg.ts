@@ -234,7 +234,8 @@ export function hvor(f: Filtre) {
  * `is not distinct from`, ikke `=`. Med `=` giver en NULL-kildetype NULL,
  * og udtrykket er FOERSTE led i repraesentantvalget. Et NULL der sorteres
  * afhaenger af retningen — `asc` er NULLS LAST, `desc` NULLS FIRST — og
- * repoet er bidt af det foer (`slaaAdgangOp`). I `SAMME_BOLIG_ANDEN_KILDE`
+ * repoet er bidt af det foer: `slaaAdgangOp` i lib/adgang.ts paa grenen
+ * claude/betaling-og-adgangskontrol (ikke flettet ind i main). I `SAMME_BOLIG_ANDEN_KILDE`
  * ville `not NULL` desuden kaste raekken ud af «også hos» uden at sige det.
  *
  * `source_type` er NOT NULL i skemaet, saa NULL kan ikke opstaa i dag. Det
@@ -399,12 +400,15 @@ export const udenDubletter = (grundlag: SQL | undefined) =>
  *
  * NULL-fri ved konstruktion (`coalesce(…, false)`). Svaret taelles med
  * `count(*) filter (where x)` og `filter (where not x)`, og en raekke, hvor
- * x er NULL, falder ud af BEGGE — saa gaar linjens tre grupper ikke op, og
- * ingen ser hvilken bolig der mangler. Hos de nuvaerende kaldere kan `saet`
- * ikke give NULL for den ydre raekke, fordi den ydre raekke allerede er i
- * grundlaget. Men det er en egenskab ved kalderne, ikke ved udtrykket, og
- * et prisfilter paa en bolig uden pris giver NULL. Eksporteret til proeven,
- * der giver den et NULL-saet direkte.
+ * x er NULL, falder ud af begge. Linjen gaar stadig op — siden regner
+ * midtergruppen som resten (app/page.tsx) — men boligen havner i en FORKERT
+ * gruppe: i SQL-grenen under «nævner andre faciliteter», i domaenegrenen,
+ * hvor JS taeller `!r.oplyst`, under «mangler oplysninger». Begge er usande
+ * om netop den bolig. Hos de nuvaerende kaldere kan `saet` ikke give NULL
+ * for den ydre raekke, fordi den ydre raekke allerede er i grundlaget. Men
+ * det er en egenskab ved kalderne, ikke ved udtrykket, og et prisfilter paa
+ * en bolig uden pris giver NULL. Eksporteret til proeven, der giver den et
+ * NULL-saet direkte.
  *
  * Til tal, der taeller én soegning og udtaler sig om en ANDEN. Grundlaget
  * under facilitetsfiltrene taeller soegningen uden dem og siger, hvad et
@@ -434,6 +438,16 @@ export function boligenErI(saet: SQL | undefined) {
  * praecis det praedikat, listen bruger. «Mangler oplysninger og vises ikke»
  * er de boliger, hvor INGEN af raekkerne i soegningen oplyser faciliteter —
  * dem kan intet kryds vise. Se `boligenErI`.
+ *
+ * «Er de boliger, krydset viser» gaelder UDEN domaenefilter. Overtagelse,
+ * ansoegningsform og markedsstatus afgoeres i JS paa repraesentanten, og
+ * `hvor` kender dem ikke. Med et domaenefilter kan en bolig, hvis ene
+ * annonce har faciliteten og den anden passer domaenet, staa under «nævner
+ * det», mens krydset viser en anden repraesentant, der ikke passer domaenet
+ * — og omvendt. Ingen af linjens saetninger bliver usand af det: boligen
+ * naevner faciliteten, og «vises ikke» staar kun ved dem, der intet oplyser.
+ * Men tallet er ikke laengere det, krydset viser. Et praecist tal kraever
+ * repraesentanten pr. kryds OG pr. domaene og er ikke bygget.
  */
 function facilitetsgrundlagPrBolig(f: Filtre) {
   return {

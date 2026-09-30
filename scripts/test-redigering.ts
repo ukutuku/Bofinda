@@ -1373,22 +1373,11 @@ async function main() {
     // Tallene under afkrydsningerne skal beskrive soegningen UDEN
     // facilitetsfiltrene. Gjorde de ikke det, ville der staa "0 tier"
     // under et filter, der lige havde skjult flere hundrede boliger.
-    const g = await facilitetsgrundlag({})
-    const alt = await opsummering({})
-    // Her stod «oplyser + tier er hele søgningen». Den kunne ikke fejle:
-    // begge tal er `count(*) filter` over det SAMME praedikat i den samme
-    // raekke (lib/soeg.ts:755-756), og `OPLYST` kan aldrig vaere null, saa
-    // X og not X deler count(*) udtoemmende. Postgres' aritmetik blev
-    // proevet, ikke vores kode. Og `oplyser` laeses ingen steder: forsiden
-    // regner mellemgruppen som `antal - tier - facilitet`, saa linjen var
-    // det eneste kaldssted for feltet — og den sammenlignede det med sig
-    // selv. Det, kommentaren ovenfor lover, proeves paa de naeste linjer.
-    const gFiltreret = await facilitetsgrundlag({ elevator: true })
-    tjek('grundlaget ændrer sig IKKE af et facilitetsfilter',
-      gFiltreret.tier === g.tier && gFiltreret.elevator === g.elevator,
-      `tier ${gFiltreret.tier} vs ${g.tier}`)
-    await tjekProd('men søgningen gør — filteret udelukker stadig de ukendte',
-      async () => (await opsummering({ elevator: true })).antal < alt.antal)
+    //
+    // Proeven af det — «grundlaget ændrer sig IKKE af et facilitetsfilter»
+    // — stod her og kunne ikke blive roed: testbasen havde kun hendes bolig,
+    // og den oplyser elevator, saa tier var 0 med og uden filtrene. Den
+    // staar nu i fiksturet nedenfor, hvor der ER en tavs bolig at miste.
     tjek('hendes elevator tælles med i grundlaget',
       (await facilitetsgrundlag({ postnr: FULDT.postnr })).elevator >= 1)
 
@@ -1437,12 +1426,42 @@ async function main() {
       landlordId: null, contactEmail: null, contactPhone: null,
       amenities: [],
     }).returning()
+    // Og en ANDEN tavs bolig — egen enhedsadresse, altså egen dedup-nøgle.
+    // Kopien ovenfor er samme bolig som hendes, og tællingen pr. bolig gør
+    // den oplyst; uden en bolig, der intet oplyser, er der ingen «tier» at
+    // miste, og prøven af grundlaget nedenfor kunne ikke blive rød.
+    const [tavsAnden] = await db.insert(listings).values({
+      ...hendesKolonnerG,
+      sourceId: grundlagskilde!.id,
+      sourceType: 'feed',
+      sourceCreatedAt: null,
+      externalKey: `proeve-grundlag-anden-${Date.now()}`,
+      sourceUrl: 'https://proeve-grundlag.invalid/2',
+      unitAddressUuid: `proeve-grundlag-enhed-${Date.now()}`,
+      accessAddressUuid: `proeve-grundlag-opgang-${Date.now()}`,
+      landlordId: null, contactEmail: null, contactPhone: null,
+      amenities: [],
+    }).returning()
     // Forudsætningen skal selv holde, ellers måler resten ingenting: kopien
     // er repræsentanten, og hun er skjult bag den.
     tjek('fikstur: den tavse kopi vinder repræsentantvalget',
       (await soeg({ postnr: FULDT.postnr }, 500)).some((b) => b.id === tavsKopi!.id)
       && !(await iSoegningen()))
+    tjek('fikstur: den anden tavse bolig står for sig selv',
+      (await soeg({ postnr: FULDT.postnr }, 500)).some((b) => b.id === tavsAnden!.id))
     const gB = await facilitetsgrundlag({})
+
+    // Grundlaget er søgningen UDEN facilitetsfiltrene. Med filtrene på ville
+    // den tavse bolig være væk før optællingen, og der stod «0 tier» under
+    // et filter, der lige havde skjult den.
+    const gFiltreret = await facilitetsgrundlag({ elevator: true })
+    tjek('grundlaget ændrer sig IKKE af et facilitetsfilter',
+      gFiltreret.antal === gB.antal && gFiltreret.tier === gB.tier
+      && gFiltreret.elevator === gB.elevator,
+      `antal ${gFiltreret.antal} mod ${gB.antal} · tier ${gFiltreret.tier} mod ${gB.tier}`)
+    tjek('men søgningen gør — filteret udelukker stadig de ukendte',
+      (await opsummering({ elevator: true })).antal < gB.antal,
+      `${(await opsummering({ elevator: true })).antal} mod ${gB.antal}`)
 
     const raekkerIS = await db.select({
       id: listings.id, amenities: listings.amenities,
@@ -1488,13 +1507,15 @@ async function main() {
       tjek(`${nøgle}: linjens tal er det målte`, har === gB[nøgle], `${gB[nøgle]} mod ${har}`)
       tjek(`${nøgle}: grundlagets tavse er de målte tavse`, tier === gB.tier,
         `${gB.tier} mod ${tier}`)
-      // «N nævner det» er de boliger, krydset VISER. Målt på listens egen
-      // vej — `opsummering` med filteret sat — ikke på grundlaget.
+      // «N nævner det» er de boliger, krydset VISER — uden domænefilter; se
+      // CLAUDE.md for hvorfor tallene kan skilles med et. Målt på listens
+      // egen vej — `opsummering` med filteret sat — ikke på grundlaget.
       const vist = (await opsummering({ [nøgle]: true })).antal
       tjek(`${nøgle}: «nævner det» er det antal, krydset viser`, vist === gB[nøgle],
         `${gB[nøgle]} mod ${vist}`)
     }
     await db.delete(listings).where(eq(listings.id, tavsKopi!.id))
+    await db.delete(listings).where(eq(listings.id, tavsAnden!.id))
     tjek('fikstur: uden kopien er hun i søgningen igen', await iSoegningen())
 
     // ── Tællingen skal tælle VISBARE billeder ────────────────────
@@ -1627,15 +1648,11 @@ async function main() {
     const vises = async (bolig: string) =>
       (await soeg({ postnr: FULDT.postnr }, 500)).some((b) => b.id === bolig)
 
-    // ── Reglen: kildens annonce vises altid frem for udlejerens ──
-    // Foerste trin i `ikkeRepraesentant` (UDLEJERANNONCE i lib/soeg.ts).
-    // Valget faldt foer paa billeder, og en udlejerannonce kunne skjule
-    // kildens annonce for samme bolig ved at have flere — bag en aaben
-    // kontaktmur. En bedre taelling kunne ikke lukke det: «unik» er en
-    // byte-ens streng. Reglen goer.
     // ── NULL-frie ved konstruktion ───────────────────────────────
     // `order by … desc` sætter NULL FØRST i Postgres, `asc` sidst — og repoet
-    // er bidt af det før (`slaaAdgangOp`). Repræsentantvalgets første led og
+    // er bidt af det før (`slaaAdgangOp` i lib/adgang.ts på grenen
+    // claude/betaling-og-adgangskontrol, som ikke er flettet ind i main).
+    // Repræsentantvalgets første led og
     // tællingen pr. bolig må derfor ikke KUNNE give NULL, heller ikke hvis
     // `source_type` en dag mister sit NOT NULL. Et NULL i data kan prøven
     // ikke lave — kolonnen tillader det ikke — så udtrykkene får NULL-input
@@ -1658,6 +1675,12 @@ async function main() {
     tjek('boligenErI: et sæt, der svarer NULL for rækken, giver falsk, ikke NULL',
       iNulSaet?.b === false, String(iNulSaet?.b))
 
+    // ── Reglen: kildens annonce vises altid frem for udlejerens ──
+    // Foerste trin i `ikkeRepraesentant` (UDLEJERANNONCE i lib/soeg.ts).
+    // Valget faldt foer paa billeder, og en udlejerannonce kunne skjule
+    // kildens annonce for samme bolig ved at have flere — bag en aaben
+    // kontaktmur. En bedre taelling kunne ikke lukke det: «unik» er en
+    // byte-ens streng. Reglen goer.
     console.log('\n══ kildens annonce vises frem for en udlejerannonce ══')
     const efterRival = await maerkat()
     tjek('med dublet: mærkatet siger IKKE udgivet', efterRival.slags === 'dublet',
