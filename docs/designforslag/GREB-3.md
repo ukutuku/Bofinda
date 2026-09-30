@@ -431,16 +431,28 @@ på listen over tilladte domæner. Når de er åbne:
 
 ```sh
 scripts/cloud/op.sh                                   # base + app, som før
-source scripts/cloud/miljoe.sh && export DATABASE_URL="$(test_url)"   # testbasen, intet andet
-npm run import -- propstep                            # én kilde ad gangen
-npm run import -- dacas                               # (balder kræver BALDER_API_KEY)
+source scripts/cloud/miljoe.sh
+export DATABASE_URL_DIRECT="$(test_url)"              # importøren læser DENNE, ikke DATABASE_URL
+krav_isoleret "$DATABASE_URL_DIRECT"                  # afviser alt andet end testbasen
+unset DATABASE_URL
+npx tsx scripts/import.ts propstep                    # én kilde ad gangen; IKKE npm run import
+npx tsx scripts/import.ts dacas                       # (balder kræver BALDER_API_KEY)
 docs/designforslag/gengivelse/runde3.sh <udmappe>     # alle billeder og tal om
 ```
 
-`runde3.sh` tager før, runde 2 og begge runde 3-varianter i 1440, 390 og 360.
-Den kører også fotomålingens selvprøve. Hver måling ender i en `maal.json`
-ved siden af billederne. Importen går mod `DATABASE_URL` fra
-`scripts/cloud/miljoe.sh`, som afviser alt andet end testbasen.
+`runde3.sh` tager før og runde 3's variant A i 1440, 390 og 360 på alle fire
+sider, og runde 2 og variant B på forsiden i 390 og 360. Den kører også
+fotomålingens selvprøve. Hver måling ender i en `maal.json` ved siden af
+billederne.
+
+**Hvorfor ikke `npm run import`:** scriptet kører med `--env-file-if-exists=.env`.
+I en checkout med `.env` kommer `DATABASE_URL_DIRECT` derfra, og så er målet
+produktionen, med alarmmatchning, afsendelse og oprydning i samme kørsel.
+Importøren læser `DATABASE_URL_DIRECT` (`db/client.ts:52–54`), ikke
+`DATABASE_URL`. Uden `--env-file` og med `krav_isoleret` kan kommandoen kun
+ramme testbasen, og der er ingen nøgler at sende mail med. Den første udgave
+af denne fil (ca32bb2) satte den forkerte variabel. Den var farlig og er
+rettet.
 
 | Fil | Hvad |
 |---|---|
