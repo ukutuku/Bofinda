@@ -300,6 +300,12 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   sidst den laveste `listings.id`. Det sidste led er IKKE en tidsorden —
   `id` er en tilfældig UUID, så «den ældste række», som der stod her før,
   var forkert. Leddet er der kun for at gøre valget stabilt mellem kørsler.
+  · **Hvert led er NULL-frit ved konstruktion**, ikke ved held. `desc`
+  sætter NULL først og `asc` sidst, og et NULL i første led ville flytte
+  en bolig uden at nogen prøve så det. `UDLEJERANNONCE` er derfor `is not
+  distinct from 'native'`, ikke `= 'native'` — `source_type` er NOT NULL
+  i dag, men det er kolonnens egenskab, ikke udtrykkets. Et nyt led skal
+  have samme egenskab; `npm test` giver udtrykket et NULL-input direkte.
   · **Første trin er en regel, ikke en tælling.** Valget faldt før på
   billedantal, og en udlejerannonce kunne skjule kildens annonce for samme
   bolig ved at have flere billeder — bag en åben kontaktmur. En bedre
@@ -938,7 +944,7 @@ Hver af dem har kostet mindst én omgang i dette repo.
 | `FACILITETER` bundet til `Facilitetsord` | Fanger en forkert VÆRDI, ikke en manglende. `readonly X[]` må have enhver længde — også nul. Se nedenfor. |
 | en scanner forankret til linjestart (`^`) | Ser kun kopier, hvor nøglen står FØRST på linjen. En kopi med flere nøgler pr. linje slipper forbi — og det var netop den form, alle de fundne kopier havde. |
 | en prøve, der bygger sit eget forlæg | Dækker slet ikke koden. Isoleringsflagene lå i trinlisten i `scripts/import.ts`; prøven byggede sine egne trin med sine egne flag. Vendes hvert eneste flag i koden, er sættet fortsat grønt — prøven så aldrig på dem. |
-| brugervendt tekst i en ren fil, prøvet i `npm test` | Teksten, ikke løftet. Brugervendt tekst, der gør et udsagn om systemet, lægges i en ren fil uden database, så den kan prøves — det er rigtigt. Men en påstand om ET ANDET modul kan ikke prøves der: den skal have sin egen prøve, hvor modulet bor. «Den kan stadig åbnes på sit eget link» handler om `hentBolig`, og prøven af forklaringsfilen var grøn, også hvis linket gav 404. En ren fil gør teksten prøvbar og løftet uprøvbart, hvis man ikke passer på. |
+| brugervendt tekst i en ren fil, prøvet i `npm test` | Teksten, ikke løftet. Brugervendt tekst, der gør et udsagn om systemet, lægges i en ren fil uden database, så den kan prøves — det er rigtigt. Men en påstand om ET ANDET modul kan ikke prøves der: den skal have sin egen prøve, hvor modulet bor. «Den kan stadig åbnes på sit eget link» handler om `hentBolig`, og prøven af forklaringsfilen var grøn, også hvis linket gav 404. En ren fil gør teksten prøvbar og løftet uprøvbart, hvis man ikke passer på. **Og en ren fil holder kun, hvis også dens hjælpefunktioner er rene** — en formatteringshjælper fra en komponent er det sjældent. Fletteopskriften til `opgave/kontakt-ui` ville have hentet `kr` fra `app/Boligkort` ind i `forklaring.ts`, og `Boligkort` importerer `lib/soeg` og dermed databasen. |
 | en kendt fejl skrevet ned som «kendt følge» | Brugeren. En kendt usand brugervendt sætning er en fejl, ikke en følge. Den skal rettes, eller ændringen skal vente. At skrive den ned er ikke at have løst den — siden blev ved med at sige den, hver gang den blev vist. |
 
 **Fire af dem er den samme fejl fire gange.** Ved `--include` kan filteret

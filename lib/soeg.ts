@@ -228,8 +228,23 @@ export function hvor(f: Filtre) {
  * spoergsmaalet stilles baade om den ydre raekke (`UDLEJERANNONCE`) og om
  * aliaset `l2` i `SAMME_BOLIG_ANDEN_KILDE` — og to skrivemaader af samme
  * praedikat driver fra hinanden.
+ *
+ * ═══ NULL-FRI VED KONSTRUKTION ═══
+ *
+ * `is not distinct from`, ikke `=`. Med `=` giver en NULL-kildetype NULL,
+ * og udtrykket er FOERSTE led i repraesentantvalget. Et NULL der sorteres
+ * afhaenger af retningen — `asc` er NULLS LAST, `desc` NULLS FIRST — og
+ * repoet er bidt af det foer (`slaaAdgangOp`). I `SAMME_BOLIG_ANDEN_KILDE`
+ * ville `not NULL` desuden kaste raekken ud af «også hos» uden at sige det.
+ *
+ * `source_type` er NOT NULL i skemaet, saa NULL kan ikke opstaa i dag. Det
+ * er en egenskab ved KOLONNEN, og den kan aendres uden at nogen ser paa
+ * rangeringen. `is not distinct from` giver sandt eller falsk for alle
+ * input, og saa er spoergsmaalet, hvordan NULL sorteres, uden betydning.
+ * Proeven giver udtrykket et NULL-input direkte (scripts/test-redigering.ts).
  */
-const erUdlejerannonce = (kildetype: SQL | AnyColumn) => sql<boolean>`(${kildetype} = 'native')`
+export const erUdlejerannonce = (kildetype: SQL | AnyColumn) =>
+  sql<boolean>`(${kildetype} is not distinct from 'native')`
 
 /**
  * "l2 er den samme bolig som den ydre række, hos en anden kilde."
@@ -326,6 +341,14 @@ export const UDLEJERANNONCE = erUdlejerannonce(listings.sourceType)
  * tidsorden — `id` er en tilfaeldig UUID — men goer valget stabilt mellem
  * koersler. Forklaringen til udlejeren foelger samme raekkefoelge:
  * app/udlejer/boliger/forklaring.ts.
+ *
+ * Alle fire led er NULL-frie ved konstruktion, saa det er ligegyldigt, om
+ * NULL sorteres foerst eller sidst: `UDLEJERANNONCE` er `is not distinct
+ * from`; `UNIKKE_BILLEDER` er `count` i en skalar underforespoergsel uden
+ * `group by`, som altid giver én raekke og 0 for ingen billeder; `is not
+ * null` er aldrig NULL; og `id` er primaernoeglen. Et nyt led her skal
+ * have samme egenskab — `desc` paa en kolonne, der kan vaere NULL, saetter
+ * de ukendte FOERST.
  */
 export function ikkeRepraesentant(grundlag: SQL | undefined) {
   return sql`${listings.id} in (
@@ -374,6 +397,15 @@ export const udenDubletter = (grundlag: SQL | undefined) =>
  * `udenDubletter(saet)`: rangeringen beholder én raekke pr. noegle. Uden
  * noegle er raekken sin egen bolig.
  *
+ * NULL-fri ved konstruktion (`coalesce(…, false)`). Svaret taelles med
+ * `count(*) filter (where x)` og `filter (where not x)`, og en raekke, hvor
+ * x er NULL, falder ud af BEGGE — saa gaar linjens tre grupper ikke op, og
+ * ingen ser hvilken bolig der mangler. Hos de nuvaerende kaldere kan `saet`
+ * ikke give NULL for den ydre raekke, fordi den ydre raekke allerede er i
+ * grundlaget. Men det er en egenskab ved kalderne, ikke ved udtrykket, og
+ * et prisfilter paa en bolig uden pris giver NULL. Eksporteret til proeven,
+ * der giver den et NULL-saet direkte.
+ *
  * Til tal, der taeller én soegning og udtaler sig om en ANDEN. Grundlaget
  * under facilitetsfiltrene taeller soegningen uden dem og siger, hvad et
  * kryds goer. Men rangeringen regnes paa det filtrerede saet, saa et kryds
@@ -387,12 +419,12 @@ export const udenDubletter = (grundlag: SQL | undefined) =>
  * den ydre, som i `ikkeRepraesentant` — saa Postgres regner den én gang og
  * ikke pr. raekke.
  */
-function boligenErI(saet: SQL | undefined) {
+export function boligenErI(saet: SQL | undefined) {
   const s = saet ?? sql`true`
-  return sql<boolean>`(${s} or (${DEDUPNOEGLE} is not null and ${DEDUPNOEGLE} in (
+  return sql<boolean>`coalesce((${s}) or (${DEDUPNOEGLE} is not null and ${DEDUPNOEGLE} in (
     select ${DEDUPNOEGLE} from ${listings}
     inner join ${sources} on ${sources.id} = ${listings.sourceId}
-    where ${s} and ${DEDUPNOEGLE} is not null)))`
+    where ${s} and ${DEDUPNOEGLE} is not null)), false)`
 }
 
 /**

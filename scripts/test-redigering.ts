@@ -78,8 +78,8 @@ import { billedUrl, TILLADTE_VAERTER } from '../lib/billede'
 import { eltilstand } from '../lib/eloplysning'
 import type { Bolig, Filtre, Gruppe } from '../lib/soeg'
 import {
-  facilitetsgrundlag, hentBolig, hvor, NYHEDSDATO, oekonomigrundlag, opsummering, soeg,
-  soegGrupperet, tavseKilder, udenDubletter,
+  boligenErI, erUdlejerannonce, facilitetsgrundlag, hentBolig, hvor, NYHEDSDATO,
+  oekonomigrundlag, opsummering, soeg, soegGrupperet, tavseKilder, udenDubletter,
 } from '../lib/soeg'
 import { dedupNoegle } from '../lib/dedup'
 import { FACILITET } from '../lib/faciliteter'
@@ -1396,17 +1396,54 @@ async function main() {
     // dem der har faciliteten, dem der oplyser faciliteter uden den, og
     // dem der intet oplyser. Går de ikke op, mangler brugeren en gruppe
     // uden at kunne se hvilken — det gjorde de før, hvor kun to blev nævnt.
-    // Tallene tælles UAFHÆNGIGT her. Regnede prøven mellemgruppen som
-    // `antal - tier - har`, ville summen gå op per definition, og prøven
-    // ville ikke kunne fejle. De tre grupper skal måles hver for sig og
-    // tilsammen dække alle boliger.
     //
-    // Og de tælles pr. BOLIG, ikke pr. repræsentant. Rangeringen regnes på
+    // De tælles pr. BOLIG, ikke pr. repræsentant. Rangeringen regnes på
     // det filtrerede sæt, så et kryds kan vise en ANDEN annonce for samme
     // bolig end den, der vinder uden filter — og så var «vises ikke» usandt
     // om en bolig, listen viste. Grupperingen sker her i JS med
     // `dedupNoegle` fra lib/dedup.ts, ikke med `boligenErI` i lib/soeg.ts:
     // prøven må ikke låne det udtryk, den prøver.
+    //
+    // ═══ FIKSTURET: EN BOLIG, HVOR DE TO TÆLLINGER ER UENIGE ═══
+    //
+    // Uden det kunne prøven ikke blive rød. Testbasen har på dette sted kun
+    // hendes bolig, og med én annonce pr. bolig giver tælling pr. bolig og
+    // pr. repræsentant det samme — prøven bestod også, da `boligenErI` var
+    // vendt tilbage til den gamle tælling. En tavs kopi af hendes bolig på
+    // en prøvekilde vinder repræsentantvalget (kildens annonce før
+    // udlejerens) og oplyser ingen faciliteter. Pr. repræsentant er boligen
+    // så «tier»; pr. bolig nævner den elevator og altan, og for kæledyr
+    // oplyser den faciliteter uden at nævne det. Alle tre nøgler skilles ad.
+    //
+    // Egen kilde uden kørsler, som resten af filen: den må ikke låne en
+    // rigtig kilde og arve dens historik i crawl_runs (se rivalen nedenfor).
+    const [grundlagskilde] = await db.insert(sources).values({
+      slug: `proeve-grundlag-${Date.now()}`,
+      name: 'Prøvekilde til grundlaget (kun til prøver)',
+      sourceType: 'feed',
+      baseUrl: 'https://proeve-grundlag.invalid',
+      enabled: false,
+    }).returning()
+    ekstra.kilder.push(grundlagskilde!.id)
+    const [hendesFoerGrundlag] = await db.select().from(listings).where(eq(listings.id, id))
+    const { id: _gId, ...hendesKolonnerG } = hendesFoerGrundlag!
+    const [tavsKopi] = await db.insert(listings).values({
+      ...hendesKolonnerG,
+      sourceId: grundlagskilde!.id,
+      sourceType: 'feed',
+      sourceCreatedAt: null,
+      externalKey: `proeve-grundlag-${Date.now()}`,
+      sourceUrl: 'https://proeve-grundlag.invalid/1',
+      landlordId: null, contactEmail: null, contactPhone: null,
+      amenities: [],
+    }).returning()
+    // Forudsætningen skal selv holde, ellers måler resten ingenting: kopien
+    // er repræsentanten, og hun er skjult bag den.
+    tjek('fikstur: den tavse kopi vinder repræsentantvalget',
+      (await soeg({ postnr: FULDT.postnr }, 500)).some((b) => b.id === tavsKopi!.id)
+      && !(await iSoegningen()))
+    const gB = await facilitetsgrundlag({})
+
     const raekkerIS = await db.select({
       id: listings.id, amenities: listings.amenities,
       addressMatchLevel: listings.addressMatchLevel,
@@ -1432,26 +1469,33 @@ async function main() {
       const uden = alleB.filter((b) =>
         b.some((r) => facListe(r).length > 0) && !b.some(harDen)).length
       const tier = alleB.filter((b) => b.every((r) => facListe(r).length === 0)).length
-      // DEN FOERSTE: at de tre grupper deler boligerne uden overlap og
-      // uden hul. `uden` har sit eget praedikat, ikke `alle - tier - har`:
-      // en bolig med faciliteten, men uden oplyste faciliteter, ville
-      // briste summen.
-      tjek(`${nøgle}: de tre grupper dækker alle boliger`,
-        har + uden + tier === alle,
-        `${har} + ${uden} + ${tier} = ${har + uden + tier}, i alt ${alle}`)
-      // DEN ANDEN: at grundlaget beskriver netop DET saet — og at dedup'en i
-      // SQL og beskrivelsen i lib/dedup.ts grupperer ens.
-      tjek(`${nøgle}: grundlaget beskriver samme sæt`, alle === g.antal,
-        `${g.antal} mod ${alle}`)
-      tjek(`${nøgle}: linjens tal er det målte`, har === g[nøgle], `${g[nøgle]} mod ${har}`)
-      tjek(`${nøgle}: grundlagets tavse er de målte tavse`, tier === g.tier,
-        `${g.tier} mod ${tier}`)
-      // DEN TREDJE: «N nævner det» er de boliger, krydset VISER. Målt på
-      // listens egen vej — `opsummering` med filteret sat — ikke på grundlaget.
+      // Her stod «de tre grupper dækker alle boliger» — `har + uden + tier`
+      // mod `alle`, alle fire talt her i JS. Den kunne ikke blive rød: en
+      // række med faciliteten har en ikke-tom liste, så de tre prædikater
+      // deler boligerne per definition. Den prøvede JS, ikke koden.
+      //
+      // Det, der kan gå galt, er de tal, SIDEN regner. Den skriver `antal`,
+      // `tier` og faciliteten fra grundlaget og regner midtergruppen som
+      // resten (app/page.tsx). Så midtergruppen, som siden regner den, skal
+      // være den målte — og dermed dækker linjens tre tal alle boliger.
+      const midten = gB.antal - gB.tier - gB[nøgle]
+      tjek(`${nøgle}: midtergruppen, som siden regner den, er den målte`,
+        midten === uden, `${midten} mod ${uden}`)
+      // At grundlaget beskriver netop DET sæt — og at dedup'en i SQL og
+      // beskrivelsen i lib/dedup.ts grupperer ens.
+      tjek(`${nøgle}: grundlaget beskriver samme sæt`, alle === gB.antal,
+        `${gB.antal} mod ${alle}`)
+      tjek(`${nøgle}: linjens tal er det målte`, har === gB[nøgle], `${gB[nøgle]} mod ${har}`)
+      tjek(`${nøgle}: grundlagets tavse er de målte tavse`, tier === gB.tier,
+        `${gB.tier} mod ${tier}`)
+      // «N nævner det» er de boliger, krydset VISER. Målt på listens egen
+      // vej — `opsummering` med filteret sat — ikke på grundlaget.
       const vist = (await opsummering({ [nøgle]: true })).antal
-      tjek(`${nøgle}: «nævner det» er det antal, krydset viser`, vist === g[nøgle],
-        `${g[nøgle]} mod ${vist}`)
+      tjek(`${nøgle}: «nævner det» er det antal, krydset viser`, vist === gB[nøgle],
+        `${gB[nøgle]} mod ${vist}`)
     }
+    await db.delete(listings).where(eq(listings.id, tavsKopi!.id))
+    tjek('fikstur: uden kopien er hun i søgningen igen', await iSoegningen())
 
     // ── Tællingen skal tælle VISBARE billeder ────────────────────
     // `b.billeder` var `count(*) from listing_images` — rækker, ikke
@@ -1589,6 +1633,31 @@ async function main() {
     // kildens annonce for samme bolig ved at have flere — bag en aaben
     // kontaktmur. En bedre taelling kunne ikke lukke det: «unik» er en
     // byte-ens streng. Reglen goer.
+    // ── NULL-frie ved konstruktion ───────────────────────────────
+    // `order by … desc` sætter NULL FØRST i Postgres, `asc` sidst — og repoet
+    // er bidt af det før (`slaaAdgangOp`). Repræsentantvalgets første led og
+    // tællingen pr. bolig må derfor ikke KUNNE give NULL, heller ikke hvis
+    // `source_type` en dag mister sit NOT NULL. Et NULL i data kan prøven
+    // ikke lave — kolonnen tillader det ikke — så udtrykkene får NULL-input
+    // direkte. Med `=` i stedet for `is not distinct from`, eller uden
+    // `coalesce`, svarer de NULL, og prøven bliver rød.
+    console.log('\n══ repræsentantvalget og tællingen er NULL-frie ══')
+    const nulSvar = await db.execute(dsql`select
+      ${erUdlejerannonce(dsql`null::source_type`)} as ukendt,
+      ${erUdlejerannonce(dsql`'native'::source_type`)} as native,
+      ${erUdlejerannonce(dsql`'feed'::source_type`)} as feed`)
+    const nul = ((nulSvar as { rows?: unknown[] }).rows ?? (nulSvar as unknown[]))[0] as
+      { ukendt: boolean | null; native: boolean | null; feed: boolean | null }
+    tjek('erUdlejerannonce: en ukendt kildetype er falsk, ikke NULL',
+      nul.ukendt === false, String(nul.ukendt))
+    tjek('erUdlejerannonce: native er sand, feed er falsk',
+      nul.native === true && nul.feed === false, `${nul.native} · ${nul.feed}`)
+    const [iNulSaet] = await db.select({ b: boligenErI(dsql`null::boolean`) })
+      .from(listings).innerJoin(sources, eq(sources.id, listings.sourceId))
+      .where(eq(listings.id, id))
+    tjek('boligenErI: et sæt, der svarer NULL for rækken, giver falsk, ikke NULL',
+      iNulSaet?.b === false, String(iNulSaet?.b))
+
     console.log('\n══ kildens annonce vises frem for en udlejerannonce ══')
     const efterRival = await maerkat()
     tjek('med dublet: mærkatet siger IKKE udgivet', efterRival.slags === 'dublet',
