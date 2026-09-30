@@ -604,8 +604,30 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   Kravene er bygget ind i `app/Landkort.tsx` — præcis URL'en, synlig
   kreditering der aldrig må skjules, "Meld en fejl i kortet"-link, ingen
   forhentning og ingen offline. Browserens egen User-Agent og cache
-  opfylder resten; vi sætter ingen Referrer-Policy, og det skal blive
-  sådan — en restriktiv ville fjerne den Referer, de identificerer os på.
+  opfylder resten.
+
+  **Referer'en til OSM er tilsigtet, men sætningen om den var forkert.**
+  Her stod «vi sætter ingen Referrer-Policy, og det skal blive sådan».
+  Vi sætter én: `app/go/[id]/route.ts` svarer `Referrer-Policy:
+  no-referrer` på de udgående klik, netop for at bevare det,
+  `rel="noopener noreferrer"` gjorde før. Kilderne får altså INGEN
+  Referer — og det er det eneste sted, en Referer nogensinde ville nå en
+  kilde. Påstanden om «ingen Referrer-Policy» gjaldt aldrig hele
+  produktet.
+
+  For fliserne gælder derimod browserens standard,
+  `strict-origin-when-cross-origin`, fordi hverken `next.config.ts` eller
+  `Landkort.tsx` sætter noget. **Målt** (Chromium, krydsoprindelse,
+  side på `/bolig/<id>?filtre=2200`): OSM modtager `Referer:
+  https://bofinda.dk/` — origin og intet andet. Hverken sti eller query
+  sendes med.
+
+  Det er præcis nok til, at de kan se hvem der bruger tjenesten, og ikke
+  mere. **En restriktiv GLOBAL politik ville derfor gøre skade, ikke
+  gavn:** den fjerner origin-Referer'en til OSM, mens `/go` i forvejen
+  sender ingenting. Skal noget strammes, hører undtagelsen på FLISERNE —
+  et udtrykkeligt `referrerPolicy` på flise-laget, så hensigten står i
+  koden i stedet for at hvile på en browserstandard — ikke på `/go`.
   **Flise-URL'en er ikke hardkodet.** Politikkens afsnit 7 siger, at
   adgang kan trækkes uden varsel, og at kommercielle tjenester særligt
   skal regne med det. Bofinda er en kommerciel tjeneste. Skift kilde med

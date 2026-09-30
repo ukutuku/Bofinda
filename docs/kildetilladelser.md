@@ -175,3 +175,74 @@ Licensen forbyder at identificerbare personer fremstilles i et
 nedsættende lys, og at billedet sælges videre som et selvstændigt
 produkt. Ingen af delene er på tale: der er ingen personer i motivet, og
 det bruges som baggrund på vores egen forside.
+
+---
+
+## OpenStreetMap — kortfliser
+
+Ikke en boligkilde og ikke en mundtlig tilladelse. Den står her alligevel,
+fordi det er samme spørgsmål: **hvem har givet os lov til hvad, og hvad gør
+vi den dag, de trækker det tilbage.**
+
+| | |
+|---|---|
+| **Hvad vi bruger** | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` |
+| **Grundlag** | [Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/) — en offentlig politik, ikke en aftale med os |
+| **Hvem henter** | **Brugerens browser, direkte.** Fliserne går ikke gennem vores server, så OSM ser den besøgendes IP-adresse |
+| **Hvad de modtager** | IP-adressen, flisens `{z}/{x}/{y}` og `Referer: https://bofinda.dk/` — origin, målt; hverken sti eller query |
+| **Hvor vi bruger det** | `app/Landkort.tsx`, gengivet fra `app/bolig/[id]/page.tsx` (uden betingelse) og `app/page.tsx` (kun når der er filtreret) |
+
+### Hvad flise-koordinaterne røber
+
+`{z}/{x}/{y}` ER udsnittet. Målt for en bolig på Vesterbrogade 1:
+
+| Zoom | Hvornår | Flisens bredde |
+|---|---|---|
+| 6 | forsiden uden filtrering | 353 km — siger ingenting |
+| 15 | én bolig, `fitBounds`' `maxZoom` | **690 m**, med markøren midt i |
+| 18 | brugeren har zoomet helt ind | **86 m** |
+
+OSM får altså IP'en sammen med omtrent hvor boligen ligger. Over et besøg
+er rækken af flise-requests hendes boligsøgning. Det er derfor `/privatliv`
+skal nævne dem — se afsnittet om leverandører.
+
+### Beredskabet: det er en miljøvariabel, ikke en ombygning
+
+Politikkens afsnit 7 siger, at adgang kan trækkes **uden varsel**, og at
+kommercielle tjenester særligt skal regne med det. Bofinda er en
+kommerciel tjeneste.
+
+Derfor er flise-URL'en ikke hardkodet. Forsvinder kortene:
+
+```bash
+NEXT_PUBLIC_FLISE_URL="https://<ny-udbyder>/{z}/{x}/{y}.png"
+NEXT_PUBLIC_FLISE_KREDIT="<den nye udbyders krævede kreditering>"
+```
+
+Begge er `NEXT_PUBLIC_*` og bages ind ved **bygget**, ikke ved start — et
+skift kræver derfor en ny deploy, men ingen kodeændring og ingen ny PR.
+
+**Tre ting skal følge med skiftet**, ellers bytter vi ét problem for et
+andet:
+
+1. **Krediteringen** skal være den nye udbyders egen ordlyd. Den er
+   synlig på kortet og må aldrig skjules — det er et krav hos OSM og hos
+   stort set enhver anden flisetjeneste.
+   Sættes variablen, **erstatter den hele strengen**, også OSM-linket
+   «Meld en fejl i kortet». Det er med vilje, og det virker, fordi `??`
+   binder løsere end `+` i `Landkort.tsx:43-45`: reservestrengen er
+   sammenkædningen, ikke kun første led. Efterprøvet — med variablen sat
+   er der nul forekomster af `fixthemap`. Havde det været omvendt, ville
+   et fremmed kort bære OSM's fejlmeldingslink.
+2. **`/privatliv`** navngiver OSM som en tredjepart, browseren kontakter
+   direkte. Navnet skal rettes samme dag, ellers står der en usand
+   leverandør på siden.
+3. **Den nye udbyders politik** skal læses efter for de samme fire krav,
+   `Landkort.tsx` allerede opfylder: ingen forhentning, ingen offline-kopi,
+   synlig kreditering, og kun de fliser udsnittet kræver.
+
+Vælges en udbyder med API-nøgle, hører nøglen i miljøet og **aldrig** i
+`Landkort.tsx` — samme regel som `BALDER_API_KEY`. Bemærk dog, at en
+`NEXT_PUBLIC_`-variabel når browseren og derfor ikke er en hemmelighed;
+en nøglebaseret udbyder kræver enten en domænebegrænset nøgle eller en
+proxy gennem vores egen server.
