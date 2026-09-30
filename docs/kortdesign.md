@@ -258,3 +258,138 @@ nægter at starte et byg, der bærer OpenStreetMaps URL.
 | `app/page.tsx`, `app/gruppe/page.tsx`, `app/lejeboliger/[slug]/page.tsx` | `.listeomraade` om listen |
 | `scripts/cloud/kortkontrol.mjs` | Ny kontrol, 120 målinger |
 | `scripts/cloud/byg.sh`, `scripts/cloud/app-op.sh` | Byg til testmiljøet uden eksterne flise-URL'er |
+
+---
+
+# Informationshierarkiet · 23. september 2026
+
+Kortet bar op til **fem** særskilte udsagn om økonomi. Hver enkelt var
+sand; det var samlingen, der ikke var til at læse. Det her er
+omlægningen, og **den hviler på målinger af produktionen**, ikke på
+smag — tallene står ved hvert valg, så den næste kan se, hvorfor der
+er fire former og ikke tre.
+
+## Grundlaget · 1.864 synlige boliger
+
+| | antal | andel |
+|---|---|---|
+| kendt total («til udlejer») | 1.360 | 73,0 % |
+| kun husleje («i husleje») | 504 | 27,0 % |
+| med indflytningspris | 1.497 | 80,3 % |
+| posterlinje (kendt total) | 1.360 | 73,0 % |
+
+**El-tilstanden — de fire reelle grupper:**
+
+| tilstand | antal | andel |
+|---|---|---|
+| `ikke-med` · el indgår ikke, total kendt | 857 | 46,0 % |
+| *ingen linje* · total ukendt | 504 | 27,0 % |
+| `ukendt-daekning` · aconto er ét samlet beløb | 466 | 25,0 % |
+| `egen-maaler` | 20 | 1,1 % |
+| `med` · el er en navngiven post | 17 | 0,9 % |
+
+**De tre store er næsten lige store.** 46 · 27 · 25. Det er den
+vigtigste enkeltoplysning i hele omlægningen: *der findes ingen
+normaltilstand at afvige fra.* Et design, der gør én af dem til
+hovedreglen, gør de to andre til undtagelser — på 52 % af kortene.
+
+Derfor er der **fire former og ikke tre**, og derfor er «højst ét
+forbehold» det forkerte greb. Et forbehold forudsætter en
+normaltilstand. Den findes ikke her.
+
+## Diagnosen · to linjer, ét spørgsmål
+
+```
+husleje + varme + vand                          ← posterlinjen: hvad ER med
+El indgår ikke — udlejer oplyser ikke hvordan   ← el-linjen: hvad er IKKE med
+```
+
+To linjer, to pladser i rækkefølgen (`order: 9` og `order: 6`), som
+skal læses sammen for at give ét svar på ét spørgsmål: **hvad dækker
+tallet?** Det er CLAUDE.md's dyreste mønster — to udtryk for det samme
+— og det stod på 71 % af kortene.
+
+Sammenlægningen fjerner **niveauet**, ikke oplysningen.
+
+## Hierarkiet
+
+**Niveau 1 · Tallet, og om vi kender det.** Skellet bæres af ordene,
+ikke af farven. Farven må blive, men den var før det eneste — og den
+forsvinder i gråtone, for en farveblind, og på et skærmbillede.
+
+```
+kendt   (73 %)   7.750 kr/md til udlejer
+ukendt  (27 %)   7.350 kr/md i husleje + aconto (ikke oplyst)
+```
+
+Manglen står i selve tallet. **Det fjerner den gule advarselsboks** —
+der er ikke noget tilbage at sætte i en advarselsfarve. 27 % er for
+ofte til at råbe og for tit til at skjule.
+
+**Niveau 2 · Grundlagslinjen.** Ét svar, altid præcis én linje, altid
+samme plads:
+
+| form | tilstand | linjen |
+|---|---|---|
+| **A** 46 % | `ikke-med` | husleje + varme + vand · el kommer oveni |
+| **B** 27 % | total ukendt | Spørg udlejeren om varme og vand |
+| **C** 25 % | `ukendt-daekning` | husleje + ét samlet acontobeløb · uvist om el er med |
+| **D** 0,9 % | `med` | husleje + varme + vand + el |
+| **D'** 1,1 % | `egen-maaler` | husleje + varme + vand · el betaler du selv til elselskabet |
+
+**Niveau 3 · Indflytningsprisen.** 80,3 %, og jævnt fordelt — 81,3 %
+blandt kendt total mod 77,8 % blandt kun husleje. Den følger altså
+ikke prisen. Den er sin egen oplysning på fire ud af fem kort, og den
+svarer på *kan jeg flytte ind*, hvor prisen svarer på *kan jeg blive
+boende*. Egen række, ikke et detaljeringsniveau af tallet ovenfor.
+
+**Flyttet til detaljesiden:** alderslinjen («set/annonceret for N
+siden»). Ny-mærkatet bliver — hastighed er produktets løfte. Men hvor
+gammel en *ikke*-ny annonce er, hører ikke til i økonomiblokken.
+
+## Hvad det koster i udsagn
+
+| gruppe | før | efter |
+|---|---|---|
+| A · el udenfor | 5 | **3** |
+| C · klump | 5 | **3** |
+| B · kun husleje | 4 | **3** |
+| D · el med / egen måler | 5 | **3** |
+
+De to, der forsvinder, er dem, der sagde det samme to gange.
+
+## Reglerne, der skal overleve
+
+- **Grundlagslinjen står præcis ÉN gang.** Er der nul, mangler svaret
+  på «hvad dækker tallet»; er der to, er den gamle dobbelthed tilbage.
+- **El-oplysningen findes ét sted.** Der er ingen `Ellinje` mere.
+  Vender den tilbage ved siden af grundlagslinjen, er vi tilbage til
+  to udtryk for ét spørgsmål.
+- **`egen-maaler`-formuleringen er STÆRKERE end de andre.** «Du betaler
+  selv til elselskabet» er en påstand om kundens forhold, ikke om vores
+  data. Den må kun stå, når kilden selv har sagt det
+  (`electricity_own_meter`), og den må aldrig blive standardteksten for
+  de 857, hvor vi netop ikke ved det. CLAUDE.md er skarp på det, og
+  `scripts/test-kortudsagn.ts` måler det.
+- **Gruppekortet må ikke lade repræsentanten tale.** Er posterne ikke
+  ens i gruppen, kan linjen ikke opregne dem — så siger den «husleje +
+  aconto», som er sandt for alle. Og det svageste el-udsagn vinder: er
+  der bare én, hvis aconto vi ikke kender indholdet af, kan kortet ikke
+  sige «el indgår ikke» om dem alle.
+- **`totalKendt` gives EKSPLICIT.** Enkeltkortets `b.total` er et beløb,
+  der kan være null; gruppens `n.total` er en boolean, der aldrig er
+  det. Samme ord, to typer — det kostede 47 gruppekort sidst. Derfor
+  tager `grundlagstekst` den som sit eget argument og udleder den ikke.
+
+## Målinger, der mangler
+
+- **Blok 21R** binder de sidste 20: `egen-maaler` afgøres før
+  `samletKlump` i `eltilstand`, så dens acontoposter er de eneste, der
+  ikke kan udledes af el-fordelingen. Formen ændrer sig ikke — kun
+  hvilken af D'-linjens to varianter de 20 får.
+- **Blok 16** ville give fire rigtige kort til dokumentationen. Kun
+  Tolderlundsvej 48, 1. 9 i Odense er aflæst, og dens acontoposter er
+  ikke målt, så det vides ikke, om den er form A eller C.
+
+Ingen af dem ændrer strukturen. De blev ikke kørt, fordi
+containerens netværkspolitik spærrer 5432 og 6543.
