@@ -5,7 +5,7 @@ er de fire rettelser i den rækkefølge, de blev bedt om, plus observationen
 om mærkaten og status for netværket.
 
 **Dataene er stadig syntetiske.** Værterne svarer stadig 403 fra proxyen
-(efterprøvet 30. september kl. 14.34). Og listen over de fem værter fra
+(efterprøvet 30. september kl. 14.34 UTC). Og listen over de fem værter fra
 runde 2 var forkert. Se [Netværket](#netværket-og-hvad-der-skal-køres-når-det-er-åbent)
 for den rigtige liste. Når de er åbne, tager
 [`gengivelse/runde3.sh`](gengivelse/runde3.sh) alle billeder og tal om med én
@@ -16,26 +16,31 @@ kommando.
 
 ## 1 · Mobilen
 
-Målt i 390 og 360 på forsiden. «Tegning tilbage» er, hvor meget af fotoets
-kanter og detaljer der står tilbage, som siden tegner det, over den del af
-fotoet, der står fri af søgekortet (1 = urørt). Kontrasten er den værste mod
-de faktiske pixels bag teksten. «Populære søgninger» er målt med seks lange
-danske bynavne (København NV, Frederiksberg C …) som en belastningsprøve,
-fordi seedets fire korte byer aldrig brækker. Alt kommer fra `maal.json` i
+Målt i 390 og 360 på forsiden. Alt kommer fra `maal.json` i
 [`greb3/`](greb3).
 
-| Bredde | Tilstand | Første kort (px) | Tegning tilbage (fri højde) | Øjenbryn | h1 | Manchet | Kreditering | Populære søgninger | Vandret rul |
-|---|---|---|---|---|---|---|---|---|---|
-| 390 | Før (appen i dag) | 571 | 0,39 (221 px) | 7,64 | 9,39 | 6,40 | øverst, i første visning | 3 rækker, 2 venstrekanter, mellemrum 16 px | 0 |
-| 390 | Runde 2 | 622 | 0,19 (267 px) | 6,87 | 14,50 | 14,40 | øverst, i første visning | 3 rækker, 2 venstrekanter, mellemrum 24/28 px | 0 |
-| 390 | A · fotobånd | 671 | 1,00 (130 px) | 7,13 | 16,63 | 16,63 | fodnoten | 3 rækker, 1 venstrekant, mellemrum 16 px | 0 |
-| 390 | B · mørkt slør | 605 | 0,43 (251 px) | 5,72 | 7,08 | 6,21 | fodnoten | 3 rækker, 1 venstrekant, mellemrum 16 px | 0 |
-| 360 | Før (appen i dag) | 571 | 0,39 (221 px) | 7,69 | 9,39 | 6,40 | øverst, i første visning | 3 rækker, 2 venstrekanter, mellemrum 16 px | 0 |
-| 360 | Runde 2 | 645 | 0,20 (291 px) | 6,87 | 14,63 | 14,36 | øverst, i første visning | 4 rækker, 2 venstrekanter, mellemrum 24/28 px | 0 |
-| 360 | A · fotobånd | 684 | 1,00 (120 px) | 7,13 | 16,63 | 16,63 | fodnoten | 4 rækker, 1 venstrekant, mellemrum 16 px | 0 |
-| 360 | B · mørkt slør | 628 | 0,43 (275 px) | 5,72 | 7,05 | 5,95 | fodnoten | 4 rækker, 1 venstrekant, mellemrum 16 px | 0 |
+- **Tegning tilbage** er, hvor meget af fotoets kanter og detaljer der står
+  tilbage, som siden tegner det. Det måles over den del af fotoet, der står
+  fri af søgekortet. 1 betyder urørt. Slørets egen dithering er målt over en
+  flad flade og trukket fra (nulpunkt ~0,1), og tallet er klippet til 0–1.
+- **Kontrasten** er den værste mod de faktiske pixels bag teksten.
+- **«Populære søgninger»** er målt to gange: med seedets fire byer, sådan
+  som siden står, og med seks lange danske bynavne (København NV,
+  Frederiksberg C …) som belastningsprøve. Kolonnerne viser rækker,
+  venstrekanter og mellemrum.
 
-**Fotoet.** I runde 2 stod fotoet med 0,19 af sin tegning på 390, mod 0,39 i
+| Bredde | Tilstand | Første kort (px) | Mod i dag | Tegning tilbage (fri højde) | Øjenbryn | h1 | Manchet | Kreditering | Populære, seed | Populære, belastet | Vandret rul |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 390 | Før (appen i dag) | 571 | +0 | 0,18 (221 px) | 7,64 | 9,39 | 6,40 | øverst, i første visning | 2 r · 2 kanter · 16 px | 3 r · 2 kanter · 16 px | 0 |
+| 390 | Runde 2 | 622 | +51 | 0,14 (267 px) | 6,87 | 14,50 | 14,40 | øverst, i første visning | 2 r · 2 kanter · 24/28 px | 3 r · 2 kanter · 24/28 px | 0 |
+| 390 | A · fotobånd | 671 | +100 | 1,00 (130 px) | 7,13 | 16,63 | 16,63 | fodnoten | 2 r · 1 kant · 16 px | 3 r · 1 kant · 16 px | 0 |
+| 390 | B · mørkt slør | 573 | +2 | 0,43 (195 px) | 5,48 | 6,83 | 5,67 | fodnoten | 2 r · 1 kant · 16 px | 3 r · 1 kant · 16 px | 0 |
+| 360 | Før (appen i dag) | 571 | +0 | 0,18 (221 px) | 7,69 | 9,39 | 6,40 | øverst, i første visning | 2 r · 2 kanter · 16 px | 3 r · 2 kanter · 16 px | 0 |
+| 360 | Runde 2 | 645 | +74 | 0,14 (291 px) | 6,87 | 14,63 | 14,36 | øverst, i første visning | 2 r · 2 kanter · 24/28 px | 4 r · 2 kanter · 24/28 px | 0 |
+| 360 | A · fotobånd | 684 | +113 | 1,00 (120 px) | 7,13 | 16,63 | 16,63 | fodnoten | 2 r · 1 kant · 16 px | 4 r · 1 kant · 16 px | 0 |
+| 360 | B · mørkt slør | 596 | +25 | 0,43 (219 px) | 5,48 | 6,83 | 5,67 | fodnoten | 2 r · 1 kant · 16 px | 4 r · 1 kant · 16 px | 0 |
+
+**Fotoet.** I runde 2 stod fotoet med 0,14 af sin tegning på 390, mod 0,18 i
 appen i dag. Runde 2 gjorde altså telefonen værre, ikke bedre. Du så
 rigtigt: sløret er 92–95 % hvidt over de øverste 55 % af heroen, fordi en
 smal skærm ikke har en venstre side at lægge teksten i. De to løsninger:
@@ -43,44 +48,77 @@ smal skærm ikke har en venstre side at lægge teksten i. De to løsninger:
 - **A · fotobånd** (`.m-baand`). Fotoet står som et lavt bånd på 3:1 øverst
   i fuld bredde, uden slør. Teksten står under det, på papiret. Intet står
   på fotoet, så kontrasten afhænger ikke af det. Fotoet står helt (1,00),
-  men lavt: 130 px på 390. Prisen er folden. Første kort flytter fra 622 til
-  671 px på 390, og fra 645 til 684 på 360. Jeg prøvede også 12:5 og 5:2: de
-  viste det samme motiv og kostede 26–32 px mere.
-- **B · mørkt slør** (`.m-moerk`). Teksten står på fotoet, hvid på et mørkt
-  slør, der er tættest bag teksten og letter mod søgekortet. Folden er bedre
-  end i runde 2: 605 px på 390. Men fotoet står med 0,43 af sin tegning,
-  fordi dette foto er lyst og kræver 0,50 slør for hvid tekst (se 2). Et
-  foto med mellemtoner kræver mindre, og så står mere af det.
+  men lavt: 130 px på 390. 12:5 og 5:2 viste det samme motiv og kostede 32
+  og 26 px mere på 390
+  ([`maalinger/hero-detaljer.json`](maalinger/hero-detaljer.json)).
+- **B · mørkt slør** (`.m-moerk`). Teksten står hvid på fotoet. Sløret er af
+  blæk, tættest bag teksten, og letter mod søgekortet. Fotoet står med 0,43
+  af sin tegning med objektets slør på 0,60, som er det krævede 0,55 plus
+  0,05 i margen (se 2). Et foto med mellemtoner kræver mindre slør, og så
+  står mere af det.
 
-**Min anbefaling er A.** Det er det eneste af de to, hvor fotoet ikke
-betaler for teksten, og det er et velsat regnskabs form: billedet som en
-plade, teksten på papir. Kontrasten kan ikke gå tabt, uanset hvilket foto
-John finder. Prisen er 49 px fold på 390. Vejer folden tungere, er B rigtig,
-men så afgør det nye foto, hvor meget af det der kan ses.
+**Folden, målt mod appen i dag** (første kort 571 px på 390, 571 på 360):
+
+| | 390 | 360 |
+|---|---|---|
+| A · fotobånd | +100 px | +113 px |
+| B · mørkt slør | +2 px | +25 px |
+| A mere end B | +98 px | +88 px |
+
+Tallene skal læses med luften: begge varianter har 32 px mellem søgekortet
+og «Nyeste boliger». Appen i dag har 2 px, og runde 2 havde 8
+([`maalinger/hero-detaljer.json`](maalinger/hero-detaljer.json)). Runde 2's
+telefonregler for luften var døde: de blev overstyret af reglerne for bred
+skærm, som stod senere med samme specificitet. Omkring 30 af de pixels, en
+variant koster mod i dag, er altså luft, som mangler i dag.
+
+**Anbefalingen afhænger af det nye foto, og målingen afgør den.**
+
+- **B** koster næsten ingen fold: +2 px på 390 og +25 på 360 mod i dag. Den
+  ligner bred skærm, med teksten på fotoet. Men med det nuværende, lyse foto
+  står kun 0,43 af tegningen tilbage, og det er for lidt til, at fotoet
+  bærer siden.
+- **A** koster +100 og +113 px. Til gengæld kan kontrasten aldrig gå tabt,
+  uanset foto.
+
+**Reglen:** kræver Johns foto højst 0,45 slør i variant B i `maal-foto.mjs`,
+er B rigtig. Så bliver objektets slør 0,50, og mindst halvdelen af fotoets
+tegning står tilbage bag teksten (målt: 0,53 ved 0,50 og 0,43 ved 0,60,
+[`maalinger/hero-detaljer.json`](maalinger/hero-detaljer.json)). Kræver det
+mere, er A rigtig. Med det nuværende foto er svaret A.
 
 **Krediteringen** står ikke længere øverst. Den er flyttet til sidens
-fodnote (`footer.bund`, som `page.tsx` selv tegner, så foto og navn stadig
-er ét objekt). Den står som en sætning i 12 px, kontrast 7,13. Pillen var
-10,5 px hvid på mørkegrå og stod som det første i første visning. Den
-fjernede også en binding: heroen behøver ikke længere 48 px luft foroven for
-at holde øjenbrynet fri af pillen.
+fodnote, `footer.bund`, som `page.tsx` selv tegner, så foto og navn stadig
+er ét objekt. Den står som en sætning i 12 px med kontrast 7,13. Pillen var
+10,5 px hvid tekst på mørkegråt og stod som det første i første visning.
 
-Kræver et fremtidigt fotos licens kreditering VED billedet (typisk
-bureauer), er det feltet `kreditVedBilledet` i fotoobjektet. Så skal den i A
-stå som billedtekst under båndet. Det er ikke bygget, fordi Pexels-licensen
-ikke kræver det.
+Flytningen er en ændring i markuppen og ikke i CSS'en. Laget skjuler ikke
+`.hero-kredit`: landede CSS'en uden markuppen, forsvandt krediteringen helt.
+Kræver et fremtidigt fotos licens kreditering ved billedet, er det feltet
+`kreditVedBilledet`. Så længe billedteksten under båndet ikke er bygget,
+afviser `maal-foto.mjs` sådan et foto.
 
 **«Populære søgninger»** fik to rettelser:
 
-- **Hullet.** Runde 2 lagde en margin oven i gap'en, så mellemrummene blev
-  24 og 28 px mellem nogle led og 16 mellem andre. Afstanden er nu gap'ens
-  alene.
+- **Hullet.** Runde 2 lagde margin oven i gap'en, så mellemrummene blev 24
+  og 28 px, hvor gap'en er 16. Nu er afstanden gap'ens alene.
 - **Skævheden.** Etiketten stod i første række, så første række begyndte
   under etiketten og anden under byerne: to venstrekanter i én blok. På en
-  telefon får etiketten nu sin egen linje, og hver række begynder med en by,
-  ved samme kant.
+  telefon får etiketten nu sin egen linje, og hver række begynder med en by
+  ved samme kant. Blokken står under nålen i søgefeltet og ikke 14 px
+  længere ude end den.
 
-**1440** er uændret i folden (første kort 649 px mod 599 i dag).
+**Tre ting mere på telefonen,** fundet ved at se på billederne:
+
+- **Søgesidens titel** brækkede bynavnet midt over, «København / N». Titlen
+  får nu hele bredden, og «Sortér» går under den. Stednavnet bør desuden stå
+  i et span med `white-space: nowrap` (Frontend).
+- **Boligsiden på 360** havde ingen højre margen (22 px til venstre, 1 til
+  højre). Det er en ældre fejl: i dag giver den 15 px vandret rul.
+- **«Filtre»** er nu den samme indrammede knap på forsiden som på søgesiden.
+
+**1440** er uændret i folden: første kort står 649 px nede mod 599 i dag.
+Runde 2's 649 står i [GREB.md](GREB.md).
 
 ## 2 · Fotoet: ét sted at skifte det, og en måling der kan sige nej
 
@@ -113,7 +151,7 @@ const HERO_STANDARD = {
   kredit: 'Stemningsfoto: Taryn Elliott / Pexels',
   licens: 'Pexels', kreditVedBilledet: false,
   fokus: '60% 50%', fokusSmal: '50% 66%',
-  sloer: 0.95, sloerSmal: 0.60,   // sat efter maal-foto.mjs, ikke efter øjemål
+  sloer: 0.95, sloerSmal: 0.60,   // krævet (maal-foto.mjs) + 0,05; 0,95 er runde 2's godkendte værdi, krævet er 0,80
 } as const
 // …
 <section className="hero …" style={{
@@ -145,32 +183,55 @@ begge telefonvarianter i 390 og 360:
 - **Slør krævet.** Det er det tyndeste ensartede slør, der ville få al tekst
   igennem på netop dette foto. Det regnes på de rå fotopixels med sløret
   slukket.
-- **Tegning tilbage.** Det er fotoets luminansspredning, som siden tegner
-  det, delt med det rå fotos. Der måles over den del, der står fri af
-  søgekortet: 1 betyder urørt, og 0,4 betyder, at sløret har taget 60 %.
+- **Tegning tilbage.** Det er fotoets kanter og detaljer (lokal
+  luminansforskel mellem nabopixels), som siden tegner det, delt med det rå
+  fotos. Der måles over den del, der står fri af søgekortet. Slørets egen
+  dithering er målt over en flad flade og trukket fra. 1 betyder urørt, og
+  0,4 betyder, at sløret har taget 60 %.
 
-**Dommen er AFVIST**, hvis én tekst i én bredde falder under tærsklen med det
-slør, objektet angiver. Den er også AFVIST, hvis variant B kun kan bære
-teksten med et slør over 0,70. Over det loft er fotoet bag teksten et mørkt
-felt med en anelse motiv, og så er svaret variant A eller et andet foto, ikke
-et tykkere slør. Kommandoen slutter med exit 1 ved et afslag. Mangler
-fotoobjektet kreditering eller licens, står det i rapporten.
+**Dommen er AFVIST** i tre tilfælde:
 
-**Selvprøven** (`--selvproeve`) viser, at målingen kan sige nej. Den har tre
-tilfælde med kendt facit, og alle tre fik deres facit:
+- **Kontrasten.** Én tekst i én bredde falder under tærsklen med det slør,
+  objektet angiver.
+- **Loftet.** Variant B kan kun bære teksten med et slør over 0,60. Et næsten
+  sort slør kan altid bære hvid tekst, også over hvidt (det kræver cirka
+  0,6–0,65), så spørgsmålet er ikke, om teksten kan bæres. Det er, hvad det
+  koster fotoet: ved 0,60 står 43 % af dets tegning tilbage bag teksten, og
+  over loftet mindre.
+  Så er svaret variant A eller et andet foto, ikke et tykkere slør.
+- **Rettighederne.** Fotoobjektet mangler licens eller kreditering, eller
+  licensen kræver kreditering ved billedet, som laget endnu ikke kan.
 
-| Tilfælde | Facit | Resultat |
-|---|---|---|
-| Det nuværende foto med sit objekt | bestået | bestået i alle fem kombinationer |
-| Samme foto, variant B's slør sat ned til 0,20 | afvist | afvist i 390 og 360: øjenbryn 2,41, h1 2,68/2,64, manchet 2,35/2,21 |
-| Mørklagt udgave af samme foto (prøveattrap), bredt underlag 0,20 | afvist | afvist i 1440: øjenbryn 1,00, h1 1,39, manchet 1,39 |
+Kommandoen slutter med exit 1 ved et afslag.
+
+**Slør-reglen:** objektets slør er det krævede plus mindst 0,05. Variant B's
+0,60 er det krævede 0,55 plus 0,05. Med sløret af blæk kræver fotoet 0,55;
+med den grønne tone, sløret havde før, krævede det 0,50. Bred skærms 0,95 er runde 2's godkendte
+værdi og ligger over reglen, for målingen kræver 0,80.
+
+**Selvprøven** (`--selvproeve`) viser, at målingen kan sige nej, og ad alle
+tre veje. Den har fem tilfælde med kendt facit, og alle fik deres facit:
+
+| Tilfælde | Facit | Dom | Hvorfor |
+|---|---|---|---|
+| Det nuværende foto med sit objekt | bestået | bestået | bestået i alle fem kombinationer |
+| Samme foto, variant B's slør sat ned til 0,20 | afvist på kontrasten | afvist | 390 moerk: øjenbryn 2,38:1 < 4,5:1; h1 2,63:1 < 3:1; manchet 2,17:1 < 4,5:1 · 360 moerk: øjenbryn 2,38:1 < 4,5:1; h1 2,63:1 < 3:1; manchet 2,16:1 < 4,5:1 |
+| Mørklagt udgave (prøveattrap), bredt underlag 0,20 | afvist på kontrasten | afvist | 1440 bred: øjenbryn 1:1 < 4,5:1; h1 1,39:1 < 3:1; manchet 1,39:1 < 4,5:1 |
+| Overbelyst udgave (prøveattrap), B's slør sat op til 0,80 | afvist på loftet | afvist | 390 moerk: kræver slør 0,65 > loftet 0,6 · 360 moerk: kræver slør 0,65 > loftet 0,6 |
+| Det nuværende foto uden licens i objektet | afvist på rettighederne | afvist | kun rettighederne: ingen licens i fotoobjektet |
 
 Det nuværende foto, målt:
 
-<!-- FOTOTABEL -->
+| Bredde | Variant | Øjenbryn | h1 | Manchet | Slør (objekt) | Slør krævet | Tegning tilbage |
+|---|---|---|---|---|---|---|---|
+| 1440 | bred | 6,40 | 14,80 | 14,35 | 0,95 | 0,80 | 0,65 |
+| 390 | baand | 7,13 | 16,63 | 16,63 | – | – | 1,00 |
+| 390 | moerk | 5,48 | 6,83 | 5,67 | 0,60 | 0,55 | 0,43 |
+| 360 | baand | 7,13 | 16,63 | 16,63 | – | – | 1,00 |
+| 360 | moerk | 5,48 | 6,83 | 5,67 | 0,60 | 0,55 | 0,44 |
 
 **Det nuværende foto består, og det er ikke et argument for det.** Hvid tekst
-kræver 0,50 slør i variant B, fordi fotoet er lyst. Mørk tekst på bred
+kræver 0,55 slør i variant B, fordi fotoet er lyst. Mørk tekst på bred
 skærm kræver 0,80, fordi en dørkarm i mørkt træ og et køleskab står bag
 øjenbrynet i fotoets venstre kant: 39 % af pixelene bag det er mørke
 (luminans under 110 af 255). Målingen svarer på, om et foto kan bære tekst, ikke på, om det
@@ -279,10 +340,11 @@ ene plads» (`forslag.css`). Det gjorde teal til to ting, og netop det
 fangede du. **Kortnålene var teal i appen i dag**, men ikke i runde 2: dér
 var de blæk, fordi runde 1 peger `--accent` om til `--blaek`.
 
-**Fejningen.** På alle fire sider, i begge bredder og i begge tilstande, er
-hvert synligt element gennemgået, med pseudo-elementer og svg. Der er ledt
-efter grøn i `color`, baggrund, kant, `fill`, `stroke`, outline og
-understregning. I runde 2 stod grøn **tekst** fire steder:
+**Fejningen af runde 2** gik alle fire sider igennem i 1440 og 390, hvert
+synligt element med pseudo-elementer og svg
+([`maalinger/farver.md`](maalinger/farver.md)). Den ledte efter grøn i
+`color`, baggrund, kant, `fill`, `stroke`, outline og understregning. Grøn
+**tekst** stod fire steder:
 
 - `.kort-pris` (160 forekomster): kendt beløb.
 - `.oek-tal`: railens beløb, kendt.
@@ -293,18 +355,38 @@ understregning. I runde 2 stod grøn **tekst** fire steder:
 Grøn **flade** stod tre steder: «Søg», «Se annoncen» og udlejerbåndet. Den
 ene fremmede farve var Leaflets blå link på kortets kreditering, `#0078a8`.
 
+**Fejningen af runde 3** gik videre end det. Den tog alle kulører, ikke kun
+grøn, og læste også gradienter, skygger og `accent-color`. Den kørte på alle
+fire sider plus en søgning med filterchips, i 1440, 390 og 360 og i begge
+telefonvarianter. Den fandt de tre rester nedenfor, som ikke var set før:
+chipsene, skyggen og B's slør. Efter rettelserne er den kørt igen
+([`maalinger/farver-runde3-fejning.txt`](maalinger/farver-runde3-fejning.txt)),
+og hex-værdierne i tabellen er målt i den kørsel
+([`maalinger/farver-runde3.json`](maalinger/farver-runde3.json)). To kulører står
+uden for rollerne med vilje:
+
+- `--advarsel` (`#8a5300`) står på en note om udeladte data. Den er en
+  advarsel og ikke en handling.
+- Leaflets flag står i kortets kreditering. Det er Leaflets eget præfiks og
+  kan fjernes med `attributionControl.setPrefix(…)` i `Landkort.tsx` uden at
+  røre OSM-krediteringen (Frontend).
+
 **Og ved hover.** Fejningen måler hvilefarver. Farveagenten målte også
 hover: «Søg» gik til `#0b4a42`, som ligger **ΔE00 1,27** fra `--kendt`. Knappen
 blev altså den kendte teal, netop når nogen rørte den.
 
 **Rettet i runde 3:**
 
-- **Hover** går nu mørkere, til `#052a25`. Den ligger ΔE00 11,3 fra
+- **Hover** går nu mørkere, til `#052a25`. Den ligger ΔE00 11,2 fra
   `--kendt` og 5,1 fra hvilefarven, så skridtet er lige så synligt som før,
   bare den anden vej.
 - **252 på båndet** er blæk som 279 over den. Grøn tekst står kun på et
   beløb.
 - **Ordmærket** er blæk.
+- **Filterchipsene** (en valgt tilstand) havde kant og «×» i `--kendt`s RGB,
+  og **den valgte side** i sidevælgeren havde en teal skygge. Begge er blæk.
+- **Variant B's mørke slør** var bygget af `rgb(10 20 18)`, en tredje,
+  unavngiven grøn flade. Det er nu blæk.
 - **Håndskriftsvarianten** er blæk; den var grøn tekst.
 - **Kortets kreditering** er blæk. Den står stadig og er synlig.
 - **Den anden grønne** hedder nu `--handlingsflade` og har sin egen
@@ -338,7 +420,8 @@ måler det, ligger klar. Hele gennemgangen står i
 **Svaret:**
 
 - **Af hele bestanden bliver «Ny i dag» aldrig flertallet.** Andelen er nye pr.
-  døgn delt med bestanden, og skønnet giver 1–5 %.
+  døgn delt med bestanden: cirka 1,3–1,9 % ved skønnet, og 1–5 % over hele
+  følsomhedstabellen i notatet.
 - **På forsidens første side bliver den flertallet.** «Nyeste» er
   standardsorteringen, så de 48 kort er netop de nyeste. Dagens mærkat
   (under 72 t) står på alle 48, så snart der kommer 16 nye i døgnet. «Ny i
@@ -349,8 +432,9 @@ måler det, ligger klar. Hele gennemgangen står i
   mærkaten, men den står på 12 af de første 12 kort.
 
 **Hvor skønnet kommer fra:** bestanden er 1.864 synlige (23. september,
-`lib/grundlag.ts:19`). Levetiden er afledt af den eneste måling i repoet, der
-siger noget om den: bagkatalogets medianalder på 37 dage (`lib/alarm.ts:29–31`).
+`lib/grundlag.ts:19`). Levetiden er afledt af det eneste tal i repoet, der
+siger noget om den: en medianalder på 37 dage ved første syn for varslerne i
+én prøvekørsel (`lib/alarm.ts:29–31`). Det er et spinkelt grundlag.
 Tilgangen pr. døgn står intet sted i repoet. `npm run puls` regner den, men
 dens udskrift er aldrig gemt.
 
@@ -402,8 +486,8 @@ Scriptet gør følgende:
   efterprøves før og efter målingen.
 - Port 6543 afvises.
 
-`--proeve` kører mod PGlite med 18 boliger på hver side af grænserne og
-består. Tre bevidst indførte fejl gjorde den rød: kalender i UTC, 48 t i
+`--proeve` kører mod PGlite med 18 boliger, lagt på begge sider af
+grænserne, og består. Tre bevidst indførte fejl gjorde den rød: kalender i UTC, 48 t i
 stedet for 72, og kildens dato ignoreret.
 
 
@@ -415,7 +499,7 @@ Jeudan har ingen adapter og hentes ikke. Og den manglede to værter:
 - `app.propstep.com`, hvor Propsteps billeder ligger (`lib/billede.ts:41`);
 - `api.balder.dk`, som er Balders API (`adapters/balder.ts:45`).
 
-Uden `app.propstep.com` får Propsteps 764 boliger ingen billeder. Så ville
+Uden `app.propstep.com` får Propsteps 764 boliger (4. september) ingen billeder. Så ville
 billederne være lige så syntetiske som i dag, bare tomme.
 
 | Kilde | Sider/data | Billeder | Andet |
@@ -463,6 +547,6 @@ rettet.
 | [`gengivelse/app-skud.mjs`](gengivelse/app-skud.mjs) | skærmbilleder + `maal.json` pr. variant |
 | [`gengivelse/maal-foto.mjs`](gengivelse/maal-foto.mjs) | kan dette foto bære teksten? (exit 1 ved afslag) |
 | [`gengivelse/hero-maal.mjs`](gengivelse/hero-maal.mjs) | de delte målinger: kontrast, slør krævet, fotoets tegning, linjebrud, kreditering |
-| [`maalinger/`](maalinger) | prisspænd, chips og ny-mærkat: scripts (kun `select`, med prøve) og de målte tal |
+| [`maalinger/`](maalinger) | prisspænd, chips, ny-mærkat og farver: scripts og de målte tal. Scripts mod en base kører i en read-only-session, som basen håndhæver (`laast-base.mjs`). Prisspænd og ny-mærkat har `--proeve` mod PGlite, chips har ingen |
 | [`greb3/`](greb3) | billederne og `maal.json` fra den kørsel, der står i denne fil |
 

@@ -82,6 +82,12 @@ h1, h2, h3 { letter-spacing: 0; }
    plads»; det gjorde teal til to ting — et kendt beløb OG et navn — og
    stod i den første linje, øjet møder. Grøn tekst er kun et beløb. */
 .maerke, .maerke:hover { color: var(--blaek); }
+/* To rester af den gamle teal, som fejningen af runde 3 fandt: de aktive
+   filterchips (en valgt tilstand) havde kant og «×» i --kendt's RGB, og
+   den valgte side i sidevælgeren havde en teal skygge. Begge er blæk. */
+.filterchips .chip { border-color: rgba(20,22,26,.18); }
+.filterchips .chip-x { background: rgba(20,22,26,.08); }
+.side-nu { box-shadow: 0 2px 8px rgba(20,22,26,.22); }
 .topnav a { font-size: var(--t-2); font-weight: var(--v-1); }
 .topnav a.nav-primaer, .tophandlinger .nav-primaer { font-size: var(--t-2); font-weight: var(--v-2); }
 button, .knap { font-weight: var(--v-2); }

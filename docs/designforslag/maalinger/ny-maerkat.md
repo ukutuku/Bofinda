@@ -8,7 +8,8 @@ ikke nås herfra. Afsnit 6 er et **skøn**, ikke en måling.*
 
 - **Af hele bestanden bliver «Ny i dag» aldrig flertallet.** Andelen er
   nye pr. døgn delt med bestanden. Med de tal, repoet har, er skønnet
-  1–5 %.
+  cirka 1,3–1,9 % ved skønnet (25–35 nye pr. døgn), og 1–5 % over hele
+  følsomhedstabellen i afsnit 6.
 - **På forsidens første side bliver det flertallet.** Siden er sorteret med
   de nyeste først, så de 48 kort er netop dem med størst chance for at få
   mærkaten. Det nuværende vindue på 72 t dækker **alle 48 kort**, så snart
@@ -209,7 +210,8 @@ delt med den gennemsnitlige tid på markedet (L). Andelen af bestanden
 under 24 t er da cirka 1/L, og andelen under 72 t cirka 3/L.
 
 **Det eneste tal i repoet, der siger noget om L,** er «en medianalder på
-37 dage ved første syn» for bagkataloget (`lib/alarm.ts:29-31`,
+37 dage ved første syn» for varslerne i én prøvekørsel — 68 falske varsler
+ud af 87, ikke hele bagkataloget (`lib/alarm.ts:29-31`,
 `CLAUDE.md:325-326`; målingens dato er ikke oplyst, men den står i repoet
 fra 6. september):
 

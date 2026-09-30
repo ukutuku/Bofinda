@@ -142,7 +142,7 @@ const ALFAER = Array.from({ length: 21 }, (_, i) => +(i * 0.05).toFixed(2))
 export async function heroKontrast(p) {
   const ud = {}
   const moerk = await p.evaluate(() => !!document.querySelector('.hero.m-moerk'))
-  const underlag = moerk ? [10, 20, 18] : [247, 245, 241]
+  const underlag = moerk ? [20, 22, 26] : [247, 245, 241]
   for (const [navn, sel] of HEROTEKSTER) {
     const m = await tekstKontrast(p, sel, underlag)
     if (m) ud[navn] = m
@@ -190,6 +190,12 @@ export async function tekstKontrast(p, sel, underlag = null) {
  * så målte et foto, der næsten var væk, som om det stod. En glat gradient
  * har næsten ingen lokal forskel mellem nabopixels; fotoets kanter har.
  * Teksten gøres gennemsigtig i begge billeder, så bogstaverne ikke tæller.
+ *
+ * NULPUNKTET. «Næsten ingen» er ikke ingen: et slør, der dækker fotoet
+ * helt, målte 0,10–0,13, fordi gradientens dithering selv har lokale
+ * forskelle. Derfor måles sløret også over en flad flade (fotoet skjult),
+ * og den støj trækkes fra: (gengivet − slørets egen) / rå, klippet til
+ * 0–1. `stoej` rapporterer, hvor stort nulpunktet var.
  */
 export async function fotoSynlig(p) {
   const r = await p.evaluate(() => {
@@ -204,8 +210,11 @@ export async function fotoSynlig(p) {
   const gengivet = (await p.screenshot({ clip: r, type: 'png', fullPage: true })).toString('base64')
   const raaStil = await p.addStyleTag({ content: '.hero.har-foto::after{opacity:0!important}' })
   const raa = (await p.screenshot({ clip: r, type: 'png', fullPage: true })).toString('base64')
-  await raaStil.evaluate((s) => s.remove()); await skjul.evaluate((s) => s.remove())
-  const s = await p.evaluate(async ([a, b]) => {
+  await raaStil.evaluate((s) => s.remove())
+  const fladStil = await p.addStyleTag({ content: '.hero-billede img{visibility:hidden!important}' })
+  const flad = (await p.screenshot({ clip: r, type: 'png', fullPage: true })).toString('base64')
+  await fladStil.evaluate((s) => s.remove()); await skjul.evaluate((s) => s.remove())
+  const s = await p.evaluate(async ([a, b, c]) => {
     const kant = async (b64) => {
       const img = new Image(); img.src = 'data:image/png;base64,' + b64; await img.decode()
       const c = document.createElement('canvas'); c.width = img.width; c.height = img.height
@@ -218,9 +227,12 @@ export async function fotoSynlig(p) {
       }
       return n ? sum / n : 0
     }
-    return [await kant(a), await kant(b)]
-  }, [gengivet, raa])
-  return { frihoejde: Math.round(r.height), tegningBevaret: s[1] ? +(s[0] / s[1]).toFixed(2) : null }
+    return [await kant(a), await kant(b), await kant(c)]
+  }, [gengivet, raa, flad])
+  const [g, raaK, stoej] = s
+  const bevaret = raaK ? Math.min(1, Math.max(0, (g - stoej) / raaK)) : null
+  return { frihoejde: Math.round(r.height), tegningBevaret: bevaret == null ? null : +bevaret.toFixed(2),
+    stoej: raaK ? +(stoej / raaK).toFixed(2) : null }
 }
 
 /**
@@ -229,8 +241,9 @@ export async function fotoSynlig(p) {
  * større end gap'en, er det, der læses som skævt.
  *
  * `belast` erstatter byerne med seks lange danske bynavne — en
- * BELASTNINGSPRØVE af linjebruddet, ikke produktionens liste (seedets
- * byer er korte og ville aldrig vise et brud).
+ * BELASTNINGSPRØVE af linjebruddet, ikke produktionens liste. Seedets fire
+ * korte byer brækker også (i dag og i runde 2 på to rækker), men de lange
+ * navne viser, hvordan det ser ud med rigtige, længere bynavne.
  */
 export const LANGE_BYER = ['København NV', 'Frederiksberg C', 'København S', 'Aarhus C', 'Odense C', 'Kongens Lyngby']
 export async function populaere(p, belast = false) {

@@ -1,5 +1,5 @@
 {
-  "_hvad": "Forsidefotoet som ÉT objekt. I appen svarer det til HERO_STANDARD i app/page.tsx, som i dag bærer url og kredit; forslaget lægger fokus og slør til. Skiftes fotoet, skiftes alle felter i samme ændring. Slør-værdierne sættes efter maal-foto.mjs, ikke efter øjemål.",
+  "_hvad": "Forsidefotoet som ÉT objekt. I appen svarer det til HERO_STANDARD i app/page.tsx, som i dag bærer url og kredit; forslaget lægger licens, fokus og slør til. Skiftes fotoet, skiftes alle felter i samme ændring. Slør-reglen: objektets slør = det, maal-foto.mjs måler som krævet, plus mindst 0,05. sloerSmal 0,60 = krævet 0,55 + 0,05 (med sløret af blæk). sloer 0,95 er runde 2's godkendte værdi og ligger over reglen (krævet 0,80).",
   "url": "/hero-stue.jpg",
   "kredit": "Stemningsfoto: Taryn Elliott / Pexels",
   "licens": "Pexels-licensen, https://www.pexels.com/license/ — kreditering ikke påkrævet",
@@ -7,5 +7,5 @@
   "fokus": "60% 50%",
   "fokusSmal": "50% 66%",
   "sloer": 0.95,
-  "sloerSmal": 0.60
+  "sloerSmal": 0.6
 }

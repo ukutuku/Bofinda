@@ -21,11 +21,17 @@
 //      får teksten igennem på netop dette foto);
 //    · hvor meget af fotoets egen tegning der står tilbage.
 //
-//  DOMMEN: AFVIST, hvis én tekst i én bredde falder under WCAG AA
-//  (4,5:1; 3:1 for stor tekst) med objektets slør — eller hvis variant B
-//  kun kan bære teksten med et slør over SLOER_LOFT. Over loftet er
-//  fotoet bag teksten et mørkt felt med en anelse motiv; så er det
-//  variant A eller et andet foto, ikke et tykkere slør.
+//  DOMMEN er AFVIST, hvis:
+//    · én tekst i én bredde falder under WCAG AA (4,5:1; 3:1 for stor
+//      tekst) med objektets slør;
+//    · variant B kun kan bære teksten med et slør over SLOER_LOFT (0,60).
+//      Et næsten sort slør kan altid bære hvid tekst — over hvidt kræver
+//      det ca. 0,6–0,65 — så spørgsmålet er ikke, OM teksten kan bæres, men
+//      hvad det koster fotoet. Ved 0,60 står 43 % af fotoets tegning
+//      tilbage bag teksten (målt), over loftet mindre; så er svaret variant A eller
+//      et andet foto, ikke et tykkere slør;
+//    · fotoobjektet mangler licens eller kreditering, eller licensen
+//      kræver kreditering VED billedet, som laget endnu ikke kan.
 //  Exit-kode 1 ved mindst ét AFVIST.
 // ═══════════════════════════════════════════════════════════════
 import pw from 'playwright-core'
@@ -34,7 +40,7 @@ import { join, basename, extname, resolve, dirname } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { heroKontrast, fotoSynlig, aabn, gaaTil, laegPaa, HOEJDE } from './hero-maal.mjs'
 
-export const SLOER_LOFT = 0.70
+export const SLOER_LOFT = 0.60
 const BREDDER = [1440, 390, 360]
 const VARIANTER = { 1440: [null], 390: ['baand', 'moerk'], 360: ['baand', 'moerk'] }
 
@@ -99,11 +105,14 @@ async function maalEt(o, navn) {
     }
     await c.close()
   }
+  // Rettighederne er en del af dommen, ikke en fodnote til den: et foto,
+  // der ikke må vises lovligt, er afvist, uanset hvor godt det bærer tekst.
   const noter = []
   if (!o.kredit) noter.push('Ingen kreditering i fotoobjektet. Kreditering er et krav — udfyld «kredit».')
   if (!o.licens) noter.push('Ingen licens i fotoobjektet. Uden licens bruges fotoet ikke.')
-  if (o.kreditVedBilledet) noter.push('Licensen kræver kreditering VED billedet. Laget sætter den i fodnoten; det skal ændres, før fotoet kan bruges.')
-  return { navn, fil: basename(o.fil), kredit: o.kredit, licens: o.licens, dom: raekker.some((r) => r.dom === 'AFVIST') ? 'AFVIST' : 'BESTÅET', raekker, noter }
+  if (o.kreditVedBilledet) noter.push('Licensen kræver kreditering VED billedet. Laget sætter den i fodnoten; det skal bygges, før fotoet kan bruges.')
+  const dom = raekker.some((r) => r.dom === 'AFVIST') || noter.length ? 'AFVIST' : 'BESTÅET'
+  return { navn, fil: basename(o.fil), kredit: o.kredit, licens: o.licens, dom, raekker, noter }
 }
 
 function rapport(res) {
@@ -123,8 +132,8 @@ function rapport(res) {
 }
 
 // ── Selvprøven: målingen skal kunne sige nej ─────────────────────
-// Et foto, der altid består, beviser ingenting om målingen. Tre
-// tilfælde med kendt facit: det nuværende foto med sit objekt (består),
+// Et foto, der altid består, beviser ingenting om målingen. Fem
+// tilfælde med kendt facit (de to sidste nedenfor): det nuværende foto med sit objekt (består),
 // samme foto med variant B's slør sat ned til 0,20 (hvid tekst på et
 // hvidt foto — skal afvises), og en mørklagt udgave af samme foto med
 // bred skærms underlag sat ned til 0,20 (mørk tekst på mørkt — skal
@@ -140,11 +149,25 @@ async function selvproeve() {
     return c.toDataURL('image/jpeg', 0.9).split(',')[1]
   }, readFileSync(std).toString('base64'))
   const moerkFil = join(mappe, 'moerklagt-attrap.jpg'); writeFileSync(moerkFil, Buffer.from(moerk, 'base64'))
+  const lys = await p.evaluate(async (b64) => {
+    const img = new Image(); img.src = 'data:image/jpeg;base64,' + b64; await img.decode()
+    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height
+    const g = c.getContext('2d'); g.filter = 'brightness(1.6)'; g.drawImage(img, 0, 0)
+    return c.toDataURL('image/jpeg', 0.9).split(',')[1]
+  }, readFileSync(std).toString('base64'))
+  const lysFil2 = join(mappe, 'overbelyst-attrap.jpg'); writeFileSync(lysFil2, Buffer.from(lys, 'base64'))
   const lysFil = join(mappe, 'hero-stue.jpg'); copyFileSync(std, lysFil)
   const tilfaelde = [
     { navn: 'nuvaerende', o: { ...STANDARD, fil: lysFil }, facit: 'BESTÅET' },
     { navn: 'tyndt-moerkt-sloer', o: { ...STANDARD, fil: lysFil, sloerSmal: 0.2 }, facit: 'AFVIST', skal: (r) => r.variant === 'moerk' },
     { navn: 'moerkt-foto-tyndt-underlag', o: { ...STANDARD, fil: moerkFil, sloer: 0.2 }, facit: 'AFVIST', skal: (r) => r.variant === 'bred' },
+    // Loftet: et overbelyst foto kan godt bære hvid tekst med et tæt nok
+    // slør — men kun ved at blive et mørkt felt. Afvises på loftet, ikke
+    // på kontrasten (objektets slør sættes højt nok til, at teksten består).
+    { navn: 'overbelyst-foto-loftet', o: { ...STANDARD, fil: lysFil2, sloerSmal: 0.8 }, facit: 'AFVIST',
+      skal: (r) => r.variant === 'moerk' && r.grunde.some((g) => g.includes('loftet')) && r.grunde.every((g) => g.includes('loftet')) },
+    // Rettighederne: samme foto, men uden licens i objektet.
+    { navn: 'uden-licens', o: { ...STANDARD, fil: lysFil, licens: null }, facit: 'AFVIST' },
   ]
   const res = [], fejl = []
   for (const x of tilfaelde) {
@@ -163,7 +186,7 @@ writeFileSync(join(UD, 'fotomaaling.json'), JSON.stringify(res, null, 1))
 writeFileSync(join(UD, 'fotomaaling.md'), rapport(res))
 process.stdout.write(rapport(res))
 if (kandidater[0] === '--selvproeve') {
-  process.stdout.write(`\nSELVPRØVE: ${fejl.length ? 'FEJL\n  ' + fejl.join('\n  ') : 'alle tre tilfælde fik deres facit — målingen kan både bestå og afvise'}\n`)
+  process.stdout.write(`\nSELVPRØVE: ${fejl.length ? 'FEJL\n  ' + fejl.join('\n  ') : 'alle fem tilfælde fik deres facit — målingen kan bestå, og den kan afvise på kontrast, på loftet og på rettighederne'}\n`)
   process.exit(fejl.length ? 1 : 0)
 }
 process.exit(res.some((r) => r.dom === 'AFVIST') ? 1 : 0)

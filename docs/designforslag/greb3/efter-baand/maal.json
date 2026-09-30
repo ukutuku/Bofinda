@@ -3,7 +3,7 @@
  "mobil": "baand",
  "lag": "dette lag",
  "foto": {
-  "_hvad": "Forsidefotoet som ÉT objekt. I appen svarer det til HERO_STANDARD i app/page.tsx, som i dag bærer url og kredit; forslaget lægger fokus og slør til. Skiftes fotoet, skiftes alle felter i samme ændring. Slør-værdierne sættes efter maal-foto.mjs, ikke efter øjemål.",
+  "_hvad": "Forsidefotoet som ÉT objekt. I appen svarer det til HERO_STANDARD i app/page.tsx, som i dag bærer url og kredit; forslaget lægger licens, fokus og slør til. Skiftes fotoet, skiftes alle felter i samme ændring. Slør-reglen: objektets slør = det, maal-foto.mjs måler som krævet, plus mindst 0,05. sloerSmal 0,60 = krævet 0,55 + 0,05 (med sløret af blæk). sloer 0,95 er runde 2's godkendte værdi og ligger over reglen (krævet 0,80).",
   "url": "/hero-stue.jpg",
   "kredit": "Stemningsfoto: Taryn Elliott / Pexels",
   "licens": "Pexels-licensen, https://www.pexels.com/license/ — kreditering ikke påkrævet",
@@ -76,7 +76,8 @@
    },
    "foto": {
     "frihoejde": 351,
-    "tegningBevaret": 0.65
+    "tegningBevaret": 0.65,
+    "stoej": 0
    },
    "kreditering": {
     "findes": true,
@@ -99,6 +100,7 @@
     "hoejde": 20,
     "overloeb": false
    },
+   "luftUnderKort": 22,
    "populaereBelastet": {
     "raekker": 1,
     "byKanter": [
@@ -222,7 +224,8 @@
    },
    "foto": {
     "frihoejde": 130,
-    "tegningBevaret": 1
+    "tegningBevaret": 1,
+    "stoej": 0
    },
    "kreditering": {
     "findes": true,
@@ -245,6 +248,7 @@
     "hoejde": 43,
     "overloeb": false
    },
+   "luftUnderKort": 32,
    "populaereBelastet": {
     "raekker": 3,
     "byKanter": [
@@ -368,7 +372,8 @@
    },
    "foto": {
     "frihoejde": 120,
-    "tegningBevaret": 1
+    "tegningBevaret": 1,
+    "stoej": 0
    },
    "kreditering": {
     "findes": true,
@@ -391,6 +396,7 @@
     "hoejde": 43,
     "overloeb": false
    },
+   "luftUnderKort": 32,
    "populaereBelastet": {
     "raekker": 4,
     "byKanter": [

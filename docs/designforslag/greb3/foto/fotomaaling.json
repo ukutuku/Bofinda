@@ -98,40 +98,40 @@
     "fil": "moerk-390.jpg",
     "tekster": {
      "øjenbryn": {
-      "vaerst": 5.72,
+      "vaerst": 5.48,
       "taerskel": 4.5,
       "bestaar": true,
       "paaFoto": true,
-      "raa": 1.71,
-      "alfaMin": 0.5,
+      "raa": 1.69,
+      "alfaMin": 0.55,
       "farve": "rgba(255, 255, 255, 0.84)",
       "px": 12
      },
      "h1": {
-      "vaerst": 7.08,
+      "vaerst": 6.83,
       "taerskel": 3,
       "bestaar": true,
       "paaFoto": true,
-      "raa": 1.81,
-      "alfaMin": 0.25,
+      "raa": 1.77,
+      "alfaMin": 0.3,
       "farve": "rgb(255, 255, 255)",
       "px": 28
      },
      "manchet": {
-      "vaerst": 6.21,
+      "vaerst": 5.67,
       "taerskel": 4.5,
       "bestaar": true,
       "paaFoto": true,
-      "raa": 1.61,
-      "alfaMin": 0.5,
+      "raa": 1.48,
+      "alfaMin": 0.55,
       "farve": "rgba(255, 255, 255, 0.94)",
       "px": 15
      }
     },
     "sloerKonfig": 0.6,
-    "sloerKraevet": 0.5,
+    "sloerKraevet": 0.55,
     "tegningBevaret": 0.43,
-    "frihoejde": 251,
+    "frihoejde": 195,
     "dom": "BESTÅET",
     "grunde": []
    },
@@ -184,40 +184,40 @@
     "fil": "moerk-360.jpg",
     "tekster": {
      "øjenbryn": {
-      "vaerst": 5.72,
+      "vaerst": 5.48,
       "taerskel": 4.5,
       "bestaar": true,
       "paaFoto": true,
-      "raa": 1.7,
-      "alfaMin": 0.5,
+      "raa": 1.71,
+      "alfaMin": 0.55,
       "farve": "rgba(255, 255, 255, 0.84)",
       "px": 12
      },
      "h1": {
-      "vaerst": 7.05,
+      "vaerst": 6.83,
       "taerskel": 3,
       "bestaar": true,
       "paaFoto": true,
-      "raa": 1.77,
+      "raa": 1.79,
       "alfaMin": 0.3,
       "farve": "rgb(255, 255, 255)",
       "px": 28
      },
      "manchet": {
-      "vaerst": 5.95,
+      "vaerst": 5.67,
       "taerskel": 4.5,
       "bestaar": true,
       "paaFoto": true,
-      "raa": 1.5,
-      "alfaMin": 0.5,
+      "raa": 1.47,
+      "alfaMin": 0.55,
       "farve": "rgba(255, 255, 255, 0.94)",
       "px": 15
      }
     },
     "sloerKonfig": 0.6,
-    "sloerKraevet": 0.5,
-    "tegningBevaret": 0.43,
-    "frihoejde": 275,
+    "sloerKraevet": 0.55,
+    "tegningBevaret": 0.44,
+    "frihoejde": 219,
     "dom": "BESTÅET",
     "grunde": []
    }
@@ -323,45 +323,45 @@
     "fil": "moerk-390.jpg",
     "tekster": {
      "øjenbryn": {
-      "vaerst": 2.41,
+      "vaerst": 2.38,
       "taerskel": 4.5,
       "bestaar": false,
       "paaFoto": true,
-      "raa": 1.71,
-      "alfaMin": 0.5,
+      "raa": 1.69,
+      "alfaMin": 0.55,
       "farve": "rgba(255, 255, 255, 0.84)",
       "px": 12
      },
      "h1": {
-      "vaerst": 2.68,
+      "vaerst": 2.63,
       "taerskel": 3,
       "bestaar": false,
       "paaFoto": true,
-      "raa": 1.81,
-      "alfaMin": 0.25,
+      "raa": 1.77,
+      "alfaMin": 0.3,
       "farve": "rgb(255, 255, 255)",
       "px": 28
      },
      "manchet": {
-      "vaerst": 2.35,
+      "vaerst": 2.17,
       "taerskel": 4.5,
       "bestaar": false,
       "paaFoto": true,
-      "raa": 1.61,
-      "alfaMin": 0.5,
+      "raa": 1.48,
+      "alfaMin": 0.55,
       "farve": "rgba(255, 255, 255, 0.94)",
       "px": 15
      }
     },
     "sloerKonfig": 0.2,
-    "sloerKraevet": 0.5,
+    "sloerKraevet": 0.55,
     "tegningBevaret": 0.82,
-    "frihoejde": 251,
+    "frihoejde": 195,
     "dom": "AFVIST",
     "grunde": [
-     "øjenbryn 2.41:1 < 4.5:1",
-     "h1 2.68:1 < 3:1",
-     "manchet 2.35:1 < 4.5:1"
+     "øjenbryn 2.38:1 < 4.5:1",
+     "h1 2.63:1 < 3:1",
+     "manchet 2.17:1 < 4.5:1"
     ]
    },
    {
@@ -413,45 +413,45 @@
     "fil": "moerk-360.jpg",
     "tekster": {
      "øjenbryn": {
-      "vaerst": 2.41,
+      "vaerst": 2.38,
       "taerskel": 4.5,
       "bestaar": false,
       "paaFoto": true,
-      "raa": 1.7,
-      "alfaMin": 0.5,
+      "raa": 1.71,
+      "alfaMin": 0.55,
       "farve": "rgba(255, 255, 255, 0.84)",
       "px": 12
      },
      "h1": {
-      "vaerst": 2.64,
+      "vaerst": 2.63,
       "taerskel": 3,
       "bestaar": false,
       "paaFoto": true,
-      "raa": 1.77,
+      "raa": 1.79,
       "alfaMin": 0.3,
       "farve": "rgb(255, 255, 255)",
       "px": 28
      },
      "manchet": {
-      "vaerst": 2.21,
+      "vaerst": 2.16,
       "taerskel": 4.5,
       "bestaar": false,
       "paaFoto": true,
-      "raa": 1.5,
-      "alfaMin": 0.5,
+      "raa": 1.47,
+      "alfaMin": 0.55,
       "farve": "rgba(255, 255, 255, 0.94)",
       "px": 15
      }
     },
     "sloerKonfig": 0.2,
-    "sloerKraevet": 0.5,
+    "sloerKraevet": 0.55,
     "tegningBevaret": 0.82,
-    "frihoejde": 275,
+    "frihoejde": 219,
     "dom": "AFVIST",
     "grunde": [
-     "øjenbryn 2.41:1 < 4.5:1",
-     "h1 2.64:1 < 3:1",
-     "manchet 2.21:1 < 4.5:1"
+     "øjenbryn 2.38:1 < 4.5:1",
+     "h1 2.63:1 < 3:1",
+     "manchet 2.16:1 < 4.5:1"
     ]
    }
   ],
@@ -502,7 +502,7 @@
     },
     "sloerKonfig": 0.2,
     "sloerKraevet": 0.85,
-    "tegningBevaret": 1.09,
+    "tegningBevaret": 1,
     "frihoejde": 351,
     "dom": "AFVIST",
     "grunde": [
@@ -560,17 +560,17 @@
     "fil": "moerk-390.jpg",
     "tekster": {
      "øjenbryn": {
-      "vaerst": 12.3,
+      "vaerst": 12.05,
       "taerskel": 4.5,
       "bestaar": true,
       "paaFoto": true,
-      "raa": 10.69,
+      "raa": 10.56,
       "alfaMin": 0,
       "farve": "rgba(255, 255, 255, 0.84)",
       "px": 12
      },
      "h1": {
-      "vaerst": 17.09,
+      "vaerst": 16.67,
       "taerskel": 3,
       "bestaar": true,
       "paaFoto": true,
@@ -580,11 +580,11 @@
       "px": 28
      },
      "manchet": {
-      "vaerst": 15.02,
+      "vaerst": 14.55,
       "taerskel": 4.5,
       "bestaar": true,
       "paaFoto": true,
-      "raa": 12.51,
+      "raa": 12.35,
       "alfaMin": 0,
       "farve": "rgba(255, 255, 255, 0.94)",
       "px": 15
@@ -592,8 +592,8 @@
     },
     "sloerKonfig": 0.6,
     "sloerKraevet": 0,
-    "tegningBevaret": 0.7,
-    "frihoejde": 251,
+    "tegningBevaret": 0.72,
+    "frihoejde": 195,
     "dom": "BESTÅET",
     "grunde": []
    },
@@ -646,7 +646,7 @@
     "fil": "moerk-360.jpg",
     "tekster": {
      "øjenbryn": {
-      "vaerst": 12.3,
+      "vaerst": 12.05,
       "taerskel": 4.5,
       "bestaar": true,
       "paaFoto": true,
@@ -656,7 +656,7 @@
       "px": 12
      },
      "h1": {
-      "vaerst": 17.09,
+      "vaerst": 16.67,
       "taerskel": 3,
       "bestaar": true,
       "paaFoto": true,
@@ -666,7 +666,7 @@
       "px": 28
      },
      "manchet": {
-      "vaerst": 15.02,
+      "vaerst": 14.51,
       "taerskel": 4.5,
       "bestaar": true,
       "paaFoto": true,
@@ -678,12 +678,468 @@
     },
     "sloerKonfig": 0.6,
     "sloerKraevet": 0,
-    "tegningBevaret": 0.72,
-    "frihoejde": 275,
+    "tegningBevaret": 0.75,
+    "frihoejde": 219,
     "dom": "BESTÅET",
     "grunde": []
    }
   ],
   "noter": []
+ },
+ {
+  "navn": "overbelyst-foto-loftet",
+  "fil": "overbelyst-attrap.jpg",
+  "kredit": "Stemningsfoto: Taryn Elliott / Pexels",
+  "licens": "Pexels-licensen, https://www.pexels.com/license/ — kreditering ikke påkrævet",
+  "dom": "AFVIST",
+  "raekker": [
+   {
+    "bredde": 1440,
+    "variant": "bred",
+    "fil": "bred-1440.jpg",
+    "tekster": {
+     "øjenbryn": {
+      "vaerst": 6.4,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1,
+      "alfaMin": 0.8,
+      "farve": "rgb(77, 84, 82)",
+      "px": 12
+     },
+     "h1": {
+      "vaerst": 14.8,
+      "taerskel": 3,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1,
+      "alfaMin": 0.4,
+      "farve": "rgb(20, 22, 26)",
+      "px": 42
+     },
+     "manchet": {
+      "vaerst": 14.61,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1,
+      "alfaMin": 0.55,
+      "farve": "rgb(20, 22, 26)",
+      "px": 18
+     }
+    },
+    "sloerKonfig": 0.95,
+    "sloerKraevet": 0.8,
+    "tegningBevaret": 0.63,
+    "frihoejde": 351,
+    "dom": "BESTÅET",
+    "grunde": []
+   },
+   {
+    "bredde": 390,
+    "variant": "baand",
+    "fil": "baand-390.jpg",
+    "tekster": {
+     "øjenbryn": {
+      "vaerst": 7.13,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": false,
+      "raa": null,
+      "alfaMin": null,
+      "farve": "rgb(77, 84, 82)",
+      "px": 12
+     },
+     "h1": {
+      "vaerst": 16.63,
+      "taerskel": 3,
+      "bestaar": true,
+      "paaFoto": false,
+      "raa": null,
+      "alfaMin": null,
+      "farve": "rgb(20, 22, 26)",
+      "px": 28
+     },
+     "manchet": {
+      "vaerst": 16.63,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": false,
+      "raa": null,
+      "alfaMin": null,
+      "farve": "rgb(20, 22, 26)",
+      "px": 15
+     }
+    },
+    "sloerKonfig": null,
+    "sloerKraevet": null,
+    "tegningBevaret": 1,
+    "frihoejde": 130,
+    "dom": "BESTÅET",
+    "grunde": []
+   },
+   {
+    "bredde": 390,
+    "variant": "moerk",
+    "fil": "moerk-390.jpg",
+    "tekster": {
+     "øjenbryn": {
+      "vaerst": 7.37,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1,
+      "alfaMin": 0.65,
+      "farve": "rgba(255, 255, 255, 0.84)",
+      "px": 12
+     },
+     "h1": {
+      "vaerst": 9.62,
+      "taerskel": 3,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1,
+      "alfaMin": 0.5,
+      "farve": "rgb(255, 255, 255)",
+      "px": 28
+     },
+     "manchet": {
+      "vaerst": 8.73,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1,
+      "alfaMin": 0.65,
+      "farve": "rgba(255, 255, 255, 0.94)",
+      "px": 15
+     }
+    },
+    "sloerKonfig": 0.8,
+    "sloerKraevet": 0.65,
+    "tegningBevaret": 0.3,
+    "frihoejde": 195,
+    "dom": "AFVIST",
+    "grunde": [
+     "kræver slør 0.65 > loftet 0.6"
+    ]
+   },
+   {
+    "bredde": 360,
+    "variant": "baand",
+    "fil": "baand-360.jpg",
+    "tekster": {
+     "øjenbryn": {
+      "vaerst": 7.13,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": false,
+      "raa": null,
+      "alfaMin": null,
+      "farve": "rgb(77, 84, 82)",
+      "px": 12
+     },
+     "h1": {
+      "vaerst": 16.63,
+      "taerskel": 3,
+      "bestaar": true,
+      "paaFoto": false,
+      "raa": null,
+      "alfaMin": null,
+      "farve": "rgb(20, 22, 26)",
+      "px": 28
+     },
+     "manchet": {
+      "vaerst": 16.63,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": false,
+      "raa": null,
+      "alfaMin": null,
+      "farve": "rgb(20, 22, 26)",
+      "px": 15
+     }
+    },
+    "sloerKonfig": null,
+    "sloerKraevet": null,
+    "tegningBevaret": 1,
+    "frihoejde": 120,
+    "dom": "BESTÅET",
+    "grunde": []
+   },
+   {
+    "bredde": 360,
+    "variant": "moerk",
+    "fil": "moerk-360.jpg",
+    "tekster": {
+     "øjenbryn": {
+      "vaerst": 7.37,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1,
+      "alfaMin": 0.65,
+      "farve": "rgba(255, 255, 255, 0.84)",
+      "px": 12
+     },
+     "h1": {
+      "vaerst": 9.62,
+      "taerskel": 3,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1,
+      "alfaMin": 0.5,
+      "farve": "rgb(255, 255, 255)",
+      "px": 28
+     },
+     "manchet": {
+      "vaerst": 8.73,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1,
+      "alfaMin": 0.65,
+      "farve": "rgba(255, 255, 255, 0.94)",
+      "px": 15
+     }
+    },
+    "sloerKonfig": 0.8,
+    "sloerKraevet": 0.65,
+    "tegningBevaret": 0.3,
+    "frihoejde": 219,
+    "dom": "AFVIST",
+    "grunde": [
+     "kræver slør 0.65 > loftet 0.6"
+    ]
+   }
+  ],
+  "noter": []
+ },
+ {
+  "navn": "uden-licens",
+  "fil": "hero-stue.jpg",
+  "kredit": "Stemningsfoto: Taryn Elliott / Pexels",
+  "licens": null,
+  "dom": "AFVIST",
+  "raekker": [
+   {
+    "bredde": 1440,
+    "variant": "bred",
+    "fil": "bred-1440.jpg",
+    "tekster": {
+     "øjenbryn": {
+      "vaerst": 6.4,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1,
+      "alfaMin": 0.8,
+      "farve": "rgb(77, 84, 82)",
+      "px": 12
+     },
+     "h1": {
+      "vaerst": 14.8,
+      "taerskel": 3,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1,
+      "alfaMin": 0.4,
+      "farve": "rgb(20, 22, 26)",
+      "px": 42
+     },
+     "manchet": {
+      "vaerst": 14.35,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1,
+      "alfaMin": 0.55,
+      "farve": "rgb(20, 22, 26)",
+      "px": 18
+     }
+    },
+    "sloerKonfig": 0.95,
+    "sloerKraevet": 0.8,
+    "tegningBevaret": 0.65,
+    "frihoejde": 351,
+    "dom": "BESTÅET",
+    "grunde": []
+   },
+   {
+    "bredde": 390,
+    "variant": "baand",
+    "fil": "baand-390.jpg",
+    "tekster": {
+     "øjenbryn": {
+      "vaerst": 7.13,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": false,
+      "raa": null,
+      "alfaMin": null,
+      "farve": "rgb(77, 84, 82)",
+      "px": 12
+     },
+     "h1": {
+      "vaerst": 16.63,
+      "taerskel": 3,
+      "bestaar": true,
+      "paaFoto": false,
+      "raa": null,
+      "alfaMin": null,
+      "farve": "rgb(20, 22, 26)",
+      "px": 28
+     },
+     "manchet": {
+      "vaerst": 16.63,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": false,
+      "raa": null,
+      "alfaMin": null,
+      "farve": "rgb(20, 22, 26)",
+      "px": 15
+     }
+    },
+    "sloerKonfig": null,
+    "sloerKraevet": null,
+    "tegningBevaret": 1,
+    "frihoejde": 130,
+    "dom": "BESTÅET",
+    "grunde": []
+   },
+   {
+    "bredde": 390,
+    "variant": "moerk",
+    "fil": "moerk-390.jpg",
+    "tekster": {
+     "øjenbryn": {
+      "vaerst": 5.48,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1.69,
+      "alfaMin": 0.55,
+      "farve": "rgba(255, 255, 255, 0.84)",
+      "px": 12
+     },
+     "h1": {
+      "vaerst": 6.83,
+      "taerskel": 3,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1.77,
+      "alfaMin": 0.3,
+      "farve": "rgb(255, 255, 255)",
+      "px": 28
+     },
+     "manchet": {
+      "vaerst": 5.67,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1.48,
+      "alfaMin": 0.55,
+      "farve": "rgba(255, 255, 255, 0.94)",
+      "px": 15
+     }
+    },
+    "sloerKonfig": 0.6,
+    "sloerKraevet": 0.55,
+    "tegningBevaret": 0.43,
+    "frihoejde": 195,
+    "dom": "BESTÅET",
+    "grunde": []
+   },
+   {
+    "bredde": 360,
+    "variant": "baand",
+    "fil": "baand-360.jpg",
+    "tekster": {
+     "øjenbryn": {
+      "vaerst": 7.13,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": false,
+      "raa": null,
+      "alfaMin": null,
+      "farve": "rgb(77, 84, 82)",
+      "px": 12
+     },
+     "h1": {
+      "vaerst": 16.63,
+      "taerskel": 3,
+      "bestaar": true,
+      "paaFoto": false,
+      "raa": null,
+      "alfaMin": null,
+      "farve": "rgb(20, 22, 26)",
+      "px": 28
+     },
+     "manchet": {
+      "vaerst": 16.63,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": false,
+      "raa": null,
+      "alfaMin": null,
+      "farve": "rgb(20, 22, 26)",
+      "px": 15
+     }
+    },
+    "sloerKonfig": null,
+    "sloerKraevet": null,
+    "tegningBevaret": 1,
+    "frihoejde": 120,
+    "dom": "BESTÅET",
+    "grunde": []
+   },
+   {
+    "bredde": 360,
+    "variant": "moerk",
+    "fil": "moerk-360.jpg",
+    "tekster": {
+     "øjenbryn": {
+      "vaerst": 5.48,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1.71,
+      "alfaMin": 0.55,
+      "farve": "rgba(255, 255, 255, 0.84)",
+      "px": 12
+     },
+     "h1": {
+      "vaerst": 6.83,
+      "taerskel": 3,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1.79,
+      "alfaMin": 0.3,
+      "farve": "rgb(255, 255, 255)",
+      "px": 28
+     },
+     "manchet": {
+      "vaerst": 5.67,
+      "taerskel": 4.5,
+      "bestaar": true,
+      "paaFoto": true,
+      "raa": 1.47,
+      "alfaMin": 0.55,
+      "farve": "rgba(255, 255, 255, 0.94)",
+      "px": 15
+     }
+    },
+    "sloerKonfig": 0.6,
+    "sloerKraevet": 0.55,
+    "tegningBevaret": 0.44,
+    "frihoejde": 219,
+    "dom": "BESTÅET",
+    "grunde": []
+   }
+  ],
+  "noter": [
+   "Ingen licens i fotoobjektet. Uden licens bruges fotoet ikke."
+  ]
  }
 ]

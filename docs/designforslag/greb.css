@@ -22,9 +22,13 @@
          udlejerbåndet, som selv er en opfordring.
      De bytter aldrig: ingen grøn flade bag et tal, ingen grøn tekst på
      en knap, et link, et ikon eller ordmærket. Alt andet, der kan
-     trykkes på eller er valgt, er blæk. Reglen kan efterprøves i
-     browseren: fejningen i GREB-3.md finder hver grøn farve på siden og
-     skal kun finde de to roller.
+     trykkes på eller er valgt, er blæk. Reglen er efterprøvet i
+     browseren på runde 3 (maalinger/farver-runde3-fejning.json): alle
+     kulører i farver, gradienter, kanter, skygger og svg, på alle fire
+     sider plus en søgning med filterchips, i 1440, 390 og 360 og begge
+     telefonvarianter. To kulører står uden for rollerne med vilje:
+     --advarsel (#8a5300) på en note om udeladte data, og Leaflets flag
+     i kortets kreditering (Leaflets eget præfiks).
 
      Nuancen er mørkere og mindre mættet end --kendt, men forskellen er
      ikke det bærende — et øje, der ikke skelner dem, læser stadig rollen
@@ -33,7 +37,7 @@
   --handlingsflade: #083a34;
   /* Hover går MØRKERE, væk fra --kendt. Runde 2's hover (#0b4a42) lå
      ΔE00 1,27 fra --kendt: knappen blev «den kendte teal», netop når
-     nogen rørte den. #052a25 ligger 11,3 fra --kendt og 5,1 fra hvile-
+     nogen rørte den. #052a25 ligger 11,2 fra --kendt og 5,1 fra hvile-
      farven — samme synlige skridt som før, den anden vej. */
   --handlingsflade-hover: #052a25;
   --svaev: 0 1px 2px rgba(20,22,26,.05), 0 12px 32px rgba(20,22,26,.09);
@@ -71,12 +75,18 @@
     rgb(247 245 241 / calc(var(--hero-sloer) * .74)) 44%, rgb(247 245 241 / 0) 58%);
 }
 @media (max-width: 900px) {
-  /* Mobilen må ikke betale for greb, den ikke har plads til. Det første
-     kort stod 571 px nede og må ikke rykke længere ned (db4746b fik det
-     ned fra 821). Derfor samme luft som i dag og manchetten i trin 2.
-     Krediteringen står ikke længere øverst (se 6 nedenfor), så heroen
-     behøver ikke de 48 px, der holdt øjenbrynet fri af pillen. */
-  .hero { padding-top: var(--l-6); margin-bottom: 24px; }
+  /* Mobilen betaler for hvert greb i folden. I dag står første kort
+     571 px nede på 390 (db4746b fik det ned fra 821); hvad hver variant
+     koster, står målt i GREB-3.md § 1. Krediteringen står ikke længere
+     øverst (§ 7), så heroen behøver ikke de 48 px, der holdt øjenbrynet
+     fri af pillen.
+     Bunden: kortet hænger 24 px ud over heroen (translateY), og under
+     det skal der være luft. Runde 2 satte margin-bottom LIG med
+     overhænget — og den regel var død kode, fordi de ubetingede regler i
+     § 3 stod senere med samme specificitet. Nu står § 3's værdier kun
+     for bred skærm, og her er margin = overhæng + 24 px (32 px luft til
+     «Nyeste boliger», som i variant A). */
+  .hero { padding-top: var(--l-6); margin-bottom: calc(24px + var(--l-5)); }
   .hero h1 { margin-bottom: var(--l-2); font-size: var(--t-5); }
   .hero-manchet { font-size: var(--t-2); }
   .hero-oejenbryn { margin-bottom: var(--l-2); }
@@ -102,8 +112,10 @@
 }
 
 /* ── 3 · Søgekortet, der svæver ind over heroens underkant ─────── */
-.hero-soeg { transform: translateY(48px); margin-top: var(--l-7); }
-.hero { margin-bottom: 48px; }
+@media (min-width: 901px) {
+  .hero-soeg { transform: translateY(48px); margin-top: var(--l-7); }
+  .hero { margin-bottom: 48px; }
+}
 .hero form.filtre {
   background: var(--kort); border: 0; border-radius: 16px;
   box-shadow: var(--svaev); padding: var(--l-3) var(--l-3) var(--l-3);
@@ -129,8 +141,11 @@
 }
 .soegefelt-ekstra span { font-size: var(--t-2); color: var(--daempet); }
 .hero .soegefelt input { font-size: var(--t-2); }
-.hero .filterknap {
-  border: 0; background: none; margin: 0 var(--l-2); color: var(--blaek);
+/* Tekstknap i søgekortet på bred skærm, som i referencen. På en telefon
+   er «Filtre» den samme indrammede knap som på søgesiden — én handling,
+   én form. */
+@media (min-width: 901px) {
+  .hero .filterknap { border: 0; background: none; margin: 0 var(--l-2); color: var(--blaek); }
 }
 /* Én mørkegrøn handling pr. side: «Søg» i søgekortet, «Se annoncen» i
    boligsidens rail. Alt andet, der kan trykkes på, er blæk. */
@@ -141,9 +156,9 @@
   border-radius: 12px; min-height: 56px; padding: 0 var(--l-5); font-size: var(--t-2);
 }
 .soegeknap:hover { background: var(--handlingsflade-hover); border-color: var(--handlingsflade-hover); }
-/* «Populære søgninger»: afstanden er gap'ens alene. Runde 2 lagde en
-   margin-right oven i den, så mellemrummet blev 28 px mellem nogle
-   led og 16 px mellem andre — hullet midt i anden række. */
+/* «Populære søgninger»: afstanden er gap'ens alene (16 px). Runde 2
+   lagde margin oven i den, så mellemrummene blev 24 og 28 px — hullet
+   midt i anden række. */
 .hero .populaere { margin: var(--l-3) var(--l-4) var(--l-1); font-size: var(--t-1); gap: var(--l-1) var(--l-4); }
 .hero .populaere a { color: var(--blaek); font-weight: var(--v-1); margin: 0; }
 .hero .pop-navn { color: var(--daempet); margin: 0; }
@@ -166,7 +181,9 @@
      anden række under etiketten og første række under byerne: to
      venstrekanter i én blok, og det er det, der læses som skævt. Nu
      begynder hver række med en by, ved samme kant. */
-  .hero .populaere { margin-inline: var(--l-2); }
+  /* Blokken står under nålen: 6 px er .soegebar's polstring (globals),
+     16 px feltets. Før stod den 14 px længere ude end alt over den. */
+  .hero .populaere { margin-left: calc(6px + var(--l-4)); margin-right: var(--l-2); }
   .hero .pop-navn { flex-basis: 100%; }
 }
 
@@ -262,12 +279,15 @@
   .hero.m-baand .hero-billede img { object-position: var(--hero-fokus-smal); }
   .hero.m-baand .hero-soeg { transform: none; margin-top: var(--l-4); }
 
-  .hero.m-moerk { background: #1d2422; }
+  /* Sløret og bunden er BLÆK. Første udgave brugte rgb(10 20 18) og
+     #1d2422 — en tredje, unavngiven grøn flade (a* ≈ −3), som fejningen
+     ikke så, fordi den ikke læser gradienter. */
+  .hero.m-moerk { background: var(--blaek); }
   .hero.m-moerk .hero-billede img { object-position: var(--hero-fokus-smal); }
   .hero.m-moerk.har-foto::after {
     background: linear-gradient(180deg,
-      rgb(10 20 18 / var(--hero-sloer-smal)) 0%, rgb(10 20 18 / var(--hero-sloer-smal)) 58%,
-      rgb(10 20 18 / calc(var(--hero-sloer-smal) * .35)) 100%);
+      rgb(20 22 26 / var(--hero-sloer-smal)) 0%, rgb(20 22 26 / var(--hero-sloer-smal)) 58%,
+      rgb(20 22 26 / calc(var(--hero-sloer-smal) * .35)) 100%);
   }
   .hero.m-moerk .hero-oejenbryn { color: rgb(255 255 255 / .84); }
   .hero.m-moerk h1 { color: #fff; }
@@ -283,7 +303,9 @@
    kreditering; vi giver den stadig. Kræver en kandidats licens
    kreditering VED billedet (typisk bureauer), er det et af de felter,
    heltefoto.json skal bære — se GREB-3.md. */
-.hero-kredit { display: none; }
+/* INGEN display:none på .hero-kredit her. Flytningen er en ændring i
+   markuppen (page.tsx: væk fra heroen, ind i footer.bund), og CSS'en må
+   ikke kunne lande uden den — så forsvandt krediteringen helt. */
 .bund .fotokredit { white-space: nowrap; }
 
 /* ── 8 · Links er blæk — også kortets kreditering ─────────────────
@@ -291,3 +313,25 @@
    blå (#0078a8) på «Leaflet | © OpenStreetMap». Krediteringen bliver
    stående og synlig (OSM's flisepolitik); kun farven følger reglen. */
 .leaflet-control-attribution a { color: var(--blaek); }
+
+/* ── 9 · Telefonens småting, fundet ved at se på billederne ───────
+   Tre fejl i 360/390, som skærmbillederne viste og DOM'en bekræftede. */
+@media (max-width: 480px) {
+  /* Søgesidens titel: ved siden af «Sortér» havde h1 kun 174–204 px, og
+     bynavnet brækkede midt over — «København / N», «Frederiksberg / C».
+     Titlen får hele bredden, og «Sortér» går under den. Stednavnet bør
+     desuden stå i et span med white-space: nowrap i page.tsx (Frontend). */
+  .resultat-titel h1 { flex: 1 1 100%; text-wrap: balance; }
+}
+@media (max-width: 980px) {
+  /* Boligsiden på 360: kolonnen gik fra 22 til 359 px — ingen højre
+     margen. En 1fr-bane kan ikke blive smallere end sit indholds
+     min-content, og nøgletallenes minmax(158px) er for bredt til to
+     kolonner. Fejlen er ældre end forslaget (i dag: 15 px vandret rul),
+     men laget skjulte den bare. */
+  .spalter { grid-template-columns: minmax(0, 1fr); }
+  .noegletal { grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr)); }
+}
+/* Enlige ord på sidste linje («mangler.», «Bofinda», «kilder»). */
+.hero-manchet, .udlejerbaand p, .ub-kort dd { text-wrap: pretty; }
+.hero h1, .udlejerbaand h2 { text-wrap: balance; }

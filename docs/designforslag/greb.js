@@ -16,6 +16,7 @@ window.__bofindaForslag = (variant = {}) => {
   // intet andet sted i laget kender motivet.
   const hero = $('.hero.har-foto')
   const foto = variant.foto
+  const sidensUrl = hero && $('.hero-billede img', hero) ? $('.hero-billede img', hero).getAttribute('src') : null
   if (hero && foto) {
     const img = $('.hero-billede img', hero)
     if (img && foto.url && img.getAttribute('src') !== foto.url) img.src = foto.url
@@ -31,12 +32,19 @@ window.__bofindaForslag = (variant = {}) => {
   // ── Krediteringen flytter til sidens fodnote (greb.css § 7) ───────
   // Teksten kommer fra fotoobjektet, ellers fra den kreditering, siden
   // selv skrev — aldrig fra en tredje kilde.
+  // Et NYT motiv uden kreditering får intet navn — aldrig den forrige
+  // fotografs (page.tsx: «ellers tilskriver siden en fotograf et billede,
+  // hun ikke har taget»). maal-foto.mjs afviser et foto uden kreditering.
   const kr = $('.hero-kredit'), bund = $('footer.bund')
   if (kr && bund && !$('.fotokredit', bund)) {
-    const s = document.createElement('span')
-    s.className = 'fotokredit'
-    s.textContent = `${(foto && foto.kredit) || kr.textContent.trim()}.`
-    bund.append(' ', s)
+    const nytMotiv = !!(foto && foto.url && foto.url !== sidensUrl)
+    const tekst = foto && foto.kredit ? foto.kredit : nytMotiv ? null : kr.textContent.trim()
+    if (tekst) {
+      const s = document.createElement('span')
+      s.className = 'fotokredit'
+      s.textContent = `${tekst}.`
+      bund.append(' ', s)
+    }
     kr.remove()
   }
 
@@ -59,7 +67,9 @@ window.__bofindaForslag = (variant = {}) => {
   // er den tavse fejl, stedet() blev rettet for. Her er de uden name.
   const sted = $('.hero .sf-sted')
   if (sted && !$('.soegefelt-ekstra')) {
-    const felter = [['Pris pr. måned', 'Op til … kr.'], ['Størrelse', 'Mindst … m²'], ['Værelser', 'Alle']]
+    // «Antal værelser», ikke «Værelser»: fanen «Værelser» ovenover er
+    // boligtypen. Samme ord 70 px fra hinanden med to betydninger.
+    const felter = [['Pris pr. måned', 'Op til … kr.'], ['Størrelse', 'Mindst … m²'], ['Antal værelser', 'Alle']]
     sted.insertAdjacentHTML('afterend', felter.map(([l, v]) =>
       `<div class="soegefelt-ekstra"><label>${l}</label><span>${v}</span></div>`).join(''))
   }

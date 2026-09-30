@@ -16,7 +16,8 @@
 //      [--sted Attrapby] [--json ud.json] [--alle]
 //
 //  --proeve  rejser PGlite i processen, sår kendte tilfælde, tjekker facit.
-//  --base    bruger DATABASE_URL_DIRECT fra miljøet og skriver intet.
+//  --base    bruger DATABASE_URL_DIRECT fra miljøet i en read-only-session
+//            (laast-base.mjs), afviser :6543 og kan ikke skrive.
 //  --sted    én søgning, der gennemgås række for række (standard: den med
 //            flest boliger blandt dem, hvor et endepunkt er en husleje).
 //  --alle    skriv hver søgning og hvert område ud, ikke kun de værste.
@@ -32,12 +33,14 @@ if (PROEVE && (process.env.DATABASE_URL || process.env.DATABASE_URL_DIRECT)) {
   console.error('FEJL: --proeve med DATABASE_URL sat. Afbryder.'); process.exit(2)
 }
 
-let maal = 'PGlite i processen (prøve)'
+// --base: skrivebeskyttelsen håndhæves af BASEN (read-only-session, SHOW
+// før og efter, aldrig :6543) — ikke af, at filen kun indeholder select.
+let maal = 'PGlite i processen (prøve)', laas = null
 if (BASE) {
-  const u = new URL(process.env.DATABASE_URL_DIRECT ?? 'x://mangler')
-  maal = `${u.hostname}:${u.port}${u.pathname}`   // aldrig brugernavn eller kode
+  laas = await (await import('./laast-base.mjs')).laastBase(ROD)
+  maal = laas.navn
 }
-process.stdout.write(`mål: ${maal}\n`)
+process.stdout.write(`mål: ${maal}${laas ? ` · read-only: ${await laas.laast()}` : ''}\n`)
 
 let tb = null
 if (PROEVE) tb = await (await import(`${ROD}/scripts/testbase.ts`)).rejsTestbase()
@@ -292,5 +295,6 @@ if (PROEVE) {
   await tb.luk()
   process.exitCode = fejl.length ? 1 : 0
 } else {
+  process.stdout.write(`\nread-only til sidst: ${await laas.laast()}\n`)
   process.exit(0)
 }

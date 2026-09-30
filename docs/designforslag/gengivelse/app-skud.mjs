@@ -98,6 +98,12 @@ for (const w of BREDDER) {
       m.kreditering = await kreditering(p)
       if (m.kreditering.findes) m.kreditering.kontrast = (await tekstKontrast(p, m.kreditering.hvor === 'fodnote' ? '.fotokredit' : '.hero-kredit'))?.vaerst ?? null
       m.populaere = await populaere(p)
+      // Luften mellem søgekortet og «Nyeste boliger» — det, folden købes med.
+      m.luftUnderKort = await p.evaluate(() => {
+        const k = document.querySelector('.hero-soeg form') || document.querySelector('.hero-soeg')
+        const t = document.querySelector('.listetitel')
+        return k && t ? Math.round(t.getBoundingClientRect().top - k.getBoundingClientRect().bottom) : null
+      })
       // Forsidens bund: talstribe, sektioner, båndet og fodnoten.
       const top = await p.evaluate(() => { const e = document.querySelector('.sider') || document.querySelector('.talstribe'); return e ? e.getBoundingClientRect().top + scrollY - 40 : 0 })
       const h = await p.evaluate(() => document.documentElement.scrollHeight)

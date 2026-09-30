@@ -1,0 +1,28 @@
+# Fejningen af runde 3, efter rettelserne — 30. september 2026
+# Alle synlige elementer (inkl. ::before/::after/::placeholder og svg) på /, /?sted=Attrapby, to boligsider,
+# /?sted=Attrapby&kort=1 og tre søgninger med filterchips; 1440, 390 og 360; telefonvariant A og B.
+# Egenskaber: color, baggrund, gradienter, kanter, fill, stroke, outline, understregning, box-shadow, accent-color.
+# Kun farver med C* ≥ 5 (Lab) står her; neutrale og --daempet (#4d5452, C* 3,2) er grå og udeladt.
+# Kolonner: familie, antal, egenskab, hex, selektor, rolle, tekstuddrag. Syntetisk testbase.
+
+groen   542  color                  #0f4d43    div.kort-pris                                                kendt beløb  «11.430»
+groen    17  background-color       #083a34    button.soegeknap                                                          «Søg»
+anden    12  color                  #2d3138    a.chip                                                                    «Lejlighed»
+anden    10  fill                   #4c7be1    svg.leaflet-attribution-flag > path                                       «»
+anden    10  fill                   #ffd500    svg.leaflet-attribution-flag > path                                       «»
+groen     7  background-color       #083a34    section.udlejerbaand                                                      «For udlejereUdlej din bolig på»
+groen     6  color                  #0f4d43    div.oek-tal                                                  kendt beløb  «23.580»
+groen     5  background-color       #083a34    a.knap                                                                    «Se annoncen hos Prøvekilde Gam»
+groen     5  border-top-color       #083a34    a.knap                                                                    «Se annoncen hos Prøvekilde Gam»
+groen     5  border-right-color     #083a34    a.knap                                                                    «Se annoncen hos Prøvekilde Gam»
+groen     5  border-bottom-color    #083a34    a.knap                                                                    «Se annoncen hos Prøvekilde Gam»
+groen     5  border-left-color      #083a34    a.knap                                                                    «Se annoncen hos Prøvekilde Gam»
+anden     4  color                  #2d3138    a#filterknap.filterknap.har-filtre                                        «Filtre»
+anden     2  color                  #8a5300    p.prisnote.advarsel                                                       «oplyser aldrig faciliteter. Me»
+anden     2  background-color       #fdf3e2    p.prisnote.advarsel                                                       «oplyser aldrig faciliteter. Me»
+anden     2  color                  #8a5300    p.prisnote.advarsel > strong                                              «Prøvekilde Gamma»
+groen     1  background-color       #052a25    a.knap                                                                    «Se annoncen hos Prøvekilde Gam»
+groen     1  border-top-color       #052a25    a.knap                                                                    «Se annoncen hos Prøvekilde Gam»
+groen     1  border-right-color     #052a25    a.knap                                                                    «Se annoncen hos Prøvekilde Gam»
+groen     1  border-bottom-color    #052a25    a.knap                                                                    «Se annoncen hos Prøvekilde Gam»
+groen     1  border-left-color      #052a25    a.knap                                                                    «Se annoncen hos Prøvekilde Gam»

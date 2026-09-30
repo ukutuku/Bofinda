@@ -66,7 +66,8 @@
    },
    "foto": {
     "frihoejde": 298,
-    "tegningBevaret": 0.54
+    "tegningBevaret": 0.32,
+    "stoej": 0.22
    },
    "kreditering": {
     "findes": true,
@@ -212,7 +213,8 @@
    },
    "foto": {
     "frihoejde": 221,
-    "tegningBevaret": 0.39
+    "tegningBevaret": 0.18,
+    "stoej": 0.2
    },
    "kreditering": {
     "findes": true,
@@ -360,7 +362,8 @@
    },
    "foto": {
     "frihoejde": 221,
-    "tegningBevaret": 0.39
+    "tegningBevaret": 0.18,
+    "stoej": 0.21
    },
    "kreditering": {
     "findes": true,
