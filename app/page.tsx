@@ -231,7 +231,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   const grundlag = facFiltre ? await facilitetsgrundlag(f, nu) : sum
   // Kun naar hun faktisk har krydset af. Uden et filter er linjen en
   // advarsel mod noget, hun ikke har gjort.
-  const tavse = facFiltre ? await tavseKilder(f) : { navne: [], antal: 0 }
+  const tavse = facFiltre ? await tavseKilder(f, nu) : { navne: [], antal: 0 }
   // Samme kneb: er filteret ikke sat, er det ordret samme forespørgsel som
   // `sum`, og så koster grundlagslinjen ingenting.
   const oek = f.fuldOekonomi ? await oekonomigrundlag(f, nu) : sum

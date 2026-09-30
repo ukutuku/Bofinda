@@ -1588,6 +1588,33 @@ async function main() {
     tjek('udeplads-filteret finder hende (altan)', await medFilter({ udeplads: true }))
     tjek('kæledyrsfilteret gør IKKE — hun sagde det ikke', !(await medFilter({ kaeledyr: true })))
 
+    // ── NULL-frie ved konstruktion ───────────────────────────────
+    // `order by … desc` sætter NULL FØRST i Postgres, `asc` sidst — og repoet
+    // er bidt af det før (`slaaAdgangOp` i lib/adgang.ts på grenen
+    // claude/betaling-og-adgangskontrol, som ikke er flettet ind i main).
+    // Repræsentantvalgets første led og
+    // tællingen pr. bolig må derfor ikke KUNNE give NULL, heller ikke hvis
+    // `source_type` en dag mister sit NOT NULL. Et NULL i data kan prøven
+    // ikke lave — kolonnen tillader det ikke — så udtrykkene får NULL-input
+    // direkte. Med `=` i stedet for `is not distinct from`, eller uden
+    // `coalesce`, svarer de NULL, og prøven bliver rød.
+    console.log('\n══ repræsentantvalget og tællingen er NULL-frie ══')
+    const nulSvar = await db.execute(dsql`select
+      ${erUdlejerannonce(dsql`null::source_type`)} as ukendt,
+      ${erUdlejerannonce(dsql`'native'::source_type`)} as native,
+      ${erUdlejerannonce(dsql`'feed'::source_type`)} as feed`)
+    const nul = ((nulSvar as { rows?: unknown[] }).rows ?? (nulSvar as unknown[]))[0] as
+      { ukendt: boolean | null; native: boolean | null; feed: boolean | null }
+    tjek('erUdlejerannonce: en ukendt kildetype er falsk, ikke NULL',
+      nul.ukendt === false, String(nul.ukendt))
+    tjek('erUdlejerannonce: native er sand, feed er falsk',
+      nul.native === true && nul.feed === false, `${nul.native} · ${nul.feed}`)
+    const [iNulSaet] = await db.select({ b: boligenErI(dsql`null::boolean`) })
+      .from(listings).innerJoin(sources, eq(sources.id, listings.sourceId))
+      .where(eq(listings.id, id))
+    tjek('boligenErI: et sæt, der svarer NULL for rækken, giver falsk, ikke NULL',
+      iNulSaet?.b === false, String(iNulSaet?.b))
+
     // En anden kilde annoncerer den samme bolig — samme enhedsnoegle. Saa
     // vinder den repraesentantvalget: kildens annonce vises altid frem for
     // en udlejerannonce (UDLEJERANNONCE i lib/soeg.ts), uanset billeder.
@@ -1648,33 +1675,6 @@ async function main() {
     const vises = async (bolig: string) =>
       (await soeg({ postnr: FULDT.postnr }, 500)).some((b) => b.id === bolig)
 
-    // ── NULL-frie ved konstruktion ───────────────────────────────
-    // `order by … desc` sætter NULL FØRST i Postgres, `asc` sidst — og repoet
-    // er bidt af det før (`slaaAdgangOp` i lib/adgang.ts på grenen
-    // claude/betaling-og-adgangskontrol, som ikke er flettet ind i main).
-    // Repræsentantvalgets første led og
-    // tællingen pr. bolig må derfor ikke KUNNE give NULL, heller ikke hvis
-    // `source_type` en dag mister sit NOT NULL. Et NULL i data kan prøven
-    // ikke lave — kolonnen tillader det ikke — så udtrykkene får NULL-input
-    // direkte. Med `=` i stedet for `is not distinct from`, eller uden
-    // `coalesce`, svarer de NULL, og prøven bliver rød.
-    console.log('\n══ repræsentantvalget og tællingen er NULL-frie ══')
-    const nulSvar = await db.execute(dsql`select
-      ${erUdlejerannonce(dsql`null::source_type`)} as ukendt,
-      ${erUdlejerannonce(dsql`'native'::source_type`)} as native,
-      ${erUdlejerannonce(dsql`'feed'::source_type`)} as feed`)
-    const nul = ((nulSvar as { rows?: unknown[] }).rows ?? (nulSvar as unknown[]))[0] as
-      { ukendt: boolean | null; native: boolean | null; feed: boolean | null }
-    tjek('erUdlejerannonce: en ukendt kildetype er falsk, ikke NULL',
-      nul.ukendt === false, String(nul.ukendt))
-    tjek('erUdlejerannonce: native er sand, feed er falsk',
-      nul.native === true && nul.feed === false, `${nul.native} · ${nul.feed}`)
-    const [iNulSaet] = await db.select({ b: boligenErI(dsql`null::boolean`) })
-      .from(listings).innerJoin(sources, eq(sources.id, listings.sourceId))
-      .where(eq(listings.id, id))
-    tjek('boligenErI: et sæt, der svarer NULL for rækken, giver falsk, ikke NULL',
-      iNulSaet?.b === false, String(iNulSaet?.b))
-
     // ── Reglen: kildens annonce vises altid frem for udlejerens ──
     // Foerste trin i `ikkeRepraesentant` (UDLEJERANNONCE i lib/soeg.ts).
     // Valget faldt foer paa billeder, og en udlejerannonce kunne skjule
@@ -1715,6 +1715,22 @@ async function main() {
     const paaLink = await hentBolig(id)
     tjek('med dublet: hendes annonce kan stadig åbnes på sit eget link',
       paaLink?.id === id, String(paaLink?.id))
+
+    // ── «tjek, at adressen er rigtig — også etage og dør» ─────────
+    // Et løfte om adressenøglen (lib/address.ts) og dedup'en, ikke om
+    // forklaring.ts: retter hun etagen eller døren i sin egen formular, skal
+    // hun skilles fra kildens annonce. Ellers beder teksten hende gøre noget,
+    // der ikke hjælper. Før stod det kun som tekst i prøven, og etagen kunne
+    // fjernes fra enhedsnøglen med hele npm test grøn.
+    const [foerRet] = await db.select().from(listings).where(eq(listings.id, id))
+    const hendesFormular = { ...somFormular(foerRet!), billeder: FULDT.billeder }
+    await opdaterBolig(udlejer, id, { ...hendesFormular, etage: '4' })
+    tjek('en anden etage skiller hende fra kildens annonce', (await maerkat()).slags === 'udgivet')
+    await opdaterBolig(udlejer, id, { ...hendesFormular, doer: 'th' })
+    tjek('en anden dør skiller hende fra kildens annonce', (await maerkat()).slags === 'udgivet')
+    await opdaterBolig(udlejer, id, hendesFormular)
+    tjek('med den rigtige adresse igen er hun skjult bag kildens annonce',
+      (await maerkat()).slags === 'dublet')
 
     // ── «også hos» må ikke nævne en annonce, brugeren ikke kan nå ──
     // Kildens kort skrev «også hos Bofinda» om hendes annonce — den, reglen
@@ -1774,7 +1790,7 @@ async function main() {
       !!betingetTekst && betingetTekst.slutning.includes('frem for udlejerens egen i hver søgning, den passer til'),
       String(betingetTekst?.slutning))
     tjek('forklaringen: og i overskriften',
-      !!betingetTekst && betingetTekst.overskrift.includes('hvor en anden annonce for samme bolig også passer'),
+      !!betingetTekst && betingetTekst.overskrift.includes('hvor denne annonce for samme bolig også passer'),
       String(betingetTekst?.overskrift))
     // Hendes kort nævner kilden: kildens annonce findes og kan nås hos kilden.
     // Kontrollen for prøven af kildens kort ovenfor — uden den kunne «også
@@ -1804,7 +1820,23 @@ async function main() {
     tjek('tavse kilder: med et kryds, hun heller ikke passer, nævnes den',
       tkKaeledyr.navne.includes(PROEVEKILDE) && tkKaeledyr.antal >= 1,
       `${tkKaeledyr.navne.join(', ')} · ${tkKaeledyr.antal}`)
+    // Med et domænefilter, prøvekildens annonce ikke passer, er boligen slet
+    // ikke i søgningen uden kryds — så fjerner krydset den heller ikke, og
+    // linjen må ikke sige «ude» om den. Før talte `tavseKilder` uden
+    // domænefilteret.
+    const fDom = { postnr: FULDT.postnr, markedsstatus: 'reserveret' as const }
+    tjek('tavse kilder med domænefilter: forudsætning — boligen er ikke i søgningen uden kryds',
+      !(await soeg(fDom, 500)).some((b) => b.id === rivalId || b.id === id))
+    const tkDomaene = await tavseKilder({ ...fDom, kaeledyr: true })
+    tjek('tavse kilder med domænefilter: en bolig, domænet har fjernet, er ikke «ude»',
+      !tkDomaene.navne.includes(PROEVEKILDE), `${tkDomaene.navne.join(', ')} · ${tkDomaene.antal}`)
     await db.update(listings).set({ amenities: resten.amenities }).where(eq(listings.id, rivalId))
+    // Og en kilde, der OPLYSER faciliteter, er ikke tavs — heller ikke når
+    // krydset fjerner dens bolig. Uden kravet `oplyser === 0` ville linjen
+    // kalde en kilde som Propstep for én, der aldrig oplyser faciliteter.
+    const tkOplyser = await tavseKilder({ postnr: FULDT.postnr, kaeledyr: true })
+    tjek('tavse kilder: en kilde, der oplyser faciliteter, nævnes ikke — heller ikke når krydset fjerner dens bolig',
+      !tkOplyser.navne.includes(PROEVEKILDE), tkOplyser.navne.join(', '))
 
     // ── Mellem ligestillede: UNIKKE, VISBARE billeder ─────────────
     // Reglen skelner kun kilde fra udlejer. Taellingen skal derfor proeves
@@ -1911,6 +1943,40 @@ async function main() {
     await billederPaa(id, urler(5, 'flest'))
     tjek('to udlejere: med 5 mod 4 vinder hun', (await maerkat()).slags === 'udgivet')
     await billederPaa(id, FULDT.billeder)
+
+    // ── Forklaringens to sidste grene: trin 3 og 4 i rangeringen ──
+    // De kaldtes af ingen prøve, og trin 3 kunne vendes med hele npm test
+    // grøn. Den anden får lige så mange billeder som hende, så billederne
+    // ikke afgør.
+    await billederPaa(andenAnnonce!.id, [0, 1].map((n) => `${VIST_VAERT}/anden${n}.jpg`))
+    const [hendesTotal] = await db.select({ t: listings.totalMonthly })
+      .from(listings).where(eq(listings.id, id))
+    await db.update(listings).set({ totalMonthly: null }).where(eq(listings.id, id))
+    const udenTotal = await maerkat()
+    const totaltekst = udenTotal.slags === 'dublet'
+      ? forklaring((await mineBoliger(udlejer)).find((b) => b.id === id)!, udenTotal.af) : null
+    tjek('trin 3: lige mange billeder — den med kendt total vinder',
+      udenTotal.slags === 'dublet' && udenTotal.af.id === andenAnnonce!.id, udenTotal.slags)
+    tjek('trin 3: forklaringen siger den samlede udgift',
+      totaltekst?.grund === 'den oplyser en samlet månedlig udgift, og det gør din ikke',
+      String(totaltekst?.grund))
+    await db.update(listings).set({ totalMonthly: hendesTotal!.t }).where(eq(listings.id, id))
+    // Trin 4: lige på billeder og på total, så id'et afgør. Hvem der taber,
+    // afhænger af to tilfældige UUID'er — så forklaringen hentes hos den,
+    // der tabte, på dens egen ejers Mine annoncer.
+    const andenUdlejer = { id: anden!.id, authUserId: 'test', email: anden!.email, navn: null }
+    const hunSyn = await maerkat()
+    const [taberId, taberEjer] = hunSyn.slags === 'dublet'
+      ? [id, udlejer] as const : [andenAnnonce!.id, andenUdlejer] as const
+    const taber = (await mineBoliger(taberEjer)).find((b) => b.id === taberId)!
+    const vinderId = taberId === id ? andenAnnonce!.id : id
+    tjek('trin 4: lige på alt — præcis én af dem er skjult, og det er den med højest id',
+      taber.synlighed.slags === 'dublet' && taber.synlighed.af.id === vinderId
+      && vinderId < taberId, `${taber.synlighed.slags} · vinder ${vinderId.slice(0, 8)} mod ${taberId.slice(0, 8)}`)
+    const ligetekst = taber.synlighed.slags === 'dublet' ? forklaring(taber, taber.synlighed.af) : null
+    tjek('trin 4: forklaringen siger, at de står lige',
+      ligetekst?.grund === 'de to står lige på billeder og oplysninger, og valget faldt på den anden',
+      String(ligetekst?.grund))
     await db.delete(listingImages).where(eq(listingImages.listingId, andenAnnonce!.id))
     await db.delete(listings).where(eq(listings.id, andenAnnonce!.id))
     tjek('to udlejere: uden den anden er hun udgivet igen', (await maerkat()).slags === 'udgivet')

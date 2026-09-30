@@ -5,7 +5,7 @@
 //
 //    Frontend  Vercel, serverless. Mange kortlivede processer, hver med
 //              sin egen pool. Gaar gennem Supavisor i TRANSACTION mode
-//              (port 6543). Pool paa 1, prepared statements slaaet fra.
+//              (port 6543). Pool paa 5, prepared statements slaaet fra.
 //    Worker    Railway, én lang proces. Gaar paa session/direct (port
 //              5432). Pool paa 10, prepared statements slaaet til.
 //

@@ -17,10 +17,15 @@ import type { Repraesentant } from '../../../lib/soeg'
 
 export interface Forklaring {
   /**
-   * Den fede indledning. Betinget, som rangeringen er: den regnes paa det
-   * FILTREREDE saet, saa i en soegning, den anden annonce ikke passer til,
-   * vises hendes. Her stod «Vises ikke i søgningen.» — ubetinget, lige over
-   * en forklaring, der sagde det modsatte.
+   * Den fede indledning, efterfulgt af linket til den annonce, der vises i
+   * stedet. Betinget, som rangeringen er: den regnes paa det FILTREREDE
+   * saet, saa i en soegning, den annonce ikke passer til, kan hendes vises.
+   * Her stod foerst «Vises ikke i søgningen.» — ubetinget, lige over en
+   * forklaring, der sagde det modsatte. Dernaest «…hvor en anden annonce
+   * for samme bolig også passer», og det var for bredt: en ANDEN udlejers
+   * annonce med faerre billeder taber til hende, og passer den og ikke
+   * kildens, vises hendes. Det er DEN annonce, der vises i stedet, hun ikke
+   * kan staa ved siden af — ikke enhver anden.
    */
   overskrift: string
   /** Leddet efter «Den blev valgt, fordi …». */
@@ -68,7 +73,7 @@ export interface Forklaring {
 export function forklaring(
   min: { billeder: number; total: number | null }, af: Repraesentant,
 ): Forklaring {
-  const overskrift = 'Vises ikke i søgninger, hvor en anden annonce for samme bolig også passer.'
+  const overskrift = 'Vises ikke i søgninger, hvor denne annonce for samme bolig også passer:'
   if (!af.udlejerannonce) {
     return {
       overskrift,

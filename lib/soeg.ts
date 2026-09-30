@@ -315,7 +315,7 @@ end`
  * kopi af en rigtig annonce ville faa henvendelserne.
  *
  * Udtrykket staar ét sted og bruges baade af rangeringen og af
- * `repraesentantFor`, saa forklaringen paa Mine annoncer (`grunden()`) laeser
+ * `repraesentantFor`, saa forklaringen paa Mine annoncer (`forklaring()`) laeser
  * praecis det, valget faldt paa — ikke en kopi af praedikatet i JS.
  *
  * Mellem to udlejerannoncer afgoer reglen intet, og saa vaelges der paa
@@ -398,16 +398,17 @@ export const udenDubletter = (grundlag: SQL | undefined) =>
  * `udenDubletter(saet)`: rangeringen beholder én raekke pr. noegle. Uden
  * noegle er raekken sin egen bolig.
  *
- * NULL-fri ved konstruktion (`coalesce(…, false)`). Svaret taelles med
- * `count(*) filter (where x)` og `filter (where not x)`, og en raekke, hvor
- * x er NULL, falder ud af begge. Linjen gaar stadig op — siden regner
- * midtergruppen som resten (app/page.tsx) — men boligen havner i en FORKERT
- * gruppe: i SQL-grenen under «nævner andre faciliteter», i domaenegrenen,
- * hvor JS taeller `!r.oplyst`, under «mangler oplysninger». Begge er usande
- * om netop den bolig. Hos de nuvaerende kaldere kan `saet` ikke give NULL
- * for den ydre raekke, fordi den ydre raekke allerede er i grundlaget. Men
- * det er en egenskab ved kalderne, ikke ved udtrykket, og et prisfilter paa
- * en bolig uden pris giver NULL. Eksporteret til proeven, der giver den et
+ * NULL-fri ved konstruktion (`coalesce(…, false)`), og i samme betydning
+ * som en WHERE: en raekke, hvor `saet` er NULL, er ikke i saettet — saadan
+ * behandler `udenDubletter(saet)` den ogsaa. Uden coalesce blev svaret
+ * NULL, og raekken faldt ud af baade `filter (where x)` og `filter (where
+ * not x)`. Linjen ville stadig gaa op, fordi siden regner midtergruppen som
+ * resten, men SQL-grenen ville lægge boligen i midtergruppen og domaene-
+ * grenen (JS, `!r.oplyst`) i «mangler oplysninger» — to svar paa samme
+ * spoergsmaal. Hos de nuvaerende kaldere kan `saet` ikke give NULL for den
+ * ydre raekke, fordi den ydre raekke allerede er i grundlaget. Men det er
+ * en egenskab ved kalderne, ikke ved udtrykket, og et prisfilter paa en
+ * bolig uden pris giver NULL. Eksporteret til proeven, der giver den et
  * NULL-saet direkte.
  *
  * Til tal, der taeller én soegning og udtaler sig om en ANDEN. Grundlaget
@@ -439,15 +440,17 @@ export function boligenErI(saet: SQL | undefined) {
  * er de boliger, hvor INGEN af raekkerne i soegningen oplyser faciliteter —
  * dem kan intet kryds vise. Se `boligenErI`.
  *
- * «Er de boliger, krydset viser» gaelder UDEN domaenefilter. Overtagelse,
- * ansoegningsform og markedsstatus afgoeres i JS paa repraesentanten, og
- * `hvor` kender dem ikke. Med et domaenefilter kan en bolig, hvis ene
- * annonce har faciliteten og den anden passer domaenet, staa under «nævner
- * det», mens krydset viser en anden repraesentant, der ikke passer domaenet
- * — og omvendt. Ingen af linjens saetninger bliver usand af det: boligen
- * naevner faciliteten, og «vises ikke» staar kun ved dem, der intet oplyser.
- * Men tallet er ikke laengere det, krydset viser. Et praecist tal kraever
- * repraesentanten pr. kryds OG pr. domaene og er ikke bygget.
+ * «Er de boliger, krydset viser» gaelder for krydset ALENE: uden de andre
+ * facilitetsfiltre (grundlaget fjerner alle tre) og uden domaenefilter.
+ * Overtagelse, ansoegningsform og markedsstatus afgoeres i JS paa
+ * repraesentanten, og `hvor` kender dem ikke. Med et domaenefilter kan en
+ * bolig, hvis ene annonce har faciliteten og den anden passer domaenet,
+ * staa under «nævner det», mens krydset slet ikke viser den: det vaelger
+ * annoncen med faciliteten som repraesentant, og den passer ikke domaenet.
+ * Og omvendt. Ingen af linjens saetninger bliver usand af det: boligen
+ * naevner faciliteten, og «vises ikke» staar kun ved dem, der intet
+ * oplyser. Men tallet er ikke laengere det, krydset viser. Et praecist tal
+ * kraever repraesentanten pr. kryds OG pr. domaene og er ikke bygget.
  */
 function facilitetsgrundlagPrBolig(f: Filtre) {
   return {
@@ -1579,25 +1582,66 @@ export interface Tavsekilder {
  * saa er den ikke «ude». Se `boligenErI`. En tavs kilde, hvis boliger alle
  * vises paa den maade, naevnes ikke: linjen ville sige «ude» om ingenting.
  */
-export async function tavseKilder(f: Filtre): Promise<Tavsekilder> {
+export async function tavseKilder(
+  f: Filtre, referenceNow: Date = new Date(),
+): Promise<Tavsekilder> {
+  const grundlag = and(
+    hvorVist({ ...f, kaeledyr: false, elevator: false, udeplads: false }),
+    // Vores EGEN kilde hoerer ikke til her. Saetningen paastaar, at en
+    // kilde aldrig oplyser faciliteter — og det er faktuelt forkert om
+    // udlejerannoncer: formularen SPOERGER om dem. At én annonce ikke
+    // har krydset noget af, er ikke en datapraksis hos en tredjepart.
+    // De taelles stadig med i "oplyser ingen" paa grundlagslinjen.
+    ne(listings.sourceType, 'native'),
+  )
+  // Ude = krydset fjerner boligen: INGEN af dens raekker har det, krydset
+  // beder om. Se `boligenErI`.
+  const ude = sql<boolean>`not ${boligenErI(hvor(f))}`
+
+  // ── Med domaenefilter: talt i JS, som i `opsummeringMedDomaene` ──
+  // Overtagelse, ansoegningsform og markedsstatus kan ikke udtrykkes i SQL.
+  // Uden dem taltes ogsaa boliger, domaenefilteret ALLEREDE havde fjernet,
+  // og linjen sagde «N boliger derfra er ude» om boliger, soegningen uden
+  // kryds heller ikke viste. `oplyser` taelles stadig paa hele grundlaget:
+  // «oplyser aldrig» er en paastand om kilden, ikke om de raekker, et
+  // domaenefilter lod passere.
+  if (harDomaenefilter(f)) {
+    const raekker = await db
+      .select({
+        navn: sources.name,
+        kilde: sources.slug,
+        availabilityFacts: listings.availabilityFacts,
+        oplyst: sql<boolean>`${OPLYST}`,
+        ude,
+      })
+      .from(listings)
+      .innerJoin(sources, eq(sources.id, listings.sourceId))
+      .where(grundlag)
+    const pr = new Map<string, { oplyser: number; antal: number }>()
+    for (const x of raekker) {
+      const k = pr.get(x.navn) ?? { oplyser: 0, antal: 0 }
+      if (x.oplyst) k.oplyser++
+      if (x.ude && matcherDomaene(f, availabilityFor(x, referenceNow))) k.antal++
+      pr.set(x.navn, k)
+    }
+    return tavseAf([...pr].map(([navn, k]) => ({ navn, ...k })))
+  }
+
   const r = await db
     .select({
       navn: sources.name,
-      antal: sql<number>`count(*) filter (where not ${boligenErI(hvor(f))})::int`,
+      antal: sql<number>`count(*) filter (where ${ude})::int`,
       oplyser: sql<number>`count(*) filter (where ${OPLYST})::int`,
     })
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
-    .where(and(
-      hvorVist({ ...f, kaeledyr: false, elevator: false, udeplads: false }),
-      // Vores EGEN kilde hoerer ikke til her. Saetningen paastaar, at en
-      // kilde aldrig oplyser faciliteter — og det er faktuelt forkert om
-      // udlejerannoncer: formularen SPOERGER om dem. At én annonce ikke
-      // har krydset noget af, er ikke en datapraksis hos en tredjepart.
-      // De taelles stadig med i "oplyser ingen" paa grundlagslinjen.
-      ne(listings.sourceType, 'native'),
-    ))
+    .where(grundlag)
     .groupBy(sources.name)
+  return tavseAf(r)
+}
+
+/** Kun kilder, der aldrig oplyser faciliteter OG faktisk mister noget. */
+function tavseAf(r: { navn: string; antal: number; oplyser: number }[]): Tavsekilder {
   const tavse = r.filter((x) => x.oplyser === 0 && x.antal > 0)
   return {
     navne: tavse.map((x) => x.navn).sort(),

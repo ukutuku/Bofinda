@@ -65,14 +65,15 @@ export default async function Side() {
                 {synlig.slags === 'dublet' && f && (
                   <div className="synlighed">
                     <p>
-                      <strong>{f.overskrift}</strong> Den viser vi
-                      i stedet: <a href={`/bolig/${synlig.af.id}`}>{synlig.af.adresse}</a>
+                      <strong>{f.overskrift}</strong>{' '}
+                      <a href={`/bolig/${synlig.af.id}`}>{synlig.af.adresse}</a>
                       {/* Er vinderen selv en udlejerannonce, er «hos Bofinda»
                           maerkeligt for en, der staar paa Bofinda. Samme felt
                           som forklaringen — ikke en kopi af praedikatet. */}
                       {synlig.af.udlejerannonce
-                        ? ' — en anden annonce her på Bofinda.'
+                        ? ', en anden annonce her på Bofinda.'
                         : <>{' '}hos {synlig.af.kilde}.</>}
+                      {' '}Den viser vi i stedet.
                     </p>
                     <p className="note">
                       Den blev valgt, fordi {f.grund}. {f.slutning}

@@ -96,7 +96,7 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   **Når reglen afgør valget, siger forklaringen reglen** — ikke «flere
   billeder», heller ikke når kilden tilfældigvis har flest. Forklaringen
   bor i `forklaring()` i `app/udlejer/boliger/forklaring.ts`, en ren fil,
-  så `npm test` kan prøve teksten i begge grene. Den læser
+  så `npm test` kan prøve teksten — alle fire grene kaldes. Den læser
   `af.udlejerannonce`, beregnet af det samme SQL-udtryk som rangeringen.
   **Skriv aldrig «en rettelse ændrer ikke valget».** Det er falsk: retter
   hun adresse, areal, værelser eller husleje, kan dedup-nøglen skifte, og
@@ -106,14 +106,18 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   «altid» eller «uanset pris»: pris er ikke et trin, og rangeringen regnes
   på det filtrerede sæt. Derfor står betingelsen i teksten: kildens annonce
   vises frem for hendes «i hver søgning, den passer til», og overskriften er
-  «Vises ikke i søgninger, hvor en anden annonce for samme bolig også
-  passer» — ikke «Vises ikke i søgningen». Mærkatet siger «vises ikke
-  altid».
+  «Vises ikke i søgninger, hvor denne annonce for samme bolig også passer:»
+  efterfulgt af linket — ikke «Vises ikke i søgningen», og heller ikke
+  «…hvor en anden annonce…»: en anden udlejers annonce med færre billeder
+  taber til hende, og passer den og ikke kildens, vises hendes. Mærkatet
+  siger «vises ikke altid».
   **Løfter om andre moduler prøves, hvor modulerne bor** — ikke i
   forklaringsfilen. «Kan stadig åbnes på sit eget link» prøves mod
   `hentBolig`, mens hun er skjult; «tager vi deres annonce ud af
   søgningen» prøves gennem den rigtige `koerKilde`, der afmelder kildens
-  række. Begge i `scripts/test-redigering.ts`.
+  række; og «tjek, at adressen er rigtig — også etage og dør» gennem
+  `opdaterBolig`: en anden etage eller dør skal skille hende fra kildens
+  annonce. Alle i `scripts/test-redigering.ts`.
 - **En manglende oplysning skal være synlig, ikke fraværende.** Kender vi
   ikke totalen, skriver kortet "Udlejer oplyser ikke aconto — spørg om varme
   og vand." Vi kan ikke skelne "udlejer opkræver intet" fra "udlejer oplyser
@@ -152,7 +156,10 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   skifter praksis. Tallet er de boliger, filteret FAKTISK fjerner: vises en
   af dem gennem en anden annonce for samme bolig — en udlejers, eller en
   kilde der oplyser faciliteten — er den ikke ude og tælles ikke. Derfor
-  står der ikke «alle». **Vores egen native-kilde tælles ikke med der:**
+  står der ikke «alle». Med et domænefilter (overtagelse, ansøgningsform,
+  markedsstatus) tælles i JS, som i `opsummeringMedDomaene`: før talte
+  linjen også boliger, domænefilteret allerede havde fjernet, og sagde
+  «ude» om boliger, søgningen uden kryds heller ikke viste. **Vores egen native-kilde tælles ikke med der:**
   udlejerformularen spørger om faciliteter, så "oplyser aldrig" ville være
   faktuelt forkert om den — at én annonce ikke har krydset noget af, er ikke
   en datapraksis. De native tavse tælles stadig i "oplyser ingen".
@@ -190,7 +197,9 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   Talte linjen repræsentanten, stod en bolig under «mangler oplysninger og
   vises ikke», mens listen viste den gennem udlejerens annonce. «N nævner
   det» er derfor præcis det antal, krydset viser, og `npm test`
-  sammenligner de to — **uden domænefilter.** Overtagelse, ansøgningsform
+  sammenligner de to — **for krydset alene og uden domænefilter.**
+  Grundlaget fjerner alle tre facilitetsfiltre, så med to kryds tæller
+  hver linje sin facilitet for sig. Overtagelse, ansøgningsform
   og markedsstatus afgøres i JS på repræsentanten, og `hvor()` kender dem
   ikke. Har en boligs annoncer hver sin status, kan tallet derfor afvige
   fra det, krydset viser. Ingen af linjens sætninger bliver usand af det:
