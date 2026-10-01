@@ -142,6 +142,48 @@ Alabu-medarbejderen nødvendigvis sagde:
 Deres robots.txt forbyder crawling udtrykkeligt på skrift, og der er
 ingen tilladelse. Kræver skriftlig aftale først.
 
+## Én identitet pr. forpligtelse
+
+**Deler to forhold samme identifikator, forplanter en sanktion i det ene
+sig til det andet.** Reglen er almen og gælder alt, en modpart kan
+blokere, spærre, afvise eller miskreditere: User-Agents, API-nøgler,
+afsenderdomæner, IP-omdømme og kontoidentiteter.
+
+Eksemplet, der gjorde den konkret: `BofindaBot/1.0` er **boligcrawlens**
+identitet. Skulle nogen en dag proxye kortfliser gennem vores egen server,
+ville det være nærliggende at genbruge den — den er jo vores, og den
+identificerer sig pænt. Men spærrede OpenStreetMap så `BofindaBot` for at
+have hentet fliser for hurtigt, ville spærringen ramme **boligcrawlen**,
+som aldrig havde hentet en flise. To forpligtelser over for to forskellige
+modparter, ét navn, og ingen måde at skille dem ad bagefter.
+
+Det samme gælder den anden vej: en kilde, der blokerer os for crawl, ville
+samtidig lukke kortet.
+
+Konkret, for hver slags:
+
+| Identifikator | Én pr. | Hvorfor |
+|---|---|---|
+| User-Agent | forpligtelse, ikke pr. app | En værts spærring rammer navnet, ikke formålet |
+| API-nøgle | modpart og miljø | En roteret eller spærret nøgle må ikke tage andet med sig |
+| Afsenderdomæne | postslags | Et alarmdomæne på en spamliste må ikke tage kontomails med |
+| IP / udgående vært | takt-regime | Heimstadens CDN spærrede **IP'en**, ikke UA'en (målt 2026-09-06) |
+
+Den sidste række er ikke en formodning: Heimstaden mødte alle kald fra
+vores IP med 503 efter ~17 minutter, **uanset User-Agent** — se
+`VAERTSTAKT` i `lib/fetch.ts`. Det er netop derfor identiteten skal være
+delt op, før den bliver det for os.
+
+**Undtagelsen, der ikke er en undtagelse:** `lib/fetch.ts` lader
+`User-Agent` stå SIDST i header-objektet, så et enkelt kald ikke kan
+overskrive den. Det ser ud som stædighed og er det modsatte — det er dét,
+der holder én identitet knyttet til én forpligtelse. Se EDC-læren i
+`docs/supply-kortlaegning-2026-09-06.md` (revision 2026-09-07, afsnittet
+«Metodisk caveat»): en probe fik adgang med en **forkortet** UA uden
+bot-URL og kontakt, efter at den selvidentificerende var blokeret. Det er
+udtrykkeligt noteret som noget, der **ikke** må bruges som
+implementationsteknik.
+
 ## Billedaktiver i repoet
 
 Ikke en kilde til boligdata, men materiale, vi selv viser. Samme krav:
@@ -205,15 +247,22 @@ vi den dag, de trækker det tilbage.**
 OSM får altså IP'en sammen med omtrent hvor boligen ligger. Over et besøg
 er rækken af flise-requests hendes boligsøgning.
 
-**ÅBENT: `/privatliv` nævner dem ikke.** Målt — siden navngiver fire
-databehandlere (Supabase, Vercel, Railway, Resend) og ingen af dem er
-OSM. Det er ikke en usand sætning, for OSM er ikke vores databehandler:
-browseren kontakter dem direkte, og vi er aldrig i vejen. Men det er
-netop derfor, det skal stå — hun kan ikke se det nogen steder, og
-oplysningen er, hvor hun kigger på bolig. Den sætning hører i
-`app/privatliv/page.tsx` som sit eget punkt, ikke på leverandørlisten.
-Den er bevidst IKKE skrevet i denne ændring: seks grene rører den fil,
-og én af dem handler kun om den side.
+**`/privatliv` nævner dem ikke i dag — det lukkes af [#29].** På `main`
+navngiver siden fire databehandlere (Supabase, Vercel, Railway, Resend)
+og ingen af dem er OSM. Det er ikke en usand sætning, for OSM er ikke
+vores databehandler: browseren kontakter dem direkte, og vi er aldrig i
+vejen. Men hun kan ikke se det nogen steder, og oplysningen er, hvor hun
+kigger på bolig.
+
+[#29] (`claude/privatliv-tekst-ned-til-virkeligheden`, commit `b8dcfcb`)
+tilføjer præcis det: en «direkte»-blok adskilt fra databehandlerne, med
+**OpenStreetMap-fonden (Storbritannien)**, flise-URL'ens koordinater
+`{z}/{x}/{y}` og hjemlen — artikel 6, stk. 1, litra f.
+**Dette er altså ikke et åbent punkt, men en afhængighed.** Lander [#29],
+er det dækket; lander den ikke, skal sætningen skrives ind i den gren,
+der overtager filen. Skriv den ikke som en syvende samtidig gren.
+
+[#29]: https://github.com/ukutuku/Bofinda/pull/29
 
 ### De fem krav, og hvor vi står på hver
 
@@ -254,6 +303,26 @@ Mærkerne kan derfor ikke trække fliser ind uden for udsnittet: `fitBounds`
 sætter udsnittet, så det rummer mærkerne — efter det ER mærkerne udsnittet.
 Og uden filtrering vises kortet slet ikke (`kortMuligt` i `app/page.tsx:363`).
 
+**OPFØLGER: målingen hører ved indstillingen, ikke kun her.** Den næste,
+der vil «optimere» kortet, læser navnet `keepBuffer` — ikke
+`leaflet-src.js:11759`. Og vi bruger i dag Leaflets standard uden at
+skrive den, så der er ingenting at læse ved siden af. Linjen hører i
+`app/Landkort.tsx` ved `L.tileLayer(...)` (**linje 107** på `main` i dag):
+
+```ts
+// keepBuffer er IKKE en forhentning og maa ikke haeves «for at
+// optimere». Flisekoeen i _update() er viewporten uden margen
+// (leaflet-src.js 1.9.4:11755-11756); keepBuffer indgaar kun i
+// noPruneRange og afgoer, hvilke ALLEREDE hentede fliser der maa
+// ryddes (11759). Haeves den, beholdes flere fliser — men OSM's
+// politik handler om, hvad vi HENTER, og det tal aendrer sig ikke.
+// Saet den kun med en maaling ved siden af.
+```
+
+Den ligger **ikke** i denne ændring: fire grene rører `Landkort.tsx`, og
+deres første hunk begynder på linje 22. Den hører i den gren, der
+alligevel rører filen — sammen med citatet til headerens linje 14.
+
 #### Krav 2b — henter noget af vores værktøj fliser som bot?
 
 **Nej, og spærringen er et byg, ikke en aftale.** Repoet har 17 scripts,
@@ -267,7 +336,26 @@ spærring ville hver kørsel være præcis den botkørsel, politikken forbyder.
     NEXT_PUBLIC_FLISE_KREDIT="Testfliser — lokalt genereret, ikke OpenStreetMap"
 
 og — det afgørende — **fejler bygget**, hvis `tile.openstreetmap.org`
-alligevel står i `.next/static` (`byg.sh:28-31`). Fliserne genereres i
+alligevel står i `.next/static` (`byg.sh:28-31`).
+
+**Spærringen ER set fyre.** En spærring, ingen har set fyre, er en
+antagelse — så den har fået sin modprøve. To arme, samme byg, forskel
+kun i variablen:
+
+| Arm | `NEXT_PUBLIC_FLISE_URL` | Byg | Vagten |
+|---|---|---|---|
+| muteret | **fjernet** | lykkes | **FYRER** — 1 fil i `.next/static` | 
+| kontrol | som `byg.sh` sætter den | lykkes | tav |
+
+Filen er `.next/static/chunks/444-<hash>.js` — klientbundtet med
+`Landkort.tsx`. Bemærk, at **bygget selv lykkes i begge arme**: uden
+vagten ville en droppet variabel ikke ytre sig nogen steder, og
+kontrollerne ville stille begynde at hente rigtige fliser. Det er
+præcis den slags fejl, der ikke har nogen rød linje at pege på.
+
+Samme bundt bar også `fixthemap` — altså faldt både URL og kreditering
+tilbage til OSM's, som `??` i `Landkort.tsx:41-45` foreskriver. De to
+falder sammen, og det er meningen. Fliserne genereres i
 hukommelsen af `scripts/cloud/aktiver.mjs`; der ligger ingen flisefiler i
 repoet. To kontroller blokerer desuden al ikke-loopback-trafik ved roden
 (`browserkontrol.mjs:71-75`, `browserkontrol-pagination.mjs:127`).
@@ -295,10 +383,8 @@ ansvar.** Betingelsen, skrevet ned nu, mens der ikke er travlt:
 - UA'en skal navngive Bofinda og bære en kontaktvej. En generisk
   `node-fetch`, `axios` eller `Mozilla/5.0` er netop det, politikken
   afviser, fordi den gør det umuligt at kontakte den, der belaster.
-- Den må **ikke** være `BofindaBot` fra `lib/fetch.ts`. Den UA står for
-  vores crawl af boligkilder, har sin egen kontakt-URL og sin egen
-  takt — et flisekald er ikke en crawl, og blandes de, rammer en spærring
-  af den ene også den anden.
+- Den må **ikke** være `BofindaBot` fra `lib/fetch.ts` — se reglen om én
+  identitet pr. forpligtelse nedenfor.
 - Proxyen skal sende en Referer videre (krav 1 gælder stadig), respektere
   flisernes `Cache-Control` i stedet for at hente på ny (krav 4), og
   aldrig hente en flise, ingen bruger har bedt om (krav 2).
