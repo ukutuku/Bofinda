@@ -40,7 +40,9 @@ Målt i denne fil og i `adapters/index.ts`:
 **De tre uden en række er `home.dk`, `Heimstaden` og `Birch Ejendomme`.**
 De står i `KILDER` uden `kunUdvikling`, altså kører de i `koerAlle` hver
 time. Der er ingen post om dem her. Det er ikke et tomt felt — det er et
-fravær, og det er den slags, man ikke kan tælle sig til.
+fravær, og det er den slags, man ikke kan tælle sig til. **De er lagt ud
+hver for sig nedenfor**, for de er ikke lige meget: Heimstaden har
+allerede spærret os én gang.
 
 **Balder er den mest iøjnefaldende.** Posten hedder «den udfyldte, som
 forbillede», og dens `Oplyst af` og `Dato` er begge `[UDFYLDES]`.
@@ -53,6 +55,98 @@ Omfangs-kolonnen er tom for otte, og det er den kolonne, filen selv
 kalder «den vigtige, og den er ikke en formalitet». Fire af de otte er
 kilder, vi kører i dag: `findbolig.nu`, `Propstep`, `Dacas` og
 `LokalBolig`.
+
+### De tre uden en række — hvad vi faktisk gør mod dem
+
+**De er ikke lige meget hver især, og rækkefølgen her er efter, hvor
+meget der står på spil, ikke alfabetisk.** Alt nedenfor er hentet fra
+koden og fra git; intet er udfyldt, og intet er formodet. Hvor en
+oplysning ikke findes, står det.
+
+Fælles for alle tre: Railway kører `npm run import` uden argumenter
+**hver time** (`cron 0 * * * *`, `railway.json` `startCommand`), og den
+kører `rigtigeKilder()`. Alle tre står i `KILDER` uden `kunUdvikling`, så
+de kontaktes hver time, hver dag.
+
+---
+
+#### 1 · Heimstaden — har allerede spærret os én gang
+
+| | |
+|---|---|
+| **Vært** | `www.heimstaden.dk` |
+| **Henter** | Listen `/ledige-lejeboliger/` — ét GET, hele udbuddet som `var _rentals = [...]`, ~200 enheder. Detaljesider under `/lejebolig/…` |
+| **Hvor ofte** | Discovery hver time. **Detaljer: højst 3 pr. kørsel** — `HEIMSTADEN_DETALJEBUDGET=3` står på Railway; adapterens egen standard er 25 (`heimstaden.ts:192`) |
+| **Takt** | **5 sekunder** pr. kald, ikke 1 — `VAERTSTAKT` i `lib/fetch.ts` |
+| **Grundlag** | **Ingen aftale.** Adapterens egen header siger det ordret: «INGEN aftale endnu — kilden hentes efter robots.txt» |
+| **robots.txt** | Målt **2026-09-06**: listesiden og `/lejebolig/`-detaljesiderne er tilladt; `/wp-admin/`, `/api/`, `/forms/` og `/*clean=true` er forbudt. Rentals-sitemappet ligger under `/api/feed/` og **bruges derfor ikke**, selv om sitemap-indekset annoncerer det |
+
+**Spærringen, med dato.** `9569414` (**2026-09-06**): *«Heimstadens CDN
+spærrede vores IP efter ~17 min ved 1 kald/s — mønsteret, ikke
+enkeltkaldet, udløste det.»* Det er den hændelse, hele detaljevagten,
+værtsspærren og den femsekunders takt blev bygget af.
+
+**Hvad der er gjort siden, og det er ikke ingenting.** `5d1d3f2`
+(2026-09-07) holdt kilden **ude** af cron'en med `kunUdvikling`, netop
+fordi et push ellers ville have kontaktet den inden for en time «uden at
+nogen havde besluttet det». `5796ac3` (2026-09-07) lukkede den ind igen
+efter **to kontrollerede prøver** — Mac 6. sep. 23:17 og Railway via SSH
+7. sep. 05:33, hver med 1 discovery + 3 detaljehentninger, 5 s takt, og
+**0 genforsøg, 0 fejl, 0 `fetch_failures`, 0 `host_blocks`, 0 falske
+afmeldinger**. Railway-prøven beviste det, Mac-prøven ikke kunne: deres
+CDN drøvler ikke vores datacenter-egress. Fuld detaljehøst er
+**udtrykkeligt ikke godkendt**.
+
+**Det, der mangler, er altså ikke forsigtighed — det er samtalen.** Vi
+kører i timen mod en vært, der har lukket os ude én gang, og grundlaget
+er vores egen læsning af deres robots.txt. Ingen hos Heimstaden har sagt
+ja til noget. **Det er den af de tre, der skal ringes til først.**
+
+---
+
+#### 2 · home.dk — størst i volumen, og uden nogen note om grundlaget
+
+| | |
+|---|---|
+| **Vært** | `home.dk` |
+| **Henter** | Listen `/til-leje/lejlighed/region-hovedstaden/koebenhavn-kommune/`, pagineret med `?page=N` (loft `MAKS_SIDER = 60`), plus detaljesider. Nuxt 3, alt ligger server-renderet i `__NUXT_DATA__` — ingen API-nøgle, ingen JS-kørsel |
+| **Hvor ofte** | Hver time. **Intet `listeGrundlag` og intet detaljebudget** på adapteren, så detaljevagten gælder den ikke: detaljer hentes for nye boliger plus den rullende genopfriskning, `GENOPFRISK_PR_KOERSEL` (standard **60**, `lib/ingest.ts:61`) |
+| **Takt** | Standard — højst 1 kald/sekund |
+| **Grundlag** | **Intet noteret nogen steder.** Adapterens header nævner hverken aftale eller robots.txt — til forskel fra Heimstaden og Birch, som begge siger «INGEN aftale endnu» |
+| **robots.txt** | `Allow: /` — men kun læst i kortlægningen (`CLAUDE.md:1490`), **uden dato for hentningen** |
+
+**Den er størst af de tre i volumen** (229 boliger ved kortlægningen) og
+den eneste, hvor der ikke står noget om forholdet i adapteren. Fraværet
+af en «INGEN aftale endnu»-note må ikke læses som at der ER en: der er
+ingen post, ingen commit og ingen note. **Op til 60 detaljesider pr. time
+mod en mæglerkæde, uden et nedskrevet grundlag.**
+
+---
+
+#### 3 · Birch Ejendomme — mindst, og teknisk mest nøjsom
+
+| | |
+|---|---|
+| **Vært** | `birchejendomme.dk` (også billedværten — 1.412 af 1.412 URL'er målt 2026-09-06) |
+| **Henter** | `/bolig-feed?onlyvacant=1`, pagineret med `&pagenumber=N`; feedet oplyser selv `NoOfPages`, og vi følger det (loft `MAKS_SIDER = 20`). 59 enheder = 5 sider. Plus detaljesiden for depositum-beløbet |
+| **Hvor ofte** | Hver time. Som home.dk: **intet `listeGrundlag`, intet detaljebudget** — `9569414` noterer, at «birch og cej bekræfter 59/63 med 0 hentninger som før» |
+| **Takt** | Standard — højst 1 kald/sekund |
+| **Grundlag** | **Ingen aftale.** Adapterens header siger det ordret: «INGEN aftale endnu» |
+| **robots.txt** | Målt **2026-09-06**: tom `Disallow` — alt tilladt |
+
+Feedet er sidens eget datagrundlag, bundet i `find-bolig`-sidens
+`data-feed-url` — altså det kald, siden selv laver. Fem sider i timen mod
+en enkelt udlejer er den mindste belastning af de tre, og robots.txt er
+målt og dateret. **Det er den, der haster mindst** — men den mangler
+stadig sin række.
+
+---
+
+**Hvad de tre samtaler skal afgøre**, i den rækkefølge: om Heimstaden
+accepterer, at vi henter, og med hvilken takt og hvilket detaljebudget
+(de har spærret os én gang, og vi kører videre på vores egen læsning af
+deres robots.txt) · om home.dk har en holdning, vi slet ikke har spurgt
+om · og om Birch vil have deres eget feed hentet i timen.
 
 ### Den dyreste uciterede regel i repoet
 
