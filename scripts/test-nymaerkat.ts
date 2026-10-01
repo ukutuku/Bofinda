@@ -168,6 +168,11 @@ if (gruppe?.slags === 'gruppe') {
   tjek('gruppe af lutter bagkatalog → ingen mærkat', !/\bNy bolig\b/.test(t))
   tjek('gruppens nyhedsdato er null, ikke en dato', gruppe.gruppe.nyhed === null,
     String(gruppe.gruppe.nyhed))
+  // ── Indflytningsprisen taler kun for dem, der har den ──────────
+  tjek('indflytningspris oplyst for 1 af 3 → dækningen står på kortet',
+    t.includes('oplyst for 1 af 3'), t.slice(0, 160))
+  tjek('… og beløbet står som «fra», ikke som gruppens pris',
+    /indflytning fra 25\.000 kr\./.test(t), t.slice(0, 160))
 }
 
 // ── MODPRØVE: den gamle regel skal gøre prøven rød ───────────────

@@ -605,14 +605,23 @@ export function Gruppekort({ g, nu, position, filtre }: { g: Gruppe; nu: Date; p
             {' '}<small>kr/md {n.total ? 'til udlejer' : 'i husleje'}</small>
           </div>
 
+          {/* `min`/`max` springer null over. Oplyser kun én af fem en
+              indflytningspris, stod der foer «indflytning 15.000 kr.» —
+              et tal, der kun gaelder den ene, skrevet som om det gjaldt
+              kortet. Kortet maa kun paastaa det, der gaelder HELE
+              gruppen; men at udelade tallet ville skjule en oplysning, vi
+              har. Derfor staar det med sin daekning. */}
           {g.indflytningMin != null && (
             <div className="kort-indflytning">
               indflytning{' '}
               <b>
-                {g.indflytningMin === g.indflytningMax
+                {g.indflytningMin === g.indflytningMax && g.indflytningUkendte === 0
                   ? `${kr(g.indflytningMin)} kr.`
                   : `fra ${kr(g.indflytningMin)} kr.`}
               </b>
+              {g.indflytningUkendte > 0 && (
+                <small> — oplyst for {g.antal - g.indflytningUkendte} af {g.antal}</small>
+              )}
             </div>
           )}
 

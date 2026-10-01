@@ -843,6 +843,16 @@ export interface Gruppe {
   availability: Gruppesammenfatning
   indflytningMin: number | null
   indflytningMax: number | null
+  /**
+   * Hvor mange i gruppen oplyser INGEN indflytningspris?
+   *
+   * `min`/`max` springer null over, saa et kort med fem boliger, hvor én
+   * har prisen, skrev «indflytning 15.000 kr.» — som om det gjaldt alle
+   * fem. Det er «kortet paastaar kun det, der gaelder for hele gruppen»
+   * brudt af en aggregatfunktions standardadfaerd. Samme form som
+   * `ledigUkendte` lige ovenfor, og af samme grund.
+   */
+  indflytningUkendte: number
   /** Har alle samme aconto-poster? Ellers står posterne ikke på kortet. */
   ensPoster: boolean
   /** Mangler MINDST én i gruppen et el-beløb? Så skal kortet sige det. */
@@ -1037,6 +1047,7 @@ function gruppevindue(f: Filtre, graense: number, forskyd: number) {
       // filtrere FOER udsnittet skaeres.
       alleFactsJson: sql<{ id: string; fakta: unknown }[]>`json_agg(
         json_build_object('id', ${listings.id}::text, 'fakta', ${listings.availabilityFacts}))`,
+      indflytningUkendte: sql<number>`count(*) filter (where ${listings.moveInCost} is null)::int`,
       indflytningMin: sql<number | null>`min(${listings.moveInCost})::int`,
       indflytningMax: sql<number | null>`max(${listings.moveInCost})::int`,
       // coalesce, fordi count(distinct) springer null over: ellers ville
@@ -1168,6 +1179,7 @@ async function byg(
         ledigUkendte: r.ledigUkendte,
         availability: sammenfatning,
         indflytningMin: r.indflytningMin, indflytningMax: r.indflytningMax,
+        indflytningUkendte: r.indflytningUkendte,
         ensPoster: r.postsaet === 1,
         nogenUdenEl: r.nogenUdenEl ?? false,
         alleUdenElHarEgenMaaler: r.alleUdenElHarEgenMaaler ?? false,
