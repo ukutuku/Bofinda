@@ -75,6 +75,7 @@ if (process.argv[1]?.endsWith('testbase.ts')) {
     process.exit(1)
   }
   const t = await rejsTestbase()
-  console.log(`  testbase: PGlite, ${t.migrationer} migrationer, ingen forbindelse ud af processen\n`)
+  console.log(`  testbase: PGlite, ${t.migrationer} migrationer, ingen forbindelse ud af processen`)
+  console.log('  testbase: da-x-icu er en ATTRAP (attrap."da-x-icu", ICU-roden) — den sorterer ikke dansk\n')
   await import(`../${maal}`)
 }
