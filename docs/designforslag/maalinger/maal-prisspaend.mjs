@@ -12,23 +12,26 @@
 //  Kørsel fra roden af en checkout (migrationsstierne er relative):
 //
 //    ROD=$PWD npx tsx --tsconfig tsconfig.scripts.json \
-//      [--env-file=.env] <sti>/maal-prisspaend.mjs --base|--proeve \
+//      [--env-file=.env] <sti>/maal-prisspaend.mjs --maal test|prod | --proeve \
 //      [--sted Attrapby] [--json ud.json] [--alle]
 //
 //  --proeve  rejser PGlite i processen, sår kendte tilfælde, tjekker facit.
-//  --base    bruger DATABASE_URL_DIRECT fra miljøet i en read-only-session
-//            (laast-base.mjs), afviser :6543 og kan ikke skrive.
+//  --maal    test eller prod — NAVNGIVET, ingen standard (laast-base.mjs ›
+//            kraevMaal): DATABASE_URL_DIRECT skal svare til navnet, ellers
+//            exit 3. Read-only-session, afviser :6543 og kan ikke skrive.
 //  --sted    én søgning, der gennemgås række for række (standard: den med
 //            flest boliger blandt dem, hvor et endepunkt er en husleje).
 //  --alle    skriv hver søgning og hvert område ud, ikke kun de værste.
 // ═══════════════════════════════════════════════════════════════
 const ROD = process.env.ROD
 const argv = process.argv.slice(2)
-const BASE = argv.includes('--base')
+// Alt andet end --proeve går mod en base og dermed gennem kraevMaal: uden
+// `--maal test|prod` afbrydes der med exit 3. Der er ingen standard.
+const BASE = !argv.includes('--proeve')
 const PROEVE = argv.includes('--proeve')
 const arg = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : undefined }
 if (!ROD) { console.error('ROD mangler (roden af checkout’en).'); process.exit(2) }
-if (BASE === PROEVE) { console.error('angiv præcis én af --base og --proeve'); process.exit(2) }
+if (PROEVE && argv.includes('--maal')) { console.error('angiv præcis én af --maal test|prod og --proeve'); process.exit(2) }
 if (PROEVE && (process.env.DATABASE_URL || process.env.DATABASE_URL_DIRECT)) {
   console.error('FEJL: --proeve med DATABASE_URL sat. Afbryder.'); process.exit(2)
 }
@@ -295,6 +298,6 @@ if (PROEVE) {
   await tb.luk()
   process.exitCode = fejl.length ? 1 : 0
 } else {
-  process.stdout.write(`\nread-only til sidst: ${await laas.laast()}\n`)
+  process.stdout.write(`\nread-only til sidst, samme forbindelse: ${await laas.afslut()}\n`)
   process.exit(0)
 }

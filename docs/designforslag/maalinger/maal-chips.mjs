@@ -7,22 +7,20 @@
 //  her tilnærmet med sum.antal > 0.
 //
 //      source scripts/cloud/miljoe.sh; export DATABASE_URL_DIRECT="$(test_url)"
-//      ROD=$PWD npx tsx --tsconfig tsconfig.scripts.json docs/designforslag/maalinger/maal-chips.mjs
+//      ROD=$PWD npx tsx --tsconfig tsconfig.scripts.json docs/designforslag/maalinger/maal-chips.mjs --maal test
 //
 //  Forbindelsen er read-only i basen (laast-base.mjs). Ingen --proeve.
-//  --prod  tillader en anden base end den isolerede testbase. Kun til den,
-//          der har adgang og vælger det med vilje. Scriptet laver kun
-//          select og skriver kun den JSON-fil, --json peger på. IKKE kørt mod produktionen.
+//  --maal test|prod  NAVNGIVET mål, ingen standard (laast-base.mjs ›
+//          kraevMaal); DATABASE_URL_DIRECT skal svare til navnet, ellers
+//          exit 3. Scriptet laver kun select og skriver kun den JSON-fil,
+//          --json peger på. IKKE kørt mod produktionen.
 // ═══════════════════════════════════════════════════════════════
 import fs from 'node:fs'
 const ROD = process.env.ROD
-const PROD = process.argv.includes('--prod')
-const url = process.env.DATABASE_URL_DIRECT ?? ''
-if (!PROD && !/^postgres(ql)?:\/\/[^@]*@(127\.0\.0\.1|localhost):55432\//.test(url)) {
-  console.error('FEJL: ikke den isolerede testbase (brug --prod med vilje)'); process.exit(2)
-}
+if (process.argv.includes('--prod')) { console.error('FEJL: --prod er erstattet af --maal prod.'); process.exit(3) }
 // Skrivebeskyttelsen håndhæves af basen (laast-base.mjs), ikke af koden.
 const laas = await (await import('./laast-base.mjs')).laastBase(ROD)
+const PROD = laas.maal === 'prod'
 console.error(`mål: ${laas.navn} · read-only: ${await laas.laast()}`)
 const { db } = await import(`${ROD}/db/client.ts`)
 const { listings, sources } = await import(`${ROD}/db/schema.ts`)
@@ -86,7 +84,7 @@ function fordeling(xs, felt) {
 }
 
 const ud = {
-  note: PROD ? 'PRODUKTION (--prod), kun select.'
+  note: PROD ? 'PRODUKTION (--maal prod), kun select.'
     : 'SYNTETISKE data: isoleret lokal testbase (seed med 280 boliger; Attrapby, Prøveby N, Prøveby S, Fiktivby). Ikke produktionstal.',
   maalt: nu.toISOString(),
   vej: 'filtreFraParametre(sp) → harFiltre(f) → opsummering(f, nu) i lib/soeg.ts — samme vej som app/page.tsx:190/224',
@@ -122,5 +120,5 @@ console.log(JSON.stringify({ daekning: ud.daekning_pr_kilde, A: ud.stedet_alene.
   nul: ud.sted_eller_intet_plus_et_filter.nul_total_eksempler.map((x) => [x.sp, x.antal]),
   lav: ud.sted_eller_intet_plus_et_filter.lav_total_andel_eksempler.map((x) => [x.sp, x.medTotal, x.antal]),
   soegA: ud.stedet_alene.soegninger.map((x) => [x.sp.sted, x.antal, x.medTotal, x.medIndflytning]) }, null, 1))
-console.error(`read-only til sidst: ${await laas.laast()}`)
+console.error(`read-only til sidst, samme forbindelse: ${await laas.afslut()}`)
 process.exit(0)

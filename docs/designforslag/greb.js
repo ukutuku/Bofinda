@@ -26,26 +26,24 @@ window.__bofindaForslag = (variant = {}) => {
     if (foto.sloer != null) s.setProperty('--hero-sloer', String(foto.sloer))
     if (foto.sloerSmal != null) s.setProperty('--hero-sloer-smal', String(foto.sloerSmal))
   }
-  // ── Telefonens variant: A «baand» eller B «moerk» (greb.css § 6) ──
-  if (hero && variant.mobil) hero.classList.add(`m-${variant.mobil}`)
+  // ── Telefonens variant (greb.css § 6) ───────────────────────────
+  // B er standarden og kræver ingen klasse. Kun A («baand») er et tilvalg.
+  if (hero && variant.mobil === 'baand') hero.classList.add('m-baand')
 
-  // ── Krediteringen flytter til sidens fodnote (greb.css § 7) ───────
-  // Teksten kommer fra fotoobjektet, ellers fra den kreditering, siden
-  // selv skrev — aldrig fra en tredje kilde.
+  // ── Krediteringen: INGEN markupændring (greb.css § 7) ─────────────
+  // CSS'en flytter det element, page.tsx allerede tegner. Mockuppen gør
+  // kun det, page.tsx gør, når fotoet skiftes: teksten følger fotoobjektet.
   // Et NYT motiv uden kreditering får intet navn — aldrig den forrige
   // fotografs (page.tsx: «ellers tilskriver siden en fotograf et billede,
-  // hun ikke har taget»). maal-foto.mjs afviser et foto uden kreditering.
-  const kr = $('.hero-kredit'), bund = $('footer.bund')
-  if (kr && bund && !$('.fotokredit', bund)) {
-    const nytMotiv = !!(foto && foto.url && foto.url !== sidensUrl)
-    const tekst = foto && foto.kredit ? foto.kredit : nytMotiv ? null : kr.textContent.trim()
-    if (tekst) {
-      const s = document.createElement('span')
-      s.className = 'fotokredit'
-      s.textContent = `${tekst}.`
-      bund.append(' ', s)
-    }
-    kr.remove()
+  // hun ikke har taget») — og page.tsx tegner da intet element.
+  // maal-foto.mjs afviser et foto uden kreditering.
+  const kr = $('.hero-kredit')
+  if (hero && foto && foto.url && foto.url !== sidensUrl) {
+    if (foto.kredit) {
+      const p = kr || Object.assign(document.createElement('p'), { className: 'hero-kredit' })
+      p.textContent = foto.kredit
+      if (!kr) hero.append(p)
+    } else if (kr) kr.remove()
   }
 
   // ── Faner hæftet ovenpå søgekortet: boligtyper med boliger ──────

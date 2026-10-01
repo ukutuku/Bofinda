@@ -191,7 +191,8 @@ Kortet viser **«Talt i dag»**:
 
 Tallene er målt her mod den **syntetiske** base. Forespørgslen, som
 Postgres modtog, står i [`greb/forsidetal.sql`](greb/forsidetal.sql), og
-produktionens tal hentes med kommandoen dér. Mockuppen læser tallene af
+produktionens tal hentes med [`maalinger/maal-forsidetal.mjs`](maalinger/maal-forsidetal.mjs)
+`--maal prod` (navngivet mål, read-only; runde 4). Mockuppen læser tallene af
 sidens egen talstribe, som bygger på samme funktion, og talstriben afgiver
 de to tal, så de ikke står to steder. Den dag der er rigtige brugere, passer
 en rigtig udtalelse i nøjagtig samme kort.

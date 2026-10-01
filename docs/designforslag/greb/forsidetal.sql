@@ -6,9 +6,11 @@
 --
 --  Resultat mod den LOKALE, SYNTETISKE base (scripts/cloud/saa.mjs):
 --    boliger 279 · kendtTotal 252 · fuldOekonomi 195 · kilder 4
---  Produktionens tal skal hentes af nogen med adgang til basen:
---    ROD=$PWD npx tsx --tsconfig tsconfig.scripts.json --env-file=.env \
---      -e "import('./lib/soeg.ts').then(async m => console.log(await m.forsidetal()))"
+--  Produktionens tal hentes af nogen med adgang til basen, med målet
+--  navngivet og en read-only-forbindelse:
+--    maalinger/maal-forsidetal.mjs --maal prod   (kommandoen står i filen)
+--  Kommandoen, der stod her før, navngav ikke sit mål og gjorde, som den
+--  stod, ingenting (GREB-4.md § 4).
 --
 --  Parametre: $1 = 'active', $2 = 'failed', $15 = 'active', $16 = 'failed';
 --  $3–$14 er TILLADTE_VAERTER fra lib/billede.ts (billedtællingen i

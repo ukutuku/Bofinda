@@ -1,5 +1,7 @@
 # Runde 3: mobilen, fotoet, to fejl og farven på «Søg»
 
+> **Runde 4 vender anbefalingen til B** og måler den på første boligkort over folden. Krediteringen flyttes nu med CSS alene, og markupflytningen nedenfor er trukket tilbage: [GREB-4.md](GREB-4.md). Det, der står her, gælder, hvor runde 4 ikke siger andet.
+
 30. september 2026. Runde 2 er godkendt som retning ([GREB.md](GREB.md)). Her
 er de fire rettelser i den rækkefølge, de blev bedt om, plus observationen
 om mærkaten og status for netværket.
@@ -474,8 +476,12 @@ sorteret nyeste først.
 
 ```sh
 ROD=$PWD npx tsx --tsconfig tsconfig.scripts.json --env-file=.env \
-  docs/designforslag/maalinger/maal-ny.mjs --base
+  docs/designforslag/maalinger/maal-ny.mjs --maal prod
 ```
+
+(Rettet i runde 4: `--maal prod` står i kommandoen og skal svare til den
+base, `.env` peger på, ellers exit 3. Før stod der `--base`, og målet var
+det, der tilfældigvis stod i miljøet. Se [GREB-4.md](GREB-4.md#4--kommandoen-i-dokumentationen).)
 
 Scriptet gør følgende:
 
@@ -514,15 +520,19 @@ Edit → Network access, enten med et bredere niveau eller med værterne ovenfor
 på listen over tilladte domæner. Når de er åbne:
 
 ```sh
-scripts/cloud/op.sh                                   # base + app, som før
-source scripts/cloud/miljoe.sh
-export DATABASE_URL_DIRECT="$(test_url)"              # importøren læser DENNE, ikke DATABASE_URL
-krav_isoleret "$DATABASE_URL_DIRECT"                  # afviser alt andet end testbasen
-unset DATABASE_URL
-npx tsx scripts/import.ts propstep                    # én kilde ad gangen; IKKE npm run import
-npx tsx scripts/import.ts dacas                       # (balder kræver BALDER_API_KEY)
-docs/designforslag/gengivelse/runde3.sh <udmappe>     # alle billeder og tal om
+scripts/cloud/op.sh                                          # base + app, som før
+docs/designforslag/gengivelse/importer-testbase.sh propstep  # én kilde ad gangen
+docs/designforslag/gengivelse/importer-testbase.sh dacas
+docs/designforslag/gengivelse/importer-testbase.sh balder    # kræver BALDER_API_KEY
+docs/designforslag/gengivelse/runde4.sh <udmappe>            # alle billeder og tal om
 ```
+
+(Rettet i runde 4. Blokken stod før som fem løse linjer, hvor vagten var én
+af dem — den, der kun kopierede importlinjen, fik ingen vagt.
+`importer-testbase.sh` sætter selv sit mål, afviser alt andet end testbasen
+og afbryder med exit 3, hvis skallen har `DATABASE_URL`,
+`DATABASE_URL_DIRECT` eller `RESEND_API_KEY` sat. Se
+[GREB-4.md](GREB-4.md#4--kommandoen-i-dokumentationen).)
 
 `runde3.sh` tager før og runde 3's variant A i 1440, 390 og 360 på alle fire
 sider, og runde 2 og variant B på forsiden i 390 og 360. Den kører også
@@ -536,7 +546,8 @@ Importøren læser `DATABASE_URL_DIRECT` (`db/client.ts:52–54`), ikke
 `DATABASE_URL`. Uden `--env-file` og med `krav_isoleret` kan kommandoen kun
 ramme testbasen, og der er ingen nøgler at sende mail med. Den første udgave
 af denne fil (ca32bb2) satte den forkerte variabel. Den var farlig og er
-rettet.
+rettet — først i kommandoen (15019de), og i runde 4 i et script, så
+rettelsen ikke afhænger af, at alle linjer kopieres.
 
 | Fil | Hvad |
 |---|---|

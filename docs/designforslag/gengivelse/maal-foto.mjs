@@ -14,35 +14,60 @@
 //  rute og lægges ind via fotoobjektet — samme vej, som et nyt foto
 //  skal ind i appen (HERO_STANDARD i page.tsx).
 //
-//  For hver kandidat, i 1440, 390 og 360 og i begge telefonvarianter:
+//  Hvad der måles, i 1440 (bred) og i HELE telefonintervallet, hvor B
+//  gælder (320–900), plus A i 390 og 360:
 //    · værste kontrast for øjenbryn, h1 og manchet mod de FAKTISKE
-//      pixels bag dem, med det slør objektet angiver;
-//    · hvor meget slør fotoet KRÆVER (tyndeste ensartede slør, der
-//      får teksten igennem på netop dette foto);
-//    · hvor meget af fotoets egen tegning der står tilbage.
+//      pixels bag dem, med det slør objektet angiver, linje for linje;
+//    · værste kontrast over det VÆRST TÆNKELIGE foto (helt hvidt bag lys
+//      tekst, helt sort bag mørk) — holder den, holder teksten over
+//      ethvert foto, og så er det en egenskab ved laget, ikke ved fotoet;
+//    · hvor meget slør fotoet KRÆVER (tyndeste ensartede slør, der får
+//      teksten igennem på netop dette foto);
+//    · hvor meget af fotoets egen tegning der står tilbage;
+//    · hvor meget af FØRSTE BOLIGKORT der står over folden.
 //
-//  DOMMEN er AFVIST, hvis:
-//    · én tekst i én bredde falder under WCAG AA (4,5:1; 3:1 for stor
-//      tekst) med objektets slør;
-//    · variant B kun kan bære teksten med et slør over SLOER_LOFT (0,60).
-//      Et næsten sort slør kan altid bære hvid tekst — over hvidt kræver
-//      det ca. 0,6–0,65 — så spørgsmålet er ikke, OM teksten kan bæres, men
-//      hvad det koster fotoet. Ved 0,60 står 43 % af fotoets tegning
-//      tilbage bag teksten (målt), over loftet mindre; så er svaret variant A eller
-//      et andet foto, ikke et tykkere slør;
-//    · fotoobjektet mangler licens eller kreditering, eller licensen
-//      kræver kreditering VED billedet, som laget endnu ikke kan.
-//  Exit-kode 1 ved mindst ét AFVIST.
+//  GULVET er det tyndeste slør, hvormed B's tekst holder AA over det
+//  værst tænkelige foto (et helt hvidt). Det MÅLES (hero-maal.mjs ›
+//  vaerstTaenkelige › gulv) og er i dag 0,60. B's slør skal være mindst
+//  max(gulvet, krævet + 0,05) og højst loftet — én regel, ét sted.
+//
+//  DOMMEN, i denne rækkefølge:
+//    AFVIST    rettighederne mangler (licens, kreditering, eller licensen
+//              kræver kreditering VED billedet); eller krediteringen kan
+//              ikke ses i en bredde, eller den brækker over flere linjer
+//              (laget har plads til én); eller teksten falder under WCAG
+//              AA (4,5:1; 3:1 for stor tekst) på bred skærm; eller B
+//              falder under AA med objektets slør — grunden siger, om
+//              sløret er for tyndt (og hvad det skal være), eller om
+//              teksten står uden for gradientens fulde tæthed; eller
+//              objektets slør er over loftet (fotoet forsvinder bag det).
+//    KUN A     B kan kun bære teksten med et slør over SLOER_LOFT (0,60).
+//              Så er svaret variant A (.m-baand) — eller et andet foto.
+//              A koster første boligkort; tallet står i rapporten.
+//    B · OVERVÅGES  B består med objektets slør på DETTE foto, men ikke
+//              over det værst tænkelige — objektets slør er under gulvet.
+//              Kontrasten hænger da på netop dette fotos pixels, og et
+//              fotoskift skal måles igen.
+//    B         B består på dette foto OG over det værst tænkelige, i alle
+//              bredder. Ingen foto kan bryde teksten med dette slør.
+//  Exit 0 ved B og B · OVERVÅGES (overvågningen skrives ud), 1 ellers.
+//
+//  TÆRSKLEN FOR B er AA mod de faktiske pixels i alle telefonbredder —
+//  ikke kun i 390 og 360, hvor runde 3 målte 5,48 på øjenbrynet. Og B's
+//  slør har et loft på 0,60: over det er det A, ikke et tykkere slør.
 // ═══════════════════════════════════════════════════════════════
 import pw from 'playwright-core'
 import { mkdirSync, readFileSync, writeFileSync, existsSync, copyFileSync } from 'node:fs'
 import { join, basename, extname, resolve, dirname } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { heroKontrast, fotoSynlig, aabn, gaaTil, laegPaa, HOEJDE } from './hero-maal.mjs'
+import { heroKontrast, fotoSynlig, vaerstTaenkelige, foersteKort, tekstBund, kreditering, aabn, gaaTil, laegPaa, HOEJDE } from './hero-maal.mjs'
 
 export const SLOER_LOFT = 0.60
-const BREDDER = [1440, 390, 360]
-const VARIANTER = { 1440: [null], 390: ['baand', 'moerk'], 360: ['baand', 'moerk'] }
+// B gælder op til 900 px (greb.css § 6). Telefonerne, der findes i dag,
+// ligger fra 320 til 430; 600, 768 og 900 dækker resten af intervallet.
+const TELEFON = [320, 360, 375, 390, 414, 430, 600, 768, 900]
+const BREDDER = [1440, ...TELEFON]
+const VARIANTER = Object.fromEntries([[1440, ['bred']], ...TELEFON.map((w) => [w, w === 390 || w === 360 ? ['B', 'A'] : ['B']])])
 
 const [UD, ...kandidater] = process.argv.slice(2)
 if (!UD || !kandidater.length) { console.error('brug: node maal-foto.mjs <udmappe> <foto|foto.json> … | --selvproeve'); process.exit(2) }
@@ -73,7 +98,10 @@ function objekt(k) {
   return { ...STANDARD, kredit: null, licens: null, ...o, fil: resolve(k) }
 }
 
-async function maalEt(o, navn) {
+// Dansk decimalkomma i alt, der skrives til et menneske.
+const dk = (x) => String(x).replace('.', ',')
+
+async function maalEt(o, navn, lagTillaeg = '') {
   const mappe = join(UD, navn); mkdirSync(mappe, { recursive: true })
   const foto = { ...o, url: `/_forslag/foto/${encodeURIComponent(basename(o.fil))}` }
   const raekker = []
@@ -82,49 +110,102 @@ async function maalEt(o, navn) {
     await c.route('**/_forslag/foto/**', (r) => r.fulfill({ path: o.fil }))
     await c.route('**/_forslag/*.woff2', (r) => r.fulfill({ path: join(FONTE, r.request().url().split('/_forslag/')[1]) }))
     const p = await aabn(c, BASE)
-    for (const mobil of VARIANTER[w]) {
+    for (const variant of VARIANTER[w]) {
       await gaaTil(p, BASE + '/')
-      await laegPaa(p, { css: CSS, js: JS, valg: { mobil, foto } })
+      await laegPaa(p, { css: CSS + lagTillaeg, js: JS, valg: { mobil: variant === 'A' ? 'baand' : null, foto } })
       // Fotoet er skiftet i browseren; der måles først, når det er tegnet.
       await p.waitForFunction(() => { const i = document.querySelector('.hero-billede img'); return i && i.complete && i.naturalWidth > 0 && i.src.includes('/_forslag/foto/') }, null, { timeout: 30000 })
       const k = await heroKontrast(p)
+      const v = await vaerstTaenkelige(p)
       const f = await fotoSynlig(p)
+      const kort = await foersteKort(p)
+      const bund = await tekstBund(p)
+      const kredit = await kreditering(p)
       const hero = await p.evaluate(() => { const h = document.querySelector('.hero'); const r = h.getBoundingClientRect(); return Math.round(r.bottom + scrollY + 60) })
-      const fil = `${mobil ?? 'bred'}-${w}.jpg`
+      const fil = `${variant}-${w}.jpg`
       await p.screenshot({ path: join(mappe, fil), type: 'jpeg', quality: 82, clip: { x: 0, y: 0, width: w, height: Math.min(hero, HOEJDE(w)) } })
-      const tekster = Object.fromEntries(['øjenbryn', 'h1', 'manchet'].map((t) => [t, k[t]]))
+      const TEKSTER = ['øjenbryn', 'h1', 'manchet']
+      const tekster = Object.fromEntries(TEKSTER.map((t) => [t, k[t]]))
+      const paaFoto = Object.values(tekster).some((m) => m?.paaFoto)
       const kraevet = Object.values(tekster).map((t) => t?.alfaMin).filter((a) => typeof a === 'number')
-      const kraevetMax = kraevet.length ? Math.max(...kraevet) : null
-      const konfig = mobil === 'moerk' ? o.sloerSmal : mobil === 'baand' ? null : o.sloer
-      const grunde = []
-      for (const [t, m] of Object.entries(tekster)) if (m && !m.bestaar) grunde.push(`${t} ${m.vaerst}:1 < ${m.taerskel}:1`)
-      if (Object.values(tekster).some((m) => m?.alfaMin === '>1')) grunde.push('ingen slørtæthed får teksten igennem')
-      if (mobil === 'moerk' && kraevetMax != null && kraevetMax > SLOER_LOFT) grunde.push(`kræver slør ${kraevetMax} > loftet ${SLOER_LOFT}`)
-      raekker.push({ bredde: w, variant: mobil ?? 'bred', fil, tekster, sloerKonfig: konfig, sloerKraevet: kraevetMax,
-        tegningBevaret: f.tegningBevaret, frihoejde: f.frihoejde, dom: grunde.length ? 'AFVIST' : 'BESTÅET', grunde })
+      const kraevetMax = Object.values(tekster).some((t) => t?.alfaMin === '>1') ? '>1' : kraevet.length ? Math.max(...kraevet) : null
+      const vaerst = v ? Object.fromEntries(TEKSTER.filter((t) => v[t]).map((t) => [t, v[t]])) : {}
+      const vaerstMin = Object.values(vaerst).length ? Math.min(...Object.values(vaerst).map((m) => m.vaerst)) : null
+      const fotosikker = Object.values(vaerst).length ? Object.values(vaerst).every((m) => m.bestaar) : true
+      const konfig = variant === 'B' ? o.sloerSmal : variant === 'bred' ? o.sloer : null
+      const fejlTekst = Object.entries(tekster).filter(([, m]) => m && !m.bestaar).map(([t, m]) => `${t} ${dk(m.vaerst)}:1 < ${dk(m.taerskel)}:1`)
+      const overLoft = variant === 'B' && (kraevetMax === '>1' || (kraevetMax != null && kraevetMax > SLOER_LOFT))
+      raekker.push({ bredde: w, variant, fil, tekster, paaFoto, vaerstTaenkelige: vaerst, vaerstMin, fotosikker, gulv: v?.gulv ?? null,
+        tekstBund: bund, kredit: { dom: kredit.dom, linjer: kredit.linjer, kontrast: kredit.kontrast },
+        sloerKonfig: konfig, sloerKraevet: kraevetMax, overLoft, fejlTekst,
+        tegningBevaret: f.tegningBevaret, frihoejde: f.frihoejde, foersteKort: kort })
     }
     await c.close()
   }
+  // ── Dommen ──────────────────────────────────────────────────────
   // Rettighederne er en del af dommen, ikke en fodnote til den: et foto,
   // der ikke må vises lovligt, er afvist, uanset hvor godt det bærer tekst.
-  const noter = []
-  if (!o.kredit) noter.push('Ingen kreditering i fotoobjektet. Kreditering er et krav — udfyld «kredit».')
-  if (!o.licens) noter.push('Ingen licens i fotoobjektet. Uden licens bruges fotoet ikke.')
-  if (o.kreditVedBilledet) noter.push('Licensen kræver kreditering VED billedet. Laget sætter den i fodnoten; det skal bygges, før fotoet kan bruges.')
-  const dom = raekker.some((r) => r.dom === 'AFVIST') || noter.length ? 'AFVIST' : 'BESTÅET'
-  return { navn, fil: basename(o.fil), kredit: o.kredit, licens: o.licens, dom, raekker, noter }
+  const grunde = [], noter = []
+  if (!o.kredit) grunde.push('Ingen kreditering i fotoobjektet. Kreditering er et krav — udfyld «kredit».')
+  if (!o.licens) grunde.push('Ingen licens i fotoobjektet. Uden licens bruges fotoet ikke.')
+  if (o.kreditVedBilledet) grunde.push('Licensen kræver kreditering VED billedet. Laget sætter den under søgekortet; det skal afklares, før fotoet kan bruges.')
+  const bred = raekker.filter((r) => r.variant === 'bred'), B = raekker.filter((r) => r.variant === 'B')
+  // Krediteringen er en del af dommen: den skal kunne ses i hver bredde og
+  // stå på én linje — laget har ikke plads til to (GREB-4.md § 2).
+  for (const r of raekker) {
+    if (r.kredit.dom !== 'OK') grunde.push(`kreditering ${r.variant} ${r.bredde}: ${r.kredit.dom}`)
+    else if (r.kredit.linjer > 1) grunde.push(`kreditering ${r.variant} ${r.bredde}: brækker over ${r.kredit.linjer} linjer; laget har plads til én — forkort den`)
+  }
+  for (const r of bred) if (r.fejlTekst.length) grunde.push(`bred ${r.bredde}: ${r.fejlTekst.join('; ')}`)
+  // Gulvet: ét tal for hele telefonintervallet — det største, der måltes.
+  const gulve = B.map((r) => r.gulv).filter((g) => g != null)
+  const gulv = gulve.includes('>1') ? '>1' : gulve.length ? Math.max(...gulve) : null
+  const anvis = (kraevet) => dk(Math.min(SLOER_LOFT, Math.max(typeof gulv === 'number' ? gulv : 0, +(kraevet + 0.05).toFixed(2))))
+  const kunA = B.filter((r) => r.overLoft)
+  for (const r of B.filter((x) => !x.overLoft && x.fejlTekst.length)) {
+    if (typeof r.sloerKraevet === 'number' && r.sloerKraevet > r.sloerKonfig) {
+      grunde.push(`B ${r.bredde}: ${r.fejlTekst.join('; ')} — objektets slør ${dk(r.sloerKonfig)} er for tyndt; fotoet kræver ${dk(r.sloerKraevet)}, så sæt sloerSmal til ${anvis(r.sloerKraevet)}`)
+    } else {
+      grunde.push(`B ${r.bredde}: ${r.fejlTekst.join('; ')} — teksten står uden for gradientens fulde tæthed (nederste linje ved ${dk(r.tekstBund)} % af heroen; fuld tæthed til 58 %)`)
+    }
+  }
+  const konfigB = o.sloerSmal
+  if (typeof konfigB === 'number' && konfigB > SLOER_LOFT && !kunA.length) {
+    grunde.push(`objektets slør ${dk(konfigB)} er over loftet ${dk(SLOER_LOFT)}: fotoet forsvinder bag sløret — sæt sloerSmal til ${anvis(Math.max(...B.map((r) => typeof r.sloerKraevet === 'number' ? r.sloerKraevet : 0)))}`)
+  }
+  // KUN A-noterne skrives også ved AFVIST: et foto, der fejler på to måder,
+  // skal sige begge.
+  for (const r of kunA) noter.push(`B ${r.bredde}: kræver slør ${dk(r.sloerKraevet)} > loftet ${dk(SLOER_LOFT)}`)
+  let dom
+  if (grunde.length) dom = 'AFVIST'
+  else if (kunA.length) dom = 'KUN A'
+  else if (B.some((r) => !r.fotosikker)) {
+    dom = 'B · OVERVÅGES'
+    const v = B.filter((r) => !r.fotosikker).sort((a, b) => a.vaerstMin - b.vaerstMin)[0]
+    noter.unshift(`B består på dette foto, men ikke over det værst tænkelige (${dk(v.vaerstMin)}:1 i ${v.bredde}): objektets slør ${dk(konfigB)} er under gulvet ${dk(gulv)}. Kontrasten hænger på netop dette fotos pixels; mål igen ved hvert fotoskift.`)
+  } else dom = 'B'
+  noter.push(`Gulvet for B's slør: ${dk(gulv)} (det tyndeste slør, hvormed teksten holder AA over et helt hvidt foto, målt i alle telefonbredder).`)
+  for (const r of bred) if (!r.fotosikker && !r.fejlTekst.length) noter.push(`Bred skærm består på dette foto, men ikke over det værst tænkelige (${dk(r.vaerstMin)}:1).`)
+  // Hvad A koster, står ved siden af dommen — også når den er B.
+  for (const w of [390, 360]) {
+    const a = raekker.find((r) => r.bredde === w && r.variant === 'A')?.foersteKort, b = raekker.find((r) => r.bredde === w && r.variant === 'B')?.foersteKort
+    if (a && b) noter.push(`Første boligkort over folden i ${w}: B ${Math.round(b.andel * 100)} %, A ${Math.round(a.andel * 100)} %.`)
+  }
+  return { navn, fil: basename(o.fil), kredit: o.kredit, licens: o.licens, dom, gulv, grunde, noter, raekker }
 }
 
 function rapport(res) {
   const t = (m) => (m ? `${String(m.vaerst).replace('.', ',')}${m.bestaar ? '' : ' ✗'}` : '–')
   const a = (x) => (x == null ? '–' : String(x).replace('.', ','))
-  let md = `# Fotomåling\n\nVærste kontrast mod de faktiske pixels bag teksten. Tærskel 4,5:1, for h1 3:1. «Slør krævet» er det tyndeste ensartede slør, der får al tekst igennem på netop dette foto. «Tegning tilbage» er fotoets egen luminansspredning, som siden tegner det, delt med det rå fotos, over den del, der står fri af søgekortet.\n`
+  const pct = (k) => (k ? `${Math.round(k.andel * 100)} %` : '–')
+  let md = `# Fotomåling\n\nVærste kontrast mod de faktiske pixels bag teksten, linje for linje. Tærskel 4,5:1, for h1 3:1. «Værst tænkelige» er laveste kontrast over et helt hvidt foto (lys tekst) eller helt sort (mørk tekst) med objektets slør: holder den, holder teksten over ethvert foto. «Slør krævet» er det tyndeste ensartede slør, der får al tekst igennem på netop dette foto. «Tegning tilbage» er fotoets egne kanter, som siden tegner dem, delt med det rå fotos, over den del, der står fri af søgekortet. «Første kort» er den andel af første boligkort, der står over folden.\n`
   for (const r of res) {
     md += `\n## ${r.navn} — **${r.dom}**\n\n${r.kredit ?? '(ingen kreditering)'} · ${r.licens ?? '(ingen licens)'}\n\n`
-    md += '| Bredde | Variant | Øjenbryn | h1 | Manchet | Slør (objekt) | Slør krævet | Tegning tilbage | Dom |\n|---|---|---|---|---|---|---|---|---|\n'
+    md += '| Bredde | Variant | Øjenbryn | h1 | Manchet | Værst tænkelige | Slør (objekt) | Slør krævet | Tegning tilbage | Første kort |\n|---|---|---|---|---|---|---|---|---|---|\n'
     for (const x of r.raekker) {
-      md += `| ${x.bredde} | ${x.variant} | ${t(x.tekster['øjenbryn'])} | ${t(x.tekster.h1)} | ${t(x.tekster.manchet)} | ${a(x.sloerKonfig)} | ${a(x.sloerKraevet)} | ${a(x.tegningBevaret)} | ${x.dom}${x.grunde.length ? ': ' + x.grunde.join('; ') : ''} |\n`
+      md += `| ${x.bredde} | ${x.variant} | ${t(x.tekster['øjenbryn'])} | ${t(x.tekster.h1)} | ${t(x.tekster.manchet)} | ${x.vaerstMin == null ? '–' : a(x.vaerstMin) + (x.fotosikker ? '' : ' ✗')} | ${a(x.sloerKonfig)} | ${a(x.sloerKraevet)} | ${a(x.tegningBevaret)} | ${pct(x.foersteKort)} |\n`
     }
+    for (const g of r.grunde) md += `\n- **Grund:** ${g}`
     for (const n of r.noter) md += `\n- ${n}`
     md += '\n'
   }
@@ -132,48 +213,52 @@ function rapport(res) {
 }
 
 // ── Selvprøven: målingen skal kunne sige nej ─────────────────────
-// Et foto, der altid består, beviser ingenting om målingen. Fem
-// tilfælde med kendt facit (de to sidste nedenfor): det nuværende foto med sit objekt (består),
-// samme foto med variant B's slør sat ned til 0,20 (hvid tekst på et
-// hvidt foto — skal afvises), og en mørklagt udgave af samme foto med
-// bred skærms underlag sat ned til 0,20 (mørk tekst på mørkt — skal
-// afvises). Mørklægningen er en prøveattrap, ikke en kandidat.
+// Et foto, der altid består, beviser ingenting om målingen. Otte
+// tilfælde med kendt facit — ét for hver dom og hver vej til AFVIST:
+//   nuvaerende           det nuværende foto med sit objekt         → B
+//   tyndere-sloer-050    samme foto, B's slør 0,50: holder på DETTE
+//                        foto, ikke over et hvidt                  → B · OVERVÅGES
+//   tyndt-sloer-020      samme foto, B's slør 0,20                 → AFVIST (for tyndt)
+//   moerkt-foto          mørklagt attrap, bred skærms underlag 0,20 → AFVIST (bred)
+//   tykt-sloer-090       samme foto, B's slør 0,90: over loftet    → AFVIST (for tykt)
+//   loftet               overbelyst attrap, og laget med runde 3's
+//                        øjenbryn (hvid à .84): kræver over 0,60   → KUN A
+//   uden-licens          det nuværende foto uden licens            → AFVIST (rettigheder)
+//   lang-kredit          det nuværende foto med en CC BY-kreditering
+//                        på 67 tegn: brækker på en telefon         → AFVIST (krediteringen)
+// Attrapperne er prøveattrapper, ikke kandidater. «loftet» bryder LAGET
+// — dér, hvor appen læser — fordi intet foto kan kræve over 0,60, så
+// længe teksten er ren hvid (det er hele pointen med § 6).
 async function selvproeve() {
   const std = resolve(FORSLAG, '../../public/hero-stue.jpg')
   const mappe = join(UD, '_attrapper'); mkdirSync(mappe, { recursive: true })
   const p = await (await br.newContext()).newPage()
-  const moerk = await p.evaluate(async (b64) => {
+  const filter = async (f) => p.evaluate(async ([b64, f]) => {
     const img = new Image(); img.src = 'data:image/jpeg;base64,' + b64; await img.decode()
     const c = document.createElement('canvas'); c.width = img.width; c.height = img.height
-    const g = c.getContext('2d'); g.filter = 'brightness(0.22)'; g.drawImage(img, 0, 0)
+    const g = c.getContext('2d'); g.filter = f; g.drawImage(img, 0, 0)
     return c.toDataURL('image/jpeg', 0.9).split(',')[1]
-  }, readFileSync(std).toString('base64'))
-  const moerkFil = join(mappe, 'moerklagt-attrap.jpg'); writeFileSync(moerkFil, Buffer.from(moerk, 'base64'))
-  const lys = await p.evaluate(async (b64) => {
-    const img = new Image(); img.src = 'data:image/jpeg;base64,' + b64; await img.decode()
-    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height
-    const g = c.getContext('2d'); g.filter = 'brightness(1.6)'; g.drawImage(img, 0, 0)
-    return c.toDataURL('image/jpeg', 0.9).split(',')[1]
-  }, readFileSync(std).toString('base64'))
-  const lysFil2 = join(mappe, 'overbelyst-attrap.jpg'); writeFileSync(lysFil2, Buffer.from(lys, 'base64'))
+  }, [readFileSync(std).toString('base64'), f])
+  const moerkFil = join(mappe, 'moerklagt-attrap.jpg'); writeFileSync(moerkFil, Buffer.from(await filter('brightness(0.22)'), 'base64'))
+  const lysFil2 = join(mappe, 'overbelyst-attrap.jpg'); writeFileSync(lysFil2, Buffer.from(await filter('brightness(1.6)'), 'base64'))
   const lysFil = join(mappe, 'hero-stue.jpg'); copyFileSync(std, lysFil)
+  const RUNDE3_OEJENBRYN = '\n@media (max-width: 900px) { .hero.har-foto .hero-oejenbryn { color: rgb(255 255 255 / .84); } }'
   const tilfaelde = [
-    { navn: 'nuvaerende', o: { ...STANDARD, fil: lysFil }, facit: 'BESTÅET' },
-    { navn: 'tyndt-moerkt-sloer', o: { ...STANDARD, fil: lysFil, sloerSmal: 0.2 }, facit: 'AFVIST', skal: (r) => r.variant === 'moerk' },
-    { navn: 'moerkt-foto-tyndt-underlag', o: { ...STANDARD, fil: moerkFil, sloer: 0.2 }, facit: 'AFVIST', skal: (r) => r.variant === 'bred' },
-    // Loftet: et overbelyst foto kan godt bære hvid tekst med et tæt nok
-    // slør — men kun ved at blive et mørkt felt. Afvises på loftet, ikke
-    // på kontrasten (objektets slør sættes højt nok til, at teksten består).
-    { navn: 'overbelyst-foto-loftet', o: { ...STANDARD, fil: lysFil2, sloerSmal: 0.8 }, facit: 'AFVIST',
-      skal: (r) => r.variant === 'moerk' && r.grunde.some((g) => g.includes('loftet')) && r.grunde.every((g) => g.includes('loftet')) },
-    // Rettighederne: samme foto, men uden licens i objektet.
-    { navn: 'uden-licens', o: { ...STANDARD, fil: lysFil, licens: null }, facit: 'AFVIST' },
+    { navn: 'nuvaerende', o: { ...STANDARD, fil: lysFil }, facit: 'B' },
+    { navn: 'tyndere-sloer-050', o: { ...STANDARD, fil: lysFil, sloerSmal: 0.5 }, facit: 'B · OVERVÅGES' },
+    { navn: 'tyndt-sloer-020', o: { ...STANDARD, fil: lysFil, sloerSmal: 0.2 }, facit: 'AFVIST', grund: /^B \d+: .*for tyndt.*sæt sloerSmal til 0,6$/ },
+    { navn: 'tykt-sloer-090', o: { ...STANDARD, fil: lysFil, sloerSmal: 0.9 }, facit: 'AFVIST', grund: /over loftet/, eneste: true },
+    { navn: 'moerkt-foto', o: { ...STANDARD, fil: moerkFil, sloer: 0.2 }, facit: 'AFVIST', grund: /^bred 1440/ },
+    { navn: 'loftet', o: { ...STANDARD, fil: lysFil2, sloerSmal: 0.6 }, lag: RUNDE3_OEJENBRYN, facit: 'KUN A' },
+    { navn: 'uden-licens', o: { ...STANDARD, fil: lysFil, licens: null }, facit: 'AFVIST', grund: /licens/, eneste: true },
+    { navn: 'lang-kredit', o: { ...STANDARD, fil: lysFil, kredit: 'Stemningsfoto: Jens Peter Hansen / Wikimedia Commons, CC BY-SA 4.0' }, facit: 'AFVIST', grund: /^kreditering .*linjer/ },
   ]
   const res = [], fejl = []
   for (const x of tilfaelde) {
-    const r = await maalEt(x.o, x.navn); res.push(r)
+    const r = await maalEt(x.o, x.navn, x.lag ?? ''); res.push(r)
     if (r.dom !== x.facit) fejl.push(`${x.navn}: ${r.dom}, facit ${x.facit}`)
-    if (x.skal && !r.raekker.some((y) => x.skal(y) && y.dom === 'AFVIST')) fejl.push(`${x.navn}: afvist, men ikke i den variant, der skulle fejle`)
+    if (x.grund && !r.grunde.some((g) => x.grund.test(g))) fejl.push(`${x.navn}: ${r.dom}, men ikke af den grund, der skulle (${x.grund})`)
+    if (x.eneste && r.grunde.length !== 1) fejl.push(`${x.navn}: skulle afvises af netop én grund, fik ${r.grunde.length}`)
   }
   return { res, fejl }
 }
@@ -186,7 +271,7 @@ writeFileSync(join(UD, 'fotomaaling.json'), JSON.stringify(res, null, 1))
 writeFileSync(join(UD, 'fotomaaling.md'), rapport(res))
 process.stdout.write(rapport(res))
 if (kandidater[0] === '--selvproeve') {
-  process.stdout.write(`\nSELVPRØVE: ${fejl.length ? 'FEJL\n  ' + fejl.join('\n  ') : 'alle fem tilfælde fik deres facit — målingen kan bestå, og den kan afvise på kontrast, på loftet og på rettighederne'}\n`)
+  process.stdout.write(`\nSELVPRØVE: ${fejl.length ? 'FEJL\n  ' + fejl.join('\n  ') : 'alle otte tilfælde fik deres facit — B, B · OVERVÅGES, KUN A, og AFVIST ad fem veje (for tyndt slør, for tykt slør, bred skærm, rettighederne, krediteringen)'}\n`)
   process.exit(fejl.length ? 1 : 0)
 }
-process.exit(res.some((r) => r.dom === 'AFVIST') ? 1 : 0)
+process.exit(res.every((r) => r.dom === 'B' || r.dom === 'B · OVERVÅGES') ? 0 : 1)

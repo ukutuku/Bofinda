@@ -125,7 +125,7 @@ Scriptet går gennem sidens egne funktioner og har intet eget prædikat for
 **Scriptet kan ikke skrive:**
 
 - Koden indeholder kun `select`.
-- Under `--base` sættes forbindelsen til
+- Under `--maal test|prod` sættes forbindelsen til
   `default_transaction_read_only = on`, og det efterprøves med `SHOW` både
   før og efter målingen.
 - Transaction-pooleren på port 6543 afvises, fordi den ikke kan holde en
@@ -156,7 +156,7 @@ exit 1:
 ## 4. Resultat mod den lokale base — SYNTETISK
 
 Målt 30. september 2026 kl. 17.08 dansk tid mod `127.0.0.1:55432/bofinda_test`
-(loopback, ikke produktionen). Udskriften kommer igen med `--base` mod testbasen.
+(loopback, ikke produktionen). Udskriften kommer igen med `--maal test` mod testbasen.
 
 | | Mærkat (< 72 t) | «Ny i dag»: designlaget | «Ny i dag»: < 24 t | «Ny i dag»: kalenderdag |
 |---|---|---|---|---|
@@ -268,12 +268,22 @@ et sted inde i repoet, så `postgres` og `drizzle-orm` kan findes, fx
 ```bash
 cd ~/Bofinda
 ROD=$PWD npx tsx --tsconfig tsconfig.scripts.json --env-file=.env \
-  docs/designforslag/maalinger/maal-ny.mjs --base
+  docs/designforslag/maalinger/maal-ny.mjs --maal prod
 ```
 
-- Scriptet bruger `DATABASE_URL_DIRECT` fra `.env` og nægter port 6543.
-- Det skriver intet: forbindelsen står som read-only, og den tredje linje i
-  udskriften skal sige `read-only: on`.
+- `--maal prod` står i kommandoen. Scriptet bruger `DATABASE_URL_DIRECT`
+  fra `.env`, men den skal svare til navnet: en Supabase-vært, basen
+  `/postgres`, ikke staging og ikke port 6543 — ellers exit 3, før nogen
+  forbindelse åbnes. Bagefter spørges basen selv (laast-base.mjs ›
+  kraevMaal og laastBase). Før stod der `--base`, og målet var det, der
+  tilfældigvis stod i miljøet.
+- **Kør den fra en checkout af `main`** (den kode, produktionen kører), med
+  scriptet og `laast-base.mjs` hentet fra designforslagets gren — samme
+  fremgangsmåde som i issue #36, afsnit 6.
+- Det skriver intet: forbindelsen står som read-only. Linjen «base:» øverst
+  viser værten, «--maal prod: PRODUKTIONEN — efterprøv værten» og kodens
+  commit, og «read-only:» lige under skal sige `on`. Sidste linje gentager
+  read-only og at forbindelsen er den samme; ellers exit 1.
 - **Kør den to gange, ca. kl. 08 og ca. kl. 17.** «Ny i dag» efter
   kalenderdag og «ord ≠ kalender» afhænger af klokkeslættet.
 - Lokalt tog en kørsel 2,9 s med 8 søgninger. Produktionen har flere
@@ -351,4 +361,4 @@ bør sige det. Endnu bedre er det at indrette visningen efter det
 ---
 
 Filer: `maal-ny.mjs` (scriptet, i denne mappe). Prøvens og målingens
-udskrifter blev ikke gemt i repoet; de kommer igen med `--proeve` og `--base`.
+udskrifter blev ikke gemt i repoet; de kommer igen med `--proeve` og `--maal test`.

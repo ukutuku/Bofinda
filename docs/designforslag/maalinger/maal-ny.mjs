@@ -12,13 +12,15 @@
 //  intet eget SQL-prædikat for «synlig» eller «ny».
 //
 //      ROD=<checkout> npx tsx --tsconfig <checkout>/tsconfig.scripts.json \
-//        [--env-file=<checkout>/.env] maal-ny.mjs --base | --proeve
+//        [--env-file=<checkout>/.env] maal-ny.mjs --maal test|prod | --proeve
 //
 //  --proeve  rejser PGlite (scripts/testbase.ts), sår kendte tilfælde med
 //            et FAST referencetidspunkt og tjekker facit. Exit 1 ved afvigelse.
-//  --base    DATABASE_URL_DIRECT (ellers DATABASE_URL) fra miljøet.
-//            Nægter transaction-pooleren (:6543): den kan ikke holde en
-//            read-only-session. Referencetidspunktet er nu.
+//  --maal    test eller prod — NAVNGIVET, ingen standard (laast-base.mjs ›
+//            kraevMaal). DATABASE_URL_DIRECT skal svare til navnet, ellers
+//            exit 3; DATABASE_URL bruges ikke. Nægter transaction-pooleren
+//            (:6543): den kan ikke holde en read-only-session.
+//            Referencetidspunktet er nu.
 //
 //  Ét referencetidspunkt, NU, for alt: soeg/soegGrupperet får det som
 //  referenceNow, og Date.now() fastfryses til det UNDER gengivelsen, fordi
@@ -28,9 +30,11 @@ import { readFileSync } from 'node:fs'
 
 const ROD = process.env.ROD
 if (!ROD) { console.error('ROD mangler (stien til checkout\'et)'); process.exit(2) }
-const BASE = process.argv.includes('--base')
+// Alt andet end --proeve går mod en base og dermed gennem kraevMaal: uden
+// `--maal test|prod` afbrydes der med exit 3. Der er ingen standard.
+const BASE = !process.argv.includes('--proeve')
 const PROEVE = process.argv.includes('--proeve')
-if (BASE === PROEVE) { console.error('angiv præcis én af --base og --proeve'); process.exit(2) }
+if (PROEVE && process.argv.includes('--maal')) { console.error('angiv præcis én af --maal test|prod og --proeve'); process.exit(2) }
 if (PROEVE && (process.env.DATABASE_URL || process.env.DATABASE_URL_DIRECT)) {
   console.error('FEJL: --proeve med DATABASE_URL sat. Afbryder.'); process.exit(2)
 }
@@ -43,33 +47,14 @@ if (!process.env.BILLED_HEMMELIGHED) process.env.BILLED_HEMMELIGHED = 'kun-til-g
 let tb = null
 let laast = async () => 'pglite (i hukommelsen)'
 let baseNavn = 'PGlite i processen (prøvedata)'
+let laas = null
 if (PROEVE) {
   tb = await (await import(`${ROD}/scripts/testbase.ts`)).rejsTestbase()
 } else {
-  const url = process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL
-  if (!url) { console.error('FEJL: hverken DATABASE_URL_DIRECT eller DATABASE_URL er sat'); process.exit(2) }
-  const u = new URL(url)
-  if (u.port === '6543') {
-    console.error('FEJL: transaction-pooleren (:6543) kan ikke holde en read-only-session. Brug DATABASE_URL_DIRECT.')
-    process.exit(2)
-  }
-  u.searchParams.delete('pgbouncer')
-  const postgres = (await import('postgres')).default
-  const { drizzle } = await import('drizzle-orm/postgres-js')
-  const schema = await import(`${ROD}/db/schema.ts`)
-  const { indsaetBase, tlsFor } = await import(`${ROD}/db/client.ts`)
-  // Én forbindelse, ingen tomgangslukning: SET gælder sessionen, og en ny
-  // forbindelse ville have mistet den. Derfor også SHOW igen til sidst.
-  const k = postgres(u.toString(), {
-    max: 1, prepare: false, ssl: tlsFor(u.toString()),
-    idle_timeout: 0, max_lifetime: null, connect_timeout: 15, onnotice: () => {},
-  })
-  await k`set session characteristics as transaction read only`
-  laast = async () => (await k`show default_transaction_read_only`)[0].default_transaction_read_only
-  if (await laast() !== 'on') { console.error('FEJL: forbindelsen blev ikke read-only'); process.exit(1) }
-  indsaetBase(drizzle(k, { schema }), () => k.end())
-  const loop = ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(u.hostname)
-  baseNavn = `${u.hostname}:${u.port || 5432}/${u.pathname.slice(1)}${loop ? '  (LOOPBACK — ikke produktionen)' : ''}`
+  // Samme forbindelse som de andre målinger — laast-base.mjs, ikke en kopi.
+  laas = await (await import('./laast-base.mjs')).laastBase(ROD)
+  laast = laas.laast
+  baseNavn = laas.navn
 }
 
 const { db } = await import(`${ROD}/db/client.ts`)
@@ -300,7 +285,7 @@ for (const [univers, xs] of [['postnumre', D.postnr], ['byer', D.by], ['begge', 
   const af = xs.reduce((s, x) => s + x.afvig, 0)
   if (af) console.log(`      krydstjek: ${af} kort AFVIGER fra 72-t-reglen`)
 }
-console.log(`\n   read-only til sidst: ${await laast()}`)
+console.log(`\n   read-only til sidst${laas ? ', samme forbindelse' : ''}: ${laas ? await laas.afslut() : await laast()}`)
 
 // ─── Facit (kun prøven) ────────────────────────────────────────
 if (PROEVE) {

@@ -601,7 +601,7 @@
     "resultat": "exit 0 — alle fem postnumre (ren-total, ren-husleje, blandet-inde, blandet-nedre, blandet-oevre), byen, forslagsteksten for 9004 og 9005 (inkl. «1 uden pris») og den ene gemte søgning klassificeret som facit; krydstjek mod opsummering() stemmer overalt.",
     "originalScript": "spaend/maal-spaend.mjs --proeve: exit 0, fire postnumre, byen og den gemte søgning som facit."
   },
-  "produktionKommando": "ROD=$PWD npx tsx --tsconfig tsconfig.scripts.json --env-file=.env maal-prisspaend.mjs --base --json prisspaend-prod.json",
+  "produktionKommando": "Se issue #36, afsnit 6: ROD på en checkout af main, maal-prisspaend.mjs --maal prod (runde 4). Den form, der stod her (--base), afvises nu med exit 3.",
   "raa": {
     "maal": "127.0.0.1:55432/bofinda_test",
     "maalt": "2026-09-30T14:50:25.638Z",

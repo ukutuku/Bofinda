@@ -60,7 +60,19 @@
   --hero-fokus: 60% 50%;       /* object-position, bred skærm */
   --hero-fokus-smal: 50% 66%;  /* object-position, telefon */
   --hero-sloer: .95;           /* bred: lyst underlag bag teksten */
-  --hero-sloer-smal: .60;      /* telefon, variant B: mørkt slør bag hvid tekst */
+  --hero-sloer-smal: .60;      /* telefon (B): mørkt slør bag hvid tekst — gulvet (§ 6) */
+  /* Hvor langt søgekortet hænger ud over heroens underkant. Ét tal, læst
+     to steder: af kortets translateY og af krediteringen under kortet
+     (§ 7). Stod det to steder, ville krediteringen en dag ligge bag
+     kortet, uden at noget sagde det.
+     ALLE var() i de regler, der placerer kortet og krediteringen (§ 1,
+     § 3, § 6 A og § 7), har en bogstavelig reserveværdi, og reglerne står
+     på `.hero.fuldbredde`, ikke på `.hero`. Så holder krediteringen også,
+     hvis greb.css lander uden forslag.css (der definerer --l-*), og hvis
+     reglerne foldes ind i globals.css, hvor globals' egne ≤760-regler for
+     `.hero` og `.hero-soeg` står senere (0,1,0 taber til 0,2,0). Begge
+     tilstande prøves i gengivelse/kredit-udrulning.mjs. */
+  --hero-soeg-loeft: 48px;
 }
 
 /* ── 1 · Hero i fuld bredde ─────────────────────────────────────
@@ -85,19 +97,16 @@
      overhænget — og den regel var død kode, fordi de ubetingede regler i
      § 3 stod senere med samme specificitet. Nu står § 3's værdier kun
      for bred skærm, og her er margin = overhæng + 24 px (32 px luft til
-     «Nyeste boliger», som i variant A). */
-  .hero { padding-top: var(--l-6); margin-bottom: calc(24px + var(--l-5)); }
+     «Nyeste boliger», som i variant A). Krediteringen står i de 32 px,
+     til højre (§ 7) — den koster ingen fold, så længe den står på ÉN
+     linje. Der er ikke plads til to; maal-foto.mjs afviser derfor en
+     kreditering, der brækker.
+     Runde 2's lyse, lodrette slør stod her; det er erstattet af B (§ 6). */
+  .hero.fuldbredde { --hero-soeg-loeft: 24px; padding-top: var(--l-6, 32px); margin-bottom: calc(var(--hero-soeg-loeft, 24px) + var(--l-5, 24px)); }
   .hero h1 { margin-bottom: var(--l-2); font-size: var(--t-5); }
   .hero-manchet { font-size: var(--t-2); }
   .hero-oejenbryn { margin-bottom: var(--l-2); }
-  .hero-soeg { margin-top: var(--l-4); transform: translateY(24px); }
-  /* Smal skærm: teksten står over hele fotoet, så sløret går lodret —
-     tæt øverst, hvor teksten er, åbent nederst, hvor kortet ligger. */
-  .hero.har-foto::after {
-    background: linear-gradient(180deg,
-      rgba(247,245,241,.95) 0%, rgba(247,245,241,.92) 55%,
-      rgba(247,245,241,.55) 80%, rgba(247,245,241,.35) 100%);
-  }
+  .hero.fuldbredde .hero-soeg { margin-top: var(--l-4, 16px); transform: translateY(var(--hero-soeg-loeft, 24px)); }
 }
 .hero h1 { max-width: 20ch; margin-bottom: var(--l-4); }
 .hero-manchet { max-width: 40ch; color: var(--blaek); }
@@ -113,8 +122,8 @@
 
 /* ── 3 · Søgekortet, der svæver ind over heroens underkant ─────── */
 @media (min-width: 901px) {
-  .hero-soeg { transform: translateY(48px); margin-top: var(--l-7); }
-  .hero { margin-bottom: 48px; }
+  .hero.fuldbredde .hero-soeg { transform: translateY(var(--hero-soeg-loeft, 48px)); margin-top: var(--l-7, 48px); }
+  .hero.fuldbredde { margin-bottom: var(--hero-soeg-loeft, 48px); }
 }
 .hero form.filtre {
   background: var(--kort); border: 0; border-radius: 16px;
@@ -255,57 +264,100 @@
 }
 @media (max-width: 900px) { .hero-haand { font-size: 26px; margin-top: var(--l-3); } }
 
-/* ── 6 · Telefonen: to veje til et foto, der kan ses ─────────────
+/* ── 6 · Telefonen: B er standarden, A er et tilvalg ─────────────
    På 390 stod fotoet som en stribe sofa mellem manchetten og
    søgekortet; resten var hvidt slør. Et lyst slør bag mørk tekst kan
    ikke virke på en smal skærm: der er ingen «venstre side» at lægge
-   teksten i, så sløret må dække det hele. To løsninger, begge vist
-   og målt i 390 og 360 — greb.js sætter klassen:
+   teksten i, så sløret må dække det hele.
 
-   A · .m-baand  Fotoet som et lavt bånd (3:1) ØVERST, i fuld bredde og uden
-                 slør. Teksten står under det, på papiret. Intet står på
-                 fotoet, så intet kan gå ud over kontrasten.
-   B · .m-moerk  Teksten PÅ fotoet, hvid på et mørkt slør. Sløret er
-                 tættest, hvor teksten står, og letter mod søgekortet.
-                 Hvor tæt det skal være, afhænger af fotoet: se
-                 --hero-sloer-smal og maal-foto.mjs. */
+   B · standard  Teksten PÅ fotoet, hvid på et mørkt slør, og fotoet
+                 løber bag søgekortet. Foto, tekst og kort er én
+                 komposition, og første boligkort står over folden —
+                 det er det, siden er til for (GREB-4.md § 1).
+   A · .m-baand  Fotoet som et lavt bånd (3:1) ØVERST, teksten under det
+                 på papiret. Koster første kort. Rigtig KUN, hvis et foto
+                 kræver mere slør end 0,60 i B (maal-foto.mjs: «KUN A»).
+
+   B kræver INGEN klasse. Står laget i appen, er B der — der er ingen
+   markup at vente på, og ingen rækkefølge mellem to udrulninger.
+
+   TEKSTEN ER REN HVID, ikke .84 og .94. Så holder B over ETHVERT foto:
+   det værst tænkelige er et helt hvidt, og blandingen af blæk over hvidt
+   er 255 − 235·a. Ved a = .60 bliver den 114, og ren hvid tekst står
+   4,7:1 mod den — over AA's 4,5 uden at kende fotoet (målt i
+   maal-foto.mjs, «værst tænkelige»). Med .84 var det 3,9:1, og så hang
+   kontrasten på netop dette fotos pixels: 5,48 var et tal, der skulle
+   overvåges. Samme greb som kreditpillen i globals.css («ren hvid og ikke
+   .92»). Gulvet gælder kun tekst i gradientens fulde tæthed (0–58 %):
+   manchettens bund står ved 39–45 % af heroen (målt i 320–900, med og
+   uden fanerne), og det værst tænkelige måles i alle ni bredder af
+   maal-foto.mjs — flytter en længere tekst ned i overgangen, falder tallet
+   dér, og dommen siger hvorfor. 0,60 er GULVET: det tyndeste slør, der
+   holder over et hvidt foto (maal-foto.mjs måler det). */
 @media (max-width: 900px) {
-  .hero.m-baand { padding-top: 0; margin-bottom: var(--l-5); }
-  .hero.m-baand::after { display: none; }
-  .hero.m-baand .hero-billede {
-    position: relative; inset: auto; z-index: 0;
-    aspect-ratio: 3 / 1; max-height: 300px; margin: 0 0 var(--l-5);
-  }
-  .hero.m-baand .hero-billede img { object-position: var(--hero-fokus-smal); }
-  .hero.m-baand .hero-soeg { transform: none; margin-top: var(--l-4); }
-
   /* Sløret og bunden er BLÆK. Første udgave brugte rgb(10 20 18) og
      #1d2422 — en tredje, unavngiven grøn flade (a* ≈ −3), som fejningen
      ikke så, fordi den ikke læser gradienter. */
-  .hero.m-moerk { background: var(--blaek); }
-  .hero.m-moerk .hero-billede img { object-position: var(--hero-fokus-smal); }
-  .hero.m-moerk.har-foto::after {
+  .hero.har-foto { background: var(--blaek); }
+  .hero.har-foto .hero-billede img { object-position: var(--hero-fokus-smal); }
+  .hero.har-foto::after {
     background: linear-gradient(180deg,
       rgb(20 22 26 / var(--hero-sloer-smal)) 0%, rgb(20 22 26 / var(--hero-sloer-smal)) 58%,
       rgb(20 22 26 / calc(var(--hero-sloer-smal) * .35)) 100%);
   }
-  .hero.m-moerk .hero-oejenbryn { color: rgb(255 255 255 / .84); }
-  .hero.m-moerk h1 { color: #fff; }
-  .hero.m-moerk .hero-manchet { color: rgb(255 255 255 / .94); }
-  .hero.m-moerk .hero-haand { color: #fff; }
+  .hero.har-foto .hero-oejenbryn, .hero.har-foto h1,
+  .hero.har-foto .hero-manchet, .hero.har-foto .hero-haand { color: #fff; }
+
+  /* A: kun når et foto ikke kan bære B. Overstyrer B punkt for punkt. */
+  .hero.fuldbredde.har-foto.m-baand { --hero-soeg-loeft: 0px; padding-top: 0; margin-bottom: var(--l-5, 24px); background: var(--bg, #f7f5f1); }
+  .hero.har-foto.m-baand::after { display: none; }
+  .hero.har-foto.m-baand .hero-billede {
+    position: relative; inset: auto; z-index: 0;
+    aspect-ratio: 3 / 1; max-height: 300px; margin: 0 0 var(--l-5);
+  }
+  .hero.har-foto.m-baand .hero-oejenbryn { color: var(--daempet); }
+  .hero.har-foto.m-baand h1, .hero.har-foto.m-baand .hero-manchet,
+  .hero.har-foto.m-baand .hero-haand { color: var(--blaek); }
+  .hero.fuldbredde.har-foto.m-baand .hero-soeg { margin-top: var(--l-4, 16px); }
 }
 
 /* ── 7 · Krediteringen: et krav, ikke en overskrift ───────────────
    Den mørke pille øverst til højre var det første, øjet mødte på en
-   telefon — før øjenbrynet. Den flytter til sidens fodnote
-   (footer.bund i page.tsx, som også ejer HERO_STANDARD, så foto og
-   navn stadig er ét spørgsmål). Pexels-licensen kræver ingen
-   kreditering; vi giver den stadig. Kræver en kandidats licens
-   kreditering VED billedet (typisk bureauer), er det et af de felter,
-   heltefoto.json skal bære — se GREB-3.md. */
-/* INGEN display:none på .hero-kredit her. Flytningen er en ændring i
-   markuppen (page.tsx: væk fra heroen, ind i footer.bund), og CSS'en må
-   ikke kunne lande uden den — så forsvandt krediteringen helt. */
+   telefon — før øjenbrynet. Nu står den som en lille linje UNDER
+   søgekortet, ved kortets højrekant, på papiret.
+
+   FLYTNINGEN ER REN CSS, OG DET ER HELE POINTEN. page.tsx tegner
+   allerede `p.hero-kredit` som heroens sidste barn, med teksten fra det
+   samme objekt som fotoet (HERO_STANDARD eller NEXT_PUBLIC_HERO_FOTO_
+   KREDIT). Reglen her flytter DET element — den skjuler intet og
+   skriver ingen tekst. Derfor findes der ingen delvis udrulning:
+     · laget uden markupændring   → linjen under kortet
+     · laget er ikke landet        → pillen øverst, som i dag
+     · en markupændring alligevel  → reglen rammer intet; markuppens
+                                      egen kreditering står
+   Runde 3 flyttede den i markuppen (ind i footer.bund) og måtte derfor
+   lade være med at skjule pillen — så hang en licensforpligtelse på, at
+   nogen huskede rækkefølgen af to udrulninger. Den ændring er trukket
+   tilbage; page.tsx skal ikke røres.
+   Ikke `content:` med teksten i CSS'en: så stod navnet to steder, og et
+   foto skiftet med NEXT_PUBLIC_HERO_FOTO ville blive tilskrevet Taryn
+   Elliott — præcis den fejl, page.tsx' kommentar om HERO_STANDARD
+   advarer mod. Ikke `content: attr(…)` heller: attributten er en ny
+   markupændring, og så er rækkefølgen tilbage.
+   gengivelse/kredit-udrulning.mjs prøver alle tilstande og fejler med
+   exit 1, hvis én af dem står uden en synlig, læselig kreditering. */
+.hero.har-foto .hero-kredit {
+  position: absolute; z-index: 1; margin: 0;
+  top: calc(100% + var(--hero-soeg-loeft, 24px) + var(--l-2, 8px)); bottom: auto; left: auto;
+  /* Kortets højrekant: .hero-soeg er centreret i rammen med ramme-luft
+     indvendigt — samme regnestykke her. */
+  right: max(var(--ramme-luft, 22px), calc((100% - var(--ramme, 1300px)) / 2 + var(--ramme-luft, 22px)));
+  max-width: calc(100% - 2 * var(--ramme-luft, 22px)); text-align: right;
+  font-size: 12px; line-height: 16px; color: var(--daempet, #5f6672);
+  background: none; backdrop-filter: none; padding: 0; border-radius: 0;
+}
+/* Står krediteringen alligevel i fodnoten (en markupændring), skal den
+   ikke brække midt i navnet. */
 .bund .fotokredit { white-space: nowrap; }
 
 /* ── 8 · Links er blæk — også kortets kreditering ─────────────────

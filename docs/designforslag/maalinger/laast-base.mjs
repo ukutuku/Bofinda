@@ -1,21 +1,100 @@
 // ═══════════════════════════════════════════════════════════════
 //  En skrivebeskyttet forbindelse, håndhævet af basen — ikke af, at
-//  scriptet tilfældigvis kun indeholder select.
+//  scriptet tilfældigvis kun indeholder select. Og et mål, der er
+//  NAVNGIVET i kommandoen og efterprøvet mod basen selv — ikke det, der
+//  tilfældigvis står i miljøet.
 //
-//  Samme mønster som maal-ny.mjs: DATABASE_URL_DIRECT (aldrig
-//  transaction-pooleren på :6543, der ikke kan holde en session), én
-//  forbindelse, `set session characteristics as transaction read only`,
-//  og SHOW før og efter. Forbindelsen sættes ind i appens db/client.ts
-//  med indsaetBase, så sidens egne funktioner (soeg, opsummering …)
-//  kører gennem den.
+//  DATABASE_URL_DIRECT (aldrig transaction-pooleren på :6543, der ikke kan
+//  holde en session), én forbindelse, `set session characteristics as
+//  transaction read only`, og SHOW før og efter. Forbindelsen sættes ind
+//  i appens db/client.ts med indsaetBase, så sidens egne funktioner (soeg,
+//  opsummering, forsidetal …) kører gennem den.
 // ═══════════════════════════════════════════════════════════════
-export async function laastBase(ROD) {
-  const url = process.env.DATABASE_URL_DIRECT
-  if (!url) { console.error('FEJL: DATABASE_URL_DIRECT er ikke sat'); process.exit(2) }
-  const u = new URL(url)
-  if (u.port === '6543') {
-    console.error('FEJL: transaction-pooleren (:6543) kan ikke holde en read-only-session.'); process.exit(2)
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
+
+/** Stagings projekt-ref (scripts/proeve-storage/vagter.ts på grenen
+ *  claude/tender-noether-tjb6fs). Staging er ikke produktionen. */
+const STAGING_REF = 'prgmenbwabwkgitjclrj'
+const stop = (m) => { console.error(`FEJL: ${m}`); process.exit(3) }
+
+/**
+ * Testbasens port og navn står ÉT sted: scripts/cloud/miljoe.sh, som
+ * krav_isoleret også læser. De læses af filen, ikke af miljøet — en
+ * BOFINDA_PGPORT i skallen må ikke kunne udvide, hvad «test» betyder.
+ */
+function testbasen(rod) {
+  let t
+  try { t = readFileSync(join(rod, 'scripts/cloud/miljoe.sh'), 'utf8') } catch {
+    stop(`kan ikke læse testbasens krav fra ${join(rod, 'scripts/cloud/miljoe.sh')} (sæt ROD til roden af checkout'en).`)
   }
+  const port = (/^BOFINDA_PGPORT=(\d+)\s*$/m.exec(t) || [])[1], navn = (/^BOFINDA_PGDB=([a-z0-9_]+)\s*$/m.exec(t) || [])[1]
+  if (!port || !navn) stop('fandt ikke BOFINDA_PGPORT og BOFINDA_PGDB i scripts/cloud/miljoe.sh.')
+  return { port, navn }
+}
+
+/**
+ * KOMMANDOEN NAVNGIVER SIT MÅL — der er ingen standard.
+ *
+ * En kommando i dokumentationen er en kommando, nogen kører. Den første
+ * importkommando i GREB-3.md (ca32bb2) tog sit mål fra miljøet og kunne
+ * have ramt produktionen og sendt alarmmails. Reglen herfra: `--maal test`
+ * eller `--maal prod` står i kommandoen, og forbindelsen — fra .env eller
+ * skallen — skal SVARE til navnet, ellers afbrydes der med exit 3, før
+ * nogen forbindelse åbnes (samme kode som storage-prøvens vagter.ts:
+ * 3 = kunne ikke køre). Kravet er POSITIVT begge veje: hvad målet ER, ikke
+ * hvad det ikke må være. En denyliste («ikke 127.0.0.1») godkendte i
+ * efterprøvningen testbasen via 0.0.0.0, 127.1 og LOCALHOST som
+ * «produktionen».
+ *
+ *   test   127.0.0.1, localhost eller [::1] · port og base fra
+ *          scripts/cloud/miljoe.sh (55432/bofinda_test).
+ *   prod   en Supabase-vært: *.pooler.supabase.com (session-pooleren)
+ *          eller db.<ref>.supabase.co (direkte) · basen /postgres · ikke
+ *          stagings ref. Produktionens egen ref står ingen steder i repoet,
+ *          så værten skrives ud, og den, der kører, efterprøver den.
+ * Begge: kun forespørgselsparametrene sslmode og pgbouncer — psql følger
+ * ?host=, ?dbname= og ?port= og ville ellers kunne omdirigeres bag om
+ * vagten. Bagefter spørger laastBase basen selv (current_database og
+ * inet_server_port), som scripts/cloud/app-op.sh gør.
+ */
+export function kraevMaal(argv = process.argv.slice(2), url = process.env.DATABASE_URL_DIRECT, rod = process.env.ROD) {
+  const i = argv.indexOf('--maal'), maal = i >= 0 ? argv[i + 1] : null
+  if (maal !== 'test' && maal !== 'prod') {
+    stop('navngiv målet: --maal test (den isolerede testbase) eller --maal prod (produktionen). Der er ingen standard.')
+  }
+  if (!url) stop('DATABASE_URL_DIRECT er ikke sat. Der er ingen standardbase — og DATABASE_URL bruges ikke.')
+  let u
+  try { u = new URL(url) } catch { stop('DATABASE_URL_DIRECT er ikke en gyldig URL.') }
+  if (!/^postgres(ql)?:$/.test(u.protocol)) stop(`ukendt skema ${u.protocol}`)
+  const vaert = u.hostname.toLowerCase(), bruger = decodeURIComponent(u.username).toLowerCase()
+  const hvor = `${vaert}:${u.port || 5432}${u.pathname}`
+  for (const k of u.searchParams.keys()) {
+    if (!['sslmode', 'pgbouncer'].includes(k)) stop(`forespørgselsparameteren «${k}» er ikke tilladt: den kan flytte forbindelsen bag om vagten.`)
+  }
+  if (u.port === '6543') stop('transaction-pooleren (:6543) kan ikke holde en read-only-session. Brug DATABASE_URL_DIRECT på 5432.')
+  if (maal === 'test') {
+    const t = testbasen(rod ?? join(new URL('.', import.meta.url).pathname, '../../..'))
+    if (!['127.0.0.1', 'localhost', '[::1]'].includes(vaert) || u.port !== t.port || u.pathname !== `/${t.navn}`) {
+      stop(`--maal test, men målet er ${hvor}; forventet 127.0.0.1:${t.port}/${t.navn}.`)
+    }
+    return { maal, url: u, hvor, forventet: { base: t.navn, port: Number(t.port) } }
+  }
+  const supabase = /^[a-z0-9-]+\.pooler\.supabase\.com$/.test(vaert) || /^db\.[a-z0-9]{20}\.supabase\.co$/.test(vaert)
+  if (!supabase) stop(`--maal prod, men værten ${vaert} er ikke en Supabase-vært (*.pooler.supabase.com eller db.<ref>.supabase.co).`)
+  if (vaert.includes(STAGING_REF) || bruger.includes(STAGING_REF)) stop(`--maal prod, men målet er staging (${hvor}).`)
+  if (u.pathname !== '/postgres') stop(`--maal prod, men basen er ${u.pathname}; Supabase-basen hedder /postgres.`)
+  return { maal, url: u, hvor, forventet: { base: 'postgres', port: null } }
+}
+
+/** ROD's commit — så det står i første linje, hvilken kode der målte med. */
+function kode(rod) {
+  try { return execFileSync('git', ['-C', rod, 'rev-parse', '--short', 'HEAD'], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { return 'ukendt' }
+}
+
+export async function laastBase(ROD) {
+  const { maal, url: u, forventet } = kraevMaal(undefined, undefined, ROD)
   u.searchParams.delete('pgbouncer')
   const postgres = (await import('postgres')).default
   const { drizzle } = await import('drizzle-orm/postgres-js')
@@ -26,14 +105,27 @@ export async function laastBase(ROD) {
     idle_timeout: 0, max_lifetime: null, connect_timeout: 15, onnotice: () => {},
   })
   await k`set session characteristics as transaction read only`
+  // Spørg basen, hvem den er — ikke kun strengen.
+  const [{ d, p, pid }] = await k`select current_database() d, inet_server_port() p, pg_backend_pid() pid`
+  if (d !== forventet.base || (forventet.port != null && Number(p) !== forventet.port)) {
+    await k.end(); stop(`--maal ${maal}, men basen svarer, at den er ${d} på port ${p}.`)
+  }
   const laast = async () => (await k`show default_transaction_read_only`)[0].default_transaction_read_only
   if (await laast() !== 'on') { console.error('FEJL: forbindelsen blev ikke read-only'); process.exit(1) }
   indsaetBase(drizzle(k, { schema }), () => k.end())
-  const loop = ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(u.hostname)
   return {
     // Aldrig brugernavn eller kode.
-    navn: `${u.hostname}:${u.port || 5432}${u.pathname}${loop ? '  (loopback — ikke produktionen)' : ''}`,
+    navn: `${u.hostname}:${u.port || 5432}${u.pathname}  (--maal ${maal}${maal === 'test' ? ': den isolerede testbase' : ': PRODUKTIONEN — efterprøv værten'}) · kode ${kode(ROD)}`,
+    maal,
     laast,
+    /** Til sidst: stadig read-only, og stadig SAMME forbindelse? En
+     *  genopkobling midt i kørslen ville have mistet indstillingen. */
+    afslut: async () => {
+      const [{ v, pid2 }] = await k`select current_setting('default_transaction_read_only') v, pg_backend_pid() pid2`
+      await k.end()
+      if (v !== 'on' || pid2 !== pid) { console.error(`FEJL: read-only til sidst: ${v}, forbindelse ${pid} → ${pid2}. Tallene kan ikke stoles på som skrivebeskyttede.`); process.exit(1) }
+      return 'on'
+    },
     slut: () => k.end(),
   }
 }
