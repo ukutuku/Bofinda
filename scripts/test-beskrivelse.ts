@@ -24,6 +24,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { readFileSync } from 'node:fs'
+import { kildelag } from './kildetjek'
 import { genererBeskrivelse } from '../lib/normalize'
 import { elUdsagn } from '../lib/grundlag'
 import { eltilstand, type Eltilstand } from '../lib/eloplysning'
@@ -145,8 +146,10 @@ console.log('\n══ 5 · ukendt total: den ærlige gren står urørt ══')
 
 console.log('\n══ 6 · kildetjek: ingen anden ordbog, intet «?? k» ══')
 {
-  const kilde = readFileSync('lib/normalize.ts', 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  // `kildelag` uden argument er 'kode': hverken kommentarer eller
+  // strenge tæller med. Linjen her var før to `.replace()`, skrevet af
+  // tre steder på main — se scripts/kildetjek.ts om hvorfor det ét sted.
+  const kilde = kildelag(readFileSync('lib/normalize.ts', 'utf8'))
   tjek('normalize har ingen egen POSTNAVN-ordbog',
     !/heat:\s*'varme'/.test(kilde))
   tjek('og intet «?? k»-fallback', !/\?\?\s*k\b/.test(kilde))
@@ -155,7 +158,7 @@ console.log('\n══ 6 · kildetjek: ingen anden ordbog, intet «?? k» ══'
     /import \{[^}]*eltilstand[^}]*\} from '\.\/eloplysning'/.test(kilde))
   tjek('opremsningen hentes fra lib/liste',
     /import \{[^}]*paaDansk[^}]*\} from '\.\/liste'/.test(kilde))
-  const grundlag = readFileSync('lib/grundlag.ts', 'utf8')
+  const grundlag = kildelag(readFileSync('lib/grundlag.ts', 'utf8'))
   tjek('elUdsagn er eksporteret', /export function elUdsagn/.test(grundlag))
   tjek('og grundlagstekst bruger den selv', /elUdsagn\(s\.el\)/.test(grundlag))
 }

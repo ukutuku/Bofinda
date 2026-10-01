@@ -23,6 +23,7 @@
 //  Driver de fra hinanden, er det dét, prøven skal fange.
 // ═══════════════════════════════════════════════════════════════
 
+import { kildelag } from './kildetjek'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { eq, inArray } from 'drizzle-orm'
@@ -918,9 +919,36 @@ async function koer() {
     //  Laes IMPORTERNE, ikke teksten. Foerste udgave soegte i hele filen
     //  og blev roed af sin egen kommentar, der naevner `lib/soeg.ts` —
     //  altsaa maalte den, om ordet stod der, ikke om koden naaede noget.
-    const importer = [...kilde.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1] ?? '')
+    //
+    //  ═══ MEN SAA KUNNE DEN IKKE BLIVE ROED ═══
+    //
+    //  `Hastighed.tsx` har NUL importer i dag. `!importer.some(...)` paa
+    //  en tom liste er `true`, saa vagten var groen uden at predikatet
+    //  nogensinde blev proevet — maalt med en probe, der logger hvert
+    //  `.some()` paa en tom liste. Den slags groent er ikke forkert; det
+    //  bare siger ingenting, og det ser ud praecis som et bevis.
+    //
+    //  To ting retter det. Parseren faar et POSITIVT holdepunkt: den skal
+    //  kunne finde importer i en fil, vi ved har dem — ellers er det
+    //  parseren, der er i stykker, og ikke komponenten, der er ren. Og
+    //  den laeser nu ogsaa `import(...)`, for en dynamisk import er den
+    //  eneste realistiske maade at faa databasen ind i en fil uden en
+    //  `from`-linje.
+    const IMPORTER = /(?:from|import)\s*\(?\s*'([^']+)'/g
+    const udKilde = kildelag(kilde)
+    const importer = [...udKilde.matchAll(IMPORTER)].map((m) => m[1] ?? '')
+    const FORBUDT = /(^|\/)db\/|drizzle-orm|lib\/soeg|next\/(headers|cache)/
+    //  Positivt holdepunkt: samme parser paa en fil, der HAR importer, og
+    //  som importerer netop noget forbudt. Fejler den, maaler linjen
+    //  nedenfor ingenting, og det skal staa paa skaermen.
+    const kontrol = kildelag(await import('node:fs/promises')
+      .then((fs) => fs.readFile('app/page.tsx', 'utf8')))
+    const kontrolImporter = [...kontrol.matchAll(IMPORTER)].map((m) => m[1] ?? '')
+    tjek('13 · forudsaetning: parseren finder importer, hvor der ER importer',
+      kontrolImporter.length > 0 && kontrolImporter.some((i) => FORBUDT.test(i)),
+      `${kontrolImporter.length} i app/page.tsx`)
     tjek('13 · komponenten importerer hverken database, soegelag eller headers',
-      !importer.some((i) => /(^|\/)db\/|drizzle-orm|lib\/soeg|next\/(headers|cache)/.test(i)),
+      !importer.some((i) => FORBUDT.test(i)),
       importer.join(', ') || 'ingen importer')
   }
 
