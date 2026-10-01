@@ -24,10 +24,20 @@ import { readFileSync, readdirSync } from 'node:fs'
  * håndhæve noget her. Se CLAUDE.md under «Testbasen».
  */
 export async function stubSupabase(db, authKolonner = ['id', 'email']) {
+  // Rollerne er KLYNGEomfattende, ikke databaseomfattende. I PGlite er
+  // klyngen ny hver gang, men paa en rigtig server deles den af flere
+  // databaser — og der findes rollerne allerede, naar nabodatabasen har
+  // faaet skemaet. `create role` ville da fejle med 42710 og tage hele
+  // opstillingen med sig.
   await db.exec(`
-    create role anon;
-    create role authenticated;
-    create role service_role;
+    do $$ begin
+      if not exists (select 1 from pg_roles where rolname = 'anon')
+        then create role anon; end if;
+      if not exists (select 1 from pg_roles where rolname = 'authenticated')
+        then create role authenticated; end if;
+      if not exists (select 1 from pg_roles where rolname = 'service_role')
+        then create role service_role; end if;
+    end $$;
     create schema auth;
     create table auth.users (${authKolonner
       .map((k) => (k === 'id' ? '"id" uuid primary key' : `"${k}" text`))
