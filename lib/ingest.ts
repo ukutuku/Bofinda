@@ -189,7 +189,13 @@ export async function skrivBolig(
       applicationType: b.applicationType,
       rentModel: b.rentModel, openHouseAt: b.openHouseAt,
       sourceCreatedAt: b.sourceCreatedAt, sourceUpdatedAt: b.sourceUpdatedAt,
-      amenities: b.amenities, description: b.description,
+      amenities: b.amenities,
+      // `description` skrives IKKE laengere. Den udledes ved visning af
+      // raekkens egne kolonner — se `beskrivelseFor` i lib/normalize.ts.
+      // Gemt var den to udtryk for ét spoergsmaal, og 22 raekker var
+      // allerede drevet fra hinanden fire dage efter en omskrivning.
+      // Kolonnen beholdes for `native`, hvor den baerer udlejerens EGNE
+      // ord; den skrives dér af lib/udlejer.ts og ikke her.
       imagesMayDiffer: b.imagesMayDiffer,
       // SNAPSHOT, aldrig merge: kolonnen ERSTATTES helt, saa et fact, der
       // forsvinder fra kildens naeste svar, ogsaa forsvinder her.
@@ -225,7 +231,8 @@ export async function skrivBolig(
         applicationType: b.applicationType,
         rentModel: b.rentModel, openHouseAt: b.openHouseAt,
         sourceCreatedAt: b.sourceCreatedAt, sourceUpdatedAt: b.sourceUpdatedAt,
-        amenities: b.amenities, description: b.description,
+        amenities: b.amenities,
+        // Se noten ved insert'en ovenfor: beskrivelsen udledes ved visning.
         imagesMayDiffer: b.imagesMayDiffer,
         // Cast paa SKRIVNING er ok: det er vores egen typede vaerdi, der
       // serialiseres. LAESNING gaar altid gennem laesAvailabilityFacts.

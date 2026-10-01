@@ -12,6 +12,7 @@ import { listingImages, listings, sources } from '../db/schema'
 import { FACILITET } from './faciliteter'
 import { TILLADTE_VAERTER } from './billede'
 import { INDKOERING_TIMER } from './indkoering'
+import { beskrivelseFor } from './normalize'
 import { KILDEKONTRAKTER } from './kildekontrakt'
 import { laesAvailabilityFacts } from './fakta'
 import {
@@ -1780,7 +1781,9 @@ export async function hentBolig(id: string) {
       forudbetalt: listings.prepaidRent,
       ansoegning: listings.applicationType,
       faciliteter: listings.amenities,
-      beskrivelse: listings.description,
+      // Det GEMTE felt, ikke det, siden viser. For alt andet end native
+      // udledes teksten nedenfor — se `beskrivelseFor` i lib/normalize.ts.
+      gemtBeskrivelse: listings.description,
       aabentHus: listings.openHouseAt,
       status: listings.status,
       foerstSet: listings.firstSeenAt,
@@ -1821,7 +1824,21 @@ export async function hentBolig(id: string) {
     .where(eq(listingImages.listingId, id))
     .orderBy(asc(listingImages.position))
 
-  return { ...b, billeder }
+  // Beskrivelsen afgoeres ÉT sted. `gemtBeskrivelse` destruktureres ud, saa
+  // kolonnen ikke kan laeses direkte af en skabelon: er den med i typen,
+  // er det kun et spoergsmaal om tid, foer nogen tegner den.
+  const { gemtBeskrivelse, ...resten } = b
+  const beskrivelse = beskrivelseFor({
+    erUdlejerannonce: b.egenAnnonce,
+    gemtBeskrivelse,
+    propertyType: b.type, rooms: b.vaerelser, sizeM2: b.areal,
+    street: b.vej, houseNumber: b.husnr, postalCode: b.postnr, city: b.by,
+    rentMonthly: b.leje, totalMonthly: b.total, totalMonthlyComponents: b.poster,
+    utilitiesElectricity: b.el, electricityOwnMeter: b.elEgenMaaler,
+    availableFrom: b.ledigFra,
+  })
+
+  return { ...resten, beskrivelse, billeder }
 }
 
 export type BoligDetalje = NonNullable<Awaited<ReturnType<typeof hentBolig>>>

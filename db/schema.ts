@@ -222,7 +222,24 @@ export const listings = pgTable('listings', {
   availabilityFacts: jsonb('availability_facts').$type<Record<string, unknown>>(),
   openHouseAt: timestamp('open_house_at', { withTimezone: true }),
 
-  // Genereret af egne felter. Aldrig kildens braedtekst.
+  /**
+   * KUN for `native`: udlejerens egne ord. Aldrig kildens braedtekst.
+   *
+   * For importerede boliger er feltet DØDT. Teksten udledes ved visning
+   * af raekkens egne kolonner (`beskrivelseFor` i lib/normalize.ts), og
+   * `lib/ingest.ts` skriver den ikke laengere. Gamle vaerdier staar
+   * stadig i kolonnen; der er intet, der laeser dem.
+   *
+   * Grunden: en GEMT udledning af en raekkes egne felter er to udtryk for
+   * ét spoergsmaal ved konstruktion. 22 raekker var drevet fra hinanden
+   * fire dage efter en omskrivning af 2.125, og skrivevejen var
+   * scripts/genparse-adresser.ts, som flytter fire af de tretten input
+   * uden at skrive teksten med.
+   *
+   * For `native` er feltet brugerindhold og skal blive: lib/udlejer.ts
+   * lader hendes ord vinde over den udledte tekst, og de findes intet
+   * andet sted.
+   */
   description: text('description'),
 
   // Kontakt nulles paa feed/spider. Kun udfyldt naar sourceType = 'native'.
