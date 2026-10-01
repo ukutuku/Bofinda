@@ -47,6 +47,23 @@ export function kalenderdag(t: Date): IsoDate {
 }
 
 /**
+ * Hele kalenderdoegn mellem to dage i Bofindas zone.
+ *
+ * Begge argumenter er allerede resolvet til en DAG, saa differencen
+ * regnes paa kalenderen og ikke paa et tidsrum. Det er forskellen paa
+ * «i gaar» og «for 23,5 timer siden»: en bolig set kl. 23 i gaar er i
+ * gaar kl. 08 i dag, ogsaa selv om der kun er gaaet ni timer.
+ *
+ * `Date.UTC` paa to YYYY-MM-DD: begge bliver midnat UTC, saa
+ * differencen er et helt multiplum af et doegn uanset sommertid.
+ */
+export function dageMellem(fra: IsoDate, til: IsoDate): number {
+  const ms = (d: IsoDate) =>
+    Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10)))
+  return Math.round((ms(til) - ms(fra)) / 86_400_000)
+}
+
+/**
  * Hvor laenge siden var det? Som en dansk saetning, der kan staa efter
  * et udsagnsord: «annonceret for 3 timer siden», «set af os lige nu».
  *
