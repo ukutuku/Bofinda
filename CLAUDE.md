@@ -976,8 +976,14 @@ den fil, teksten står i — ikke på det modul, teksten lover noget om.
 
 **Form 3 · et svar om værktøjet er ikke et svar om arbejdet.** Ikke et
 værn, der dækker for lidt, men et svar, der er SANDT om noget andet, end
-man læser det som. `konflikt-fødte-ændringer`, `værktøjets-kvittering` og
-`transpilerede-positioner`. Se afsnittet efter tabellen.
+man læser det som. `konflikt-fødte-ændringer`, `værktøjets-kvittering`,
+`transpilerede-positioner` og `rørets-exitkode`. Se afsnittet efter
+tabellen.
+
+**Form 4 · et tal, der ikke kan sige, at det ikke blev målt.**
+`nullet-der-betyder-to-ting` står for sig, fordi den ikke handler om et
+værktøj eller et værn, men om DATA: et nul fra en tæller er «ingenting
+skete» og «vi holdt op med at måle» i samme tegn.
 
 **Og to, der ikke er værn.** `kendt-følge`: en fejl, der er skrevet ned,
 ligner en fejl, der er håndteret. `det-stærkeste-faldback` er en anden
@@ -1009,6 +1015,8 @@ commits, i PR-tekster og her.
 | **konflikt-fødte-ændringer** · `git log -S` / `-G` | Ser **ikke merges**. En linje, der opstod i en merges konfliktløsning, har ingen enkelt commit — og søgningen svarer TOMT. Det læses som «denne linje har ingen historik», når det betyder «denne historik er usynlig for dette værktøj». Brug `--diff-merges=first-parent`; `-m` finder den også, men differ mod hver forælder og over-rapporterer. Målt: `.kort-maerkater { right: 52px }` fandtes i nul commits, i én merge med flaget, og i fire med `-m`. |
 | **værktøjets-kvittering** · `Successfully rebased and updated refs/heads/…` | Indholdet. Kvitteringen er sand om værktøjets egen bogføring og **tavs om arbejdet**: `rebase --continue` spørger, om indeksposten er opmærket som løst — ikke om løsningen er rigtig. Målt: samme fil med byte-identisk indhold giver `needs merge` ustaged og `Successfully rebased` staged, og commit'en bærer tre konfliktmarkører, mens `git status` er tom. |
 | **transpilerede-positioner** · V8-dækning (`NODE_V8_COVERAGE`) over en `.ts`-fil | At positionerne peger i DEN FIL, du læser. `tsx` oversætter først, så dækningens `startOffset` er tegnpositioner i den TRANSPILEREDE JS. Et opslag «hvilken `tjek(`-linje ligger i en nul-range» rammer derfor ved siden af, og afvigelsen vokser med filens kommentarer. Målt: **187 af 485 påstande meldt udækkede i `test-redigering.ts` — alle 485 var kørt.** Stakspor ER kildekortlagt; tegnpositioner er ikke. |
+| **nullet-der-betyder-to-ting** · et maaletal, der er faldet til nul | Forskellen paa «ingenting skete» og «vi holdt op med at maale». Et nul fra en taeller er to udsagn i ét, og de kan ikke skelnes ved at se paa tallet. Maalt: `lib/maaling.ts`s allowlist har driftstilstandene og `funktion`-maengden skrevet af i haanden, paa linjerne omkring et `af: GRUNDE`, der ER bundet — og `Spec.af` er `readonly string[]`, saa oversaetteren tier. En ny vaerdi faar `rens()` til at kassere HELE eventet, og `paywall_blocked` holder op med at blive skrevet. Tragten viser saa 0. Samme form, uafhaengigt: `haendelser` gav 0 raekker for omraadesiderne, og det 0 betoed «ikke maalt». **Et maaletal skal kunne sige, at det ikke blev maalt** — en taeller ved siden af, en «sidst skrevet»-tid, eller en proeve, der skriver ét event igennem. Se #47. |
+| **rørets-exitkode** · `$?` efter en pipeline | Kommandoen. `$?` er den SIDSTE kommandos exitkode, ikke roerets. Maalt: `false \| head -1` giver **0**. Det er sket to gange paa én dag — en modproeve meldt som `exit=0`, hvor nullet var `head`s, og en byggekontrol laest som groen, hvor nullet var `tail`s. **Mekanisk loeseligt, og begge veje har en haage:** `set -o pipefail` giver 1 paa `false \| head -1` — men ogsaa **141** (SIGPIPE) paa `yes \| head -1`, hvor intet gik galt, saa den goer en VIRKENDE pipeline roed. Robust er derfor `${PIPESTATUS[0]}` (maalt: `1` mens `$?` er `0`), eller at koere kommandoen for sig og filtrere bagefter: `ud=$(kommando 2>&1); k=$?`. Samme familie som `transpilerede-positioner`: svaret er sandt om roeret og laeses som et svar om kommandoen. |
 | **det-stærkeste-faldback** · `??` og et sidste `else` | Dækker rigeligt — men falder mod det STÆRKESTE udsagn. Se nedenfor; det er en anden akse end de ti andre. |
 
 **Fem af dem er den samme fejl fem gange: et usynligt filter.** Ved
@@ -1032,6 +1040,7 @@ ligger i, hvilket spørgsmål man tror, der blev besvaret.
 | `konflikt-fødte-ændringer` | **tomt** — `git log -S` fandt intet | de commits, værktøjet så på | «linjen har ingen historik» |
 | `værktøjets-kvittering` | **bekræftende** — `Successfully rebased` | værktøjets egen bogføring | «løsningen var rigtig» |
 | `transpilerede-positioner` | **præcist** — 187 af 485 udækkede | den transpilerede JS | «187 påstande i min .ts-fil kører ikke» |
+| `rørets-exitkode` | **nul** — `$?` efter en pipeline | den SIDSTE kommando i røret | «kommandoen lykkedes» |
 
 En tavshed, en kvittering og et præcist tal. Ingen af dem kan fanges ved at
 læse udskriften en gang mere.
@@ -1049,6 +1058,22 @@ mekanisme.** Havde forklaringen skullet findes først, var tallet blevet ståend
 Samme greb virker på de to andre: tæl rækkerne med `--diff-merges=first-parent`
 i stedet for at læse det tomme svar igen, og `grep` efter konfliktmarkører i
 commit'en i stedet for at læse kvitteringen igen.
+
+**`rørets-exitkode` er den samme fælde i to tegn**, og den ramte to
+sessioner på én dag: en modprøve meldt som `exit=0`, hvor nullet var
+`head`s, og en byggekontrol læst som grøn, hvor nullet var `tail`s.
+Modtrækket er mekanisk — men pas på hvilket:
+
+    false | head -1                    →  $? er 0        ← fælden
+    set -o pipefail; false | head -1   →  $? er 1        ← virker
+    set -o pipefail; yes | head -1     →  $? er 141      ← SIGPIPE!
+    false | head -1; ${PIPESTATUS[0]}  →  1              ← robust
+    ud=$(kommando 2>&1); k=$?          →  kommandoens    ← robust
+
+`pipefail` er rigtigt for `kommando | grep -c`, men **gør en virkende
+pipeline rød**, så snart højre side lukker tidligt — `head` sender
+SIGPIPE, og 141 er ikke en fejl. Mål derfor `${PIPESTATUS[0]}`, eller
+kør kommandoen for sig og filtrer bagefter. Alle fem linjer er målt.
 
 **Og det, der FAKTISK målte dækningen**, var en probe, der loggede hvert
 `.every()`/`.some()` på en tom liste med sit stakspor — for stakspor ER
