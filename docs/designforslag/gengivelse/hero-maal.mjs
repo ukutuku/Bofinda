@@ -53,33 +53,68 @@ export async function gaaTil(p, url) {
  * værktøjerne SKRIVER ikke et skærmbillede, der viser et billede fra en
  * kilde. Tallene måles stadig; kun billedfilen udebliver.
  *
- * Tilladt er kun loopback — vores eget heltefoto (public/, serveret af
- * appen) og testaktivernes syntetiske mønstre og fliser — samt data:,
- * blob: og file:. /api/billede og /_next/image afgøres på den adresse, de
- * henter, ikke på deres egen. Alt andet er en kildes billede.
+ * HVER ADRESSE FÅR EN AF TRE DOMME, og kun «egen» må skrives:
+ *   egen     http(s) på loopback — heltefotoet i public/, serveret af
+ *            appen, og testaktivernes syntetiske mønstre og fliser — og
+ *            data:image/svg+xml uden indlejret rasterbillede (ikonerne
+ *            i mask-image er tegnet af os, ikke fotograferet);
+ *   fremmed  http(s) på enhver anden vært;
+ *   ukendt   alt, der ikke har en vært at afgøre på: et indlejret
+ *            rasterbillede (data:image/png, jpeg, webp …), blob:, file:,
+ *            en SVG med <image> eller <foreignObject>, og enhver anden
+ *            ordning. Et rasterbillede uden vært kan være en kopi af
+ *            hvad som helst — fotomålingen laver selv data:-JPEG'er af
+ *            et foto — så «ukendt» er AFVIST. Faldbacken er valgt, ikke
+ *            arvet: et nyt adresseformat lander i den forsigtige gren.
+ * /api/billede og /_next/image afgøres på den adresse, de henter, ikke på
+ * deres egen. Billeder findes i <img>/<picture>, svg image, video poster
+ * og i CSS: background-, mask-, border- og list-style-image og content,
+ * også på ::before og ::after.
  */
 export async function fremmedeBilleder(p) {
   return p.evaluate(() => {
-    const lokal = (u) => ['data:', 'blob:', 'file:'].includes(u.protocol) || ['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname)
+    const LOOPBACK = ['127.0.0.1', 'localhost', '[::1]']
+    const RASTER_I_SVG = /<image\b|<foreignObject\b|data:image\/(?!svg)/i
+    // → 'egen' | 'fremmed' | 'ukendt'
+    const dom = (u) => {
+      if (u.protocol === 'http:' || u.protocol === 'https:') {
+        if (!LOOPBACK.includes(u.hostname)) return 'fremmed'
+        // En lokal adresse, der henter en anden (billedproxyen), afgøres på den.
+        for (const v of u.searchParams.values()) {
+          if (!/^[a-z][a-z0-9+.-]*:/i.test(v)) continue
+          let indre; try { indre = new URL(v) } catch { return 'ukendt' }
+          const d = dom(indre); if (d !== 'egen') return d
+        }
+        return 'egen'
+      }
+      if (u.protocol === 'data:') {
+        const m = /^data:image\/svg\+xml(;[^,]*)?,(.*)$/is.exec(u.href)
+        if (!m) return 'ukendt'
+        let svg = m[2]
+        try { svg = /;base64/i.test(m[1] ?? '') ? atob(svg) : decodeURIComponent(svg) } catch { return 'ukendt' }
+        return RASTER_I_SVG.test(svg) ? 'ukendt' : 'egen'
+      }
+      return 'ukendt'
+    }
     const ud = new Set()
     const tjek = (raw) => {
       if (!raw) return
       let u
-      try { u = new URL(raw, location.href) } catch { ud.add(String(raw)); return }
-      if (!lokal(u)) { ud.add(u.href); return }
-      // En lokal adresse, der henter en anden (billedproxyen), afgøres på den.
-      for (const v of u.searchParams.values()) {
-        if (!/^[a-z][a-z0-9+.-]*:/i.test(v)) continue
-        try { if (!lokal(new URL(v))) ud.add(v) } catch { ud.add(v) }
-      }
+      try { u = new URL(raw, location.href) } catch { ud.add(`ukendt ${String(raw).slice(0, 80)}`); return }
+      const d = dom(u)
+      if (d !== 'egen') ud.add(`${d} ${u.href.slice(0, 120)}`)
     }
     for (const i of document.images) tjek(i.currentSrc || i.getAttribute('src'))
     for (const s of document.querySelectorAll('svg image')) tjek(s.getAttribute('href') || s.getAttribute('xlink:href'))
     for (const v of document.querySelectorAll('video[poster]')) tjek(v.getAttribute('poster'))
+    const EGENSKABER = ['backgroundImage', 'maskImage', 'webkitMaskImage', 'borderImageSource', 'listStyleImage', 'content']
     for (const e of document.querySelectorAll('*')) {
       for (const pseudo of [null, '::before', '::after']) {
-        const b = getComputedStyle(e, pseudo).backgroundImage
-        if (b && b !== 'none') for (const m of b.matchAll(/url\("?([^")]+)"?\)/g)) tjek(m[1])
+        const c = getComputedStyle(e, pseudo)
+        for (const k of EGENSKABER) {
+          const v = c[k]
+          if (v && v !== 'none' && v !== 'normal') for (const m of v.matchAll(/url\("?([^")]+)"?\)/g)) tjek(m[1])
+        }
       }
     }
     return [...ud]
@@ -92,11 +127,30 @@ export async function skaermbillede(p, opt, afviste = [], element = null) {
   const f = await fremmedeBilleder(p)
   if (f.length) {
     afviste.push({ fil: opt.path, antal: f.length, kilder: f.slice(0, 3) })
-    process.stderr.write(`AFVIST: ${opt.path} er ikke skrevet. Siden viser ${f.length} billede(r) fra en kilde, fx ${f[0]}. En gengivelse mod rigtige annoncer er en kopi af kildens billeder.\n`)
+    process.stderr.write(`AFVIST: ${opt.path} er ikke skrevet. Siden viser ${f.length} billede(r), der ikke er vores (fremmed: en kildes vært; ukendt: ingen vært at afgøre på), fx «${f[0]}». En gengivelse mod rigtige annoncer er en kopi af kildens billeder.\n`)
     return false
   }
   await (element ?? p).screenshot(opt)
+  await kvitter(opt.path, p.url())
   return true
+}
+
+/**
+ * KVITTERINGEN: vagten stopper SKRIVNING; udgivelsen kontrolleres af
+ * kontroller-billeder.mjs, som kun godkender et billede, vagten har
+ * kvitteret for. Et billede kan ikke selv fortælle, hvor dets pixels kom
+ * fra — så kontrollen er herkomst: filens SHA-256 står i .billedkontrol.jsonl
+ * i samme mappe, skrevet i samme øjeblik, som vagten fandt siden ren. Et
+ * billede skrevet før vagten fandtes, af et værktøj, der ikke går gennem
+ * den, eller ændret bagefter, har ingen gyldig kvittering.
+ */
+export const KVITTERING = '.billedkontrol.jsonl'
+async function kvitter(sti, side) {
+  const { readFile, appendFile } = await import('node:fs/promises')
+  const { createHash } = await import('node:crypto')
+  const { basename, dirname, join } = await import('node:path')
+  const sha256 = createHash('sha256').update(await readFile(sti)).digest('hex')
+  await appendFile(join(dirname(sti), KVITTERING), JSON.stringify({ fil: basename(sti), sha256, side, tid: new Date().toISOString() }) + '\n')
 }
 
 export async function laegPaa(p, { css = '', js = '', valg = {} } = {}) {

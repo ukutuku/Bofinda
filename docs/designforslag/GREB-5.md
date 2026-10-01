@@ -109,6 +109,52 @@ Med vagten tømt blev de fire kildetilfælde røde.
 skærmbilleder med 69 kald, og ingen af dem har vagten. De kører i dag mod
 testbasen, men intet forhindrer en kørsel mod rigtige annoncer.
 
+### Efter gennemsynet: to huller lukket
+
+**1 · Adresser uden vært havde en faldback, ingen havde valgt.** Prædikatet
+regnede `data:`, `blob:` og `file:` som «vores». Men et rasterbillede uden
+vært kan være en kopi af hvad som helst; fotomålingen laver selv
+`data:`-JPEG'er af et foto. Nu har hver adresse én af tre domme, og kun
+«egen» må skrives:
+
+| Dom | Hvad |
+|---|---|
+| egen | http(s) på loopback; `data:image/svg+xml` uden indlejret raster (ikonerne i `mask-image`) |
+| fremmed | http(s) på enhver anden vært |
+| ukendt — **afvist** | `data:`-raster, `blob:`, `file:`, SVG med `<image>`/`<foreignObject>`, enhver anden ordning |
+
+Vagten læste desuden kun `background-image`. Nu læser den også
+`mask-image`, `border-image`, `list-style-image` og `content`. Ikonerne
+står netop i `mask-image`.
+
+**2 · Vagten stoppede skrivning, ikke udgivelse.** Når vagten skriver et
+billede, kvitterer den nu for det: filens SHA-256 står i
+`.billedkontrol.jsonl` i samme mappe.
+[`kontroller-billeder.mjs`](gengivelse/kontroller-billeder.mjs) godkender
+kun billeder med en kvittering, der passer til bytene. Et billede skrevet
+før vagten, af et værktøj uden om den eller ændret bagefter afvises. Det
+gør reglen uafhængig af, hvem der tilføjer et nyt skrivested.
+Artefaktbyggeren kører kontrollen på hvert billede, før det kopieres. Siger
+den nej, bygges intet (prøvet: exit 1, `index.html` urørt).
+
+**Konsekvensen, målt:** ingen af grenens 213 billeder og ingen af
+artefaktets 63 publicerede billeder har en kvittering. De er skrevet før
+vagten fandtes. De er alle syntetiske, men de kan ikke udgives igen uden
+at blive taget om.
+
+Prøven har nu 14 tilfælde, alle grønne:
+
+- de ti fra før, plus `data:`-raster, SVG med raster, `blob:` og en ren SVG;
+- kvitteringskæden: et skrevet billede godkendes, mens billeder uden
+  kvittering og ændrede billeder afvises.
+
+Modprøve: med «ukendt» vendt til «egen» blev de tre tilfælde uden vært
+røde.
+
+**Hvad den stadig ikke dækker:** en commit. `kontroller-billeder.mjs` kan
+køres som pre-commit-krog på `docs/`, men der er ingen krog i repoet i dag,
+og det er en beslutning for repoets ejer.
+
 ## 4 · Testbasen tømmes, og tømningen måles
 
 [`gengivelse/toem-testbase.sh`](gengivelse/toem-testbase.sh) sletter de
@@ -173,13 +219,28 @@ Vejene og hvad de koster:
 Tallene for billederne i dag er målt på billeder, der ikke viser kilders
 fotos. Efter § 3 kommer der ikke flere af den slags fra rigtige annoncer.
 
+**Før runde4 lægger flere til (målt 1. oktober, efter runde 5):**
+
+| | |
+|---|---|
+| `.git` i denne klon | 67 MB (37,3 MiB pakket + 27,9 MiB løse objekter) |
+| Grenens egne blobs | 25,6 MB, heraf 220 billedversioner på 25,0 MB |
+| Billeder i grenens HEAD | 213 filer, 24,5 MB |
+| Én fuld kørsel af `runde4.sh` på testbasen | 246 billeder, 12,5 MB (JPEG) |
+| Det samme skåret ned som `greb4/` | 5,0 MB |
+
+Committes én kørsel mere som i dag, vokser grenen med 5–12,5 MB, og den vægt
+bliver i historikken. Mod rigtige annoncer skriver kørslen ingen billeder
+(§ 3), så den vægt opstår kun ved syntetiske kørsler.
+
 ## Filer
 
 | Fil | Hvad |
 |---|---|
 | [`greb.css`](greb.css), [`greb.js`](greb.js) | B alene; #39's rettelser; den virkningsløse titelregel er fjernet |
 | [`forslag.css`](forslag.css) | titelstørrelsen kun over 620 px; #39's rettelser |
-| [`gengivelse/hero-maal.mjs`](gengivelse/hero-maal.mjs) | `fremmedeBilleder` og `skaermbillede` |
+| [`gengivelse/hero-maal.mjs`](gengivelse/hero-maal.mjs) | `fremmedeBilleder` (tre domme) og `skaermbillede` (med kvittering) |
+| [`gengivelse/kontroller-billeder.mjs`](gengivelse/kontroller-billeder.mjs) | udgivelseskontrollen: kun kvitterede billeder |
 | [`gengivelse/proev-kildebilleder.mjs`](gengivelse/proev-kildebilleder.mjs) | prøven af vagten |
 | [`gengivelse/toem-testbase.sh`](gengivelse/toem-testbase.sh) | tømningen og kontrollen |
 | [`gengivelse/runde4.sh`](gengivelse/runde4.sh) | `--rigtige`; A er ude |
