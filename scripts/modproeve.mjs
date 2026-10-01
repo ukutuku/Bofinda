@@ -6,52 +6,20 @@
 //  fejlen med vilje, maaler det ikke det, du tror.» Filen her er
 //  mekanikken, saa princippet ikke hviler paa, at nogen husker det.
 //
-//  ═══ HVORFOR DEN LAVER SIT EGET ARBEJDSTRAEE ═══
-//
-//  Foerste udgave muterede dét traee, den blev kaldt fra. Det gik galt paa
-//  praecis den maade, man ikke ser: en `git add -A` i en anden kommando
-//  ramte, mens mutationen var aktiv, og indekset fangede den MUTEREDE fil.
-//  Havde den commit gaaet igennem, var fejlen landet sammen med den
-//  modproeve, der lige havde bevist den.
-//
-//  Derfor muteres der aldrig i kalderens traee. `git worktree add` giver et
-//  eget traee, mutationen sker dér, og det fjernes igen. Kalderens
-//  arbejdskopi og indeks roeres ikke, uanset hvad mutationen goer.
-//
-//  ═══ TRE VAGTER, OG HVORFOR HVER AF DEM FINDES ═══
-//
-//  1 · BESKIDT TRAEE AFVISES. Et arbejdstraee skabes fra et COMMIT. Er der
-//      uforpligtede aendringer, ligger de ikke i traeet — saa maaler
-//      modproeven en kode, der ikke er den, du er ved at aflevere. Det er
-//      ikke en formalitet: en groen modproeve mod det forkerte traee ser
-//      ud som et bevis og er det modsatte.
-//
-//  2 · EN MUTATION, DER IKKE AENDRER NOGET, AFVISES. Ramte moenstret ikke,
-//      koerer proeven mod uaendret kode og bliver groen. Uden vagten ville
-//      det laese som «vagten virker ikke» — den praecist omvendte
-//      konklusion af virkeligheden.
-//
-//  3 · EN MUTATION, DER IKKE BLIVER ROED, ER ET FUND. Det er hele
-//      formaalet, og derfor er det kaldets exitkode: 0 betyder «mutationen
-//      BLEV fanget», ikke «kommandoen koerte».
-//
-//  ═══ BRUG ═══
-//
 //      node scripts/modproeve.mjs <mutation.mjs> -- <proevekommando...>
 //
-//  Mutationsfilen faar arbejdstraeets rod som sit foerste argument og skal
-//  aendre mindst én fil dér. Eksempel:
-//
-//      node scripts/modproeve.mjs modproever/fjern-ellinje.mjs -- \
-//        npm run test:kerne
+//  Se modproever/LAES-MIG.md for mutationsformen og de fem vagter.
 // ═══════════════════════════════════════════════════════════════
 
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync, existsSync, symlinkSync } from 'node:fs'
+import { mkdtempSync, rmSync, existsSync, symlinkSync, readFileSync, writeFileSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const git = (...a) => execFileSync('git', a, { encoding: 'utf8' }).trim()
+const PRAEFIKS = 'modproeve-'
+const traeerNu = () => readdirSync(tmpdir()).filter((n) => n.startsWith(PRAEFIKS)).sort()
 
 const argv = process.argv.slice(2)
 const skil = argv.indexOf('--')
@@ -63,60 +31,135 @@ if (!mutationSti || kommando.length === 0) {
 }
 
 const rod = git('rev-parse', '--show-toplevel')
-const mutation = resolve(mutationSti)
-if (!existsSync(mutation)) {
-  console.error(`modproeve: mutationsfilen findes ikke: ${mutation}`)
+const mutationFil = resolve(mutationSti)
+if (!existsSync(mutationFil)) {
+  console.error(`modproeve: mutationsfilen findes ikke: ${mutationFil}`)
   process.exit(2)
 }
 
-// ── Vagt 1 · beskidt traee ──────────────────────────────────────
-const urent = git('status', '--porcelain')
-if (urent) {
-  console.error('modproeve: AFVIST — traeet er ikke rent.\n')
-  console.error('  Et arbejdstraee skabes fra et commit, saa dine uforpligtede')
-  console.error('  aendringer ville IKKE vaere under proeve. En modproeve mod det')
-  console.error('  forkerte traee ser ud som et bevis og er det modsatte.\n')
-  console.error('  Commit eller stash foerst. Uforpligtet:\n')
-  console.error(urent.split('\n').map((l) => `    ${l}`).join('\n'))
+// ── VAGT 1 · alt skal vaere i INDEKSET ──────────────────────────
+//  Traeet bygges af `git write-tree`, som kun ser det ISCENESATTE. Den
+//  naturlige orden — skriv kode, skriv proeve, bevis at den kan blive
+//  roed, commit DEREFTER — overlever derfor, saa laenge man har `git
+//  add`'et. Men uiscenesat arbejde og nye filer ligger IKKE i traeet, og
+//  en modproeve, der tavst maaler uden dem, ser ud som et bevis og er det
+//  modsatte. Foerste udgave krAEvede et rent traee og forboed dermed
+//  raekkefoelgen i praksis.
+const udenfor = git('status', '--porcelain')
+  .split('\n').filter(Boolean)
+  .filter((l) => l[1] !== ' ')          // andet tegn = aendret i arbejdstraeet
+if (udenfor.length) {
+  console.error('modproeve: AFVIST — noget ligger uden for indekset.\n')
+  console.error('  Traeet bygges af `git write-tree`, som kun ser det iscenesatte.')
+  console.error('  Det nedenfor ville IKKE vaere under proeve, og en groen modproeve')
+  console.error('  uden det ser ud som et bevis og er det modsatte.\n')
+  console.error('  `git add` dem foerst — du behoever ikke committe.\n')
+  for (const l of udenfor) console.error(`    ${l}`)
   process.exit(2)
 }
 
-const head = git('rev-parse', 'HEAD')
-const traee = mkdtempSync(join(tmpdir(), 'modproeve-'))
+// ── Mutationens erklaering laeses FOER noget oprettes ───────────
+const mod = await import(pathToFileURL(mutationFil).href)
+const f = mod.forventning
+if (!f || typeof f !== 'object') {
+  console.error('modproeve: AFVIST — mutationen erklaerer ingen `forventning`.')
+  console.error('  Se modproever/LAES-MIG.md. En mutation uden erklaering kan ramme')
+  console.error('  et andet sted end den paastaar, og vagt 2 ser det ikke: den')
+  console.error('  spoerger kun OM noget blev aendret, ikke HVAD.')
+  process.exit(2)
+}
+for (const n of ['fil', 'moenster', 'traeffere']) {
+  if (f[n] === undefined) {
+    console.error(`modproeve: AFVIST — \`forventning.${n}\` mangler.`)
+    process.exit(2)
+  }
+}
 
-// ⚠ Kroppen RETURNERER sin exitkode frem for at kalde process.exit().
-// Foerste udgave kaldte process.exit() inde i try'en paa afvisningsvejene,
-// og `finally` springes over ved process.exit() — saa hver afvisning
-// efterlod sit arbejdstraee i /tmp og en post i `git worktree list`.
-// Opdaget ved at LAESE `git worktree list` efter en afvist koersel; intet
-// i outputtet antydede det.
+const traeerFoer = traeerNu()
+const traee = mkdtempSync(join(tmpdir(), PRAEFIKS))
+
 function koer() {
-  git('worktree', 'add', '--detach', '--quiet', traee, head)
-  // tsx og react ligger i kalderens node_modules; et nyt traee har ingen.
-  // Et symlink er nok og koster ingen kopiering.
+  const tree = git('write-tree')
+  // Et haengende commit: `git worktree add` kraever en commit-ish, og
+  // INGEN ref peger paa den. Den samles op af gc i sin tid.
+  const commit = git('commit-tree', tree, '-p', git('rev-parse', 'HEAD'),
+    '-m', 'modproeve: det iscenesatte')
+  git('worktree', 'add', '--detach', '--quiet', traee, commit)
   const nm = join(rod, 'node_modules')
   if (existsSync(nm)) symlinkSync(nm, join(traee, 'node_modules'), 'dir')
 
+  const iscenesat = git('diff', '--cached', '--name-only').split('\n').filter(Boolean)
   console.log(`modproeve: arbejdstraee ${traee}`)
-  console.log(`modproeve: fra ${head.slice(0, 8)} — kalderens traee roeres ikke\n`)
+  console.log(`modproeve: bygget af INDEKSET (${iscenesat.length} iscenesat${iscenesat.length === 1 ? ' fil' : 'te filer'})`)
+  console.log('modproeve: kalderens arbejdskopi og indeks roeres ikke\n')
 
-  // ── Mutationen ────────────────────────────────────────────────
-  const m = spawnSync(process.execPath, [mutation, traee], { stdio: 'inherit' })
-  if (m.status !== 0) {
-    console.error('\nmodproeve: AFVIST — mutationen fejlede selv.')
+  // ── VAGT 4 · rammer mutationen DÉR, hvor den siger? ──────────
+  const maal = join(traee, f.fil)
+  if (!existsSync(maal)) {
+    console.error(`modproeve: AFVIST — \`forventning.fil\` findes ikke i traeet: ${f.fil}`)
+    return 2
+  }
+  const indhold = readFileSync(maal, 'utf8')
+  const re = f.moenster instanceof RegExp
+    ? new RegExp(f.moenster.source, f.moenster.flags.includes('g') ? f.moenster.flags : `${f.moenster.flags}g`)
+    : new RegExp(f.moenster.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
+  const fund = [...indhold.matchAll(re)]
+  const linje = (i) => indhold.slice(0, i).split('\n').length
+
+  if (fund.length !== f.traeffere) {
+    console.error(`modproeve: AFVIST — moenstret rammer ${fund.length} gang(e), erklaeret ${f.traeffere}.\n`)
+    console.error(`  Et regex, der rammer et andet antal end forventet, rammer et`)
+    console.error(`  ANDET STED. Det er sket tre gange i dette repo, og vagt 2 ser`)
+    console.error(`  det ikke: den spoerger OM noget blev aendret, ikke HVAD.\n`)
+    if (fund.length) {
+      console.error(`  Fundet i ${f.fil} paa linje:`)
+      for (const m of fund) console.error(`    ${linje(m.index)}: ${m[0].split('\n')[0].trim().slice(0, 70)}`)
+    } else {
+      console.error(`  Moenstret ramte INTET i ${f.fil}.`)
+    }
     return 2
   }
 
-  // ── Vagt 2 · aendrede mutationen overhovedet noget? ───────────
+  const vaelg = f.vaelg ?? 0
+  const valgt = fund[vaelg]
+  if (!valgt) {
+    console.error(`modproeve: AFVIST — \`forventning.vaelg\` = ${vaelg}, men der er ${fund.length} traeffere.`)
+    return 2
+  }
+
+  // Holdepunktet pinner HVILKEN traeffer, naar der er flere ens.
+  if (f.naer !== undefined) {
+    const vindue = f.naerVindue ?? 15
+    const l = linje(valgt.index)
+    const linjer = indhold.split('\n')
+    const fra = Math.max(0, l - 1 - vindue), til = Math.min(linjer.length, l - 1 + vindue)
+    if (!linjer.slice(fra, til).join('\n').includes(f.naer)) {
+      console.error(`modproeve: AFVIST — holdepunktet \`${f.naer}\` staar ikke inden for`)
+      console.error(`  ${vindue} linjer af traeffer ${vaelg} (linje ${l}) i ${f.fil}.`)
+      console.error(`  Mutationen rammer altsaa et andet sted end den paastaar.`)
+      const hvor = linjer.findIndex((x) => x.includes(f.naer))
+      if (hvor >= 0) console.error(`  Holdepunktet staar paa linje ${hvor + 1}.`)
+      return 2
+    }
+    console.log(`modproeve: holdepunkt \`${f.naer}\` bekraeftet naer linje ${linje(valgt.index)}`)
+  }
+  console.log(`modproeve: ${fund.length} traeffer(e) som erklaeret · muterer nr. ${vaelg} paa linje ${linje(valgt.index)}`)
+
+  // ── Mutationen anvendes ──────────────────────────────────────
+  const nyt = typeof mod.default === 'function'
+    ? mod.default(indhold, fund, vaelg)
+    : indhold.slice(0, valgt.index) + (f.erstat ?? '') + indhold.slice(valgt.index + valgt[0].length)
+  writeFileSync(maal, nyt)
+
+  // ── VAGT 2 · aendrede den overhovedet noget? ──────────────────
   const aendret = execFileSync('git', ['-C', traee, 'status', '--porcelain'], { encoding: 'utf8' }).trim()
   if (!aendret) {
     console.error('\nmodproeve: AFVIST — mutationen aendrede ingen filer.')
-    console.error('  Moenstret ramte ikke. Proeven ville koere mod UAENDRET kode og')
-    console.error('  blive groen, hvilket ville laese som «vagten virker ikke».')
+    console.error('  Proeven ville koere mod UAENDRET kode og blive groen, hvilket')
+    console.error('  ville laese som «vagten virker ikke».')
     return 2
   }
-  console.log('\nmodproeve: mutationen rammer')
-  console.log(aendret.split('\n').map((l) => `    ${l}`).join('\n'))
+  console.log(`modproeve: mutationen rammer\n${aendret.split('\n').map((l) => `    ${l}`).join('\n')}`)
 
   // ── Proeven ───────────────────────────────────────────────────
   console.log(`\nmodproeve: koerer ${kommando.join(' ')}\n`)
@@ -127,27 +170,47 @@ function koer() {
   const ud = `${p.stdout ?? ''}${p.stderr ?? ''}`
   const roede = ud.split('\n').filter((l) => /^\s*✗/.test(l))
 
-  // ── Vagt 3 · blev den roed? ───────────────────────────────────
+  // ── VAGT 3 · blev den roed? ───────────────────────────────────
   if (p.status === 0 && roede.length === 0) {
-    console.error('modproeve: FUND — mutationen blev IKKE fanget.')
-    console.error('  Proeven er groen, selv om fejlen er indfoert med vilje. Saa')
-    console.error('  maaler den ikke det, den ser ud til at maale.')
+    console.log('')
+    console.log('  ══════════════════════════════════════════════════')
+    console.log('   MUTATIONEN SLAP IGENNEM — proeven blev groen')
+    console.log('  ══════════════════════════════════════════════════')
+    console.log('')
+    console.log(`  Fejlen er indfoert med vilje i ${f.fil}, og intet blev roedt.`)
+    console.log('  Proeven maaler altsaa ikke det, den ser ud til at maale.')
     return 1
-  } else {
-    console.log(`modproeve: FANGET — proeven blev roed (exit ${p.status}).`)
-    for (const l of roede.slice(0, 20)) console.log(`    ${l.trim()}`)
-    if (roede.length > 20) console.log(`    … og ${roede.length - 20} flere`)
-    console.log(`\n  roede tjek: ${roede.length}`)
-    return 0
   }
+  for (const l of roede.slice(0, 20)) console.log(`    ${l.trim()}`)
+  if (roede.length > 20) console.log(`    … og ${roede.length - 20} flere`)
+  console.log('')
+  console.log('  ══════════════════════════════════════════════════')
+  console.log(`   MUTATIONEN BLEV FANGET — ${roede.length} roede (proeven gav exit ${p.status})`)
+  console.log('  ══════════════════════════════════════════════════')
+  return 0
 }
 
 let kode = 2
 try {
-  kode = koer()
+  // ⚠ Kroppen RETURNERER sin kode frem for at kalde process.exit().
+  // process.exit() springer `finally` over, og foerste udgave efterlod
+  // derfor sit arbejdstraee ved hver afvisning. Opdaget ved at LAESE
+  // `git worktree list` — intet i outputtet antydede det. Det er vagt 5's
+  // grund til at findes.
+  kode = await koer()
 } finally {
-  // Kalderens traee skal vaere urOErt, ogsaa hvis noget gik i stykker.
   try { git('worktree', 'remove', '--force', traee) } catch { /* bedste forsoeg */ }
   rmSync(traee, { recursive: true, force: true })
+
+  // ── VAGT 5 · efterlod vi noget? ──────────────────────────────
+  const traeerEfter = traeerNu()
+  const efterladt = traeerEfter.filter((n) => !traeerFoer.includes(n))
+  if (efterladt.length) {
+    console.error(`\nmodproeve: FEJL I KOEREREN — ${efterladt.length} arbejdstraee(r) blev efterladt:`)
+    for (const n of efterladt) console.error(`    ${join(tmpdir(), n)}`)
+    console.error('  Oprydningen virker ikke. Et vaerktoejs tavshed er ikke et bevis,')
+    console.error('  saa den her vagt taeller frem for at stole paa `finally`.')
+    kode = 2
+  }
 }
 process.exit(kode)

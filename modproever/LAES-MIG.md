@@ -9,15 +9,35 @@ Mappen her er **mekanikken**, så princippet ikke hviler på, at nogen husker
 det. Én mutation pr. fil, og `scripts/modproeve.mjs` kører den.
 
 ```bash
-node scripts/modproeve.mjs modproever/<mutation>.mjs -- <prøvekommando>
-
-# fx
-node scripts/modproeve.mjs modproever/ellinje-vaek.mjs -- npm run test:kerne
+git add -A                     # vagt 1: træet bygges af INDEKSET
+node scripts/modproeve.mjs modproever/synken-brydes.mjs -- npm run test:kerne
 ```
 
-**Exitkoden svarer på det rigtige spørgsmål.** `0` betyder *«mutationen BLEV
-fanget»* — ikke *«kommandoen kørte»*. En grøn prøve mod indført fejl er et
-**fund**, og det er `exit 1`.
+Sidste linje siger udfaldet **i ord**:
+
+```
+  ══════════════════════════════════════════════════
+   MUTATIONEN BLEV FANGET — 2 roede (proeven gav exit 1)
+  ══════════════════════════════════════════════════
+```
+
+eller `MUTATIONEN SLAP IGENNEM — proeven blev groen`. Exitkoden følger
+ordene — `0` = fanget — men man skal ikke læse tallet alene, for den er
+**vendt om** i forhold til den indre `npm test`.
+
+## Den naturlige orden overlever
+
+Man skriver kode, skriver prøven, beviser at den kan blive rød, og
+committer **derefter**. Så arbejdstræet bygges fra **indekset**, ikke fra
+`HEAD`:
+
+    git write-tree          →  et træ af det iscenesatte
+    git commit-tree …       →  et HÆNGENDE commit; ingen ref peger på det
+    git worktree add        →  træet, mutationen sker i
+
+Første udgave krævede et *rent* træ og forbød dermed rækkefølgen i
+praksis: modprøven kunne først køres, efter at det, den kontrollerer, var i
+historikken.
 
 ## Hvorfor den laver sit eget arbejdstræ
 
@@ -28,57 +48,92 @@ commit gået igennem, var fejlen landet sammen med den modprøve, der lige
 havde bevist den. Det blev opdaget, fordi `git status` viste `MM` — ikke
 fordi noget i prøveoutputtet antydede det.
 
-Derfor muteres der aldrig i kalderens træ. `git worktree add` giver et eget
-træ, mutationen sker dér, og det fjernes igen — også når noget går i
-stykker.
+## De fem vagter
 
-## De tre vagter
+| Vagt | Afviser | Hvorfor | Efterprøvet |
+|---|---|---|---|
+| **1** | noget uden for indekset | `write-tree` ser kun det iscenesatte. Uiscenesat arbejde og nye filer ville ikke være under prøve, og en grøn modprøve uden dem ser ud som et bevis. | to ændrede filer uden `git add` → `AFVIST` |
+| **2** | en mutation, der ikke ændrer nogen fil | Prøven ville køre mod **uændret** kode og blive grøn — hvilket læser som «vagten virker ikke». | dækket af vagt 4 i praksis; står som bagstopper |
+| **3** | en mutation, der ikke bliver rød | Hele formålet, og derfor exitkoden. | `ellinje-vaek-*.mjs` → rødt |
+| **4** | en mutation, der rammer et andet sted end den erklærer | **Det er sket tre gange i dette repo:** linjeankeret, `/tilbud === null/` i en kommentar, og `ellinje-vaek` der påstod gruppekortet og ramte enkeltkortet. Vagt 2 ser det ikke — mutationen *gjorde* noget, bare ikke det, den sagde. | `rammer-ikke.mjs` (0 træffere mod 1) og `lyver-om-stedet.mjs` (rigtigt antal, holdepunkt 231 linjer væk) → begge `AFVIST` |
+| **5** | at køreren selv efterlader et arbejdstræ | `process.exit()` inde i `try` springer `finally` over, og første udgave lækkede derfor et træ ved hver afvisning. Fundet ved at **læse** `git worktree list` — et værktøjs tavshed er ikke et bevis, så nu tælles der. | tælleren er prøvet i isolation (fyrer på et lækket træ, tier når oprydningen virkede). **Ikke** prøvet med en rigtig fejlende oprydning — det kan ikke fremkaldes uden at sabotere koden, og det står her frem for at kaldes verificeret. |
 
-| Vagt | Afviser | Hvorfor |
-|---|---|---|
-| **1** | et træ med uforpligtede ændringer | Et arbejdstræ skabes fra et **commit**. Er der uforpligtet arbejde, ligger det ikke i træet — så modprøven måler en anden kode end den, du afleverer. En grøn modprøve mod det forkerte træ ser ud som et bevis og er det modsatte. |
-| **2** | en mutation, der ikke ændrer nogen fil | Ramte mønstret ikke, kører prøven mod **uændret** kode og bliver grøn. Uden vagten læser det som «vagten virker ikke» — den præcist omvendte konklusion. |
-| **3** | en mutation, der ikke bliver rød | Det er hele formålet. Derfor er det exitkoden. |
+## Mutationsformen
 
-Alle tre er efterprøvet ved at fremkalde dem, ikke ved at læse koden.
-
-## Sådan skriver du en mutation
-
-En mutation er en `.mjs`-fil, der får **arbejdstræets rod** som `argv[2]`:
+En mutation er en `.mjs`-fil, der **erklærer sin forventning** og intet
+andet. Erklæringen er det, der gør vagt 4 mulig:
 
 ```js
-import { readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
-const p = join(process.argv[2], 'app/Boligkort.tsx')
-const s = readFileSync(p, 'utf8')
-const gl = /\n\s*<Ellinje tilstand=\{[\s\S]*?\} \/>/
-if (!gl.test(s)) { console.error('mutation: mønstret ramte ikke'); process.exit(1) }
-writeFileSync(p, s.replace(gl, ''))
+export const forventning = {
+  fil: 'app/Boligkort.tsx',
+  moenster: '!n.total || !g.nogenUdenEl ? null',   // streng eller RegExp
+  traeffere: 1,              // PRÆCIST antal — afvig = rammer et andet sted
+  vaelg: 0,                  // hvilken træffer (0-baseret), hvis flere
+  naer: 'Gruppenoegle.total', // holdepunkt, der pinner HVILKEN
+  naerVindue: 15,            // … inden for så mange linjer (valgfrit)
+  erstat: '!g.nogenUdenEl ? null',  // '' = fjern
+}
 ```
 
-Tre ting:
+Behøver mutationen mere end en erstatning, kan filen i stedet eksportere
+`default function muter(indhold, fund, vaelg)` — men **erklæringen er
+obligatorisk uanset**.
 
-1. **Fejl højt, hvis mønstret ikke rammer.** Vagt 2 fanger det også, men din
-   egen fejlbesked siger hvad der blev ledt efter.
+Tre ting at holde fast:
+
+1. **`traeffere` er et præcist tal, ikke et minimum.** Rammer mønstret et
+   andet antal, rammer det et andet sted.
 2. **Bryd ÉN ting.** En mutation, der bryder to, kan ikke sige hvilken af
    dem prøven fanger. Skal to brydes, er det to filer.
-3. **Sig i kommentaren, hvad den faktisk gør** — ikke hvad du havde tænkt.
-   `ellinje-vaek.mjs` sagde først «fra gruppekortet»; mønstret er
-   ikke-grebigt og ramte enkeltkortet. Begge er gyldige mutationer, men
-   beskrivelsen skal passe på den, der køres.
+3. **`naer` findes, fordi `vaelg` alene er skrøbeligt.** `vaelg: 1` peger
+   på «den anden træffer» — og hvilken det er, kan skifte, når filen
+   ændres. Holdepunktet gør valget til et udsagn om *koden* i stedet for om
+   *rækkefølgen*.
 
 ## Hvad der ligger her
 
-| Fil | Bryder | Fanges af |
+| Fil | Bryder | Udfald |
 |---|---|---|
-| `ellinje-vaek.mjs` | enkeltkortets el-linje | `test-redigering.ts` · 3 røde, heraf `GRØN UDEN EL-LINJE` |
-| `rammer-ikke.mjs` | ingenting, med vilje | vagt 2 — den findes for at prøve køreren selv |
+| `ellinje-vaek-enkeltkort.mjs` | enkeltkortets el-linje | fanget · **3 røde** |
+| `ellinje-vaek-gruppekort.mjs` | gruppekortets el-linje | fanget · **7 røde** |
+| `synken-brydes.mjs` | synken mellem de to korttyper | fanget · **2 røde** |
+| `rammer-ikke.mjs` | ingenting — mønstret findes ikke | **afvist af vagt 4** |
+| `lyver-om-stedet.mjs` | rigtigt sted, forkert erklæret holdepunkt | **afvist af vagt 4** |
 
-## Til den, der samler et fælles hjælperlag
+De to sidste er ikke modprøver af produktet. De er modprøver af **køreren**,
+og de hører her, så vagt 4 selv kan blive rød.
 
-Køreren her gør to ting, som et hjælperlag bør arve: den **isolerer** (eget
-træ, kalderens arbejdskopi urørt) og den **vender exitkoden** om til det
-spørgsmål, man faktisk stiller. Den kender ingenting om prøvernes form, så
-den virker med `npm run test:kerne` lige så godt som med en enkelt
-`tsx`-kommando. Gøres den til en del af et større hjælperlag, er det de to
-egenskaber, der skal overleve — resten er implementering.
+---
+
+## Grænsefladen — til det fælles hjælperlag
+
+Supply beskriver den anden halvdel: at **afvise træffere i kommentarer og
+strenge**, og at **kræve et forventet antal**. Køreren her ejer antallet og
+stedet; hjælperen ejer *kvaliteten* af en træffer. De er ét værktøj, og de
+møder hinanden i `forventning`.
+
+**Køreren garanterer tre ting, og de skal overleve en sammenlægning:**
+
+| Invariant | Hvad det betyder |
+|---|---|
+| **Isolation** | Mutationen sker i et eget arbejdstræ, bygget af indekset. Kalderens arbejdskopi og indeks røres ikke, uanset hvad mutationen gør — og køreren efterlader intet (vagt 5). |
+| **Exitkoden svarer på «blev den fanget»** | Ikke på «kørte kommandoen». En grøn prøve mod indført fejl er `exit 1`, og udfaldet står i ord på sidste linje. |
+| **Erklæringen efterprøves FØR mutationen anvendes** | `fil`, `traeffere` og eventuelt `naer` tjekkes mod indholdet. En mutation, der ikke rammer som erklæret, kører aldrig. |
+
+**Det naturlige sted at møde hinanden** er et ekstra felt i `forventning`,
+som hjælperen fortolker og køreren blot giver videre — fx:
+
+```js
+export const forventning = {
+  fil: 'lib/soeg.ts',
+  moenster: /'Lejlighed'/,
+  traeffere: 3,
+  // Supplys halvdel: hvilke slags træffere tæller med
+  kun: 'kode',          // 'kode' | 'alle' — udelader kommentarer og strenge
+}
+```
+
+Køreren kender ikke `kun` i dag og ignorerer den. Skal den håndhæves, hører
+fortolkningen i hjælperen, og køreren skal kun lære at kalde den **før**
+`traeffere` tælles — altså ét sted, i stedet for at hver mutation selv
+filtrerer. Så bliver `traeffere: 3` et udsagn om koden og ikke om filen.
