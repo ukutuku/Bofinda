@@ -26,9 +26,7 @@ window.__bofindaForslag = (variant = {}) => {
     if (foto.sloer != null) s.setProperty('--hero-sloer', String(foto.sloer))
     if (foto.sloerSmal != null) s.setProperty('--hero-sloer-smal', String(foto.sloerSmal))
   }
-  // ── Telefonens variant (greb.css § 6) ───────────────────────────
-  // B er standarden og kræver ingen klasse. Kun A («baand») er et tilvalg.
-  if (hero && variant.mobil === 'baand') hero.classList.add('m-baand')
+  // Telefonens hero er B og kræver ingen klasse (greb.css § 6).
 
   // ── Krediteringen: INGEN markupændring (greb.css § 7) ─────────────
   // CSS'en flytter det element, page.tsx allerede tegner. Mockuppen gør

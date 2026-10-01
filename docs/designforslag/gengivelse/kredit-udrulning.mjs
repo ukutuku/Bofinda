@@ -20,7 +20,6 @@
 //                             ≤760-regler kommer efter. Reglerne læses af
 //                             den rigtige app/globals.css, når prøven kører.
 //    lag-og-mockup            laget + greb.js — som skærmbillederne
-//    a-kun-css                laget med variant A (kun klassen m-baand)
 //    markup-flyttet           runde 3's markupflytning (til footer.bund)
 //                             uden laget — hvis nogen byggede den alligevel
 //    markup-flyttet-og-css    samme, med laget
@@ -50,7 +49,7 @@ import pw from 'playwright-core'
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { kreditering, aabn, gaaTil, laegPaa, HOEJDE } from './hero-maal.mjs'
+import { kreditering, aabn, gaaTil, laegPaa, skaermbillede, HOEJDE } from './hero-maal.mjs'
 
 const [UD] = process.argv.slice(2)
 if (!UD) { console.error('brug: node kredit-udrulning.mjs <udmappe>'); process.exit(2) }
@@ -117,7 +116,6 @@ const FLYT = `window.__bofindaForslag = () => {
   }
   if (kr) kr.remove()
 }`
-const KUN_KLASSE = (k) => `window.__bofindaForslag = () => { document.querySelector('.hero')?.classList.add('${k}') }`
 const EKSTRA_I_FODNOTE = `window.__bofindaForslag = () => {
   const bund = document.querySelector('footer.bund'), kr = document.querySelector('.hero-kredit')
   if (!bund || !kr || bund.querySelector('.fotokredit')) return
@@ -141,7 +139,6 @@ const TILSTANDE = [
   { navn: 'kun-greb', css: KUN_GREB, js: '' },
   { navn: 'foldet', css: FOLDET, js: '' },
   { navn: 'lag-og-mockup', css: LAG, js: GREB },
-  { navn: 'a-kun-css', css: LAG, js: KUN_KLASSE('m-baand') },
   { navn: 'markup-flyttet', css: '', js: FLYT },
   { navn: 'markup-flyttet-og-css', css: LAG, js: FLYT },
   { navn: 'modproeve-skjult', css: LAG + '\n.hero .hero-kredit{display:none}', js: '', modproeve: true },
@@ -172,7 +169,7 @@ for (const w of BREDDER) {
     const ok = k.dom === 'OK'
     // Et udsnit omkring den synlige kreditering — eller toppen, hvis ingen.
     const y = k.y ?? 0
-    await p.screenshot({ path: join(UD, `${t.navn}-${w}.png`), fullPage: true,
+    await skaermbillede(p, { path: join(UD, `${t.navn}-${w}.png`), fullPage: true,
       clip: { x: 0, y: Math.max(0, y - 120), width: w, height: 200 } })
     res.push({ bredde: w, tilstand: t.navn, modproeve: !!t.modproeve, dom: k.dom,
       hvor: k.hvor, kontrast: k.kontrast, kandidater: k.kandidater.map(({ hvor, synlig, laeselig, kontrast, daekket, overlap, skjult, iSiden }) => ({ hvor, synlig, laeselig, kontrast, daekket, overlap, skjult, iSiden })) })

@@ -10,6 +10,7 @@
 import pw from 'playwright-core'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { skaermbillede } from './hero-maal.mjs'
 
 const [A, MRK, UD, FORMAT = 'png', DPR = '1'] = process.argv.slice(2)
 if (!A || !MRK || !UD) { console.error('brug: node foto.mjs <arbejdsmappe> <foer|efter> <udmappe> [png|jpeg] [dpr]'); process.exit(2) }
@@ -34,8 +35,8 @@ for (const [navn, w, h, slags] of OPGAVER) {
   await p.evaluate(() => document.fonts.ready)
   await p.waitForTimeout(150)
   const fil = join(UD, `${navn}-${w}${slags === 'hele' ? '-hele' : ''}.${ext}`)
-  if (slags === 'element') await p.locator('.ark').screenshot({ path: fil, ...opt })
-  else await p.screenshot({ path: fil, fullPage: slags === 'hele', ...opt })
+  if (slags === 'element') await skaermbillede(p, { path: fil, ...opt }, [], p.locator('.ark'))
+  else await skaermbillede(p, { path: fil, fullPage: slags === 'hele', ...opt })
   const fonte = await p.evaluate(() => [...new Set([...document.fonts]
     .filter((f) => f.status === 'loaded').map((f) => f.family))].join(', '))
   const overloeb = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)

@@ -9,8 +9,8 @@
 //  variant   foer         siden, som den er
 //            efter        forslag.css + greb.css + greb.js
 //            efter-haand  samme, med håndskriften
-//  --mobil baand          telefonens variant A (greb.css § 6); B er standard
-//                         i dette lag. «moerk» gælder kun runde 3's lag.
+//  --mobil moerk          kun til runde 3's lag (telefonvariant B dengang).
+//                         Dette lags telefon ER B; variant A er fjernet.
 //  --lag <mappe>          tag forslag.css/greb.css/greb.js herfra i stedet
 //                         (fx et tidligere lag, til sammenligning)
 //  --foto <json>          fotoobjektet (standard: ../heltefoto.json)
@@ -32,7 +32,7 @@ import pw from 'playwright-core'
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { heroKontrast, fotoSynlig, populaere, kreditering, vaerstTaenkelige, foersteKort, aabn, gaaTil, laegPaa, HOEJDE } from './hero-maal.mjs'
+import { heroKontrast, fotoSynlig, populaere, kreditering, vaerstTaenkelige, foersteKort, aabn, gaaTil, laegPaa, skaermbillede, HOEJDE } from './hero-maal.mjs'
 
 const arg = process.argv.slice(2)
 const flag = (n, d) => { const i = arg.indexOf(n); return i < 0 ? d : arg.splice(i, 2)[1] }
@@ -89,6 +89,7 @@ const opt = FORMAT === 'jpeg' ? { type: 'jpeg', quality: 84 } : { type: 'png' }
 const br = await pw.chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM ?? '/opt/pw-browsers/chromium' })
 
 const maal = {}
+const afviste = []   // skærmbilleder, der ville have vist en kildes billede
 const kreditFejl = []
 for (const w of BREDDER) {
   const c = await br.newContext({ viewport: { width: w, height: HOEJDE(w) }, deviceScaleFactor: Number(DPR) })
@@ -97,7 +98,7 @@ for (const w of BREDDER) {
   for (const [navn, sti] of SIDER) {
     await gaaTil(p, BASE + sti)
     await laegPaa(p, { css: LAG, js: JS, valg: VALG })
-    await p.screenshot({ path: join(UD, `${navn}-${w}.${ext}`), ...opt })
+    await skaermbillede(p, { path: join(UD, `${navn}-${w}.${ext}`), ...opt }, afviste)
     const m = await p.evaluate(() => {
       const kort = [...document.querySelectorAll('a.kort')].slice(0, 12)
       const img = kort.map((k) => k.querySelector('.kort-billede img')).filter(Boolean)
@@ -130,7 +131,7 @@ for (const w of BREDDER) {
         await p2.getByRole('button', { name: 'Kun det nødvendige' }).first().waitFor({ timeout: 15000 })
         await laegPaa(p2, { css: LAG, js: JS, valg: VALG })
         m.foersteKortFoersteBesoeg = await foersteKort(p2, { samtykke: true })
-        await p2.screenshot({ path: join(UD, `${navn}-${w}-foerste-besoeg.${ext}`), ...opt })
+        await skaermbillede(p2, { path: join(UD, `${navn}-${w}-foerste-besoeg.${ext}`), ...opt }, afviste)
         await c2.close()
       }
       m.populaere = await populaere(p)
@@ -143,18 +144,18 @@ for (const w of BREDDER) {
       // Forsidens bund: talstribe, sektioner, båndet og fodnoten.
       const top = await p.evaluate(() => { const e = document.querySelector('.sider') || document.querySelector('.talstribe'); return e ? e.getBoundingClientRect().top + scrollY - 40 : 0 })
       const h = await p.evaluate(() => document.documentElement.scrollHeight)
-      await p.screenshot({ path: join(UD, `forside-${w}-bund.${ext}`), fullPage: true, clip: { x: 0, y: top, width: w, height: h - top }, ...opt })
+      await skaermbillede(p, { path: join(UD, `forside-${w}-bund.${ext}`), fullPage: true, clip: { x: 0, y: top, width: w, height: h - top }, ...opt }, afviste)
       // Søgekortet med seks lange bynavne: en belastningsprøve af
       // linjebruddet (seedets byer er for korte til at vise det).
       m.populaereBelastet = await populaere(p, true)
       const kb = await p.evaluate(() => { const e = document.querySelector('.hero-soeg'); const r = e.getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: r.height + 16 } })
-      await p.screenshot({ path: join(UD, `soegekort-belastet-${w}.${ext}`), clip: kb, fullPage: true, ...opt })
+      await skaermbillede(p, { path: join(UD, `soegekort-belastet-${w}.${ext}`), clip: kb, fullPage: true, ...opt }, afviste)
     }
     maal[`${navn}-${w}`] = m
   }
   await c.close()
 }
-writeFileSync(join(UD, 'maal.json'), JSON.stringify({ variant: VARIANT, mobil: MOBIL, lag: LAGMAPPE ? 'andet lag' : 'dette lag', foto: FOTO, maal }, null, 1))
+writeFileSync(join(UD, 'maal.json'), JSON.stringify({ variant: VARIANT, mobil: MOBIL, lag: LAGMAPPE ? 'andet lag' : 'dette lag', foto: FOTO, afviste, maal }, null, 1))
 for (const [k, v] of Object.entries(maal)) console.log(k, JSON.stringify(v))
 await br.close()
 if (kreditFejl.length) { console.error('FEJL — krediteringen:\n  ' + kreditFejl.join('\n  ')); process.exit(1) }

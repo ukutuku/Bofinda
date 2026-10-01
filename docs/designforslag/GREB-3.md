@@ -112,9 +112,23 @@ afviser `maal-foto.mjs` sådan et foto.
 
 **Tre ting mere på telefonen,** fundet ved at se på billederne:
 
-- **Søgesidens titel** brækkede bynavnet midt over, «København / N». Titlen
+- ~~**Søgesidens titel** brækkede bynavnet midt over, «København / N». Titlen
   får nu hele bredden, og «Sortér» går under den. Stednavnet bør desuden stå
-  i et span med `white-space: nowrap` (Frontend).
+  i et span med `white-space: nowrap` (Frontend).~~
+
+  > **Rettet 1. oktober 2026: det var ingen rettelse, og fejlen var lagets
+  > egen.** Bruddet opstår først med laget. `forslag.css` satte søgetitlen
+  > til 32/28 px over `globals.css`' 22/20 px, og ved den størrelse brækker
+  > bynavnet («Prøveby / N» på 360). Uden laget står titlen hel
+  > («Lejeboliger i / Prøveby N (76)», `greb3/foer/soegning-360.png`).
+  > Reglen, der skulle rette det, kunne ikke virke: `globals.css` sætter
+  > `flex-wrap: nowrap` på `.sidetitel.resultat-titel` under 620 px.
+  > Eksemplet «København / N» havde intet billede bag sig; testbasens byer er
+  > opdigtede. Den blev givet videre til Frontend som en fejl i appen, og
+  > forslaget om et span med `nowrap` i `page.tsx` løser ikke noget, appen
+  > har. Rettet i laget: titelstørrelsen gælder kun over 620 px
+  > (`forslag.css`), og den virkningsløse regel er fjernet (`greb.css` § 9).
+  > Fundet af kortlægningen før del A (#39).
 - **Boligsiden på 360** havde ingen højre margen (22 px til venstre, 1 til
   højre). Det er en ældre fejl: i dag giver den 15 px vandret rul.
 - **«Filtre»** er nu den samme indrammede knap på forsiden som på søgesiden.

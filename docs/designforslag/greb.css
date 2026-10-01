@@ -264,19 +264,20 @@
 }
 @media (max-width: 900px) { .hero-haand { font-size: 26px; margin-top: var(--l-3); } }
 
-/* ── 6 · Telefonen: B er standarden, A er et tilvalg ─────────────
+/* ── 6 · Telefonen: B ──────────────────────────────────────────
    På 390 stod fotoet som en stribe sofa mellem manchetten og
    søgekortet; resten var hvidt slør. Et lyst slør bag mørk tekst kan
    ikke virke på en smal skærm: der er ingen «venstre side» at lægge
    teksten i, så sløret må dække det hele.
 
-   B · standard  Teksten PÅ fotoet, hvid på et mørkt slør, og fotoet
-                 løber bag søgekortet. Foto, tekst og kort er én
-                 komposition, og første boligkort står over folden —
-                 det er det, siden er til for (GREB-4.md § 1).
-   A · .m-baand  Fotoet som et lavt bånd (3:1) ØVERST, teksten under det
-                 på papiret. Koster første kort. Rigtig KUN, hvis et foto
-                 kræver mere slør end 0,60 i B (maal-foto.mjs: «KUN A»).
+   B: teksten PÅ fotoet, hvid på et mørkt slør, og fotoet løber bag
+   søgekortet. Foto, tekst og kort er ét objekt, og der står en rigtig
+   bolig på første skærm: billede, titel, adresse, overtagelsesdato.
+   Valgt 1. oktober 2026 på kompositionen, ikke på tallene. Variant A
+   (fotoet som et 3:1-bånd øverst, teksten under det) er fjernet: tre
+   stablede blokke, og udsnittet skar rummet over. Et foto, der kræver
+   mere slør end loftet 0,60, AFVISES af maal-foto.mjs — der er ingen
+   variant at falde tilbage på.
 
    B kræver INGEN klasse. Står laget i appen, er B der — der er ingen
    markup at vente på, og ingen rækkefølge mellem to udrulninger.
@@ -308,17 +309,6 @@
   .hero.har-foto .hero-oejenbryn, .hero.har-foto h1,
   .hero.har-foto .hero-manchet, .hero.har-foto .hero-haand { color: #fff; }
 
-  /* A: kun når et foto ikke kan bære B. Overstyrer B punkt for punkt. */
-  .hero.fuldbredde.har-foto.m-baand { --hero-soeg-loeft: 0px; padding-top: 0; margin-bottom: var(--l-5, 24px); background: var(--bg, #f7f5f1); }
-  .hero.har-foto.m-baand::after { display: none; }
-  .hero.har-foto.m-baand .hero-billede {
-    position: relative; inset: auto; z-index: 0;
-    aspect-ratio: 3 / 1; max-height: 300px; margin: 0 0 var(--l-5);
-  }
-  .hero.har-foto.m-baand .hero-oejenbryn { color: var(--daempet); }
-  .hero.har-foto.m-baand h1, .hero.har-foto.m-baand .hero-manchet,
-  .hero.har-foto.m-baand .hero-haand { color: var(--blaek); }
-  .hero.fuldbredde.har-foto.m-baand .hero-soeg { margin-top: var(--l-4, 16px); }
 }
 
 /* ── 7 · Krediteringen: et krav, ikke en overskrift ───────────────
@@ -364,17 +354,12 @@
    Fejningen fandt én link-farve, der ikke var vores: Leaflets standard-
    blå (#0078a8) på «Leaflet | © OpenStreetMap». Krediteringen bliver
    stående og synlig (OSM's flisepolitik); kun farven følger reglen. */
-.leaflet-control-attribution a { color: var(--blaek); }
+.leaflet-container .leaflet-control-attribution a { color: var(--blaek); }
 
 /* ── 9 · Telefonens småting, fundet ved at se på billederne ───────
-   Tre fejl i 360/390, som skærmbillederne viste og DOM'en bekræftede. */
-@media (max-width: 480px) {
-  /* Søgesidens titel: ved siden af «Sortér» havde h1 kun 174–204 px, og
-     bynavnet brækkede midt over — «København / N», «Frederiksberg / C».
-     Titlen får hele bredden, og «Sortér» går under den. Stednavnet bør
-     desuden stå i et span med white-space: nowrap i page.tsx (Frontend). */
-  .resultat-titel h1 { flex: 1 1 100%; text-wrap: balance; }
-}
+   Her stod en «rettelse» af søgesidens titel. Den var ingen: bruddet
+   opstod først med lagets egen titelstørrelse (forslag.css, nu kun over
+   620 px), og reglen kunne ikke virke mod globals.css' nowrap. */
 @media (max-width: 980px) {
   /* Boligsiden på 360: kolonnen gik fra 22 til 359 px — ingen højre
      margen. En 1fr-bane kan ikke blive smallere end sit indholds

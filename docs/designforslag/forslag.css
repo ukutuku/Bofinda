@@ -37,7 +37,7 @@
   /* De gamle navne peges om, så de 94 anvendelser af --accent bliver
      til handling (blæk) uden at røre en eneste regel. Kun de tre steder,
      der betyder «kendt» (.kort-pris, .oek-tal og .gemt-pris på Min side),
-     og ordmærket peges tilbage på --kendt nedenfor. */
+     peges tilbage på --kendt nedenfor. Ordmærket er blæk (runde 3). */
   --accent:     var(--blaek);
   --accent-mrk: var(--blaek-hover);
   --accent-lys: #ecebe6;
@@ -61,7 +61,6 @@
   --l-1: 4px;  --l-2: 8px;  --l-3: 12px; --l-4: 16px;
   --l-5: 24px; --l-6: 32px; --l-7: 48px; --l-8: 64px;
 
-  --fokus: 2px solid var(--blaek);
 }
 /* Den ene undtagelse fra skalaen: iOS zoomer ind på et felt under 16 px.
    Den regel står allerede i globals.css og skal blive. */
@@ -209,22 +208,28 @@ button, .knap { font-weight: var(--v-2); }
 .sidefod .ramme { font-size: var(--t-1); color: var(--daempet); }
 
 /* ═══ UDEN FOR BILLEDERNE — samme tokens ═════════════════════ */
-:focus-visible { outline: var(--fokus); outline-offset: 2px; }
-.populaere a, .begraensning a, .afmeld .note a, .broedkrumme a {
-  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--linje); }
+/* Ingen fælles :focus-visible: en blæk ring forsvinder på de mørke
+   flader (udlejerbåndet, 1,44:1, og lysbordets knapper). Fundet ved
+   gendrivelsen af del A (#39); den eneste ring, der ligger INDE i en
+   flade, der nu er blæk, er sorteringspillens — den er hvid nedenfor.
+   Understregningen står i --daempet, ikke --linje (1,22:1), og gælder
+   også de fire links, der før kun blev kendt på deres teal. */
+.populaere a, .begraensning a, .afmeld .note a, .broedkrumme a,
+.detalje-sti .sti-tilbage, .udlejerhandlinger a, .kontaktliste a, .ik-link {
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--daempet); }
 /* Valgt er ikke det samme som hover: valgt er blæk-fyld, hover er sand. */
 .sort-pille.valgt { background: var(--blaek); color: var(--kort); border-color: var(--blaek); }
+.sort-pille.valgt:focus-visible { outline-color: var(--kort); }
 /* Afkrydset er fyld, hover er kun en kant — de var den samme kant før. */
 .valgknap input:checked + span { background: var(--blaek); color: var(--kort); border-color: var(--blaek); }
 .valgknap input:checked + span b { color: var(--kort); }
 /* Trinbjælken: nu = fyld, gjort = ring, kommende = flad. Tre former,
    ikke to toner på 1,00:1. Et flueben i markup ville gøre det helt. */
 .trinbjaelke .gjort button span { background: var(--kort); color: var(--blaek); box-shadow: inset 0 0 0 2px var(--blaek); }
-/* Status er en oplysning, ikke en advarsel: ordet bærer den. */
-.m-vent { background: var(--kort); color: var(--blaek); box-shadow: inset 0 0 0 1px var(--linje); }
 /* Kaskadefejl i dag: `.resultathoved .prisnote` (samme specificitet,
    senere i filen) gør noten om tavse kilder grå på ravgul. */
-.resultathoved .prisnote.advarsel, .resultathoved .prisnote.advarsel strong { color: var(--advarsel); }
+.resultathoved .prisnote.advarsel { color: #7a5416; }
+.resultathoved .prisnote.advarsel strong { color: var(--advarsel); }
 /* Kortmærker er blæk; det valgte vendes om (hvidt med blæk-ring) og
    skaleres. Før var det ravgult, 1,53:1 mod de andre. */
 .maerke-boble.valgt { background: var(--kort); color: var(--blaek); border-color: var(--blaek); }
@@ -236,7 +241,7 @@ button, .knap { font-weight: var(--v-2); }
 .slipfelt.over { border-style: solid; border-color: var(--blaek); background: var(--kort); }
 /* OSM-krediteringens links (10,5 px blå uden understregning i dag).
    Krediteringen må aldrig skjules; den må gerne kunne ses som links. */
-.leaflet-control-attribution a { text-decoration: underline; }
+.leaflet-container .leaflet-control-attribution a { text-decoration: underline; }
 .side-nu { background: var(--blaek); color: var(--kort); }
 /* Forsiden: én h2-størrelse. Hero'en vokser ikke: den er allerede
    sidens tungeste element og bærer ingen påstand. */
@@ -246,7 +251,11 @@ button, .knap { font-weight: var(--v-2); }
 .hero-manchet { font-size: var(--t-3); color: var(--blaek); }
 .listetitel, .sektion-titel, .udlejerbaand h2, .sidetitel h1 { line-height: var(--lh-titel); }
 .listetitel, .sektion-titel, .udlejerbaand h2 { font-size: var(--t-4); font-weight: var(--v-2); }
-.sidetitel h1 { font-size: var(--t-5); font-weight: var(--v-3); }
+/* Kun over 620 px. Uden grænsen overstyrede reglen globals.css' 22/20 px
+   på telefonen, og det var DEN, der brækkede søgesidens titel («Prøveby /
+   N» på 360). Laget kaldte bruddet en fejl i appen og «rettede» den med en
+   regel, der ikke kunne virke (GREB-3.md, rettet). */
+@media (min-width: 621px) { .sidetitel h1 { font-size: var(--t-5); font-weight: var(--v-3); } }
 /* Talstriben blev bevidst sat ned fra 22 px accent («tungere end noget
    andet på skærmen», runde-2). Den må ikke konkurrere med kortets pris. */
 .punkter strong { color: var(--blaek); font-size: var(--t-3); }

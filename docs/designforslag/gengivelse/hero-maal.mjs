@@ -45,6 +45,60 @@ export async function gaaTil(p, url) {
  * laget stod, mockuppen var væk). Derfor: læg på, vent, og efterprøv på
  * et mærke, kun mockuppen kan have sat.
  */
+/**
+ * EN GENGIVELSE MOD RIGTIGE ANNONCER ER EN KOPI AF KILDENS BILLEDER —
+ * uanset hvem der laver den, og hvorfor. Den må ikke committes, ikke
+ * udgives i et artefakt og ikke lægges i docs/ (CLAUDE.md: «Kopiér aldrig
+ * kildens billeder»). Reglen må ikke hvile på, at nogen husker den, så
+ * værktøjerne SKRIVER ikke et skærmbillede, der viser et billede fra en
+ * kilde. Tallene måles stadig; kun billedfilen udebliver.
+ *
+ * Tilladt er kun loopback — vores eget heltefoto (public/, serveret af
+ * appen) og testaktivernes syntetiske mønstre og fliser — samt data:,
+ * blob: og file:. /api/billede og /_next/image afgøres på den adresse, de
+ * henter, ikke på deres egen. Alt andet er en kildes billede.
+ */
+export async function fremmedeBilleder(p) {
+  return p.evaluate(() => {
+    const lokal = (u) => ['data:', 'blob:', 'file:'].includes(u.protocol) || ['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname)
+    const ud = new Set()
+    const tjek = (raw) => {
+      if (!raw) return
+      let u
+      try { u = new URL(raw, location.href) } catch { ud.add(String(raw)); return }
+      if (!lokal(u)) { ud.add(u.href); return }
+      // En lokal adresse, der henter en anden (billedproxyen), afgøres på den.
+      for (const v of u.searchParams.values()) {
+        if (!/^[a-z][a-z0-9+.-]*:/i.test(v)) continue
+        try { if (!lokal(new URL(v))) ud.add(v) } catch { ud.add(v) }
+      }
+    }
+    for (const i of document.images) tjek(i.currentSrc || i.getAttribute('src'))
+    for (const s of document.querySelectorAll('svg image')) tjek(s.getAttribute('href') || s.getAttribute('xlink:href'))
+    for (const v of document.querySelectorAll('video[poster]')) tjek(v.getAttribute('poster'))
+    for (const e of document.querySelectorAll('*')) {
+      for (const pseudo of [null, '::before', '::after']) {
+        const b = getComputedStyle(e, pseudo).backgroundImage
+        if (b && b !== 'none') for (const m of b.matchAll(/url\("?([^")]+)"?\)/g)) tjek(m[1])
+      }
+    }
+    return [...ud]
+  })
+}
+
+/** Skriver skærmbilledet, KUN hvis siden ikke viser en kildes billede.
+ *  Afviste føjes til `afviste` (fil og de første kilder) og skrives ud. */
+export async function skaermbillede(p, opt, afviste = [], element = null) {
+  const f = await fremmedeBilleder(p)
+  if (f.length) {
+    afviste.push({ fil: opt.path, antal: f.length, kilder: f.slice(0, 3) })
+    process.stderr.write(`AFVIST: ${opt.path} er ikke skrevet. Siden viser ${f.length} billede(r) fra en kilde, fx ${f[0]}. En gengivelse mod rigtige annoncer er en kopi af kildens billeder.\n`)
+    return false
+  }
+  await (element ?? p).screenshot(opt)
+  return true
+}
+
 export async function laegPaa(p, { css = '', js = '', valg = {} } = {}) {
   await p.addStyleTag({ content: ALTID + '\n' + css })
   if (js) {
