@@ -152,10 +152,23 @@ export async function matchAlarmer(kun?: string[]): Promise<MatchResultat[]> {
   return ud
 }
 
-/** Alt der ligger og venter — grupperet, så det kan læses som den besked,
- *  der ville være sendt. */
-export async function ventende() {
-  const raekker = await db
+/**
+ * Hvad «venter» betyder, som ÉT udtryk.
+ *
+ * Eksporteret, fordi en måling skal GENGIVE appens eget udtryk og ikke
+ * skrive det af. `maalinger/traef-paa-nedtagne.mjs` kalder `.toSQL()` på
+ * forespørgslen herunder og får appens præcise SQL — from, joins, where,
+ * order — uden at en linje er tastet om. Ændres betingelsen her, ændres
+ * målingen med; det er den samme regel som `GRAENSER` i lib/koersel.ts.
+ *
+ * `toSQL()` renderer kun og åbner ingen forbindelse — men `db` er en
+ * lazy getter, der BYGGER klienten ved opslaget, og den kræver
+ * `DATABASE_URL_DIRECT`. Målingen kan derfor ikke bygges helt uden et
+ * miljø; den kører under testbasen. Målt: uden variablen kaster
+ * `db/client.ts:56`, før `toSQL()` nås.
+ */
+export function ventendeForespoergsel() {
+  return db
     .select({
       soegningId: savedSearches.id,
       soegning: savedSearches.name,
@@ -193,6 +206,12 @@ export async function ventende() {
     .innerJoin(sources, eq(sources.id, listings.sourceId))
     .where(and(isNull(alertMatches.sentAt), isNotNull(savedSearches.confirmedAt)))
     .orderBy(savedSearches.name, desc(alertMatches.matchedAt))
+}
+
+/** Alt der ligger og venter — grupperet, så det kan læses som den besked,
+ *  der ville være sendt. */
+export async function ventende() {
+  const raekker = await ventendeForespoergsel()
 
   const grupper = new Map<string, typeof raekker>()
   for (const r of raekker) {
@@ -265,7 +284,7 @@ export async function soegninger() {
 
 import { inArray } from 'drizzle-orm'
 import { maaSendeTil, sendMail } from './mail'
-import { eltilstand } from './eloplysning'
+import { elTekst, eltilstand } from './eloplysning'
 
 /** Højst én mail i timen per søgning, uanset hvor tit importen kører. */
 const MINDST_MELLEM_MAILS_MIN = 60
@@ -276,11 +295,171 @@ const und = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 
 export interface SendResultat {
   soegning: string
-  modtager: string
+  /** Antal boliger i mailen — altsaa de SENDBARE, ikke hele koeen. */
   antal: number
+  modtager: string
+  /** Traef, der laa i koeen, men hvis bolig er taget ned. Mailes ikke. */
+  udeladt: number
   sendt: boolean
   grund?: string
 }
+
+/** Én bolig, som beskeden skal omtale den. Kun de felter, teksten bruger. */
+export interface BeskedBolig {
+  adresse: string
+  areal: number | null
+  vaerelser: number | null
+  leje: number | null
+  total: number | null
+  indflytning: number | null
+  el: number | null
+  elEgenMaaler: boolean | null
+  poster: string[] | null
+  boligId: string
+  kilde: string
+}
+
+/**
+ * Beskeden som emne, ren tekst og HTML.
+ *
+ * Trukket ud af `sendAlarmer`, fordi teksten ellers kun kan proeves ved
+ * at sende en mail. Funktionen roerer hverken database eller netvaerk:
+ * den faar de boliger, der ER sendbare, og skriver om dem. Filtret selv
+ * (`maaMailes`) proeves gennem den rigtige `sendAlarmer` — et loefte om
+ * et andet lag kan ikke proeves her.
+ *
+ * `boliger` er ALLEREDE filtreret. Tallene i emnet og overskriften
+ * regnes af `boliger.length`, saa mailen ikke kan sige «3 nye boliger»
+ * over en liste med 2.
+ */
+export function byggBesked(o: {
+  navn: string
+  kriterier: Record<string, unknown>
+  boliger: readonly BeskedBolig[]
+  afmeldUrl: string
+}): { emne: string; tekst: string; html: string } {
+  const { navn, kriterier, boliger, afmeldUrl } = o
+  const n = boliger.length
+  const emne = `${n} ${n === 1 ? 'ny bolig' : 'nye boliger'} — ${navn}`
+
+  // Forbeholdet om prisgraensen maa kun staa, hvis der ER en graense.
+  // `uvis` var `total == null` alene, og saetningen «kan vaere dyrere end
+  // din graense» blev dermed sendt til soegninger UDEN prisfilter — en
+  // praeference, vi opfandt og tilskrev hende. Graensen rammer
+  // `coalesce(total, husleje)` (`PRIS` i lib/soeg.ts), saa anden halvdel
+  // — «den er sat paa huslejen alene» — er sand, naar totalen er ukendt.
+  const harPrisgraense = somFiltre(kriterier).prisMax != null
+
+  const linjer = boliger.map((b) => {
+    const pris = b.total != null
+      ? `${kr(b.total)} kr/md til udlejer`
+      : `${kr(b.leje)} kr/md i husleje — total ukendt, aconto ikke oplyst`
+    const indf = b.indflytning != null ? ` · indflytning ${kr(b.indflytning)} kr.` : ''
+    // Ét sted, ligesom paa kortene. Mailen maa ikke sige "el indgaar
+    // ikke" om et beloeb, vi ikke kender indholdet af.
+    //
+    // Tabellen er UDTOEMMENDE. Foer stod her en kaede af ternaerer med et
+    // sidste `else` paa 'el indgaar ikke' — den staerkeste paastand som
+    // faldback, altsaa netop den paastand, den fjerde tilstand kom for at
+    // fjerne. En femte Eltilstand ville have arvet den i tavshed.
+    // `elTekst` kraever hver noegle; en femte tilstand bliver en
+    // oversaettelsesfejl her i stedet.
+    const elnote = elTekst(eltilstand(b), {
+      'egen-maaler': 'el afregnes direkte med elselskabet',
+      'ukendt-daekning': 'aconto er ét samlet beløb — det fremgår ikke om el er med',
+      'ikke-med': 'el indgår ikke — udlejer oplyser ikke hvordan',
+    })
+    const maal = [b.areal && `${b.areal} m²`, b.vaerelser && `${b.vaerelser} vær.`]
+      .filter(Boolean).join(' · ')
+    // TO spoergsmaal, to navne. `uvis` besvarede baade «er det kun
+    // huslejen?» (farven; groen betyder kendt total, jf. CLAUDE.md) og
+    // «skal forbeholdet om prisgraensen staa?». Da det sidste blev
+    // betinget af prisMax, blev farven groen paa en ren husleje — altsaa
+    // en paastand om en total, vi ikke har. Nu er de adskilt.
+    return { adresse: b.adresse, maal, pris, indf, elnote,
+      url: `${BASE}/bolig/${b.boligId}`, kilde: b.kilde,
+      kunLeje: b.total == null,
+      prisforbehold: b.total == null && harPrisgraense }
+  })
+
+  const tekst = [
+    `${n} ${n === 1 ? 'ny bolig matcher' : 'nye boliger matcher'} "${navn}"`,
+    beskrivFiltre(kriterier),
+    '',
+    ...linjer.flatMap((l) => [
+      l.adresse, `  ${l.maal}`, `  ${l.pris}${l.indf}`,
+      ...(l.elnote ? [`  ${l.elnote}`] : []),
+      ...(l.prisforbehold ? ['  OBS: kan være dyrere end din grænse — den er sat på huslejen alene.'] : []),
+      `  ${l.url}`, '',
+    ]),
+    `Afmeld: ${afmeldUrl}`,
+  ].join('\n')
+
+  const html = `<div style="font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;color:#14161a;max-width:600px">
+<p style="margin:0 0 4px"><strong>${n} ${n === 1 ? 'ny bolig' : 'nye boliger'}</strong> matcher «${und(navn)}»</p>
+<p style="margin:0 0 20px;color:#5f6672;font-size:13px">${und(beskrivFiltre(kriterier))}</p>
+${linjer.map((l) => `<div style="border-top:1px solid #e8e5de;padding:14px 0">
+<a href="${l.url}" style="font-size:16px;font-weight:600;color:#14161a;text-decoration:none">${und(l.adresse)}</a>
+<div style="color:#5f6672;font-size:13px;margin-top:3px">${und(l.maal)}</div>
+<div style="margin-top:7px;font-weight:600;color:${l.kunLeje ? '#14161a' : '#14624f'}">${und(l.pris)}</div>
+${l.indf ? `<div style="color:#5f6672;font-size:13px">${und(l.indf.replace(' · ', ''))}</div>` : ''}
+${l.elnote ? `<div style="color:#9aa1ac;font-size:12px;margin-top:4px">${und(l.elnote.charAt(0).toUpperCase() + l.elnote.slice(1))}</div>` : ''}
+${l.prisforbehold ? '<div style="color:#8a5300;font-size:12.5px;margin-top:5px">Kan være dyrere end din grænse — den er sat på huslejen alene.</div>' : ''}
+<div style="color:#9aa1ac;font-size:12px;margin-top:6px">${und(l.kilde)}</div>
+</div>`).join('')}
+<p style="margin:22px 0 0;color:#9aa1ac;font-size:12px">
+Du får denne mail, fordi du har gemt en søgning på Bofinda.
+<a href="${afmeldUrl}" style="color:#9aa1ac">Afmeld</a>.</p></div>`
+
+  return { emne, tekst, html }
+}
+
+/**
+ * Må træffet i det hele taget mailes?
+ *
+ * `ventende()` svarer på «hvad ligger i køen». Det er et ANDET
+ * spørgsmål, og den bruges også af `npm run alarm -- vis`, hvor en
+ * nedtaget bolig netop SKAL kunne ses. Derfor filtreres her og ikke
+ * dér: filtrerede `ventende()`, ville `⚠ IKKE LÆNGERE LEDIG` i
+ * scripts/alarm.ts blive uopnåelig, og operatøren ville miste præcis
+ * den oplysning, linjen findes for.
+ *
+ * ── HVORFOR «slet ikke» OG IKKE «uden forbeholdet» ───────────
+ * Begge er forsvarlige, og valget hænger på, om en gemt søgning er en
+ * overvågning eller en anbefaling. Svaret er, at den er BEGGE — men
+ * ikke på samme flade. Repoet har reglen i forvejen, for native
+ * boliger: «Native boliger bliver i søgningen, hvor brugeren selv
+ * opsøger dem, og ude af mailen.» Push får mindre end pull.
+ *
+ * På Mine gemte og i `alarm -- vis` opsøger man selv, og der er
+ * «Kilden har taget annoncen ned» en oplysning. Mailen er uopfordret,
+ * og den handles på — hun kører derhen. En bolig, kilden har taget ned,
+ * kan ikke handles på, og et forbehold i en indbakke læses timer eller
+ * dage senere, hvor det selv kan være forældet.
+ *
+ * Konsekvenser, bevidst valgt:
+ * · Mailen sendes med de boliger, der er tilbage. Er der ingen tilbage,
+ *   sendes ingen mail — og `sent_at` forbliver null, for der ER ikke
+ *   sendt noget. Kolonnen betyder fortsat præcis det, den siger.
+ * · De nedtagne træf bliver dermed liggende i køen. Det er sandt og
+ *   ikke en lækage, der vokser frit: `ryd()` sletter gamle søgninger,
+ *   og `alert_matches` kaskaderer med dem. Men `soegninger()`s
+ *   ventende-tal tæller dem fortsat med, og det tal står i CLI'en —
+ *   derfor siger linjen i scripts/alarm.ts nu, at de ikke mailes.
+ *
+ * Prædikatet er POSITIVT: det spørger, om status ER `active`, ikke om
+ * den ikke er `delisted`. En tredje status i enummet falder dermed til
+ * «mailes ikke» — den forsigtige gren — i stedet for at arve et ja. Det
+ * er samme valg som i `elTekst` og den modsatte vej af det gamle
+ * `else`, der landede på den stærkeste påstand.
+ *
+ * Skal det laves om til «send den med, uden varslet», er det ÉN linje:
+ * lad funktionen returnere `true` altid. Så bærer kortet og mailen
+ * samme påstand igen, og det er den beslutning, der skal træffes
+ * bevidst — ikke opdages.
+ */
+export const maaMailes = (b: { status: 'active' | 'delisted' }): boolean =>
+  b.status === 'active'
 
 /**
  * Sender én mail per søgning med ventende træf, og sætter sent_at.
@@ -299,68 +478,40 @@ export async function sendAlarmer(): Promise<SendResultat[]> {
     const navn = f.soegning ?? 'din søgning'
 
     if (!f.paaMail || f.afmeldt) {
+      // Hele koeen staar som `antal`: afmeldingen rammer alt, og de
+      // nedtagne er ikke engang vurderet her — `udeladt` er derfor 0 og
+      // ikke et gaet.
       ud.push({ soegning: navn, modtager: f.modtager, antal: g.length,
-        sendt: false, grund: 'afmeldt — mail slået fra' })
+        udeladt: 0, sendt: false, grund: 'afmeldt — mail slået fra' })
       continue
     }
+    // En bolig, kilden har taget ned, maa ikke varsles. Se `maaMailes`.
+    // Tallene nedenfor regnes af `sendbare` og ikke af `g`, saa emnet
+    // ikke kan sige «3 nye boliger» over en liste med 2.
+    const sendbare = g.filter((b) => maaMailes(b))
+    const nedtagne = g.length - sendbare.length
+    if (sendbare.length === 0) {
+      ud.push({ soegning: navn, modtager: f.modtager, antal: 0, udeladt: nedtagne,
+        sendt: false,
+        grund: nedtagne === 1
+          ? 'boligen er taget ned — intet sendt'
+          : `alle ${nedtagne} boliger er taget ned — intet sendt` })
+      continue
+    }
+
     if (f.sidstSendt && Date.now() - +f.sidstSendt < MINDST_MELLEM_MAILS_MIN * 60_000) {
       const min = Math.round((MINDST_MELLEM_MAILS_MIN * 60_000 - (Date.now() - +f.sidstSendt)) / 60_000)
-      ud.push({ soegning: navn, modtager: f.modtager, antal: g.length,
-        sendt: false, grund: `sendt for nylig — venter ${min} min.` })
+      ud.push({ soegning: navn, modtager: f.modtager, antal: sendbare.length,
+        udeladt: nedtagne, sendt: false, grund: `sendt for nylig — venter ${min} min.` })
       continue
     }
 
     // Siden til mennesker; POST-ruten til mailklientens ét-klik.
     const afmeldUrl = `${BASE}/afmeld/${f.token}`
     const afmeldPost = `${BASE}/api/afmeld?t=${f.token}`
-    const emne = `${g.length} ${g.length === 1 ? 'ny bolig' : 'nye boliger'} — ${navn}`
-
-    const linjer = g.map((b) => {
-      const pris = b.total != null
-        ? `${kr(b.total)} kr/md til udlejer`
-        : `${kr(b.leje)} kr/md i husleje — total ukendt, aconto ikke oplyst`
-      const indf = b.indflytning != null ? ` · indflytning ${kr(b.indflytning)} kr.` : ''
-      // Ét sted, ligesom paa kortene. Mailen maa ikke sige "el indgaar
-      // ikke" om et beloeb, vi ikke kender indholdet af.
-      const t = eltilstand(b)
-      const elnote = t == null || t === 'med' ? null
-        : t === 'egen-maaler' ? 'el afregnes direkte med elselskabet'
-          : t === 'ukendt-daekning' ? 'aconto er ét samlet beløb — det fremgår ikke om el er med'
-            : 'el indgår ikke — udlejer oplyser ikke hvordan'
-      const maal = [b.areal && `${b.areal} m²`, b.vaerelser && `${b.vaerelser} vær.`]
-        .filter(Boolean).join(' · ')
-      return { adresse: b.adresse, maal, pris, indf, elnote,
-        url: `${BASE}/bolig/${b.boligId}`, kilde: b.kilde, uvis: b.total == null }
+    const { emne, tekst, html } = byggBesked({
+      navn, kriterier: f.kriterier, boliger: sendbare, afmeldUrl,
     })
-
-    const tekst = [
-      `${g.length} ${g.length === 1 ? 'ny bolig matcher' : 'nye boliger matcher'} "${navn}"`,
-      beskrivFiltre(f.kriterier),
-      '',
-      ...linjer.flatMap((l) => [
-        l.adresse, `  ${l.maal}`, `  ${l.pris}${l.indf}`,
-        ...(l.elnote ? [`  ${l.elnote}`] : []),
-        ...(l.uvis ? ['  OBS: kan være dyrere end din grænse — den er sat på huslejen alene.'] : []),
-        `  ${l.url}`, '',
-      ]),
-      `Afmeld: ${afmeldUrl}`,
-    ].join('\n')
-
-    const html = `<div style="font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;color:#14161a;max-width:600px">
-<p style="margin:0 0 4px"><strong>${g.length} ${g.length === 1 ? 'ny bolig' : 'nye boliger'}</strong> matcher «${und(navn)}»</p>
-<p style="margin:0 0 20px;color:#5f6672;font-size:13px">${und(beskrivFiltre(f.kriterier))}</p>
-${linjer.map((l) => `<div style="border-top:1px solid #e8e5de;padding:14px 0">
-<a href="${l.url}" style="font-size:16px;font-weight:600;color:#14161a;text-decoration:none">${und(l.adresse)}</a>
-<div style="color:#5f6672;font-size:13px;margin-top:3px">${und(l.maal)}</div>
-<div style="margin-top:7px;font-weight:600;color:${l.uvis ? '#14161a' : '#14624f'}">${und(l.pris)}</div>
-${l.indf ? `<div style="color:#5f6672;font-size:13px">${und(l.indf.replace(' · ', ''))}</div>` : ''}
-${l.elnote ? `<div style="color:#9aa1ac;font-size:12px;margin-top:4px">${und(l.elnote.charAt(0).toUpperCase() + l.elnote.slice(1))}</div>` : ''}
-${l.uvis ? '<div style="color:#8a5300;font-size:12.5px;margin-top:5px">Kan være dyrere end din grænse — den er sat på huslejen alene.</div>' : ''}
-<div style="color:#9aa1ac;font-size:12px;margin-top:6px">${und(l.kilde)}</div>
-</div>`).join('')}
-<p style="margin:22px 0 0;color:#9aa1ac;font-size:12px">
-Du får denne mail, fordi du har gemt en søgning på Bofinda.
-<a href="${afmeldUrl}" style="color:#9aa1ac">Afmeld</a>.</p></div>`
 
     const r = await sendMail({ til: f.modtager, emne, tekst, html,
       afmeldUrl: afmeldPost, afmeldSideUrl: afmeldUrl })
@@ -368,13 +519,15 @@ Du får denne mail, fordi du har gemt en søgning på Bofinda.
       // Først når mailen ER afsendt.
       await db.update(alertMatches)
         .set({ sentAt: sql`now()` })
-        .where(inArray(alertMatches.id, g.map((x) => x.matchId)))
+        // KUN de sendte. De nedtagne blev ikke sendt, og `sent_at`
+        // betyder «mailen ER afsendt» — ikke «vi er faerdige med den».
+        .where(inArray(alertMatches.id, sendbare.map((x) => x.matchId)))
       await db.update(savedSearches)
         .set({ lastNotifiedAt: sql`now()` })
         .where(eq(savedSearches.id, f.soegningId))
     }
-    ud.push({ soegning: navn, modtager: f.modtager, antal: g.length,
-      sendt: r.sendt, grund: r.grund })
+    ud.push({ soegning: navn, modtager: f.modtager, antal: sendbare.length,
+      udeladt: nedtagne, sendt: r.sendt, grund: r.grund })
   }
   return ud
 }

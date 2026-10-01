@@ -60,3 +60,43 @@ Populationen er appens egen `ventende()`-betingelse
 - `kan_mailes = 3` → `notify_email` læses ikke.
 - `ned_efter_traef = 3` → sammenligningen af de to tidspunkter er vendt
   om eller mangler.
+
+---
+
+## Resultatet — tilføjet EFTER kørslen
+
+Alle ni kolonner ramte facit første gang (`ee19742` bærer facit, kørslen
+kom bagefter):
+
+```
+  ✓ traef            facit   3   målt   3
+  ✓ soegninger       facit   2   målt   2
+  ✓ boliger          facit   2   målt   2
+  ✓ kan_mailes       facit   2   målt   2
+  ✓ ned_efter_traef  facit   2   målt   2
+  ✓ aeldste_timer    facit  30   målt  30
+  ✓ nyeste_timer     facit   5   målt   5
+  ✓ median_timer     facit  20   målt  20
+  ✓ traef_i_alt      facit   4   målt   4
+```
+
+### Og den kan blive rød
+
+Et sammenfald med facit er ikke et bevis i sig selv. To mutationer,
+kørt gennem `scripts/modproeve.mjs` (fra `verktoej/modproevekoerer`):
+
+| mutation | udfald |
+|---|---|
+| status-leddet fjernet fra målingen | **4 røde** — `traef` 3 → 4, `boliger` 2 → 3, `kan_mailes` 2 → 3, `median_timer` 20 → 15 |
+| appens eget `sent_at`-led fjernet i `lib/alarm.ts` | **afbrudt** — `halen baerer ikke appens sent_at-led` |
+
+Den anden er den vigtige: den beviser, at halen er GENERERET af
+produktionskoden. Ændrer `ventende()` form, nægter målingen at køre i
+stedet for at måle noget andet.
+
+## Hvad målingen IKKE siger
+
+Tallene ovenfor er **forlæggets**, ikke produktionens. 5432 og 6543 er
+lukkede fra containeren, så produktionens tal kan kun hentes ved at køre
+SELECT'en i Supabases editor. Det, der er efterprøvet her, er at
+SELECT'en svarer rigtigt — ikke hvad den svarer i produktionen.

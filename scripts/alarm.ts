@@ -56,6 +56,7 @@ if (kmd === 'opret') {
   if (!r.length) ud('  ingen ventende beskeder')
   for (const x of r) {
     ud(`  ${x.sendt ? 'SENDT ' : 'sprang '} ${x.soegning} → ${x.modtager} (${x.antal} boliger)`
+      + (x.udeladt ? `  · ${x.udeladt} taget ned, ikke mailet` : '')
       + (x.grund ? `  — ${x.grund}` : ''))
   }
 
@@ -102,7 +103,11 @@ if (kmd === 'opret') {
       }
       ud(`    ${b.kilde} · set ${klokken(b.foerstSet)}`
         + (forsinkelse != null ? ` · ${forsinkelse} min. efter kilden oprettede den` : '')
-        + (b.status === 'delisted' ? '  ⚠ IKKE LÆNGERE LEDIG' : ''))
+        // Linjen siger nu ogsaa FOELGEN. «vis» er en pull-flade og
+        // beholder derfor boligen; mailen udelader den (`maaMailes` i
+        // lib/alarm.ts). Stod der kun «ikke laengere ledig», ville den
+        // beskrive adfaerden fra foer filtret.
+        + (b.status === 'delisted' ? '  ⚠ IKKE LÆNGERE LEDIG — mailes ikke' : ''))
       ud(`    http://localhost:3000/bolig/${b.boligId}`)
       ud()
     }

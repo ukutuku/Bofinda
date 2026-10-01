@@ -59,3 +59,30 @@ export function eltilstand(b: {
  */
 export const samletKlump = (poster: string[] | null): boolean =>
   poster != null && poster.includes('other') && !poster.some((p) => NAVNGIVNE.includes(p))
+
+/**
+ * Oversæt tilstanden til en tekst — UDTØMMENDE, uden fald-igennem.
+ *
+ * Teksterne hører til fladen: et kort har ikke plads til en sætning, en
+ * mail har. Men FORMEN må ikke være en kæde af ternærer med et sidste
+ * `else`, og det var den tre steder. Et sidste `else` dækker altid og
+ * lander på den gren, der tilfældigvis stod sidst — her
+ * «el indgår ikke», altså netop den påstand, den fjerde tilstand blev
+ * indført for at fjerne. En femte `Eltilstand` ville arve den i tavshed.
+ *
+ * `Record<Exclude<Eltilstand, 'med'>, T>` KRÆVER hver nøgle. Det er
+ * forskellen fra `readonly X[]`, som `FACILITETER` er bundet med:
+ * annotationen der tillader enhver længde, så den fanger en forkert
+ * værdi men ikke en manglende. En `Record` fanger begge — en femte
+ * tilstand gør hvert kaldested til en oversættelsesfejl.
+ *
+ * `med` og `null` giver `null`: der skal ingen linje stå, og det er
+ * derfor de ikke er nøgler i tabellen.
+ */
+export function elTekst<T>(
+  t: Eltilstand | null,
+  tekster: Readonly<Record<Exclude<Eltilstand, 'med'>, T>>,
+): T | null {
+  if (t == null || t === 'med') return null
+  return tekster[t]
+}
