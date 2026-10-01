@@ -955,51 +955,159 @@ der skal til for også at sikre filerne i storage-bucket'en.
 
 ## Dækker ét tilfælde mindre, end man tror
 
-Elleve fælder. De **otte første** har samme form: et værn, der læses som
-udtømmende, og som ikke er det. De fanger noget — og netop derfor ser de
-ud som om de fanger resten.
+**Indledningen tæller ikke rækkerne, og det er med vilje.** Den sagde «Ni
+fælder. De otte første …», mens tabellen havde elleve — fire sessioner
+skriver i den her fil, og et tal i en indledning er forældet, så snart en
+anden tilføjer en række. Det er selve den fejl, tabellen handler om: en
+identifikator, der ændrer sig under dig. Rækkerne grupperes derfor efter
+FORM og nævnes ved navn.
 
-Den **niende** står for sig, og den er værre: et værn, der måler **sig
-selv** i stedet for koden. De otte måler noget rigtigt, blot mindre; den
-niende måler ikke det, den handler om.
+**Form 1 · et værn, der læses som udtømmende, og ikke er det.** De fanger
+noget — og netop derfor ser de ud, som om de fanger resten. Her ligger
+`gitignore-skråstregen`, `splice-fra-enden`, `gentagelsesprøven`,
+`include-filteret`, `de-hentede-refs`, `delmængde-påstanden`,
+`facilitets-bindingen`, `linjeankeret` og `værdisøgningen`.
 
-Den **tiende** er den niendes slægtning: prøven ser på den rigtige kode,
-men kun på den fil, teksten står i — ikke på det modul, teksten lover
-noget om. Den **ellevte** er slet ikke et værn, men en note, der læses som
-et: en fejl, der er skrevet ned, ligner en fejl, der er håndteret.
+**Form 2 · et værn, der måler sig selv i stedet for koden.** Værre end
+form 1: de måler noget rigtigt, blot mindre; disse måler ikke det, de
+handler om. `prøvens-eget-forlæg` og dens slægtning
+`den-rene-fils-påstand`, hvor prøven ser på den rigtige kode, men kun på
+den fil, teksten står i — ikke på det modul, teksten lover noget om.
+
+**Form 3 · et svar om værktøjet er ikke et svar om arbejdet.** Ikke et
+værn, der dækker for lidt, men et svar, der er SANDT om noget andet, end
+man læser det som. `konflikt-fødte-ændringer`, `værktøjets-kvittering` og
+`transpilerede-positioner`. Se afsnittet efter tabellen.
+
+**Og to, der ikke er værn.** `kendt-følge`: en fejl, der er skrevet ned,
+ligner en fejl, der er håndteret. `det-stærkeste-faldback` er en anden
+akse end alle de andre — ikke hvor meget et værn dækker, men hvilken VEJ
+en manglende værdi falder.
 
 Hver af dem har kostet mindst én omgang i dette repo.
 
+**Hver række har et NAVN, og navnet er identifikatoren — ikke nummeret.**
+Rækkefølgen har skiftet tre gange på en uge. «Den ottende række» er
+forældet, så snart en anden tilføjer en, og en henvisning, der stille
+kommer til at pege på noget andet, er samme fejl igen. Henvis til navnet i
+commits, i PR-tekster og her.
+
 | Fælden | Hvad den IKKE dækker |
 |---|---|
-| `node_modules/` i `.gitignore` | Skråstregen matcher kun en MAPPE. Et symlink slap forbi og kom i versionsstyringen (`abad7ae`). Løst: mønstret står nu uden skråstreg. |
-| `splice(-1)` | Læses som «fra enden» og fjerner ÉN post — ikke resten. Se `lib/ingest.ts` og `adapters/heimstaden.ts`. |
-| en gentagelsesprøve mod et uafgjort `ORDER BY` | Beviser stabilitet i DENNE forespørgselsplan, ikke at det afgørende led findes. Kald den samme forespørgsel fem gange, og Postgres svarer gerne det samme — også når leddet er fjernet. |
-| `grep --include=*.ts` | Ser ikke `.mjs`, `.sql`, `.md`. Svarer rent på et smallere spørgsmål — og siger ikke selv, at det var smallere. |
-| `git grep` over `refs/heads refs/remotes` | Ser kun de refs, der ER HENTET. En gren, ingen har fetchet, findes ikke for søgningen. |
-| en påstand om «ændringen» | …hvor det målte var en DELMÆNGDE af den. Filteret ligger her i sætningens subjekt, ikke i kommandoen. |
-| `FACILITETER` bundet til `Facilitetsord` | Fanger en forkert VÆRDI, ikke en manglende. `readonly X[]` må have enhver længde — også nul. Se nedenfor. |
-| en scanner forankret til linjestart (`^`) | Ser kun kopier, hvor nøglen står FØRST på linjen. En kopi med flere nøgler pr. linje slipper forbi — og det var netop den form, alle de fundne kopier havde. |
-| en prøve, der bygger sit eget forlæg | Dækker slet ikke koden. Isoleringsflagene lå i trinlisten i `scripts/import.ts`; prøven byggede sine egne trin med sine egne flag. Vendes hvert eneste flag i koden, er sættet fortsat grønt — prøven så aldrig på dem. |
-| brugervendt tekst i en ren fil, prøvet i `npm test` | Teksten, ikke løftet. Brugervendt tekst, der gør et udsagn om systemet, lægges i en ren fil uden database, så den kan prøves — det er rigtigt. Men en påstand om ET ANDET modul kan ikke prøves der: den skal have sin egen prøve, hvor modulet bor. «Den kan stadig åbnes på sit eget link» handler om `hentBolig`, og prøven af forklaringsfilen var grøn, også hvis linket gav 404. En ren fil gør teksten prøvbar og løftet uprøvbart, hvis man ikke passer på. **Og en ren fil holder kun, hvis også dens hjælpefunktioner er rene** — en formatteringshjælper fra en komponent er det sjældent. Fletteopskriften til `opgave/kontakt-ui` ville have hentet `kr` fra `app/Boligkort` ind i `forklaring.ts`, og `Boligkort` importerer `lib/soeg` og dermed databasen. Intet ville have set det: `db/client.ts` forbinder først ved første brug, så en import-prøve bliver ikke rød, og prøverne kører under testbasen. `scripts/test-rene-filer.ts` måler derfor importgrafen med esbuild og tillader kun andre rene filer — en allowlist, så en ny hjælper skal på listen og selv bliver vogtet. |
-| en kendt fejl skrevet ned som «kendt følge» | Brugeren. En kendt usand brugervendt sætning er en fejl, ikke en følge. Den skal rettes, eller ændringen skal vente. At skrive den ned er ikke at have løst den — siden blev ved med at sige den, hver gang den blev vist. |
+| **gitignore-skråstregen** · `node_modules/` i `.gitignore` | Skråstregen matcher kun en MAPPE. Et symlink slap forbi og kom i versionsstyringen (`abad7ae`). Løst: mønstret står nu uden skråstreg. |
+| **splice-fra-enden** · `splice(-1)` | Læses som «fra enden» og fjerner ÉN post — ikke resten. Se `lib/ingest.ts` og `adapters/heimstaden.ts`. |
+| **gentagelsesprøven** · mod et uafgjort `ORDER BY` | Beviser stabilitet i DENNE forespørgselsplan, ikke at det afgørende led findes. Kald den samme forespørgsel fem gange, og Postgres svarer gerne det samme — også når leddet er fjernet. |
+| **include-filteret** · `grep --include=*.ts` | Ser ikke `.mjs`, `.sql`, `.md`. Svarer rent på et smallere spørgsmål — og siger ikke selv, at det var smallere. |
+| **de-hentede-refs** · `git grep` over `refs/heads refs/remotes` | Ser kun de refs, der ER HENTET. En gren, ingen har fetchet, findes ikke for søgningen. |
+| **delmængde-påstanden** · om «ændringen» | …hvor det målte var en DELMÆNGDE af den. Filteret ligger her i sætningens subjekt, ikke i kommandoen. |
+| **facilitets-bindingen** · `FACILITETER` mod `Facilitetsord` | Fanger en forkert VÆRDI, ikke en manglende. `readonly X[]` må have enhver længde — også nul. Se nedenfor. |
+| **linjeankeret** · en scanner forankret til linjestart (`^`) | Ser kun kopier, hvor nøglen står FØRST på linjen. Alle seks kopier havde flere nøgler pr. linje, så scanneren meldte fire af seks — et tal, der ser ud som et svar. |
+| **prøvens-eget-forlæg** | Dækker slet ikke koden. Isoleringsflagene lå i trinlisten i `scripts/import.ts`; prøven byggede sine egne trin med sine egne flag. Vendes hvert eneste flag i koden, er sættet fortsat grønt — prøven så aldrig på dem. |
+| **den-rene-fils-påstand** · brugervendt tekst i en ren fil, prøvet i `npm test` | Teksten, ikke løftet. Brugervendt tekst, der gør et udsagn om systemet, lægges i en ren fil uden database, så den kan prøves — det er rigtigt. Men en påstand om ET ANDET modul kan ikke prøves der: den skal have sin egen prøve, hvor modulet bor. «Den kan stadig åbnes på sit eget link» handler om `hentBolig`, og prøven af forklaringsfilen var grøn, også hvis linket gav 404. En ren fil gør teksten prøvbar og løftet uprøvbart, hvis man ikke passer på. **Og en ren fil holder kun, hvis også dens hjælpefunktioner er rene** — en formatteringshjælper fra en komponent er det sjældent. Fletteopskriften til `opgave/kontakt-ui` ville have hentet `kr` fra `app/Boligkort` ind i `forklaring.ts`, og `Boligkort` importerer `lib/soeg` og dermed databasen. Intet ville have set det: `db/client.ts` forbinder først ved første brug, så en import-prøve bliver ikke rød, og prøverne kører under testbasen. `scripts/test-rene-filer.ts` måler derfor importgrafen med esbuild og tillader kun andre rene filer — en allowlist, så en ny hjælper skal på listen og selv bliver vogtet. |
+| **kendt-følge** · en kendt fejl skrevet ned i stedet for rettet | Brugeren. En kendt usand brugervendt sætning er en fejl, ikke en følge. Den skal rettes, eller ændringen skal vente. At skrive den ned er ikke at have løst den — siden blev ved med at sige den, hver gang den blev vist. |
+| **værdisøgningen** · `git grep "'Lejlighed'"` | Finder kun den ene af tre skrivemåder. Nøglen er ens i alle kopier; værdien er netop det, en drevet kopi har ændret. |
+| **konflikt-fødte-ændringer** · `git log -S` / `-G` | Ser **ikke merges**. En linje, der opstod i en merges konfliktløsning, har ingen enkelt commit — og søgningen svarer TOMT. Det læses som «denne linje har ingen historik», når det betyder «denne historik er usynlig for dette værktøj». Brug `--diff-merges=first-parent`; `-m` finder den også, men differ mod hver forælder og over-rapporterer. Målt: `.kort-maerkater { right: 52px }` fandtes i nul commits, i én merge med flaget, og i fire med `-m`. |
+| **værktøjets-kvittering** · `Successfully rebased and updated refs/heads/…` | Indholdet. Kvitteringen er sand om værktøjets egen bogføring og **tavs om arbejdet**: `rebase --continue` spørger, om indeksposten er opmærket som løst — ikke om løsningen er rigtig. Målt: samme fil med byte-identisk indhold giver `needs merge` ustaged og `Successfully rebased` staged, og commit'en bærer tre konfliktmarkører, mens `git status` er tom. |
+| **transpilerede-positioner** · V8-dækning (`NODE_V8_COVERAGE`) over en `.ts`-fil | At positionerne peger i DEN FIL, du læser. `tsx` oversætter først, så dækningens `startOffset` er tegnpositioner i den TRANSPILEREDE JS. Et opslag «hvilken `tjek(`-linje ligger i en nul-range» rammer derfor ved siden af, og afvigelsen vokser med filens kommentarer. Målt: **187 af 485 påstande meldt udækkede i `test-redigering.ts` — alle 485 var kørt.** Stakspor ER kildekortlagt; tegnpositioner er ikke. |
+| **det-stærkeste-faldback** · `??` og et sidste `else` | Dækker rigeligt — men falder mod det STÆRKESTE udsagn. Se nedenfor; det er en anden akse end de ti andre. |
 
-**Fire af dem er den samme fejl fire gange.** Ved `--include` kan filteret
-SES i kommandoen. Ved `git grep` over refs er der intet at se: kommandoen
-ligner en søgning over alle grene og søger i det, der tilfældigvis ligger
-lokalt. I den sjette ligger filteret i det, sætningen handler OM. Og i den
-ottende ligger det i **regexet** — et `^` gør scanneren til en
-linjescanner, og den slags kopier står sjældent alene på deres linje.
+**Fem af dem er den samme fejl fem gange: et usynligt filter.** Ved
+**include-filteret** kan filteret SES i kommandoen. Ved **de-hentede-refs**
+er der intet at se: kommandoen ligner en søgning over alle grene og søger
+i det, der tilfældigvis ligger lokalt. I **delmængde-påstanden** ligger
+filteret i det, sætningen handler OM. I **linjeankeret** ligger det i
+**regexet** — et `^` gør scanneren til en linjescanner, og den slags
+kopier står sjældent alene på deres linje. Og i **værdisøgningen** ligger
+det i, hvilken af flere skrivemåder man søgte efter.
 
-Den ottende er den lærerigste, fordi modprøven BESTOD. En scanner skulle
+### Form 3: et svar om værktøjet er ikke et svar om arbejdet
+
+De tre rækker `konflikt-fødte-ændringer`, `værktøjets-kvittering` og
+`transpilerede-positioner` hører sammen, og de er sværere end form 1 og 2:
+**der står ikke noget forkert nogen steder.** Alle tre svar er sande. Fejlen
+ligger i, hvilket spørgsmål man tror, der blev besvaret.
+
+| navn | svaret | hvad det handler om | hvad det læses som |
+|---|---|---|---|
+| `konflikt-fødte-ændringer` | **tomt** — `git log -S` fandt intet | de commits, værktøjet så på | «linjen har ingen historik» |
+| `værktøjets-kvittering` | **bekræftende** — `Successfully rebased` | værktøjets egen bogføring | «løsningen var rigtig» |
+| `transpilerede-positioner` | **præcist** — 187 af 485 udækkede | den transpilerede JS | «187 påstande i min .ts-fil kører ikke» |
+
+En tavshed, en kvittering og et præcist tal. Ingen af dem kan fanges ved at
+læse udskriften en gang mere.
+
+**Modtrækket er det samme alle tre steder: spørg om noget, du kan efterprøve
+ANDETSTEDS.** For `transpilerede-positioner` var det det, der afgjorde sagen:
+tallet 187 lød troværdigt, så påstanden blev prøvet ved at **søge de påståede
+udækkede linjers TEKST i prøvens egen udskrift** — og de stod der alle. Så
+kunne tallet forkastes uden at vide hvorfor det var forkert. Først derefter
+kom forklaringen (`tsx` oversætter; offsets flytter), og forklaringen var
+ikke nødvendig for at vide, at tallet var forkert.
+
+Det brugbare her er rækkefølgen: **først et uafhængigt modbevis, så en
+mekanisme.** Havde forklaringen skullet findes først, var tallet blevet stående.
+Samme greb virker på de to andre: tæl rækkerne med `--diff-merges=first-parent`
+i stedet for at læse det tomme svar igen, og `grep` efter konfliktmarkører i
+commit'en i stedet for at læse kvitteringen igen.
+
+**Og det, der FAKTISK målte dækningen**, var en probe, der loggede hvert
+`.every()`/`.some()` på en tom liste med sit stakspor — for stakspor ER
+kildekortlagt af `tsx`, mens tegnpositioner ikke er. Resultatet var lille nok
+til at være brugbart: nul tomme `.every()` i hele sættet, seks tomme `.some()`,
+hvoraf fem var rigtig semantik eller dækket af en forudsætningslinje lige over.
+Ét var en ægte tom grøn.
+
+**Linjeankeret** er det lærerigste, fordi modprøven BESTOD. En scanner skulle
 finde kopier af boligtype-kortet; den var forankret til linjestart, og
 modprøven — læg en kopi ind, se scanneren blive rød — gav grønt, fordi
 kopien havde to nøgler på linjen. Da ankeret blev fjernet, kom der en
 kopi frem, ingen havde set: inline i `genererBeskrivelse`.
 
-**Den niende er den samme sygdom et lag længere ude.** Ved den ottende var
-værnet rigtigt monteret og bare for smalt. Ved den niende var værnet
-monteret på en kopi. Kørselsgrænserne bar hvert trins isoleringsflag i
+**Og tallet var fire af seks, ikke nul.** Rækken stod først med tre
+kopier og «ville have meldt nul». Målt: der var SEKS, og to af dem havde
+kun ét linjeindledende opslag hver, så en linjeforankret scanner passerer
+tærsklen på de fire øvrige. **Fire er farligere end nul.** Nul får dig til
+at kigge efter; fire ser ud som et svar. Rækken blev svagere af at stå
+med nul, for den handler netop om et værn, hvis resultat virker
+troværdigt.
+
+**Værdisøgningen forklarer, hvorfor de to optællinger var tre og seks.** To
+gennemgange af den samme commit gav forskellige tal, og forskellen er
+målt, ikke gættet: `git grep -l "'Lejlighed'"` gav præcis tre filer,
+`git grep -l "lejlighed:"` gav seks. De tre var dem med stort
+forbogstav i VÆRDIEN; de tre andre skrev `'lejlighed'` med småt eller
+`'lejligheder'` i flertal. En søgning på værdien finder derfor kun den
+ene af tre skrivemåder, mens nøglen er den samme alle seks steder — og en
+kopi, der har drevet, har per definition drevet i værdien. Søg på det,
+der er ens, ikke på det, der varierer. Stemmer to målinger af det samme
+ikke, er det ikke en uenighed at afgøre, men et spørgsmål om, hvad de
+hver især dækkede.
+
+**Det-stærkeste-faldback er en anden akse, og det hører alligevel her.** De andre
+handler om et værn, der dækker for LIDT. Denne handler om, hvilken VEJ en
+fejl falder. Et `??` og et sidste `else` dækker altid — de tager enhver
+værdi — men de lander på den gren, der tilfældigvis stod til sidst, og i
+tre målte tilfælde var det det mest vidtgående udsagn på skærmen:
+
+| udsagnet | hvad det falder fra |
+|---|---|
+| «El indgår ikke — udlejer oplyser ikke hvordan» (`app/Boligkort.tsx`, sidste gren i `Ellinje`) | en femte `Eltilstand`. Netop den påstand, den fjerde tilstand blev indført for at fjerne: den må kun siges, når posterne ER udspecificerede. |
+| «Fra 9 kr.» | et `?? 'intro'` på et tilbud, der var `null`, fordi brugerrækken ikke kunne læses — altså et prisløfte bygget på VORES læsefejl. |
+| «Fornyes ikke» | et `??` på en dato, der manglede. Det stærkeste løfte, vi kan give om en kundes penge. |
+
+De to sidste ligger i betalingsarbejdet, som ikke er på `main` endnu, og
+står derfor uden stier. Den første kan slås op.
+
+Reglen er ikke «brug aldrig et `??`». Den er: **vælg den sidste gren
+bevidst, og lad den være den mest forsigtige.** Falder en ukendt værdi ned
+i «vi ved det ikke», koster den en unødig forsigtighed. Falder den ned i
+«el er ikke med» eller «fra 9 kr.», har vi sagt noget til et menneske, vi
+ikke havde dækning for. Er der ingen forsigtig gren at falde i, er det et
+tegn på, at oversættelsen skal være udtømmende i stedet.
+
+**Prøvens-eget-forlæg er den samme sygdom et lag længere ude.** Ved
+**linjeankeret** var værnet rigtigt monteret og bare for smalt. Her var
+værnet monteret på en kopi. Kørselsgrænserne bar hvert trins isoleringsflag i
 `scripts/import.ts`, og prøven byggede sine egne trin med sine egne flag.
 Den bekræftede, at mekanikken respekterer et flag — sandt og nyttigt — og
 læstes som om den havde bekræftet, at flagene var sat rigtigt. Målt:
