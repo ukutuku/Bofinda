@@ -153,7 +153,7 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   hvem der oplyser hvad.
 
   Når et facilitetsfilter er sat, står der desuden, hvilke kilder der
-  forsvinder helt: *"Dacas, LokalBolig og findbolig.nu oplyser aldrig
+  forsvinder helt: *"Dacas, findbolig.nu og LokalBolig oplyser aldrig
   faciliteter. Med et facilitetsfilter er 399 boliger derfra ude — også
   dem der har det, du søger."* Navnene beregnes af `tavseKilder` i
   `lib/soeg.ts`, ikke skrives ind, så linjen retter sig selv, hvis en kilde
@@ -1303,9 +1303,10 @@ gør. Det er spærringen — ikke en aftale om at lade være.
 Før dette skrev `npm test` i produktionsdatabasen: 3 brugere, 8 boliger, 55
 billedrækker, alle `active` og dermed synlige på forsiden, mens prøven kørte.
 
-`npm run test:prod` kører de fire prøver, der måler det rigtige udbud — byen
+`npm run test:prod` kører de prøver, der måler det rigtige udbud — byen
 fra et postnummer, at et filter udelukker de ukendte, og de to om tavse
-kilder. Den **skriver i produktionen**. Den skal skrives med vilje.
+kilder — og den danske orden, som testbasen ikke kan sortere (se «Version
+og collation»). Den **skriver i produktionen**. Den skal skrives med vilje.
 
 Kilderne sås ikke i testbasen. `sources` er et register, hvis sandhed ligger i
 `KILDER` i `adapters/index.ts`; rækkerne materialiseres af `sikreKilde()`.
@@ -1325,12 +1326,23 @@ Testbasen er målt inde i `rejsTestbase()`, efter migrationerne.
 | version | 17.6 (170006) | 18.3 (180003) |
 | `datcollate` / `datctype` | en_US.UTF-8 / en_US.UTF-8 | C / C.UTF-8 |
 | udbyder | icu | libc |
-| `da-x-icu`, `collversion` | findes, 153.121.45 | findes ikke |
+| `da-x-icu`, `collversion` | findes, 153.121.45 | attrap: ICU's rod under dansk navn (`locale = 'und'`) |
 
 **«18.3» er motorens eget svar, ikke et pakkenummer.** `version()` svarer
 `PostgreSQL 18.3 (PGlite 0.5.8) on wasm32-unknown-emscripten`. 0.5.8 er
 PGlites egen udgivelse, og den står i package.json. Læs aldrig versionen af
 package.json — spørg motoren.
+
+**Ser en sortering forkert ud, uden at koden er ændret, så se først på
+`collversion`.** Den er ICU-versionen bag collationen. Opgraderer Supabase
+ICU, kan en dansk sortering skifte under os. Derfor står `collate
+"da-x-icu"` i udtrykket og aldrig på en kolonne eller et indeks: et indeks
+bygget med en ICU-collation er bundet til ICU-versionen, og efter en
+opgradering kan det give forkerte svar med kun en logadvarsel, som ingen
+læser i Supabase. Et udtryk har ingen indeksafhængighed.
+
+    select collname, collprovider, collversion from pg_collation
+    where collname = 'da-x-icu';
 
 **NULL-ordenen er afledt, ikke antaget.** Postgres 16.13 (en lokal klynge)
 og PGlite 18.3 er målt. Begge sætter NULL sidst ved `asc` og først ved
@@ -1372,25 +1384,63 @@ kan altså se en ordenspåstand, når der er en.
 Det omvendte alfabet dækker bogstaver og cifre, ikke tegnsætning eller
 mellemrum.
 
-**Ordenen er altså ikke prøvet forkert. Den er ikke prøvet.** Tekst
-sorteres disse steder, og ingen prøve påstår noget om nogen af dem:
+**Nul af 971 betød, at ordenen ikke var prøvet — ikke at den var prøvet
+forkert.** Tekst sorteres disse steder, og de er nu delt i to:
 
-| Sted | Hvad ordenen bestemmer |
-|---|---|
-| `ogsaaHos` i `lib/soeg.ts` | kildenavnene på kortet (`array_agg … order by s2.name`) |
-| `hentGruppe` i `lib/soeg.ts` | adresserne på `/gruppe`, når husnummerets tal er ens: husnummer, etage og dør som tekst |
-| `matchAlarmer` i `lib/alarm.ts` | afsendelsesrækkefølgen pr. søgning (`order by saved_searches.name`) |
-| `mode() within group (order by city)` i `lib/omraade.ts` | hvilken stavemåde vinder, når to står lige |
-| `GRUPPESIDST` i `lib/soeg.ts` | uafgjort-nøglen, `max(id::text)`. Uuid-tekst ordnes ens under C og ICU-roden: 200.000 tilfældige uuid'er gav 0 uenige pladser. |
-| `tavseKilder` i `lib/soeg.ts` | navnene i linjen om tavse kilder. Den sorteres i JS (`.sort()`, kodeenhedsorden), uafhængigt af basen: «Dacas, LokalBolig og findbolig.nu». |
+| Sted | Hvad ordenen bestemmer | Dansk? |
+|---|---|---|
+| `ogsaaHos` i `lib/soeg.ts` | kildenavnene på kortet | **ja** — `dansk()` i `array_agg` |
+| `hentGruppe` i `lib/soeg.ts` | adresserne på `/gruppe`: husnummer, etage og dør som tekst, efter husnummerets tal | **ja** — `dansk()` på alle tre |
+| `tavseKilder` i `lib/soeg.ts` | navnene i linjen om tavse kilder, sorteret i JS | **ja** — `Intl.Collator('da')`: «Dacas, findbolig.nu og LokalBolig» |
+| `matchAlarmer` i `lib/alarm.ts` | afsendelsesrækkefølgen pr. søgning (`order by saved_searches.name`) | nej — ingen læser den som alfabet |
+| `mode() within group (order by city)` i `lib/omraade.ts` | hvilken stavemåde vinder, når to står lige | nej — et uafgjort valg, ikke en liste; se `scripts/maal-bynavne.ts` |
+| `GRUPPESIDST` i `lib/soeg.ts` | uafgjort-nøglen, `max(id::text)`. Uuid-tekst ordnes ens under C og ICU-roden: 200.000 tilfældige uuid'er gav 0 uenige pladser. | nej |
+
+**Prisen, målt.** EXPLAIN ANALYZE på Postgres 16.13 med ICU, med 1.325
+boliger, 6.610 billeder og 8 kilder, før og efter:
+
+- Planformen er den samme i `soeg`, `soegGrupperet` og `hentGruppe`.
+  Begge steder sorteres der i forvejen. `ogsaaHos` er `Aggregate → Sort`
+  pr. kort over 0–8 navne, og `hentGruppe` er én `Sort` med et udtryk som
+  første nøgle. Der var ingen indeksgennemgang at miste.
+- Forskellen er `Sort Key: s2.name COLLATE "da-x-icu"` og
+  `house_number COLLATE "da-x-icu"`.
+- Tiden er målt A/B i samme session, 21 runder hver og skiftevis:
+
+  | | Uden collate | Med collate |
+  |---|---|---|
+  | `soeg` | 4,99 ms | 5,06 ms |
+  | `hentGruppe` | 1,67 ms | 1,67 ms |
+  | `soegGrupperet` | 176 ms | 186 ms |
+
+**Vagten er `scripts/test-dansk-orden.ts`.** Den går gennem den rigtige
+`soeg()`, `hentGruppe()` og `tavseKilder()` med de otte navne og påstår
+den danske orden — med Aalborg sidst.
+
+- Den kører i `npm test` og i `npm run test:prod`.
+- Om SQL-delen kan måles, afgøres ved at sortere navnene, ikke ved
+  kataloget.
+- I testbasen springes de fem SQL-linjer over, synligt og talt, med den
+  målte orden skrevet ved sig. Grunden er ikke «kræver rigtige data»: de
+  ville være RØDE af motorens grund. Tvunget til at køre i PGlite er alle
+  tre steder røde med rodens orden.
+- Under `test:prod` springes intet over. Er produktionens collation ikke
+  dansk, er det en rød linje.
+- JS-delen måles også i `npm test`.
+
+Modprøverne ligger i `modproever/dansk-*.mjs`. Kørt gennem
+`scripts/modproeve.mjs` mod en rigtig Postgres med ICU blev alle fem
+fanget: `ogsaaHos` og hver af gruppens tre nøgler for sig. Navnene om
+tavse kilder fanges også i `npm test`. Den samme mutation af `ogsaaHos`
+slipper igennem i `npm test` — og det er grunden til overspringningen,
+målt.
 
 **PGlite kan ikke prøve dansk orden.** Den har kun ICU's roddata
 (`und-x-icu` og `unicode`). `create collation … (provider = icu, locale =
 'da')` lykkes uden fejl, og collationen sorterer som roden — Aalborg først.
-`da-x-icu` findes slet ikke i testbasen.
-
-En dansk ordensprøve kan derfor ikke blive grøn i `npm test`. Den skal køre
-mod en base med ICU-data: produktionen eller en rigtig Postgres.
+Testbasens `da-x-icu` er derfor en attrap (`stubCollationer` i
+`scripts/pglite-skema.mjs`). Den lader forespørgslerne køre, men den
+sorterer ikke dansk.
 
 ### Rettighedskontrollen — hvorfor den findes
 

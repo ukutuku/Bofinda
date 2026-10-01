@@ -53,6 +53,23 @@ export async function stubSupabase(db, authKolonner = ['id', 'email']) {
 }
 
 /**
+ * Produktionens danske collation — som ATTRAP.
+ *
+ * `lib/soeg.ts` sorterer kildenavne og adresser med `collate "da-x-icu"`.
+ * PGlite har kun ICU's roddata og ingen `da-x-icu`; uden en collation med
+ * navnet ville hver forespørgsel med `ogsaaHos` fejle. Attrappen er roden
+ * under dansk navn, skrevet ud som `locale = 'und'`, så ingen kan læse den
+ * som dansk: Aalborg står først, Å og Æ blandt A'erne.
+ *
+ * Den lader forespørgslerne KØRE. Den lader ingen prøve påstå dansk orden —
+ * det er fælde tolv i CLAUDE.md. Den danske orden prøves mod en base med
+ * rigtige ICU-data: scripts/test-dansk-orden.ts.
+ */
+export async function stubCollationer(db) {
+  await db.exec(`create collation "da-x-icu" (provider = icu, locale = 'und')`)
+}
+
+/**
  * Migrationerne i JOURNALENS rækkefølge — ikke filnavnenes på disk. Det er
  * netop den forskel, `npm run db:status` findes for.
  *

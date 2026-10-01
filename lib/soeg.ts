@@ -225,6 +225,30 @@ export function hvor(f: Filtre) {
 // ═══════════════════════════════════════════════════════════════
 
 /**
+ * Dansk alfabetisk orden — kun for tekst, et menneske læser som en liste:
+ * kildenavnene på kortet og adresserne på /gruppe. Aldrig for pris, dato,
+ * id eller rangering; de er ikke alfabeter.
+ *
+ * Uden den sorterer produktionen efter basens en_US (ICU): Aalborg først,
+ * Å og Æ blandt A'erne. Dansk har Æ, Ø og Å efter Z og «aa» som «å».
+ *
+ * Collationen står i UDTRYKKET og aldrig på en kolonne eller et indeks. Et
+ * indeks bygget med en ICU-collation er bundet til ICU-versionen, og efter
+ * en opgradering kan det give forkerte svar med kun en logadvarsel. Et
+ * udtryk har ingen indeksafhængighed. Prisen er en sortering frem for en
+ * indeksgennemgang — og begge steder sorteres der i forvejen (EXPLAIN i
+ * CLAUDE.md, «Version og collation»).
+ *
+ * `da-x-icu`, ikke `da-DK-x-icu`: de sorterer ens, og den korte gælder
+ * også, hvis siden en dag dækker Norge eller Sverige.
+ *
+ * Testbasen har en ATTRAP med samme navn og ICU's roddata, så
+ * forespørgslerne kan køre. Den sorterer ikke dansk, og ingen prøve i
+ * `npm test` kan påstå dansk orden — se scripts/test-dansk-orden.ts.
+ */
+export const dansk = (udtryk: SQL | AnyColumn) => sql`${udtryk} collate "da-x-icu"`
+
+/**
  * Er raekken en udlejerannonce? Taget som funktion af kolonnen, fordi
  * spoergsmaalet stilles baade om den ydre raekke (`UDLEJERANNONCE`) og om
  * aliaset `l2` i `SAMME_BOLIG_ANDEN_KILDE` — og to skrivemaader af samme
@@ -681,7 +705,7 @@ const KORTFELTER = {
   // De ANDRE kilder der har den samme bolig. Boligen vises én gang, men
   // kortet skal ikke lade som om, den kun findes ét sted.
   ogsaaHos: sql<string[]>`(
-    select coalesce(array_agg(distinct s2.name order by s2.name), '{}'::text[])
+    select coalesce(array_agg(distinct ${dansk(sql`s2.name`)} order by ${dansk(sql`s2.name`)}), '{}'::text[])
     from listings l2 join sources s2 on s2.id = l2.source_id
     where ${SAMME_BOLIG_ANDEN_KILDE})`,
 } as const
@@ -1358,9 +1382,9 @@ export async function hentGruppe(n: Gruppenoegle, f?: Filtre) {
     // trækker tallet ud først. Så ville 100 komme før 20.
     .orderBy(
       sql`nullif(regexp_replace(coalesce(${listings.houseNumber}, ''), '\\D', '', 'g'), '')::int nulls last`,
-      asc(listings.houseNumber),
-      asc(listings.floor),
-      asc(listings.door),
+      asc(dansk(listings.houseNumber)),
+      asc(dansk(listings.floor)),
+      asc(dansk(listings.door)),
     )
 }
 
@@ -1670,11 +1694,19 @@ export async function tavseKilder(
   return tavseAf(r)
 }
 
+/**
+ * Dansk orden i JS, til navnene i linjen om tavse kilder: «Dacas,
+ * findbolig.nu og LokalBolig», ikke kodeenhedsordenens «…LokalBolig og
+ * findbolig.nu». Node har fuld ICU; scripts/test-dansk-orden.ts fejler,
+ * hvis 'da' ikke findes, for så falder Intl tavst tilbage til roden.
+ */
+const DANSK_ORDEN = new Intl.Collator('da')
+
 /** Kun kilder, der aldrig oplyser faciliteter OG faktisk mister noget. */
 function tavseAf(r: { navn: string; antal: number; oplyser: number }[]): Tavsekilder {
   const tavse = r.filter((x) => x.oplyser === 0 && x.antal > 0)
   return {
-    navne: tavse.map((x) => x.navn).sort(),
+    navne: tavse.map((x) => x.navn).sort(DANSK_ORDEN.compare),
     antal: tavse.reduce((a, x) => a + x.antal, 0),
   }
 }
