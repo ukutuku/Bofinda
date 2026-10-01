@@ -5,7 +5,7 @@
 //  paastande om markedet, kun tal vi kan pege paa raekkerne bag.
 // ═══════════════════════════════════════════════════════════════
 
-import { and, eq, isNotNull, ne, sql } from 'drizzle-orm'
+import { and, eq, isNotNull, ne, sql, type AnyColumn, type SQL } from 'drizzle-orm'
 import { db } from '../db/client'
 import { udenDubletter } from './soeg'
 import { listings } from '../db/schema'
@@ -30,6 +30,19 @@ export const synlig = udenDubletter(
 )
 
 /**
+ * Bynavnet for et postnummer: den hyppigste stavemaade.
+ *
+ * Staar to stavemaader LIGE, vinder den, der sorterer foerst under basens
+ * collation — i produktionen en_US (ICU), i testbasen C. Ingen har valgt
+ * den orden til formaalet; scripts/maalinger/skriv-bynavne-domaene-sql.ts
+ * maaler, hvor ofte det sker. Udtrykket staar ét sted, saa siderne,
+ * udlejerformularen og maalingen spoerger det samme. `by` er parameter,
+ * saa maalingen kan gengive det under en anden collation.
+ */
+export const bynavn = (by: SQL | AnyColumn = listings.city) =>
+  sql<string | null>`mode() within group (order by ${by})`
+
+/**
  * Byen for et postnummer, udledt af de boliger vi allerede har.
  *
  * Samme opslag som omraadesiderne bygger deres navne af — `mode()` over
@@ -46,7 +59,7 @@ export const synlig = udenDubletter(
  */
 export async function byForPostnr(postnr: string): Promise<string | null> {
   const [r] = await db
-    .select({ by: sql<string | null>`mode() within group (order by ${listings.city})` })
+    .select({ by: bynavn() })
     .from(listings)
     .where(and(eq(listings.postalCode, postnr), isNotNull(listings.city)))
   return r?.by ?? null
@@ -65,7 +78,7 @@ export async function alleOmraader(): Promise<Omraade[]> {
   const postnumre = await db
     .select({
       postnr: listings.postalCode,
-      by: sql<string>`mode() within group (order by ${listings.city})`,
+      by: bynavn(),
       antal: sql<number>`count(*)::int`,
     })
     .from(listings).where(synlig).groupBy(listings.postalCode)
@@ -153,7 +166,7 @@ export async function naboer(o: Omraade, antal = 8): Promise<Omraade[]> {
 
   if (o.slags === 'postnummer') {
     const mit = Number(o.vaerdi)
-    const [r] = await db.select({ by: sql<string | null>`mode() within group (order by ${listings.city})` })
+    const [r] = await db.select({ by: bynavn() })
       .from(listings).where(filterFor(o))
     const minBy = r?.by ?? null
     return alle

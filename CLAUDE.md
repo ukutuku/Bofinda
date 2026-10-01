@@ -529,6 +529,14 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   stadig i køen og prøves igen. Modsat ville en fejlet mail betyde, at
   boligerne var markeret sendt uden nogensinde at være det — og det opdager
   ingen.
+- **Den søgning, der har ventet længst, får mail først**
+  (`aeldsteVentendeFoerst` i `lib/alarm.ts`). Rækkefølgen afgør ikke, OM
+  nogen får mail, men hvem der venter en time ekstra, når en kørsel
+  afbrydes. Den var søgningens navn — en collation, ingen havde valgt — og
+  de samme navne kom sidst hver gang. Et id ville være lige så stabilt og
+  lige så uretfærdigt. Inde i mailen står det nyeste træf øverst.
+  `scripts/test-alarmorden.ts` går gennem både `ventende()` og
+  `sendAlarmer()`.
 - **`ALARM_TILLADTE_MODTAGERE` er indkøringsventilen.** Er den sat, får kun
   de adresser mail; alle andre springes over og logges. Fjern den først, når
   nogen har set, hvad der faktisk lander i en indbakke.
@@ -1061,7 +1069,7 @@ commits, i PR-tekster og her.
 | **import-prøven** · en import-prøve af en fil, der lover ingen database | Databasen. `db/client.ts` forbinder først ved første brug, så `await import()` af filen lykkes uden `DATABASE_URL` — også når den trækker `lib/soeg` og `postgres` med sig. Prøven måler, at importen lykkes, og læses som om den målte, at basen ikke nås. Mål grafen, ikke kørslen: `scripts/test-rene-filer.ts`. |
 | **kendt-følge** · en kendt fejl skrevet ned i stedet for rettet | Brugeren. En kendt usand brugervendt sætning er en fejl, ikke en følge. Den skal rettes, eller ændringen skal vente. At skrive den ned er ikke at have løst den — siden blev ved med at sige den, hver gang den blev vist. |
 | **værdisøgningen** · `git grep "'Lejlighed'"` | Finder kun den ene af tre skrivemåder. Nøglen er ens i alle kopier; værdien er netop det, en drevet kopi har ændret. |
-| **collationens-navn** · `create collation … (provider = icu, locale = 'da')` i PGlite | Dansk. Kaldet lykkes uden fejl, men PGlite har kun ICU's roddata, så collationen sorterer som roden: Aalborg først, Å og Æ blandt A'erne. Navnet lover en orden, motoren ikke har. En dansk ordensprøve i testbasen kan ikke blive grøn — og «rettes» forventningen, til den er grøn, måler prøven roden. Se «Version og collation» under Testbasen. |
+| **collationens-navn** · `create collation … (provider = icu, locale = 'da')` i PGlite | Dansk. Kaldet lykkes uden fejl, men PGlite har kun ICU's roddata, så collationen sorterer som roden: Aalborg først, Å og Æ blandt A'erne. Navnet lover en orden, motoren ikke har. En dansk ordensprøve i testbasen kan ikke blive grøn — og «rettes» forventningen, til den er grøn, måler prøven roden. **Den brugbare halvdel: om en base KAN sortere dansk, afgøres ved at sortere navnene — ikke ved kataloget.** `pg_collation` siger `locale = 'da'` om PGlites collation, mens motoren sorterer som roden; det er fælden anvendt på betingelsen selv. `scripts/test-dansk-orden.ts` og `scripts/maalinger/proev-bynavne-domaene-sql.ts` afgør det begge ved at sortere. Se «Version og collation» under Testbasen. |
 | **konflikt-fødte-ændringer** · `git log -S` / `-G` | Ser **ikke merges**. En linje, der opstod i en merges konfliktløsning, har ingen enkelt commit — og søgningen svarer TOMT. Det læses som «denne linje har ingen historik», når det betyder «denne historik er usynlig for dette værktøj». Brug `--diff-merges=first-parent`; `-m` finder den også, men differ mod hver forælder og over-rapporterer. Målt: `.kort-maerkater { right: 52px }` fandtes i nul commits, i én merge med flaget, og i fire med `-m`. |
 | **værktøjets-kvittering** · `Successfully rebased and updated refs/heads/…` | Indholdet. Kvitteringen er sand om værktøjets egen bogføring og **tavs om arbejdet**: `rebase --continue` spørger, om indeksposten er opmærket som løst — ikke om løsningen er rigtig. Målt: samme fil med byte-identisk indhold giver `needs merge` ustaged og `Successfully rebased` staged, og commit'en bærer tre konfliktmarkører, mens `git status` er tom. |
 | **transpilerede-positioner** · V8-dækning (`NODE_V8_COVERAGE`) over en `.ts`-fil | At positionerne peger i DEN FIL, du læser. `tsx` oversætter først, så dækningens `startOffset` er tegnpositioner i den TRANSPILEREDE JS. Et opslag «hvilken `tjek(`-linje ligger i en nul-range» rammer derfor ved siden af, og afvigelsen vokser med filens kommentarer. Målt: **187 af 485 påstande meldt udækkede i `test-redigering.ts` — alle 485 var kørt.** Stakspor ER kildekortlagt; tegnpositioner er ikke. |
@@ -1326,7 +1334,7 @@ Testbasen er målt inde i `rejsTestbase()`, efter migrationerne.
 | version | 17.6 (170006) | 18.3 (180003) |
 | `datcollate` / `datctype` | en_US.UTF-8 / en_US.UTF-8 | C / C.UTF-8 |
 | udbyder | icu | libc |
-| `da-x-icu`, `collversion` | findes, 153.121.45 | attrap: ICU's rod under dansk navn (`locale = 'und'`) |
+| `da-x-icu`, `collversion` | findes, 153.121.45 | attrap: ICU's rod under dansk navn, i skemaet `attrap` (`locale = 'und'`) |
 
 **«18.3» er motorens eget svar, ikke et pakkenummer.** `version()` svarer
 `PostgreSQL 18.3 (PGlite 0.5.8) on wasm32-unknown-emscripten`. 0.5.8 er
@@ -1392,8 +1400,8 @@ forkert.** Tekst sorteres disse steder, og de er nu delt i to:
 | `ogsaaHos` i `lib/soeg.ts` | kildenavnene på kortet | **ja** — `dansk()` i `array_agg` |
 | `hentGruppe` i `lib/soeg.ts` | adresserne på `/gruppe`: husnummer, etage og dør som tekst, efter husnummerets tal | **ja** — `dansk()` på alle tre |
 | `tavseKilder` i `lib/soeg.ts` | navnene i linjen om tavse kilder, sorteret i JS | **ja** — `Intl.Collator('da')`: «Dacas, findbolig.nu og LokalBolig» |
-| `matchAlarmer` i `lib/alarm.ts` | afsendelsesrækkefølgen pr. søgning (`order by saved_searches.name`) | nej — ingen læser den som alfabet |
-| `mode() within group (order by city)` i `lib/omraade.ts` | hvilken stavemåde vinder, når to står lige | nej — et uafgjort valg, ikke en liste; se `scripts/maal-bynavne.ts` |
+| `ventende` i `lib/alarm.ts` | afsendelsesrækkefølgen pr. søgning — var `order by saved_searches.name` | ikke længere tekst: ældste ventende først (`aeldsteVentendeFoerst`) |
+| `bynavn()` i `lib/omraade.ts` (`mode()`) | hvilken stavemåde vinder, når to står lige — på områdesiden og i det, en udlejerannonce får gemt | nej — et uafgjort valg, ikke en liste. Hvor ofte det sker, måles af B1–B3 i `scripts/maalinger/skriv-bynavne-domaene-sql.ts` |
 | `GRUPPESIDST` i `lib/soeg.ts` | uafgjort-nøglen, `max(id::text)`. Uuid-tekst ordnes ens under C og ICU-roden: 200.000 tilfældige uuid'er gav 0 uenige pladser. | nej |
 
 **Prisen, målt.** EXPLAIN ANALYZE på Postgres 16.13 med ICU, med 1.325
@@ -1412,6 +1420,25 @@ boliger, 6.610 billeder og 8 kilder, før og efter:
   | `soeg` | 4,99 ms | 5,06 ms |
   | `hentGruppe` | 1,67 ms | 1,67 ms |
   | `soegGrupperet` | 176 ms | 186 ms |
+
+  **De 6 % i `soegGrupperet` var støj — målt, ikke antaget.** Samme
+  forespørgsel mod sig selv (A/A) og med og uden collation (A/B), tre
+  blokke à 61 runder, skiftevis. Medianen af de parvise forskelle:
+
+  | | Blok 1 | Blok 2 | Blok 3 |
+  |---|---|---|---|
+  | A/A | +0,3 ms | +2,8 ms | −2,9 ms |
+  | A/B | −4,9 ms | +0,1 ms | +2,0 ms |
+
+  A/B ligger inden for A/A's spredning. Med `jit = off` er A/A −0,1 ms og
+  A/B +0,4 ms på en forespørgsel på 9 ms.
+
+  **Undervejs: JIT.** Forespørgslen fik et estimat på ca. 125.000, over
+  standardgrænsen `jit_above_cost` på 100.000, og blev JIT-kompileret. Det
+  kostede ca. 120 ms af 130; med `jit = off` tog den 9 ms. Om produktionen
+  gør det samme, afhænger af dens indstillinger og dens eget estimat — J1
+  i `scripts/maalinger/skriv-bynavne-domaene-sql.ts` viser indstillingerne.
+  Ikke rettet: det er ikke denne ændrings sag, før produktionen er målt.
 
 **Vagten er `scripts/test-dansk-orden.ts`.** Den går gennem den rigtige
 `soeg()`, `hentGruppe()` og `tavseKilder()` med de otte navne og påstår
@@ -1441,6 +1468,14 @@ målt.
 Testbasens `da-x-icu` er derfor en attrap (`stubCollationer` i
 `scripts/pglite-skema.mjs`). Den lader forespørgslerne køre, men den
 sorterer ikke dansk.
+
+**Navnet kan ikke ændres, uden at produktionskoden ændres.** Den skal
+skrive `"da-x-icu"` for at virke i produktionen. Et navn fra en variabel
+ville være en søm, der også kunne flytte produktionens sortering, uden at
+nogen så det. Attrappen ligger derfor i skemaet `attrap` og findes gennem
+`search_path`: spørger nogen kataloget, svarer det `attrap | da-x-icu |
+und`, og testbasen skriver ved hver opstart, at den er en attrap. EXPLAIN
+viser stadig det korte navn.
 
 ### Rettighedskontrollen — hvorfor den findes
 

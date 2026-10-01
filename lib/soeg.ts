@@ -309,8 +309,8 @@ const SAMME_BOLIG_ANDEN_KILDE = sql`(
  * definitioner ville betyde, at det, vi skjuler, og det, vi siger vi
  * skjuler, kunne komme fra hinanden.
  */
-// Eksporteret til scripts/maal-domaenefiltre.ts, saa maalingen grupperer
-// paa den noegle, der koerer, og ikke paa en afskrift af den.
+// Eksporteret til scripts/maalinger/skriv-bynavne-domaene-sql.ts, saa
+// maalingen grupperer paa den noegle, der koerer, og ikke paa en afskrift.
 export const DEDUPNOEGLE = sql`case
   when ${listings.addressMatchLevel} = 'unit' and ${listings.unitAddressUuid} is not null
     then 'unit:' || ${listings.unitAddressUuid}
@@ -369,6 +369,13 @@ export const UDLEJERANNONCE = erUdlejerannonce(listings.sourceType)
  * tidsorden — `id` er en tilfaeldig UUID — men goer valget stabilt mellem
  * koersler. Forklaringen til udlejeren foelger samme raekkefoelge:
  * app/udlejer/boliger/forklaring.ts.
+ *
+ * Alle fire led er EGENSKABER VED ANNONCEN — ikke ved filteret, ikke ved
+ * de andre annoncer. Derfor er rangeringen én fast orden over alle annoncer
+ * for en bolig, og repraesentanten for ethvert delsaet af dem er blot det
+ * hoejst rangerede medlem af delsaettet. Det er det, der goer domaenefiltrene
+ * til at rette (se `matcherDomaene`). Et nyt led, der afhaenger af
+ * filteret, ville bryde det.
  *
  * Alle fire led er NULL-frie ved konstruktion, saa det er ligegyldigt, om
  * NULL sorteres foerst eller sidst: `UDLEJERANNONCE` er `is not distinct
@@ -731,6 +738,26 @@ export function availabilityFor(
   return fortolkAvailability(fakta, kontrakt, referenceNow)
 }
 
+/**
+ * Domaenefiltrene — overtagelse, ansoegningsform, markedsstatus — afgoeres
+ * HER, i JS, fordi de kraever kildekontrakten og tidspunktet nu. En kopi i
+ * SQL ville vaere et andet udtryk for det samme.
+ *
+ * UAFKLARET, maales foer det rettes: filteret proeves i dag paa
+ * REPRAESENTANTEN, efter SQL har valgt den. Passer den ikke, men en anden
+ * annonce for samme bolig goer, vaelges ingen afloeser, og boligen
+ * forsvinder fra en soegning, den hoerer til i.
+ * scripts/maalinger/skriv-bynavne-domaene-sql.ts (D1 og D2) taeller, hvor
+ * mange boliger det rammer i produktionen.
+ *
+ * Rettelsen er oplagt, fordi rangeringens fire led er egenskaber ved
+ * annoncen og ikke ved filteret (se `ikkeRepraesentant`): rangeringen er
+ * én fast orden, og repraesentanten for de annoncer, der passer et filter,
+ * er den hoejst rangerede af dem. Altsaa: SQL rangerer som nu, ALLE
+ * annoncer for boliger med flere annoncer hentes, `matcherDomaene` koerer
+ * paa hver, og den foerste, der passer, vinder. Én rangering i SQL, ét
+ * domaene i JS, ingen kopi af nogen af dem.
+ */
 export const matcherDomaene = (f: Filtre, a: Availability): boolean =>
   (f.overtagelse == null || a.timing.status === f.overtagelse)
   && (f.ansoegningsform == null || a.ansoegning.status === f.ansoegningsform)

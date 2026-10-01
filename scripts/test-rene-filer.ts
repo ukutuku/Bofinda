@@ -99,6 +99,7 @@ const LOEFTER: readonly Loefte[] = [
   { fil: 'scripts/staging/test-maal.ts', loefte: 'Der er hverken netværk, database eller Supabase indblandet' },
   { fil: 'scripts/test-boligtype.ts', loefte: 'koeres uden database' },
   { fil: 'scripts/test-rene-filer.ts', loefte: 'koeres uden database, som scripts/test-boligtype.ts' },
+  { fil: 'scripts/maalinger/gengiv.ts', loefte: 'Gengiv en drizzle-forespørgsel som ren SQL-tekst — uden en database.' },
 ]
 
 /** Hoveder, der nævner databasen uden at love noget om filens import. */
