@@ -2144,6 +2144,10 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
 .leaflet-container { font: inherit; font-size: 11px; background: var(--linje-svag); }
 .leaflet-control-attribution { font-size: 10.5px; }
 
+/* Stednavnet i sidetitlen er ét led. «København S» braekket over to
+   linjer laeses som to steder. */
+.sidetitel .stednavn { white-space: nowrap; }
+
 /* ── På mobil er kort og liste et SKIFT, ikke en stabel ────────
    De lå under hinanden: hele listen, og så kortet nederst, hvor ingen
    kom hen. Kortvalget i søgelinjen skifter nu mellem dem, som på en

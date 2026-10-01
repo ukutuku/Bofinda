@@ -511,6 +511,60 @@ async function koer() {
     tjek('10A · matchende BOLIGER er 1, ikke 4', s.antal === 1)
   }
 
+  // ═══ 10A' · Indflytningsprisen taler kun for dem, der HAR den ═══
+  //
+  // `min`/`max` springer null over. Oplyser kun én af gruppens fire en
+  // indflytningspris, skrev kortet foer «indflytning 15.000 kr.» — et tal,
+  // der gaelder den ene, skrevet som om det gjaldt kortet. Det er
+  // aggregatfunktionens standardadfaerd, der bryder «kortet paastaar kun
+  // det, der gaelder for hele gruppen», og SQL'en er rigtig hele vejen.
+  //
+  // At UDELADE tallet ville vaere den anden fejl: «en manglende oplysning
+  // skal vaere synlig, ikke fravaerende». Daekningen skal med.
+  //
+  // Gruppen her er 10A's fire Blandvej-boliger. Ingen af dem har en
+  // indflytningspris fra `saa()`, saa proeven saetter én.
+  console.log('\n══ 10A\u2032 · gruppens indflytningspris ══')
+  {
+    const f = filtreFraParametre({ postnr: '6000' })
+    const udenNogen = await soegGrupperet(f, 48, nu)
+    const v0 = udenNogen.visninger[0]
+    tjek('10A\u2032 · praemis: de fire staar som ét gruppekort',
+      v0?.slags === 'gruppe' && v0.gruppe.antal === 4)
+    if (v0?.slags === 'gruppe') {
+      tjek('10A\u2032 · ingen oplyser indflytningspris → linjen staar slet ikke',
+        v0.gruppe.indflytningMin === null
+        && !kortTekst(createElement(Gruppekort, { g: v0.gruppe, nu })).includes('indflytning'))
+    }
+    // ÉN af de fire faar en pris. De tre andre forbliver null.
+    // `saaede` baerer id'erne fra `saa()`; nøglen i basen er praefikset
+    // med SLUG, saa den slaas op her i stedet for at gaettes.
+    const en = saaede.find((x) => x.navn === 'bl-dyr-nu')
+    await db.update(listings).set({ moveInCost: 2_500_000 }).where(eq(listings.id, en!.id))
+
+    const g = await soegGrupperet(f, 48, nu)
+    const v = g.visninger[0]
+    tjek('10A\u2032 · gruppen er UAENDRET — prisen er ikke en noegledel',
+      v?.slags === 'gruppe' && v.gruppe.antal === 4)
+    if (v?.slags === 'gruppe') {
+      const gr = v.gruppe
+      tjek('10A\u2032 · tre af fire oplyser ingenting', gr.indflytningUkendte === 3,
+        String(gr.indflytningUkendte))
+      const t = kortTekst(createElement(Gruppekort, { g: gr, nu }))
+      tjek('10A\u2032 · beloebet staar som «fra», ikke som gruppens pris',
+        /indflytning fra 25\.000 kr\./.test(t), t.slice(0, 180))
+      tjek('10A\u2032 · og daekningen staar ved siden af',
+        t.includes('oplyst for 1 af 4'), t.slice(0, 180))
+      // MODPRØVEN I SAMME FIL: var daekningen udeladt, ville teksten vaere
+      // «indflytning 25.000 kr.» uden forbehold — og det er praecis den
+      // saetning, der ikke maa kunne staa.
+      tjek('10A\u2032 · det nøgne «indflytning 25.000 kr.» kan IKKE staa',
+        !/indflytning 25\.000 kr\./.test(t), t.slice(0, 180))
+    }
+    // Ryd op, saa senere proever maaler det samme som foer.
+    await db.update(listings).set({ moveInCost: null }).where(eq(listings.id, en!.id))
+  }
+
   // 10B · To filtre, ingen enkelt bolig opfylder begge.
   console.log('\n══ 10B · to filtre, ingen bolig opfylder begge ══')
   await saa([
