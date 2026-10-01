@@ -110,16 +110,59 @@ ja til noget. **Det er den af de tre, der skal ringes til først.**
 |---|---|
 | **Vært** | `home.dk` |
 | **Henter** | Listen `/til-leje/lejlighed/region-hovedstaden/koebenhavn-kommune/`, pagineret med `?page=N` (loft `MAKS_SIDER = 60`), plus detaljesider. Nuxt 3, alt ligger server-renderet i `__NUXT_DATA__` — ingen API-nøgle, ingen JS-kørsel |
-| **Hvor ofte** | Hver time. **Intet `listeGrundlag` og intet detaljebudget** på adapteren, så detaljevagten gælder den ikke: detaljer hentes for nye boliger plus den rullende genopfriskning, `GENOPFRISK_PR_KOERSEL` (standard **60**, `lib/ingest.ts:61`) |
+| **Hvor ofte** | Hver time. **Intet `listeGrundlag`, og derfor er detaljebudgettet `Infinity`** — se målingen nedenfor. Nye boliger hentes **uden loft**; oven i dem op til `GENOPFRISK_PR_KOERSEL` forfaldne (standard **60**, `lib/ingest.ts:61`) |
 | **Takt** | Standard — højst 1 kald/sekund |
 | **Grundlag** | **Intet noteret nogen steder.** Adapterens header nævner hverken aftale eller robots.txt — til forskel fra Heimstaden og Birch, som begge siger «INGEN aftale endnu» |
 | **robots.txt** | `Allow: /` — men kun læst i kortlægningen (`CLAUDE.md:1490`), **uden dato for hentningen** |
 
-**Den er størst af de tre i volumen** (229 boliger ved kortlægningen) og
-den eneste, hvor der ikke står noget om forholdet i adapteren. Fraværet
-af en «INGEN aftale endnu»-note må ikke læses som at der ER en: der er
-ingen post, ingen commit og ingen note. **Op til 60 detaljesider pr. time
-mod en mæglerkæde, uden et nedskrevet grundlag.**
+**Den er størst af de tre i volumen** (229 boliger ved kortlægningen,
+`CLAUDE.md:1489` — ikke målt i basen her) og den eneste, hvor der ikke
+står noget om forholdet i adapteren. Fraværet af en «INGEN aftale
+endnu»-note må ikke læses som at der ER en: der er ingen post, ingen
+commit og ingen note.
+
+**robots.txt kunne ikke efterprøves her.** Gatewayen afviste CONNECT til
+både `home.dk` og `www.home.dk` med 403 (målt 2026-10-01). `Allow: /`
+står i kortlægningen uden dato for hentningen og er altså uciteret som
+de øvrige.
+
+#### Målingen: loftet er ikke 60, det findes ikke
+
+Jeg skrev først «op til 60 detaljesider pr. time». **Det var for
+generøst over for os selv.** De 60 er `GENOPFRISK_PR_KOERSEL`, som kun
+lofter den rullende genopfriskning. Budgettet, der skulle lofte de NYE,
+står i `lib/ingest.ts:448`:
+
+```ts
+const budget = opslag
+  ? Math.max(0, adapter.detaljeBudgetPrKoersel ?? Infinity)
+  : Infinity          // ← ingen listeGrundlag = intet loft
+```
+
+og trimningen er gated på det samme: `if (opslag && skalHentes.length >
+budget)` (`:512`). **Uden `listeGrundlag` hentes hver ny eller
+genopdukket bolig, uden loft.** Pr. kørsel er taget derfor
+«alle nye» + højst 60 forfaldne, og «alle nye» har intet tag.
+
+I rolig drift er det småt: med et 24-timers forfaldsvindue
+(`GENOPFRISK_EFTER_TIMER`) efterspørger 229 boliger ~10 hentninger i
+timen. Udsvinget ligger i det urolige tilfælde — en første import, en
+afmeldingsbølge, eller en ændring i kildens nøgler — hvor hele
+beholdningen kan blive hentet i én time ved ét kald i sekundet.
+
+**Og det er ikke home.dk-særligt.** Målt over registret: **8 af 11
+kørende kilder har `budget = Infinity`** — findbolig, Propstep, Dacas,
+LokalBolig, Balder, home.dk, CEJ og Birch. De tre med et loft er
+Heimstaden, Laros og Alabu, og det er præcis de tre, hvor nogen var
+nødt til at tænke over det: én havde spærret os, én har `Crawl-delay:
+20`, én fik en kontrolleret import. **Loftet findes, hvor nogen blev
+tvunget til at tage stilling, og mangler alle andre steder** — ikke
+fordi nogen besluttede, at de otte skulle være uloftede, men fordi
+`opslag ? … : Infinity` er standarden, og ingen har været tilbage.
+Egen takt har kun 2 af 11 (`VAERTSTAKT`).
+
+Det er samme form som resten af denne fil: tilstanden opstod af sig
+selv, dér hvor ingen sag tvang en afgørelse.
 
 ---
 
@@ -316,6 +359,57 @@ Alabu-medarbejderen nødvendigvis sagde:
 
 Deres robots.txt forbyder crawling udtrykkeligt på skrift, og der er
 ingen tilladelse. Kræver skriftlig aftale først.
+
+## En kilde uden nedskrevet grundlag får den strammeste takt
+
+**Fraværet af en note er ikke en aftale.** Står der intet om en kilde i
+denne fil, betyder det, at ingen har spurgt — ikke at nogen har sagt ja.
+Og den tilstand skal koste os noget, ikke kilden: **ukendt grundlag giver
+den strammeste takt, vi har, ikke den løseste.**
+
+Reglen er ikke ny. Den blev truffet 7. september 2026 i `5d1d3f2`, om
+Heimstaden, og begrundelsen var denne:
+
+> Railway kører `npm run import` uden argumenter hver time […] Heimstaden
+> er registreret i `KILDER`, så et push ville få Railway til at kontakte
+> kilden inden for en time — **uden at nogen havde besluttet det.**
+
+**Den begrundelse blev aldrig generaliseret.** Den blev anvendt på den
+ene kilde, der havde udløst den — og Heimstaden havde udløst den ved at
+spærre vores IP. Men sætningen handler ikke om spærringen. Den handler
+om, at et push kan starte trafik mod en fremmed vært, som ingen har
+besluttet. **Det gælder hver kilde i registret.**
+
+Derfor, som regel og ikke som vurdering pr. kilde:
+
+| Grundlaget | Hvad kilden skal have |
+|---|---|
+| Nedskrevet tilladelse med navn og dato | den takt, aftalen siger — og ikke hurtigere |
+| Kildens eget signal (`Crawl-delay`, `Content-Signal`) | kildens eget tal, også når tilladelsen er bredere |
+| **Kun vores egen læsning af robots.txt** | **den strammeste takt og et loft på detaljerne** |
+| Kilden har sanktioneret os én gang | som ovenfor, **plus** at loftet kun hæves efter en godkendt kontrolleret prøve |
+| Intet noteret overhovedet | **ud af `koerAlle` (`kunUdvikling: true`), til nogen har besluttet det** |
+
+Rækkefølgen er stigende i tilbageholdenhed, og det er med vilje: **jo
+mindre vi ved om, hvad kilden vil, jo mindre skal vi tage.** Det omvendte
+— at hente løsest dér, hvor vi ved mindst — er den tilstand, der opstår
+af sig selv, hvis ingen skriver reglen ned. Se målingen nedenfor: den var
+præcis den tilstand, vi var i.
+
+**Og `kunUdvikling` er ikke en straf.** Kilden kan stadig køres ved navn
+(`npm run import -- <slug>`), så en kontrolleret prøve er mulig hele
+vejen. Det, flaget fjerner, er den automatiske kontakt, ingen besluttede.
+
+**Men den har en pris, og den skal nævnes:** afmeldningen kører inde i
+`koerKilde` og er bundet til kilden
+(`eq(listings.sourceId, kilde.id)`, `lib/ingest.ts:714`). En kilde, der
+ikke kører, afmelder derfor ingenting: dens boliger står `active` med
+data, der holder op med at blive opdateret, uden et mærke. For en kilde
+med få boliger er det til at bære. For en stor er det vores eget princip
+vendt imod os — en manglende oplysning skal være synlig, ikke fraværende.
+Vælges `kunUdvikling` for en stor kilde, hører en synlig markering med i
+samme beslutning.
+
 
 ## Én identitet pr. forpligtelse
 
