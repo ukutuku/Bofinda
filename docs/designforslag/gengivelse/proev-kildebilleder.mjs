@@ -20,6 +20,7 @@ import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { aabn, gaaTil, skaermbillede, fremmedeBilleder } from './hero-maal.mjs'
+import { PRAEDIKAT } from './billedkontrol.mjs'
 const BASE = process.env.BOFINDA_APP_BASE ?? 'http://127.0.0.1:3100'
 const UD = mkdtempSync(join(tmpdir(), 'kildebilleder-'))
 const br = await pw.chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM ?? '/opt/pw-browsers/chromium' })
@@ -63,7 +64,7 @@ await br.close()
 const kontrol = (...a) => spawnSync(process.execPath, [new URL('./kontroller-billeder.mjs', import.meta.url).pathname, ...a], { encoding: 'utf8' }).status
 const uden = join(UD, 'uden-kvittering.png'); copyFileSync(skrevet, uden)        // et billede, vagten ikke skrev
 const aendret = join(UD, 'aendret.png'); copyFileSync(skrevet, aendret)
-appendFileSync(join(UD, '.billedkontrol.jsonl'), JSON.stringify({ fil: 'aendret.png', sha256: '0'.repeat(64) }) + '\n')   // kvittering for andre bytes
+appendFileSync(join(UD, '.billedkontrol.jsonl'), JSON.stringify({ fil: 'aendret.png', sha256: '0'.repeat(64), praedikat: PRAEDIKAT.version }) + '\n')   // kvittering for andre bytes
 for (const [navn, sti, forventet] of [
   ['billedet, vagten skrev', skrevet, 0],
   ['et billede uden kvittering', uden, 1],

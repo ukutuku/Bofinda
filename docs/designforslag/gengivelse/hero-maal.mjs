@@ -142,15 +142,18 @@ export async function skaermbillede(p, opt, afviste = [], element = null) {
  * fra — så kontrollen er herkomst: filens SHA-256 står i .billedkontrol.jsonl
  * i samme mappe, skrevet i samme øjeblik, som vagten fandt siden ren. Et
  * billede skrevet før vagten fandtes, af et værktøj, der ikke går gennem
- * den, eller ændret bagefter, har ingen gyldig kvittering.
+ * den, eller ændret bagefter, har ingen gyldig kvittering. Kvitteringen
+ * bærer prædikatets version (billedkontrol.mjs › PRAEDIKAT); en dom fældet
+ * under en ældre regel godkender ikke længere noget.
  */
-export const KVITTERING = '.billedkontrol.jsonl'
+export { KVITTERING } from './billedkontrol.mjs'
 async function kvitter(sti, side) {
+  const { KVITTERING, PRAEDIKAT } = await import('./billedkontrol.mjs')
   const { readFile, appendFile } = await import('node:fs/promises')
   const { createHash } = await import('node:crypto')
   const { basename, dirname, join } = await import('node:path')
   const sha256 = createHash('sha256').update(await readFile(sti)).digest('hex')
-  await appendFile(join(dirname(sti), KVITTERING), JSON.stringify({ fil: basename(sti), sha256, side, tid: new Date().toISOString() }) + '\n')
+  await appendFile(join(dirname(sti), KVITTERING), JSON.stringify({ fil: basename(sti), sha256, praedikat: PRAEDIKAT.version, side, tid: new Date().toISOString() }) + '\n')
 }
 
 export async function laegPaa(p, { css = '', js = '', valg = {} } = {}) {

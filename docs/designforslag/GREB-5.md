@@ -151,9 +151,80 @@ Prøven har nu 14 tilfælde, alle grønne:
 Modprøve: med «ukendt» vendt til «egen» blev de tre tilfælde uden vært
 røde.
 
-**Hvad den stadig ikke dækker:** en commit. `kontroller-billeder.mjs` kan
-køres som pre-commit-krog på `docs/`, men der er ingen krog i repoet i dag,
-og det er en beslutning for repoets ejer.
+### Afslutningen: kvitteringen bærer reglen, og kontrollen rejser med repoet
+
+**Kvitteringen bærer prædikatets version.** Før bar den filens hash, men
+ikke dommens grundlag. Når prædikatet blev ændret, gjaldt gamle
+kvitteringer stadig for billeder, som den nye regel ville afvise. Det var
+stiltiende fredning, samme klasse som `collversion`.
+
+Nu skriver vagten `praedikat: 2` i hver kvittering. Kontrollen godkender
+kun kvitteringer udstedt under den nuværende version. En kvittering under
+v1 eller uden version afvises med «kvitteret under en anden regel».
+
+Versionen og prædikatet står sammen i
+[`billedkontrol.mjs`](gengivelse/billedkontrol.mjs), med et aftryk:
+SHA-256 af `fremmedeBilleder`' kildetekst. Er prædikatet ændret, uden at
+versionen er hævet, nægter kontrollen at køre. En ændring kan derfor ikke
+glemme at gøre de gamle domme ugyldige. Også en kosmetisk ændring kræver et
+nyt nummer. Det er prisen for, at ingen skal afgøre, om en ændring
+«tæller».
+
+| Version | Commit | Regel |
+|---|---|---|
+| v1 | `260622d` | dom på vært alene |
+| v2 | `996eef1` | tre domme, `data:`-raster, `blob:` og `file:` afvist, `mask-image` læst |
+
+**Kontrollen ligger i `npm test`, ikke i en krog.** En pre-commit-krog
+følger ikke med en klon. `npm test` gør, og første led er nu
+[`proev-billedkontrol.mjs`](gengivelse/proev-billedkontrol.mjs). Den
+kræver hverken browser, app eller database.
+
+Første del kører `kontroller-billeder.mjs --repo docs`. I repoet godkendes
+et billede **kun**, hvis det står på
+[`billedundtagelser.json`](gengivelse/billedundtagelser.json) med sine
+bytes, en grund og en dato. Et nyt billede afvises, også med gyldig
+kvittering, for bevisbilleder lever i artefaktet (§ 5).
+
+Listen har 370 poster: grenens 213 og 157 fra `main`, alle uden
+kvittering. De er ikke grønne af sig selv. Hver post siger, hvorfor
+billedet ligger der, og hvornår det kom til. Posterne fra `main` siger
+udtrykkeligt, at herkomsten ikke er efterset. Listen blev lukket
+1. oktober 2026:
+
+- en post dateret senere afvises;
+- en post for en fil, der er væk, afvises;
+- et undtaget billede, der ændres, afvises.
+
+Listen kan derfor kun skrumpe, og kun med vilje.
+
+Anden del beviser på en kopi i `/tmp`, at kontrollen kan fejle. Alle
+tolv tilfælde gav det forventede:
+
+| Tilfælde | Dom |
+|---|---|
+| kvittering under v2 | godkendt |
+| kvittering under v1 | afvist |
+| kvittering uden version | afvist |
+| kvittering for andre bytes | afvist |
+| ingen kvittering | afvist |
+| undtaget billede | godkendt |
+| nyt billede **med** gyldig kvittering | afvist |
+| undtaget billede, ændret bagefter | afvist |
+| undtagelse dateret efter lukningen | afvist |
+| undtagelse uden grund | afvist |
+| undtagelse for en fil, der er væk | afvist |
+| prædikatet ændret uden ny version | afvist |
+
+Modprøve i det rigtige repo: én JPEG lagt i `docs/designforslag/` gav
+exit 1 med «et nyt billede i repoet».
+
+`runde4.sh` nægter desuden en udmappe inde i repoet (exit 2), så fejlen
+fanges, før kørslen begynder, og ikke først i `npm test`.
+
+**Bemærk ved merge:** grenen bygger på `683a9fc`, hvor `npm test` er ét
+script. På `main` er det delt i `test:kerne` og flere andre. Leddet skal
+flyttes med, ikke tabes.
 
 ## 4 · Testbasen tømmes, og tømningen måles
 
@@ -183,55 +254,50 @@ Prøvet på testbasen 1. oktober:
 
 Bagefter blev testbasen sået igen med `scripts/cloud/saa.mjs` (280 boliger).
 
-## 5 · Billedernes vægt i git
+## 5 · Billedernes vægt i git — besluttet
 
-Kun tal. Beslutningen er ikke truffet.
+**Besluttet 1. oktober 2026:**
 
-| | Pakket |
-|---|---|
-| `main` i dag, alle blobs | 33,0 MB (heraf billeder 31,7 MB) |
-| Grenens egne blobs | 25,5 MB |
-| heraf billeder (220 versioner) | 25,0 MB |
-| `.git` i denne klon | 67 MB |
+- de 213 billeder bliver, hvor de er;
+- der lægges ingen flere bevisbilleder i repoet;
+- fremtidige bevisbilleder lever i artefaktet.
 
-Billederne i grenens HEAD (213 filer, 24,5 MB), genkodet med `sharp`:
+**Hvorfor de 213 bliver:** historikken er allerede pushet. At fjerne
+billederne fra den kræver omskrevet historik, og omskrevet historik er
+værre end vægten. Hver eksisterende klon og hver henvisning til en commit
+ville knække. Vægten koster plads, omskrivningen koster tillid til, at en
+commit-id betyder det samme i morgen.
 
-| Form | Størrelse |
-|---|---|
-| Som i dag | 24,5 MB |
-| JPEG q75, samme størrelse | 8,1 MB |
-| Halv bredde, JPEG q75 | 2,9 MB |
-| Halv bredde, JPEG q60 | 2,2 MB |
+**Hvorfor der ikke kommer flere:** vægten er et biprodukt af, at netværket
+er lukket. Mod rigtige annoncer skriver `runde4.sh` ingen billeder (§ 3),
+så de 25 MB findes kun, fordi kørslerne har måttet gå mod testbasens
+syntetiske boliger. Det er ikke en praksis, der skal fortsætte, og
+bevisbilledet hører ikke hjemme i git:
 
-Vejene og hvad de koster:
+- artefaktet viser det;
+- git husker det for altid.
 
-- **Merges grenen som i dag**, bærer hver klon af `main` alle 25,0 MB for
-  altid. Det gælder også gamle versioner af billederne, fordi en almindelig
-  merge gør hele grenens historik nåbar.
-- **Squash-merge** gør kun HEAD's billeder nåbare fra `main`. Det er
-  24,5 MB, eller 2,2–8,1 MB, hvis billederne genkodes før merge.
-- **Billederne i artefaktet** frem for i repoet: 0 MB i git. Prisen er, at
-  dokumenternes billedhenvisninger peger ud af repoet og afhænger af, at
-  artefaktet findes.
-- **Kun den nyeste runde (`greb4/`, 4,0 MB) og ingen historiske mapper:**
-  kan kombineres med en af de andre.
+**Sådan holdes beslutningen** (§ 3, «Afslutningen»):
 
-Tallene for billederne i dag er målt på billeder, der ikke viser kilders
-fotos. Efter § 3 kommer der ikke flere af den slags fra rigtige annoncer.
+- `npm test` afviser ethvert billede i `docs/`, der ikke står på den
+  lukkede undtagelsesliste, også et med gyldig kvittering;
+- `runde4.sh` nægter at skrive i repoet.
 
-**Før runde4 lægger flere til (målt 1. oktober, efter runde 5):**
+Beslutningen hviler altså ikke på, at nogen husker den.
+
+Tallene, den blev truffet på:
 
 | | |
 |---|---|
 | `.git` i denne klon | 67 MB (37,3 MiB pakket + 27,9 MiB løse objekter) |
+| `main`, alle blobs | 33,0 MB (heraf billeder 31,7 MB) |
 | Grenens egne blobs | 25,6 MB, heraf 220 billedversioner på 25,0 MB |
 | Billeder i grenens HEAD | 213 filer, 24,5 MB |
-| Én fuld kørsel af `runde4.sh` på testbasen | 246 billeder, 12,5 MB (JPEG) |
-| Det samme skåret ned som `greb4/` | 5,0 MB |
+| Én kørsel af `runde4.sh` mere, som i dag | 5–12,5 MB oveni, for altid |
 
-Committes én kørsel mere som i dag, vokser grenen med 5–12,5 MB, og den vægt
-bliver i historikken. Mod rigtige annoncer skriver kørslen ingen billeder
-(§ 3), så den vægt opstår kun ved syntetiske kørsler.
+Genkodning, squash-merge og at skære til `greb4/` var de andre veje. De
+er ikke valgt. Den første og den sidste ville også ændre filer, der
+allerede er i historikken. Squash-merge er et valg for den, der merger.
 
 ## Filer
 
@@ -240,9 +306,12 @@ bliver i historikken. Mod rigtige annoncer skriver kørslen ingen billeder
 | [`greb.css`](greb.css), [`greb.js`](greb.js) | B alene; #39's rettelser; den virkningsløse titelregel er fjernet |
 | [`forslag.css`](forslag.css) | titelstørrelsen kun over 620 px; #39's rettelser |
 | [`gengivelse/hero-maal.mjs`](gengivelse/hero-maal.mjs) | `fremmedeBilleder` (tre domme) og `skaermbillede` (med kvittering) |
-| [`gengivelse/kontroller-billeder.mjs`](gengivelse/kontroller-billeder.mjs) | udgivelseskontrollen: kun kvitterede billeder |
+| [`gengivelse/billedkontrol.mjs`](gengivelse/billedkontrol.mjs) | kvitteringens format, prædikatets version og aftryk |
+| [`gengivelse/kontroller-billeder.mjs`](gengivelse/kontroller-billeder.mjs) | udgivelseskontrollen: artefakt (kvittering under nuværende regel) og `--repo` (lukket undtagelsesliste) |
+| [`gengivelse/billedundtagelser.json`](gengivelse/billedundtagelser.json) | 370 billeder uden kvittering, hver med grund og dato; lukket 1. oktober |
+| [`gengivelse/proev-billedkontrol.mjs`](gengivelse/proev-billedkontrol.mjs) | `npm test`'s første led: repoet og tolv modprøver |
 | [`gengivelse/proev-kildebilleder.mjs`](gengivelse/proev-kildebilleder.mjs) | prøven af vagten |
 | [`gengivelse/toem-testbase.sh`](gengivelse/toem-testbase.sh) | tømningen og kontrollen |
-| [`gengivelse/runde4.sh`](gengivelse/runde4.sh) | `--rigtige`; A er ude |
+| [`gengivelse/runde4.sh`](gengivelse/runde4.sh) | `--rigtige`; A er ude; nægter udmappe i repoet |
 | [`gengivelse/maal-foto.mjs`](gengivelse/maal-foto.mjs) | over loftet er AFVIST |
 | [`GREB-3.md`](GREB-3.md) | titelpåstanden rettet, hvor den står |

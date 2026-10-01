@@ -36,6 +36,10 @@ RIGTIGE=""
 if [ "${1:-}" = "--rigtige" ]; then RIGTIGE="${2:?--rigtige kræver kilderne, fx propstep,dacas}"; set --; fi
 FMT="${1:-png}"; DPR="${2:-1}"
 HER="$(cd "$(dirname "$0")" && pwd)"; ROD="$(cd "$HER/../../.." && pwd)"
+# Bevisbilleder lever i artefaktet, ikke i git (GREB-5 § 5). Udmappen må
+# derfor ikke ligge i repoet; npm test ville alligevel afvise billederne.
+case "$(realpath -m "$UD")/" in "$ROD"/*)
+  echo "FEJL: $UD ligger i repoet. Bevisbilleder lever i artefaktet (GREB-5 § 5) — vælg en mappe uden for $ROD." >&2; exit 2;; esac
 source "$ROD/scripts/cloud/miljoe.sh"
 export DATABASE_URL_DIRECT="$(test_url)"; krav_isoleret "$DATABASE_URL_DIRECT"
 # Appen, der fotograferes og måles, er den lokale — også den sættes HER.
