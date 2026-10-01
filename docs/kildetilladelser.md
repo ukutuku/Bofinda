@@ -190,7 +190,7 @@ vi den dag, de trækker det tilbage.**
 | **Grundlag** | [Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/) — en offentlig politik, ikke en aftale med os |
 | **Hvem henter** | **Brugerens browser, direkte.** Fliserne går ikke gennem vores server, så OSM ser den besøgendes IP-adresse |
 | **Hvad de modtager** | IP-adressen, flisens `{z}/{x}/{y}` og `Referer: https://bofinda.dk/` — origin, målt; hverken sti eller query |
-| **Hvor vi bruger det** | `app/Landkort.tsx`, gengivet fra `app/bolig/[id]/page.tsx` (uden betingelse) og `app/page.tsx` (kun når der er filtreret) |
+| **Hvor vi bruger det** | `app/Landkort.tsx`, gengivet fra `app/bolig/[id]/page.tsx` og `app/page.tsx` (kun når der er filtreret). Begge er betingede: boligsiden kræver koordinater (`page.tsx:671`), søgesiden kræver mindst ét mærke (`kortMuligt`) |
 
 ### Hvad flise-koordinaterne røber
 
@@ -203,14 +203,121 @@ vi den dag, de trækker det tilbage.**
 | 18 | brugeren har zoomet helt ind | **86 m** |
 
 OSM får altså IP'en sammen med omtrent hvor boligen ligger. Over et besøg
-er rækken af flise-requests hendes boligsøgning. Det er derfor `/privatliv`
-skal nævne dem — se afsnittet om leverandører.
+er rækken af flise-requests hendes boligsøgning.
+
+**ÅBENT: `/privatliv` nævner dem ikke.** Målt — siden navngiver fire
+databehandlere (Supabase, Vercel, Railway, Resend) og ingen af dem er
+OSM. Det er ikke en usand sætning, for OSM er ikke vores databehandler:
+browseren kontakter dem direkte, og vi er aldrig i vejen. Men det er
+netop derfor, det skal stå — hun kan ikke se det nogen steder, og
+oplysningen er, hvor hun kigger på bolig. Den sætning hører i
+`app/privatliv/page.tsx` som sit eget punkt, ikke på leverandørlisten.
+Den er bevidst IKKE skrevet i denne ændring: seks grene rører den fil,
+og én af dem handler kun om den side.
+
+### De fem krav, og hvor vi står på hver
+
+Politikken er ikke en liste med pæne hensigter — den er betingelserne for,
+at vi må hente af en donationsdrevet tjeneste. Hvert krav er målt, og
+målingen står ved siden af, så den kan efterprøves i stedet for at blive
+troet.
+
+**Forbehold om kilden.** Denne session kunne ikke hente politikken selv —
+udgående trafik til `operations.osmfoundation.org` er spærret i miljøet.
+Citaterne nedenfor er ordrette, som de blev givet af ejeren, og
+formuleringen af krav 4 (de syv dage) kommer samme vej. **Læs politikken
+igen**, næste gang nogen rører kortet; den kan være ændret, og vi måler
+mod vores notat, ikke mod kilden.
+
+| # | Kravet | Vores status | Hvor det er målt |
+|---|---|---|---|
+| 1 | **Gyldig Referer. Ingen restriktiv Referrer-Policy.** «Web traffic requires a valid Referer header»; brugere «must not» sætte «a restrictive Referrer-Policy» | **Opfyldt.** Vi sætter ingen på fliserne. Browserens standard sender `Referer: https://bofinda.dk/` — origin, hverken sti eller query | Målt i Chromium, krydsoprindelse, `/bolig/<id>?filtre=2200`. `next.config.ts` har ingen `headers()`; `Landkort.tsx` sætter ingen `referrerPolicy` |
+| 2 | **Ingen forhentning, ingen bulk, ingen offline-kopi, ingen bot** | **Opfyldt, og bygget fast.** Leaflets flisekø er viewporten uden margen. Ingen service worker. De hovedløse kørsler bruger lokale fliser | Se de tre afsnit nedenfor |
+| 3 | **Synlig kreditering** | **Opfyldt.** Leaflets egen `attributionControl`, aldrig skjult, med «Meld en fejl i kortet» | `Landkort.tsx:106-107`. `beliggenhedkontrol.mjs` fejler, hvis krediteringen er tom |
+| 4 | **Fliserne skal caches lokalt (mindst syv dage), og vi må ikke sende `no-cache`** | **Opfyldt ved ikke at blande os.** Fliserne hentes af browseren direkte fra OSM, så deres egen `Cache-Control` gælder. Vi rører den ingen steder | Eneste `cache-control`, vi sætter, er på `/api/billede` — vores egen billedproxy, som aldrig ser en flise |
+| 5 | **Identificerbar User-Agent — ingen generisk eller proxy-UA** | **Opfyldt, fordi vi ikke proxyer.** Browserens egen UA når OSM. `BofindaBot` rører aldrig fliser | `lib/fetch.ts:11` er crawlerens UA og bruges ikke af kortet. `tile.openstreetmap.org` står IKKE i `TILLADTE_VAERTER` i `lib/billede.ts`, så `/api/billede` kan ikke bruges til fliser |
+
+#### Krav 2a — hentes der fliser uden for udsnittet?
+
+**Nej, og det er ikke en indstilling, vi har sat — det er Leaflets
+konstruktion.** Målt i `node_modules/leaflet/dist/leaflet-src.js` (1.9.4):
+
+- Køen af fliser, der hentes, løber fra `tileRange.min` til
+  `tileRange.max`, hvor `tileRange = _pxBoundsToTileRange(_getTiledPixelBounds(center))`
+  og `_getTiledPixelBounds` er `pixelCenter ± getSize()/2` — **viewporten,
+  uden margen** (linje 11736-11800).
+- `keepBuffer: 2` ser ud som en forhentning og er det ikke. Den bruges kun
+  til `noPruneRange`, der afgør, hvilke ALLEREDE hentede fliser der må
+  ryddes væk. Den indgår aldrig i køen (linje 11759).
+
+Mærkerne kan derfor ikke trække fliser ind uden for udsnittet: `fitBounds`
+sætter udsnittet, så det rummer mærkerne — efter det ER mærkerne udsnittet.
+Og uden filtrering vises kortet slet ikke (`kortMuligt` i `app/page.tsx:363`).
+
+#### Krav 2b — henter noget af vores værktøj fliser som bot?
+
+**Nej, og spærringen er et byg, ikke en aftale.** Repoet har 17 scripts,
+der kører hovedløs Chromium, og flere af dem åbner sider med kort
+(`/bolig/<id>`, `/?sted=…&kort=1`) og venter på `networkidle`. Uden en
+spærring ville hver kørsel være præcis den botkørsel, politikken forbyder.
+
+`scripts/cloud/byg.sh:23-24` bygger derfor testmiljøet med
+
+    NEXT_PUBLIC_FLISE_URL="http://127.0.0.1:$BOFINDA_AKTIVPORT/flise/{z}/{x}/{y}.png"
+    NEXT_PUBLIC_FLISE_KREDIT="Testfliser — lokalt genereret, ikke OpenStreetMap"
+
+og — det afgørende — **fejler bygget**, hvis `tile.openstreetmap.org`
+alligevel står i `.next/static` (`byg.sh:28-31`). Fliserne genereres i
+hukommelsen af `scripts/cloud/aktiver.mjs`; der ligger ingen flisefiler i
+repoet. To kontroller blokerer desuden al ikke-loopback-trafik ved roden
+(`browserkontrol.mjs:71-75`, `browserkontrol-pagination.mjs:127`).
+
+Den rækkefølge er værd at forstå: `NEXT_PUBLIC_*` bages ind ved **bygget**,
+ikke ved start. At sætte variablen på processen, der starter appen, er for
+sent — `Landkort.tsx` er en klientkomponent, og værdien er allerede låst.
+Derfor findes `byg.sh` overhovedet.
+
+#### Krav 2c — offline-kopi, prefetch, arkiv?
+
+Målt: ingen service worker, ingen `caches.open`, intet `next-pwa`, intet
+workbox, ingen flisefiler i `public/` (kun `hero-stue.jpg`), og
+`next.config.ts` har ingen `headers()`. Der er ingen kode, der gemmer en
+flise nogen steder.
+
+#### Krav 5 — betingelsen for den dag, nogen proxyer fliserne
+
+I dag henter browseren direkte, og OSM ser browserens egen User-Agent.
+Lægger nogen en dag fliserne bag vores egen server — det er den eneste
+måde at bruge en nøglebaseret udbyder uden at lægge nøglen i browseren —
+så **skifter kravet fra at være opfyldt af sig selv til at være vores
+ansvar.** Betingelsen, skrevet ned nu, mens der ikke er travlt:
+
+- UA'en skal navngive Bofinda og bære en kontaktvej. En generisk
+  `node-fetch`, `axios` eller `Mozilla/5.0` er netop det, politikken
+  afviser, fordi den gør det umuligt at kontakte den, der belaster.
+- Den må **ikke** være `BofindaBot` fra `lib/fetch.ts`. Den UA står for
+  vores crawl af boligkilder, har sin egen kontakt-URL og sin egen
+  takt — et flisekald er ikke en crawl, og blandes de, rammer en spærring
+  af den ene også den anden.
+- Proxyen skal sende en Referer videre (krav 1 gælder stadig), respektere
+  flisernes `Cache-Control` i stedet for at hente på ny (krav 4), og
+  aldrig hente en flise, ingen bruger har bedt om (krav 2).
+- Og `tile.openstreetmap.org` skal da tilføjes `TILLADTE_VAERTER` i
+  `lib/billede.ts` **i samme ændring** — ellers returnerer `billedUrl()`
+  null, og kortet forsvinder uden en fejl nogen steder. Samme fælde som
+  Balder og home.dk.
 
 ### Beredskabet: det er en miljøvariabel, ikke en ombygning
 
-Politikkens afsnit 7 siger, at adgang kan trækkes **uden varsel**, og at
-kommercielle tjenester særligt skal regne med det. Bofinda er en
-kommerciel tjeneste.
+Politikkens afsnit 7, ordret:
+
+> «Commercial services … should be especially aware that access may be
+> withdrawn at any point.»
+> — <https://operations.osmfoundation.org/policies/tiles/>
+
+Bofinda ER en kommerciel tjeneste. «Uden varsel» betyder, at valget skal
+være truffet FØR kortene forsvinder, ikke bagefter — derfor står
+alternativerne nedenfor og ikke i hovedet på den, der er på vagt den dag.
 
 Derfor er flise-URL'en ikke hardkodet. Forsvinder kortene:
 
@@ -234,15 +341,69 @@ andet:
    sammenkædningen, ikke kun første led. Efterprøvet — med variablen sat
    er der nul forekomster af `fixthemap`. Havde det været omvendt, ville
    et fremmed kort bære OSM's fejlmeldingslink.
-2. **`/privatliv`** navngiver OSM som en tredjepart, browseren kontakter
-   direkte. Navnet skal rettes samme dag, ellers står der en usand
-   leverandør på siden.
-3. **Den nye udbyders politik** skal læses efter for de samme fire krav,
-   `Landkort.tsx` allerede opfylder: ingen forhentning, ingen offline-kopi,
-   synlig kreditering, og kun de fliser udsnittet kræver.
+2. **`/privatliv`** skal navngive den nye udbyder som den tredjepart,
+   browseren kontakter direkte — og den dag er sætningen der nok ikke
+   endnu: siden nævner i dag ingen flisetjeneste (se det åbne punkt
+   ovenfor). Skiftes udbyder, før den sætning er skrevet, skal den
+   skrives med det samme og med det NYE navn. Står den allerede, er
+   det et navn, der bliver usandt samme sekund.
+3. **Den nye udbyders politik** skal læses efter for de krav, vi allerede
+   opfylder — gå tabellen «De fem krav» igennem punkt for punkt mod
+   hendes politik. Tallet står ét sted, i tabellen, så det ikke kan
+   drive fra den: her stod engang «de samme fire krav», mens tabellen
+   havde fem.
 
 Vælges en udbyder med API-nøgle, hører nøglen i miljøet og **aldrig** i
 `Landkort.tsx` — samme regel som `BALDER_API_KEY`. Bemærk dog, at en
 `NEXT_PUBLIC_`-variabel når browseren og derfor ikke er en hemmelighed;
 en nøglebaseret udbyder kræver enten en domænebegrænset nøgle eller en
 proxy gennem vores egen server.
+
+#### Hvad et skift koster — navngivne alternativer
+
+**Om prisen.** Beløbene herunder er IKKE efterprøvet i denne session:
+udgående trafik var spærret, og en pris, der er gættet, er værre end
+ingen pris. Hvert punkt navngiver derfor den side, der skal slås op, og
+beskriver i stedet den del af omkostningen, der **ikke** svinger —
+nøglen, krediteringen og hvem der ser brugerens IP. Det er som regel dét,
+der afgør valget.
+
+**1 · MapTiler** — `api.maptiler.com/maps/<stil>/{z}/{x}/{y}.png?key=…`
+OSM-baseret, rasterfliser i samme form som nu, så `NEXT_PUBLIC_FLISE_URL`
+kan pege direkte på den.
+· *Penge:* gratis niveau med et månedligt loft, derover abonnement.
+  Slå op på `maptiler.com/cloud/pricing`.
+· *Nøgle:* ja, i URL'en — og `NEXT_PUBLIC_*` når browseren, så den ER
+  offentlig. Brugbar kun med en oprindelsesbegrænset nøgle.
+· *Kreditering:* deres egen ordlyd, oven i OSM-bidragydernes.
+· *IP:* stadig en tredjepart, der ser den besøgendes IP. `/privatliv`
+  skal have nyt navn, ikke færre navne.
+
+**2 · Thunderforest** — `tile.thunderforest.com/<stil>/{z}/{x}/{y}.png?apikey=…`
+Også OSM-baseret raster, også et rent URL-skift.
+· *Penge:* gratis niveau med månedligt flise-loft, derover abonnement i
+  GBP. Slå op på `thunderforest.com/pricing`.
+· *Nøgle:* ja, i URL'en. Samme offentlighedsproblem som ovenfor.
+· *Kreditering:* deres egen, oven i OSM's.
+· *IP:* tredjepart, som nu.
+
+**3 · Vores egne fliser** — PMTiles af et Danmarks-udtræk, bygget med
+planetiler/OpenMapTiles og lagt på vores eget lager.
+· *Penge:* ingen licens. Lager og båndbredde, plus et byg der skal
+  gentages, når kortet skal være friskt. Et Danmarks-udtræk er lille nok
+  til at ligge i en almindelig bucket; en planet er det ikke.
+· *Nøgle:* ingen.
+· *Kreditering:* OSM-bidragydernes, stadig — dataene er deres.
+· *IP:* **ingen tredjepart ser brugerens IP.** Det er den eneste af de
+  tre, der fjerner den linje fra `/privatliv` i stedet for at skrive et
+  nyt navn i den. Omvendt flytter den driften til os: forsvinder vores
+  bucket, forsvinder kortet, og der er ingen at ringe til.
+
+Stadia Maps hører med på listen over dem, der skal slås op
+(`stadiamaps.com/pricing`); de tilbyder domænebegrænset adgang uden nøgle
+i URL'en, hvilket er den ene ting, 1 og 2 ikke kan.
+
+**Det hurtige valg den dag kortene er væk:** 1 eller 2, fordi de er ét
+miljøvariabel-skift plus en deploy. **Det rigtige valg på sigt** er 3,
+hvis kortet skal blive ved med at være vores — men den skal bygges, før
+den skal bruges, og det er grunden til at skrive det ned nu.

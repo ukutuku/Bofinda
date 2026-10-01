@@ -606,28 +606,46 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   forhentning og ingen offline. Browserens egen User-Agent og cache
   opfylder resten.
 
-  **Referer'en til OSM er tilsigtet, men sætningen om den var forkert.**
-  Her stod «vi sætter ingen Referrer-Policy, og det skal blive sådan».
-  Vi sætter én: `app/go/[id]/route.ts` svarer `Referrer-Policy:
-  no-referrer` på de udgående klik, netop for at bevare det,
-  `rel="noopener noreferrer"` gjorde før. Kilderne får altså INGEN
-  Referer — og det er det eneste sted, en Referer nogensinde ville nå en
-  kilde. Påstanden om «ingen Referrer-Policy» gjaldt aldrig hele
-  produktet.
+  **Fliserne må ALDRIG få en restriktiv Referrer-Policy.** Ikke globalt,
+  og ikke som et "udtrykkeligt" `referrerPolicy` på selve flise-laget.
+  Politikken KRÆVER en Referer af os og forbyder udtrykkeligt det
+  modsatte. Citatet står her ved siden af reglen, så den næste, der vil
+  stramme op, kan se at det ikke er en forglemmelse:
 
-  For fliserne gælder derimod browserens standard,
-  `strict-origin-when-cross-origin`, fordi hverken `next.config.ts` eller
-  `Landkort.tsx` sætter noget. **Målt** (Chromium, krydsoprindelse,
-  side på `/bolig/<id>?filtre=2200`): OSM modtager `Referer:
-  https://bofinda.dk/` — origin og intet andet. Hverken sti eller query
-  sendes med.
+  > «Web traffic requires a valid Referer header» · brugere «must not»
+  > sætte «a restrictive Referrer-Policy»
+  > — <https://operations.osmfoundation.org/policies/tiles/>
 
-  Det er præcis nok til, at de kan se hvem der bruger tjenesten, og ikke
-  mere. **En restriktiv GLOBAL politik ville derfor gøre skade, ikke
-  gavn:** den fjerner origin-Referer'en til OSM, mens `/go` i forvejen
-  sender ingenting. Skal noget strammes, hører undtagelsen på FLISERNE —
-  et udtrykkeligt `referrerPolicy` på flise-laget, så hensigten står i
-  koden i stedet for at hvile på en browserstandard — ikke på `/go`.
+  Vi sætter derfor ingen, og browserens standard
+  `strict-origin-when-cross-origin` er nok: OSM modtager
+  `Referer: https://bofinda.dk/` — origin og intet andet, hverken sti
+  eller query. Målt i Chromium, krydsoprindelse, side på
+  `/bolig/<id>?filtre=2200`. Det er præcis det, de identificerer
+  tjenesten på, og præcis så lidt som muligt.
+
+  **`/go/[id]` er ikke en modsigelse, og det er derfor den står her.**
+  Vi SÆTTER nemlig en Referrer-Policy ét sted: `app/go/[id]/route.ts`
+  svarer `Referrer-Policy: no-referrer` på de udgående klik, for at
+  bevare det, `rel="noopener noreferrer"` gjorde før — så vi ikke
+  stiltiende ændrer, hvad KILDERNE ser om deres trafik. Den rute rører
+  aldrig OSM, og de to krav peger derfor ikke i hver sin retning: ingen
+  Referer til kilderne, origin-Referer til fliserne.
+  Her stod engang «vi sætter ingen Referrer-Policy» uden forbehold. Det
+  var en forkert påstand om produktet, og rettelsen er at skrive HVOR vi
+  sætter den — ikke at slække på fliserne.
+
+  **De fem krav er målt, ikke formodet**, og `docs/kildetilladelser.md`
+  har tabellen med status på hver. Det korte: fliserne hentes kun til det
+  udsnit, brugeren ser (Leaflets flisekø er viewporten uden margen;
+  `keepBuffer` beholder, den forhenter ikke), der er ingen service
+  worker, ingen offline-kopi og intet sted, hvor vi rører flisernes
+  cache-headere. Og **de hovedløse browserkørsler når aldrig OSM**:
+  `scripts/cloud/byg.sh` bygger med `NEXT_PUBLIC_FLISE_URL` mod en lokal
+  fliseserver og fejler bygget, hvis `tile.openstreetmap.org` alligevel
+  står i `.next/static`. Den spærring skal blive stående — en kontrol,
+  der henter rigtige fliser, er præcis den botkørsel, politikken
+  forbyder.
+
   **Flise-URL'en er ikke hardkodet.** Politikkens afsnit 7 siger, at
   adgang kan trækkes uden varsel, og at kommercielle tjenester særligt
   skal regne med det. Bofinda er en kommerciel tjeneste. Skift kilde med
