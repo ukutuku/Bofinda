@@ -23,7 +23,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../../db/client'
 import { listingImages, listings, sources } from '../../db/schema'
-import { blokke } from './skriv-bynavne-domaene-sql'
+import { blokke, INDSTILLINGER } from './skriv-bynavne-domaene-sql'
 import { fortolk, type Annonce } from './fortolk-domaene'
 
 if (process.env.BOFINDA_PROEV_PRODUKTION === '1') {
@@ -103,6 +103,14 @@ const D1_FACIT = { flere: 3, kontrakt: 2, hoejst: 2, ugyldige: 0 }
 const D2_FACIT = { boliger: 2, annoncer: 4, reserveretDelte: 2, reserveretTabte: 1, andreTabte: 0 }
 //  FULD-NULL: én kilde med tre totaler uden poster — to aktive, én af dem med el.
 const F1_FACIT = { kilder: 1, total_uden_poster: 3, heraf_aktive: 2, heraf_med_linjen_el_indgaar_ikke: 1 }
+//  S1: hver navngiven indstilling som sin egen række, og alle findes i begge
+//  motorer (målt). Dertil fire rækker om basens collation, tre om da-x-icu
+//  og fire om statistikken på listings og listing_images. Collationen er
+//  det, motorerne skal være UENIGE om.
+const S1_FACIT = {
+  rækker: INDSTILLINGER.reduce((n, [, navne]) => n + navne.length, 0) + 4 + 3 + 4,
+  udbyder: F('libc', 'icu'), skema: F('attrap', 'pg_catalog'), locale: F('und', 'da'),
+}
 
 // ── Prøvedata ───────────────────────────────────────────────────
 const koersel = Date.now()
@@ -211,8 +219,17 @@ try {
     heraf_med_linjen_el_indgaar_ikke: Number(vf?.heraf_med_linjen_el_indgaar_ikke) }
   tjek('F1 total uden poster', JSON.stringify(f1f) === JSON.stringify(F1_FACIT), JSON.stringify(f1f))
 
-  const j1 = await koer<{ name: string }>(B.J1!)
-  tjek('J1 viser de fire JIT-indstillinger', j1.length === 4, j1.map((r) => r.name).join(', '))
+  const s1 = await koer<{ gruppe: string; navn: string; vaerdi: string | null; findes: boolean }>(B.S1!)
+  const v = (navn: string) => s1.find((r) => r.navn === navn)?.vaerdi
+  const mangler = s1.filter((r) => !r.findes).map((r) => r.navn)
+  tjek('S1 har én række pr. navngiven indstilling og de elleve om collation og statistik',
+    s1.length === S1_FACIT.rækker, `${s1.length} rækker · facit ${S1_FACIT.rækker}`)
+  tjek('… og hver navngiven indstilling findes her', mangler.length === 0, mangler.join(', ') || 'alle')
+  const [nu] = await koer<{ jit: string }>(`select current_setting('jit') as jit`)
+  tjek('… jit-rækken er sessionens egen værdi', v('jit') === nu!.jit, `${v('jit')}`)
+  const s1f = { udbyder: v('database: udbyder'), skema: v('da-x-icu: skema'), locale: v('da-x-icu: locale') }
+  tjek('… collationen er den, motoren har', JSON.stringify(s1f) === JSON.stringify(
+    { udbyder: S1_FACIT.udbyder, skema: S1_FACIT.skema, locale: S1_FACIT.locale }), JSON.stringify(s1f))
 } finally {
   await db.delete(listings).where(inArray(listings.sourceId, vores))
   if (nativeIder.length) await db.delete(listings).where(inArray(listings.id, nativeIder))

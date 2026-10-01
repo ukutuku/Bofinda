@@ -1016,9 +1016,12 @@ FORM og nævnes ved navn.
 noget — og netop derfor ser de ud, som om de fanger resten. Her ligger
 `gitignore-skråstregen`, `splice-fra-enden`, `gentagelsesprøven`,
 `include-filteret`, `de-hentede-refs`, `delmængde-påstanden`,
-`facilitets-bindingen`, `linjeankeret`, `værdisøgningen` og
-`collationens-navn` — den sidste med filteret i et NAVN og ikke i en
-kommando: en collation, der hedder dansk, og som ikke er det.
+`facilitets-bindingen`, `linjeankeret`, `værdisøgningen`,
+`collationens-navn` og `den-lokale-måling`. I de to sidste står filteret
+hverken i en kommando eller et regex. I `collationens-navn` står det i et
+NAVN: en collation, der hedder dansk, og som ikke er det. I
+`den-lokale-måling` er filteret maskinen: en måling, der er rigtig om den
+maskine, den blev taget på.
 
 **Form 2 · et værn, der måler sig selv i stedet for koden.** Værre end
 form 1: de måler noget rigtigt, blot mindre; disse måler ikke det, de
@@ -1070,6 +1073,7 @@ commits, i PR-tekster og her.
 | **kendt-følge** · en kendt fejl skrevet ned i stedet for rettet | Brugeren. En kendt usand brugervendt sætning er en fejl, ikke en følge. Den skal rettes, eller ændringen skal vente. At skrive den ned er ikke at have løst den — siden blev ved med at sige den, hver gang den blev vist. |
 | **værdisøgningen** · `git grep "'Lejlighed'"` | Finder kun den ene af tre skrivemåder. Nøglen er ens i alle kopier; værdien er netop det, en drevet kopi har ændret. |
 | **collationens-navn** · `create collation … (provider = icu, locale = 'da')` i PGlite | Dansk. Kaldet lykkes uden fejl, men PGlite har kun ICU's roddata, så collationen sorterer som roden: Aalborg først, Å og Æ blandt A'erne. Navnet lover en orden, motoren ikke har. En dansk ordensprøve i testbasen kan ikke blive grøn — og «rettes» forventningen, til den er grøn, måler prøven roden. **Den brugbare halvdel: om en base KAN sortere dansk, afgøres ved at sortere navnene — ikke ved kataloget.** `pg_collation` siger `locale = 'da'` om PGlites collation, mens motoren sorterer som roden; det er fælden anvendt på betingelsen selv. `scripts/test-dansk-orden.ts` og `scripts/maalinger/proev-bynavne-domaene-sql.ts` afgør det begge ved at sortere. Se «Version og collation» under Testbasen. |
+| **den-lokale-måling** · en måling på den lokale maskine | Produktionen. Version, collation og JIT var forskellige, og alle tre ændrede en konklusion den samme dag — fundet bagefter hver gang. Et lokalt tal er et tal om den lokale maskine, til det er gentaget i produktionen, eller indstillingerne er sammenholdt (S1). Se «Lokalt er ikke produktionen» under Testbasen. |
 | **konflikt-fødte-ændringer** · `git log -S` / `-G` | Ser **ikke merges**. En linje, der opstod i en merges konfliktløsning, har ingen enkelt commit — og søgningen svarer TOMT. Det læses som «denne linje har ingen historik», når det betyder «denne historik er usynlig for dette værktøj». Brug `--diff-merges=first-parent`; `-m` finder den også, men differ mod hver forælder og over-rapporterer. Målt: `.kort-maerkater { right: 52px }` fandtes i nul commits, i én merge med flaget, og i fire med `-m`. |
 | **værktøjets-kvittering** · `Successfully rebased and updated refs/heads/…` | Indholdet. Kvitteringen er sand om værktøjets egen bogføring og **tavs om arbejdet**: `rebase --continue` spørger, om indeksposten er opmærket som løst — ikke om løsningen er rigtig. Målt: samme fil med byte-identisk indhold giver `needs merge` ustaged og `Successfully rebased` staged, og commit'en bærer tre konfliktmarkører, mens `git status` er tom. |
 | **transpilerede-positioner** · V8-dækning (`NODE_V8_COVERAGE`) over en `.ts`-fil | At positionerne peger i DEN FIL, du læser. `tsx` oversætter først, så dækningens `startOffset` er tegnpositioner i den TRANSPILEREDE JS. Et opslag «hvilken `tjek(`-linje ligger i en nul-range» rammer derfor ved siden af, og afvigelsen vokser med filens kommentarer. Målt: **187 af 485 påstande meldt udækkede i `test-redigering.ts` — alle 485 var kørt.** Stakspor ER kildekortlagt; tegnpositioner er ikke. |
@@ -1433,12 +1437,13 @@ boliger, 6.610 billeder og 8 kilder, før og efter:
   A/B ligger inden for A/A's spredning. Med `jit = off` er A/A −0,1 ms og
   A/B +0,4 ms på en forespørgsel på 9 ms.
 
-  **Undervejs: JIT.** Forespørgslen fik et estimat på ca. 125.000, over
-  standardgrænsen `jit_above_cost` på 100.000, og blev JIT-kompileret. Det
-  kostede ca. 120 ms af 130; med `jit = off` tog den 9 ms. Om produktionen
-  gør det samme, afhænger af dens indstillinger og dens eget estimat — J1
-  i `scripts/maalinger/skriv-bynavne-domaene-sql.ts` viser indstillingerne.
-  Ikke rettet: det er ikke denne ændrings sag, før produktionen er målt.
+  **Undervejs: JIT — et LOKALT fund.** Forespørgslen fik et estimat på
+  ca. 125.000, over standardgrænsen `jit_above_cost` på 100.000, og blev
+  JIT-kompileret på den lokale Postgres 16: ca. 120 ms af 130, mod 9 ms
+  med `jit = off`. **Produktionen har `jit = off`** (målt 1. oktober 2026,
+  Supabases standard), så de 120 ms findes ikke dér. Rør ikke
+  indstillingen. Alle tallene i dette afsnit er lokale — se «Lokalt er
+  ikke produktionen» nedenfor.
 
 **Vagten er `scripts/test-dansk-orden.ts`.** Den går gennem den rigtige
 `soeg()`, `hentGruppe()` og `tavseKilder()` med de otte navne og påstår
@@ -1476,6 +1481,44 @@ nogen så det. Attrappen ligger derfor i skemaet `attrap` og findes gennem
 `search_path`: spørger nogen kataloget, svarer det `attrap | da-x-icu |
 und`, og testbasen skriver ved hver opstart, at den er en attrap. EXPLAIN
 viser stadig det korte navn.
+
+### Lokalt er ikke produktionen
+
+**En måling foretaget lokalt er en måling af den lokale maskine.** Den
+siger intet om produktionen, før den er gentaget dér, eller før
+indstillingerne er sammenholdt.
+
+1. oktober 2026 ændrede en forskel mellem lokal og produktion en
+konklusion tre gange. Hver gang blev forskellen fundet tilfældigt og
+bagefter, for ingen havde sammenlignet opsætningerne:
+
+| | Testbasen (PGlite) | Lokal Postgres | Produktionen |
+|---|---|---|---|
+| Postgres | 18.3 | 16.13 | 17.6 |
+| collation | C / libc | en-US / ICU | en_US / ICU |
+| JIT | `on` | `on` | `off` |
+
+Følgerne:
+
+- **Collation.** En prøve af tekstorden i testbasen afprøver en sortering,
+  produktionen ikke udfører.
+- **Version.** NULL-ordenen holder kun, fordi den er klemt inde mellem to
+  målte versioner.
+- **JIT.** De 120 ms i `soegGrupperet` var JIT på den lokale maskine.
+
+**Sammenhold indstillingerne på forhånd, ikke bagefter.**
+`scripts/maalinger/skriv-bynavne-domaene-sql.ts` har blokken S1. Den er
+én forespørgsel på de indstillinger, der kan ændre en konklusion:
+- planlægger, hukommelse, parallelitet og JIT;
+- statistikmål og tabelstatistik;
+- version og collation.
+
+Kør den lokalt og i produktionen, og læg rækkerne ved siden af hinanden,
+før et lokalt tal bruges om produktionen. Kørt på de to lokale motorer
+viste den allerede én forskel mere: testbasen kører uden parallelitet
+(`max_parallel_workers_per_gather = 0`, sat på kommandolinjen), den lokale
+Postgres med 2. Produktionens tal er ikke målt. JIT-rækken er værdien i
+`pg_settings`, ikke et bevis for, at motoren kan JIT-kompilere.
 
 ### Rettighedskontrollen — hvorfor den findes
 

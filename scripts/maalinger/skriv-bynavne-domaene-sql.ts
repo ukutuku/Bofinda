@@ -271,27 +271,85 @@ group by s.name
 having count(*) filter (where l.total_monthly is not null and l.total_monthly_components is null) > 0
 order by 2 desc;`
 
-const J1 = `-- ═══════════════════════════════════════════════════════════════
--- J1 · Er JIT slået til?
+// Indstillingerne, der kan ændre en konklusion. Navnene står ét sted, så
+// prøven kan holde blokken op mod dem.
+export const INDSTILLINGER: readonly [string, readonly string[]][] = [
+  ['version', ['server_version', 'server_version_num']],
+  ['planlaegger', ['random_page_cost', 'seq_page_cost', 'effective_cache_size', 'cpu_tuple_cost',
+    'cpu_index_tuple_cost', 'cpu_operator_cost', 'plan_cache_mode', 'join_collapse_limit',
+    'from_collapse_limit', 'enable_seqscan', 'enable_indexscan', 'enable_bitmapscan', 'enable_hashjoin',
+    'enable_mergejoin', 'enable_nestloop', 'enable_hashagg', 'enable_sort', 'enable_incremental_sort',
+    'enable_memoize']],
+  ['statistik', ['default_statistics_target']],
+  ['hukommelse', ['work_mem', 'hash_mem_multiplier', 'shared_buffers', 'maintenance_work_mem',
+    'temp_buffers', 'effective_io_concurrency']],
+  ['parallelitet', ['max_parallel_workers_per_gather', 'max_parallel_workers', 'max_worker_processes',
+    'parallel_setup_cost', 'parallel_tuple_cost', 'min_parallel_table_scan_size', 'min_parallel_index_scan_size']],
+  ['jit', ['jit', 'jit_above_cost', 'jit_inline_above_cost', 'jit_optimize_above_cost']],
+  ['tid', ['statement_timeout']],
+]
+const OENSKET = INDSTILLINGER.flatMap(([g, navne]) => navne.map((n) => [g, n] as const))
+  .map(([g, n], i) => `('${g}', '${n}', ${i + 1})`).join(',\n  ')
+
+const S1 = `-- ═══════════════════════════════════════════════════════════════
+-- S1 · Indstillinger, der kan ændre en konklusion — kør den BEGGE steder.
 --
--- Kun SELECT. Fire rækker.
+-- Kun SELECT. Én række pr. indstilling; grupperet; ingen af de 400 andre.
 --
--- Forsidens hovedforespørgsel (soegGrupperet) fik et estimat på ca.
--- 125.000 på en lokal Postgres 16 med produktionens størrelse — over
--- standardgrænsen jit_above_cost = 100.000. Dér kostede JIT ca. 120 ms af
--- 130; med jit = off tog forespørgslen 9 ms. Om produktionen gør det
--- samme, afhænger af indstillingerne her og af produktionens eget
--- estimat, som ikke er målt.
+-- En måling på den lokale maskine er en måling af den lokale maskine. Den
+-- siger intet om produktionen, før den er gentaget dér, eller før
+-- indstillingerne er sammenholdt. 1. oktober 2026 ændrede en forskel en
+-- konklusion tre gange: version, collation og JIT — og hver gang blev den
+-- fundet bagefter. Kør blokken lokalt og i produktionen, og sammenlign
+-- rækkerne, FØR en lokal måling bruges om produktionen.
+--
+-- «findes = false» betyder, at motoren ikke kender indstillingen — den
+-- forsvinder ikke stille. «kilde» siger, hvor værdien kommer fra (default,
+-- configuration file, database, user, session).
+--
+-- FORBEHOLD: pg_settings viser værdierne for DENNE session og rolle.
+-- Appen forbinder gennem pooleren med sin egen rolle, og Supabase sætter
+-- nogle værdier pr. rolle — fx statement_timeout. Kan en rolleindstilling
+-- ændre konklusionen, så læs den for appens rolle:
+--   select rolname, rolconfig from pg_roles where rolconfig is not null;
+-- Statistikrækkerne er data, ikke indstillinger: hvor mange rækker
+-- planlæggeren regner med, og hvornår den sidst fik nye tal.
 -- ═══════════════════════════════════════════════════════════════
-select name, setting, unit from pg_settings
-where name in ('jit', 'jit_above_cost', 'jit_inline_above_cost', 'jit_optimize_above_cost')
-order by name;`
+with oensket(gruppe, navn, nr) as (values
+  ${OENSKET}
+)
+select o.nr, o.gruppe, o.navn, s.setting as vaerdi, s.unit as enhed, s.source as kilde,
+       (s.name is not null) as findes
+from oensket o left join pg_settings s on s.name = o.navn
+union all
+select 900 + x.i, 'collation', 'database: ' || x.k, x.v, null, 'pg_database', true
+from pg_database d,
+     lateral (values (1, 'datcollate', d.datcollate::text), (2, 'datctype', d.datctype::text),
+                     (3, 'udbyder', case d.datlocprovider when 'c' then 'libc' when 'i' then 'icu'
+                                                          when 'b' then 'builtin' end),
+                     (4, 'icu-locale', coalesce(to_jsonb(d) ->> 'datlocale', to_jsonb(d) ->> 'daticulocale')))
+       as x(i, k, v)
+where d.datname = current_database()
+union all
+select 910 + x.i, 'collation', 'da-x-icu: ' || x.k, x.v, null, 'pg_collation', true
+from pg_collation c,
+     lateral (values (1, 'skema', c.collnamespace::regnamespace::text), (2, 'collversion', c.collversion),
+                     (3, 'locale', coalesce(to_jsonb(c) ->> 'colllocale', to_jsonb(c) ->> 'colliculocale')))
+       as x(i, k, v)
+where c.collname = 'da-x-icu'
+union all
+select 950 + x.i, 'statistik', t.relname || ': ' || x.k, x.v, null, 'pg_stat_user_tables', true
+from pg_stat_user_tables t,
+     lateral (values (1, 'levende raekker', t.n_live_tup::text),
+                     (2, 'sidst analyseret', greatest(t.last_analyze, t.last_autoanalyze)::text)) as x(i, k, v)
+where t.schemaname = 'public' and t.relname in ('listings', 'listing_images')
+order by 1, 3;`
 
 export function blokke(): { navn: string; sql: string }[] {
   return [
     { navn: 'B1', sql: B1 }, { navn: 'B2', sql: B2 }, { navn: 'B3', sql: B3 },
     { navn: 'D1', sql: D1 }, { navn: 'D2', sql: D2 },
-    { navn: 'F1', sql: F1 }, { navn: 'J1', sql: J1 },
+    { navn: 'F1', sql: F1 }, { navn: 'S1', sql: S1 },
   ]
 }
 
