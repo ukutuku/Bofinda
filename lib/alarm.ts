@@ -154,8 +154,25 @@ export async function matchAlarmer(kun?: string[]): Promise<MatchResultat[]> {
 
 /** Alt der ligger og venter — grupperet, så det kan læses som den besked,
  *  der ville være sendt. */
-export async function ventende() {
-  const raekker = await db
+/**
+ * Hvad «venter» betyder, som ÉT udtryk.
+ *
+ * Eksporteret, fordi en MAALING skal gengive appens eget udtryk og ikke
+ * skrive det af. `scripts/generer-alarmkoe-sql.ts` kalder `.toSQL()` paa
+ * forespoergslen og klipper dens `from … where`-hale ud, saa den SQL,
+ * der koeres i produktionen, er appens egen. Aendres betingelsen her,
+ * aendres den genererede fil med — og proeven fejler, hvis den
+ * committede fil ikke laengere svarer til det genererede.
+ *
+ * Udtraekket er Analytics' (d59c613), og det afloeser et forbehold, jeg
+ * selv havde skrevet: at den haandskrevne SQL-fil kunne drive fra koden.
+ *
+ * `toSQL()` renderer kun og aabner ingen forbindelse — men `db` er en
+ * lazy getter, der bygger klienten ved opslaget og kraever
+ * `DATABASE_URL_DIRECT`. Generatoren koerer derfor under testbasen.
+ */
+export function ventendeForespoergsel() {
+  return db
     .select({
       soegningId: savedSearches.id,
       soegning: savedSearches.name,
@@ -193,6 +210,11 @@ export async function ventende() {
     .innerJoin(sources, eq(sources.id, listings.sourceId))
     .where(and(isNull(alertMatches.sentAt), isNotNull(savedSearches.confirmedAt)))
     .orderBy(savedSearches.name, desc(alertMatches.matchedAt))
+}
+
+/** Alt der ligger og venter — grupperet pr. soegning. */
+export async function ventende() {
+  const raekker = await ventendeForespoergsel()
 
   const grupper = new Map<string, typeof raekker>()
   for (const r of raekker) {
@@ -312,7 +334,16 @@ const und = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 export interface SendResultat {
   soegning: string
   modtager: string
+  /** Antal boliger i MAILEN — altsaa de sendbare, ikke hele koeen. */
   antal: number
+  /**
+   * Traef, der laa i koeen, men hvis bolig er taget ned. Mailes ikke.
+   *
+   * Et FELT og ikke en saetning i `grund`. Et tal kan maales; en streng
+   * skal parses for at blive til et tal, og saa er optaellingen bundet
+   * til ordlyden. Formen er Analytics' (d59c613).
+   */
+  udeladt: number
   sendt: boolean
   grund?: string
 }
@@ -329,18 +360,22 @@ export interface SendResultat {
 type Ventende = Awaited<ReturnType<typeof ventende>>[number][number]
 
 /**
- * Boligerne, der stadig er paa markedet.
+ * Maa denne bolig naevnes i en mail?
  *
- * Eksporteret, saa PROEVEN kan kalde den samme funktion, afsendelsen
+ * Eksporteret, saa PROEVEN kan kalde det samme udtryk, afsendelsen
  * kalder. Foerste udgave af proeven filtrerede selv med
  * `.filter(b => b.status === 'active')` og maalte dermed sit eget
- * forlaeg: modproeven, der fjernede filteret i `sendAlarmer`, blev kun
- * roed paa kildetjekket — ikke paa en enkelt paastand om teksten.
- * Det er `proevens-eget-forlaeg` fra faeldetabellen, i en proeve
- * skrevet samme dag som raekken.
+ * forlaeg: modproeven, der fjernede filteret, blev kun roed paa
+ * kildetjekket — ikke paa en enkelt paastand om teksten. Det er
+ * `proevens-eget-forlaeg` fra faeldetabellen, i en proeve skrevet samme
+ * dag som raekken.
+ *
+ * Navnet er Analytics' (d59c613) og er bedre end det, der stod her
+ * foer (`kunAktive`): det navngiver SPOERGSMAALET og ikke mekanismen,
+ * og som praedikat pr. raekke kan `scripts/alarm.ts` bruge det til at
+ * saette sin egen etiket i stedet for at gentage `=== 'delisted'`.
  */
-export const kunAktive = (g: readonly Ventende[]): Ventende[] =>
-  g.filter((b) => b.status === 'active')
+export const maaMailes = (b: { status: string }): boolean => b.status === 'active'
 
 /**
  * Mailens krop — UDTRUKKET, saa den kan proeves.
@@ -461,22 +496,26 @@ export async function sendAlarmer(): Promise<SendResultat[]> {
     // Filtreringen sker HER og ikke i `ventende()`, fordi
     // forhaandsvisningen bruger samme funktion og SKAL se dem — den
     // findes for, at et menneske kan efterse koeen foer afsendelse.
-    const g = kunAktive(alle)
+    const g = alle.filter(maaMailes)
     const nedtaget = alle.length - g.length
     if (g.length === 0) {
-      ud.push({ soegning: navn, modtager: f.modtager, antal: alle.length,
-        sendt: false, grund: `alle ${alle.length} boliger er taget ned siden matchet` })
+      ud.push({ soegning: navn, modtager: f.modtager, antal: 0, udeladt: nedtaget,
+        sendt: false, grund: `alle ${nedtaget} boliger er taget ned siden matchet` })
       continue
     }
 
     if (!f.paaMail || f.afmeldt) {
-      ud.push({ soegning: navn, modtager: f.modtager, antal: alle.length,
+      // Hele koeen staar som `antal`: afmeldingen rammer alt, og de
+      // nedtagne er ikke engang VURDERET her — `udeladt` er derfor 0 og
+      // ikke udeladt. Et felt, der mangler, og et felt, der er nul, er
+      // to forskellige udsagn, og her er nul det sande.
+      ud.push({ soegning: navn, modtager: f.modtager, antal: alle.length, udeladt: 0,
         sendt: false, grund: 'afmeldt — mail slået fra' })
       continue
     }
     if (f.sidstSendt && Date.now() - +f.sidstSendt < MINDST_MELLEM_MAILS_MIN * 60_000) {
       const min = Math.round((MINDST_MELLEM_MAILS_MIN * 60_000 - (Date.now() - +f.sidstSendt)) / 60_000)
-      ud.push({ soegning: navn, modtager: f.modtager, antal: alle.length,
+      ud.push({ soegning: navn, modtager: f.modtager, antal: g.length, udeladt: nedtaget,
         sendt: false, grund: `sendt for nylig — venter ${min} min.` })
       continue
     }
@@ -507,9 +546,7 @@ export async function sendAlarmer(): Promise<SendResultat[]> {
         .where(eq(savedSearches.id, f.soegningId))
     }
     ud.push({ soegning: navn, modtager: f.modtager, antal: g.length,
-      sendt: r.sendt,
-      grund: [r.grund, nedtaget > 0 ? `${nedtaget} taget ned siden matchet — udeladt` : null]
-        .filter(Boolean).join(' · ') || undefined })
+      udeladt: nedtaget, sendt: r.sendt, grund: r.grund })
   }
   return ud
 }

@@ -7,8 +7,19 @@
 //  tre fund nedenfor var derfor usynlige for sættet.
 //
 //  Prøven gengiver BEGGE udgaver, ren tekst og HTML, af den samme
-//  funktion afsendelsen bruger. Forlægget er fri fantasi; der røres
-//  ingen database og intet netværk.
+//  funktion afsendelsen bruger. Afsnit 1, 2 og 3 er ren fantasi uden
+//  base; afsnit 1b sår et forlæg og kører den RIGTIGE `sendAlarmer`,
+//  fordi en filtrering, der kun er prøvet på den udtrukne skabelon,
+//  ikke er prøvet dér, hvor den sker. Derfor kører filen under
+//  scripts/testbase.ts. Netværk røres ikke: `sendMail` kan ikke lykkes
+//  uden nøgler, og det er med vilje.
+//
+//  ⊘ FORBEHOLD · `sent_at` sættes kun for de sendbare (`g`), og det er
+//    IKKE prøvet her. `sendMail` kan ikke lykkes i testbasen, så
+//    afsendelsesgrenen nås aldrig — og en negativ påstand om de
+//    nedtagnes `sent_at` ville stå grøn, fordi intet blev sendt.
+//    Forbeholdet er Analytics' (d59c613). Den halvdel hører på #19's
+//    `_saetSender`-søm, hvor afsendelsen kan stedfortrædes.
 //
 //  ── HVORFOR HVER PÅSTAND HAR EN MODPRØVE ────────────────────
 //  Hver af de tre rettelser kan ophæves med én linje, og `modproever/`
@@ -17,7 +28,9 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { renderToStaticMarkup } from 'react-dom/server'
-import { byggAlarmmail, beskrivFiltre, kunAktive, sendAlarmer } from '../lib/alarm'
+import { sql } from 'drizzle-orm'
+import { db } from '../db/client'
+import { byggAlarmmail, beskrivFiltre, maaMailes, sendAlarmer } from '../lib/alarm'
 import { eltilstand, type Eltilstand } from '../lib/eloplysning'
 
 let fejl = 0
@@ -64,11 +77,11 @@ console.log('\n══ 1 · boliger, der er taget ned, kommer ikke med ══')
   tjek('forudsætning: gives BEGGE rækker, nævner mailen begge',
     begge.emne.startsWith('2 nye boliger') && begge.tekst.includes('Nedtagetvej 2'))
 
-  // KODENS eget filter, ikke prøvens. Første udgave skrev
+  // KODENS eget prædikat, ikke prøvens. Første udgave skrev
   // `.filter(b => b.status === 'active')` her — og så målte prøven sit
-  // eget forlæg: modprøven, der fjerner filteret i `sendAlarmer`, blev
-  // kun rød på kildetjekket, ikke på en påstand om teksten.
-  const filtreret = kunAktive([BOLIG, nedtaget])
+  // eget forlæg: modprøven, der fjerner filteret, blev kun rød på
+  // kildetjekket, ikke på en påstand om teksten.
+  const filtreret = [BOLIG, nedtaget].filter(maaMailes)
   const m = byggAlarmmail(filtreret, BOLIG, 'min søgning')
   tjek('den nedtagne bolig står IKKE i teksten', !m.tekst.includes('Nedtagetvej 2'))
   tjek('… og ikke i HTML-en', !m.html.includes('Nedtagetvej 2'))
@@ -79,6 +92,65 @@ console.log('\n══ 1 · boliger, der er taget ned, kommer ikke med ══')
     m.html.includes('<strong>1 ny bolig</strong>') && !m.html.includes('2 nye boliger'))
   tjek('den rene tekst siger «1 ny bolig matcher»',
     m.tekst.startsWith('1 ny bolig matcher'))
+}
+
+console.log('\n══ 1b · filtret gennem den RIGTIGE sendAlarmer ══')
+{
+  // Afsnittet er Analytics' (d59c613) og er stærkere end afsnit 1:
+  // `byggAlarmmail` kan kun vise, at teksten følger den liste, den FÅR.
+  // Her sås rækkerne, og `sendAlarmer` kaldes rigtigt — så vagternes
+  // RÆKKEFØLGE og `antal`/`udeladt` prøves også. Et løfte om et andet
+  // lag kan ikke prøves i den rene funktion.
+  tjek('maaMailes: active ja, delisted nej',
+    maaMailes({ status: 'active' }) && !maaMailes({ status: 'delisted' }))
+
+  const K = '55555555-0000-0000-0000-000000000001'
+  const U = '66666666-0000-0000-0000-000000000001'
+  const S_BLANDET = '77777777-0000-0000-0000-000000000001'
+  const S_ALLE_NED = '77777777-0000-0000-0000-000000000002'
+  const L_AKTIV = '88888888-0000-0000-0000-000000000001'
+  const L_NED = '88888888-0000-0000-0000-000000000002'
+  const L_NED2 = '88888888-0000-0000-0000-000000000003'
+
+  await db.execute(sql`insert into sources (id, slug, name, source_type)
+    values (${K}, 'proeve-alarmmail', 'Prøvekilde', 'spider')`)
+  await db.execute(sql`insert into users (id, email) values (${U}, 'besked@proeve.invalid')`)
+  await db.execute(sql`insert into saved_searches (id, user_id, name, criteria, confirmed_at) values
+    (${S_BLANDET},  ${U}, 'blandet',  '{}'::jsonb, now()),
+    (${S_ALLE_NED}, ${U}, 'alle ned', '{}'::jsonb, now())`)
+  await db.execute(sql`insert into listings
+    (id, source_id, source_type, external_key, source_url, address_raw, rent_monthly, status, delisted_at) values
+    (${L_AKTIV}, ${K}, 'spider', 'b-aktiv', 'https://proeve.invalid/a', 'Aktivvej 1, 2200',    900000, 'active',   null),
+    (${L_NED},   ${K}, 'spider', 'b-ned',   'https://proeve.invalid/b', 'Nedtagetvej 2, 2200', 900000, 'delisted', now()),
+    (${L_NED2},  ${K}, 'spider', 'b-ned2',  'https://proeve.invalid/c', 'Nedtagetvej 3, 2200', 900000, 'delisted', now())`)
+  // Boligen blev taget ned EFTER træffet blev fundet — hele sagen.
+  await db.execute(sql`insert into alert_matches (saved_search_id, listing_id, matched_at) values
+    (${S_BLANDET},  ${L_AKTIV}, now() - interval '2 hours'),
+    (${S_BLANDET},  ${L_NED},   now() - interval '2 hours'),
+    (${S_ALLE_NED}, ${L_NED2},  now() - interval '2 hours')`)
+
+  const r = await sendAlarmer()
+  const blandet = r.find((x) => x.soegning === 'blandet')
+  const alleNed = r.find((x) => x.soegning === 'alle ned')
+
+  tjek('blandet gruppe: antal = 1 (ikke 2)', blandet?.antal === 1, `antal=${blandet?.antal}`)
+  tjek('blandet gruppe: udeladt = 1', blandet?.udeladt === 1, `udeladt=${blandet?.udeladt}`)
+  tjek('kun nedtagne: intet sendt', alleNed?.sendt === false)
+  tjek('kun nedtagne: grunden siger hvorfor',
+    /taget ned/.test(alleNed?.grund ?? ''), alleNed?.grund)
+  tjek('kun nedtagne: antal = 0, udeladt = 1',
+    alleNed?.antal === 0 && alleNed?.udeladt === 1,
+    `antal=${alleNed?.antal} udeladt=${alleNed?.udeladt}`)
+
+  // ⚠ IKKE UDØVET, og det står som tekst og ikke som et flueben:
+  // at `sent_at` sættes for de sendbare og IKKE for de nedtagne.
+  // Det kræver en afsendelse, der lykkes, og `sendMail` returnerer
+  // `sendt: false` før sit fetch uden RESEND_API_KEY. En negativ
+  // påstand om de nedtagnes `sent_at` ville være GRØN her, fordi
+  // intet blev sendt overhovedet. Den halvdel hører på #19's
+  // `_saetSender`-søm. (Forbeholdet er Analytics' formulering.)
+  console.log('  ⊘ sent_at for de sendbare: IKKE udøvet — sendMail kan ikke '
+    + 'lykkes i testbasen, så en negativ påstand ville være grøn af den forkerte grund')
 }
 
 console.log('\n══ 2 · «din grænse» kun når søgningen HAR en ══')
@@ -211,8 +283,12 @@ console.log('\n══ 5 · kildetjek: vagterne står i koden, ikke i en kommenta
   const kode = readFileSync('lib/alarm.ts', 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
   tjek('status-filteret står i afsendelsesvejen',
-    /const g = kunAktive\(alle\)/.test(kode)
-    && /g\.filter\(\(b\) => b\.status === 'active'\)/.test(kode))
+    /const g = alle\.filter\(maaMailes\)/.test(kode)
+    && /maaMailes = \(b: \{ status: string \}\): boolean => b\.status === 'active'/.test(kode))
+  tjek('udeladt er et TAL på SendResultat, ikke en sætning i grund',
+    /udeladt: number/.test(kode) && !/taget ned siden matchet — udeladt/.test(kode))
+  tjek('ventendeForespoergsel er udtrukket, så målingen kan generere sin SQL',
+    /export function ventendeForespoergsel\(\)/.test(kode))
   tjek('el-teksten er bundet med satisfies Record<Eltilstand',
     /satisfies Record<Eltilstand, string \| null>/.test(kode))
   tjek('grænsen udledes af søgningens egne kriterier',
@@ -222,6 +298,29 @@ console.log('\n══ 5 · kildetjek: vagterne står i koden, ikke i en kommenta
   tjek('og `uvis` findes ikke længere som ét felt for to spørgsmål',
     !/\buvis\b/.test(kode))
   tjek('sendAlarmer er stadig eksporteret', typeof sendAlarmer === 'function')
+
+  // ── DE TO KOMMANDOFLADER ────────────────────────────────────
+  // Uden dem beskriver `npm run alarm -- vis` og importørens
+  // [mail]-linje adfærden fra FØR filtret: boligen står som «ikke
+  // længere ledig» uden at sige, at den ikke mailes, og linjens tal
+  // tier om de udeladte. Samme-commit-reglen i CLAUDE.md: gør en
+  // ændring data usynlige, skal det, der forklarer dem, med i samme
+  // commit. Rettelsen er Analytics' (d59c613).
+  const strim = (f: string) => readFileSync(f, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  const sAlarm = strim('scripts/alarm.ts')
+  const sImport = strim('scripts/import.ts')
+  // Prædikatet og ikke en afskrift af det: `maaMailes` er ÉT sted, og
+  // en `=== 'delisted'` i kommandoen ville være det andet udtryk, der
+  // driver fra det første.
+  tjek('scripts/alarm.ts mærker med KODENS prædikat, ikke sit eget',
+    /maaMailes\(b\)/.test(sAlarm) && !/status === 'delisted'/.test(sAlarm))
+  tjek('… og siger FØLGEN: ikke bare «ikke ledig», men «mailes ikke»',
+    /mailes ikke/.test(sAlarm))
+  tjek('… og tæller de udeladte med FELTET, ikke ved at læse grund',
+    /x\.udeladt/.test(sAlarm))
+  tjek('scripts/import.ts siger, at de udeladte ikke blev mailet',
+    /r\.udeladt/.test(sImport) && /ikke mailet/.test(sImport))
 }
 
 console.log(fejl ? `\n  ${fejl} FEJLEDE\n` : '\n  ALT GRØNT\n')
