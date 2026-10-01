@@ -1016,7 +1016,9 @@ kommando: en collation, der hedder dansk, og som ikke er det.
 form 1: de måler noget rigtigt, blot mindre; disse måler ikke det, de
 handler om. `prøvens-eget-forlæg` og dens slægtning
 `den-rene-fils-påstand`, hvor prøven ser på den rigtige kode, men kun på
-den fil, teksten står i — ikke på det modul, teksten lover noget om.
+den fil, teksten står i — ikke på det modul, teksten lover noget om. Og
+`import-prøven`, der måler noget sandt — at importen lykkes — og læses som
+om den målte løftet om ingen database.
 
 **Form 3 · et svar om værktøjet er ikke et svar om arbejdet.** Ikke et
 værn, der dækker for lidt, men et svar, der er SANDT om noget andet, end
@@ -1055,7 +1057,8 @@ commits, i PR-tekster og her.
 | **facilitets-bindingen** · `FACILITETER` mod `Facilitetsord` | Fanger en forkert VÆRDI, ikke en manglende. `readonly X[]` må have enhver længde — også nul. Se nedenfor. |
 | **linjeankeret** · en scanner forankret til linjestart (`^`) | Ser kun kopier, hvor nøglen står FØRST på linjen. Alle seks kopier havde flere nøgler pr. linje, så scanneren meldte fire af seks — et tal, der ser ud som et svar. |
 | **prøvens-eget-forlæg** | Dækker slet ikke koden. Isoleringsflagene lå i trinlisten i `scripts/import.ts`; prøven byggede sine egne trin med sine egne flag. Vendes hvert eneste flag i koden, er sættet fortsat grønt — prøven så aldrig på dem. |
-| **den-rene-fils-påstand** · brugervendt tekst i en ren fil, prøvet i `npm test` | Teksten, ikke løftet. Brugervendt tekst, der gør et udsagn om systemet, lægges i en ren fil uden database, så den kan prøves — det er rigtigt. Men en påstand om ET ANDET modul kan ikke prøves der: den skal have sin egen prøve, hvor modulet bor. «Den kan stadig åbnes på sit eget link» handler om `hentBolig`, og prøven af forklaringsfilen var grøn, også hvis linket gav 404. En ren fil gør teksten prøvbar og løftet uprøvbart, hvis man ikke passer på. **Og en ren fil holder kun, hvis også dens hjælpefunktioner er rene** — en formatteringshjælper fra en komponent er det sjældent. Fletteopskriften til `opgave/kontakt-ui` ville have hentet `kr` fra `app/Boligkort` ind i `forklaring.ts`, og `Boligkort` importerer `lib/soeg` og dermed databasen. Intet ville have set det: `db/client.ts` forbinder først ved første brug, så en import-prøve bliver ikke rød, og prøverne kører under testbasen. `scripts/test-rene-filer.ts` måler derfor importgrafen med esbuild og tillader kun andre rene filer — en allowlist, så en ny hjælper skal på listen og selv bliver vogtet. |
+| **den-rene-fils-påstand** · brugervendt tekst i en ren fil, prøvet i `npm test` | Teksten, ikke løftet. Brugervendt tekst, der gør et udsagn om systemet, lægges i en ren fil uden database, så den kan prøves — det er rigtigt. Men en påstand om ET ANDET modul kan ikke prøves der: den skal have sin egen prøve, hvor modulet bor. «Den kan stadig åbnes på sit eget link» handler om `hentBolig`, og prøven af forklaringsfilen var grøn, også hvis linket gav 404. En ren fil gør teksten prøvbar og løftet uprøvbart, hvis man ikke passer på. **Og en ren fil holder kun, hvis også dens hjælpefunktioner er rene** — en formatteringshjælper fra en komponent er det sjældent. Fletteopskriften til `opgave/kontakt-ui` ville have hentet `kr` fra `app/Boligkort` ind i `forklaring.ts`, og `Boligkort` importerer `lib/soeg` og dermed databasen. Intet ville have set det: `db/client.ts` forbinder først ved første brug, så en import-prøve bliver ikke rød, og prøverne kører under testbasen. `scripts/test-rene-filer.ts` måler derfor importgrafen med esbuild og prøver hver fil på det løfte, der står ordret i dens hoved — ikke på en husregel. Hver pakke i grafen skal være klassificeret (en allowlist), og et nyt løfte i et hoved er rødt, til nogen har sat det på listen. |
+| **import-prøven** · en import-prøve af en fil, der lover ingen database | Databasen. `db/client.ts` forbinder først ved første brug, så `await import()` af filen lykkes uden `DATABASE_URL` — også når den trækker `lib/soeg` og `postgres` med sig. Prøven måler, at importen lykkes, og læses som om den målte, at basen ikke nås. Mål grafen, ikke kørslen: `scripts/test-rene-filer.ts`. |
 | **kendt-følge** · en kendt fejl skrevet ned i stedet for rettet | Brugeren. En kendt usand brugervendt sætning er en fejl, ikke en følge. Den skal rettes, eller ændringen skal vente. At skrive den ned er ikke at have løst den — siden blev ved med at sige den, hver gang den blev vist. |
 | **værdisøgningen** · `git grep "'Lejlighed'"` | Finder kun den ene af tre skrivemåder. Nøglen er ens i alle kopier; værdien er netop det, en drevet kopi har ændret. |
 | **collationens-navn** · `create collation … (provider = icu, locale = 'da')` i PGlite | Dansk. Kaldet lykkes uden fejl, men PGlite har kun ICU's roddata, så collationen sorterer som roden: Aalborg først, Å og Æ blandt A'erne. Navnet lover en orden, motoren ikke har. En dansk ordensprøve i testbasen kan ikke blive grøn — og «rettes» forventningen, til den er grøn, måler prøven roden. Se «Version og collation» under Testbasen. |
@@ -1322,6 +1325,7 @@ Testbasen er målt inde i `rejsTestbase()`, efter migrationerne.
 | version | 17.6 (170006) | 18.3 (180003) |
 | `datcollate` / `datctype` | en_US.UTF-8 / en_US.UTF-8 | C / C.UTF-8 |
 | udbyder | icu | libc |
+| `da-x-icu`, `collversion` | findes, 153.121.45 | findes ikke |
 
 **«18.3» er motorens eget svar, ikke et pakkenummer.** `version()` svarer
 `PostgreSQL 18.3 (PGlite 0.5.8) on wasm32-unknown-emscripten`. 0.5.8 er

@@ -23,6 +23,8 @@ export interface Omraade {
 
 // Dedupet, ligesom soegesiden. Tallene i broedteksten staar over listen
 // paa samme side — taller de to forskelligt, er den ene forkert.
+// Eksporteret til maalingerne i scripts/maalinger/, saa de taeller det
+// samme saet som siderne og ikke en afskrift af det.
 export const synlig = udenDubletter(
   and(eq(listings.status, 'active'), ne(listings.addressMatchLevel, 'failed')),
 )
