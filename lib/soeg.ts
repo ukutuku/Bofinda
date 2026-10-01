@@ -309,7 +309,9 @@ const SAMME_BOLIG_ANDEN_KILDE = sql`(
  * definitioner ville betyde, at det, vi skjuler, og det, vi siger vi
  * skjuler, kunne komme fra hinanden.
  */
-const DEDUPNOEGLE = sql`case
+// Eksporteret til scripts/maal-domaenefiltre.ts, saa maalingen grupperer
+// paa den noegle, der koerer, og ikke paa en afskrift af den.
+export const DEDUPNOEGLE = sql`case
   when ${listings.addressMatchLevel} = 'unit' and ${listings.unitAddressUuid} is not null
     then 'unit:' || ${listings.unitAddressUuid}
   when ${listings.addressMatchLevel} = 'access' and ${listings.accessAddressUuid} is not null
