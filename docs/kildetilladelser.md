@@ -15,6 +15,60 @@ fejl, og fordi den eneste måde at kende forskel på "vi har fået lov" og
 > skal ikke i git. Se `CLAUDE.md`.
 
 ---
+---
+
+## Hullet, samlet: ingen af tilladelserne navngiver nogen
+
+**Dette afsnit fylder ikke noget ud. Det gør hullet synligt, så det ikke
+skal tælles af den, der leder.** Felterne nedenfor står urørte med vilje:
+de kan kun udfyldes af den, der førte samtalen, og et gæt ville være
+værre end et tomt felt. Men filens åbningssætning er «hvem har givet os
+lov til hvad, **hvornår, og af hvem**», og på to af de tre spørgsmål er
+svaret i dag blankt.
+
+Målt i denne fil og i `adapters/index.ts`:
+
+| | Antal |
+|---|---|
+| Kilder, der kører i timekørslen (`rigtigeKilder()`) | **11** |
+| Rækker i tabellen nedenfor | 13 |
+| Rækker **uden navn og rolle** på den, der gav lov | **13 af 13** |
+| Rækker **uden dato** | **11 af 13** — kun Laros og Alabu har en |
+| Rækker, hvor omfangs-kolonnen er tom | **8 af 13** |
+| Kørende kilder **uden en række overhovedet** | **3** |
+
+**De tre uden en række er `home.dk`, `Heimstaden` og `Birch Ejendomme`.**
+De står i `KILDER` uden `kunUdvikling`, altså kører de i `koerAlle` hver
+time. Der er ingen post om dem her. Det er ikke et tomt felt — det er et
+fravær, og det er den slags, man ikke kan tælle sig til.
+
+**Balder er den mest iøjnefaldende.** Posten hedder «den udfyldte, som
+forbillede», og dens `Oplyst af` og `Dato` er begge `[UDFYLDES]`.
+Forbilledet er altså udfyldt på **omfanget** — værter, endpoint, nøgle,
+billedvært, som Balder-sagen lærte os — og blankt på **hvem og hvornår**.
+Det er værd at se som to forskellige slags fuldstændighed: posten er et
+forbillede for den ene og et eksempel på hullet for den anden.
+
+Omfangs-kolonnen er tom for otte, og det er den kolonne, filen selv
+kalder «den vigtige, og den er ikke en formalitet». Fire af de otte er
+kilder, vi kører i dag: `findbolig.nu`, `Propstep`, `Dacas` og
+`LokalBolig`.
+
+### Den dyreste uciterede regel i repoet
+
+**BoligPortal.** Reglen står tre steder — `CLAUDE.md:840`, `CLAUDE.md:1609`
+og posten nedenfor — og lyder hver gang, at deres robots.txt «forbyder
+crawling udtrykkeligt på skrift». **Ingen af de tre citerer en linje, og
+ingen af dem siger hvornår filen blev læst.**
+
+Den holder en hel kilde ude for altid. Prisen ved at tage fejl går begge
+veje: står der i virkeligheden noget andet, afviser vi en kilde uden
+grund — og er den rigtig, men udateret, kan vi ikke vise nogen hvorfor.
+En regel, der koster så meget, skal kunne efterprøves af den næste uden
+at hente noget.
+
+Hvad der skal stå: den eller de linjer, der forbyder os, ordret, og
+datoen for hentningen. Intet andet er nødvendigt.
 
 ## Sådan udfyldes omfangs-kolonnen
 
@@ -72,10 +126,37 @@ Står der `[UDFYLDES]`, mangler oplysningen, og linjen kan ikke bæres.
 | **Dato** | `[UDFYLDES]` |
 | **Form** | Telefon, optaget med samtykke |
 
-**robots.txt siger nej begge steder.** `www.balder.dk` har `Disallow: /api/`;
-`api.balder.dk` har `Disallow: /` til alle. Vi henter alligevel, fordi
-rettighedshaveren selv har givet lov. Det er en bevidst undtagelse, ikke
-en forglemmelse — se `CLAUDE.md`.
+**Om robots.txt — og hvilken af dem der overhovedet gælder.**
+robots.txt gælder **pr. origin**. Den vært, vi faktisk henter data fra,
+er `api.balder.dk` (`adapters/balder.ts:45`, `:151`); `www.balder.dk`
+bruges kun til det link, mennesker klikker på (`SIDE`, `:46`), og vi
+henter aldrig `/api/` dér. **`www.balder.dk/robots.txt`'s `Disallow:
+/api/` binder os derfor ikke** — den styrer stier under www, som vi
+ikke kalder. Den eneste, der er relevant, er `api.balder.dk`'s egen.
+
+Om den står der i repoet, at den har `Disallow: /` til alle
+(`adapters/balder.ts:17` og tidligere her). **Det er vores egen
+gengivelse — ingen linje er citeret, og ingen dato for hentningen er
+noteret.** Denne session kunne ikke efterprøve den: udgående trafik til
+`www.balder.dk` og `api.balder.dk` blev afvist af miljøets gateway
+(403 på CONNECT, målt 2026-10-01). Påstanden står altså som en af de
+uciterede, den skulle være et modeksempel på.
+
+**Vi omgår ikke noget.** Vi kalder et API, rettighedshaveren selv har
+anvist, med den nøgle de selv pegede på. At handle i strid med en
+robots.txt-linje **med ejerens tilladelse** er ikke en overtrædelse:
+robots.txt er et signal til fremmede, og har ejeren sagt ja, gælder
+deres ja. Formuleringen «vi overtræder deres forbud» er forkert og skal
+ikke bruges — den er den slags, der bliver citeret mod os.
+
+**Hvad der skal efterprøves, før nogen bygger videre:** hent
+`https://api.balder.dk/robots.txt`, skriv de linjer ind her, der
+angår os, og notér datoen. Og udfyld `Oplyst af` og `Dato` ovenfor —
+tilladelsen, der bærer hele konstruktionen, navngiver i dag ingen.
+Repoets eneste spor er `adapters/balder.ts:4-13` («aftalt med Balder
+selv», «de har bekræftet») og commit `f8a3418` (2026-09-05), hvis
+besked handler om datafelter og ikke om tilladelsen. Hverken navn,
+rolle eller dato findes nogen steder.
 
 ---
 
@@ -168,11 +249,56 @@ Konkret, for hver slags:
 | API-nøgle | modpart og miljø | En roteret eller spærret nøgle må ikke tage andet med sig |
 | Afsenderdomæne | postslags | Et alarmdomæne på en spamliste må ikke tage kontomails med |
 | IP / udgående vært | takt-regime | Heimstadens CDN spærrede **IP'en**, ikke UA'en (målt 2026-09-06) |
+| Referer | **kan ikke deles — den er den eneste, OSM har** | Se afsnittet nedenfor: fjernes den, er vi navnløse, ikke diskrete |
 
-Den sidste række er ikke en formodning: Heimstaden mødte alle kald fra
-vores IP med 503 efter ~17 minutter, **uanset User-Agent** — se
-`VAERTSTAKT` i `lib/fetch.ts`. Det er netop derfor identiteten skal være
-delt op, før den bliver det for os.
+### Modparten vælger, hvilken identitet den sanktionerer
+
+Den sidste række er ikke en formodning, og den er heller ikke en
+indvending mod reglen — den er dens anden halvdel. Heimstaden mødte
+alle kald fra vores IP med **503 efter ~17 minutter, uanset
+User-Agent** (målt 2026-09-06; se `VAERTSTAKT` i `lib/fetch.ts`).
+
+**Adskilte identiteter hjælper kun, hvis modparten sanktionerer den
+identitet, du adskilte — og det vælger den selv.** Havde vi givet
+flisehentningen sin egen User-Agent og troet os dækket, ville
+Heimstaden-tilfældet have ramt alligevel: de spærrede værten, ikke
+navnet. En adskillelse er altså ikke en garanti, men en reduktion af,
+hvor mange forpligtelser én sanktion KAN ramme. Derfor skal
+adskillelsen følge **den dyreste akse først**: er modparten kendt for
+at spærre på IP, er det den udgående vært, der skal deles — en ny UA
+ændrer ingenting.
+
+Reglen bliver dermed: adskil identiteterne, og **antag ikke, at
+adskillelsen holder**. Mål, hvad modparten faktisk sanktionerer på,
+første gang den sanktionerer.
+
+### Og der findes forpligtelser uden en alternativ identitet
+
+**OSM er det rene tilfælde, og det er derfor det hører her.** De ser
+aldrig vores IP: browseren henter fliserne direkte, så det er den
+besøgendes adresse, der rammer dem, og den siger intet om, hvem
+tjenesten er. De ser heller ikke en User-Agent, der er vores — den er
+browserens.
+
+**`Referer: https://bofinda.dk/` ER vores identitet dér. Den er den
+eneste, der findes.** Derfor er kravet om en gyldig Referer ikke en
+formalitet: det er den eneste måde, de kan knytte trafik til en
+tjeneste og tale med den, der belaster. Og derfor ville en restriktiv
+Referrer-Policy ikke bare være et brud på deres vilkår — den ville
+gøre os **uidentificerbare**, og svaret på uidentificerbar tung trafik
+er en blokering. Vi ville have sluttet ringen selv: fjernet det eneste
+navn, der kunne have reddet os, og derefter fået det, navnløs trafik
+får.
+
+| | Identitet over for OSM |
+|---|---|
+| IP | brugerens, ikke vores |
+| User-Agent | browserens, ikke vores |
+| Referer | **vores — og den eneste** |
+
+Det er den slags forpligtelse, man skal kunne genkende: **ét bånd, og
+ingen reserve.** Hvor de andre rækker handler om at dele identiteter
+op, handler denne om ikke at fjerne den sidste, der er tilbage.
 
 **Undtagelsen, der ikke er en undtagelse:** `lib/fetch.ts` lader
 `User-Agent` stå SIDST i header-objektet, så et enkelt kald ikke kan
