@@ -319,7 +319,7 @@ tilbage på standardfotoet.
 
 ## 3 · Områdesidernes meta-beskrivelse står øverst i #36
 
-[ukutuku/Bofinda#36](https://github.com/ukutuku/Bofinda/issues/36) opdateres umiddelbart efter denne commit, med permalinks til den. **Områdesidernes meta-beskrivelse er punkt 1**, af den
+[ukutuku/Bofinda#36](https://github.com/ukutuku/Bofinda/issues/36) er opdateret (1. oktober, se [kommentaren](https://github.com/ukutuku/Bofinda/issues/36#issuecomment-5928899754)). **Områdesidernes meta-beskrivelse er punkt 1**, af den
 grund du gav. Siderne står i sitemap'et og er self-canonical og
 indekserbare, og en søgemaskine, der har gemt beskrivelsen, viser den, til
 den henter siden igen. Fejlen overlever altså rettelsen i cachen, side for
@@ -381,7 +381,7 @@ forkert.»
 ## 4 · Kommandoen i dokumentationen
 
 **Rækken er foreslået på #22**, hvor Git & Release har fældetabellen i denne
-uge: kommentaren på #22, som postes umiddelbart efter denne commit. Jeg har ikke rørt `CLAUDE.md`. Den samme vej tog en anden
+uge: [kommentaren på #22](https://github.com/ukutuku/Bofinda/pull/22#issuecomment-5928907305). Jeg har ikke rørt `CLAUDE.md`. Den samme vej tog en anden
 session med sin række i morges. Rækken er skrevet i tabellens navneform, med
 værnet til venstre:
 
@@ -509,8 +509,8 @@ afsnittene ovenfor. Det vigtigste:
   dem i forvejen. Nu prøves værtskravet alene, og samme modprøve giver otte
   røde.
 - **#36 og kommentaren til #22 var ikke klar til at blive postet.** De
-  linkede til ucommittet kode og havde påstande uden måling bag. De er
-  rettet og postes efter denne commit, med permalinks til den.
+  linkede til ucommittet kode og havde påstande uden måling bag. De blev
+  rettet, committet og postet bagefter, med permalinks.
 
 ## Filer
 
