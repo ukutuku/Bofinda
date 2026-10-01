@@ -156,7 +156,47 @@ console.log('\n══ 3 · el-teksten er udtømmende over Eltilstand ══')
     !byggAlarmmail([klump], klump, 'el').tekst.includes('el indgår ikke'))
 }
 
-console.log('\n══ 4 · kildetjek: vagterne står i koden, ikke i en kommentar ══')
+console.log('\n══ 4 · elUdsagn er udtømmende — og CLAUDE.md\'s tal er TALT ══')
+{
+  const { elUdsagn } = await import('../lib/grundlag')
+  // `elUdsagn` er den FJERDE oversættelse af `Eltilstand`, og den
+  // værste at falde igennem i: den svarer `null`, og det bliver en tom
+  // streng i den genererede beskrivelse — et forbehold, der forsvinder
+  // uden spor, i en tekst der står i `listings.description`.
+  const svar = new Map<Eltilstand, string | null>()
+  for (const t of ['med', 'egen-maaler', 'ikke-med', 'ukendt-daekning'] as const) {
+    svar.set(t, elUdsagn(t))
+  }
+  tjek('«med» giver intet forbehold — el står i opregningen', svar.get('med') === null)
+  const tre = [...svar.entries()].filter(([t]) => t !== 'med')
+  tjek('de tre øvrige har hver sit udsagn',
+    tre.every(([, v]) => typeof v === 'string' && v.length > 0))
+  tjek('… og de er FORSKELLIGE — ingen falder igennem til den samme',
+    new Set(tre.map(([, v]) => v)).size === 3, tre.map(([, v]) => v).join(' · '))
+  tjek('null ind (ingen total) giver intet forbehold', elUdsagn(null) === null)
+
+  // Og den TALTE optælling, bundet til koden. CLAUDE.md sagde «de fire
+  // steder» og opregnede tre flader forkert; nu står tabellen der, og
+  // denne linje holder den fast. Kilderne tælles, ikke læses.
+  const { readFileSync } = await import('node:fs')
+  const steder = [
+    ['app/Boligkort.tsx', /tilstand === 'egen-maaler'/],
+    ['app/bolig/[id]/page.tsx', /t === 'egen-maaler'/],
+    ['lib/alarm.ts', /satisfies Record<Eltilstand, string \| null>/],
+    ['lib/grundlag.ts', /satisfies Record<Eltilstand, string \| null>/],
+  ] as const
+  const fundne = steder.filter(([f, re]) => re.test(readFileSync(f, 'utf8')))
+  tjek('FIRE steder oversætter en Eltilstand til el-forbeholdet',
+    fundne.length === 4, `${fundne.length}: ${fundne.map(([f]) => f).join(', ')}`)
+  const bundne = steder.filter(([f]) => /alarm|grundlag/.test(f))
+    .filter(([f, re]) => re.test(readFileSync(f, 'utf8')))
+  tjek('… og to af dem er bundet med satisfies i dag', bundne.length === 2)
+  tjek('CLAUDE.md bærer den målte tabel, ikke en opregning',
+    /Fire steder oversætter en `Eltilstand` til el-forbeholdet/
+      .test(readFileSync('CLAUDE.md', 'utf8')))
+}
+
+console.log('\n══ 5 · kildetjek: vagterne står i koden, ikke i en kommentar ══')
 {
   const { readFileSync } = await import('node:fs')
   // KODELAGET, ikke den rå fil. Hele hovedet over hver vagt beskriver
