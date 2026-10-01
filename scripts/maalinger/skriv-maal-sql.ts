@@ -219,4 +219,33 @@ select
 from listings
 where status = 'delisted';`
 
-process.stdout.write(BLOK1 + '\n\n\n' + BLOK2 + '\n\n\n' + BLOK3 + '\n')
+const BLOK4 = `-- ═══════════════════════════════════════════════════════════════
+-- BLOK 4 · De 22 rækker: drev adressen, efter beskrivelsen blev skrevet?
+--
+-- KUN SELECT.
+--
+-- \`genererBeskrivelse\` (lib/normalize.ts:111-128) læser tretten felter,
+-- og fire af dem er adressefelter: street, house_number, postal_code,
+-- city (:115-118). Første sætning bliver derfor «… på <vej> <husnr> i
+-- <postnr> <by>».
+--
+-- \`scripts/genparse-adresser.ts:77-83\` skriver præcis de fire felter og
+-- skriver IKKE description. Det er den eneste skrivevej i hele repoet
+-- (efterprøvet over alle 31 hentede grene) der ændrer et input til
+-- beskrivelsen uden at skrive beskrivelsen med.
+--
+-- Står vejnavnet ikke længere i beskrivelsen, er adressen flyttet EFTER
+-- teksten. Det er beviset — eller modbeviset.
+-- ═══════════════════════════════════════════════════════════════
+select
+  count(*)                                                         as raekker_i_alt,
+  count(*) filter (where position(street in description) = 0)
+                                                                   as beskrivelse_naevner_ikke_egen_vej,
+  count(*) filter (where position(coalesce(postal_code, '~') in description) = 0)
+                                                                   as beskrivelse_naevner_ikke_egen_postnr
+from listings
+where source_type <> 'native'
+  and description is not null
+  and street is not null;`
+
+process.stdout.write(BLOK1 + '\n\n\n' + BLOK2 + '\n\n\n' + BLOK3 + '\n\n\n' + BLOK4 + '\n')
