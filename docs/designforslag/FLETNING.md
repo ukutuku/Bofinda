@@ -223,8 +223,9 @@ er «ikke efterset», og fristen er den samme som for de 157: 30. december
   beholder forfatterdatoen, så datoen er den samme før og efter. Sha'en er
   regnet af filens bytes, og dem kan en rebase ændre: en konflikt i filen,
   en anden version på `main` eller en opløsning, der vælger den anden side.
-  Datoen kan derfor skrives i dag. Sha'en kan først skrives, når det hoved,
-  der skal lande, findes. Det er sagt på [#35](https://github.com/ukutuku/Bofinda/pull/35),
+  **Skriv datoen nu. Skriv sha'en først på det hoved, der skal lande:**
+  efter rebasen, og efter at konflikterne er løst. En sha skrevet før det
+  er et gæt om bytes, der ikke findes endnu. Det er sagt på [#35](https://github.com/ukutuku/Bofinda/pull/35),
   [#3](https://github.com/ukutuku/Bofinda/pull/3#issuecomment-5958688796)
   og [#9](https://github.com/ukutuku/Bofinda/pull/9#issuecomment-5958691647).
 
