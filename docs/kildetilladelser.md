@@ -151,18 +151,23 @@ afmeldingsbølge, eller en ændring i kildens nøgler — hvor hele
 beholdningen kan blive hentet i én time ved ét kald i sekundet.
 
 **Og det er ikke home.dk-særligt.** Målt over registret: **8 af 11
-kørende kilder har `budget = Infinity`** — findbolig, Propstep, Dacas,
-LokalBolig, Balder, home.dk, CEJ og Birch. De tre med et loft er
+kørende kilder havde `budget = Infinity`** — findbolig, Propstep, Dacas,
+LokalBolig, Balder, home.dk, CEJ og Birch. De tre med et loft var
 Heimstaden, Laros og Alabu, og det er præcis de tre, hvor nogen var
 nødt til at tænke over det: én havde spærret os, én har `Crawl-delay:
 20`, én fik en kontrolleret import. **Loftet findes, hvor nogen blev
 tvunget til at tage stilling, og mangler alle andre steder** — ikke
 fordi nogen besluttede, at de otte skulle være uloftede, men fordi
 `opslag ? … : Infinity` er standarden, og ingen har været tilbage.
-Egen takt har kun 2 af 11 (`VAERTSTAKT`).
 
 Det er samme form som resten af denne fil: tilstanden opstod af sig
 selv, dér hvor ingen sag tvang en afgørelse.
+
+**home.dk har fået alle tre ting** (grundlag, loft 25, takt 5 s) på
+grenen `hotfix/detaljevagten-er-et-par`. Tilbage står **syv**, og de står nedenfor som åbne poster pr.
+kilde — ikke som en samlet note. Grunden til at de skal stå enkeltvis:
+en samlet note bliver afviklet som én opgave, og så bliver det næste
+loft en reaktion på et 503 i stedet for en beslutning.
 
 ---
 
@@ -359,6 +364,69 @@ Alabu-medarbejderen nødvendigvis sagde:
 
 Deres robots.txt forbyder crawling udtrykkeligt på skrift, og der er
 ingen tilladelse. Kræver skriftlig aftale først.
+
+#### De syv tilbage — én åben beslutning pr. kilde
+
+**Først en rettelse af min egen optælling.** «8 af 11 uden loft» er sandt
+og siger mere, end tallet dækker. Et loft begrænser `skalHentes`, og
+`skalHentes` driver `extract()`. **Kalder `extract()` ikke ud på nettet,
+koster et manglende loft ingenting.** Målt i hver adapters `extract`-krop:
+
+| Kilde | `extract()` henter | Hvad et manglende loft koster |
+|---|---|---|
+| **Propstep** | `hentNextData` | ét kald pr. ny bolig, uden tag |
+| **LokalBolig** | `politeFetch` | ét kald pr. ny bolig, uden tag |
+| **Birch** | `politeFetch` | ét kald pr. ny bolig, uden tag |
+| **Dacas** | `politeFetch` | ét kald pr. ny bolig, uden tag |
+| findbolig.nu | kun cachen | **ingenting** — hele udbuddet kom i `discover()` |
+| Balder | kun cachen | **ingenting** — ét API-kald giver hele sættet |
+| CEJ | kun cachen | **ingenting** — listen bærer alt |
+
+Så beslutningen er åben for **fire** kilder, ikke syv. For de tre nederste
+ville et loft være en indstilling uden virkning — og det er præcis den
+slags, der lige er blevet gjort til en oversætterfejl. **De skal ikke have
+et loft; de skal have en note om hvorfor ikke.** Den står her.
+
+**De fire, i rækkefølge efter hvor mange kald der kan falde på én time:**
+
+- [ ] **Propstep** — `propstep.com`, ~736 boliger, største eksponering af
+      de fire. Detaljesiden hentes pr. ny bolig uden tag. Har **ingen**
+      egen takt (standard 1 s). Kildens eget gitter filtreres på
+      postnummer før nogen detaljeside hentes, så i rolig drift er tallet
+      lavt — men en ændring i deres nøgler eller en afmeldingsbølge er
+      ~736 kald i én time mod en lille udlejerplatform. **Afgør: loft og
+      egen takt.** Grundlaget er en mundtlig tilladelse uden navn og dato
+      (se hullet ovenfor).
+- [ ] **LokalBolig** — `www.lokalbolig.dk`, ~232 lejemål. Samme form.
+      Kilden er **ustabil** (503 fra Varnish gennem hele undersøgelsen og
+      den første import), hvilket er et argument for et loft og ikke mod:
+      et uloftet udtræk mod en vakkelvorn backend er både hårdere ved dem
+      og dårligere data for os. Deres `Content-Signal` beder i forvejen om
+      mindre, end tilladelsen giver — vi retter os efter det på
+      billedbredder, og takten hører i samme overvejelse.
+- [ ] **Birch Ejendomme** — `birchejendomme.dk`, 59 enheder = 5 feed-sider.
+      Detaljesiden hentes kun for depositum-beløbet. Lille eksponering,
+      men **ingen nedskrevet tilladelse overhovedet** (se de tre kørende
+      kilder uden en række). Loftet er billigt at sætte her, netop fordi
+      tallet er lille.
+- [ ] **Dacas** — `dacas.dk`, 19 boliger, hele udbuddet. Mindste
+      eksponering af alle fire; et loft på 19 er næsten ingen begrænsning.
+      Står på listen for fuldstændighedens skyld, så den ikke bliver den,
+      ingen nåede.
+
+**Og de tre, der ikke skal have et loft:**
+
+- **findbolig.nu**, **Balder**, **CEJ** — `extract()` læser fra den cache,
+  `discover()` fyldte. Hele udbuddet kommer i ét eller få kald, og et loft
+  på detaljehentninger ville ikke have noget at begrænse. **Skriv ikke et
+  loft på dem.** Skal deres belastning ned, er det `discover()`-kadencen
+  eller takten, der skal røres — ikke budgettet.
+
+**Hvorfor dette står pr. kilde og ikke som én note:** en samlet note
+bliver afviklet som én opgave, og den opgave bliver udskudt. Fire
+afkrydsningsfelter bliver fire beslutninger. Formålet er, at det næste
+loft bliver sat **fordi nogen besluttede det**, og ikke fordi en kilde
+svarede 503.
 
 ## En kilde uden nedskrevet grundlag får den strammeste takt
 

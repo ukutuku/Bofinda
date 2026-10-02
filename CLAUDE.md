@@ -477,6 +477,25 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   den indsigtsret, den lover. **Det skal være på plads, før en fremmed
   udlejer opretter en annonce.**
 
+  **Tre spørgsmål, ikke ét.** De bliver blandet sammen hver gang, og kun
+  det første kan måles:
+
+  | Spørgsmålet | Hvad det er | Status |
+  |---|---|---|
+  | Tager DNS imod post? | en **måling** | **MÅLT 2. oktober 2026** (nedenfor) |
+  | Lander den i en postkasse? | **én testmail**, sendt af et menneske | ikke gjort — Johns |
+  | Svarer nogen inden en måned? | et **tilsagn**, ikke en måling | ikke givet |
+
+  Artikel 12, stk. 3 kræver det tredje: svar «uden unødig forsinkelse og i
+  alle tilfælde senest en måned» efter en anmodning. **Det kan ingen DNS-post
+  afgøre.** En grøn MX betyder, at posten ikke afvises i hegnet — ikke at
+  nogen læser den, og ikke at nogen svarer. De to sidste linjer er åbne.
+
+  **Nul-MX'en er bevisligt væk. Målt 2. oktober 2026 via DNS-over-HTTPS**
+  (ejeren kørte målingen; denne container har ikke udgående DNS eller DoH):
+
+      bofinda.dk  MX  →  10 mx.simply.com.
+
   **Løst 7. september 2026.** Domænet blev registreret 5. september og er
   siden flyttet til Simply, som nu er autoritativ (`ns1`–`ns3.simply.com`
   i DK Hostmasters delegering) og leverer indgående mail på
@@ -494,6 +513,24 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   ligger hos Resend, ikke hos os), `_dmarc`, og A-posten til Vercel.
   Efterprøv med `dig +short MX bofinda.dk` — står der `0 .`, er
   modtagelsen slået fra igen.
+
+  **Og uden `dig`:** en container uden udgående DNS kan stadig spørge over
+  HTTPS, hvis værten er tilladt. Så er påstanden efterprøvet i stedet for
+  læst:
+
+  ```bash
+  dig +short MX bofinda.dk                      # hvis DNS er åbent
+  curl -sH 'accept: application/dns-json' \
+    'https://cloudflare-dns.com/dns-query?name=bofinda.dk&type=MX'
+  curl -s 'https://dns.google/resolve?name=bofinda.dk&type=MX'
+  ```
+
+  Begge svarer JSON; `data` på et `type: 15`-svar er prioritet + vært.
+  Står der `0 .`, er modtagelsen slået fra igen. **Begge DoH-værter var
+  spærret i den container, hvor dette blev skrevet** (403 på CONNECT), så
+  kommandoerne står her uden at være kørt herfra — målingen ovenfor er
+  ejerens. Virker de heller ikke næste gang, er det stadig et åbent
+  spørgsmål og ikke et svar.
 
   Simply satte samtidig DMARC til **`p=reject`** (one.com havde `p=none`).
   Det rammer først den dag, `ALARM_AFSENDER` skifter fra Resends delte
