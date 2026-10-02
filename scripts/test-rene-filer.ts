@@ -116,12 +116,33 @@ const IKKE_LOEFTER: Readonly<Record<string, string>> = {
   'modproever/hastighed-dynamisk-import.mjs': 'en mutation: beskriver det løfte, den bryder i app/Hastighed.tsx, som prøves i LOEFTER',
   'scripts/cloud/rooms-repraesentant.ts': 'filen bruger basen og skriver; den nævner DATABASE_URL om sin spærring',
   'scripts/kildetjek.ts': 'beskriver, hvad prøverne søger efter i ANDRE filer — ikke filens egen import',
-  // De to næste lover noget om KØRSLEN, og det holder: ingen forbindelse
-  // åbnes. Men grafen når db/client og postgres — `import-prøven` i
-  // CLAUDE.md. Som graf-løfter ville de være røde, så de står her med
-  // grunden skrevet ud frem for i LOEFTER.
-  'scripts/cloud/rooms-adressevagt.ts': '«Ingen database, ingen socket» gælder kørslen; grafen når db/client gennem rooms-repraesentant.ts',
-  'scripts/maalinger/skriv-maal-sql.ts': '«rører ingen database» gælder kørslen; grafen når db/client gennem lib/omraade og lib/soeg',
+}
+
+/**
+ * Hoveder, der LOVER ingen database, og hvis graf alligevel når den.
+ *
+ * Ikke det samme som IKKE_LOEFTER. Dér står hoveder, der ikke lover noget
+ * om importen; her står løfter, der ikke holder. Løftet gælder kørslen —
+ * ingen forbindelse åbnes, for db/client forbinder først ved første
+ * forespørgsel — men grafen når db/client og postgres. Det er fælden
+ * `import-prøven` i CLAUDE.md. Lagt i LOEFTER bliver de røde med stien
+ * skrevet ud.
+ *
+ * Hver post har en FRIST, og typen kræver den. En undtagelse uden dato
+ * bliver et arkiv: den står der stadig om et år, og ingen husker hvorfor.
+ * Efter fristen er listen rød, til nogen har rettet hovedet, så det
+ * siger det, der holder, eller flyttet importen, så løftet holder. Så
+ * fjernes posten. Forny ikke fristen uden en ny grund.
+ */
+const BRUDTE_LOEFTER: Readonly<Record<string, { grund: string; frist: string }>> = {
+  'scripts/cloud/rooms-adressevagt.ts': {
+    grund: '«Ingen database, ingen socket» gælder kørslen; grafen når db/client gennem rooms-repraesentant.ts',
+    frist: '2026-12-31',
+  },
+  'scripts/maalinger/skriv-maal-sql.ts': {
+    grund: '«rører ingen database» gælder kørslen; grafen når db/client gennem lib/omraade og lib/soeg',
+    frist: '2026-12-31',
+  },
 }
 
 /** Ordene i et løfte, vagten kan prøve, og hvad de forbyder. */
@@ -315,20 +336,37 @@ for (const l of LOEFTER) {
 // ── 2 · HVERT LØFTE I ET HOVED ER TAGET STILLING TIL ─────────
 console.log('')
 {
-  const kendte = new Set([...LOEFTER.map((l) => l.kilde ?? l.fil), ...Object.keys(IKKE_LOEFTER)])
+  const kendte = new Set([
+    ...LOEFTER.map((l) => l.kilde ?? l.fil), ...Object.keys(IKKE_LOEFTER), ...Object.keys(BRUDTE_LOEFTER),
+  ])
   const filer = filerIRepoet()
   const spor = filer.filter((f) => SPOR.test(hoved(readFileSync(join(ROD, f), 'utf8'))))
   const nye = spor.filter((f) => !kendte.has(f))
-  tjek(`hvert hoved, der lover ingen database, står i LOEFTER eller IKKE_LOEFTER`, nye.length === 0,
+  tjek(`hvert hoved, der lover ingen database, står i LOEFTER, IKKE_LOEFTER eller BRUDTE_LOEFTER`, nye.length === 0,
     `${spor.length} af ${filer.length} hoveder sporet (git ls-files, ${ENDELSER.source})`)
   for (const f of nye) {
     const h = hoved(readFileSync(join(ROD, f), 'utf8'))
     const i = h.search(SPOR)
     console.log(`      nyt     ${f}: «…${h.slice(Math.max(0, i - 30), i + 70)}…» — før den i LOEFTER med citatet, eller i IKKE_LOEFTER med en grund`)
   }
-  const forsvundne = Object.keys(IKKE_LOEFTER).filter((f) => !spor.includes(f))
-  tjek('hver undtagelse i IKKE_LOEFTER står stadig i et sporet hoved', forsvundne.length === 0,
-    forsvundne.length ? `fjern: ${forsvundne.join(', ')}` : `${Object.keys(IKKE_LOEFTER).length} undtagelser`)
+  const undtagelser = [...Object.keys(IKKE_LOEFTER), ...Object.keys(BRUDTE_LOEFTER)]
+  const forsvundne = undtagelser.filter((f) => !spor.includes(f))
+  tjek('hver undtagelse står stadig i et sporet hoved', forsvundne.length === 0,
+    forsvundne.length ? `fjern: ${forsvundne.join(', ')}` : `${undtagelser.length} undtagelser`)
+
+  // ── Fristerne. En dato, der ikke er en dato, må ikke tavst aldrig udløbe:
+  // «2026-13-45» sammenlignet som tekst ville stå «i fremtiden» for altid.
+  const iDag = new Date().toISOString().slice(0, 10)
+  for (const [f, { frist }] of Object.entries(BRUDTE_LOEFTER)) {
+    const d = new Date(`${frist}T00:00:00Z`)
+    const gyldig = /^\d{4}-\d{2}-\d{2}$/.test(frist) && !Number.isNaN(d.getTime())
+      && d.toISOString().slice(0, 10) === frist
+    const dage = gyldig ? Math.round((d.getTime() - Date.parse(`${iDag}T00:00:00Z`)) / 86400000) : NaN
+    tjek(`${f}: brudt løfte, efterset inden ${frist}`, gyldig && iDag <= frist,
+      !gyldig ? `«${frist}» er ikke en dato`
+        : iDag > frist ? `fristen udløb for ${-dage} dage siden — ret hovedet eller importen, og fjern posten`
+          : `${dage} dage tilbage`)
+  }
 }
 
 console.log(`\n  (${Math.round(performance.now() - start)} ms)`)
