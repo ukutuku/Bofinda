@@ -1,6 +1,34 @@
 // Påstanden, der køres under en muteret lib/faciliteter.ts. Se
 // scripts/proev-facilitetsudvidelse.mjs. Filen er bevidst lille: den
 // må ikke kende det nye begrebs NAVN på andet end miljøet.
+//
+// ═══════════════════════════════════════════════════════════════
+//  ⚠ ADVARSEL TIL DEN NÆSTE, DER SÅR EN RÆKKE I `listings`
+//
+//  En sået række NÅR IKKE `hvor()` med skemaets standardværdier.
+//  `address_match_level` har `default 'failed'`, og `hvor()` har
+//  `ne(addressMatchLevel, 'failed')` — med god grund: en bolig, vi
+//  ikke ved hvor ligger, vises ikke. Men konsekvensen for en prøve er
+//  stille og grim: forlægget er USYNLIGT, hver påstand om «0 træf»
+//  bliver grøn, og prøven måler ingenting.
+//
+//  Det skete her. SEKSTEN påstande stod grønne af den forkerte grund,
+//  indtil forlægget blev synligt. Ingen af dem var forkert skrevet.
+//
+//  Sæt derfor BEGGE:
+//
+//      address_match_level = 'access'
+//      access_address_uuid = 'intern:…'   (vilkårlig, men ikke null)
+//
+//  `'unit'` kræver `unit_address_uuid` i stedet — check-constrainten
+//  `listing_address_level_honest` i 0000_init.sql håndhæver, at
+//  niveauet er sandt, så et niveau uden sin uuid afvises af BASEN.
+//
+//  Modgiften mod den stille udgave er en FORUDSÆTNING: mål, at
+//  forlægget er synligt, før du måler noget om det. `tjek('hvor()
+//  filtrerer …', n === 1)` nedenfor er netop den — den var det første,
+//  der blev rødt.
+// ═══════════════════════════════════════════════════════════════
 import { sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { FACILITETSNAVN, FACILITETSNOEGLER } from '../lib/faciliteter'

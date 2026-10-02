@@ -1487,6 +1487,31 @@ Migration 0013 sår `native`, fordi den er den eneste kilde uden adapter. Får
 en prøve brug for det rigtige register, er svaret `sikreKilde()` over
 `KILDER` — ikke ny SQL.
 
+### En sået række når ikke `hvor()` med standardværdierne
+
+`listings.address_match_level` har `default 'failed'`, og `hvor()` har
+`ne(addressMatchLevel, 'failed')` — med god grund: en bolig, vi ikke ved
+hvor ligger, vises ikke. **For en prøve er konsekvensen stille og grim:**
+forlægget er usynligt, hver påstand om et tomt resultat bliver grøn, og
+prøven måler ingenting.
+
+Det er sket. Seksten påstande i `scripts/_udvidelsespaastand.ts` stod
+grønne af den forkerte grund, indtil forlægget blev synligt. Ingen af dem
+var forkert skrevet.
+
+Sæt derfor begge, når du sår en række, der skal kunne findes:
+
+    address_match_level = 'access'
+    access_address_uuid = 'intern:…'      -- vilkårlig, men ikke null
+
+`'unit'` kræver `unit_address_uuid` i stedet. Check-constrainten
+`listing_address_level_honest` i `0000_init.sql` håndhæver, at niveauet er
+sandt, så et niveau uden sin uuid afvises af **basen** — det er den
+venlige af de to fejl.
+
+Modgiften mod den stille udgave er en **forudsætning**: mål, at forlægget
+er synligt, før du måler noget om det.
+
 ### Rettighedskontrollen — hvorfor den findes
 
 `npm run tjek:rettigheder` fejler, hvis noget i `public` mangler RLS eller
