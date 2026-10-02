@@ -21,6 +21,10 @@ import { sql } from 'drizzle-orm'
 import { listings } from '../../db/schema'
 import { synlig } from '../../lib/omraade'
 import { MINDST_BOLIGER } from '../../lib/slug'
+// Én gengivelse af parametrene for alle målinger. Den, der stod her, erstattede
+// højeste nummer først med split/join; gengiv.ts gør det i ét gennemløb og
+// afviser ukendte typer. Samme spørgsmål, ét sted.
+import { indsaetParametre } from './gengiv'
 
 /** Appens eget synligheds- og dedup-prædikat, renderet til ren SQL. */
 function synligSql(): string {
@@ -35,17 +39,6 @@ function synligSql(): string {
   return hel.slice(i + ' where '.length)
 }
 
-/** `$1` → literalen. Højeste nummer først, så `$1` ikke rammer `$10`. */
-function indsaetParametre(s: string, params: unknown[]): string {
-  for (let i = params.length; i >= 1; i--) {
-    const v = params[i - 1]
-    const lit = v == null ? 'null'
-      : typeof v === 'number' || typeof v === 'boolean' ? String(v)
-        : `'${String(v).replace(/'/g, "''")}'`
-    s = s.split(`$${i}`).join(lit)
-  }
-  return s
-}
 
 const SYNLIG = synligSql()
 
