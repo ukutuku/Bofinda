@@ -121,8 +121,27 @@ Authentication → URL Configuration:
 
 - [ ] Site URL = den valgte app-adresse, tegn for tegn
 - [ ] Redirect URLs: `<app-adresse>/**` (`**` krydser skråstreger, `*` gør
-      ikke). Står målet ikke på listen, **afviser GoTrue det uden fejl** og
-      sender brugeren til Site URL i stedet
+      ikke). Ét wildcard på app-adressen dækker derfor alle stier på den
+      oprindelse — også `?k=`-parametre og et kommende `/auth/callback`
+
+> **Her stod en instruks, vi ikke kan pege på kilden til.** Der stod:
+> «Står målet ikke på listen, **afviser GoTrue det uden fejl** og sender
+> brugeren til Site URL i stedet.» Påstanden blev trukket tilbage i
+> `e60ecb8` med den begrundelse, at Supabase Auth spørger same-origin FØR
+> allowlisten og kun sammenligner scheme, hostname og port. **Den
+> begrundelse har jeg ikke kunnet efterprøve** — hverken
+> `IsRedirectURLValid` eller «same-origin» findes i noget af repoet, og
+> commit'ens egen doc-rettelse blev aldrig udført. Så den er ikke skrevet
+> ind her som en sandhed.
+>
+> Det, vi KAN pege på: appens eneste `emailRedirectTo` er
+> `${NEXT_PUBLIC_BASE_URL}/udlejer` (`app/udlejer/handlinger.ts:42`),
+> altså samme oprindelse som Site URL. Sammen med wildcard'et ovenfor er
+> punktet opfyldt, uanset hvordan GoTrue internt afgør det.
+>
+> Skal nogen en dag vide det med sikkerhed — fx hvis en redirect til en
+> ANDEN oprindelse bliver nødvendig — så mål det mod et rigtigt
+> Auth-miljø og skriv resultatet her. Gæt det ikke ud fra denne note.
 
 Authentication → Attack Protection:
 
