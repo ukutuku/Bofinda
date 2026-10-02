@@ -85,6 +85,37 @@ function koer() {
   const commit = git('commit-tree', tree, '-p', git('rev-parse', 'HEAD'),
     '-m', 'modproeve: det iscenesatte')
   git('worktree', 'add', '--detach', '--quiet', traee, commit)
+  // Et SYMLINK, ikke en kopi: `npm ci` i hvert traee ville koste minutter
+  // og diskplads, og indholdet er alligevel det samme.
+  //
+  // ── OPRYDNING I ET SAADANT TRAEE: BRUG IKKE `reset --hard` ────
+  //
+  // Symlinket peger paa roden. Det goer, at en oprydning i ET traee kan
+  // oedelaegge ALLE de andre, og den skadevirkning ligger uden for den
+  // kommandos eget arbejdstraee — derfor staar noten her, hvor linket
+  // laves, og ikke dér hvor nogen ville rydde op.
+  //
+  // Tilfaeldet, der fremkaldte den (2. okt. 2026): en gren sporede
+  // `node_modules` som symlink, fordi den forgrenede FOER abad7ae
+  // («node_modules ud af versionsstyringen»). Arbejdstraeet havde en
+  // rigtig mappe dér, saa `git status` viste ` D node_modules`, og en
+  // cherry-pick af rettelsen kunne ikke koere: urenheden VAR det, den
+  // skulle fjerne.
+  //
+  //   reset --hard   vil bringe arbejdstraeet i overensstemmelse med
+  //                  maalet. Maalet sporer ikke stien, saa git forsoeger
+  //                  at FJERNE den — og rammer den rigtige mappe, som
+  //                  alle de andre traeer symlinker ind i.
+  //   reset --mixed  flytter HEAD og indekset og skriver IKKE i
+  //                  arbejdstraeet. Stien bliver usporet og — med
+  //                  `node_modules` uden skraastreg i .gitignore —
+  //                  ignoreret. Traeet er rent, mappen er uroert.
+  //                  En enkelt `git checkout -- <fil>` bagefter bringer
+  //                  de filer i linje, der faktisk skal aendres.
+  //
+  // Efterproevet frem for formodet: 53 poster i `node_modules` foer og
+  // efter. Et «det plejer at virke» er ikke en maaling, naar prisen for
+  // at tage fejl er tretten traeer.
   const nm = join(rod, 'node_modules')
   if (existsSync(nm)) symlinkSync(nm, join(traee, 'node_modules'), 'dir')
 
