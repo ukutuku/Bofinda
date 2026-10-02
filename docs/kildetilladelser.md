@@ -295,30 +295,93 @@ ikke bruges — den er den slags, der bliver citeret mod os.
 `https://api.balder.dk/robots.txt`, skriv de linjer ind her, der
 angår os, og notér datoen. Og udfyld `Oplyst af` og `Dato` ovenfor —
 tilladelsen, der bærer hele konstruktionen, navngiver i dag ingen.
-Repoets eneste spor er `adapters/balder.ts:4-13` («aftalt med Balder
-selv», «de har bekræftet») og commit **`d1f8434` (2026-09-04)**, «Balder
-som kilde fem», som siger *«efter aftale med rettighedshaveren»* og
-*«ejeren selv har givet lov»* — **men ikke af hvem, og ikke hvornår.**
-Hverken navn, rolle eller dato findes nogen steder.
+Repoet har **tre** spor, og det indholdsmæssige er en commit-besked:
 
-> **Rettet: her stod `f8a3418` (2026-09-05), og det var en målefejl.**
-> Den commit er den næste, der nævner `BALDER_API_KEY` — ikke den første.
-> Målingen kørte på en **shallow klon** (`.git/shallow`, 394 commits mod
-> 496 efter `git fetch --unshallow`), og `d1f8434` lå uden for grænsen.
-> `git log -S --reverse` svarede derfor med den ældste commit, den kunne
-> se, som om den var den første. **Den fejlede ikke; den svarede forkert.**
+| Spor | Hvad det siger |
+|---|---|
+| `adapters/balder.ts:4-13` | «aftalt med Balder selv», «de har bekræftet» |
+| **`d1f8434`** · 2026-09-04 · `fl` | **selve ræsonnementet** — citeret nedenfor |
+| `f8a3418` · 2026-09-05 | næste omtale af `BALDER_API_KEY`; handler om datafelter |
+
+**Ingen af de tre navngiver den, der gav lov, eller hvornår.**
+
+### Hvad `d1f8434` siger, ordret
+
+> Balder henter fra api.balder.dk efter aftale med rettighedshaveren. Både
+> www.balder.dk (`Disallow: /api/`) og api.balder.dk (`Disallow: /`) siger
+> nej i robots.txt; vi henter alligevel, fordi ejeren selv har givet lov.
+
+**Og dens formulering er upræcis på præcis den måde, dette afsnit advarer
+mod.** Den siger «begge siger nej, vi henter alligevel». Analysen ovenfor
+siger noget andet og mere nøjagtigt: robots.txt gælder **pr. origin**, vi
+kalder aldrig `/api/` på `www`, så `www.balder.dk`'s `Disallow` binder os
+ikke — og ejerens ja gælder `api.balder.dk`, hvor vi faktisk henter. Der er
+ét relevant direktiv, ikke to, og der er en tilladelse til det.
+
+**Commit-beskeden kan ikke rettes.** En rettelse ville kræve omskrevet
+historik, og det gør vi ikke. Den står i den permanente log, og en modpart,
+der søger, finder den før den finder dette afsnit. **Derfor står den her,
+med sin upræcished udpeget:** en dokumenteret upræcished er bedre end en,
+nogen andre finder først. Hvis nogen citerer linjen mod os, er svaret dette
+afsnit — ikke en forklaring, der skal opfindes i situationen.
+
+**Og det er en form, der er værd at kunne genkende:** to udtryk for ét
+retligt grundlag, hvor det ene er en **analyse i et dokument** og det andet
+en **indrømmelse i en commit-besked**. Det er samme familie som reglen og
+målingen, der drev fra hinanden (række 5 ovenfor) — men med en asymmetri,
+den ikke har: **dokumentet kan rettes, historikken kan ikke.** Når de to
+driver, er det derfor altid dokumentet, der skal bære forklaringen.
+
+### Den ene handling, Balder kræver
+
+> **`d1f8434` har en forfatter: `fl`, 4. september 2026 kl. 01:20** — og det
+> er repoets egen ejer. Den person vidste om aftalen den dag, den var
+> aktuel.
+
+Balder-rækken mangler `Oplyst af` (navn, rolle) og `Dato`, og det er den
+tilladelse, der bærer hele konstruktionen: et API bag `Disallow: /`, en
+nøgle fra kildens eget frontend-bundt. **For Balder er det ÉN samtale med
+forfatteren af `d1f8434`** — ikke de elleve, hullet ovenfor tæller. Den
+skal ikke se ud som den samme opgave: de andre kræver, at nogen husker en
+telefonsamtale fra september; denne kræver, at én person udfylder tre felter
+om sin egen commit.
+
+### Og det tekniske, som venter på en browser uden for containeren
+
+Afsnittet ovenfor beder om `api.balder.dk/robots.txt`'s linjer ordret, med
+en dato. **Det kan ikke hentes herfra:** miljøets gateway afviser CONNECT
+til både `api.balder.dk` og `www.balder.dk` med **403** (målt 2026-10-01 og
+igen 2026-10-02). Det er ikke en fejl at prøve igen at rette — det er en
+spærring, og den skal ikke omgås.
+
+**Noteret her, så den næste ikke bruger tid på det samme 403:** hentningen
+kræver en browser eller en maskine uden for cloud-containeren. Ét kald, læst
+af et menneske, linjerne skrevet ind her med datoen.
+
+---
+
+> **Rettelse 2. oktober 2026: her stod, at `f8a3418` var det eneste spor
+> ud over adapteren, og at dens besked handler om datafelter og ikke om
+> tilladelsen.** Det første var usandt. `d1f8434` ligger en dag tidligere
+> og er det indholdsmæssige spor.
 >
-> **Konklusionen holdt, belægget gjorde ikke.** Det er den værste form:
-> havde `d1f8434` navngivet en person, havde afsnittet her været usandt,
-> og den eneste grund til at det ikke er, er at den heller ikke gør det.
-> Se `det-reproducerbare-tal` og `.git/shallow`-kontrollen i `CLAUDE.md`.
+> **Hvorfor sætningen kunne stå:** den blev skrevet fra en klon, hvis
+> shallow-grænse lå **efter** 4. september (`.git/shallow`, 394 commits mod
+> 496 efter `git fetch --unshallow`). `git log -S --reverse` svarede med den
+> ældste commit, den kunne se, som om den var den første. Den fejlede ikke;
+> den svarede forkert.
 >
-> To andre tal fra samme session flyttede sig også, og de pegede den
-> SIKRE vej — ved et tilfælde, ikke ved design: antallet af grene, der
-> rører `app/Landkort.tsx`, var **4** og er **6**; `app/privatliv/page.tsx`
-> var **6** og er **7**. Begge blev brugt som begrundelse for at lade
-> filerne ligge, så beslutningen står. Havde den shallow klon talt for
-> HØJT i stedet, havde jeg rørt en fil, fire sessioner arbejdede i.
+> Det er **form 1 i dette register** — en udtømmende-læst påstand om
+> repoets egen historik, skrevet fra en delmængde af den. Se
+> `det-reproducerbare-tal`, `ordet-maalt` og `.git/shallow`-kontrollen i
+> `CLAUDE.md`.
+>
+> To andre tal fra samme session flyttede sig og pegede den SIKRE vej, ved
+> et tilfælde og ikke ved design: grene der rører `app/Landkort.tsx` var
+> **4** og er **6**; `app/privatliv/page.tsx` var **6** og er **7**. Begge
+> blev brugt som begrundelse for at lade filerne ligge, så beslutningerne
+> står. Havde klonen talt for HØJT, havde jeg rørt en fil, fire sessioner
+> arbejdede i.
 
 ---
 
