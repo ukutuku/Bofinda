@@ -587,13 +587,22 @@ komplet; en liste over tilladte kan.
 | `canonical_city` ikke i `facetter().byer` | Nøglen droppes, `sted_slags='by_ukendt'` | Det er dét, der gør feltet kategorisk |
 | Værdi uden for feltets liste (`af`) | **Nøglen** droppes, eventet skrives, og nøglens navn står på rækken under `_afvist` | At kassere hele eventet slettede målingen selv: én ny værdi, og eventet holdt op med at blive skrevet. Personoplysningstjekket kører FØR listetjekket, så en mailadresse i et opregnet felt er stadig pii og kasserer hele eventet |
 | Påkrævet nøgle ikke sendt | Hele eventet droppes | Kravet prøves på det, der BLEV SENDT. En sendt nøgle med en værdi uden for listen har opfyldt det — ellers var rækken ovenfor virkningsløs netop for de påkrævede felter |
-| Forkert type (tekst i et talfelt, NaN, decimal i et heltalsfelt, under `mindst`) | Hele eventet droppes | Uafklaret, ikke glemt. Kan ikke afgøres med data, før der findes en tæller, der overlever kasseringen — `_afvist` er ikke den. Se `rens()` |
+| Forkert type (tekst i et talfelt, NaN, decimal i et heltalsfelt, under `mindst`) | Hele eventet droppes, og kassationen tælles i `maaling_afvisninger` | Uafklaret, ikke glemt: mål en uge, afgør så. `_afvist` kan ikke tælle det — et kasseret event har ingen række |
 | `environment` ikke i enum | Hele eventet droppes | Se afsnit 10 |
 
 **Droppet er ikke stille.** Hver afvisning logger eventnavn og den *nøgle*, der
 udløste den — aldrig værdien. Ellers ville værnet skjule den fejl, det findes for
 at afsløre. En værdi uden for listen tælles desuden på selve rækken (`_afvist`),
 for loggen kan ikke tælles i en rapport.
+
+**Et kasseret event tælles uden om det, der kasserede det.** Tabellen
+`maaling_afvisninger` (migration 0021) har én række pr. dato, miljø, event,
+nøgle og grund, uden identifikatorer. `spor()` skriver den direkte med
+`rens()`'s svar — aldrig som et event gennem `rens()`, for så holdt den op
+med at tælle, netop når `rens()` gik i stykker. Kaster `rens()` selv, tælles
+det som `rens-kastede`. Rækken med grunden `talt` skrives ubetinget hver dag,
+der måles, før `rens()`: findes den for en dag, er en manglende kassation et
+rigtigt nul; findes den ikke, blev der ikke talt.
 
 ### Fail-open
 

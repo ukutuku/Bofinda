@@ -234,8 +234,9 @@ export default function Side() {
       </ul>
       <p>
         Derefter slettes de automatisk. Vi beholder sammentalte dagstal — hvor
-        mange søgninger, hvor mange visninger pr. kilde — uden numre af nogen
-        art. De kan ikke føres tilbage til nogen.
+        mange søgninger, hvor mange visninger pr. kilde, og hvor mange
+        målinger vi selv afviste, fordi de var forkert dannet — uden numre af
+        nogen art. De kan ikke føres tilbage til nogen.
       </p>
 
       <h3>Brugertests</h3>

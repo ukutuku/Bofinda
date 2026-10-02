@@ -642,6 +642,18 @@ const TOKEN = /(?:^|\s)(?:Bearer\s|eyJ|sb_secret|sb_publishable|sbp_)/i
 const ABSOLUT_URL = /^[a-z][a-z0-9+.-]*:\/\//i
 const MAKS_TEGN = 120
 
+/**
+ * Konteksten, `rens` prøver før props. Ordene står ÉT sted, fordi
+ * tælleren i lib/maaling-server.ts gemmer dem: typen nedenfor binder
+ * `rens` til listen, så et nyt kontekstfelt er en oversætterfejl, indtil
+ * det står her — ikke en optælling, der tavst bliver til '(ukendt)'.
+ */
+export const KONTEKSTFELTER = [
+  'environment', 'identifikator', 'user_id', 'research_session_id',
+  'route', 'listing_id', 'source_slug',
+] as const
+export type Kontekstfelt = (typeof KONTEKSTFELTER)[number]
+
 export type Afvisning =
   | { grund: 'ukendt-event'; detalje: string }
   | { grund: 'ukendt-property'; detalje: string }
@@ -650,7 +662,7 @@ export type Afvisning =
   | { grund: 'forkert-type'; detalje: string }
   /** En værdi uden for feltets `af`-liste. Nøglen droppes, eventet skrives. */
   | { grund: 'uden-for-listen'; detalje: string }
-  | { grund: 'ugyldig-kontekst'; detalje: string }
+  | { grund: 'ugyldig-kontekst'; detalje: Kontekstfelt }
   | { grund: 'ufuldstaendigt-sideantal'; detalje: string }
 
 /**
@@ -811,16 +823,15 @@ export function rens(
     if (t === 'liste') { afviste.push(noegle); continue }
     // ── Forkert type kasserer STADIG hele eventet. Uafklaret, ikke glemt.
     //
-    // Om den skal behandles som en værdi uden for listen, kan ikke afgøres
-    // med data i dag: et event med forkert type når aldrig databasen, så
-    // ingen ved, hvor ofte det sker, eller hvad der tabes. Besluttet
-    // 2. oktober 2026: mål først, afgør så.
+    // Om den skal behandles som en værdi uden for listen, afgøres med data,
+    // ikke ved et skøn: et event med forkert type når aldrig `haendelser`,
+    // så rækken kan ikke tælle det. Besluttet 2. oktober 2026: mål en uge,
+    // afgør så.
     //
-    // Og her er hullet i den plan, skrevet ned frem for glemt: `_afvist` er
-    // IKKE tælleren for forkert type. Den står på rækken, og et kasseret
-    // event har ingen række. En måling af forkert type kræver en tæller,
-    // der overlever kasseringen, og den er ikke bygget. Indtil da er det
-    // eneste spor loglinjen fra `noterAfvist` i lib/maaling-server.ts.
+    // `_afvist` er IKKE tælleren for forkert type — den står på rækken, og
+    // et kasseret event har ingen række. Tælleren er `maaling_afvisninger`,
+    // skrevet af spor() i lib/maaling-server.ts UDEN OM rens(), med en
+    // daglig 'talt'-række, så et nul kan skelnes fra «ikke talt».
     if (t === 'type') {
       return { ok: false, fejl: { grund: 'forkert-type', detalje: noegle } }
     }
