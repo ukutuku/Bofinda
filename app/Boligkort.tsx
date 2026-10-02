@@ -598,7 +598,11 @@ export function Gruppekort({ g, nu, position, filtre }: { g: Gruppe; nu: Date; p
               paa `b.total`, som er et BELOEB og godt kan vaere null. Samme
               spoergsmaal, to typer, to udtryk. 47 gruppekort viste baade
               «udlejer oplyser ikke aconto» og en el-linje. */}
-          
+          <Ellinje tilstand={
+            !n.total || !g.nogenUdenEl ? null
+              : g.nogenUkendtDaekning ? 'ukendt-daekning'
+                : g.alleUdenElHarEgenMaaler ? 'egen-maaler' : 'ikke-med'
+          } />
 
           {/* «alle», naar kortet er blandet: linket foerer til hele
               gruppen, ikke til de matchende. Det skal staa foer klikket,
