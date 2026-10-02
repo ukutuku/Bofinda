@@ -20,6 +20,14 @@ const RATE_MS = Number(process.env.CRAWLER_RATE_MS ?? 1000)
 const VAERTSTAKT: Record<string, number> = {
   'www.heimstaden.dk': 5000,
   'www.laros.dk': 20000,
+  // home.dk har ikke sagt noget til os, og vi har ikke spurgt. Tallet er
+  // derfor ikke maalt paa kilden — det er Heimstadens, overtaget bevidst:
+  // 5 s er den takt, vi bruger til den ene kilde, hvis taalmodighed vi
+  // KENDER graensen for, og home.dk's kender vi ikke. Reglen staar i
+  // docs/kildetilladelser.md: en kilde uden nedskrevet grundlag faar den
+  // strammeste takt, ikke den loeseste. Loesnes den, skal det staa paa en
+  // samtale — ikke paa at ingen har klaget endnu.
+  'home.dk': 5000,
   // Laros' robots.txt siger Crawl-delay: 20. Det er deres tal, ikke vores,
   // og tilladelsen (docs/kildetilladelser.md) aendrer det ikke: en bred
   // tilladelse til at hente er ikke en tilladelse til at hente hurtigt.
