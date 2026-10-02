@@ -9,7 +9,7 @@
 //    npm run maaling:sql      skriver filen ved siden af, maalinger-til-supabase.sql
 //
 //  Filen er committet, så den, der skal køre målingerne, kan hente den
-//  uden at klone og køre generatoren. proev-sql-fil.ts (npm test) fejler,
+//  uden at klone og køre generatoren. test-sql-fil.ts (npm test) fejler,
 //  hvis den committede fil ikke er det, generatoren skriver i dag — en
 //  ændring i appens prædikater gør den altså rød, til filen er skrevet
 //  igen.
@@ -20,7 +20,7 @@
 //  `hvor`, `ikkeRepraesentant`, `DEDUPNOEGLE` og `dansk` fra lib/soeg.ts og
 //  kildekontrakterne fra lib/kildekontrakt.ts. Intet er skrevet af.
 //
-//  Prøvet mod et facit, skrevet ud på forhånd: proev-bynavne-domaene-sql.ts
+//  Prøvet mod et facit, skrevet ud på forhånd: test-bynavne-domaene-sql.ts
 //  — i testbasen (npm test) og mod en rigtig Postgres med ICU.
 // ═══════════════════════════════════════════════════════════════
 

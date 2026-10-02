@@ -27,7 +27,7 @@ import { blokke, INDSTILLINGER } from './skriv-bynavne-domaene-sql'
 import { fortolk, type Annonce } from './fortolk-domaene'
 
 if (process.env.BOFINDA_PROEV_PRODUKTION === '1') {
-  console.error('proev-bynavne-domaene-sql: kører kun mod en prøvebase — den lægger en kilde ind med en rigtig slug')
+  console.error('test-bynavne-domaene-sql: kører kun mod en prøvebase — den lægger en kilde ind med en rigtig slug')
   process.exit(1)
 }
 

@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  Den committede SQL-fil er det, generatoren skriver i dag.
 //
-//    npx tsx --tsconfig tsconfig.scripts.json scripts/maalinger/proev-sql-fil.ts
+//    npx tsx --tsconfig tsconfig.scripts.json scripts/maalinger/test-sql-fil.ts
 //
 //  maalinger-til-supabase.sql ligger i repoet, så den, der skal køre
 //  målingerne i Supabases SQL-editor, kan hente den uden at klone og
