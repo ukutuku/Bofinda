@@ -162,9 +162,22 @@ console.log('\n══ 3 · konventionen gælder HVER måle-SQL ══')
     //
     //  **Den første blev fundet af en anden læser, ikke af den, der
     //  skrev den.** Begge gange skrev jeg vagten og så ikke, at den
-    //  manglede sin anden halvdel. Det står her, fordi det er grunden
-    //  til at lede efter den TREDJE: et sted, hvor vi gemmer en henvisning
-    //  og aldrig følger den.
+    //  manglede sin anden halvdel.
+    //
+    //  ── DEN TREDJE FINDES, OG DEN ER STØRRE END DE TO ───────────
+    //  `docs/kildetilladelser.md` gemmer kildenavne, værter og endpoints,
+    //  og **intet følger dem til adapterne**. Git & Releases skranke —
+    //  «hver kørende kilde skal kunne placeres i tabellen, og placeringen
+    //  skal følge af registret» — er ikke bygget. Samme form som de to
+    //  her, bare større: en henvisning gemt i dokumentation, aldrig slået
+    //  op i koden. Den har en ejer, så «led efter den tredje» er ikke en
+    //  opfordring uden adresse.
+    //
+    //  Og formen er bredere end stier. Et filter, der leder efter
+    //  litterale filstier uden et `existsSync` i nærheden, svarer om
+    //  STIER — ikke om formen. «Gem en henvisning, følg den aldrig»
+    //  dækker også nøgler, id'er, værtsnavne og kolonnenavne. Et
+    //  «ingenting» fra et sti-filter er derfor ikke et nej.
     if (seteTal) {
       const citat = hoved.match(/scripts\/test-[\w-]+\.ts/)?.[0]
       tjek(`  ${f} navngiver prøven, der kørte sætningerne`, citat != null)
@@ -178,12 +191,25 @@ console.log('\n══ 3 · konventionen gælder HVER måle-SQL ══')
     //  rødt på et citat til en fil, der findes. Konventionen kan altså
     //  ikke citere den fil, hvis brudthed udløste konventionen.
     //
-    //  Den rettes IKKE her. Repoet har to navnekonventioner
-    //  (`test-*.ts` ×13 · `proev-*.ts` ×1 · `proev-*.mjs` ×2, målt på
-    //  b39329a), og #49's kæde globber den ene, mens #54's CI kører
-    //  npm-nøglerne. `proev-genskab.mjs` er nået gennem `db:backup:proev`,
-    //  så «har et mærke» og «står i en nøgle» er formodentlig TO
-    //  spørgsmål og ikke ét.
+    //  Den rettes IKKE her. Repoet har to navnekonventioner for
+    //  prøvefiler — **målt over HELE repoet på b39329a**, ikke i
+    //  `scripts/`:
+    //
+    //      test-*.ts     13
+    //      proev-*        3    scripts/proev-genskab.mjs
+    //                          scripts/maalinger/proev-maal-sql.ts
+    //                          docs/designforslag/maalinger/proev-maal.mjs
+    //
+    //  **13 mod 3.** Omfanget står ved tallet, fordi det er forskellen:
+    //  søger man kun i `scripts/`, får man 2 og misser den i `docs/`.
+    //  Det tal blev rapporteret som en kendsgerning om repoet, og det var
+    //  et svar om én mappe. `ordet-maalt` (a) handler om netop det — et
+    //  tal uden sit omfang er ikke en måling.
+    //
+    //  #49's kæde globber `test-*.ts`; #54's CI kører npm-nøglerne.
+    //  `proev-genskab.mjs` er nået gennem `db:backup:proev`, så «har et
+    //  mærke» og «står i en nøgle» er formodentlig TO spørgsmål og ikke
+    //  ét.
     //
     //  Når #49 er landet og Analytics har valgt mellem de to, skærpes
     //  kravet her til **«har et mærke eller står i en nøgle»** frem for
