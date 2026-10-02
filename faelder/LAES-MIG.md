@@ -95,7 +95,31 @@ Tre ting står i tabellen:
   `test:kerne` i package.json: én linje på 771 tegn, som hver PR med en ny
   prøve skriver i, og den står i 13 af de 17 par, hvor package.json
   konflikter. Det er samme form som tabellen var: ét fælles sted, alle
-  føjer til. Heller ikke den er bygget.
+  føjer til. **#49 bygger svaret** uafhængigt af denne mappe og med samme
+  mønster: hver prøvefil bærer sit eget `// gruppe:`-mærke, kæden udledes
+  af filerne, og `test:kerne` bliver 61 tegn i stedet for 755. Den skal
+  lande FØR denne PR; begrundelsen står i #61.
+
+### Trufne valg — så de ikke genbesluttes
+
+Begge er tilbageholdenhed, og den slags er svær at se som arbejde. Derfor
+står de her som beslutninger, besluttet 2. oktober 2026.
+
+- **Afsnitstilskrivningen er IKKE automatiseret.** Målingen ovenfor lægger
+  hver hunk på den `## `-overskrift, der står over den. Det er en grov
+  regel: en hunk i tabellen og en i prosaen under samme overskrift ser
+  ens ud. Og det er et øjebliksbillede, der er forældet ved næste push. Et
+  script, der kørte den på hver PR, ville give et tal, der så præcist ud
+  og ikke var det. I stedet skriver hver session i sin PR-tekst, hvilke
+  afsnit af CLAUDE.md den rører, og om den har rækker i tabellen.
+- **«Må aldrig ske» er IKKE delt op.** Formen passer, men målingen bad
+  ikke om det: syv skrivere og nul konfliktpar. At dele den nu ville løse
+  et problem, der ikke er målt, i en fil, syv åbne PR'er skriver i. Byg
+  den, når en prøvefletning viser par i konflikt dér.
+
+Grundfejlen, de to valg værner imod, er at tælle berørte filer og slutte
+om konflikter. Det er form 1 igen: et tal, der svarer på et smallere
+spørgsmål end det, man læser det som.
 
 **Mål igen, før noget af det bygges** — tallene ovenfor er et øjebliksbillede:
 
