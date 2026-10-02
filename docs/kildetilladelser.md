@@ -400,8 +400,10 @@ ikke fire vurderinger forfra:
       **17.000 kald i døgnet** mod en lille udlejerplatform». Kilden er
       altså navngivet som grunden til, at mekanismen findes — og den er
       den eneste af de fire, der ikke har et loft i den. Dertil: **ingen
-      egen takt** (standard 1 s), så 736 nye ville falde på ~12 minutter,
-      og Heimstadens spærring kom efter ~17. Rolig drift er lav, fordi
+      egen takt** (standard 1 s), så 736 nye falder på **12,3 minutter** —
+      mod Heimstadens målte ~17 **ved samme takt**. Det er ikke en
+      analogi: det er det samme tal på den samme skala, og marginen er
+      4,7 minutter. Rolig drift er lav, fordi
       gitteret filtreres på postnummer før nogen detaljeside hentes; det
       urolige tilfælde er ikke.
 - [ ] **LokalBolig** — `www.lokalbolig.dk`, ~232 lejemål.
