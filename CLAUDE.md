@@ -1031,6 +1031,13 @@ sætter gulvet, og et værn, der driver, er værre end en regel, der driver —
 en regel giver forkerte svar, som kan ses, mens et værn giver INGEN svar.
 Scriptet kører videre og melder produktionens tal som det syntetiske sæts.
 
+**Form 6 · forbrugeren og leverandøren mødes aldrig.** `leveret-men-ulæst`
+er `prøvens-eget-forlæg` vendt om: dér byggede forbrugeren sit eget
+forlæg, så den aldrig så det rigtige. Her SKREV leverandøren det rigtige —
+og forbrugeren læste et andet navn. Forskellen fra alle de øvrige er, at
+intet opstrøms fejlede: værnet kørte, det bestod, og værdien blev
+eksporteret. Fejlen lå i navnet alene.
+
 **Og to, der ikke er værn.** `kendt-følge`: en fejl, der er skrevet ned,
 ligner en fejl, der er håndteret. `det-stærkeste-faldback` er en anden
 akse end alle de andre — ikke hvor meget et værn dækker, men hvilken VEJ
@@ -1065,6 +1072,7 @@ commits, i PR-tekster og her.
 | **rørets-exitkode** · `$?` efter en pipeline | Kommandoen. `$?` er den SIDSTE kommandos exitkode, ikke roerets. Maalt: `false \| head -1` giver **0**. Det er sket to gange paa én dag — en modproeve meldt som `exit=0`, hvor nullet var `head`s, og en byggekontrol laest som groen, hvor nullet var `tail`s. **Mekanisk loeseligt, og begge veje har en haage:** `set -o pipefail` giver 1 paa `false \| head -1` — men ogsaa **141** (SIGPIPE) paa `yes \| head -1`, hvor intet gik galt, saa den goer en VIRKENDE pipeline roed. Robust er derfor `${PIPESTATUS[0]}` (maalt: `1` mens `$?` er `0`), eller at koere kommandoen for sig og filtrere bagefter: `ud=$(kommando 2>&1); k=$?`. Samme familie som `transpilerede-positioner`: svaret er sandt om roeret og laeses som et svar om kommandoen. |
 | **det-stærkeste-faldback** · `??` og et sidste `else` | Dækker rigeligt — men falder mod det STÆRKESTE udsagn. Se nedenfor; det er en anden akse end de ti andre. |
 | **det-kopierede-værn** · samme vagt skrevet ud i hver fil | At den SVAGESTE kopi er den, der gælder. Målt 1. okt. 2026: isolationsvagten i `scripts/cloud/` fandtes i **ni kopier i fire stavemåder** — og **seks forbindelser havde ingen**, hvoraf én skrev til basen. Kopierne var hver især rigtige nok; mængden af dem var hullet. Et manglende værn fejler ikke, det **svarer**. Rettelsen er ét modul, alle kalder — og en prøve, der tæller forbindelser i stedet for at spørge, om der er nogen: et `Set` sagde grønt om en fil, der stod på allowlisten for en ANDEN bloks skyld. |
+| **leveret-men-ulæst** · wrapperen sætter `X`, det indpakkede læser `Y` | At sikkerheden blev LEVERET. `scripts/cloud/kontrol.sh` kalder `krav_isoleret`, det består, og den eksporterer `DATABASE_URL_DIRECT=<isoleret>`. Seks scripts læste `DATABASE_URL` og så derfor det OMGIVENDE miljø — produktionens URL fra `.env` — mens de kørte under den wrapper, der netop havde efterprøvet isolationen. Intet opstrøms fejlede: værnet kørte, bestod og leverede. Det er `prøvens-eget-forlæg` vendt om, og tegnet er det samme: **samme værdi under to navne, hvor den ene side skriver det ene og den anden læser det andet.** Målbart — hold de nøgler, et script LÆSER, op mod dem, dets wrapper SÆTTER. |
 
 **Fem af dem er den samme fejl fem gange: et usynligt filter.** Ved
 **include-filteret** kan filteret SES i kommandoen. Ved **de-hentede-refs**

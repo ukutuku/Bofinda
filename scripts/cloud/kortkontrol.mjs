@@ -25,6 +25,7 @@
 import pw from 'playwright-core'
 import { mkdirSync } from 'node:fs'
 import { aabnIsoleretEllerStop } from './isoleret.mjs'
+import { randomUUID } from 'node:crypto'
 
 const APP = process.env.BOFINDA_APP ?? 'http://127.0.0.1:3100'
 if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(APP)) {
@@ -462,9 +463,80 @@ if (!process.env.DATABASE_URL) {
 //  «billederne kan være fra en anden bolig». Et layout, der taber dem
 //  på en bredde, taber dem i tavshed.
 if (process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL) {
-  // Her stod INGEN vagt. Blokken ovenfor (:333) har én; den her havde
-  // ingen, og den SKRIVER. Vagten ligger nu i isoleret.mjs.
   const sql = await aabnIsoleretEllerStop()
+
+  // ── EGNE RAEKKER, EGET PRAEFIKS, SLETTET IGEN ────────────────────
+  //
+  // Blokken muterede foer to FREMMEDE boliger — valgt ud af dem, siden
+  // tilfaeldigvis viste — og skrev noget tilbage til sidst. Den form har
+  // to indbyggede farer, og ingen vagt kan fjerne dem:
+  //
+  //   · Der ER noget at gendanne, saa gendannelsen kan vaere forkert.
+  //     Den var det: hardkodet null i stedet for det, der stod foer.
+  //     Havde raekken en rigtig indflytningspris, var den VAEK bagefter,
+  //     og scriptet meldte «testdata gendannet».
+  //   · Gendannelsen kan UDEBLIVE. Doer scriptet mellem skrivningen og
+  //     `finally` — en Playwright-timeout er nok — staar de opdigtede
+  //     vaerdier tilbage, og naeste koersel maaler paa dem.
+  //
+  // Begge forsvinder af sig selv, naar raekkerne er vores egne: er der
+  // intet fremmed at gendanne, kan gendannelsen hverken vaere forkert
+  // eller udeblive. Formen er `indflytningkontrol.mjs`' — eget praefiks,
+  // slettet paa praefikset. Det er en portering, ikke et design.
+  //
+  // Blokken ovenfor (:333) muterer stadig fremmede billedraekker. Den er
+  // én af de ni med sin egen vagtkopi og flytter med dem.
+  //
+  // TRE FORUDSAETNINGER, efterproevet FOER porteringen:
+  //   1 · `erGruppekort` kraever `antal >= 2` (lib/soeg.ts:1097), saa en
+  //       bolig alene paa sin egen vej bliver et ENKELTKORT uden
+  //       `data-gruppe`. Derfor faar hver saaning sin egen vej.
+  //   2 · Billedvaerten 127.0.0.1:55433 er tilladt, fordi app-op.sh:97
+  //       saetter NEXT_PUBLIC_SUPABASE_URL til den, og `EGEN_LAGERVAERT`
+  //       i lib/billede.ts UDLEDER vaerten derfra — ingen saerregel.
+  //       Uden et billede faar kortet klassen `uden-billede`, og
+  //       skaermbilledet ville dokumentere et andet gitter end det rigtige.
+  //   3 · `listing_images.listing_id` er `on delete cascade`
+  //       (db/schema.ts:415), saa sletningen tager billedraekkerne med.
+  const PRAEFIKS = `kortkontrol-proeve-${Date.now()}`
+  const aktiv = `http://127.0.0.1:${process.env.BOFINDA_AKTIVPORT ?? 55433}`
+  const [kilde] = await sql`select id from sources where slug = 'test-alfa'`
+  if (!kilde) {
+    console.error('FEJL: kilden test-alfa findes ikke — kør scripts/cloud/op.sh først.')
+    await sql.end(); process.exit(2)
+  }
+
+  /** Én bolig med ét billede, alene paa sin egen vej. */
+  const saaBolig = async (navn, { indflytning = null, forbehold = false }) => {
+    const noegle = `${PRAEFIKS}-${navn}`
+    const vej = `Kortkontrolvej ${navn}`
+    const [r] = await sql`
+      insert into listings (source_id, source_type, external_key, source_url, address_raw,
+        street, house_number, postal_code, city, unit_address_uuid, address_match_level,
+        property_type, size_m2, rooms, rent_monthly, utilities_heat,
+        total_monthly, total_monthly_components, move_in_cost, images_may_differ,
+        status, first_seen_at, last_seen_at)
+      values (${kilde.id}, 'spider', ${noegle}, ${'https://eksempel.invalid/' + noegle},
+        ${`${vej} 1, 9003 Attrapby`}, ${vej}, '1',
+        '9003', 'Attrapby', ${'intern:v3:kortkontrol:' + randomUUID()}, 'unit',
+        'lejlighed', 72, 3, 1000000, 100000,
+        1100000, ${sql.array(['rent', 'heat'])}, ${indflytning}, ${forbehold},
+        'active', now(), now())
+      returning id`
+    await sql`
+      insert into listing_images (listing_id, external_url, position)
+      values (${r.id}, ${`${aktiv}/bolig-1.png`}, 0)`
+    return r.id
+  }
+
+  // 34.500 kr. i indflytning og kildens billedforbehold — på hver sit
+  // kort, så de to kan ses hver for sig.
+  const ider = [
+    await saaBolig('indflytning', { indflytning: 3450000 }),
+    await saaBolig('forbehold', { forbehold: true }),
+  ]
+  console.log(`\nIndflytningspris og billedforbehold — sået 2 under «${PRAEFIKS}»`)
+
   const c = await br.newContext({ viewport: { width: 1440, height: 1200 } })
   const p = await c.newPage()
   // Samtykkebanneret ligger over listen og ville staa hen over de kort,
@@ -472,33 +544,7 @@ if (process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL) {
   await p.goto(APP + '/', { waitUntil: 'networkidle' })
   const kn = p.getByRole('button', { name: 'Kun det nødvendige' })
   if (await kn.count()) { await kn.first().click(); await p.waitForTimeout(600) }
-  await p.goto(APP + '/?sted=Attrapby&kort=0', { waitUntil: 'networkidle' })
-  const ider = await p.evaluate(() => [...document.querySelectorAll('.liste a.kort:not([data-gruppe])')]
-    .filter((k) => k.querySelector('.kort-billede img')).slice(0, 2).map((k) => k.dataset.bolig))
-  // Fandt siden ikke to kort, er `ider` kort eller tom, og `where id =
-  // undefined` er ikke et spoergsmaal, man skal stille en base.
-  indflytning: {
-  if (ider.length < 2) {
-    console.log('\n· indflytningspris og billedforbehold: sprunget over '
-      + `(fandt ${ider.length} af 2 enkeltkort med foto)`)
-    await sql.end()
-    break indflytning
-  }
-  // GENDANNELSEN SKAL KENDE DET, DEN OVERSKREV.
-  // Her stod `set move_in_cost = null` og `images_may_differ = false` i
-  // finally — hardkodede vaerdier, ikke de fangede. Havde raekkerne en
-  // rigtig indflytningspris, var den VAEK bagefter, og scriptet meldte
-  // «testdata gendannet». Blokken paa :446 goer det rigtigt (`f.url`);
-  // den her gjorde ikke. Fejlen er en defekt uanset hvilken base den
-  // rammer — ogsaa staging, hvor staging-demo.sql kan indeholde Attrapby.
-  const foer = await sql`
-    select id, move_in_cost, images_may_differ from listings
-    where id = any(${[ider[0], ider[1]]}::uuid[])`
   try {
-    // 34.500 kr. i indflytning og kildens billedforbehold — på hver sit
-    // kort, så de to kan ses hver for sig.
-    await sql`update listings set move_in_cost = 3450000 where id = ${ider[0]}`
-    await sql`update listings set images_may_differ = true where id = ${ider[1]}`
     console.log('\nIndflytningspris og billedforbehold')
     for (const bredde of BREDDER) {
       await p.setViewportSize({ width: bredde, height: 1200 })
@@ -570,36 +616,26 @@ if (process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL) {
       }
     }
   } finally {
-    // Tilbage til det FANGEDE, ikke til null/false.
-    for (const f of foer) {
-      await sql`update listings
-        set move_in_cost = ${f.move_in_cost}, images_may_differ = ${f.images_may_differ}
-        where id = ${f.id}`
-    }
-    // KUN de to raekker, proeven selv rorte. Linjen taalte foer hver
-    // eneste raekke i basen med en indflytningspris — og med demodataene
-    // inde stod der «16 raekker har stadig indflytning», som om
-    // oprydningen var mislykkedes. Den havde ikke rort dem.
+    // Vores egne raekker, slettet paa praefikset. Ingen gendannelse —
+    // der er intet fremmed at gendanne. Det er hele pointen med
+    // porteringen: fejlen kan ikke findes, naar mekanismen er væk.
     //
-    // Og den sammenligner nu med det FANGEDE. Foer spurgte den «er
-    // move_in_cost null?», hvilket var det rigtige spoergsmaal om en
-    // gendannelse til null — og det forkerte om en gendannelse til det,
-    // der stod foer. Havde raekken en rigtig pris, ville den gamle linje
-    // melde oprydningen mislykket, netop naar den var lykkedes.
-    const efter = await sql`
-      select id, move_in_cost, images_may_differ from listings
-      where id = any(${[ider[0], ider[1]]}::uuid[])`
-    const fangetVed = new Map(foer.map((f) => [f.id, f]))
-    const n = efter.filter((e) => {
-      const f = fangetVed.get(e.id)
-      return !f || e.move_in_cost !== f.move_in_cost
-        || e.images_may_differ !== f.images_may_differ
-    }).length
-    console.log(`  · testdata gendannet (${n} af 2 prøverækker afviger fra det fangede)`)
+    // `returning id` frem for et separat `count`: sletningen SIGER selv,
+    // hvor mange raekker den tog. Et efterfoelgende taelle-kald ville
+    // vaere et andet udtryk for samme spoergsmaal.
+    const slettede = await sql`
+      delete from listings where external_key like ${PRAEFIKS + '%'} returning id`
+    // Billedraekkerne foelger med paa `on delete cascade`; linjen her
+    // efterproever det frem for at stole paa det.
+    const [{ rest }] = await sql`
+      select count(*)::int as rest from listing_images
+      where external_url like ${aktiv + '/bolig-1.png'}
+        and listing_id not in (select id from listings)`
+    console.log(`  · ${slettede.length} af 2 prøveboliger slettet`
+      + `${rest ? ` — ADVARSEL: ${rest} foraeldreloese billedraekker` : ''}`)
     await sql.end()
   }
   await c.close()
-  }
 }
 
 await br.close()
