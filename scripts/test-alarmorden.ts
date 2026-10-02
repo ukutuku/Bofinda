@@ -99,6 +99,26 @@ try {
   tjek('sendAlarmer() går søgningerne igennem i samme orden', sendOrden.join() === forventet.join(),
     sendOrden.join(' → '))
   tjek('… og sendte intet uden nøgle', sendt.every((r) => !r.sendt), sendt.map((r) => r.grund).filter(Boolean)[0] ?? '')
+
+  // ── 3 · to træf fra SAMME øjeblik i én mail: id afgør ─────
+  // Det sidste led i `orderBy`, og det eneste, en fletning med #48 kan tabe,
+  // uden at noget andet bliver rødt: tages #48's side i begge konfliktblokke,
+  // er ordenen `name, desc(matchedAt)` — ens på alt undtagen id. Rækkerne
+  // lægges i den MODSATTE fysiske orden af id'erne (største id først, på den
+  // først oprettede bolig), så en plan, der følger indsætningen eller
+  // indekset på (sent_at, matched_at), giver den forkerte. `gentagelsesprøven`:
+  // en plan, der tilfældigvis gav id-orden, ville gøre påstanden grøn uden
+  // leddet — derfor den modsatte orden, og derfor er den modprøvet.
+  const tie = await soegning('Tie — to træf i samme sekund')
+  const id = (n: number) => `${koersel.toString(16).slice(-8)}-0000-4000-8000-${String(n).padStart(12, '0')}`
+  await db.insert(alertMatches).values([
+    { id: id(2), ...traef(tie, B[4]!, 4) },
+    { id: id(1), ...traef(tie, B[5]!, 4) },
+  ])
+  const t = (await ventende()).find((g) => g[0]!.soegningId === tie.id) ?? []
+  tjek('inde i mailen: to træf fra samme øjeblik står i id-orden, ens fra kørsel til kørsel',
+    t.length === 2 && +t[0]!.matchetKl === +t[1]!.matchetKl && t[0]!.matchId === id(1) && t[1]!.matchId === id(2),
+    t.map((r) => r.matchId.slice(-2)).join(' → '))
 } finally {
   await db.delete(users).where(inArray(users.id, [bruger!.id]))           // søgninger og træf følger med
   await db.delete(listings).where(inArray(listings.id, B))
