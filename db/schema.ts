@@ -180,6 +180,16 @@ export const listings = pgTable('listings', {
    * gemmes ikke, jf. noten ved `description` nedenfor.
    */
   imagesMayDiffer: boolean('images_may_differ').notNull().default(false),
+  /**
+   * Belaegget: det tekstspaend, kildens saetning blev fundet i, og
+   * hvilken regel der ramte. `{ uddrag, regel }`.
+   *
+   * Typet som Record<string, unknown> MED VILJE — laesning SKAL gennem
+   * `laesForbeholdsbelaeg()` i lib/billedforbehold.ts, af samme grund
+   * som availability_facts. Vises ALDRIG; den er en attest.
+   */
+  imagesMayDifferEvidence: jsonb('images_may_differ_evidence')
+    .$type<Record<string, unknown>>(),
 
   /**
    * Detaljevagten — kun for kilder, hvis adapter kan levere listens

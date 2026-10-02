@@ -11,6 +11,7 @@
 //  "ny bolig", og en genudlejning er ikke en ny bolig.
 // ═══════════════════════════════════════════════════════════════
 
+import { belaegTilKolonne } from './billedforbehold'
 import { and, desc, eq, gt, inArray, lt, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { crawlRuns, fetchFailures, listingImages, listings, sources } from '../db/schema'
@@ -196,7 +197,11 @@ export async function skrivBolig(
       // allerede drevet fra hinanden fire dage efter en omskrivning.
       // Kolonnen beholdes for `native`, hvor den baerer udlejerens EGNE
       // ord; den skrives dér af lib/udlejer.ts og ikke her.
+      // Belaegget skrives SAMMEN med booleanen, aldrig uden. `?? null` og
+      // ikke undefined: forsvinder kildens forbehold, skal belaegget
+      // NULSTILLES — ikke beholde det, der stod der foer.
       imagesMayDiffer: b.imagesMayDiffer,
+      imagesMayDifferEvidence: belaegTilKolonne(b.imagesMayDifferEvidence),
       // SNAPSHOT, aldrig merge: kolonnen ERSTATTES helt, saa et fact, der
       // forsvinder fra kildens naeste svar, ogsaa forsvinder her.
       // {} = behandlet, kilden gav ingen facts. NULL findes kun paa raekker,
@@ -234,6 +239,7 @@ export async function skrivBolig(
         amenities: b.amenities,
         // Se noten ved insert'en ovenfor: beskrivelsen udledes ved visning.
         imagesMayDiffer: b.imagesMayDiffer,
+        imagesMayDifferEvidence: belaegTilKolonne(b.imagesMayDifferEvidence),
         // Cast paa SKRIVNING er ok: det er vores egen typede vaerdi, der
       // serialiseres. LAESNING gaar altid gennem laesAvailabilityFacts.
       availabilityFacts: (b.availability ?? {}) as Record<string, unknown>,

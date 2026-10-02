@@ -726,6 +726,61 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   venligst, at billederne kan være fra en anden bolig." Et billede af noget
   andet end den bolig, brugeren kigger på, er værre end intet billede — hun
   tror, hun har set den.
+- **Et udtrukket faktum bærer det tekstspænd, det kom fra. Et faktum uden
+  spænd findes ikke.** Billedforbeholdet er reglens første — og indtil
+  videre eneste — kunde. Indtil nu gemte vi `images_may_differ = true` og
+  intet andet, og det er den fejl, reglen findes for: **omformulerer CEJ
+  sin sætning i morgen, bliver feltet `false` uden spor**, og en bolig
+  begynder at vise billeder, kilden tager forbehold for. Der var intet at
+  holde det op imod, så ingen prøve kunne se det.
+
+  `images_may_differ_evidence` er `{ uddrag, regel }`. Formen er
+  `availability_facts`' — evidens pr. række, hydreret gennem én parser,
+  fail closed — med `hvor`-disciplinen fra `Belaeg` i `lib/kildekontrakt.ts`:
+  spændet alene er ikke nok, der skal stå HVILKEN regel der ramte, ellers
+  kan det ikke prøves igen. Reglerne er navngivet i `FORBEHOLDSREGLER` i
+  `lib/billedforbehold.ts`; før stod de som to `const FORBEHOLD` i hver
+  sin adapter.
+
+  **Booleanen UDLEDES af belægget** (`r.imagesMayDifferEvidence != null` i
+  `lib/normalize.ts`), og adapteren leverer kun belægget. Sattes de hver
+  for sig, havde vi to udtryk for ét spørgsmål — den fejlform, der har sin
+  egen tabel længere nede. `npm test` kildetjekker, at ingen adapter kan
+  sætte booleanen selv.
+
+  **Spændet vises ALDRIG.** Det er en attest, ikke indhold. «Kopiér aldrig
+  kildens brødtekst» står uændret: vi gemmer de få ord, der bærer
+  faktummet, for at kunne efterprøve det — ikke for at gengive dem.
+  `MAKS_UDDRAG` (240) er den øvre grænse, så et regex, der en dag griber
+  for bredt, ikke gør attesten til en kopi; `belaegHolder` afviser et
+  spænd over grænsen.
+
+  **Visningen er IKKE betinget af, at belægget holder**, og det er
+  bevidst — det modsatte af billedvagten, hvor en vært uden for
+  allowlisten får billedet fjernet. Forskellen er, hvilken vej fejlen
+  koster: et billede, vi ikke viser, er en mangel, mens et forbehold, vi
+  ikke viser, er en PÅSTAND om, at billedet er af boligen. Gjorde vi
+  visningen betinget, ville en ændret regel SLETTE forbeholdet fra
+  skærmen — altså præcis den fejl, spændet blev indført for at fange, med
+  et ekstra lag til at skjule den. Belægget er til efterprøvning, ikke til
+  portvagt.
+
+  **Der er med vilje INGEN check-constraint** på «true kræver et belæg».
+  Den ser rigtig ud, også som `NOT VALID`, men `NOT VALID` håndhæver på
+  hver `UPDATE`: de rækker, der i dag står med `true`, har intet belæg og
+  kan ikke få et, før boligen hentes igen — og importøren flytter
+  `last_seen_at` på dem i mellemtiden, uden at hente detaljesiden. Den
+  update ville fejle, og afmeldingen ville derefter tage boligen. En
+  invariant, der stækker timekørslen, er dyrere end den fejl, den
+  beskytter mod. Begrundelsen står i `0021_billedforbehold_belaeg.sql`,
+  så den næste ikke «retter» det — sammen med den select, der tæller de
+  gamle rækker uden belæg. Tallet skal falde mod nul over et døgns
+  genopfriskning. **Om et belæg, der findes, stadig HOLDER, er der endnu
+  ingen måling for** — `belaegHolder()` kan svare, men ingen kører den
+  mod produktionen. Det står her frem for at blive kaldt bygget.
+
+  Rammen er bygget for ÉT felt. En generel ramme med én kunde er et gæt
+  om de næste ni.
 - **`landlord_id` er en del af grupperingsnøglen, og den skal blive der.**
   Den ser overflødig ud: kolonnen er NULL på hver eneste scrapede bolig, og
   `group by` samler NULL i én gruppe, så de eksisterende grupper er
