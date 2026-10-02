@@ -21,24 +21,85 @@
 //  `linjeankeret` er netop den fælde: et `^` gør en scanner til en
 //  linjescanner, og modprøven bestod, fordi kopien havde to nøgler på
 //  samme linje.
+//
+//  ── OG DEN HAR IKKE SIN EGEN KOMMENTAR-HÅNDTERING ─────────────
+//
+//  Første udgave havde en `kode()`-hjælper her: to `.replace()` der
+//  klippede kommentarer ud. Den var den TIENDE kopi — skrevet i samme
+//  ændring, hvor de ni kopier af isolationsvagten blev talt. Det er
+//  fældens egen form anvendt på fældens egen prøve.
+//
+//  `scripts/kildetjek.ts` gør det samme ét sted, og MÅLT på de 22 filer
+//  prøven scanner gav de to det samme ANTAL — 0 afvigelser. Men:
+//
+//    · `kildelag` bevarer længden på alle 22; min gjorde det på INGEN,
+//      så linjenumre og positioner var ødelagt.
+//    · Enigheden var tilfældig. Konstrueret modeksempel:
+//          const s = "a // b"; const sql = postgres(url)
+//      `kildetjek` tæller 1. Min talte 0 — den klippede resten af
+//      linjen efter et `//` inde i en STRENG. En URL i en streng er det
+//      mest sandsynlige, der står på samme linje som et `postgres(`.
+//
+//  Altså: en falsk negativ i selve den prøve, der skal fange en
+//  manglende vagt. `kildetjek` er ét gennemløb tegn for tegn og kender
+//  forskel på `//` i en streng, `/*` i et regex og en `'` i en kommentar.
+//  Et regex kan ikke se den forskel.
+//
+//  ── REGLEN: EN PRØVE MÅ IKKE HAVE EN MENING OM PROSA ──────────
+//
+//  LAG-KONTRASTER MÅLES PÅ SYNTETISKE STRENGE — ALDRIG PÅ EN RIGTIG
+//  FILS KOMMENTARER.
+//
+//  Reglen står her, fordi den blev ramt fra BEGGE sider samme dag, og
+//  det er samme sygdom begge gange:
+//
+//    1 · Prøven knækkede på sin EGEN rettelse. Den forbudte form
+//        `set move_in_cost = null` stod citeret i en kommentar i
+//        kortkontrol.mjs, hvor den forklarede hvad der blev rettet. En
+//        scanner uden lagfilter læste forklaringen som fejlen — og så
+//        kan en rettelse ikke dokumenteres uden at bryde prøven.
+//    2 · Rettelsen på det gik for langt den anden vej: en assertion
+//        krævede, at forklaringen STOD i kommentaren («ellers er noten
+//        væk»). Så er prøven en grund til ikke at omskrive en
+//        forklaring. En kommentar, der ikke må røres, er ikke
+//        dokumentation længere; den er en API-kontrakt uden en type.
+//
+//  En prøve, der har en mening om prosa, gør prosaen til kode uden at
+//  give den kodens omhu. Prosa må gerne ændre sig uden en commit, der
+//  hedder «ret prøven».
+//
+//  Hvad der SKAL måles, og hvordan:
+//
+//    · at lagfilteret er LIVE  →  på en syntetisk streng (`IKOMMENTAR`,
+//      `ISTRENG` nedenfor). To linjer, intet at vedligeholde.
+//    · at KODEN ikke bærer en forbudt form  →  med laget 'kode' mod den
+//      rigtige fil. Det er en påstand om kode, og den hører her.
+//    · at en KOMMENTAR siger noget bestemt  →  slet ikke. Hverken med
+//      'kommentar' eller 'alt'.
+//
+//  Undtagelsen, hvis den nogensinde bliver nødvendig: en kommentar, der
+//  er et MASKINLÆST direktiv — `@ts-expect-error`, `eslint-disable`,
+//  `// prettier-ignore`. De er kode med kommentarsyntaks, og en påstand
+//  om dem er en påstand om adfærd. Alt andet er prosa.
 // ═══════════════════════════════════════════════════════════════
 
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { antal, findes } from './kildetjek'
 import {
   Isolationsfejl, LOFT, TESTBASE,
   kraevIsoleretUrl, kraevLilleBase, kraevSammeBase,
 } from './cloud/isoleret.mjs'
 
 let fejl = 0
-const tjek = (navn, ok, note = '') => {
+const tjek = (navn: string, ok: boolean, note = '') => {
   process.stdout.write(`  ${ok ? '✓' : '✗'} ${navn}${note ? `  — ${note}` : ''}\n`)
   if (!ok) fejl++
 }
 /** Kastede den en Isolationsfejl? Returnerer beskeden, ellers null. */
-const kaster = (f) => {
-  try { f(); return null } catch (e) {
-    return e instanceof Isolationsfejl ? e.message : `FORKERT FEJLTYPE: ${e.name}`
+const kaster = (f: () => unknown): string | null => {
+  try { f(); return null } catch (e: unknown) {
+    return e instanceof Isolationsfejl ? e.message : `FORKERT FEJLTYPE: ${(e as Error).name}`
   }
 }
 
@@ -130,29 +191,17 @@ const SKAL_GENNEM_MODULET = [
   'lysbordkontrol.mjs', 'mobilforenkling.mjs',
 ]
 
-/**
- * Filens KODE, uden kommentarer.
- *
- * Den her funktion kom af, at prøven fejlede på sin egen rettelse: den
- * forbudte form `set move_in_cost = null` står CITERET i en kommentar i
- * kortkontrol.mjs, hvor den forklarer, hvad der blev rettet. En scanner,
- * der ikke skelner kode fra kommentar, læser forklaringen som fejlen —
- * og så kan man ikke dokumentere en rettelse uden at bryde prøven.
- *
- * Det er `linjeankeret`s nabo i CLAUDE.md: scanneren så på det rigtige
- * sted og læste det forkerte dér.
- */
-const kode = (sti) => readFileSync(sti, 'utf8')
-  .replace(/\/\*[\s\S]*?\*\//g, ' ')   // blokkommentarer
-  .replace(/(^|[^:])\/\/.*$/gm, '$1')   // linjekommentarer, men ikke «://»
-
 const ROD = 'scripts/cloud'
 const filer = readdirSync(ROD).filter((n) => n.endsWith('.mjs') && n !== 'isoleret.mjs')
 // Hele filens indhold, ikke linje for linje. Se noten om `linjeankeret`.
-/** ANTAL egne forbindelser, ikke om der er nogen. Se noten ved listen. */
-const antalForbindelser = (n) => (kode(join(ROD, n)).match(/\bpostgres\s*\(/g) ?? []).length
-const egenForbindelse = (n) => antalForbindelser(n) > 0
-const gaarGennemModulet = (n) => /from '\.\/isoleret\.mjs'/.test(kode(join(ROD, n)))
+/** ANTAL egne forbindelser, ikke om der er nogen. Se noten ved listen.
+ *  `'kode'` fra kildetjek: en traeffer i en kommentar er ikke en
+ *  forbindelse, og en traeffer efter et `//` inde i en streng ER. */
+const FORBINDELSE = /\bpostgres\s*\(/g
+const tekst = (n: string) => readFileSync(join(ROD, n), 'utf8')
+const antalForbindelser = (n: string) => antal(tekst(n), FORBINDELSE, 'kode')
+const egenForbindelse = (n: string) => antalForbindelser(n) > 0
+const gaarGennemModulet = (n: string) => findes(tekst(n), /from '\.\/isoleret\.mjs'/, 'kode')
 
 const uventede = filer.filter((n) => egenForbindelse(n) && !TILLADT_EGEN_FORBINDELSE.has(n))
 tjek('ingen NY fil åbner sin egen forbindelse', uventede.length === 0, uventede.join(' ') || 'ingen')
@@ -178,10 +227,41 @@ tjek('kortkontrol.mjs går gennem modulet OG har PRÆCIST sin ene gamle kopi',
   `${antalForbindelser('kortkontrol.mjs')} forbindelse(r)`)
 
 // Gendannelsen: den tabsgivende form må ikke komme tilbage.
-const kk = kode(join(ROD, 'kortkontrol.mjs'))
-tjek('gendannelsen skriver ikke hardkodet null/false tilbage',
-  !/set move_in_cost = null/.test(kk) && !/set images_may_differ = false/.test(kk))
-tjek('… men gendanner til det fangede', /set move_in_cost = \$\{f\.move_in_cost\}/.test(kk))
+// ── kortkontrol: egne rækker, ikke fremmede ────────────────────
+//
+// Blokken muterede før to boliger, den ikke selv havde oprettet, og skrev
+// noget tilbage. Gendannelsen var hardkodet (`null`/`false`) i stedet for
+// det fangede — og en gendannelse kan også UDEBLIVE, hvis scriptet dør før
+// `finally`. Begge farer forsvinder, når rækkerne er scriptets egne: der
+// er intet fremmed at gendanne.
+//
+// Prøven måler derfor MEKANISMEN, ikke rettelsen: ingen skrivning til
+// listings-rækker, scriptet ikke selv har oprettet.
+const kk = tekst('kortkontrol.mjs')
+tjek('kortkontrol skriver ikke til listings-rækker, den ikke selv har oprettet',
+  !findes(kk, /update listings\s+set/, 'kode'))
+tjek('… den sår sine egne', findes(kk, /insert into listings/, 'kode'))
+tjek('… og sletter dem på sit eget præfiks',
+  findes(kk, /delete from listings where external_key like/, 'kode'))
+tjek('præfikset er pr. kørsel, ikke fast',
+  findes(kk, /PRAEFIKS = `[^`]*\$\{Date\.now\(\)\}/, 'kode'))
+
+// ── at lagfilteret er LIVE, målt på en syntetisk streng ────────
+//
+// Ikke på en rigtig fils prosa: en påstand om en kommentars ordlyd rådner,
+// og så bliver prøven en grund til ikke at omskrive en forklaring. De tre
+// linjer her beviser, at `'kode'` og `'alt'` svarer forskelligt — og
+// dermed at filteret ovenfor ikke er pynt.
+const IKOMMENTAR = '// const sql = postgres(url)\n'
+tjek('et `postgres(` i en kommentar tælles IKKE som kode',
+  antal(IKOMMENTAR, FORBINDELSE, 'kode') === 0)
+tjek('… men findes i `alt` — altså er filteret live, ikke pynt',
+  antal(IKOMMENTAR, FORBINDELSE, 'alt') === 1)
+// Og den vej, min egen skrubber tog fejl af: et `//` inde i en STRENG må
+// ikke klippe resten af linjen væk. Min talte 0 her; kildetjek tæller 1.
+const ISTRENG = 'const s = "a // b"; const sql = postgres(url)\n'
+tjek('et `postgres(` efter et «//» inde i en streng tælles som kode',
+  antal(ISTRENG, FORBINDELSE, 'kode') === 1)
 
 process.stdout.write(fejl ? `\n${fejl} FEJL\n` : '\nAlle prøver bestået.\n')
 process.exit(fejl ? 1 : 0)
