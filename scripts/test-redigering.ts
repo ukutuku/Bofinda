@@ -105,15 +105,55 @@ const tjek = (navn: string, ok: boolean, note = '') => {
  * base, er ikke en proeve — den er et groent flueben uden daekning, og det
  * er vaerre end ingenting, fordi nogen tror, den holder. Derfor skrives
  * hver overspringning ud, og antallet staar i bunden.
+ *
+ * ═══ HVER OVERSPRINGNING HAR TO GRUNDE, OG DE ER FORSKELLIGE ═══
+ *
+ * Den foerste er faelles og staar ovenfor: forholdet findes ikke paa en
+ * tom base. Den ANDEN er, hvad proeven ville sige, hvis man fjernede
+ * vagten alligevel — og den er ikke den samme de fem steder. Maalt 1.
+ * oktober 2026 ved at saette BOFINDA_PROEV_PRODUKTION=1 paa PGlite:
+ *
+ *     ✓ ingen aktiv bolig har billeder paa en ukendt vaert
+ *     ✗ ingen kilde har alle 48 kort paa forsiden
+ *     ✗ 2200 giver et bynavn
+ *     ✗ der findes tavse kilder at naevne
+ *     ✗ de daekker et positivt antal boliger
+ *
+ * DEN ENE BLIVER GROEN PAA INGENTING. Den taeller raekker og kraever
+ * nul; nul raekker giver nul. Fjernes vagten, staar der et flueben, hvor
+ * ingenting blev maalt — den vaerste udgang, fordi den ligner et bevis.
+ *
+ * DE FIRE ANDRE BLIVER ROEDE PAA INGENTING, og faren er en anden: den
+ * naeste «hjaelper» ved at goere dem groenne. Enten ved at svaekke
+ * praedikatet (`> 1` bliver til `>= 1`) eller ved at saa et fikstur for
+ * 2200 — og saa maaler proeven sit eget forlaeg i stedet for det
+ * rigtige udbud. Begge veje ender samme sted som den foerste.
+ *
+ * Derfor staar begge grunde ved HVERT kaldsted, ikke kun her. En
+ * faellesforklaring et sted laeses ikke af den, der staar ved linjen.
  */
 const MOD_PRODUKTION = process.env.BOFINDA_PROEV_PRODUKTION === '1'
 let sprunget = 0
+/**
+ * @param navn    Paastanden.
+ * @param kald    Selve maalingen.
+ * @param note    Tal til udskriften.
+ * @param udenData Hvad proeven ville SIGE paa en tom base — den anden
+ *   grund. `'groen'` betyder at overspringningen er det eneste, der
+ *   holder et falsk flueben ude; `'roed'` at den holder en falsk
+ *   «rettelse» ude. Den skrives ud, saa den staar paa skaermen og ikke
+ *   kun i en kommentar.
+ */
 const tjekProd = async (
   navn: string, kald: () => boolean | Promise<boolean>, note?: () => string | Promise<string>,
+  udenData: 'groen' | 'roed' = 'roed',
 ) => {
   if (!MOD_PRODUKTION) {
     sprunget++
-    console.log(`  ⊘ ${navn}  — kræver rigtige data (npm run test:prod)`)
+    const anden = udenData === 'groen'
+      ? 'uden dem ville den blive GRØN på ingenting'
+      : 'uden dem ville den blive RØD på ingenting'
+    console.log(`  ⊘ ${navn}  — kræver rigtige data (npm run test:prod); ${anden}`)
     return
   }
   tjek(navn, await kald(), note ? await note() : '')
@@ -289,8 +329,23 @@ async function main() {
   // kilden brugte TO vaerter og gennemgangen fandt kun den ene —
   // 25 boliger med 249 billeder stod uden.
   //
-  // Kraever rigtige data: paa en tom testbase er der ingen boliger at
-  // maale paa, og proeven ville bestaa uden at have set noget.
+  // ═══ TO GRUNDE TIL AT DEN SPRINGES OVER ═══
+  //
+  // 1 · DEN KRAEVER RIGTIGE DATA. Forholdet er «findes der en aktiv bolig
+  //     med billedraekker, hvor ingen af vaerterne er tilladt» — og det
+  //     kan kun maales paa et rigtigt udbud. Maalt paa testbasen: 0
+  //     aktive boliger HAR overhovedet billedraekker.
+  //
+  // 2 · UDEN DEM LYVER DEN. Praedikatet er `tabte.length === 0`, og nul
+  //     raekker giver nul. Den er den ENESTE af de fem, der bliver
+  //     GROEN paa en tom base (maalt 1. oktober 2026 med
+  //     BOFINDA_PROEV_PRODUKTION=1 paa PGlite). Fjerner man vagten for
+  //     at «faa den med i npm test», staar der et flueben, hvor
+  //     ingenting blev maalt — og netop den her regel er brudt TRE
+  //     gange i produktionen uden at nogen opdagede det.
+  //
+  // Overspringningen er altsaa ikke en mangel, der skal lukkes. Den er
+  // det eneste, der holder et falsk groent ude.
   console.log('\n══ ingen bolig må have billeder på en ukendt vært ══')
   // Raa SQL med vores egne aliaser: forespoergslen skal naevne den samme
   // tabel to gange — én gang for at faa vaertsnavnet frem, og én gang i
@@ -313,11 +368,21 @@ async function main() {
       tabte = ((r as unknown as { rows?: typeof tabte }).rows ?? (r as unknown as typeof tabte))
       return tabte.length === 0
     },
-    () => tabte.map((t) => `${t.vaert}: ${t.boliger} boliger`).join(' · '))
+    () => tabte.map((t) => `${t.vaert}: ${t.boliger} boliger`).join(' · '),
+    'groen')
 
-  // Den bogstavelige udgave, som kun giver mening med et rigtigt udbud:
-  // ingen enkelt kilde maa tage hele forsiden. Det gjorde home.dk — 48 af
-  // 48 — den dag den blev koblet paa.
+  // ═══ TO GRUNDE ═══
+  //
+  // 1 · DEN KRAEVER RIGTIGE DATA. Fordelingen af forsidens 48 kort paa
+  //     kilder findes kun i et rigtigt udbud. Det var ikke teoretisk:
+  //     home.dk tog 48 af 48 den dag, den blev koblet paa.
+  //
+  // 2 · UDEN DEM BLIVER DEN ROED. `fordeling.length > 1` paa nul kilder
+  //     er `false`. Faren er derfor ikke et falsk groent, men en
+  //     «rettelse»: svaekker man praedikatet til `>= 1` for at faa den
+  //     groen paa testbasen, kan den ALDRIG mere fejle — ogsaa ikke den
+  //     dag én kilde igen tager hele forsiden. Lad den vaere roed, og
+  //     lad vagten springe den over.
   console.log('\n══ ingen enkelt kilde må tage hele forsiden ══')
   let fordeling: [string, number][] = []
   await tjekProd('ingen kilde har alle 48 kort på forsiden',
@@ -333,6 +398,19 @@ async function main() {
     },
     () => fordeling.map(([k, n]) => `${k} ${n}`).join(' · '))
 
+  // ═══ TO GRUNDE ═══
+  //
+  // 1 · DEN KRAEVER RIGTIGE DATA. `byForPostnr` slaar op i de boliger, VI
+  //     allerede har, med samme `mode()`-forespoergsel som
+  //     omraadesiderne bygger deres navne af. Uden boliger i 2200 er der
+  //     intet navn at finde.
+  //
+  // 2 · UDEN DEM BLIVER DEN ROED — og den naerliggende «rettelse» er at
+  //     saa en bolig i 2200. Saa maaler proeven sit eget fikstur: den
+  //     bekraefter, at `mode()` kan laese den raekke, proeven lige har
+  //     skrevet, og siger intet om, at opslaget virker paa det rigtige
+  //     udbud. Linjen under — at et UKENDT postnummer giver null — kan
+  //     maales paa en tom base og goer det derfor uden vagt.
   console.log('\n══ byen udledes af postnummeret ══')
   await tjekProd('2200 giver et bynavn',
     async () => (await byForPostnr('2200')) !== null,
@@ -2170,6 +2248,23 @@ async function main() {
     console.log('\n══ tavse kilder ══')
     // Med et facilitetsfilter, som siden kalder den: linjen siger, hvad
     // krydset fjerner, og uden et kryds fjerner det ingenting.
+    //
+    // ═══ TO GRUNDE TIL AT DE TO NAESTE SPRINGES OVER ═══
+    //
+    // 1 · DE KRAEVER RIGTIGE DATA. «Hvilke kilder oplyser ALDRIG
+    //     faciliteter» er et udsagn om bestanden — tre kilder og 399
+    //     boliger, maalt 4. september 2026. Testbasen har kun det, denne
+    //     proeve selv har skrevet, og der er ingen tavs kilde at naevne.
+    //
+    // 2 · UDEN DEM BLIVER DE ROEDE, og «rettelsen» ligger lige for: saa en
+    //     kilde uden faciliteter, saa bliver `navne.length > 0` sand.
+    //     Men saa maaler de, at `tavseKilder` kan finde den raekke,
+    //     proeven lige har lagt — ikke at linjen paa skaermen er sand om
+    //     det rigtige udbud. Og det er netop dét, linjen paastaar.
+    //
+    // Resten af blokken maaler det, der KAN maales uden et udbud: at
+    // vores egen kilde ikke naevnes, og at domaenefilteret taelles med.
+    // De staar derfor uden vagt.
     const tk = await tavseKilder({ elevator: true })
     await tjekProd('der findes tavse kilder at nævne',
       () => tk.navne.length > 0, () => tk.navne.join(', '))
