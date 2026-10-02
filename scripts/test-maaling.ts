@@ -31,6 +31,8 @@
 //   28.  Server Action-revalidering tæller ikke som en sidevisning
 //   29.  Paginering: valgfri metadata, heltalsværn, komplethedsreglen
 //   30.  search_submitted: en observeret indsendelse, ikke en rendering
+//   31.  En værdi uden for listen: nøglen droppes, eventet skrives, _afvist
+//   32.  Typevagten står, og allowlisten er ikke annoteret
 //
 //  Deliberate break-tests: se docs/analytics-v1.md. Hver af dem laves
 //  midlertidigt i koden, køres, ses rød og rulles tilbage. En prøve, der
@@ -39,16 +41,18 @@
 //    npm test
 // ═══════════════════════════════════════════════════════════════
 
+import { readFileSync } from 'node:fs'
 import { eq, sql as dsql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { haendelser, haendelserDaglig, savedSearches, users } from '../db/schema'
 import { bekraeft, tilmeld } from '../lib/alarm'
 import {
-  ALLOWLIST, KLIENTEVENTS, MILJOEER, RENDEREVENTS, RUTER, erGenrendering, iStikproeve, miljoe,
+  AFVIST, ALLOWLIST, KLIENTEVENTS, MILJOEER, RENDEREVENTS, RUTER, erGenrendering, iStikproeve, miljoe,
   rens, saetAktiv, saetMiljoe, udloeb, type Haendelse, type Kontekst,
 } from '../lib/maaling'
 import {
-  _saetDedup, _saetHoveder, _saetKontekst, opdaterDagsaggregat, ryddHaendelser, spor,
+  _nulstilAfvisninger, _saetDedup, _saetHoveder, _saetKontekst, afvisninger,
+  opdaterDagsaggregat, ryddHaendelser, spor,
 } from '../lib/maaling-server'
 import {
   C_ANONYM, C_SAMTYKKE, C_SESSION, SESSION_MAKS_MS,
@@ -952,6 +956,93 @@ _saetDedup(new Set())
   tjek('30 · udløbsklassen er produktets, ikke impressionernes',
     Math.round((udloeb('search_submitted', null, new Date()).getTime() - Date.now())
       / 86400000) === 365)
+}
+
+// ─── 31 · En værdi uden for listen ─────────────────────────────
+//
+// Før kasserede `rens` hele eventet. Nu droppes nøglen, eventet skrives,
+// og nøglens navn står på rækken under `_afvist`. Fire ting skal holde
+// ved siden af: kravet prøves på det SENDTE, en mailadresse er stadig pii,
+// forkert type kasserer stadig, og en afsender kan ikke selv skrive
+// `_afvist`.
+{
+  const H = (navn: string, props: Record<string, unknown>) => ({ navn, props }) as unknown as Haendelse
+
+  const sms = rens(H('contact_click', { maal: 'sms' }), K())
+  tjek('31 · et påkrævet felt med en værdi uden for listen: eventet skrives',
+    sms.ok, sms.ok ? '' : sms.fejl.grund)
+  tjek('31 · …uden nøglen, og med nøglens navn i _afvist',
+    sms.ok && !('maal' in sms.renset.raekke.properties)
+    && JSON.stringify(sms.renset.raekke.properties[AFVIST]) === '["maal"]'
+    && JSON.stringify(sms.renset.afvisteVaerdier) === '["maal"]',
+    sms.ok ? JSON.stringify(sms.renset.raekke.properties) : '')
+  tjek('31 · værdien står ingen steder på rækken',
+    sms.ok && !JSON.stringify(sms.renset.raekke).includes('sms'))
+
+  // `sted_slags` er både påkrævet og opregnet på search.
+  const kommune = rens(H('search', {
+    result_count: 3, antal_filtre: 1, sorter: 'nyeste', sted_slags: 'kommune',
+  }), K())
+  tjek('31 · kravet prøves på det, der blev SENDT — sted_slags på search',
+    kommune.ok && kommune.renset.raekke.properties.result_count === 3
+    && JSON.stringify(kommune.renset.raekke.properties[AFVIST]) === '["sted_slags"]',
+    kommune.ok ? '' : kommune.fejl.grund)
+
+  const intet = rens(H('contact_click', {}), K())
+  tjek('31 · et påkrævet felt, der IKKE blev sendt, kasserer stadig',
+    !intet.ok && intet.fejl.grund === 'manglende-property')
+
+  const mail = rens(H('contact_click', { maal: 'nogen@eksempel.dk' }), K())
+  tjek('31 · en mailadresse i et opregnet felt er pii, ikke en ukendt værdi',
+    !mail.ok && mail.fejl.grund === 'pii', mail.ok ? 'skrevet' : mail.fejl.grund)
+
+  const tal = rens(H('contact_click', { maal: 5 }), K())
+  tjek('31 · forkert type kasserer stadig hele eventet',
+    !tal.ok && tal.fejl.grund === 'forkert-type')
+
+  const falsk = rens(H('contact_click', { maal: 'mail', [AFVIST]: ['hemmelig'] }), K())
+  tjek('31 · en afsender kan ikke selv skrive _afvist',
+    falsk.ok && !(AFVIST in falsk.renset.raekke.properties)
+    && falsk.renset.droppedeNoegler.includes(AFVIST))
+
+  const ren = rens(H('contact_click', { maal: 'mail' }), K())
+  tjek('31 · et rent event har ingen _afvist',
+    ren.ok && !(AFVIST in ren.renset.raekke.properties))
+
+  tjek('31 · ingen allowlist-post hedder _afvist',
+    !Object.values(ALLOWLIST).some((s) => AFVIST in s))
+
+  // Hele vejen gennem spor(): rækken skrives, og loggen har sin egen grund.
+  await ryd()
+  _nulstilAfvisninger()
+  await spor(H('map_interaction', { slags: 'rotation' }), '/')
+  const r = await raekker()
+  tjek('31 · gennem spor(): rækken skrives med _afvist',
+    r.length === 1
+    && JSON.stringify((r[0]?.properties as Record<string, unknown> | undefined)?.[AFVIST]) === '["slags"]',
+    `${r.length} rækker`)
+  tjek('31 · …og afvisningen logges som uden-for-listen, ikke som forkert-type',
+    afvisninger().some((a) => a.grund === 'uden-for-listen' && a.detalje === 'slags')
+    && !afvisninger().some((a) => a.grund === 'forkert-type'))
+  _nulstilAfvisninger()
+}
+
+// ─── 32 · Typevagten står, og allowlisten er ikke annoteret ─────
+//
+// npm test kører gennem tsx, der oversætter UDEN at typetjekke. En slettet
+// typevagt eller en annoteret allowlist bliver derfor kun rød i tsc, ikke
+// her — og det er netop den løsning, en fletning med betalingsgrenen kan
+// ende i (se FLETTEFARE ved ALLOWLIST i lib/maaling.ts). Prøven læser
+// produktionsfilen, ikke en kopi. Den ser, at vagten STÅR, ikke at den
+// VIRKER; det gør modprøverne modproever/type-*.mjs.
+{
+  const kilde = readFileSync('lib/maaling.ts', 'utf8')
+  tjek('32 · ALLOWLIST bærer ingen udvidende annotation',
+    /^export const ALLOWLIST = \{$/m.test(kilde) && !/export const ALLOWLIST\s*:/.test(kilde))
+  tjek('32 · ALLOWLIST lukkes med as const satisfies',
+    /^\} as const satisfies Record<Eventnavn, Record<string, Spec>>$/m.test(kilde))
+  tjek('32 · typevagten står',
+    /^type _AllowlistenDaekkerTyperne = IngenHuller<Huller>$/m.test(kilde))
 }
 
 // ─── Oprydning ─────────────────────────────────────────────────

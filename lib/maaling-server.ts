@@ -212,6 +212,12 @@ export async function spor(
     for (const n of r.renset.ufuldstaendigeNoegler) {
       noterAfvist(ev.navn, { grund: 'ufuldstaendigt-sideantal', detalje: n })
     }
+    // Egen grund igen: noeglen er kendt, VAERDIEN var det ikke. Eventet
+    // skrives, og noeglen staar ogsaa paa raekken under `_afvist`, saa
+    // tabet kan taelles i en rapport og ikke kun i loggen.
+    for (const n of r.renset.afvisteVaerdier) {
+      noterAfvist(ev.navn, { grund: 'uden-for-listen', detalje: n })
+    }
 
     const noegle = dedupnoegle(r.renset.raekke)
     const set = husket()

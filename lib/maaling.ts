@@ -124,7 +124,8 @@ export type Rute = (typeof RUTER)[number]
 //  afsenderen sende værdien, og `rens()` kassere HELE eventet som
 //  'forkert-type': en måling, der sletter sig selv, med kun en loglinje
 //  som spor. Se `Huller` nedenfor for vagten, der gør det til en
-//  oversætterfejl, også hvis nogen skriver en liste af igen.
+//  oversætterfejl, også hvis nogen skriver en liste af igen — og
+//  'uden-for-listen' i `rens` for det, vagten ikke kan se.
 
 export const STEDSLAGS = ['postnr', 'by_kendt', 'by_ukendt', 'ingen'] as const
 export type StedSlags = (typeof STEDSLAGS)[number]
@@ -304,6 +305,9 @@ export interface KildeProps {
   fra_route?: Rute
 }
 export interface KontaktProps { har_mail: boolean; har_telefon: boolean }
+// FLETTEFARE: løses en konflikt her mod claude/betaling-og-adgangskontrol,
+// så læs noten ved ALLOWLIST først. Grenens lister passerer kun, så længe
+// allowlisten forbliver `as const satisfies`.
 export interface KontaktklikProps { maal: Kontaktmaal }
 export interface AlarmProps { filtertyper: string[]; antal_filtre?: number }
 export interface KontoProps { bandt_eksisterende?: boolean }
@@ -369,6 +373,33 @@ const UTM = {
  * Der står INGEN felter her, som brugeren har tastet. `sted` og `by` er
  * fritekst; `canonical_city` er den kanoniserede erstatning og skal have
  * været slået op i facetter() af kalderen — se `renser` og docs.
+ *
+ * ═══ FLETTEFARE · claude/betaling-og-adgangskontrol ═══
+ *
+ * Grenen har fem håndskrevne lister her: `funktion` og `tilstand` på
+ * paywall_blocked og checkout_started, `fase` på subscription_canceled.
+ * De passerer typevagten `Huller` — men KUN så længe allowlisten forbliver
+ * `as const satisfies`. Grenen selv har den annoterede form,
+ * `ALLOWLIST: Record<Eventnavn, Record<string, Spec>> = {`.
+ *
+ * Målt 2. oktober 2026 med en prøvefletning: git tager denne form og vagten
+ * med af sig selv; filens eneste konflikt ligger ved KontaktklikProps.
+ * Faren er en MANUEL løsning, der tager grenens erklæring. Den gør vagten
+ * blind for alle lister på én gang. I tsc er det ikke tavst — vagten har en
+ * gren for netop den form. Men npm test kører gennem tsx uden typetjek, så
+ * fjernes vagten for at få tsc grøn, ville prøvesættet intet se. Prøve 32 i
+ * scripts/test-maaling.ts gør derfor både annotationen og en slettet vagt
+ * røde i npm test.
+ *
+ * modproever/type-allowlist-annoteret.mjs beviser, at vagtens gren virker,
+ * og dens mønster er linjen herunder. Ændres linjen, afviser
+ * modprøvekøreren mutationen (dens vagt 4), og beviset er faldet ud af
+ * fletningen. Kør den efter fletningen med scripts/modproeve.mjs fra
+ * verktoej/modproevekoerer og den skærpede kommando, der kun er rød på
+ * vagtens egen meddelelse:
+ *
+ *   node scripts/modproeve.mjs modproever/type-allowlist-annoteret.mjs -- \
+ *     sh -c "! npx tsc --noEmit -p tsconfig.json | grep -q \"does not satisfy the constraint 'never'\""
  */
 export const ALLOWLIST = {
   homepage_view: {
@@ -508,7 +539,8 @@ export const ALLOWLIST = {
  *  · en værdi, der kommer fra køretidsdata og er castet til typen;
  *  · et beacon fra en gammel browserfane, der sender en værdi, en nyere
  *    deploy har fjernet fra listen.
- * De to sidste afgøres først i `rens()`, som i dag kasserer hele eventet.
+ * De to sidste afgøres først i `rens()`: nøglen droppes, eventet skrives,
+ * og nøglens navn står på rækken under `_afvist`.
  */
 type Allowlist = typeof ALLOWLIST
 /** Props-typen for ét eventnavn. Bruges også af `meld()` i browseren. */
@@ -616,6 +648,8 @@ export type Afvisning =
   | { grund: 'manglende-property'; detalje: string }
   | { grund: 'pii'; detalje: string }
   | { grund: 'forkert-type'; detalje: string }
+  /** En værdi uden for feltets `af`-liste. Nøglen droppes, eventet skrives. */
+  | { grund: 'uden-for-listen'; detalje: string }
   | { grund: 'ugyldig-kontekst'; detalje: string }
   | { grund: 'ufuldstaendigt-sideantal'; detalje: string }
 
@@ -682,7 +716,24 @@ export interface Renset {
   droppedeNoegler: string[]
   /** Noegler droppet af en KRYDSFELTSREGEL, ikke fordi de er ukendte. */
   ufuldstaendigeNoegler: string[]
+  /** Kendte noegler, hvis VAERDI stod uden for listen. Droppet, eventet
+   *  skrevet, og navnene staar paa raekken under `_afvist`. */
+  afvisteVaerdier: string[]
 }
+
+/**
+ * Nøglen på rækken, der tæller værdier uden for en liste.
+ *
+ * Kun nøglenavne fra allowlisten står i den — aldrig værdien. En afsender
+ * kan ikke selv sætte den: den står ikke i nogen allowlist, så sendes den,
+ * droppes den som enhver ukendt nøgle, og `rens` skriver sin egen.
+ *
+ * Tælleren står på rækken og ikke i loggen, fordi loggen ikke kan tælles i
+ * en rapport. Uden den viste en tragt et fald uden at kunne sige, om
+ * brugerne holdt op, eller vi holdt op med at måle — fælden
+ * `nullet-der-betyder-to-ting` i CLAUDE.md.
+ */
+export const AFVIST = '_afvist'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const SLUG = /^[a-z0-9][a-z0-9_-]{0,39}$/
@@ -732,6 +783,7 @@ export function rens(
 
   const ud: Record<string, unknown> = {}
   const droppede: string[] = []
+  const afviste: string[] = []
   const raa = (h.props ?? {}) as Record<string, unknown>
 
   for (const [noegle, vaerdi] of Object.entries(raa)) {
@@ -746,6 +798,29 @@ export function rens(
     if (t === 'pii') {
       return { ok: false, fejl: { grund: 'pii', detalje: noegle } }
     }
+    // ── En værdi uden for listen: NØGLEN droppes, eventet skrives.
+    //
+    // Før kasserede den hele eventet som 'forkert-type'. Det er den måling,
+    // der sletter sig selv: én ny værdi i et opregnet felt, og eventet holder
+    // op med at blive skrevet — tragten viser 0. Typevagten (`Huller`) gør
+    // de fleste af dem til en oversætterfejl, men ikke en værdi fra
+    // køretidsdata eller et beacon fra en gammel browserfane.
+    //
+    // Værdien gemmes ikke, heller ikke i loggen. Nøglens NAVN står på
+    // rækken under `_afvist`, så tabet kan tælles i en rapport.
+    if (t === 'liste') { afviste.push(noegle); continue }
+    // ── Forkert type kasserer STADIG hele eventet. Uafklaret, ikke glemt.
+    //
+    // Om den skal behandles som en værdi uden for listen, kan ikke afgøres
+    // med data i dag: et event med forkert type når aldrig databasen, så
+    // ingen ved, hvor ofte det sker, eller hvad der tabes. Besluttet
+    // 2. oktober 2026: mål først, afgør så.
+    //
+    // Og her er hullet i den plan, skrevet ned frem for glemt: `_afvist` er
+    // IKKE tælleren for forkert type. Den står på rækken, og et kasseret
+    // event har ingen række. En måling af forkert type kræver en tæller,
+    // der overlever kasseringen, og den er ikke bygget. Indtil da er det
+    // eneste spor loglinjen fra `noterAfvist` i lib/maaling-server.ts.
     if (t === 'type') {
       return { ok: false, fejl: { grund: 'forkert-type', detalje: noegle } }
     }
@@ -769,11 +844,19 @@ export function rens(
     ufuldstaendige.push('sider_i_alt')
   }
 
+  // Kravet prøves på det, der BLEV SENDT — ikke på det, der står tilbage
+  // i `ud`. Ellers er ændringen virkningsløs netop for de påkrævede felter:
+  // en ukendt værdi i et påkrævet felt ville få nøglen droppet ovenfor og
+  // derefter hele eventet kasseret som 'manglende-property' — det samme tab
+  // som før, under et andet navn. En nøgle, der blev sendt med en værdi
+  // uden for listen, har opfyldt kravet; at værdien ikke kunne bruges,
+  // står i `_afvist`.
   for (const [noegle, s] of Object.entries(spec)) {
-    if (s.kraevet && ud[noegle] === undefined) {
+    if (s.kraevet && raa[noegle] == null) {
       return { ok: false, fejl: { grund: 'manglende-property', detalje: noegle } }
     }
   }
+  if (afviste.length) ud[AFVIST] = afviste
 
   const forsoeg = k.researchSessionId ?? null
   return {
@@ -781,6 +864,7 @@ export function rens(
     renset: {
       droppedeNoegler: droppede,
       ufuldstaendigeNoegler: ufuldstaendige,
+      afvisteVaerdier: afviste,
       raekke: {
         eventName: h.navn,
         environment: k.miljoe,
@@ -798,7 +882,7 @@ export function rens(
   }
 }
 
-function tjekVaerdi(s: Spec, v: unknown): 'ok' | 'pii' | 'type' {
+function tjekVaerdi(s: Spec, v: unknown): 'ok' | 'pii' | 'type' | 'liste' {
   switch (s.slags) {
     case 'tal': {
       if (typeof v !== 'number' || !Number.isFinite(v)) return 'type'
@@ -810,8 +894,14 @@ function tjekVaerdi(s: Spec, v: unknown): 'ok' | 'pii' | 'type' {
       return typeof v === 'boolean' ? 'ok' : 'type'
     case 'tekst': {
       if (typeof v !== 'string') return 'type'
+      // Personoplysningstjekket kører FØR listetjekket, så en mailadresse i
+      // et opregnet felt aldrig bliver til en «ukendt værdi». Byttes de to
+      // linjer, får en mailadresse i `maal` sin nøgle droppet og eventet
+      // skrevet med 'uden-for-listen' i loggen — værnets «hele eventet
+      // droppes, der skal larmes» ville være sat ud af kraft for hvert felt
+      // med en liste.
       if (farligTekst(v)) return 'pii'
-      if (s.af && !s.af.includes(v)) return 'type'
+      if (s.af && !s.af.includes(v)) return 'liste'
       return 'ok'
     }
     case 'skalar': {
