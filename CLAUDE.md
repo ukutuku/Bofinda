@@ -904,6 +904,11 @@ giver 404 — grænsen håndhæves ét sted og gælder både ruten og sitemap'et
 ## Arbejdsform
 
 - Vis planen, før du ændrer filer.
+- **En konfliktpåstand er én kommando fra at være målt.**
+  `git merge-tree --write-tree <a> <b>` regner fletningen og svarer i
+  exitkoden — målt: 0 ren, 1 konflikt — uden at røre arbejdstræ, indeks
+  eller HEAD. «I hver sin hunk, altså ingen konflikt» var et gæt, og det
+  var forkert: den anden gren ændrede netop den linje, den nye stod efter.
 - Fase 1 er projektets port. Gå ikke videre, før én kørsel har været stabil.
 - Normalisering, adressevask, dedup og upsert ligger centralt i `lib/`,
   ikke i adapteren. En ny kilde er én fil i `adapters/`.
