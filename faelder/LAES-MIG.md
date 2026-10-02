@@ -67,10 +67,10 @@ den er erstattet.
 
 | sted | skrives af (egne ændringer) | par i konflikt | enhedspar |
 |---|---|---|---|
-| package.json · prøvekædens linjer | 9 — #48 #49 #50 #52 #56 #57 #58 #61 #63 | **34** | **16** |
+| package.json · prøvekædens linjer | 9 — #48 #49 #50 #52 #56 #57 #58 #61 #63 | **36** | **17** |
 | CLAUDE.md · fældeafsnittet | 7 — #38 #50 #52 #55 #56 #59 #61 | 11 | 8 |
 | CLAUDE.md · «Må aldrig ske» | 7 — #48 #50 #51 #54 #57 #59 #60 | **0** | **0** |
-| package.json · øvrige scripts | 6 — #48 #49 #50 #55 #60 #61 | 4 | 3 |
+| package.json · øvrige scripts | 6 — #48 #49 #50 #55 #60 #61 | 2 | 2 |
 | `db/migrations/meta/_journal.json` | 2 — #51 #57 | 2 | 1 |
 | CLAUDE.md · «Testbasen» | 2 — #50 #60 | 1 | 1 |
 
@@ -80,7 +80,17 @@ den er erstattet.
 #56 er samme konflikt, når den kommer af #52's commit. Prøvekædens linjer
 er `test`, `test:kerne`, `test:adaptere`, `test:oekonomi` og `test:besked`.
 De står side om side, og #49 skriver dem alle om, så en konflikt i én af
-dem er en konflikt i blokken.)
+dem er en konflikt i blokken. Målt kl. 15.12 UTC: 48 af de 136 par
+konflikter et sted, 38 i package.json og 12 i CLAUDE.md, og 5 af dem i
+begge.)
+
+**Første udgave af tabellen talte 34 og 4 her.** Den lagde et par under
+prøvekæden, når `test:kerne` stod i konfliktblokken, og under «øvrige»
+ellers. Så havnede to par om `test:oekonomi` og `test:besked` under
+«øvrige», selv om rækken hedder prøvekædens linjer. Det er
+`delmængde-påstanden` i tabellen selv: overskriften lovede alle fem
+nøgler, og klassificeringen så på én. Fanget, fordi ejerens måling af de
+samme 17 gav 36 og 2.
 
 Tre ting står i tabellen:
 
@@ -106,7 +116,7 @@ Tre ting står i tabellen:
   rummer også de undersøgte kilder. En opdeling skal samle dem først. #57
   skriver i «LokalBolig».
 - **Det sted, der støder mest sammen, ligger ikke i CLAUDE.md.** Det er
-  prøvekædens linjer i package.json: 34 af de 38 rå par og 16 af de 19
+  prøvekædens linjer i package.json: 36 af de 38 rå par og 17 af de 19
   enhedspar, hvor package.json konflikter. `test:kerne` alene er én værdi på
   755 tegn, som hver PR med en ny prøve skriver i. Det er samme form som
   tabellen var: ét fælles sted, alle føjer til. **#49 bygger svaret**

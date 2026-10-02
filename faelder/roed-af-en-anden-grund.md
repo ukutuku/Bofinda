@@ -27,3 +27,11 @@ worktree'et var lagt på den forkerte gren. Begge blev fanget af rækkens
 egen regel, nemlig at exit 1 med nul ✗ er et nedbrud og ikke værnets
 meddelelse, og tallene blev målt om. Det er første nedskrevne gang, en
 række fanger sin forfatter, efter den stod i tabellen.
+**Den anden af de to har en uafhængig forekomst samme dag:** en kontrol
+kørt på den forkerte tilstand. Ejeren lavede den samme formiddag: `git
+checkout` fejlede på en beskidt `package-lock.json`, `tsc` kørte på den
+gamle gren og gav 0. Dér var svaret GRØNT, og det er den farlige
+polaritet: et grønt svar fra den forkerte tilstand ligner et grønt svar.
+To hænder, samme dag, samme fejl, så det er formens natur og ikke
+uopmærksomhed. Modtrækket er at navngive tilstanden: læg worktree'et på
+en SHA og ikke på `HEAD`, og skriv SHA'en ud ved siden af resultatet.
