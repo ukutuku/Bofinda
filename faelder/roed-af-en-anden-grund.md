@@ -17,3 +17,13 @@ kommando: en mutation, som et ANDET værn fanger, skal slippe igennem.
 Kør også kommandoen på den umuterede kode og se 0, ellers kan en prøve,
 der aldrig kom i gang, give grønt. Her er det MED VILJE grep's exitkode,
 der tæller (`rørets-exitkode` brugt som værktøj), og derfor kontrollen.
+**Og den har fanget sin egen forfatter.** Rækken er skrevet af fejlene
+ovenfor, af den session, der byggede `faelder/`. Samme eftermiddag
+trådte samme session i den igen, to gange. Modprøverne af opløsningen i
+`lib/alarm.ts` gav exit 1 med nul ✗, fordi `git checkout -m` skriver
+markørerne som `ours`/`theirs`, mens regexet ledte efter `HEAD`, så filen
+bar stadig konfliktmarkører. Og en prøvefletning gav ✓0 ✗0, fordi
+worktree'et var lagt på den forkerte gren. Begge blev fanget af rækkens
+egen regel, nemlig at exit 1 med nul ✗ er et nedbrud og ikke værnets
+meddelelse, og tallene blev målt om. Det er første nedskrevne gang, en
+række fanger sin forfatter, efter den stod i tabellen.
