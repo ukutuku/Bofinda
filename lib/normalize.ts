@@ -108,6 +108,56 @@ const MDR = ['januar','februar','marts','april','maj','juni',
  *
  * Kun saetninger for felter vi faktisk har. Ingen udfyldning.
  */
+/**
+ * Beskrivelsen: GEMT for udlejerens egne ord, UDLEDT for alt andet.
+ *
+ * ── HVORFOR UDLEDT OG IKKE GEMT ───────────────────────────────
+ *
+ * For en importeret bolig er beskrivelsen en funktion af rækkens egne
+ * kolonner og intet andet. En GEMT udledning af en rækkes egne felter er
+ * to udtryk for ét spørgsmål ved konstruktion: den kan ikke andet end at
+ * drive fra hinanden, så snart noget skriver et af felterne uden at
+ * skrive teksten med. Og vi kender raten — 2.125 rækker skrevet om 27.
+ * september, 22 drevet fra hinanden fire dage senere.
+ *
+ * En synkroniseringsvagt ville have holdt de to ens. Men en vagt mod et
+ * problem, der ikke behøver findes, er et dårligere resultat end ikke at
+ * have problemet. Målingen afgjorde det:
+ *
+ *   · ÉT læsested — `hentBolig` → app/bolig/[id]/page.tsx. Ikke i
+ *     KORTFELTER, så søgesiden og områdesiderne henter den aldrig.
+ *   · INTET indeks, ingen tsvector, ingen fritekstsøgning. Projektets
+ *     eneste `ilike` står på `city`.
+ *   · Ikke i noget meta-tag (boligsiden har ingen generateMetadata),
+ *     ikke i JSON-LD, ikke i sitemap.ts, ikke i alarmmailen.
+ *   · 2,91 µs pr. kald, målt (median af 9 runder à 2.000 kald). Ét kald
+ *     pr. visning af en boligside.
+ *
+ * ── UNDTAGELSEN, SOM IKKE MÅ FALDE VÆK ────────────────────────
+ *
+ * For `native` er feltet BRUGERINDHOLD. `lib/udlejer.ts:263` lader
+ * udlejerens egne ord vinde over den udledte tekst, og de ord findes
+ * intet andet sted. Udleder vi dem, er de væk. Lader hun feltet stå
+ * tomt, har samme linje allerede lagt udledningen i kolonnen, så det
+ * gemte er rigtigt i begge tilfælde.
+ *
+ * Delingen er `sourceType = 'native'` — præcis den, backfillen brugte.
+ *
+ * Inputtypen er bundet til `genererBeskrivelse`s egen med
+ * `Parameters<...>[0]`. Får generatoren et felt mere, kan det her ikke
+ * oversættes uden at få det med.
+ */
+export function beskrivelseFor(
+  r: Parameters<typeof genererBeskrivelse>[0] & {
+    /** `sourceType === 'native'`. Udlejerens egne ord er ikke en udledning. */
+    erUdlejerannonce: boolean
+    gemtBeskrivelse: string | null
+  },
+): string | null {
+  if (r.erUdlejerannonce) return r.gemtBeskrivelse
+  return genererBeskrivelse(r)
+}
+
 export function genererBeskrivelse(f: {
   propertyType: Boligtype | null
   rooms: number | null
