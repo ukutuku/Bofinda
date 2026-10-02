@@ -189,7 +189,7 @@ Billedkontrollen har to sådanne tilfælde i dag:
 | Indhold | Hvor | Kom/kommer | Hvad der skal ske |
 |---|---|---|---|
 | 10 billeder i `docs/designforslag/bevis/` | `main`, via #39 | før vagten: #39 er merget | § 4's poster i vagtens merge-commit |
-| 8 billeder i `docs/kontomails/eksempler/` | #35, #9 og #3, alle åbne, med samme 8 filer og samme bytes | afhænger af rækkefølgen | posterne nedenfor i den merge, der kommer sidst af de to |
+| 8 billeder i `docs/kontomails/eksempler/` | #35, #9 og #3, alle åbne og alle `dirty`, med samme 8 filer og samme bytes | afhænger af rækkefølgen | posterne nedenfor i den merge, der kommer sidst af de to |
 
 Optalt 2. oktober 2026 over alle 55 PR-hoveder, hentet udtrykkeligt
 (`refs/pull/*/head`), så optællingen ikke kun ser de grene, der
@@ -206,6 +206,19 @@ tilfældigvis lå lokalt. Ingen anden åben PR lægger billeder i `docs/`.
 Datoen er 30. september, før lukningen, så posterne er gyldige. Herkomsten
 er «ikke efterset», og fristen er den samme som for de 157: 30. december
 2026. Udregnet af bytes på #35's hoved, der er identiske i #3, #5 og #9:
+
+- **Datoen gælder #35.** I #3 og #9 blev filerne lagt til i en anden
+  commit, `83fbf25`, 12. september. Lander en af dem, er det dens dato.
+  Begge ligger før lukningen.
+- **#3, #9 og #35 er alle `dirty` mod `main`**, målt med `git merge-tree`
+  og på hvert sit enkelt-endpoint. De skal rebases, før de kan lande, og
+  en rebase kan ændre billedfilerne. **Regn sha'erne om EFTER rebasen**
+  (`sha256sum docs/kontomails/eksempler/*.png`), ikke før. Datoen er
+  forfatterdatoen, og den overlever en rebase. Det er samme regel som
+  overalt i kontrollen: ændres et billede før merge, passer dets post
+  ikke. Det er sagt på [#35](https://github.com/ukutuku/Bofinda/pull/35),
+  [#3](https://github.com/ukutuku/Bofinda/pull/3#issuecomment-5958688796)
+  og [#9](https://github.com/ukutuku/Bofinda/pull/9#issuecomment-5958691647).
 
 ```json
 {"fil": "docs/kontomails/eksempler/kvittering-bolig-desktop.png", "sha256": "ad95c070166a2412f3a1761ac76f735ef288c5476578f2f0bfb0e9a43b25efcb", "dato": "2026-09-30", "herkomst": "ikke efterset", "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."},
