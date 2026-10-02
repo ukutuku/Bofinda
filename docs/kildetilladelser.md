@@ -296,9 +296,29 @@ ikke bruges — den er den slags, der bliver citeret mod os.
 angår os, og notér datoen. Og udfyld `Oplyst af` og `Dato` ovenfor —
 tilladelsen, der bærer hele konstruktionen, navngiver i dag ingen.
 Repoets eneste spor er `adapters/balder.ts:4-13` («aftalt med Balder
-selv», «de har bekræftet») og commit `f8a3418` (2026-09-05), hvis
-besked handler om datafelter og ikke om tilladelsen. Hverken navn,
-rolle eller dato findes nogen steder.
+selv», «de har bekræftet») og commit **`d1f8434` (2026-09-04)**, «Balder
+som kilde fem», som siger *«efter aftale med rettighedshaveren»* og
+*«ejeren selv har givet lov»* — **men ikke af hvem, og ikke hvornår.**
+Hverken navn, rolle eller dato findes nogen steder.
+
+> **Rettet: her stod `f8a3418` (2026-09-05), og det var en målefejl.**
+> Den commit er den næste, der nævner `BALDER_API_KEY` — ikke den første.
+> Målingen kørte på en **shallow klon** (`.git/shallow`, 394 commits mod
+> 496 efter `git fetch --unshallow`), og `d1f8434` lå uden for grænsen.
+> `git log -S --reverse` svarede derfor med den ældste commit, den kunne
+> se, som om den var den første. **Den fejlede ikke; den svarede forkert.**
+>
+> **Konklusionen holdt, belægget gjorde ikke.** Det er den værste form:
+> havde `d1f8434` navngivet en person, havde afsnittet her været usandt,
+> og den eneste grund til at det ikke er, er at den heller ikke gør det.
+> Se `det-reproducerbare-tal` og `.git/shallow`-kontrollen i `CLAUDE.md`.
+>
+> To andre tal fra samme session flyttede sig også, og de pegede den
+> SIKRE vej — ved et tilfælde, ikke ved design: antallet af grene, der
+> rører `app/Landkort.tsx`, var **4** og er **6**; `app/privatliv/page.tsx`
+> var **6** og er **7**. Begge blev brugt som begrundelse for at lade
+> filerne ligge, så beslutningen står. Havde den shallow klon talt for
+> HØJT i stedet, havde jeg rørt en fil, fire sessioner arbejdede i.
 
 ---
 

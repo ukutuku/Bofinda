@@ -940,6 +940,26 @@ giver 404 — grænsen håndhæves ét sted og gælder både ruten og sitemap'et
 
 ## Arbejdsform
 
+- **Før enhver måling over historik: er klonen shallow?** To kommandoer, og
+  de koster ingenting:
+
+  ```bash
+  test -f .git/shallow && echo SHALLOW     # podede grænser findes
+  git rev-list --all --count              # hold tallet op mod en anden kilde
+  ```
+
+  **En shallow klon lyver om merge-base, om commit-afstand, og om hvad en
+  fletning skal flytte — uden at fejle.** `git log -S` finder ikke det, der
+  ligger uden for grænsen, og svarer med den ældste commit, den KAN se, som
+  om den var den første. `origin/main...gren` bruger merge-base og bliver
+  derfor også forkert.
+
+  Målt i denne container 2. oktober 2026: `.git/shallow` fandtes, 394 commits
+  mod 496 efter `git fetch --unshallow`. Konsekvenserne for målinger, der
+  allerede var skrevet, står i `docs/kildetilladelser.md` ved Balder-posten.
+  Ingen af dem fejlede; de svarede bare forkert.
+
+
 - Vis planen, før du ændrer filer.
 - Fase 1 er projektets port. Gå ikke videre, før én kørsel har været stabil.
 - Normalisering, adressevask, dedup og upsert ligger centralt i `lib/`,
@@ -1094,6 +1114,7 @@ commits, i PR-tekster og her.
 | **transpilerede-positioner** · V8-dækning (`NODE_V8_COVERAGE`) over en `.ts`-fil | At positionerne peger i DEN FIL, du læser. `tsx` oversætter først, så dækningens `startOffset` er tegnpositioner i den TRANSPILEREDE JS. Et opslag «hvilken `tjek(`-linje ligger i en nul-range» rammer derfor ved siden af, og afvigelsen vokser med filens kommentarer. Målt: **187 af 485 påstande meldt udækkede i `test-redigering.ts` — alle 485 var kørt.** Stakspor ER kildekortlagt; tegnpositioner er ikke. |
 | **nullet-der-betyder-to-ting** · et maaletal, der er faldet til nul | Forskellen paa «ingenting skete» og «vi holdt op med at maale». Et nul fra en taeller er to udsagn i ét, og de kan ikke skelnes ved at se paa tallet. Maalt: `lib/maaling.ts`s allowlist har driftstilstandene og `funktion`-maengden skrevet af i haanden, paa linjerne omkring et `af: GRUNDE`, der ER bundet — og `Spec.af` er `readonly string[]`, saa oversaetteren tier. En ny vaerdi faar `rens()` til at kassere HELE eventet, og `paywall_blocked` holder op med at blive skrevet. Tragten viser saa 0. Samme form, uafhaengigt: `haendelser` gav 0 raekker for omraadesiderne, og det 0 betoed «ikke maalt». **Et maaletal skal kunne sige, at det ikke blev maalt** — en taeller ved siden af, en «sidst skrevet»-tid, eller en proeve, der skriver ét event igennem. Se #47. |
 | **rørets-exitkode** · `$?` efter en pipeline | Kommandoen. `$?` er den SIDSTE kommandos exitkode, ikke roerets. Maalt: `false \| head -1` giver **0**. Det er sket to gange paa én dag — en modproeve meldt som `exit=0`, hvor nullet var `head`s, og en byggekontrol laest som groen, hvor nullet var `tail`s. **Mekanisk loeseligt, og begge veje har en haage:** `set -o pipefail` giver 1 paa `false \| head -1` — men ogsaa **141** (SIGPIPE) paa `yes \| head -1`, hvor intet gik galt, saa den goer en VIRKENDE pipeline roed. Robust er derfor `${PIPESTATUS[0]}` (maalt: `1` mens `$?` er `0`), eller at koere kommandoen for sig og filtrere bagefter: `ud=$(kommando 2>&1); k=$?`. Samme familie som `transpilerede-positioner`: svaret er sandt om roeret og laeses som et svar om kommandoen. |
+| **det-reproducerbare-tal** · «jeg kørte den to gange og fik det samme» | **Korrekthed.** Et tal kan reproducere præcist, fordi begge kørsler var forkerte på **hver sin** måde. Målt: en par-tabel over 228 PR-par gav **142 i konflikt** i to kørsler — én på en shallow klon (282 commits, 5 podede grænser), én på fuld historik (432). Totalen var identisk; `diff` på resultatfilerne afviger fra **fjerde linje**. Havde valideringen været «gentag og sammenlign totalen», var målingen blevet kaldt robust. **Det er den eneste fælde, der slår det normale forsvar mod målefejl, for gentagelsen ER forsvaret.** Modtrækket er ikke at gentage, men at **ændre forudsætningen** og se, om tallet flytter sig — her ville `git rev-list --all --count` alene have afsløret det. Se `.git/shallow`-kontrollen under Arbejdsform. |
 | **sammenlagte-påstande** · to prøver lagt i én for hastighedens skyld | **Evnen til at SKELNE.** En prøve, der dækker tre tilfælde i ét forlæg, er stadig rød når noget fejler — men den kan ikke sige hvilket, og prisen er usynlig indtil noget fejler. Målt: fire `tsc`-kørsler i `scripts/test-adapterkontrakt.ts` kostede 38 s; lagt i to blev modvægten ÉN påstand, der kan fejle af tre grunde. **21 sekunder for at kunne se forskel på tre fejl er billigt** — og noten skal da sige hvilken af de tre brækkede. Samme familie som `prøvens-eget-forlæg` og `dommen-uden-port`: et værn, der er korrekt rødt, men ikke brugbart rødt. |
 | **det-stærkeste-faldback** · `??` og et sidste `else` | Dækker rigeligt — men falder mod det STÆRKESTE udsagn. **Og forsigtig over for HVEM:** læseren, eller den vært vi henter fra? Begge findes, og den anden er værre på én måde. Se nedenfor; det er en anden akse end de ti andre. |
 
