@@ -1002,62 +1002,56 @@ anden tilføjer en række. Det er selve den fejl, tabellen handler om: en
 identifikator, der ændrer sig under dig. Rækkerne grupperes derfor efter
 FORM og nævnes ved navn.
 
-**Form 1 · et værn, der læses som udtømmende, og ikke er det.** De fanger
-noget — og netop derfor ser de ud, som om de fanger resten. Her ligger
-`gitignore-skråstregen`, `splice-fra-enden`, `gentagelsesprøven`,
-`include-filteret`, `de-hentede-refs`, `delmængde-påstanden`,
-`facilitets-bindingen`, `linjeankeret` og `værdisøgningen`.
-
-**Form 2 · et værn, der måler sig selv i stedet for koden.** Værre end
-form 1: de måler noget rigtigt, blot mindre; disse måler ikke det, de
-handler om. `prøvens-eget-forlæg` og dens slægtning
-`den-rene-fils-påstand`, hvor prøven ser på den rigtige kode, men kun på
-den fil, teksten står i — ikke på det modul, teksten lover noget om.
-
-**Form 3 · et svar om værktøjet er ikke et svar om arbejdet.** Ikke et
-værn, der dækker for lidt, men et svar, der er SANDT om noget andet, end
-man læser det som. `konflikt-fødte-ændringer`, `værktøjets-kvittering`,
-`transpilerede-positioner` og `rørets-exitkode`. Se afsnittet efter
-tabellen.
-
-**Form 4 · et tal, der ikke kan sige, at det ikke blev målt.**
-`nullet-der-betyder-to-ting` står for sig, fordi den ikke handler om et
-værktøj eller et værn, men om DATA: et nul fra en tæller er «ingenting
-skete» og «vi holdt op med at måle» i samme tegn.
-
-**Og to, der ikke er værn.** `kendt-følge`: en fejl, der er skrevet ned,
-ligner en fejl, der er håndteret. `det-stærkeste-faldback` er en anden
-akse end alle de andre — ikke hvor meget et værn dækker, men hvilken VEJ
-en manglende værdi falder.
-
-Hver af dem har kostet mindst én omgang i dette repo.
-
 **Hver række har et NAVN, og navnet er identifikatoren — ikke nummeret.**
 Rækkefølgen har skiftet tre gange på en uge. «Den ottende række» er
 forældet, så snart en anden tilføjer en, og en henvisning, der stille
 kommer til at pege på noget andet, er samme fejl igen. Henvis til navnet i
 commits, i PR-tekster og her.
 
+**Tabellen og formlisterne er genereret.** Hver række er én fil i
+`faelder/`, og `npm run faelder` skriver blokken nedenfor. Ret filen, ikke
+blokken: `npm test` er rød, hvis blokken ikke er det, scriptet skriver.
+En ny række er en ny fil, så to sessioner kolliderer ikke længere i
+tekst, mennesker har skrevet. Støder to grene sammen i blokken, er
+opløsningen at tage en af siderne og køre `npm run faelder` igen.
+Formatet står i `faelder/LAES-MIG.md`.
+
+<!-- faelder:start · genereret af scripts/faelder.ts fra faelder/*.md — ret filerne, ikke blokken, og kør npm run faelder -->
+
+**Form 1 · et værn, der læses som udtømmende, og ikke er det.** De fanger noget — og netop derfor ser de ud, som om de fanger resten. Her ligger `de-hentede-refs`, `delmængde-påstanden`, `facilitets-bindingen`, `gentagelsesprøven`, `gitignore-skråstregen`, `include-filteret`, `linjeankeret`, `splice-fra-enden` og `værdisøgningen`.
+
+**Form 2 · et værn, der måler sig selv i stedet for koden.** Værre end form 1: de måler noget rigtigt, blot mindre; disse måler ikke det, de handler om. Her ligger `den-rene-fils-påstand` og `prøvens-eget-forlæg`. `den-rene-fils-påstand`: slægtning af `prøvens-eget-forlæg` — prøven ser på den rigtige kode, men kun på den fil, teksten står i, ikke på det modul, teksten lover noget om.
+
+**Form 3 · et svar om værktøjet er ikke et svar om arbejdet.** Ikke et værn, der dækker for lidt, men et svar, der er SANDT om noget andet, end man læser det som. Se afsnittet efter tabellen. Her ligger `konflikt-fødte-ændringer`, `rørets-exitkode`, `transpilerede-positioner` og `værktøjets-kvittering`.
+
+**Form 4 · et tal, der ikke kan sige, at det ikke blev målt.** Den handler ikke om et værktøj eller et værn, men om DATA: et nul fra en tæller er «ingenting skete» og «vi holdt op med at måle» i samme tegn. Her ligger `nullet-der-betyder-to-ting`.
+
+**Og de, der ikke er værn.** De handler ikke om, hvor meget et værn dækker. Her ligger `det-stærkeste-faldback` og `kendt-følge`. `det-stærkeste-faldback`: en anden akse end alle de andre — ikke hvor meget et værn dækker, men hvilken VEJ en manglende værdi falder. `kendt-følge`: en fejl, der er skrevet ned, ligner en fejl, der er håndteret.
+
+Hver af dem har kostet mindst én omgang i dette repo.
+
 | Fælden | Hvad den IKKE dækker |
 |---|---|
-| **gitignore-skråstregen** · `node_modules/` i `.gitignore` | Skråstregen matcher kun en MAPPE. Et symlink slap forbi og kom i versionsstyringen (`abad7ae`). Løst: mønstret står nu uden skråstreg. |
-| **splice-fra-enden** · `splice(-1)` | Læses som «fra enden» og fjerner ÉN post — ikke resten. Se `lib/ingest.ts` og `adapters/heimstaden.ts`. |
-| **gentagelsesprøven** · mod et uafgjort `ORDER BY` | Beviser stabilitet i DENNE forespørgselsplan, ikke at det afgørende led findes. Kald den samme forespørgsel fem gange, og Postgres svarer gerne det samme — også når leddet er fjernet. |
-| **include-filteret** · `grep --include=*.ts` | Ser ikke `.mjs`, `.sql`, `.md`. Svarer rent på et smallere spørgsmål — og siger ikke selv, at det var smallere. |
 | **de-hentede-refs** · `git grep` over `refs/heads refs/remotes` | Ser kun de refs, der ER HENTET. En gren, ingen har fetchet, findes ikke for søgningen. |
 | **delmængde-påstanden** · om «ændringen» | …hvor det målte var en DELMÆNGDE af den. Filteret ligger her i sætningens subjekt, ikke i kommandoen. |
 | **facilitets-bindingen** · `FACILITETER` mod `Facilitetsord` | Fanger en forkert VÆRDI, ikke en manglende. `readonly X[]` må have enhver længde — også nul. Se nedenfor. |
+| **gentagelsesprøven** · mod et uafgjort `ORDER BY` | Beviser stabilitet i DENNE forespørgselsplan, ikke at det afgørende led findes. Kald den samme forespørgsel fem gange, og Postgres svarer gerne det samme — også når leddet er fjernet. |
+| **gitignore-skråstregen** · `node_modules/` i `.gitignore` | Skråstregen matcher kun en MAPPE. Et symlink slap forbi og kom i versionsstyringen (`abad7ae`). Løst: mønstret står nu uden skråstreg. |
+| **include-filteret** · `grep --include=*.ts` | Ser ikke `.mjs`, `.sql`, `.md`. Svarer rent på et smallere spørgsmål — og siger ikke selv, at det var smallere. |
 | **linjeankeret** · en scanner forankret til linjestart (`^`) | Ser kun kopier, hvor nøglen står FØRST på linjen. Alle seks kopier havde flere nøgler pr. linje, så scanneren meldte fire af seks — et tal, der ser ud som et svar. |
-| **prøvens-eget-forlæg** | Dækker slet ikke koden. Isoleringsflagene lå i trinlisten i `scripts/import.ts`; prøven byggede sine egne trin med sine egne flag. Vendes hvert eneste flag i koden, er sættet fortsat grønt — prøven så aldrig på dem. |
-| **den-rene-fils-påstand** · brugervendt tekst i en ren fil, prøvet i `npm test` | Teksten, ikke løftet. Brugervendt tekst, der gør et udsagn om systemet, lægges i en ren fil uden database, så den kan prøves — det er rigtigt. Men en påstand om ET ANDET modul kan ikke prøves der: den skal have sin egen prøve, hvor modulet bor. «Den kan stadig åbnes på sit eget link» handler om `hentBolig`, og prøven af forklaringsfilen var grøn, også hvis linket gav 404. En ren fil gør teksten prøvbar og løftet uprøvbart, hvis man ikke passer på. **Og en ren fil holder kun, hvis også dens hjælpefunktioner er rene** — en formatteringshjælper fra en komponent er det sjældent. Fletteopskriften til `opgave/kontakt-ui` ville have hentet `kr` fra `app/Boligkort` ind i `forklaring.ts`, og `Boligkort` importerer `lib/soeg` og dermed databasen. Intet ville have set det: `db/client.ts` forbinder først ved første brug, så en import-prøve bliver ikke rød, og prøverne kører under testbasen. `scripts/test-rene-filer.ts` måler derfor importgrafen med esbuild og tillader kun andre rene filer — en allowlist, så en ny hjælper skal på listen og selv bliver vogtet. |
-| **kendt-følge** · en kendt fejl skrevet ned i stedet for rettet | Brugeren. En kendt usand brugervendt sætning er en fejl, ikke en følge. Den skal rettes, eller ændringen skal vente. At skrive den ned er ikke at have løst den — siden blev ved med at sige den, hver gang den blev vist. |
+| **splice-fra-enden** · `splice(-1)` | Læses som «fra enden» og fjerner ÉN post — ikke resten. Se `lib/ingest.ts` og `adapters/heimstaden.ts`. |
 | **værdisøgningen** · `git grep "'Lejlighed'"` | Finder kun den ene af tre skrivemåder. Nøglen er ens i alle kopier; værdien er netop det, en drevet kopi har ændret. |
+| **den-rene-fils-påstand** · brugervendt tekst i en ren fil, prøvet i `npm test` | Teksten, ikke løftet. Brugervendt tekst, der gør et udsagn om systemet, lægges i en ren fil uden database, så den kan prøves — det er rigtigt. Men en påstand om ET ANDET modul kan ikke prøves der: den skal have sin egen prøve, hvor modulet bor. «Den kan stadig åbnes på sit eget link» handler om `hentBolig`, og prøven af forklaringsfilen var grøn, også hvis linket gav 404. En ren fil gør teksten prøvbar og løftet uprøvbart, hvis man ikke passer på. **Og en ren fil holder kun, hvis også dens hjælpefunktioner er rene** — en formatteringshjælper fra en komponent er det sjældent. Fletteopskriften til `opgave/kontakt-ui` ville have hentet `kr` fra `app/Boligkort` ind i `forklaring.ts`, og `Boligkort` importerer `lib/soeg` og dermed databasen. Intet ville have set det: `db/client.ts` forbinder først ved første brug, så en import-prøve bliver ikke rød, og prøverne kører under testbasen. `scripts/test-rene-filer.ts` måler derfor importgrafen med esbuild og tillader kun andre rene filer — en allowlist, så en ny hjælper skal på listen og selv bliver vogtet. |
+| **prøvens-eget-forlæg** | Dækker slet ikke koden. Isoleringsflagene lå i trinlisten i `scripts/import.ts`; prøven byggede sine egne trin med sine egne flag. Vendes hvert eneste flag i koden, er sættet fortsat grønt — prøven så aldrig på dem. |
 | **konflikt-fødte-ændringer** · `git log -S` / `-G` | Ser **ikke merges**. En linje, der opstod i en merges konfliktløsning, har ingen enkelt commit — og søgningen svarer TOMT. Det læses som «denne linje har ingen historik», når det betyder «denne historik er usynlig for dette værktøj». Brug `--diff-merges=first-parent`; `-m` finder den også, men differ mod hver forælder og over-rapporterer. Målt: `.kort-maerkater { right: 52px }` fandtes i nul commits, i én merge med flaget, og i fire med `-m`. |
-| **værktøjets-kvittering** · `Successfully rebased and updated refs/heads/…` | Indholdet. Kvitteringen er sand om værktøjets egen bogføring og **tavs om arbejdet**: `rebase --continue` spørger, om indeksposten er opmærket som løst — ikke om løsningen er rigtig. Målt: samme fil med byte-identisk indhold giver `needs merge` ustaged og `Successfully rebased` staged, og commit'en bærer tre konfliktmarkører, mens `git status` er tom. |
-| **transpilerede-positioner** · V8-dækning (`NODE_V8_COVERAGE`) over en `.ts`-fil | At positionerne peger i DEN FIL, du læser. `tsx` oversætter først, så dækningens `startOffset` er tegnpositioner i den TRANSPILEREDE JS. Et opslag «hvilken `tjek(`-linje ligger i en nul-range» rammer derfor ved siden af, og afvigelsen vokser med filens kommentarer. Målt: **187 af 485 påstande meldt udækkede i `test-redigering.ts` — alle 485 var kørt.** Stakspor ER kildekortlagt; tegnpositioner er ikke. |
-| **nullet-der-betyder-to-ting** · et maaletal, der er faldet til nul | Forskellen paa «ingenting skete» og «vi holdt op med at maale». Et nul fra en taeller er to udsagn i ét, og de kan ikke skelnes ved at se paa tallet. Maalt: `lib/maaling.ts`s allowlist har driftstilstandene og `funktion`-maengden skrevet af i haanden, paa linjerne omkring et `af: GRUNDE`, der ER bundet — og `Spec.af` er `readonly string[]`, saa oversaetteren tier. En ny vaerdi faar `rens()` til at kassere HELE eventet, og `paywall_blocked` holder op med at blive skrevet. Tragten viser saa 0. Samme form, uafhaengigt: `haendelser` gav 0 raekker for omraadesiderne, og det 0 betoed «ikke maalt». **Et maaletal skal kunne sige, at det ikke blev maalt** — en taeller ved siden af, en «sidst skrevet»-tid, eller en proeve, der skriver ét event igennem. Se #47. |
 | **rørets-exitkode** · `$?` efter en pipeline | Kommandoen. `$?` er den SIDSTE kommandos exitkode, ikke roerets. Maalt: `false \| head -1` giver **0**. Det er sket to gange paa én dag — en modproeve meldt som `exit=0`, hvor nullet var `head`s, og en byggekontrol laest som groen, hvor nullet var `tail`s. **Mekanisk loeseligt, og begge veje har en haage:** `set -o pipefail` giver 1 paa `false \| head -1` — men ogsaa **141** (SIGPIPE) paa `yes \| head -1`, hvor intet gik galt, saa den goer en VIRKENDE pipeline roed. Robust er derfor `${PIPESTATUS[0]}` (maalt: `1` mens `$?` er `0`), eller at koere kommandoen for sig og filtrere bagefter: `ud=$(kommando 2>&1); k=$?`. Samme familie som `transpilerede-positioner`: svaret er sandt om roeret og laeses som et svar om kommandoen. |
-| **det-stærkeste-faldback** · `??` og et sidste `else` | Dækker rigeligt — men falder mod det STÆRKESTE udsagn. Se nedenfor; det er en anden akse end de ti andre. |
+| **transpilerede-positioner** · V8-dækning (`NODE_V8_COVERAGE`) over en `.ts`-fil | At positionerne peger i DEN FIL, du læser. `tsx` oversætter først, så dækningens `startOffset` er tegnpositioner i den TRANSPILEREDE JS. Et opslag «hvilken `tjek(`-linje ligger i en nul-range» rammer derfor ved siden af, og afvigelsen vokser med filens kommentarer. Målt: **187 af 485 påstande meldt udækkede i `test-redigering.ts` — alle 485 var kørt.** Stakspor ER kildekortlagt; tegnpositioner er ikke. |
+| **værktøjets-kvittering** · `Successfully rebased and updated refs/heads/…` | Indholdet. Kvitteringen er sand om værktøjets egen bogføring og **tavs om arbejdet**: `rebase --continue` spørger, om indeksposten er opmærket som løst — ikke om løsningen er rigtig. Målt: samme fil med byte-identisk indhold giver `needs merge` ustaged og `Successfully rebased` staged, og commit'en bærer tre konfliktmarkører, mens `git status` er tom. |
+| **nullet-der-betyder-to-ting** · et maaletal, der er faldet til nul | Forskellen paa «ingenting skete» og «vi holdt op med at maale». Et nul fra en taeller er to udsagn i ét, og de kan ikke skelnes ved at se paa tallet. Maalt: `lib/maaling.ts`s allowlist har driftstilstandene og `funktion`-maengden skrevet af i haanden, paa linjerne omkring et `af: GRUNDE`, der ER bundet — og `Spec.af` er `readonly string[]`, saa oversaetteren tier. En ny vaerdi faar `rens()` til at kassere HELE eventet, og `paywall_blocked` holder op med at blive skrevet. Tragten viser saa 0. Samme form, uafhaengigt: `haendelser` gav 0 raekker for omraadesiderne, og det 0 betoed «ikke maalt». **Et maaletal skal kunne sige, at det ikke blev maalt** — en taeller ved siden af, en «sidst skrevet»-tid, eller en proeve, der skriver ét event igennem. Se #47. |
+| **det-stærkeste-faldback** · `??` og et sidste `else` | Dækker rigeligt — men falder mod det STÆRKESTE udsagn. Se nedenfor; det er en anden akse end alle de andre. |
+| **kendt-følge** · en kendt fejl skrevet ned i stedet for rettet | Brugeren. En kendt usand brugervendt sætning er en fejl, ikke en følge. Den skal rettes, eller ændringen skal vente. At skrive den ned er ikke at have løst den — siden blev ved med at sige den, hver gang den blev vist. |
+
+<!-- faelder:slut -->
 
 **Fem af dem er den samme fejl fem gange: et usynligt filter.** Ved
 **include-filteret** kan filteret SES i kommandoen. Ved **de-hentede-refs**
