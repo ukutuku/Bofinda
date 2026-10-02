@@ -307,11 +307,20 @@ if (process.argv[1]?.endsWith('proever.ts')) {
       const grupper = kun ?? (Object.entries(GRUPPER)
         .filter(([, g]) => g.iNpmTest).map(([n]) => n) as Gruppe[])
       let kode = 0
+      let koert = 0
       for (const g of grupper) {
+        koert += iOrden(plan.poster, g).length
         kode = await koerGruppe(g, plan.poster)
         if (kode !== 0) break
       }
-      ud(kode === 0 ? '\n  ALT GRØNT\n' : '')
+      // Linjen navngiver sig selv. Stod der bare «ALT GRØNT», var den
+      // ikke til at skelne fra den sidste prøves egen slutlinje — og en
+      // logline, der ikke svarer til hvem der siger den, er værre end
+      // ingen. Tallene siger desuden HVAD der blev dækket: en kæde, der
+      // stille kørte færre prøver, ville ellers se grøn ud.
+      ud(kode === 0
+        ? `\n  opdageren: ALT GRØNT — ${grupper.length} ${grupper.length === 1 ? 'gruppe' : 'grupper'}, ${koert} ${koert === 1 ? 'prøve' : 'prøver'}\n`
+        : '')
       process.exitCode = kode
     }
   }
