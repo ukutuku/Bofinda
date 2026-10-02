@@ -65,10 +65,58 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   manglende er `altan eller terrasse`, CEJ's samlede ord. **Den udeladelse
   er med vilje** — det er en KILDES skrivemåde, ikke et spørgsmål, man kan
   stille en udlejer — så fuldstændighed ville rette en fejl, der ikke var
-  der. Svaret er derfor en DELING og ikke en fuldstændighed: hvert ord
-  skal stå enten i formularlisten eller på en navngiven liste over de
-  bevidst udeladte, håndhævet af en typevagt. Så tvinger et femte ord et
-  VALG frem for en tilføjelse. Ikke bygget endnu.
+  der. Svaret er derfor en DELING og ikke en fuldstændighed.
+
+  **Delingen er bygget.** Hvert `Facilitetsord` står enten i
+  `FACILITETER` (formularen) eller i `UDEN_FOR_FORMULAREN`, hvis værdi er
+  **grunden** til udeladelsen — den står i koden og ikke i en kommentar,
+  fordi en kommentar kan slettes uden at nogen tænker sig om. Typevagten
+  er to `KunNever<…>`-aliasser: ét på `Exclude<Facilitetsord, IFormularen
+  | Udeladt>` (et ord uden hjem) og ét på `Extract<IFormularen, Udeladt>`
+  (et ord i begge). Begge fejler med **TS2344, og fejlteksten navngiver
+  ordet**. Et sjette ord i `FACILITET` tvinger dermed et VALG frem for en
+  tilføjelse.
+
+  `FACILITETER` bindes med **`as const satisfies`**, ikke med en
+  annotation. Det er ikke stil: en annotation widener `vaerdi` til hele
+  unionen, og så kan delingen ikke udtrykkes. Det var netop derfor den
+  gamle binding kun dækkede den ene halvdel.
+
+  Efterprøvet i tre retninger — ord fjernet fra formularen, ord i begge
+  lister, sjette ord i `FACILITET` — alle tre giver TS2344 med ordet i
+  teksten. **Men `npm test` kører ingen typekontrol**: `test-rene-filer`
+  bruger esbuild, resten kører gennem tsx, og ingen af dem tjekker typer.
+  Typevagten fyrer altså kun under `npm run typecheck`. Derfor kører
+  `scripts/test-faciliteter.ts` den samme deling på VÆRDIERNE, så en PR,
+  hvor nogen kun kørte `npm test`, ikke kan skjule et hjemløst ord. Den
+  rigtige rettelse er `tsc --noEmit` i `npm test`; den er ikke taget.
+
+- **Kildens ord oversættes til VORES — også i HTML-adapterne.** Dacas'
+  facilitetsliste var et `Set`, og et Set er et INPUT-filter: ordet slap
+  igennem og blev gemt i *kildens* stavemåde. Dacas var dermed den eneste
+  HTML-kilde, hvis udgangsordforråd var kildens eget, og to begreber fik
+  to stavemåder hver, fordi CEJ oversætter og Dacas ikke gjorde:
+  «fælles vaskeri» mod «fællesvaskeri», og «køle- og fryseskab» mod
+  «køle-/fryseskab». Nu er det en `Record<string, string>`, og CEJ's ord
+  vinder, fordi de ER vores — valgt én gang i en oversættelse.
+  De øvrige ord afbilder på sig selv; det er ikke støj, det er forskellen
+  mellem «samme ord» og «intet oversat».
+
+  `alabu.ts` og `laros.ts` sender stadig kildens egne strenge igennem
+  uoversat og er derfor de eneste med et **ubundet** ordforråd. Hvad de
+  har skrevet, kan kun basen svare på — `scripts/maal-felter.sql`,
+  spørgsmål 2.
+
+  **Målt 2. oktober 2026:** 33 forskellige ord kan skrives af de bundne
+  kilder, og **kun 5 af dem kan filtreres på**, fordi `FACILITET` dækker
+  tre begreber. De 28 øvrige gemmes og vises, men kan ikke søges på.
+  `scripts/test-faciliteter.ts` tæller ordene pr. kilde og afviser to ord,
+  der falder sammen under en snæver normalisering (tegnsætning,
+  mellemrum, bindeordet «og»). Den slår med vilje IKKE «delebolig» og
+  «delevenlig» sammen: CEJ's `sharing` står i gruppe med
+  `senior`/`student`/`youth` — en boligKATEGORI — mens Propsteps
+  `shareable` er en egenskab ved lejemålet. At slå dem sammen ville være
+  et gæt om CEJ's semantik.
 
   Formularen spørger om dem, fordi filtrene ellers skjuler hver eneste
   udlejerannonce for altid.
@@ -1571,6 +1619,52 @@ URL'en, og en URL-nøgle ville gøre boligen til en ny bolig.
 fra Varnish gennem hele undersøgelsen og den første import. Derfor fem forsøg
 i stedet for tre, og derfor tæller 502 og 504 nu som midlertidige i
 `lib/fetch.ts`. Deres eget indeks indeholder også sager, hvis side er væk.
+
+### Lejeperioden — målt 2. oktober 2026, og den bygges ikke
+
+**Ingen kilde oplyser UDBUDDETS lejeperiode i et felt, vi kan bruge.**
+Beslutningen er truffet, og grunden er ikke dækning. Derfor står den her,
+så den næste ikke bruger en dag på at opdage det igen.
+
+Hvad der blev målt:
+
+- **Nul felter og nul kode.** Helrepo-grep over `adapters/ lib/ app/ db/
+  scripts/` på kodelaget, først med et snævert mønster, så med et bredt
+  (`wait|month|until|varsel|frist|binding|period|term|…`). De eneste
+  varighedsfelter, vi læser, er `monthsOfDeposit`/`monthsOfPrepaid`
+  (findbolig — depositum i måneder), `MinWaitTimeInMonths`/
+  `WaitTimeTypeText` (alabu) og `onWaitingListSince` (propstep). Alle tre
+  handler om venteliste eller indflytningspris, ikke om lejeperiode.
+  Det snævre mønster missede Alabus felter; det er derfor begge er kørt.
+- **CEJ har feltet, og det siger intet.** `rentalPeriod` er `"unlimited"`
+  på **alle 63 målte**. Et felt uden variation er ikke en oplysning, der
+  kan filtreres på.
+- **home.dk har det ikke.** Nul træffere i de to cachede Nuxt-payloads og
+  i `scripts/kildeproever/home/feltbelaeg.json`. Stikprøve på **2**.
+- **De øvrige ni er IKKE målt.** Der er ingen cachede payloads, og
+  sessionen havde ingen netadgang til kildeværterne. Det står som ukendt
+  og ikke som et nej.
+
+**Og dét, der FINDES hos CEJ, er ikke vores at hente.** Nabofelterne til
+`rentalPeriod` er `vacatingAt`, `liableUntil` og `terminationNoticeDate`
+— altså fraflytningsdato, hæftelsesperiode og opsigelsesvarsel for den
+**NUVÆRENDE lejer**. Det er oplysninger om et navngivet menneske, der
+bor der nu, og de vedkommer ikke annoncen. Samme kildes payload bærer
+`tenant` med den nuværende lejers navn og private e-mail, målt på **24 af
+63**, og `reservation.lead` med en boligsøgendes navn, e-mail og telefon
+på **27 af 63**. Allowlisten i `adapters/cej.ts` holder dem alle ude, og
+den skal blive.
+
+**Feltet må derfor ikke høstes bredt — heller ikke hvis dækningen en dag
+bliver bedre.** Grunden er ikke, at tallet er for lavt. Grunden er, hvis
+oplysning det er: et opsigelsesvarsel i en udlejers system er den
+siddende lejers forhold, ikke udbuddets vilkår. Bliver `rentalPeriod` en
+dag varieret hos en kilde, er det ét felt, der kan vurderes for sig — og
+vurderingen skal vise, at værdien beskriver DET LEJEMÅL, der udbydes, og
+ikke en aftale med nogen, der bor der.
+
+Konsekvensen i dag: lejeperioden er ikke en kolonne, ikke et filter og
+ikke en sætning i beskrivelsen. Det er ikke et hul, der skal lukkes.
 
 ### Undersøgt 3. september 2026, ikke bygget
 
