@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  BOLIGTYPENS NAVN — ét sted, og prøven holder det dér.
 //
 //  `lib/boligtype.ts` blev skrevet for at være den eneste liste. Den

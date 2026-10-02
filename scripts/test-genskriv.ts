@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: oekonomi
 //  Backfillen af listings.description
 //
 //  Prøven rejser fire slags rækker i basen og kører genskrivningens
