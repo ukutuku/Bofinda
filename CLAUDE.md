@@ -91,6 +91,56 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   hvor nogen kun kørte `npm test`, ikke kan skjule et hjemløst ord. Den
   rigtige rettelse er `tsc --noEmit` i `npm test`; den er ikke taget.
 
+- **Opregningen af facilitetsfiltrene er UDLEDT af `FACILITET`s nøgler, og
+  må aldrig skrives i hånden igen.** De tre stod opregnet **14+ steder**:
+  `Filtre`, `hvor()`, `facetter()`, `opsummering()`, `facilitetsgrundlagPrBolig`,
+  `facilitetsgrundlag`, `tavseKilder`, `filtreFraParametre`, `tilParametre`,
+  `harFiltre`, `lib/filterpanel.ts`, `lib/alarm.ts`, `lib/maaling.ts`,
+  `lib/maalingsoeg.ts` ×3 og `app/page.tsx` ×5. Hvert sted var korrekt;
+  tilsammen var de en tidsindstillet fejl, for en udvidelse skulle huskes
+  i alle.
+
+  Det er ikke hygiejne. **Reglen om, hvad et facilitetsfilter udelader,
+  kan ikke «komme bagefter» en udvidelse, hvis opregningen er udledt**: et
+  nyt begreb bliver et felt, et filter, et aggregat, en afkrydsning, en
+  grundlagslinje med sine tre grupper og en `tavseKilder`-nulstilling af
+  sig selv.
+
+  **Feltnavnene på `Filtre` er uændrede, og det er et krav:**
+  `saved_searches.criteria` er en serialiseret `Filtre`, så en omdøbning
+  ville kræve en datamigrering af gemte søgninger. Derfor
+  `interface Filtre extends Partial<Record<Facilitetsnoegle, boolean>>` og
+  ikke en liste.
+
+  **Udledningen fandt en fejl, den også retter.** `facetter()` skrev
+  ordene af i SQL, og dens `udeplads` var
+  `array['altan','terrasse']` — **uden CEJ's «altan eller terrasse»**.
+  Filteret (`harFacilitet(FACILITET.udeplads)`) rammer det, tællingen
+  gjorde ikke. Og en afkrydsning skjules, når tallet er nul, så et kryds,
+  der VIRKER men ikke vises, var mulig. Aggregaterne er nu de samme
+  prædikater som filtrene.
+
+  **Teksten må stadig være fladens egen.** `lib/alarm.ts` har sit eget,
+  kortere `FILTERORD` («altan el. terrasse»), fordi mailens filterlinje
+  har mindre plads — samme forhold som de fire el-tekster. Det er bundet
+  med `satisfies`, så et nyt begreb uden en kort ordlyd er en
+  oversætterfejl. Men `npm test` typetjekker ikke, så faldbacken er
+  `?? FACILITETSNAVN[n]`: sand, blot længere. **Aldrig «undefined» i en
+  fremmeds indbakke.**
+
+  **Prøven er OMVENDT, og den kan ikke køre på #37's kører.** Kørerens
+  vagt 3 kræver, at en mutation bliver rød; her er påstanden den modsatte.
+  `npm run proev:udvidelse` tilføjer et begreb til `FACILITET` — kun der,
+  plus de to ting typevagten kræver — og forlanger, at **alt det afledte
+  går GRØNT uden at nogen har rørt det**. Går det ikke, er udledningen
+  ikke færdig. Den måler også, at grundlagslinjens tre grupper går op
+  (1 + 0 + 1 = 2), og at alarmlinjen aldrig skriver «undefined».
+
+  Forlægget sætter `address_match_level = 'access'` med en matchende
+  uuid. Default er `'failed'`, som `hvor()` udelukker — uden det ville
+  hver påstand være grøn af den forkerte grund — og `'unit'` ville bryde
+  check-constrainten `listing_address_level_honest`, som håndhæver, at
+  niveauet er sandt.
 - **Kildens ord oversættes til VORES — også i HTML-adapterne.** Dacas'
   facilitetsliste var et `Set`, og et Set er et INPUT-filter: ordet slap
   igennem og blev gemt i *kildens* stavemåde. Dacas var dermed den eneste

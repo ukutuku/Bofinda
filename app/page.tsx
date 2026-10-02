@@ -1,3 +1,4 @@
+import { FACILITETSNAVN, FACILITETSNOEGLER, stortForbogstav } from '../lib/faciliteter'
 import {
   boligtypegrundlag,
   facilitetsgrundlag, filtreFraParametre, harFiltre, oekonomigrundlag,
@@ -227,7 +228,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // som `sum` — og så koster tallene ingenting. Er en sat, er det én
   // forespørgsel mere (~75 ms), og det er netop dér, hun har brug for at se,
   // hvad filteret skjuler.
-  const facFiltre = f.kaeledyr || f.elevator || f.udeplads
+  const facFiltre = FACILITETSNOEGLER.some((n) => f[n])
   const grundlag = facFiltre ? await facilitetsgrundlag(f, nu) : sum
   // Kun naar hun faktisk har krydset af. Uden et filter er linjen en
   // advarsel mod noget, hun ikke har gjort.
@@ -741,29 +742,20 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
               </p>
             </section>
 
-            {(fac.faciliteter.kaeledyr > 0 || fac.faciliteter.elevator > 0
-              || fac.faciliteter.udeplads > 0) && (
+            {FACILITETSNOEGLER.some((n) => fac.faciliteter[n] > 0) && (
               <section className="fd-afsnit">
                 <h3>Faciliteter</h3>
                 <div className="valgknapper" aria-describedby="faciliteter-note">
-                  {fac.faciliteter.kaeledyr > 0 && (
-                    <label className="valgknap">
-                      <input type="checkbox" id="kaeledyr" name="kaeledyr" value="1" aria-describedby="faciliteter-note" defaultChecked={f.kaeledyr} />
-                      <span>Kæledyr tilladt</span>
+                  {/* Udledt af FACILITET. Samme regel som for typerne:
+                      tælles en facilitet til nul, vises afkrydsningen ikke
+                      — et valg, der aldrig giver træf, er værre end intet
+                      valg. Et nyt begreb får sin afkrydsning af sig selv. */}
+                  {FACILITETSNOEGLER.filter((n) => fac.faciliteter[n] > 0).map((n) => (
+                    <label key={n} className="valgknap">
+                      <input type="checkbox" id={n} name={n} value="1" aria-describedby="faciliteter-note" defaultChecked={f[n]} />
+                      <span>{stortForbogstav(FACILITETSNAVN[n])}</span>
                     </label>
-                  )}
-                  {fac.faciliteter.elevator > 0 && (
-                    <label className="valgknap">
-                      <input type="checkbox" id="elevator" name="elevator" value="1" aria-describedby="faciliteter-note" defaultChecked={f.elevator} />
-                      <span>Elevator</span>
-                    </label>
-                  )}
-                  {fac.faciliteter.udeplads > 0 && (
-                    <label className="valgknap">
-                      <input type="checkbox" id="udeplads" name="udeplads" value="1" aria-describedby="faciliteter-note" defaultChecked={f.udeplads} />
-                      <span>Altan eller terrasse</span>
-                    </label>
-                  )}
+                  ))}
                 </div>
                 {/* ── TALLENE STÅR PÅ SKÆRMEN, IKKE BAG EN KLIK ────
                     Linjerne lå et øjeblik i en lukket «Om oplysningerne».
@@ -784,18 +776,23 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                     linjerne står samlet UNDER pillerækken i stedet for
                     interleavet mellem tre afkrydsningsrækker. */}
                 <div id="faciliteter-note" className="fd-grundlagsliste">
-                  {[
-                    ['Kæledyr tilladt', fac.faciliteter.kaeledyr, grundlag.kaeledyr],
-                    ['Elevator', fac.faciliteter.elevator, grundlag.elevator],
-                    ['Altan eller terrasse', fac.faciliteter.udeplads, grundlag.udeplads],
-                  ].filter(([, vises]) => (vises as number) > 0).map(([navn, , oplyser]) => (
-                    <p key={navn as string} className="filtergrundlag">
-                      <b>{navn}</b>: {(oplyser as number).toLocaleString('da-DK')} nævner det ·{' '}
-                      {(grundlag.antal - grundlag.tier - (oplyser as number)).toLocaleString('da-DK')}
-                      {' '}nævner andre faciliteter ·{' '}
-                      {grundlag.tier.toLocaleString('da-DK')} mangler oplysninger og vises ikke
-                    </p>
-                  ))}
+                  {/* UDLEDT, og det er hele pointen: CLAUDE.md kræver, at
+                      linjen nævner TRE grupper under hver afkrydsning.
+                      Stod opregningen i hånden, skulle reglen huskes ved
+                      hver udvidelse — og et nyt begreb ville få en
+                      afkrydsning uden en linje. Nu kan de to ikke skilles. */}
+                  {FACILITETSNOEGLER.filter((n) => fac.faciliteter[n] > 0).map((n) => {
+                    const oplyser = grundlag[n]
+                    return (
+                      <p key={n} className="filtergrundlag">
+                        <b>{stortForbogstav(FACILITETSNAVN[n])}</b>:{' '}
+                        {oplyser.toLocaleString('da-DK')} nævner det ·{' '}
+                        {(grundlag.antal - grundlag.tier - oplyser).toLocaleString('da-DK')}
+                        {' '}nævner andre faciliteter ·{' '}
+                        {grundlag.tier.toLocaleString('da-DK')} mangler oplysninger og vises ikke
+                      </p>
+                    )
+                  })}
                 </div>
               </section>
             )}
@@ -1105,8 +1102,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         {/* Faciliteter er en POSITIV liste. Filtrerer hun på elevator, ryger
             alle boliger fra kilder, der bare ikke skriver det — og det ligner
             "der er ingen". Det skal stå på skærmen, ikke kun i koden. */}
-        {soegt && (f.kaeledyr || f.elevator || f.udeplads)
-          && tavse.navne.length > 0 && (
+        {soegt && facFiltre && tavse.navne.length > 0 && (
           /* Frafaldet er ikke jævnt fordelt. Tre kilder oplyser aldrig
              faciliteter, så et kryds fjerner dem HELT — filteret er også et
              kildefilter. Navnene beregnes, så linjen retter sig selv, hvis en
