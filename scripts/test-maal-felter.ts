@@ -23,7 +23,7 @@
 //        pastes uden en checkout. Så tælles der efter i stedet.
 // ═══════════════════════════════════════════════════════════════
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { FACILITET } from '../lib/faciliteter'
@@ -147,10 +147,49 @@ console.log('\n══ 3 · konventionen gælder HVER måle-SQL ══')
         : 'mangler «TALLENE ER ALDRIG SET» eller en erklæring om en kørsel')
     // Den første slags skal navngive den prøve, der kørte sætningerne.
     // Uden den er «syntaks og typer holder» en påstand uden dækning.
+    //
+    // ── CITATET SKAL OPLØSES, IKKE BLOT HAVE DEN RIGTIGE FORM ───
+    //  Første udgave prøvede kun, at hovedet indeholdt NOGET med formen
+    //  `scripts/test-<noget>.ts`. Den efterprøvede ikke, at filen
+    //  findes. Målt: et hoved, der citerede `scripts/test-findes-ikke.ts`,
+    //  stod GRØNT. Kravet gemte altså et citat, og intet opløste det.
+    //
+    //  Det er ANDEN INSTANS af samme form inden for ét døgn. Den første
+    //  var `imagesMayDiffer`, som gemte `true` uden det tekstspænd, det
+    //  kom fra; rettelsen dér var at gemme spændet OG lade `belaegHolder`
+    //  efterprøve, at spændet indeholder faktummet. Her er attesten et
+    //  filnavn, og `existsSync` er dens `belaegHolder`.
+    //
+    //  **Den første blev fundet af en anden læser, ikke af den, der
+    //  skrev den.** Begge gange skrev jeg vagten og så ikke, at den
+    //  manglede sin anden halvdel. Det står her, fordi det er grunden
+    //  til at lede efter den TREDJE: et sted, hvor vi gemmer en henvisning
+    //  og aldrig følger den.
     if (seteTal) {
-      tjek(`  ${f} navngiver prøven, der kørte sætningerne`,
-        /scripts\/test-[\w-]+\.ts/.test(hoved))
+      const citat = hoved.match(/scripts\/test-[\w-]+\.ts/)?.[0]
+      tjek(`  ${f} navngiver prøven, der kørte sætningerne`, citat != null)
+      tjek(`  ${f}: og den citerede prøve FINDES`,
+        citat != null && existsSync(citat), citat ?? 'intet citat')
     }
+    // ── HVORFOR `test-`-BINDINGEN BLIVER STAAENDE INDTIL VIDERE ──
+    //  Regexet hårdkoder `test-`, og det er en sløjfe: skulle en måle-SQL
+    //  citere `scripts/maalinger/proev-maal-sql.ts` — repoets ANDEN
+    //  navnekonvention for prøvefiler — ville tjekket AFVISE den. Målt:
+    //  rødt på et citat til en fil, der findes. Konventionen kan altså
+    //  ikke citere den fil, hvis brudthed udløste konventionen.
+    //
+    //  Den rettes IKKE her. Repoet har to navnekonventioner
+    //  (`test-*.ts` ×13 · `proev-*.ts` ×1 · `proev-*.mjs` ×2, målt på
+    //  b39329a), og #49's kæde globber den ene, mens #54's CI kører
+    //  npm-nøglerne. `proev-genskab.mjs` er nået gennem `db:backup:proev`,
+    //  så «har et mærke» og «står i en nøgle» er formodentlig TO
+    //  spørgsmål og ikke ét.
+    //
+    //  Når #49 er landet og Analytics har valgt mellem de to, skærpes
+    //  kravet her til **«har et mærke eller står i en nøgle»** frem for
+    //  et navnemønster — samtidig med deres valg, af præcis den grund
+    //  jeg selv gav om mit eget glob: to udtryk for ét spørgsmål skal
+    //  ikke drive fra hinanden fra dag ét.
     tjek(`  ${f} siger at den er skrivebeskyttet`, /SKRIVEBESKYTTET/.test(hoved))
   }
 }

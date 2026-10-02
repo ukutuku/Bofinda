@@ -928,7 +928,17 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 
   Skabelonen er én linje i filens hoved: *«Tallene er aldrig set; syntaks
   og typer holder.»* Og den skal kunne dokumenteres — den prøve, der kørte
-  sætningerne, nævnes ved navn.
+  sætningerne, nævnes ved navn, **og citatet skal kunne opløses**: vagten
+  kalder `existsSync` på den sti, den fandt. Et citat, der kun har den
+  rigtige FORM, er en attest uden dækning — samme halve vagt som en
+  `imagesMayDiffer` uden sit tekstspænd. Første udgave af vagten her
+  bestod et citat til `scripts/test-findes-ikke.ts`.
+
+  Navnemønstret i vagten er bundet til `test-*.ts` indtil videre, og det
+  er en kendt sløjfe: et citat til `scripts/maalinger/proev-maal-sql.ts`
+  — repoets anden navnekonvention for prøvefiler — bliver afvist, selv om
+  filen findes. Kravet skærpes til «har et mærke eller står i en nøgle»,
+  når #49 er landet og det er afgjort, om de to er ét spørgsmål.
 
   **Hvorfor det er en regel og ikke en vane.** `scripts/maal-felter.sql`
   blev skrevet til en produktionskørsel samme aften. Første udkast havde
