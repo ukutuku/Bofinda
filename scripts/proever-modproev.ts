@@ -99,10 +99,15 @@ export async function modproev(): Promise<number> {
     {
       // Filen lægges i det RIGTIGE repo, saa findProever ser den som
       // enhver anden. Ikke i et forlaeg prøven selv har bygget.
-      const uden = `${MAPPE}/test-uden-maerke.ts`
-      writeFileSync(join(ROD, uden), 'export const x = 1\n')
+      // En TOM fil: der er ikke engang indhold at baere et maerke i, og
+      // den er derfor den skarpeste form. Dagens rebase gav den samme
+      // roede paa to RIGTIGE filer — scripts/test-kildetjek.ts og
+      // scripts/test-beskrivelse-ved-visning.ts landede paa main uden
+      // maerker, og kaeden afviste med exit 1 og navngav dem begge.
+      const uden = `${MAPPE}/test-ny.ts`
+      writeFileSync(join(ROD, uden), '')
       const p1 = await laegPlan()
-      tjek('en test-*.ts uden maerke gør planen roed',
+      tjek('en tom test-ny.ts uden maerke gør planen roed',
         p1.afvist.some((a) => a.startsWith(uden)),
         p1.afvist.find((a) => a.startsWith(uden)) ?? 'IKKE afvist')
       rmSync(join(ROD, uden))
