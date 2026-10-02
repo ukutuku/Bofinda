@@ -1025,6 +1025,12 @@ tabellen.
 værktøj eller et værn, men om DATA: et nul fra en tæller er «ingenting
 skete» og «vi holdt op med at måle» i samme tegn.
 
+**Form 5 · et værn, der findes i KOPIER.** Ikke hvor meget én kopi
+dækker, men at der er flere. `det-kopierede-værn`: den svageste kopi
+sætter gulvet, og et værn, der driver, er værre end en regel, der driver —
+en regel giver forkerte svar, som kan ses, mens et værn giver INGEN svar.
+Scriptet kører videre og melder produktionens tal som det syntetiske sæts.
+
 **Og to, der ikke er værn.** `kendt-følge`: en fejl, der er skrevet ned,
 ligner en fejl, der er håndteret. `det-stærkeste-faldback` er en anden
 akse end alle de andre — ikke hvor meget et værn dækker, men hvilken VEJ
@@ -1058,6 +1064,7 @@ commits, i PR-tekster og her.
 | **nullet-der-betyder-to-ting** · et maaletal, der er faldet til nul | Forskellen paa «ingenting skete» og «vi holdt op med at maale». Et nul fra en taeller er to udsagn i ét, og de kan ikke skelnes ved at se paa tallet. Maalt: `lib/maaling.ts`s allowlist har driftstilstandene og `funktion`-maengden skrevet af i haanden, paa linjerne omkring et `af: GRUNDE`, der ER bundet — og `Spec.af` er `readonly string[]`, saa oversaetteren tier. En ny vaerdi faar `rens()` til at kassere HELE eventet, og `paywall_blocked` holder op med at blive skrevet. Tragten viser saa 0. Samme form, uafhaengigt: `haendelser` gav 0 raekker for omraadesiderne, og det 0 betoed «ikke maalt». **Et maaletal skal kunne sige, at det ikke blev maalt** — en taeller ved siden af, en «sidst skrevet»-tid, eller en proeve, der skriver ét event igennem. Se #47. |
 | **rørets-exitkode** · `$?` efter en pipeline | Kommandoen. `$?` er den SIDSTE kommandos exitkode, ikke roerets. Maalt: `false \| head -1` giver **0**. Det er sket to gange paa én dag — en modproeve meldt som `exit=0`, hvor nullet var `head`s, og en byggekontrol laest som groen, hvor nullet var `tail`s. **Mekanisk loeseligt, og begge veje har en haage:** `set -o pipefail` giver 1 paa `false \| head -1` — men ogsaa **141** (SIGPIPE) paa `yes \| head -1`, hvor intet gik galt, saa den goer en VIRKENDE pipeline roed. Robust er derfor `${PIPESTATUS[0]}` (maalt: `1` mens `$?` er `0`), eller at koere kommandoen for sig og filtrere bagefter: `ud=$(kommando 2>&1); k=$?`. Samme familie som `transpilerede-positioner`: svaret er sandt om roeret og laeses som et svar om kommandoen. |
 | **det-stærkeste-faldback** · `??` og et sidste `else` | Dækker rigeligt — men falder mod det STÆRKESTE udsagn. Se nedenfor; det er en anden akse end de ti andre. |
+| **det-kopierede-værn** · samme vagt skrevet ud i hver fil | At den SVAGESTE kopi er den, der gælder. Målt 1. okt. 2026: isolationsvagten i `scripts/cloud/` fandtes i **ni kopier i fire stavemåder** — og **seks forbindelser havde ingen**, hvoraf én skrev til basen. Kopierne var hver især rigtige nok; mængden af dem var hullet. Et manglende værn fejler ikke, det **svarer**. Rettelsen er ét modul, alle kalder — og en prøve, der tæller forbindelser i stedet for at spørge, om der er nogen: et `Set` sagde grønt om en fil, der stod på allowlisten for en ANDEN bloks skyld. |
 
 **Fem af dem er den samme fejl fem gange: et usynligt filter.** Ved
 **include-filteret** kan filteret SES i kommandoen. Ved **de-hentede-refs**
