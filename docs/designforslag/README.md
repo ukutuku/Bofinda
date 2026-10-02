@@ -243,6 +243,13 @@ betydning.
 **Hvorfor Plex og ikke Inter.** Fem kandidater blev sat i samme railblok
 og samme kort (se [`skriftproeve.png`](skriftproeve.png); kursiven er kun hentet til Plex, de andre viser en syntetisk skrå):
 
+> **Hvad billedet viser, efterset 2. oktober 2026:** fem syntetiske
+> boligkort («Prøvevej 14, 3. tv · 2300 København S», mockdata), ét pr.
+> skrift. Fotoet i kortene er heltefotoet `public/hero-stue.jpg`, Taryn
+> Elliott / Pexels under Pexels-licensen (se `heltefoto.json`), og **ikke
+> et kildebillede**. «Propstep · LokalBolig» under kortene er kildenavne
+> sat som tekst i mockuppen, ikke noget, der er hentet fra kilderne.
+
 | Skrift | «Prøvevej 14, 3. tv · 2300 København S», 15 px | «11.111» / «88.888», 42/700 | Tabelcifre |
 |---|---|---|---|
 | Inter (i dag) | 267,7 px | 100,8 / 148,6 px | kun med `tnum` |

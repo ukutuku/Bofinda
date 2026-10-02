@@ -1491,7 +1491,7 @@
    "sha256": "11513d92999b09df4a23a8bb91c6232532ba76488d0123a42de811239e2bd04a",
    "dato": "2026-09-26",
    "herkomst": "kendt",
-   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+   "grund": "Skriftprøven fra runde 1 (40a8302): fem syntetiske boligkort, ét pr. skrift. Efterset 2. oktober 2026: fotoet i kortene er heltefotoet public/hero-stue.jpg (Taryn Elliott / Pexels, Pexels-licensen, se heltefoto.json), ikke et kildebillede; kildenavnene er tekst i mockuppen. Skrevet før vagten fandtes, derfor uden kvittering. Beholdt: omskreven historik er værre end vægten (GREB-5 § 5)."
   },
   {
    "fil": "docs/frontend-lancering-v2/designloeft/boligdetalje-desktop-hele.png",
