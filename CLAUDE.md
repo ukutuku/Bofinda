@@ -1094,7 +1094,7 @@ commits, i PR-tekster og her.
 | **transpilerede-positioner** · V8-dækning (`NODE_V8_COVERAGE`) over en `.ts`-fil | At positionerne peger i DEN FIL, du læser. `tsx` oversætter først, så dækningens `startOffset` er tegnpositioner i den TRANSPILEREDE JS. Et opslag «hvilken `tjek(`-linje ligger i en nul-range» rammer derfor ved siden af, og afvigelsen vokser med filens kommentarer. Målt: **187 af 485 påstande meldt udækkede i `test-redigering.ts` — alle 485 var kørt.** Stakspor ER kildekortlagt; tegnpositioner er ikke. |
 | **nullet-der-betyder-to-ting** · et maaletal, der er faldet til nul | Forskellen paa «ingenting skete» og «vi holdt op med at maale». Et nul fra en taeller er to udsagn i ét, og de kan ikke skelnes ved at se paa tallet. Maalt: `lib/maaling.ts`s allowlist har driftstilstandene og `funktion`-maengden skrevet af i haanden, paa linjerne omkring et `af: GRUNDE`, der ER bundet — og `Spec.af` er `readonly string[]`, saa oversaetteren tier. En ny vaerdi faar `rens()` til at kassere HELE eventet, og `paywall_blocked` holder op med at blive skrevet. Tragten viser saa 0. Samme form, uafhaengigt: `haendelser` gav 0 raekker for omraadesiderne, og det 0 betoed «ikke maalt». **Et maaletal skal kunne sige, at det ikke blev maalt** — en taeller ved siden af, en «sidst skrevet»-tid, eller en proeve, der skriver ét event igennem. Se #47. |
 | **rørets-exitkode** · `$?` efter en pipeline | Kommandoen. `$?` er den SIDSTE kommandos exitkode, ikke roerets. Maalt: `false \| head -1` giver **0**. Det er sket to gange paa én dag — en modproeve meldt som `exit=0`, hvor nullet var `head`s, og en byggekontrol laest som groen, hvor nullet var `tail`s. **Mekanisk loeseligt, og begge veje har en haage:** `set -o pipefail` giver 1 paa `false \| head -1` — men ogsaa **141** (SIGPIPE) paa `yes \| head -1`, hvor intet gik galt, saa den goer en VIRKENDE pipeline roed. Robust er derfor `${PIPESTATUS[0]}` (maalt: `1` mens `$?` er `0`), eller at koere kommandoen for sig og filtrere bagefter: `ud=$(kommando 2>&1); k=$?`. Samme familie som `transpilerede-positioner`: svaret er sandt om roeret og laeses som et svar om kommandoen. |
-| **det-stærkeste-faldback** · `??` og et sidste `else` | Dækker rigeligt — men falder mod det STÆRKESTE udsagn. Se nedenfor; det er en anden akse end de ti andre. |
+| **det-stærkeste-faldback** · `??` og et sidste `else` | Dækker rigeligt — men falder mod det STÆRKESTE udsagn. **Og forsigtig over for HVEM:** læseren, eller den vært vi henter fra? Begge findes, og den anden er værre på én måde. Se nedenfor; det er en anden akse end de ti andre. |
 
 **Fem af dem er den samme fejl fem gange: et usynligt filter.** Ved
 **include-filteret** kan filteret SES i kommandoen. Ved **de-hentede-refs**
@@ -1206,6 +1206,37 @@ i «vi ved det ikke», koster den en unødig forsigtighed. Falder den ned i
 «el er ikke med» eller «fra 9 kr.», har vi sagt noget til et menneske, vi
 ikke havde dækning for. Er der ingen forsigtig gren at falde i, er det et
 tegn på, at oversættelsen skal være udtømmende i stedet.
+
+**Men «forsigtig» har to retninger, og de tre ovenfor er alle den ene.**
+Rækken handlede om udsagn TIL ET MENNESKE. Der findes en anden slags, hvor
+den sidste gren ikke siger noget, men GØR noget mod en fremmed:
+
+| | de tre ovenfor | den fjerde |
+|---|---|---|
+| hvad grenen gør | **siger** noget | **gør** noget |
+| over for hvem | læseren | den vært, vi henter fra |
+| eksempel | «El indgår ikke» | `budget = opslag ? … : `**`Infinity`** i `lib/ingest.ts` |
+| hvad det stærkeste er | den mest vidtgående påstand | **intet loft** |
+
+`detaljeBudgetPrKoersel` var tavst virkningsløst uden `listeGrundlag`, og
+faldbacket var `Infinity` — altså: mangler oplysningen om, hvor meget vi må
+hente, henter vi **uden grænse**. Det er samme form som «El indgår ikke»,
+men den stærkeste gren er her en handling mod nogens server.
+
+**Og de to er ikke lige slemme. Den anden er værre på én måde:** en usand
+sætning kan rettes, og så er den rettet — læseren ser den rigtige næste
+gang. **En overbelastet server husker.** Heimstadens CDN spærrede vores IP
+efter ~17 minutter (målt 2026-09-06), og spærringen gjaldt værten, ikke
+sætningen. Der er ingen rettelse, der tager den tilbage; der er kun en
+telefonsamtale, og den er ikke altid mulig.
+
+Derfor: **spørg ikke bare «er den sidste gren forsigtig», men «forsigtig
+over for hvem».** Er svaret «over for en fremmed vært», skal faldbacket
+være den strammeste værdi og ikke den løseste — og en manglende indstilling
+skal helst slet ikke være mulig at skrive. Her blev den gjort til en
+oversætterfejl (`SourceAdapter` er nu `Kildegrundlag & Detaljevagt`, hvor
+loftet kun kan stå sammen med grundlaget), fordi en forsigtig faldback
+stadig efterlader fælden åben for den næste.
 
 **Prøvens-eget-forlæg er den samme sygdom et lag længere ude.** Ved
 **linjeankeret** var værnet rigtigt monteret og bare for smalt. Her var

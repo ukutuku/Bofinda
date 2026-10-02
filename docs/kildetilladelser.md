@@ -387,32 +387,44 @@ ville et loft være en indstilling uden virkning — og det er præcis den
 slags, der lige er blevet gjort til en oversætterfejl. **De skal ikke have
 et loft; de skal have en note om hvorfor ikke.** Den står her.
 
-**De fire, i rækkefølge efter hvor mange kald der kan falde på én time:**
+**Skranken er, at hver kilde har en NEDSKREVET beslutning — ikke at hver
+kilde har et loft.** Derfor står Dacas' linje her med et nej og en
+begrundelse, ikke som et felt, ingen nåede.
 
-- [ ] **Propstep** — `propstep.com`, ~736 boliger, største eksponering af
-      de fire. Detaljesiden hentes pr. ny bolig uden tag. Har **ingen**
-      egen takt (standard 1 s). Kildens eget gitter filtreres på
-      postnummer før nogen detaljeside hentes, så i rolig drift er tallet
-      lavt — men en ændring i deres nøgler eller en afmeldingsbølge er
-      ~736 kald i én time mod en lille udlejerplatform. **Afgør: loft og
-      egen takt.** Grundlaget er en mundtlig tilladelse uden navn og dato
-      (se hullet ovenfor).
-- [ ] **LokalBolig** — `www.lokalbolig.dk`, ~232 lejemål. Samme form.
-      Kilden er **ustabil** (503 fra Varnish gennem hele undersøgelsen og
-      den første import), hvilket er et argument for et loft og ikke mod:
-      et uloftet udtræk mod en vakkelvorn backend er både hårdere ved dem
-      og dårligere data for os. Deres `Content-Signal` beder i forvejen om
-      mindre, end tilladelsen giver — vi retter os efter det på
-      billedbredder, og takten hører i samme overvejelse.
+Hver linje har en **anbefaling**, så beslutningen er et ja eller et nej og
+ikke fire vurderinger forfra:
+
+- [ ] **Propstep** — `propstep.com`, ~736 boliger. **ANBEFALING: loft og
+      egen takt.** Det stærkeste belæg står allerede i `CLAUDE.md`: uden
+      den inkrementelle import «ville en timekørsel af Propstep koste
+      **17.000 kald i døgnet** mod en lille udlejerplatform». Kilden er
+      altså navngivet som grunden til, at mekanismen findes — og den er
+      den eneste af de fire, der ikke har et loft i den. Dertil: **ingen
+      egen takt** (standard 1 s), så 736 nye ville falde på ~12 minutter,
+      og Heimstadens spærring kom efter ~17. Rolig drift er lav, fordi
+      gitteret filtreres på postnummer før nogen detaljeside hentes; det
+      urolige tilfælde er ikke.
+- [ ] **LokalBolig** — `www.lokalbolig.dk`, ~232 lejemål.
+      **ANBEFALING: loft.** Kilden er **ustabil** — 503 fra Varnish gennem
+      hele undersøgelsen og den første import — og det er et argument FOR,
+      ikke imod: et uloftet udtræk mod en vakkelvorn backend er både
+      hårdere ved dem og dårligere data for os, fordi halvfærdige kørsler
+      er dét, afmeldingssikringen skal gætte sig ud af. Deres
+      `Content-Signal` beder i forvejen om mindre end tilladelsen giver, og
+      vi retter os efter det på billedbredder; takten hører i samme
+      overvejelse.
 - [ ] **Birch Ejendomme** — `birchejendomme.dk`, 59 enheder = 5 feed-sider.
-      Detaljesiden hentes kun for depositum-beløbet. Lille eksponering,
-      men **ingen nedskrevet tilladelse overhovedet** (se de tre kørende
-      kilder uden en række). Loftet er billigt at sætte her, netop fordi
-      tallet er lille.
-- [ ] **Dacas** — `dacas.dk`, 19 boliger, hele udbuddet. Mindste
-      eksponering af alle fire; et loft på 19 er næsten ingen begrænsning.
-      Står på listen for fuldstændighedens skyld, så den ikke bliver den,
-      ingen nåede.
+      **ANBEFALING: loft.** Ikke fordi tallet er stort, men fordi det er
+      lille: det er billigst at være forsvarlig over for den kilde, hvor vi
+      har **ingen nedskrevet tilladelse overhovedet** (se de tre kørende
+      kilder uden en række). Et loft på 59 koster os intet i rolig drift og
+      er det, der står i vejen den dag feedet vokser eller nøglerne skifter.
+- [ ] **Dacas** — `dacas.dk`, 19 boliger. **ANBEFALING: INTET loft.**
+      `lejlighed-sitemap.xml` er hele udbuddet og hentes i ét kald, så
+      **det urolige tilfælde ER 19 kald.** Et loft på 19 begrænser
+      ingenting, og et loft på mindre ville udskyde boliger uden at spare
+      nogen for noget. Linjen står her, fordi beslutningen skal være
+      skrevet ned — ikke fordi den mangler.
 
 **Og de tre, der ikke skal have et loft:**
 
