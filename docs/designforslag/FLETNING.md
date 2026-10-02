@@ -138,6 +138,9 @@ ikke, så de står ikke på
 fletningen er `npm test` rød på dem: «et nyt billede i repoet». Det er
 meningen, for kontrollen kan ikke vide, at de kommer fra en fletning.
 
+**Posterne skal ind i SAMME merge-commit som vagten, ikke i den næste.**
+Grunden står i § 5.
+
 **De kan ikke lægges på listen nu.** Filerne findes ikke på grenen, og en
 post for en fil, der ikke findes, er også rød.
 
@@ -161,10 +164,64 @@ Datoen er 1. oktober, samme dag som lukningen, så posterne er gyldige.
 Herkomsten er kendt: de er gengivet af denne session mod den syntetiske
 testbase, og netværket var lukket.
 
+## 5 · Rækkefølgen afgør, om vagten fødes grøn eller rød
+
+**Når en vagt og det, den skal vogte, kommer fra hver sin gren, afgør
+merge-rækkefølgen, om vagten fødes grøn eller rød.**
+
+- Lander indholdet efter vagten, er det indholdets egen merge, der bliver
+  rød. Det er det rigtige sted, for dér sidder den, der ved, hvad indholdet
+  er.
+- Lander indholdet før vagten, er vagten rød i det øjeblik, den lander, på
+  noget, der allerede står på `main`, og som ingen i vagtens merge har
+  lavet.
+
+**En vagt, der fødes rød på eksisterende indhold, bliver slået fra i stedet
+for rettet.** Den, der merger, ser en rød prøve på filer, de ikke har rørt,
+i en ændring, der handler om noget andet. Den nemmeste vej til grønt er at
+fjerne vagten eller lægge en undtagelse, der er bredere end nødvendigt. Det
+er derfor, posterne skal ligge klar og ind i samme merge som vagten. Står
+de i en opskrift til «bagefter», er vagten allerede væk, når bagefter
+kommer.
+
+Billedkontrollen har to sådanne tilfælde i dag:
+
+| Indhold | Hvor | Kom/kommer | Hvad der skal ske |
+|---|---|---|---|
+| 10 billeder i `docs/designforslag/bevis/` | `main`, via #39 | før vagten: #39 er merget | § 4's poster i vagtens merge-commit |
+| 8 billeder i `docs/kontomails/eksempler/` | #35, #9 og #3, alle åbne, med samme 8 filer og samme bytes | afhænger af rækkefølgen | posterne nedenfor i den merge, der kommer sidst af de to |
+
+Optalt 2. oktober 2026 over alle 55 PR-hoveder, hentet udtrykkeligt
+(`refs/pull/*/head`), så optællingen ikke kun ser de grene, der
+tilfældigvis lå lokalt. Ingen anden åben PR lægger billeder i `docs/`.
+
+**Kontomails-billederne, to veje:**
+
+- **Lander #35 (eller #9 eller #3) før designgrenen:** de 8 poster skal ind
+  i designgrenens merge-commit sammen med § 4's ti.
+- **Lander designgrenen først:** #35's merge bliver rød på de 8. Posterne
+  skal ind i #35's merge-commit. Det er #35's session, der skal efterse
+  herkomsten. Herfra er den ikke set.
+
+Datoen er 30. september, før lukningen, så posterne er gyldige. Herkomsten
+er «ikke efterset», og fristen er den samme som for de 157: 30. december
+2026. Udregnet af bytes på #35's hoved, der er identiske i #3, #5 og #9:
+
+```json
+{"fil": "docs/kontomails/eksempler/kvittering-bolig-desktop.png", "sha256": "ad95c070166a2412f3a1761ac76f735ef288c5476578f2f0bfb0e9a43b25efcb", "dato": "2026-09-30", "herkomst": "ikke efterset", "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."},
+{"fil": "docs/kontomails/eksempler/kvittering-bolig-mobil.png", "sha256": "ed5e67b16dae9a62a6140c134de83ed658986e8b6d2c88cc6bec28cb4eda35a3", "dato": "2026-09-30", "herkomst": "ikke efterset", "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."},
+{"fil": "docs/kontomails/eksempler/kvittering-udenlogin-desktop.png", "sha256": "d6a43eaa544676225237b4dd310d9d7a21c9941be9273d25a0e19b6ce2e6515a", "dato": "2026-09-30", "herkomst": "ikke efterset", "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."},
+{"fil": "docs/kontomails/eksempler/kvittering-udenlogin-mobil.png", "sha256": "aa5f111430465b5dc8e02877a072bc9da1e842b6f07171501d797970db09c438", "dato": "2026-09-30", "herkomst": "ikke efterset", "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."},
+{"fil": "docs/kontomails/eksempler/kvittering-udlejer-desktop.png", "sha256": "b0119e74077064689f2d8026cd46a5d03de498f63003e7976c16d3c8a83a7f17", "dato": "2026-09-30", "herkomst": "ikke efterset", "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."},
+{"fil": "docs/kontomails/eksempler/kvittering-udlejer-mobil.png", "sha256": "ff523d129d9f007cc33a5fdee0eaf2dd96b71c16362ab4dd7423b5586171f525", "dato": "2026-09-30", "herkomst": "ikke efterset", "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."},
+{"fil": "docs/kontomails/eksempler/mail-desktop.png", "sha256": "c55f3cb8830b9fe96f9cc4b1aa46d9ed3f1d8b85d68d513d34257939a889d5ab", "dato": "2026-09-30", "herkomst": "ikke efterset", "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."},
+{"fil": "docs/kontomails/eksempler/mail-mobil.png", "sha256": "17f9b72d2df31168092f53493b7442a27e019b6c490a17c0bc1a92f2aea6a19f", "dato": "2026-09-30", "herkomst": "ikke efterset", "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."}
+```
+
 **Efter fletningen, i rækkefølge:**
 
-1. `npm test`: billedkontrollen (med § 4's ti poster), test-kæden og
-   main's fire nøgler.
+1. `npm test`: billedkontrollen (med § 4's ti poster, og § 5's otte, hvis
+   #35 er landet), test-kæden og main's fire nøgler.
 2. `node docs/designforslag/maalinger/proev-maal.mjs`: vagten, med
    app-skud-tilfældene.
 3. `node docs/designforslag/gengivelse/proev-kildebilleder.mjs` mod
