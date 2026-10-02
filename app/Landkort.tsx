@@ -104,6 +104,13 @@ export function Landkort({ maerker, etiket = 'Kort over boligerne' }: {
       const L = (await import('leaflet')).default
       if (doed || !boks.current) return
       const m = L.map(boks.current, { scrollWheelZoom: false, attributionControl: true })
+      // Leaflet 1.9 saetter sit EGET praefiks foran krediteringen — navnet
+      // og et ukrainsk flag i inline-svg. Det er bibliotekets udsagn, ikke
+      // vores, og det staar paa vores side uden at nogen har valgt det.
+      // `setPrefix(false)` fjerner KUN praefikset; OSM-krediteringen
+      // kommer fra flisernes `attribution` nedenfor og er uroert — den er
+      // bindende efter Tile Usage Policy og maa aldrig skjules.
+      m.attributionControl.setPrefix(false)
       L.tileLayer(FLISER, { attribution: KREDIT, maxZoom: 18 }).addTo(m)
       kort.current = m
       // Kortinteraktion kan serveren ikke se. Strubet til ét event pr.

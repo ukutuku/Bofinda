@@ -938,7 +938,12 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
               «Lejeboliger på Østerbro (116)» og lader det være. */}
           <div className="sidetitel resultat-titel">
             <h1>
-              Lejeboliger{stedNavn ? ` i ${stedNavn}` : ' i hele Danmark'}
+              {/* Stednavnet er ÉT led og maa ikke braekke: «København
+                  S» delt over to linjer laeses som to steder, og
+                  postnummersiderne har navne som «2300 København S». */}
+              Lejeboliger{stedNavn
+                ? <> i <span className="stednavn">{stedNavn}</span></>
+                : ' i hele Danmark'}
               <span className="titeltal">({sum.antal.toLocaleString('da-DK')})</span>
             </h1>
             {visninger.length > 0 && (
@@ -1045,8 +1050,16 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           <div className="optaelling">
             <span>{sum.medTotal} med samlet pris til udlejer</span>
             <span>{sum.medIndflytning} med indflytningspris</span>
+            {/* Ét beloeb er ikke et spaend. Er billigst og dyrest det
+                samme — én bolig, eller flere til samme pris — stod der
+                «10.320–10.320 kr/md», som om der var noget at vaelge
+                imellem. */}
             {sum.billigst != null && sum.dyrest != null && (
-              <span>{kr(sum.billigst)}–{kr(sum.dyrest)} kr/md</span>
+              <span>
+                {sum.billigst === sum.dyrest
+                  ? `${kr(sum.billigst)} kr/md`
+                  : `${kr(sum.billigst)}–${kr(sum.dyrest)} kr/md`}
+              </span>
             )}
           </div>
         )}
