@@ -16,6 +16,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { readFileSync, readdirSync } from 'node:fs'
+import { kildelag } from './kildetjek'
 import { join } from 'node:path'
 import { propertyTypeEnum } from '../db/schema'
 import { BOLIGTYPER, typenavn, typeord } from '../lib/boligtype'
@@ -84,7 +85,12 @@ gaa('app'); gaa('lib')
 const kopier: string[] = []
 for (const f of filer) {
   if (f === join('lib', 'boligtype.ts')) continue
-  const tekst = readFileSync(f, 'utf8')
+  // Kodelaget, ikke den raa fil. Scanneren leder efter `lejlighed: '…'`,
+  // og den form staar ogsaa i kommentarer og i proseeksempler — en note
+  // om de fjernede kopier ville melde sig selv som en kopi. Se
+  // scripts/kildetjek.ts: det er samme fejl som `/tilbud === null/`, der
+  // ramte kommentaren OM vagten.
+  const tekst = kildelag(readFileSync(f, 'utf8'))
   // Noeglepositionen er efter `{`, efter et komma, eller ved linjestart.
   // Foerste udgave var kun forankret til LINJESTART — og faldt derfor
   // igennem paa en kopi med to noegler paa samme linje, hvilket er
