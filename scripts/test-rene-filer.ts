@@ -113,6 +113,15 @@ const IKKE_LOEFTER: Readonly<Record<string, string>> = {
   'scripts/cloud/beskedkontrol.mjs': 'løftet handler om /beskeder/proeve og prøves dér (se LOEFTER)',
   'scripts/cloud/strictmodekontrol.mjs': 'løftet handler om /beskeder/proeve og prøves dér (se LOEFTER)',
   'scripts/cloud/kontaktkontrol.mjs': 'løftet handler om /kontakt-ui/proeve og prøves dér (se LOEFTER)',
+  'modproever/hastighed-dynamisk-import.mjs': 'en mutation: beskriver det løfte, den bryder i app/Hastighed.tsx, som prøves i LOEFTER',
+  'scripts/cloud/rooms-repraesentant.ts': 'filen bruger basen og skriver; den nævner DATABASE_URL om sin spærring',
+  'scripts/kildetjek.ts': 'beskriver, hvad prøverne søger efter i ANDRE filer — ikke filens egen import',
+  // De to næste lover noget om KØRSLEN, og det holder: ingen forbindelse
+  // åbnes. Men grafen når db/client og postgres — `import-prøven` i
+  // CLAUDE.md. Som graf-løfter ville de være røde, så de står her med
+  // grunden skrevet ud frem for i LOEFTER.
+  'scripts/cloud/rooms-adressevagt.ts': '«Ingen database, ingen socket» gælder kørslen; grafen når db/client gennem rooms-repraesentant.ts',
+  'scripts/maalinger/skriv-maal-sql.ts': '«rører ingen database» gælder kørslen; grafen når db/client gennem lib/omraade og lib/soeg',
 }
 
 /** Ordene i et løfte, vagten kan prøve, og hvad de forbyder. */
