@@ -56,8 +56,21 @@ type Taktbeslutning = number | typeof IKKE_BESLUTTET | ReturnType<typeof standar
  * nu er en oversaetterfejl. Se `det-staerkeste-faldback` i CLAUDE.md:
  * faldbacket her var ogsaa det staerkeste mulige udsagn, bare om en takt.
  *
- * `tjekTakttabellen()` i `scripts/tjek-takt.ts` fejler, hvis en registreret
- * kildes vaert mangler en linje. Den koerer i `npm test`.
+ * `scripts/tjek-takt.ts` fejler, hvis en registreret kildes vaert mangler
+ * en linje. Den koerer i `npm test`.
+ *
+ * ── HVAD TABELLEN IKKE DAEKKER ─────────────────────────────────────
+ * **Kun crawlen.** `app/api/billede/route.ts:47` henter billeder med plain
+ * `fetch` — ingen takt, ingen spaerre, ingen linje her. Og vaerterne er
+ * ikke adskilte: maalt 2026-10-02 er FIRE af de tolv i `TILLADTE_VAERTER`
+ * de samme vaerter, denne tabel pacer — `dacas.dk`, `findbolig.nu`,
+ * `birchejendomme.dk`, `alabubolig.dk`.
+ *
+ * Saettes `dacas.dk` til 20 sekunder her, gaelder det altsaa crawlen og
+ * ikke billedproxyen. Afboedningen er reel (`cache-control: immutable` i
+ * et aar paa billedsvarene), men tabellen daekker én af to veje, og det
+ * skal staa, hvor tallene saettes. Se «Hvilke VEJE reglen daekker» i
+ * `docs/kildetilladelser.md`.
  */
 const VAERTSTAKT: Record<string, Taktbeslutning> = {
   // ── Besluttet paa et maalt eller oplyst grundlag ────────────────
