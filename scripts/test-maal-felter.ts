@@ -124,7 +124,38 @@ console.log('\n══ 2 · sætningerne mod et forlæg med facit skrevet først 
     JSON.stringify(q3[0]))
 }
 
-console.log('\n══ 3 · ordlisten i filen ER Facilitetsord ══')
+console.log('\n══ 3 · konventionen gælder HVER måle-SQL ══')
+{
+  // CLAUDE.md: «uprøvet» er ikke én tilstand. En fil, der skal køres i
+  // produktionen, skal sige HVILKEN af de to den er — ellers skal
+  // læseren gætte, om tallene bare er usete, eller om sætningerne
+  // aldrig har mødt en parser.
+  //
+  // Tjekket står her og ikke som en vane, fordi netop denne fil var ét
+  // `<> '{}'` fra at svare forkert og tavst i en produktionskørsel.
+  const { readdirSync } = await import('node:fs')
+  const filer = readdirSync('scripts')
+    .filter((f) => f.startsWith('maal-') && f.endsWith('.sql'))
+  tjek('der ER måle-SQL\'er at holde op mod konventionen', filer.length > 0,
+    filer.join(', '))
+  for (const f of filer) {
+    const hoved = readFileSync(`scripts/${f}`, 'utf8').split('\n').slice(0, 40).join('\n')
+    const seteTal = /TALLENE ER ALDRIG SET/i.test(hoved)
+    const koertMod = /koert mod produktionen|kørt mod produktionen/i.test(hoved)
+    tjek(`  ${f} erklærer sin tilstand`, seteTal || koertMod,
+      seteTal || koertMod ? (seteTal ? 'tallene er aldrig set' : 'kørt mod produktionen')
+        : 'mangler «TALLENE ER ALDRIG SET» eller en erklæring om en kørsel')
+    // Den første slags skal navngive den prøve, der kørte sætningerne.
+    // Uden den er «syntaks og typer holder» en påstand uden dækning.
+    if (seteTal) {
+      tjek(`  ${f} navngiver prøven, der kørte sætningerne`,
+        /scripts\/test-[\w-]+\.ts/.test(hoved))
+    }
+    tjek(`  ${f} siger at den er skrivebeskyttet`, /SKRIVEBESKYTTET/.test(hoved))
+  }
+}
+
+console.log('\n══ 4 · ordlisten i filen ER Facilitetsord ══')
 {
   // Spørgsmål 3's `not in (…)` er en AFSKRIFT af lib/faciliteter.ts.
   // Den kan ikke beregnes ét sted — SQL'en skal kunne pastes uden en

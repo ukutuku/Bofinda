@@ -10,12 +10,17 @@
 --
 --  SKRIVEBESKYTTET. Kun `select`, ingen DDL, ingen DML.
 --
---  ── FORBEHOLD ───────────────────────────────────────────────
---  IKKE koert mod produktionen. Sessionen, der skrev filen, havde hverken
---  .env eller databaseadgang. Saetningerne er derimod koert mod TESTBASEN
---  (PGlite med de rigtige migrationer), saa syntaks og typer holder paa
---  det rigtige skema — men tallene er aldrig set. Se
---  scripts/test-maal-felter.ts.
+--  ── FORBEHOLD · TALLENE ER ALDRIG SET; SYNTAKS OG TYPER HOLDER ──
+--  Konventionen staar i CLAUDE.md: «uproevet» er ikke én tilstand.
+--
+--    tallene er ikke set         uundgaaeligt uden basen · acceptabelt
+--    syntaks og typer ikke koert undgaaeligt · ALDRIG acceptabelt her
+--
+--  Denne fil er den foerste slags. Sessionen, der skrev den, havde hverken
+--  .env eller databaseadgang, saa tallene er aldrig set. Men de tre
+--  saetninger ER koert mod testbasen — PGlite med de rigtige migrationer —
+--  mod et forlaeg med facit skrevet i haanden FOERST.
+--  Proeven er scripts/test-maal-felter.ts.
 --
 --  `amenities` er JSONB og ikke text[]. Foerste udkast brugte `unnest()`
 --  og `<> '{}'`; begge fejler paa jsonb, og den anden tier endda, fordi

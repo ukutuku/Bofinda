@@ -918,6 +918,37 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   telefonbillede bærer GPS for, hvor det er taget — altså hvor boligen
   ligger, ofte på meteren. Det er ikke vores at videregive, og udlejeren har
   ikke tænkt over det. Omtegningen på et canvas gør begge dele på én gang.
+- **«Uprøvet» er ikke én tilstand, og en måle-SQL skal sige HVILKEN af de
+  to den er.** De to forveksles let, og kun den ene er acceptabel:
+
+  | Tilstand | Undgåeligt? | I en fil, der skal køres i produktionen |
+  |---|---|---|
+  | **tallene er ikke set** | nej, ikke uden basen | **acceptabelt** |
+  | **syntaks og typer ikke kørt** | ja, altid | **aldrig acceptabelt** |
+
+  Skabelonen er én linje i filens hoved: *«Tallene er aldrig set; syntaks
+  og typer holder.»* Og den skal kunne dokumenteres — den prøve, der kørte
+  sætningerne, nævnes ved navn.
+
+  **Hvorfor det er en regel og ikke en vane.** `scripts/maal-felter.sql`
+  blev skrevet til en produktionskørsel samme aften. Første udkast havde
+  `cross join unnest(l.amenities)` og
+  `count(l.amenities) filter (where l.amenities <> '{}')`. `amenities` er
+  **jsonb**, ikke `text[]`. Den første fejler med en typefejl og opdages
+  i sekundet. Den anden **tier**: `'{}'` er et tomt *objekt* i jsonb og
+  aldrig lig en tom liste, så sætningen kører og svarer med et tal, ingen
+  har grund til at mistro. En SELECT, der kører og svarer forkert, er
+  værre end en, der fejler.
+
+  Begge var fanget af at køre sætningerne mod testbasen — PGlite med de
+  rigtige migrationer — mod et forlæg med facit skrevet i hånden FØRST.
+  Det kræver ingen produktionsadgang og koster ét script.
+  Se `scripts/test-maal-felter.ts`.
+
+  Vær særligt varsom med `jsonb`: `<> '{}'`, `= '[]'`, `unnest()` og
+  `array_length()` ser alle rigtige ud og gør noget andet, end de lover.
+  `lib/soeg.ts` har de former, der holder — `jsonb_array_length`,
+  `jsonb_exists`, `jsonb_array_elements_text`.
 - **Migrationer køres IKKE af Vercel-bygget** — et byg skal kunne lykkes
   uden en database. Derfor opdager ingenting en migration, der aldrig blev
   kørt: 0014 lå uden for produktionen, indtil en upload fejlede. **Kør
