@@ -44,6 +44,43 @@
 //  manglende vagt. `kildetjek` er ét gennemløb tegn for tegn og kender
 //  forskel på `//` i en streng, `/*` i et regex og en `'` i en kommentar.
 //  Et regex kan ikke se den forskel.
+//
+//  ── REGLEN: EN PRØVE MÅ IKKE HAVE EN MENING OM PROSA ──────────
+//
+//  LAG-KONTRASTER MÅLES PÅ SYNTETISKE STRENGE — ALDRIG PÅ EN RIGTIG
+//  FILS KOMMENTARER.
+//
+//  Reglen står her, fordi den blev ramt fra BEGGE sider samme dag, og
+//  det er samme sygdom begge gange:
+//
+//    1 · Prøven knækkede på sin EGEN rettelse. Den forbudte form
+//        `set move_in_cost = null` stod citeret i en kommentar i
+//        kortkontrol.mjs, hvor den forklarede hvad der blev rettet. En
+//        scanner uden lagfilter læste forklaringen som fejlen — og så
+//        kan en rettelse ikke dokumenteres uden at bryde prøven.
+//    2 · Rettelsen på det gik for langt den anden vej: en assertion
+//        krævede, at forklaringen STOD i kommentaren («ellers er noten
+//        væk»). Så er prøven en grund til ikke at omskrive en
+//        forklaring. En kommentar, der ikke må røres, er ikke
+//        dokumentation længere; den er en API-kontrakt uden en type.
+//
+//  En prøve, der har en mening om prosa, gør prosaen til kode uden at
+//  give den kodens omhu. Prosa må gerne ændre sig uden en commit, der
+//  hedder «ret prøven».
+//
+//  Hvad der SKAL måles, og hvordan:
+//
+//    · at lagfilteret er LIVE  →  på en syntetisk streng (`IKOMMENTAR`,
+//      `ISTRENG` nedenfor). To linjer, intet at vedligeholde.
+//    · at KODEN ikke bærer en forbudt form  →  med laget 'kode' mod den
+//      rigtige fil. Det er en påstand om kode, og den hører her.
+//    · at en KOMMENTAR siger noget bestemt  →  slet ikke. Hverken med
+//      'kommentar' eller 'alt'.
+//
+//  Undtagelsen, hvis den nogensinde bliver nødvendig: en kommentar, der
+//  er et MASKINLÆST direktiv — `@ts-expect-error`, `eslint-disable`,
+//  `// prettier-ignore`. De er kode med kommentarsyntaks, og en påstand
+//  om dem er en påstand om adfærd. Alt andet er prosa.
 // ═══════════════════════════════════════════════════════════════
 
 import { readFileSync, readdirSync } from 'node:fs'
