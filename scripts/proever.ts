@@ -43,6 +43,14 @@
 //  `import(` kan ikke skelne kode fra en streng eller en kommentar.
 //  Den dækker BÅDE prøvefilen og hver fil i dens graf — er en
 //  afhængighed blind, er afledningen for prøven det også.
+//
+//  ═══ OG GULVET: EN UDLEDT KÆDE KAN SKRUMPE LYDLØST ═══
+//
+//  En kæde, der er udledt af filerne, måler præcis de filer, der er —
+//  og siger intet, når der bliver færre. `GULV` nedenfor er det målte
+//  sæt, kæden SKAL finde, så 13 → 12 er rødt og ikke tavst, og så
+//  afvisningen NAVNGIVER den, der forsvandt. Et antal, der er faldet,
+//  sender den næste på jagt; et navn gør ikke.
 // ═══════════════════════════════════════════════════════════════
 
 import { build, type Metafile } from 'esbuild'
@@ -71,7 +79,105 @@ export type Gruppe = keyof typeof GRUPPER
 
 const SPRING_OVER = new Set(['node_modules', '.git', '.next', 'backup', 'dist'])
 
-/** Hver `test-*.ts` under roden. Fra ROTEN, så ingen mappe kan skjule en. */
+/**
+ * GULVET — de prøvefiler, kæden SKAL finde.
+ *
+ * **Hvorfor den findes:** `filer.length === 0` fanger, at opdageren ikke
+ * måler NOGET, og gruppeløkken i `laegPlan` fanger en navngiven gruppe,
+ * der løber tom. Ingen af dem fanger 13 → 12. Det er
+ * `nullet-der-betyder-to-ting` i kædens egen form — et tal, der ikke kan
+ * sige, at det holdt op med at måle. En prøve, der omdøbes, flyttes uden
+ * for roden eller mister sin endelse, forsvinder lydløst, og opdageren
+ * ville være grøn hele vejen.
+ *
+ * **Formen er en LISTE og ikke et tal**, af to grunde:
+ *
+ * · Den kan navngive HVILKE filer der er væk. Et tal, der er faldet,
+ *   sender den næste på jagt.
+ * · Den er additivt gratis. En ny prøve øger det målte antal over gulvet
+ *   og kræver INGEN redigering her — ellers var gulvet blevet den delte
+ *   linje, som denne PR fjerner. Kun en FJERNELSE eller en OMDØBNING
+ *   koster en bevidst rettelse, og det er præcis den handling, der SKAL
+ *   koste noget.
+ *
+ * Gruppen står med, fordi den vogter en ting mere: en fil, der beholder
+ * sit navn, men flytter sit mærke til en gruppe uden for `npm test`,
+ * falder også ud af kæden — og tælles stadig i totalen. Gruppen her er
+ * den, filen blev MÅLT i, ikke en påstand om, hvor den står i dag: et
+ * skifte mellem to grupper, der begge er i `npm test`, er i orden.
+ *
+ * **Målt 2. oktober 2026 på `277f01d`: 13 filer.** Listen er ikke
+ * skrevet af i hånden — den er genereret af `findProever()` og
+ * `laesMaerke()` på den commit. Hæves gulvet, skal tallet, datoen og
+ * commit'en følge med, så det kan læses som en måling og ikke et gæt.
+ */
+export const GULV = {
+  maalt: '2. oktober 2026',
+  commit: '277f01d',
+  pr: {
+    kerne: [
+      'scripts/test-boligtype.ts',
+      'scripts/test-indflytning.ts',
+      'scripts/test-kildetjek.ts',
+      'scripts/test-maaling.ts',
+      'scripts/test-redigering.ts',
+      'scripts/test-rene-filer.ts',
+      'scripts/test-soegning.ts',
+    ],
+    adaptere: [
+      'scripts/test-depositum.ts',
+    ],
+    oekonomi: [
+      'scripts/test-beskrivelse-ved-visning.ts',
+      'scripts/test-beskrivelse.ts',
+      'scripts/test-genskriv.ts',
+    ],
+    besked: [
+      'scripts/test-kontaktmur.ts',
+    ],
+    staging: [
+      'scripts/staging/test-maal.ts',
+    ],
+  },
+} as const satisfies { maalt: string; commit: string; pr: Partial<Record<Gruppe, readonly string[]>> }
+
+/** Gulvets poster, flade: `{ fil, gruppe }`. Gruppen er den MÅLTE. */
+export const gulvposter = (): { fil: string; gruppe: Gruppe }[] =>
+  Object.entries(GULV.pr).flatMap(([g, l]) => l.map((fil) => ({ fil, gruppe: g as Gruppe })))
+
+
+/**
+ * Hver `test-*.ts` og `test-*.mjs` under roden. Fra ROTEN, så ingen mappe
+ * kan skjule en.
+ *
+ * **Endelsen dækker `.mjs`, og det er et valg med en begrundelse.**
+ * `scripts/test-isolation.mjs` (#52) har det rigtige præfiks og en anden
+ * endelse — og den står i `test:kerne` i dag. Så en `.ts`-only opdager
+ * ville FJERNE en vagt, der gater lige nu, i samme øjeblik denne PR
+ * landede. Det er netop den lydløse afgang, opdageren findes for.
+ *
+ * Alternativet var at kræve en omdøbning. Målt, før valget blev truffet:
+ * tre `test-*.mjs` findes på otte grene — `test-isolation.mjs` (187
+ * linjer, kører under almindelig `node`, rører ingen base) og to
+ * browserdrevne på 711 og 664 linjer, `test-favoritforloeb-e2e.mjs` og
+ * `test-gendannelse-actions.mjs`, som ikke står i nogen npm-nøgle i dag.
+ * En omdøbning er billig for den første og dyr for de to andre, som så
+ * skulle gennem `tsconfig.scripts.json` og tsx uden at nogen havde bedt
+ * om det. Og en fil bør ikke omdøbes, fordi en kæde ikke kan se den.
+ *
+ * De to e2e-filer er ALLEREDE tavse. Med `.mjs` dækket bliver tavsheden
+ * en rød linje, der siger «sæt et mærke» — afvisningsreglen, der virker.
+ * Målt på denne gren koster udvidelsen 0 filer: der er ingen
+ * `test-*.mjs` her endnu.
+ *
+ * **`proev-*` dækkes IKKE**, og det er også målt: `scripts/` på main har
+ * 13 `test-*` mod 2 `proev-*`, og ingen af de to er prøvekædefiler.
+ * `scripts/maalinger/proev-maal-sql.ts` er død — absolut sti til en anden
+ * sessions scratchpad, i ingen npm-nøgle — og `scripts/proev-genskab.mjs`
+ * er genskabelsesprøven for `db:backup`. En udvidelse til `proev-*` ville
+ * trække den døde fil ind i `npm test` og fejle på en sti, der ikke
+ * findes. `test-*` ER konventionen, 13 mod 2.
+ */
 export function findProever(rod = ROD): string[] {
   const ud: string[] = []
   const gaa = (m: string) => {
@@ -79,7 +185,7 @@ export function findProever(rod = ROD): string[] {
       if (SPRING_OVER.has(n)) continue
       const p = join(m, n)
       if (statSync(p).isDirectory()) gaa(p)
-      else if (/^test-.*\.ts$/.test(n)) ud.push(relative(rod, p))
+      else if (/^test-.*\.(ts|mjs)$/.test(n)) ud.push(relative(rod, p))
     }
   }
   gaa(rod)
@@ -193,7 +299,22 @@ export async function laegPlan(rod = ROD): Promise<Plan> {
   const filer = findProever(rod)
   const afvist: string[] = []
   const poster: Post[] = []
-  if (filer.length === 0) afvist.push('fandt NUL test-*.ts — opdageren maaler ikke noget')
+  if (filer.length === 0) afvist.push('fandt NUL test-*.ts/.mjs — opdageren maaler ikke noget')
+
+  // GULVET. Et antal, der er FALDET, kan ikke sige det selv — se GULV.
+  // Der er bevidst ikke et separat «antal under gulvet»-tjek: falder
+  // antallet under gulvets, mangler mindst én af gulvets filer, saa
+  // navnetjekket er strengere og kan ogsaa fange en OMDOEBNING, hvor
+  // antallet staar stille. Et flueben, der ikke kan blive roedt alene,
+  // er ingen proeve.
+  const fundet = new Set(filer)
+  const forsvundet = gulvposter().filter((x) => !fundet.has(x.fil))
+  if (forsvundet.length) {
+    afvist.push(
+      `gulvet: ${filer.length} proevefiler fundet, ${gulvposter().length} maalt ${GULV.maalt} (${GULV.commit}) — `
+      + `${forsvundet.length} er VAEK: ${forsvundet.map((x) => `${x.fil} (maalt i ${x.gruppe})`).join(', ')}.\n`
+      + '      Er fjernelsen med vilje, skal GULV i scripts/proever.ts rettes i SAMME aendring.')
+  }
 
   for (const fil of filer) {
     const kilde = readFileSync(join(rod, fil), 'utf8')
@@ -225,6 +346,18 @@ export async function laegPlan(rod = ROD): Promise<Plan> {
     poster.push({ fil, maerke: m.m, form: formFraGraf(g) })
   }
 
+  // Og den anden vej ud af kaeden: samme filnavn, nyt maerke. Den
+  // taelles stadig i totalen, saa gulvets antal ser uaendret ud.
+  for (const x of gulvposter()) {
+    const p = poster.find((q) => q.fil === x.fil)
+    if (!p || p.maerke.gruppe === x.gruppe) continue
+    if (GRUPPER[x.gruppe].iNpmTest && !GRUPPER[p.maerke.gruppe].iNpmTest) {
+      afvist.push(
+        `gulvet: ${x.fil} er flyttet fra «${x.gruppe}» til «${p.maerke.gruppe}», som IKKE er i npm test — `
+        + 'daekning, der forlader kaeden uden at antallet falder. Er det med vilje, retter du GULV i samme aendring.')
+    }
+  }
+
   for (const [navn, g] of Object.entries(GRUPPER)) {
     if (!g.iNpmTest) continue
     if (!poster.some((p) => p.maerke.gruppe === navn)) {
@@ -254,7 +387,9 @@ function visAfvisning(a: string[]): void {
   fejlUd('')
   fejlUd('  En prøvefil uden gruppemaerke er daekning, der lydloest ikke')
   fejlUd('  findes. En blind import gør afledningen af paakaldelsesformen')
-  fejlUd('  usand. Begge er roede med vilje — se hovedet i scripts/proever.ts.')
+  fejlUd('  usand. Og en kaede, der er udledt af filerne, skrumper lydloest:')
+  fejlUd('  derfor gulvet. Alle tre er roede med vilje — se hovedet i')
+  fejlUd('  scripts/proever.ts.')
   fejlUd('')
 }
 

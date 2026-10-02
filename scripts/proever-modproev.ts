@@ -15,10 +15,10 @@
 //  to sidste skal give en AFVISNING — ikke et groent «intet andet».
 // ═══════════════════════════════════════════════════════════════
 
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { blindeImporter, formFraGraf, graf, laegPlan, laesMaerke } from './proever'
+import { GULV, blindeImporter, formFraGraf, graf, gulvposter, laegPlan, laesMaerke } from './proever'
 
 const ROD = fileURLToPath(new URL('..', import.meta.url))
 const MAPPE = '.proever-modproev'
@@ -124,6 +124,79 @@ export async function modproev(): Promise<number> {
       const p3 = await laegPlan()
       tjek('og uden dem er planen ren', p3.afvist.length === 0,
         p3.afvist.slice(0, 2).join(' | ') || 'ingen afvisninger')
+    }
+
+    afsnit('E · gulvet — et antal, der er FALDET, kan sige det selv')
+    {
+      // Bruddet indfoeres dér, hvor produktionen laeser: en RIGTIG
+      // proevefil flyttes ud af gulvet, og den rigtige laegPlan() kaldes.
+      // Dot-praefikset gør, at findProever ikke matcher den, og filen
+      // bliver liggende i scripts/ — ikke i modproevens egen mappe, som
+      // ryddes i det ydre finally. Doer processen midt i, staar den som
+      // scripts/.modproev-flyttet-… og kan hentes tilbage med git status.
+      const n = gulvposter().length
+      const offer = GULV.pr.kerne[0]!
+      const skjult = offer.replace(/(^|\/)(test-)/, '$1.modproev-flyttet-$2')
+      renameSync(join(ROD, offer), join(ROD, skjult))
+      try {
+        const p = await laegPlan()
+        const linje = p.afvist.find((a) => a.startsWith('gulvet:'))
+        tjek('en fjernet proevefil gør planen roed', linje !== undefined, linje ? '' : 'INGEN afvisning')
+        tjek('… og afvisningen NAVNGIVER den, der forsvandt',
+          linje?.includes(offer) === true, offer)
+        tjek('… og siger baade det fundne og det maalte antal',
+          new RegExp(`${n - 1} proevefiler fundet, ${n} maalt`).test(linje ?? ''),
+          `${n - 1} af ${n}`)
+      } finally {
+        renameSync(join(ROD, skjult), join(ROD, offer))
+      }
+    }
+    {
+      // Den anden vej ud af kaeden: samme filnavn, nyt maerke. Antallet
+      // staar stille, saa et gulv af TAL ville vaere groent her.
+      const offer = GULV.pr.kerne[1]!
+      const sti = join(ROD, offer)
+      const kilde = readFileSync(sti, 'utf8')
+      const flyttet = kilde.replace(/^(\s*\/\/\s*gruppe:\s*)kerne\b/m, '$1manuel')
+      // Denne linje er ikke pynt. Foerste udgave af modproeven brugte
+      // `^// gruppe: kerne$` og ramte ikke — filen skriver TO mellemrum
+      // efter `//` — saa bruddet landede aldrig, og modproeven var groen
+      // af den forkerte grund. Nu siger den det.
+      tjek('modproeven kunne faktisk aendre maerket', flyttet !== kilde,
+        flyttet === kilde ? `maerket i ${offer} ser ikke ud som ventet` : offer)
+      writeFileSync(sti, flyttet)
+      try {
+        const p = await laegPlan()
+        const linje = p.afvist.find((a) => a.startsWith('gulvet:') && a.includes('flyttet fra'))
+        tjek('et maerke, der forlader npm test, gør planen roed', linje !== undefined,
+          linje ? '' : 'INGEN afvisning')
+        tjek('… og afvisningen siger hvorfra og hvortil',
+          /fra «kerne» til «manuel»/.test(linje ?? ''), linje?.slice(0, 80) ?? '')
+      } finally {
+        writeFileSync(sti, kilde)
+      }
+    }
+    {
+      const p = await laegPlan()
+      tjek('og med alt paa plads er planen ren igen', p.afvist.length === 0,
+        p.afvist.slice(0, 2).join(' | ') || 'ingen afvisninger')
+    }
+
+    afsnit('F · endelsen daekker .mjs')
+    {
+      const mjs = `${MAPPE}/test-fra-mjs.mjs`
+      writeFileSync(join(ROD, mjs), '//  gruppe: manuel\nexport const x = 1\n')
+      const p = await laegPlan()
+      tjek('en test-*.mjs findes af findProever', p.poster.some((q) => q.fil === mjs),
+        p.poster.some((q) => q.fil === mjs) ? '' : 'IKKE fundet')
+      tjek('… og uden afvisning, naar den har sit maerke', p.afvist.length === 0,
+        p.afvist.slice(0, 1).join('') || 'ingen')
+      writeFileSync(join(ROD, mjs), 'export const x = 1\n')
+      const p2 = await laegPlan()
+      tjek('… og UDEN maerke afvises den som enhver .ts',
+        p2.afvist.some((a) => a.startsWith(mjs)),
+        p2.afvist.find((a) => a.startsWith(mjs)) ?? 'IKKE afvist')
+      rmSync(join(ROD, mjs))
     }
 
     process.stdout.write(fejl === 0
