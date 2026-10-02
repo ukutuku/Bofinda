@@ -118,6 +118,10 @@ export function breddeTilladt(url: string, bredde: number): boolean {
 }
 
 function hemmelighed(): string {
+  // Roteres denne, skifter HVER signatur og dermed hver billed-URL paa én
+  // gang — og hvert distinkt billede hentes igen fra kilderne, ad en vej
+  // der ikke pacer. Koereseddel i .env.example: takten ned paa de fire
+  // overlappende vaerter FOERST.
   const s = process.env.BILLED_HEMMELIGHED
   if (!s || s.length < 16) {
     throw new Error('BILLED_HEMMELIGHED mangler eller er for kort (mindst 16 tegn)')

@@ -17,22 +17,108 @@ const RATE_MS = Number(process.env.CRAWLER_RATE_MS ?? 1000)
  * IP moedt med 503 efter ~17 minutter ved ét kald i sekundet — uanset
  * User-Agent. Ikke bot-beskyttelse af enkeltkald, men af moensteret.
  */
-const VAERTSTAKT: Record<string, number> = {
+/**
+ * «Standardtakt» er ikke en beslutning. Markoeren siger, at der ikke er
+ * taget stilling, saa det kan SES — og saa optaellingen kan falde.
+ *
+ * Den giver samme takt som foer (RATE_MS). Det er med vilje: at skrue otte
+ * kilder ned paa én gang er en driftsaendring, ingen har besluttet, og
+ * reglen her handler om, at beslutningen skal vaere SKREVET — ikke om at
+ * jeg vaelger tallene. Anbefalingerne pr. kilde staar i
+ * `docs/kildetilladelser.md`; naar de er godkendt, erstattes markoeren af
+ * et tal eller af `standardtakt(...)` med en begrundelse.
+ */
+export const IKKE_BESLUTTET = Symbol('takt ikke besluttet')
+
+/** En bevidst beslutning om at bruge standardtakten, med dato og grund. */
+export function standardtakt(besluttet: string, fordi: string) {
+  return { standard: true as const, besluttet, fordi }
+}
+
+type Taktbeslutning = number | typeof IKKE_BESLUTTET | ReturnType<typeof standardtakt>
+
+/**
+ * Takten pr. vaert — og HVER vaert, `politeFetch` rammer, skal staa her.
+ *
+ * ── Hvorfor tabellen ikke maa have en standard ────────────────────
+ * Tabellen havde foer to poster, og begge var REAKTIONER: Heimstaden 5000
+ * efter deres 503, Laros 20000 fra deres robots.txt. Alt andet faldt til
+ * `RATE_MS` — ét kald i sekundet.
+ *
+ * **Og ét kald i sekundet er praecis den takt, der fik os spaerret.**
+ * Heimstadens CDN moedte os med 503 efter ~17 minutter ved den takt (maalt
+ * 2026-09-06). Standardtakten er altsaa ikke en sikker vaerdi, vi falder
+ * tilbage paa — den er den vaerdi, vi har et maalt modeksempel paa.
+ *
+ * Svaret er ikke en langsommere `RATE_MS`. Det er, at en vaert uden en
+ * nedskrevet beslutning skal vaere en FEJL og ikke en standard — samme
+ * skranke som `detaljeBudgetPrKoersel`, hvor et manglende `listeGrundlag`
+ * nu er en oversaetterfejl. Se `det-staerkeste-faldback` i CLAUDE.md:
+ * faldbacket her var ogsaa det staerkeste mulige udsagn, bare om en takt.
+ *
+ * `scripts/tjek-takt.ts` fejler, hvis en registreret kildes vaert mangler
+ * en linje. Den koerer i `npm test`.
+ *
+ * ── HVAD TABELLEN IKKE DAEKKER ─────────────────────────────────────
+ * **Kun crawlen.** `app/api/billede/route.ts:47` henter billeder med plain
+ * `fetch` — ingen takt, ingen spaerre, ingen linje her. Og vaerterne er
+ * ikke adskilte: maalt 2026-10-02 er FIRE af de tolv i `TILLADTE_VAERTER`
+ * de samme vaerter, denne tabel pacer — `dacas.dk`, `findbolig.nu`,
+ * `birchejendomme.dk`, `alabubolig.dk`.
+ *
+ * Saettes `dacas.dk` til 20 sekunder her, gaelder det altsaa crawlen og
+ * ikke billedproxyen. Afboedningen er reel (`cache-control: immutable` i
+ * et aar paa billedsvarene), men tabellen daekker én af to veje, og det
+ * skal staa, hvor tallene saettes. Se «Hvilke VEJE reglen daekker» i
+ * `docs/kildetilladelser.md`.
+ */
+const VAERTSTAKT: Record<string, Taktbeslutning> = {
+  // ── Besluttet paa et maalt eller oplyst grundlag ────────────────
+  // Heimstadens CDN droevler VEDVARENDE crawl: maalt 2026-09-06 blev alle
+  // kald fra denne IP moedt med 503 efter ~17 minutter ved ét kald i
+  // sekundet — uanset User-Agent. Ikke bot-beskyttelse af enkeltkald, men
+  // af moensteret.
   'www.heimstaden.dk': 5000,
+  // Laros' robots.txt siger Crawl-delay: 20. Det er deres tal, ikke vores,
+  // og tilladelsen (docs/kildetilladelser.md) aendrer det ikke: en bred
+  // tilladelse til at hente er ikke en tilladelse til at hente hurtigt.
   'www.laros.dk': 20000,
   // home.dk har ikke sagt noget til os, og vi har ikke spurgt. Tallet er
   // derfor ikke maalt paa kilden — det er Heimstadens, overtaget bevidst:
   // 5 s er den takt, vi bruger til den ene kilde, hvis taalmodighed vi
   // KENDER graensen for, og home.dk's kender vi ikke. Reglen staar i
   // docs/kildetilladelser.md: en kilde uden nedskrevet grundlag faar den
-  // strammeste takt, ikke den loeseste. Loesnes den, skal det staa paa en
-  // samtale — ikke paa at ingen har klaget endnu.
+  // strammeste takt, ikke den loeseste.
   'home.dk': 5000,
-  // Laros' robots.txt siger Crawl-delay: 20. Det er deres tal, ikke vores,
-  // og tilladelsen (docs/kildetilladelser.md) aendrer det ikke: en bred
-  // tilladelse til at hente er ikke en tilladelse til at hente hurtigt.
+
+  // ── IKKE besluttet. Linjen findes, saa fravaeret kan taelles ─────
+  //  Alle otte koerer paa standardtakten i dag, og ingen har taget
+  //  stilling til det. Anbefalingerne staar i docs/kildetilladelser.md —
+  //  Propstep og LokalBolig har ogsaa brug for et detaljeloft, og
+  //  Propstep er den med stoerst eksponering: ~736 nye boliger ved ét
+  //  kald i sekundet er ~12,3 minutter, mod Heimstadens maalte ~17.
+  'propstep.com': IKKE_BESLUTTET,
+  'www.lokalbolig.dk': IKKE_BESLUTTET,
+  'findbolig.nu': IKKE_BESLUTTET,
+  'dacas.dk': IKKE_BESLUTTET,
+  'api.balder.dk': IKKE_BESLUTTET,
+  'udlejning.cej.dk': IKKE_BESLUTTET,
+  'birchejendomme.dk': IKKE_BESLUTTET,
+  'alabubolig.dk': IKKE_BESLUTTET,
 }
-const takt = (host: string) => VAERTSTAKT[host] ?? RATE_MS
+
+/** Er der taget stilling til vaerten? Bruges af tjekket, ikke af pacingen. */
+export const taktBesluttet = (host: string): boolean =>
+  host in VAERTSTAKT && VAERTSTAKT[host] !== IKKE_BESLUTTET
+/** Vaerterne i tabellen — tjekket sammenligner dem med registret. */
+export const taktTabellensVaerter = (): string[] => Object.keys(VAERTSTAKT)
+/** Staar vaerten i tabellen overhovedet? Et manglende navn er en fejl. */
+export const taktStaarITabellen = (host: string): boolean => host in VAERTSTAKT
+
+const takt = (host: string) => {
+  const b = VAERTSTAKT[host]
+  return typeof b === 'number' ? b : RATE_MS
+}
 /** Takten for en vaert — eksporteret, saa proeven kan se, at Laros' 20 s
  *  faktisk staar her og ikke kun i et kommentarfelt. */
 export const taktFor = (host: string) => takt(host)
