@@ -6,6 +6,13 @@
 //  forbinder ved første forespørgsel — og her kommer der ingen.)
 //
 //    npx tsx --tsconfig tsconfig.scripts.json scripts/maalinger/skriv-bynavne-domaene-sql.ts
+//    npm run maaling:sql      skriver filen ved siden af, maalinger-til-supabase.sql
+//
+//  Filen er committet, så den, der skal køre målingerne, kan hente den
+//  uden at klone og køre generatoren. proev-sql-fil.ts (npm test) fejler,
+//  hvis den committede fil ikke er det, generatoren skriver i dag — en
+//  ændring i appens prædikater gør den altså rød, til filen er skrevet
+//  igen.
 //
 //  Hver blok er ÉT resultatsæt, kun SELECT, ingen temp-tabeller og ingen
 //  skrivende CTE'er. Prædikaterne er appens egne, gengivet af drizzle
@@ -353,6 +360,20 @@ export function blokke(): { navn: string; sql: string }[] {
   ]
 }
 
+/** Den committede fil. Stien står ét sted: her. */
+export const SQL_FIL = 'scripts/maalinger/maalinger-til-supabase.sql'
+
+/** Hele teksten, som den skrives — til stdout, til filen og i prøven. */
+export function tekst(): string {
+  return blokke().map((b) => b.sql).join('\n\n\n') + '\n'
+}
+
 if (process.argv[1]?.endsWith('skriv-bynavne-domaene-sql.ts')) {
-  process.stdout.write(blokke().map((b) => b.sql).join('\n\n\n') + '\n')
+  if (process.argv.includes('--skriv')) {
+    const { writeFileSync } = await import('node:fs')
+    writeFileSync(SQL_FIL, tekst())
+    process.stdout.write(`skrevet: ${SQL_FIL}\n`)
+  } else {
+    process.stdout.write(tekst())
+  }
 }
