@@ -213,10 +213,18 @@ er «ikke efterset», og fristen er den samme som for de 157: 30. december
 - **#3, #9 og #35 er alle `dirty` mod `main`**, målt med `git merge-tree`
   og på hvert sit enkelt-endpoint. De skal rebases, før de kan lande, og
   en rebase kan ændre billedfilerne. **Regn sha'erne om EFTER rebasen**
-  (`sha256sum docs/kontomails/eksempler/*.png`), ikke før. Datoen er
-  forfatterdatoen, og den overlever en rebase. Det er samme regel som
-  overalt i kontrollen: ændres et billede før merge, passer dets post
-  ikke. Det er sagt på [#35](https://github.com/ukutuku/Bofinda/pull/35),
+  (`sha256sum docs/kontomails/eksempler/*.png`), ikke før. Det er samme
+  regel som overalt i kontrollen: ændres et billede før merge, passer dets
+  post ikke.
+- **Hvorfor datoen holder, mens sha'en ikke gør:** posten bærer to slags
+  oplysninger, og en rebase behandler dem forskelligt. Datoen er
+  forfatterdatoen på den commit, der lagde filen til (`git log
+  --diff-filter=A --format=%ad`). En rebase skriver commits om, men
+  beholder forfatterdatoen, så datoen er den samme før og efter. Sha'en er
+  regnet af filens bytes, og dem kan en rebase ændre: en konflikt i filen,
+  en anden version på `main` eller en opløsning, der vælger den anden side.
+  Datoen kan derfor skrives i dag. Sha'en kan først skrives, når det hoved,
+  der skal lande, findes. Det er sagt på [#35](https://github.com/ukutuku/Bofinda/pull/35),
   [#3](https://github.com/ukutuku/Bofinda/pull/3#issuecomment-5958688796)
   og [#9](https://github.com/ukutuku/Bofinda/pull/9#issuecomment-5958691647).
 
