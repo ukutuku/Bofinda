@@ -108,3 +108,23 @@ jobs:
 
       - name: next build
         run: npm run build
+
+      # Skrifttypen hentes fra Google ved BYGNING og serveres derefter af
+      # siden selv — brugerens browser kontakter aldrig Google for den. Det
+      # er en privatlivskendsgerning (se CLAUDE.md), og den holder kun, så
+      # længe det byggede ikke nævner Googles skriftværter. Kommer et
+      # <link> til Google Fonts ind, er politikken usand, og så er dette rødt.
+      - name: Skrifttypen er selvhostet
+        run: |
+          fund=$(grep -rlE 'fonts\.(googleapis|gstatic)\.com' .next/static .next/server || true)
+          if [ -n "$fund" ]; then
+            echo "::error::Det byggede nævner Googles skriftværter — brugerens browser ville kontakte Google:"
+            echo "$fund"
+            exit 1
+          fi
+          antal=$(ls .next/static/media | grep -c '\.woff2$' || true)
+          if [ "$antal" -lt 1 ]; then
+            echo "::error::ingen .woff2 i .next/static/media — skrifttypen er ikke selvhostet, eller bygget ændrede form"
+            exit 1
+          fi
+          echo "ingen Google-skriftvært i det byggede; $antal skriftfiler serveres af siden selv"
