@@ -52,7 +52,7 @@ if (!UD) { console.error('brug: node app-skud.mjs <udmappe> foer|efter|efter-haa
 // (psql ville følge ?dbname= og ?host=), og basen spørges bagefter selv,
 // som scripts/cloud/app-op.sh gør. Exit 3.
 const { kraevMaal } = await import(join(FORSLAG, 'maalinger/laast-base.mjs'))
-const MAAL = kraevMaal(['--maal', 'test'])
+const MAAL = await kraevMaal(['--maal', 'test'])   // await: async på main (#39), synkron her — virker begge steder
 const url = MAAL.url.toString()
 const hent = (q) => execFileSync('psql', [url, '-Atc', q]).toString().trim()
 {

@@ -20,6 +20,9 @@
 //  billede med gyldig kvittering afvises. Listen er lukket: en post dateret
 //  efter `lukket` afvises, og en post for en fil, der ikke findes længere,
 //  afvises, så listen skrumper med vilje og aldrig står med døde poster.
+//  Hver post har en herkomst: «kendt» eller «ikke efterset». En post med
+//  «ikke efterset» har en frist på 90 dage fra lukningen; derefter er
+//  kontrollen rød, indtil nogen har set på billedet eller fjernet det.
 //
 //  Begge veje: kontrollen nægter at køre, hvis prædikatet er ændret, uden
 //  at versionen er hævet. Exit 0, hvis alt er godkendt; 1 ellers, med en
@@ -37,6 +40,12 @@ const ROD = resolve(HER, '../../..')
 const UNDTAGELSER = join(HER, 'billedundtagelser.json')
 const BILLEDE = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif'])
 const sha = (b) => createHash('sha256').update(b).digest('hex')
+
+// En undtagelse uden efterset herkomst er en frist, ikke et arkiv: FRIST_DAGE
+// efter listen blev lukket, er kontrollen rød for hver post, ingen har set på.
+const FRIST_DAGE = 90
+const HERKOMST = new Set(['kendt', 'ikke efterset'])
+const fristFor = (lukket) => { const d = new Date(lukket + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + FRIST_DAGE); return d.toISOString().slice(0, 10) }
 
 const argv = process.argv.slice(2)
 const repo = argv[0] === '--repo'
@@ -65,13 +74,16 @@ const afvist = []
 if (repo) {
   const { lukket, filer: poster } = JSON.parse(readFileSync(UNDTAGELSER, 'utf8'))
   const undtaget = new Map(poster.map((p) => [p.fil, p]))
+  const frist = fristFor(lukket), idag = new Date().toISOString().slice(0, 10)
   const set = new Set()
   for (const f of filer) {
     const r = relative(ROD, resolve(f)), p = undtaget.get(r)
     set.add(r)
     if (!p) afvist.push(`${r}: et nyt billede i repoet — bevisbilleder lever i artefaktet (GREB-5 § 5), også med kvittering`)
     else if (!p.grund || !p.dato) afvist.push(`${r}: undtagelsen mangler grund eller dato`)
+    else if (!HERKOMST.has(p.herkomst)) afvist.push(`${r}: herkomst «${p.herkomst}» — skal være «kendt» eller «ikke efterset»`)
     else if (p.dato > lukket) afvist.push(`${r}: undtagelsen er dateret ${p.dato}, efter at listen blev lukket ${lukket}`)
+    else if (p.herkomst === 'ikke efterset' && idag > frist) afvist.push(`${r}: herkomsten er ikke efterset, og fristen udløb ${frist} — efterse den og skriv «kendt» med en grund, eller fjern billedet`)
     else if (p.sha256 !== sha(readFileSync(f))) afvist.push(`${r}: ændret efter undtagelsen — undtagelsen gælder de bytes, der lå der`)
   }
   // Kun poster under de stier, der faktisk blev kontrolleret, kan være døde.
@@ -82,6 +94,8 @@ if (repo) {
   }
   for (const a of afvist) console.log(`AFVIST  ${a}`)
   console.log(`${filer.length - afvist.filter((a) => !/slet posten$/.test(a)).length} af ${filer.length} billeder i repoet står på undtagelseslisten (lukket ${lukket}).`)
+  const uefterset = poster.filter((p) => p.herkomst === 'ikke efterset').length
+  if (uefterset && idag <= frist) console.log(`${uefterset} af dem har en herkomst, som ingen har efterset. Fristen er ${frist}; derefter er kontrollen rød.`)
   process.exit(afvist.length ? 1 : 0)
 }
 

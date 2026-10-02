@@ -1,6 +1,6 @@
 # Designforslag: tallene bærer
 
-> **Runde 5 — B er valgt, kildebilleder skrives aldrig, testbasen tømmes målbart, og billedernes vægt er besluttet: ingen nye i repoet, kontrollen ligger i `npm test`:** [GREB-5.md](GREB-5.md). Del A er #39.
+> **Runde 5 — B er standarden, og porten er grunden; kildebilleder skrives aldrig; billedernes vægt er besluttet, og kontrollen ligger i `npm test`:** [GREB-5.md](GREB-5.md). **Fletning ind i `main`:** [FLETNING.md](FLETNING.md). Del A er landet som #39.
 >
 > **Runde 4 — B, krediteringen, meta-beskrivelsen og kommandoen i dokumentationen:** [GREB-4.md](GREB-4.md).
 >

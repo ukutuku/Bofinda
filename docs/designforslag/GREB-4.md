@@ -81,8 +81,13 @@ er derfor for dette kort, i alle fem tilstande.
 
 **Anbefalingen er vendt til B.** B er nu standarden i laget og kræver ingen
 klasse (`greb.css` § 6). Står CSS'en i appen, er B der; der er ingen markup at
-vente på. A er dokumenteret som klassen `.m-baand` og er rigtig, når
-`maal-foto.mjs` siger «KUN A»: et foto, der kræver mere end 0,60 slør i B.
+vente på. ~~A er dokumenteret som klassen `.m-baand` og er rigtig, når
+`maal-foto.mjs` siger «KUN A»: et foto, der kræver mere end 0,60 slør i B.~~
+
+> **Rettet 2. oktober 2026:** A er fjernet, og «KUN A» findes ikke mere.
+> Et foto, der kræver mere end 0,60 slør, afvises. Det er en samtale om
+> fotoet, ikke en grund til en variant, der koster 70–100 px for altid.
+> Se [GREB-5 § 1](GREB-5.md#1--telefonens-hero-er-b).
 
 ### Forbeholdet 5,48 er blevet et gulv
 

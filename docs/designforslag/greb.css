@@ -273,11 +273,16 @@
    B: teksten PÅ fotoet, hvid på et mørkt slør, og fotoet løber bag
    søgekortet. Foto, tekst og kort er ét objekt, og der står en rigtig
    bolig på første skærm: billede, titel, adresse, overtagelsesdato.
-   Valgt 1. oktober 2026 på kompositionen, ikke på tallene. Variant A
-   (fotoet som et 3:1-bånd øverst, teksten under det) er fjernet: tre
-   stablede blokke, og udsnittet skar rummet over. Et foto, der kræver
-   mere slør end loftet 0,60, AFVISES af maal-foto.mjs — der er ingen
-   variant at falde tilbage på.
+   B ER STANDARDEN, OG PORTEN ER GRUNDEN TIL, AT DET ER FORSVARLIGT.
+   Variant A (fotoet som et 3:1-bånd øverst, teksten under det) er
+   fjernet. Den lagde første boligkort 98 px lavere end B på 390 og 88
+   på 360 (GREB-3) — på det mål, der afgør, om nogen ser en bolig uden at
+   rulle. A's eneste fortrin var robusthed: teksten står på papir, så
+   kontrasten kan ikke gå tabt. Men den robusthed er maal-foto.mjs: et
+   foto, der kræver mere slør end loftet 0,60, AFVISES med exit 1, og
+   selvprøven viser, at porten kan sige nej. A var varianten for den, der
+   ikke kan måle fotoet. Vi kan. Afvises et foto, nogen gerne vil bruge,
+   er DET samtalen — ikke en variant, der koster 70–100 px for altid.
 
    B kræver INGEN klasse. Står laget i appen, er B der — der er ingen
    markup at vente på, og ingen rækkefølge mellem to udrulninger.

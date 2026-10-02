@@ -10,7 +10,8 @@
 //  2. Beviset for, at kontrollen kan fejle, på en kopi i /tmp: en
 //     kvittering under en ældre regel, uden version, for andre bytes; et
 //     nyt billede, et ændret undtaget billede, en post dateret efter
-//     lukningen, en død post; og et prædikat ændret uden ny version.
+//     lukningen, en død post, en uefterset herkomst efter fristen; og et
+//     prædikat ændret uden ny version.
 //     En kontrol, der kun er set grøn, er ikke prøvet.
 //  Exit 1 ved afvigelse. Intet uden for /tmp skrives.
 // ═══════════════════════════════════════════════════════════════
@@ -64,13 +65,13 @@ try {
   artefakt('ingen kvittering', null, 1, /ingen kvittering/)
 
   // Repoet: en egen rod med egen liste.
-  const repo = (navn, opsaet, forventet, moenster) => {
+  const repo = (navn, opsaet, forventet, moenster, lukket = '2026-10-01') => {
     const D = join(T, 'docs/billeder'); rmSync(D, { recursive: true, force: true }); mkdirSync(D, { recursive: true })
     const poster = opsaet(D)
-    writeFileSync(join(G, 'billedundtagelser.json'), JSON.stringify({ lukket: '2026-10-01', filer: poster }))
+    writeFileSync(join(G, 'billedundtagelser.json'), JSON.stringify({ lukket, filer: poster }))
     tjek(`repo: ${navn}`, koer(K, ['--repo', 'docs'], T), forventet, moenster)
   }
-  const post = (fil, b, dato = '2026-09-30') => ({ fil, sha256: sha(b), dato, grund: 'prøve' })
+  const post = (fil, b, dato = '2026-09-30', herkomst = 'kendt') => ({ fil, sha256: sha(b), dato, herkomst, grund: 'prøve' })
   repo('et undtaget billede', (D) => { writeFileSync(join(D, 'u.png'), PNG); return [post('docs/billeder/u.png', PNG)] }, 0)
   repo('et nyt billede med gyldig kvittering', (D) => {
     writeFileSync(join(D, 'n.png'), PNG)
@@ -81,6 +82,14 @@ try {
   repo('en undtagelse dateret efter lukningen', (D) => { writeFileSync(join(D, 'u.png'), PNG); return [post('docs/billeder/u.png', PNG, '2026-10-02')] }, 1, /efter at listen blev lukket/)
   repo('en undtagelse uden grund', (D) => { writeFileSync(join(D, 'u.png'), PNG); return [{ ...post('docs/billeder/u.png', PNG), grund: '' }] }, 1, /mangler grund/)
   repo('en undtagelse for en fil, der er væk', () => [post('docs/billeder/vaek.png', PNG)], 1, /slet posten/)
+  // Fristen: en uefterset herkomst er rød 90 dage efter lukningen. Listen
+  // her er lukket et år før i dag, så fristen er sikkert udløbet.
+  const gammel = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10)
+  const foer = new Date(Date.now() - 400 * 864e5).toISOString().slice(0, 10)
+  repo('ikke efterset, inden for fristen', (D) => { writeFileSync(join(D, 'u.png'), PNG); return [post('docs/billeder/u.png', PNG, '2026-09-30', 'ikke efterset')] }, 0, null, new Date().toISOString().slice(0, 10))
+  repo('ikke efterset, fristen udløbet', (D) => { writeFileSync(join(D, 'u.png'), PNG); return [post('docs/billeder/u.png', PNG, foer, 'ikke efterset')] }, 1, /fristen udløb/, gammel)
+  repo('kendt herkomst, lige så gammel', (D) => { writeFileSync(join(D, 'u.png'), PNG); return [post('docs/billeder/u.png', PNG, foer, 'kendt')] }, 0, null, gammel)
+  repo('en herkomst uden for de to', (D) => { writeFileSync(join(D, 'u.png'), PNG); return [post('docs/billeder/u.png', PNG, '2026-09-30', 'efterset senere')] }, 1, /skal være «kendt» eller «ikke efterset»/)
 
   // Prædikatet ændret, versionen ikke hævet: intet godkendes, heller ikke en gyldig kvittering.
   const hm = join(G, 'hero-maal.mjs')

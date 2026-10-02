@@ -6,11 +6,52 @@ den isolerede testbase.
 
 ## 1 · Telefonens hero er B
 
-**Valgt på kompositionen, ikke på tallene.** I B står der en rigtig bolig
-på første skærm: billede, titel, adresse og overtagelsesdato. Foto, tekst
-og det svævende kort er ét objekt. A var tre stablede blokke, og
-3:1-udsnittet skar rummet over. Rigtige annoncer flytter foldtallene og
-viser kompositionen, men de ændrer ikke valget.
+**B er standarden, og porten er grunden til, at det er forsvarligt.**
+Rettet 2. oktober 2026. Her stod først «valgt på kompositionen, ikke på
+tallene». Det var for beskedent. Tallene peger samme vej, og det, der
+gjorde A værd at overveje, er bygget.
+
+**Tallene** fra [GREB-3](GREB-3.md), første boligkorts top i px:
+
+| | I dag | B | A | A mere end B |
+|---|---|---|---|---|
+| 390 | 571 | 573 (+2) | 671 (+100) | **98** |
+| 360 | 571 | 596 (+25) | 684 (+113) | **88** |
+
+Omkring 30 px af hver variants tillæg er luft mellem søgekortet og
+«Nyeste boliger». Begge varianter har 32 px, appen i dag har 2. Det er en
+rettelse, ikke en omkostning ved heroen. Trækkes luften fra, koster
+heroen selv:
+
+| | B | A |
+|---|---|---|
+| 390 | −28 px | +70 px |
+| 360 | −5 px | +83 px |
+
+To forbehold, så tallene ikke siger mere, end de gør:
+
+- **Det er B's hero, der er lavere end i dag, ikke kortet.** Kortet står
+  2 px lavere end i dag på 390 og 25 px lavere på 360, fordi luften
+  kommer oveni. På 360 er B's hero omtrent som i dag (−5), ikke højere.
+- **Afgørelsen hviler på afstanden mellem A og B, og den holder i begge
+  bredder:** 88–98 px på det mål, der afgør, om nogen ser en bolig uden at
+  rulle.
+
+**A's argument var robusthed:** teksten står på papir, så kontrasten kan
+aldrig gå tabt. Men den robusthed er
+[`maal-foto.mjs`](gengivelse/maal-foto.mjs). Den afviser med exit 1 et
+foto, der ikke kan bære B, og selvprøven viser, at den kan sige nej. A var
+varianten for den, der ikke kan måle fotoet. Vi kan måle det.
+
+**Afvises et foto, nogen gerne vil bruge, er det samtalen.** Afvisningen
+skal ikke føre til en permanent variant, der koster 70–100 px. Dommen
+siger det selv: «fotoet kan ikke bære teksten. Det er en samtale om
+fotoet, ikke om en anden variant».
+
+Kompositionen peger samme vej. I B står der en rigtig bolig på første
+skærm, og foto, tekst og kort er ét objekt. A var tre stablede blokke, og
+3:1-udsnittet skar rummet over. Men det er tallene og porten, der gør
+valget forsvarligt, ikke smagen.
 
 **Variant A er fjernet:**
 
@@ -33,8 +74,9 @@ Ved hvert fotoskift måler `maal-foto.mjs` mod AA i alle bredder og over det
 værst tænkelige foto:
 
 - **Kræver fotoet mere slør end loftet 0,60, er dommen AFVIST:** «kræver
-  slør 0,65 > loftet 0,6 — fotoet kan ikke bære teksten; vælg et andet
-  foto».
+  slør 0,65 > loftet 0,6 — fotoet kan ikke bære teksten. Det er en
+  samtale om fotoet, ikke om en anden variant: vælg et andet, eller tal om
+  det».
 - **Der er ingen variant at falde tilbage på.** Før hed den dom «KUN A».
 
 Selvprøven: alle otte tilfælde fik deres facit. Det er B, B · OVERVÅGES og
@@ -222,9 +264,19 @@ exit 1 med «et nyt billede i repoet».
 `runde4.sh` nægter desuden en udmappe inde i repoet (exit 2), så fejlen
 fanges, før kørslen begynder, og ikke først i `npm test`.
 
-**Bemærk ved merge:** grenen bygger på `683a9fc`, hvor `npm test` er ét
-script. På `main` er det delt i `test:kerne` og flere andre. Leddet skal
-flyttes med, ikke tabes.
+**Ved merge:** `"test"`-linjen konflikterer med `main`, og begge oplagte
+løsninger er grønne og forkerte. Den rigtige står ordret i
+[`FLETNING.md`](FLETNING.md), både for `main` før og efter #49. Prøven
+[`proev-testkaede.mjs`](gengivelse/proev-testkaede.mjs) gør de forkerte
+løsninger røde. Den kaldes fra `scripts/test-redigering.ts`, som alle tre
+kæder kører, så fletningen ikke kan fjerne den tavst.
+
+**De 157 fra `main` har en frist, ikke en undtagelse.** Deres herkomst er
+«ikke efterset», og 90 dage efter lukningen, den 30. december 2026, bliver
+kontrollen rød for hver af dem, ingen har set på. Så skal billedet
+eftersees, hvorefter posten får herkomsten «kendt» med en grund, eller
+fjernes. Grenens 213 har herkomsten «kendt» og ingen frist. Kontrollen
+skriver fristen ud ved hver kørsel.
 
 ## 4 · Testbasen tømmes, og tømningen måles
 
@@ -308,10 +360,16 @@ allerede er i historikken. Squash-merge er et valg for den, der merger.
 | [`gengivelse/hero-maal.mjs`](gengivelse/hero-maal.mjs) | `fremmedeBilleder` (tre domme) og `skaermbillede` (med kvittering) |
 | [`gengivelse/billedkontrol.mjs`](gengivelse/billedkontrol.mjs) | kvitteringens format, prædikatets version og aftryk |
 | [`gengivelse/kontroller-billeder.mjs`](gengivelse/kontroller-billeder.mjs) | udgivelseskontrollen: artefakt (kvittering under nuværende regel) og `--repo` (lukket undtagelsesliste) |
-| [`gengivelse/billedundtagelser.json`](gengivelse/billedundtagelser.json) | 370 billeder uden kvittering, hver med grund og dato; lukket 1. oktober |
-| [`gengivelse/proev-billedkontrol.mjs`](gengivelse/proev-billedkontrol.mjs) | `npm test`'s første led: repoet og tolv modprøver |
+| [`gengivelse/billedundtagelser.json`](gengivelse/billedundtagelser.json) | 370 billeder uden kvittering, hver med grund, dato og herkomst; lukket 1. oktober, de 157 uefterséte har frist 30. december |
+| [`gengivelse/proev-billedkontrol.mjs`](gengivelse/proev-billedkontrol.mjs) | `npm test`'s første led: repoet og seksten modprøver, fristen med |
+| [`gengivelse/proev-testkaede.mjs`](gengivelse/proev-testkaede.mjs) | test-kæden kan ikke flettes uden billedkontrollen; elleve modprøver |
+| [`gengivelse/test-billedkontrol.ts`](gengivelse/test-billedkontrol.ts) | den samme kontrol som prøvefil med `// gruppe: kerne/2`, til #49's afledte kæde |
+| [`FLETNING.md`](FLETNING.md) | fletningen ind i `main`: `"test"`-linjen ordret, `kraevMaal`, syv konflikter, ti poster |
 | [`gengivelse/proev-kildebilleder.mjs`](gengivelse/proev-kildebilleder.mjs) | prøven af vagten |
 | [`gengivelse/toem-testbase.sh`](gengivelse/toem-testbase.sh) | tømningen og kontrollen |
 | [`gengivelse/runde4.sh`](gengivelse/runde4.sh) | `--rigtige`; A er ude; nægter udmappe i repoet |
 | [`gengivelse/maal-foto.mjs`](gengivelse/maal-foto.mjs) | over loftet er AFVIST |
 | [`GREB-3.md`](GREB-3.md) | titelpåstanden rettet, hvor den står |
+| [`GREB-4.md`](GREB-4.md) | «A er rigtig, når maal-foto siger KUN A» rettet, hvor den står |
+| [`gengivelse/app-skud.mjs`](gengivelse/app-skud.mjs) | `await kraevMaal`, så den virker mod `main`'s async vagt |
+| `scripts/test-redigering.ts` | kalder test-kædens prøve (fem linjer øverst) |

@@ -178,7 +178,7 @@ async function maalEt(o, navn, lagTillaeg = '') {
   }
   // Der er ingen variant at falde tilbage på: kræver fotoet mere end
   // loftet, kan det ikke bære B's tekst, og det er en afvisning.
-  for (const r of overLoft) grunde.push(`B ${r.bredde}: kræver slør ${dk(r.sloerKraevet)} > loftet ${dk(SLOER_LOFT)} — fotoet kan ikke bære teksten; vælg et andet foto`)
+  for (const r of overLoft) grunde.push(`B ${r.bredde}: kræver slør ${dk(r.sloerKraevet)} > loftet ${dk(SLOER_LOFT)} — fotoet kan ikke bære teksten. Det er en samtale om fotoet, ikke om en anden variant: vælg et andet, eller tal om det`)
   let dom
   if (grunde.length) dom = 'AFVIST'
   else if (B.some((r) => !r.fotosikker)) {
