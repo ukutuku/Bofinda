@@ -821,6 +821,27 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   `npm run db:status` efter hver deploy.** Den fejler med exit 1 og siger
   hvad der mangler — også en håndskrevet .sql-fil uden post i
   `meta/_journal.json`, som drizzle-kit ellers springer over i tavshed.
+
+  **Den anden form er en fil MED journalpost og et ældre tidsstempel.**
+  Samme stilhed, anden mekanisme. drizzle-orm 0.38.4 kører kun en
+  migration, hvis dens `when` i journalen er større end `created_at` for
+  den senest kørte (`pg-core/dialect.js:62`). Flettes en gren med
+  migrationer, efter at en anden grens NYERE migrationer er kørt i
+  produktionen, står de ældre i journalen og som filer — og bliver aldrig
+  kørt, uden en fejl. `db:status` opdager det, fordi den tæller kørte mod
+  journalposter, men den navngiver de SIDSTE poster, ikke den oversprungne.
+
+  **Reglen: en ny migration skal have et `when` efter hver migration, der
+  allerede kan være kørt i produktionen.** Flettes to grene med
+  migrationer, skal den, der flettes sidst, efterses: nyt nummer og nyt
+  `when` efter den førstes sidste.
+
+  Testbasen (`koerMigrationer` i `scripts/pglite-skema.mjs`) fejler, hvis
+  en .sql-fil mangler sin post, eller hvis `when` ikke stiger i journalens
+  rækkefølge. Uden de to tjek talte «N migrationer» kun journalposter, så
+  en fil uden post var hverken kørt eller talt. Men testbasen kan ikke se,
+  hvad der ER kørt i produktionen: en post indsat FØR allerede kørte poster
+  med et ældre `when` passerer den. Det fanger kun `db:status`.
 - **Bucket-navne er versalfølsomme.** Bucket'en blev oprettet som `Boliger`
   mens politikker og kode sagde `boliger`; ingen upload kunne ramme den.
   Alt vores hedder små bogstaver.
