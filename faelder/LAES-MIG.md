@@ -92,7 +92,7 @@ Tre ting står i tabellen:
   rummer også de undersøgte kilder. En opdeling skal samle dem først. #57
   skriver i «LokalBolig».
 - **Det sted, der støder mest sammen, ligger ikke i CLAUDE.md.** Det er
-  `test:kerne` i package.json: én linje på 771 tegn, som hver PR med en ny
+  `test:kerne` i package.json: én værdi på 755 tegn, som hver PR med en ny
   prøve skriver i, og den står i 13 af de 17 par, hvor package.json
   konflikter. Det er samme form som tabellen var: ét fælles sted, alle
   føjer til. **#49 bygger svaret** uafhængigt af denne mappe og med samme
