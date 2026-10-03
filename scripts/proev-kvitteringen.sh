@@ -28,20 +28,22 @@ nej() { printf '  ✗ %s%s\n' "$1" "${2:+  — $2}"; fejl=$((fejl+1)); }
 tjek() { if [ "$1" = ja ]; then ok "$2" "${3:-}"; else nej "$2" "${3:-}"; fi; }
 
 # ── A · hvilke kommandoer har et --continue? ────────────────────
-# Gits egen liste, ikke en huskeliste. `filter-branch`s `-h` hænger,
-# saa den tjekkes gennem `git help`; det staar her, fordi en daekning,
-# der har en undtagelse, skal sige det.
+# Gits egen liste, ikke en huskeliste. `filter-branch` venter ti sekunder
+# paa sin advarsel; den dokumenterede variabel nedenfor fjerner ventetiden.
+# `git help` gav her exit 0, men kun en besked om manglende manualsider.
+# En manglende hjaelpetekst maa ikke taelles som fravaer af --continue.
 # `$()` og ikke et roer: med `pipefail` er exitkoden for
 # `git <c> -h | grep -q` **git's**, ikke grep's — `git <c> -h` slutter
 # 129, saa `if`-en var falsk, ogsaa naar grep ramte. Foerste udgave af
 # denne fil fandt derfor NUL kommandoer. Det er `rørets-exitkode` i den
 # retning, hvor `pipefail` goer en VIRKENDE pipeline roed.
 har_continue() { # $1 = kommando
-  local h
+  local h kode
+  h="$(FILTER_BRANCH_SQUELCH_WARNING=1 timeout 5 git "$1" -h 2>&1)"; kode=$?
+  case "$kode" in 124|137) return 2 ;; esac
+  [ -n "$h" ] || return 2
   if [ "$1" = filter-branch ]; then
-    h="$(timeout 20 git help "$1" 2>/dev/null)"   # dens egen `-h` haenger
-  else
-    h="$(timeout 5 git "$1" -h 2>&1)"
+    case "$h" in *"usage: git filter-branch "*) ;; *) return 2 ;; esac
   fi
   case "$h" in *--continue*) return 0 ;; *) return 1 ;; esac
 }
@@ -50,13 +52,14 @@ har_continue() { # $1 = kommando
 # subshell — saa forælderens taeller blev aldrig sat, og daekningen stod
 # som «af 0 kommandoer», mens proeven bestod. Et daekningstal, der er
 # nul, fordi det blev taldt i et andet skal, er ikke en daekning.
-samlet() { # skriver «<antal>|<saet>»
-  local fundet='' c n=0
+samlet() { # skriver «<antal>|<saet>|<manglende hjaelp>»
+  local fundet='' mangler='' c kode n=0
   while read -r c; do
     n=$((n+1))
-    har_continue "$c" && fundet="$fundet $c"
+    har_continue "$c"; kode=$?
+    case "$kode" in 0) fundet="$fundet $c" ;; 2) mangler="$mangler $c" ;; esac
   done < <({ git --list-cmds=main; git --list-cmds=others; } 2>/dev/null | sort -u)
-  printf '%s|%s' "$n" "$(printf '%s' "$fundet" | tr ' ' '\n' | grep . | sort -u | tr '\n' ' ' | sed 's/ $//')"
+  printf '%s|%s|%s' "$n" "$(printf '%s' "$fundet" | tr ' ' '\n' | grep . | sort -u | tr '\n' ' ' | sed 's/ $//')" "$mangler"
 }
 
 # ── B · ét tilfaelde: samme bytes, staged mod ustaged ───────────
@@ -109,7 +112,9 @@ if [ "${1:-}" = '--modproev' ]; then
 fi
 
 printf '\n══ A · kommandoerne med et --continue ══\n'
-IFS='|' read -r SCANNET FUNDET <<< "$(samlet)"
+IFS='|' read -r SCANNET FUNDET MANGLER <<< "$(samlet)"
+tjek "$([ "$SCANNET" -gt 0 ] && [ -z "$MANGLER" ] && echo ja || echo nej)" \
+  'opregningen er ikke tom; ingen afviste hjaelpekald' "${MANGLER:-$SCANNET kommandoer}"
 tjek "$([ "$FUNDET" = "$FORVENTET" ] && echo ja || echo nej)" \
   "saettet er praecis det forventede (af $SCANNET kommandoer)" "fundet: «$FUNDET»"
 
@@ -135,12 +140,15 @@ arb="$(mktemp -d)"
   rammer_ej=$(git status --porcelain --ignored .skjult | grep -c '^!!')
   printf 'skjult\n.skjult\n' > .gitignore # MED punktum
   rammer_med=$(git status --porcelain --ignored .skjult | grep -c '^!!')
-  printf '%s|%s|%s' "$rammer" "$rammer_ej" "$rammer_med"
+  printf '**/*\n' > .gitignore        # Git-wildcards matcher ogsaa punktum-praefikset
+  rammer_wildcard=$(git status --porcelain --ignored .skjult | grep -c '^!!')
+  printf '%s|%s|%s|%s' "$rammer" "$rammer_ej" "$rammer_med" "$rammer_wildcard"
 ) > "$arb/.ud"
-IFS='|' read -r r rej rmed < "$arb/.ud"; rm -rf "$arb"
+IFS='|' read -r r rej rmed rwildcard < "$arb/.ud"; rm -rf "$arb"
 tjek "$([ "$r" -ge 1 ] && echo ja || echo nej)" 'et moenster, der rammer, giver `!!`' "$r"
 tjek "$([ "$rej" -eq 0 ] && echo ja || echo nej)" 'uden punktum rammer det IKKE .skjult — og tier' "$rej"
 tjek "$([ "$rmed" -ge 1 ] && echo ja || echo nej)" 'med punktum rammer det' "$rmed"
+tjek "$([ "$rwildcard" -ge 1 ] && echo ja || echo nej)" 'wildcard **/* rammer ogsaa .skjult' "$rwildcard"
 
 printf '\n  git %s\n' "$(git --version | awk '{print $3}')"
 if [ "$fejl" -eq 0 ]; then printf '  ALT GROENT\n'; else printf '  %s FEJL\n' "$fejl"; fi
