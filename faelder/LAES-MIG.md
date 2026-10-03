@@ -38,6 +38,65 @@ tabellen — ellers splitter den rækken, og filen afvises.
 - Rækkefølgen i tabellen er form og derefter navn i dansk orden. Der er
   ingen numre: navnet er identifikatoren.
 
+## Hvordan en række må være skrevet
+
+Reglen om den lodrette streg ovenfor — «En lodret streg skrives `\|` som i
+tabellen — ellers splitter den rækken, og filen afvises» — er ét tilfælde af
+en bredere egenskab ved denne mappe:
+
+> **En dokumentation, der udløser sin egen kontrol, gør baselinen til en
+> undtagelsesliste.**
+
+Det gælder enhver kontrol, hvis beskrivelse ligger inden for det, den
+scanner. **Beskriv kodepunktet, udstil det ikke.**
+
+### Fyret to gange på den samme celle, i to tegnklasser
+
+`include-filteret` fik en kontrol for tegn uden for det forventede
+skriftsystem, og en baseline, der gør den til en måling frem for en
+anbefaling.
+
+| hvad cellen gjorde | hvad kontrollen så |
+|---|---|
+| viste homoglyffen som glyf | `0x43c CYRILLIC SMALL LETTER EM` + `0x1f3e0 HOUSE BUILDING` — to distinkte tegn, hvor baselinen sagde ét |
+| viste `0x1f3e0` som glyf i selve baselinesætningen | `main` 1 forekomst, grenen 2 — mens baselinen sagde «ét tegn» |
+| kodepunktet navngivet begge steder | ét distinkt tegn i én forekomst, på både `main` og #59 |
+
+**Den anden er ikke en homoglyf.** Det var et synligt emoji i den sætning,
+der *dokumenterer* kontrollen. Tallet var sandt om distinkte tegn og usandt
+om forekomster, og **dokumentationen var selv årsagen til forskellen.** To
+gange på én celle, i to tegnklasser, er grunden til, at egenskaben ikke er
+en regel om homoglyffer.
+
+Derfor står enheden ved tallet: **ét distinkt tegn i én forekomst**, ikke
+«ét tegn».
+
+### Tre måder at holde beskrivelsen uden for kontrollens vej
+
+De tre er ikke en rangorden. Hver har sin betingelse, og den rigtige
+afhænger af, om formatet har en escape, og af hvad kontrollen skal dække:
+
+| måde | her i mappen | betingelse |
+|---|---|---|
+| **beskriv, udstil ikke** | `U+043C CYRILLIC SMALL LETTER EM`, `0x1f3e0 HOUSE BUILDING` | formatet har ingen escape for tegnet — og for en homoglyf er navnet desuden mere oplysende, for glyffen viser læseren ingenting |
+| **escape tegnet** | `\|` i en celletekst, som reglen ovenfor kræver | formatet HAR en escape |
+| **afgræns kontrollen** | pibetællingen ser kun linjer, der begynder med `\| **` | **afgrænsningen er valgt og skrevet ned.** En tabelkontrol må gerne være afgrænset til tabellen; det er dét, den er til |
+
+Om afgrænsningen: den er legitim, og den er et valg. Det, der skal skrives
+ned, er **omfanget** — så en senere udvidelse er en synlig beslutning. Den
+dag pibetællingen udvides fra tabelrækkerne til hele filen, bliver prosaen
+om pibereglen rød, og det er en forudset følge af udvidelsen, ikke en fejl
+i prosaen.
+
+### En baseline dokumenterer ikke bevarelse
+
+Enheden ved tallet siger, hvad tallet betyder. Den siger ikke, at indholdet
+er der. Målt ved prøvefletning 3. oktober: en opløsning, der kastede hele
+dokumentationen bort, gav **1 distinkt tegn og 1 forekomst** — samme tal som
+den rigtige tilstand. Et tal, der er grønt både når sætningen er rigtig og
+når den er slettet, er `nullet-der-betyder-to-ting`. Tælling og
+tilstedeværelse er to påstande, og kun den anden handler om bevarelse.
+
 ## Når to grene støder sammen
 
 To grene, der hver lægger en fil, kolliderer kun i den genererede blok i
@@ -56,7 +115,9 @@ fletterækkefølger, og den ene af dem tavst.
 #59's tabel på `99a8c30`, hvor de står som håndskrevet tekst uden fil.
 Hver af de fire bærer `kilde:` med PR og sha.
 
-Grunden er mekanisk. Målt 3. oktober: `git merge-tree refs/remotes/pr/59
+Grunden er mekanisk. **Revisionsgrundlag: målt 3. oktober mod #59 på
+`99a8c30`** — den sha, de fire `kilde:`-felter navngiver. #61's egen sha ved
+målingen er ikke skrevet ned her. Målingen: `git merge-tree refs/remotes/pr/59
 refs/remotes/pr/61` giver konflikt i `CLAUDE.md`, to hunks. Begge
 fletterækkefølger blev kørt igennem, med og uden filerne, og opløst på de
 to måder nogen faktisk ville gøre det:
@@ -79,10 +140,34 @@ for hunk; for den, der tager hele filen, er tabet lydløst. Det er den
 samme form som rækkerne i tabellen: et værn, der læses som dækkende, og
 hvis blinde vinkel er korreleret med selve fejlen.
 
-Med filerne her er «tag den genererede side» det **rigtige** træk i begge
-ordener. Konflikten består; den hurtige opløsning holder op med at være
-farlig. Det er billigere end at tvinge en fletterækkefølge og robust mod
-at nogen løser konflikten uden at have læst dette.
+Med filerne her er «tag den genererede side» det rigtige træk i begge
+ordener — **men kun under to betingelser, og de stod ikke i første udgave
+af dette afsnit.**
+
+**Betingelse 1 · filerne skal være aktuelle med grenens rækker.** Målingen
+ovenfor står på #59 `99a8c30`. Målt igen 3. oktober mod #59 `64faa72` —
+fire commits senere (`aaf3a93`, `5498748`, `74cec45`, `64faa72`) — er tre
+filer ældre end #59's rækker: `include-filteret.md` 111 mod 5.003 tegn,
+`ordet-maalt.md` 1.689 mod 2.165, `det-staerkeste-faldback.md` 107 mod 224.
+**5.485 tegn ville gå tabt, mens generatoren melder `uændret` og
+`test-faelder` melder ALT GRØNT.** Filerne beskytter de rækker, der ER i
+dem; de beskytter ikke mod, at en fil er forældet. Kontrollen «blokken er
+det, filerne genererer» er en **konsistenskontrol, ikke en
+aktualitetskontrol** — en forældet fil stemmer med en forældet blok.
+
+**Betingelse 2 · «den genererede side» er de to konflikthunks, ikke hele
+filen.** Målt: `git checkout --ours CLAUDE.md` kaster også #59's ændringer
+**uden for** konflikten bort, altså alt det git ellers havde auto-flettet.
+Mod `64faa72` er det 226 diff-linjer prosa, heraf to afsnit uden
+forbindelse til tabellen. Konflikten er kun **to** hunks; resten flettes af
+sig selv, og den, der tager hele filen, tager dem med.
+
+**«Tag den genererede side» er derfor ikke en ubetinget bevaringsopskrift.**
+Opskriften er: opløs de to hunks — blokken fra denne gren, prosaen fra
+#59's side — opdatér de filer, hvis rækker den anden gren har skrevet
+videre på, kør `npm run faelder`, og sammenhold så resultatet med BEGGE
+indgangsrevisioner, række for række og for prosaen uden for blokken.
+**Tegnantal og en grøn `test-faelder` dokumenterer ikke bevarelse.**
 
 **Et tab, der IKKE er løst her.** Hele-fil-opløsningen kaster også #59's
 prosanote om `ordet-målt`s (d) bort — den står efter tabellen, inde i den
