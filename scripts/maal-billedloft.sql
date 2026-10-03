@@ -12,8 +12,9 @@
 --
 --   psql "$DATABASE_URL_DIRECT" -f scripts/maal-billedloft.sql
 --
--- Kun SELECT. Koert mod PGlite med projektets migrationer og et syntetisk
--- forlaeg i scripts/test-maal-billedloft.ts. Produktionens tal er ikke maalt.
+-- SKRIVEBESKYTTET: kun SELECT. TALLENE ER ALDRIG SET i produktionen.
+-- Koert mod PGlite med projektets migrationer og et syntetisk forlaeg
+-- i scripts/test-maal-billedloft.ts; det maaler ikke produktionsbestanden.
 --
 -- DISTINCT taeller en delt URL én gang. Statusfilteret afgraenser bevidst
 -- maengden til aktive boliger; det er ikke en paastand om, hvilke URL'er
