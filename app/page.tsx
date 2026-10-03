@@ -37,26 +37,20 @@ export const dynamic = 'force-dynamic'
  * gradient i produktionen, uden at nogen kan se hvorfor. Nu virker den
  * uden ny opsaetning nogen steder.
  *
- * Krediteringen staar HER, sammen med stien, af samme grund som
- * `eltilstand` ligger ét sted: billedet og navnet paa den, der har taget
- * det, er ét spoergsmaal. Skifter stien, skal navnet med i samme
- * aendring — ellers tilskriver siden en fotograf et billede, hun ikke
- * har taget.
+ * Fotograf og licens dokumenteres her og i docs/kildetilladelser.md.
+ * Fotoet vises uden krediteringsmaerkat paa forsiden.
  *
  *   Foto:    Taryn Elliott / Pexels
  *   Kilde:   https://www.pexels.com/photo/scandinavian-interior-of-a-living-room-9565782/
  *   Licens:  https://www.pexels.com/license/ — fri til kommerciel brug,
- *            kreditering ikke paakraevet, men vi giver den alligevel.
+ *            kreditering ikke paakraevet.
  *   Fil:     2048x1365, 636.485 bytes, uaendrede bytes fra kilden.
  *            sha256 a2b2795193c96f2508593dc1dca77f62ea986a10dd2600cef331e64e245d5b5f
  *
  * Se ogsaa `docs/kildetilladelser.md`, hvor rettighederne pr. kilde
  * staar samlet.
  */
-const HERO_STANDARD = {
-  url: '/hero-stue.jpg',
-  kredit: 'Stemningsfoto: Taryn Elliott / Pexels',
-} as const
+const HERO_STANDARD = '/hero-stue.jpg'
 
 /** "A", "A og B", "A, B og C" — dansk opremsning, ikke join(', '). */
 const sammenskriv = (n: string[]): string =>
@@ -270,26 +264,19 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // Panelets tilstand ligger i URL'en som kortets. Se noten ved <details>.
   const panelAabent = en(sp.flere) === '1'
 
-  // Hero-fotoet OG dets kreditering, beregnet ét sted.
+  // Det lokale standardfoto kan fortsat overstyres med en miljoevariabel.
   //
-  // De to er ét spoergsmaal — «hvilket billede staar der, og hvem har
-  // taget det» — og maa derfor ikke kunne svares forskelligt. Var de to
-  // selvstaendige udtryk, kunne en miljoevariabel skifte MOTIVET, mens
-  // krediteringen blev staaende paa det gamle; saa ville siden tilskrive
-  // en fotograf et billede, hun ikke har taget. Derfor ét objekt.
+  // KRAVET TIL EN OVERSTYRING: billedet skal kunne vises UDEN
+  // kreditering. Forsiden har ikke laengere et krediteringsmaerke, og
+  // der er dermed ingen vej til at give en — saa et foto, hvis licens
+  // KRAEVER kreditering, kan ikke lovligt saettes her.
   //
-  // Standarden er `public/hero-stue.jpg`, som ligger i repoet og foelger
-  // koden. Ingen miljoevariabel kraeves — hverken lokalt eller paa
-  // Vercel. `NEXT_PUBLIC_HERO_FOTO` kan stadig overstyre den, og saa
-  // foelger `NEXT_PUBLIC_HERO_FOTO_KREDIT` med som DEN fladeS kreditering.
-  const hero = process.env.NEXT_PUBLIC_HERO_FOTO
-    ? {
-      url: process.env.NEXT_PUBLIC_HERO_FOTO,
-      kredit: process.env.NEXT_PUBLIC_HERO_FOTO_KREDIT || null,
-    }
-    : { url: HERO_STANDARD.url, kredit: HERO_STANDARD.kredit }
-  const heroFoto = hero.url
-  const heroKredit = hero.kredit
+  // Det var netop derfor, sti og kreditering foer laa i ét objekt: de
+  // svarede paa ét spoergsmaal. Da maerket forsvandt, forsvandt den
+  // halvdel af svaret, og tilbage staar et krav, der kun kan skrives.
+  // Standardfotoet opfylder det (Pexels, kreditering ikke paakraevet);
+  // se `docs/kildetilladelser.md`.
+  const heroFoto = process.env.NEXT_PUBLIC_HERO_FOTO || HERO_STANDARD
 
   // De aktive filtre som noget, der kan ses OG fjernes. Navnene paa
   // typer og kilder kommer fra de samme kilder som feltet i panelet —
@@ -997,7 +984,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         </>
       ) : (
         <>
-        {/* Lokalt stemningsfoto; kilde og kreditering vælges samlet ovenfor. */}
+        {/* Dekorativt forsidefoto; kilde og licens er dokumenteret ovenfor. */}
         <section className={heroFoto ? 'hero fuldbredde har-foto' : 'hero fuldbredde'}>
           {heroFoto && (
             <div className="hero-billede" aria-hidden="true">
@@ -1014,9 +1001,6 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             </p>
           </div>
           <div className="hero-soeg">{formular}</div>
-          {heroFoto && heroKredit && (
-            <p className="hero-kredit">{heroKredit}</p>
-          )}
         </section>
 
         </>
