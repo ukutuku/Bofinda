@@ -37,6 +37,11 @@ export default function Side() {
           de søgekriterier, du har valgt (postnummer, by, pris, værelser,
           areal, kilde)
         </li>
+        <li>
+          et navn til søgningen, så du kan kende den igen — det du selv
+          skriver i feltet, eller et, vi laver af kriterierne, hvis du lader
+          det stå tomt
+        </li>
         <li>tidspunktet for oprettelsen og for hver besked, vi sender</li>
       </ul>
       <p>
@@ -44,10 +49,14 @@ export default function Side() {
         ingen brugerkonto.
       </p>
       <p>
-        Bruger du kun boligsøgningen uden at oprette en alarm, og uden at
-        sige ja til statistik, behandler vi ingen personoplysninger om dig.
-        Siger du ja til statistik, gemmer vi to tilfældige numre i din
-        browser — se afsnittet nedenfor.
+        Bruger du kun boligsøgningen uden at oprette en alarm, måler vi ikke
+        dit besøg, og før du siger ja til statistik, gemmer vi intet i din
+        browser. Men for at siden kan vises, sender din browser din
+        IP-adresse til vores hosting, og på boligsider henter den desuden
+        kortet fra OpenStreetMap. Det sker, fordi det er nødvendigt for at
+        vise dig det, du har bedt om, og kræver ikke samtykke — se «Hvem
+        oplysningerne deles med» nedenfor. Siger du ja til statistik, gemmer
+        vi to tilfældige numre i din browser — se afsnittet om statistik.
       </p>
 
       <h2>Formål og retsgrundlag</h2>
@@ -75,12 +84,13 @@ export default function Side() {
 
       <h2>Hvem oplysningerne deles med</h2>
       <p>Vi sælger eller udlejer ikke oplysninger til nogen.</p>
-      <p>Vi bruger disse databehandlere til at drive tjenesten:</p>
+      <p>Disse databehandlere behandler oplysninger for os:</p>
       <ul>
         <li>
           Supabase (Irland) — database og fillager. Billeder, du uploader til
-          en annonce, gemmes i et privat lager hos Supabase og vises kun
-          gennem vores egen billedtjeneste.
+          en annonce, gemmes hos Supabase. Billedet vises via en signeret
+          adresse, som indgår i annoncens offentlige side og i dag er gyldig i
+          op til ti år; adressen giver kun adgang til det ene billede.
         </li>
         <li>Vercel Inc. — hosting af hjemmesiden, USA</li>
         <li>Railway Corp. — kørsel af boligimporten, USA</li>
@@ -91,6 +101,28 @@ export default function Side() {
         standardkontraktbestemmelser og, hvor det er relevant, EU-US Data
         Privacy Framework.
       </p>
+      <p>
+        Nogle tjenester taler din browser med <em>direkte</em>, uden om vores
+        server. De modtager derfor din IP-adresse:
+      </p>
+      <ul>
+        <li>
+          Supabase (Irland) — når du logger ind og når du uploader billeder
+          til en annonce, går det direkte fra din browser til Supabase.
+        </li>
+        <li>
+          OpenStreetMap-fonden (Storbritannien) — på boligsider henter din
+          browser kortfliserne direkte fra OpenStreetMap. Fliserne hentes ét
+          kortfelt ad gangen, og feltets koordinater står i adressen
+          (<code>{'{z}/{x}/{y}'}</code>). OpenStreetMap modtager derfor din
+          IP-adresse sammen med det kortudsnit, du får vist — altså omtrent
+          hvor boligen ligger. Kortet vises, fordi det er en funktion, du
+          vil have; retsgrundlaget er vores legitime interesse i at vise et
+          kort, jf. artikel 6, stk. 1, litra f. Storbritannien er af
+          EU-Kommissionen anerkendt som et land med et tilstrækkeligt
+          beskyttelsesniveau.
+        </li>
+      </ul>
 
       <h2 id="statistik">Statistik om brugen af siden</h2>
       <p>
@@ -102,9 +134,11 @@ export default function Side() {
       </p>
       <p>
         <strong>Vi måler ikke, før du har sagt ja.</strong> Har du ikke
-        taget stilling, eller har du sagt nej, registrerer vi ingenting om
-        dit besøg — hverken med eller uden numre — og vi gemmer intet i din
-        browser.
+        taget stilling, eller har du sagt nej, registrerer vi ingen
+        besøgsstatistik — hverken med eller uden numre. Før du vælger,
+        gemmer vi ikke engang dit valg; siger du nej, husker vi selve
+        svaret i en nødvendig cookie, så vi ikke spørger igen ved hvert
+        besøg. Den indeholder kun dit valg.
       </p>
 
       <Valg />
@@ -151,9 +185,8 @@ export default function Side() {
       <p>
         Skriver du et bynavn, vi ikke kender, gemmer vi ikke det, du skrev —
         kun at søgningen gjaldt et sted, vi ikke kender. Vores leverandører
-        kan have din IP-adresse i deres egne driftslogs i kort tid, men vi
-        henter den ikke ind i vores statistik og bruger den ikke til at
-        genkende dig.
+        kan have din IP-adresse i deres egne driftslogs. Vi henter den ikke
+        ind i vores statistik og bruger den ikke til at genkende dig.
       </p>
 
       <h3>Genkendelse på tværs af besøg</h3>
@@ -249,8 +282,11 @@ export default function Side() {
         kontaktvej har ingen funktion.
       </p>
       <p>
-        Oplysningerne slettes, når du fjerner annoncen eller din konto. Du kan
-        til enhver tid rette dem under Mine annoncer.
+        Du kan til enhver tid rette oplysningerne under Mine annoncer. Når du
+        fjerner en annonce, skjules den fra søgningen, men oplysningerne og de
+        uploadede billeder slettes ikke automatisk i dag. Vil du have dem
+        slettet, kan du skrive til{' '}
+        <a href="mailto:info@bofinda.dk">info@bofinda.dk</a>.
       </p>
       <p>
         For boliger, vi henter fra andre portaler, viser vi ikke

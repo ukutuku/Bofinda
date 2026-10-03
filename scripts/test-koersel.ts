@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  Koerselsgraenserne — proeves paa de FAKTISKE flag.
 //
 //  ── HVORFOR FILEN FINDES ──────────────────────────────────────
@@ -218,8 +219,8 @@ console.log('\n── D · Én modtagers fejl ───────────�
     rooms: 3, sizeM2: 70, rentMonthly: 1_000_000,
   }).returning({ id: listings.id })
 
-  // To soegninger, to modtagere. `ventende()` ordner paa soegningens navn,
-  // saa «A» rammes foerst — den, vi lader kaste.
+  // To soegninger, to modtagere. A faar det aeldste ventende traef,
+  // saa den kastende afsendelse kommer FOER B efter #50s sortering.
   const brugere: string[] = []
   const soegninger: string[] = []
   for (const b of ['A', 'B']) {
@@ -230,10 +231,20 @@ console.log('\n── D · Én modtagers fejl ───────────�
       unsubscribeToken: `afmeld-${b}`, confirmToken: `bekraeft-${b}`,
       confirmedAt: new Date(), notifyEmail: true,
     }).returning({ id: savedSearches.id })
-    await db.insert(alertMatches).values({ savedSearchId: s!.id, listingId: bolig!.id })
+    await db.insert(alertMatches).values({ savedSearchId: s!.id, listingId: bolig!.id,
+      matchedAt: new Date(Date.now() - (b === 'A' ? 120_000 : 60_000)) })
     brugere.push(u!.id); soegninger.push(s!.id)
   }
   const [aId, bId] = soegninger
+  // #48 × #19: en vellykket sender maa kun maerke de sendbare traef.
+  const [nedtaget] = await db.insert(listings).values({
+    sourceId: kilde!.id, sourceType: 'feed', status: 'delisted',
+    externalKey: 'koersel-nedtaget', sourceUrl: 'https://proeve.invalid/nedtaget',
+    addressRaw: 'Nedtagetvej 9', rentMonthly: 1_000_000,
+  }).returning({ id: listings.id })
+  await db.insert(alertMatches).values({ savedSearchId: bId!, listingId: nedtaget!.id,
+    matchedAt: new Date(Date.now() - 30_000) })
+  let sendtTekst = ''
 
   const forsoegte: string[] = []
   let afviste = false
@@ -242,6 +253,7 @@ console.log('\n── D · Én modtagers fejl ───────────�
     _saetSender(async (o) => {
       forsoegte.push(o.til)
       if (o.til.startsWith('a@')) throw new Error('fetch failed: timeout efter 20000 ms')
+      sendtTekst = o.tekst
       return { sendt: true, id: 'proeve' }
     })
     try { res = await sendAlarmer() } catch { afviste = true }
@@ -252,7 +264,7 @@ console.log('\n── D · Én modtagers fejl ───────────�
 
   tjek('D1 · ét kast forplanter sig IKKE ud af sendAlarmer', !afviste)
   tjek('D2 · den anden modtager blev alligevel forsoegt',
-    forsoegte.length === 2, forsoegte.join(', '))
+    forsoegte.join(',') === 'a@eksempel.invalid,b@eksempel.invalid', forsoegte.join(', '))
 
   const a = res.find((r) => r.modtager.startsWith('a@'))
   const b = res.find((r) => r.modtager.startsWith('b@'))
@@ -265,8 +277,10 @@ console.log('\n── D · Én modtagers fejl ───────────�
 
   const [aM] = await db.select({ sentAt: alertMatches.sentAt })
     .from(alertMatches).where(eq(alertMatches.savedSearchId, aId!))
-  const [bM] = await db.select({ sentAt: alertMatches.sentAt })
-    .from(alertMatches).where(eq(alertMatches.savedSearchId, bId!))
+  const bM = (await db.select({ sentAt: alertMatches.sentAt, listingId: alertMatches.listingId })
+    .from(alertMatches).where(eq(alertMatches.savedSearchId, bId!)))
+  const bAktiv = bM.find((m) => m.listingId === bolig!.id)
+  const bNedtaget = bM.find((m) => m.listingId === nedtaget!.id)
   // D6 og D7 er BOGHOLDERI, ikke bevis: `sent_at` og `last_notified_at` er
   // nullable uden default, saa de er sande ogsaa uden graensen. De staar,
   // fordi de beskriver den rigtige tilstand — men de diskriminerer ikke,
@@ -274,7 +288,13 @@ console.log('\n── D · Én modtagers fejl ───────────�
   tjek('D6 · den fejlede beholder sent_at = null (bogholderi, ikke bevis)',
     aM?.sentAt === null)
   tjek('D7 · den sendte har sent_at sat — mailen FOER maerket',
-    bM?.sentAt !== null)
+    bAktiv != null && bAktiv.sentAt !== null)
+  tjek('D8 · den sendte mail udelader den nedtagne bolig',
+    sendtTekst.includes('Graensevej 1') && !sendtTekst.includes('Nedtagetvej 9'))
+  tjek('D9 · den nedtagnes traef staar fortsat usendt efter succes',
+    bNedtaget != null && bNedtaget.sentAt === null)
+  tjek('D10 · resultatet taeller sendt og udeladt hver for sig',
+    b?.antal === 1 && b?.udeladt === 1)
 
   // Afgraenset oprydning. Filen roerer KUN sine egne raekker: en uafgraenset
   // `db.delete(users)` her ville toemme brugertabellen, og spaerringen mod
@@ -285,7 +305,7 @@ console.log('\n── D · Én modtagers fejl ───────────�
   await db.delete(alertMatches).where(inArray(alertMatches.savedSearchId, soegninger))
   await db.delete(savedSearches).where(inArray(savedSearches.id, soegninger))
   await db.delete(users).where(inArray(users.id, brugere))
-  await db.delete(listings).where(eq(listings.id, bolig!.id))
+  await db.delete(listings).where(inArray(listings.id, [bolig!.id, nedtaget!.id]))
   await db.delete(sources).where(eq(sources.id, kilde!.id))
 }
 

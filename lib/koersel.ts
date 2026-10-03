@@ -18,7 +18,7 @@
 //  groent, selv naar hvert eneste flag var vendt om. Flagene og deres
 //  proeve skal laese det SAMME sted, ellers proever de hver sin ting.
 //
-//  Filen importerer med vilje HVERKEN databasen eller Next.
+//  Ren logik: ingen database, ingen next-import.
 // ═══════════════════════════════════════════════════════════════
 
 export type Trinnavn = 'opstart' | 'kilder' | 'oprydning' | 'maaling' | 'match' | 'mail'

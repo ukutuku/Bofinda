@@ -1,0 +1,83 @@
+/* ═══════════════════════════════════════════════════════════════
+   GREB, A-UDSNITTET — over forslag.css. Den grønne handlingsflade og to
+   rettelser af fejl, appen har i dag uden noget lag:
+     · «Populære søgninger» på en telefon: to venstrekanter i én blok;
+     · boligsiden på 360: 15 px vandret rul.
+   Skåret ud af designforslagets greb.css og i samme rækkefølge. Heroen,
+   søgekortets overhæng, krediteringens flytning (§ 7) og telefonens
+   varianter (§ 6) bliver på designgrenen: de er én komposition og
+   afventer rigtige annoncer. Krediteringen røres derfor ikke her —
+   pillen står, hvor page.tsx tegner den.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* --handlingsflade: DEN ANDEN GRØNNE, og den har sit eget navn, så
+     den næste læser finder den.
+
+     Siden har to grønne, og de betyder hver sin ting efter, HVOR de
+     står — ikke efter nuancen:
+       · grøn TEKST  (--kendt #0f4d43)  = «hele betalingen til udlejer
+         er kendt». Kun på et beløb.
+       · grøn FLADE  (--handlingsflade) = «her handler du». Kun som
+         baggrund: den ene primære knap pr. side (Søg / Se annoncen) og
+         udlejerbåndet, som selv er en opfordring.
+     De bytter aldrig: ingen grøn flade bag et tal, ingen grøn tekst på
+     en knap, et link, et ikon eller ordmærket. Alt andet, der kan
+     trykkes på eller er valgt, er blæk. Reglen er efterprøvet i
+     browseren på runde 3 — på HELE designlaget (610a9ef, med mockuppen
+     og begge telefonvarianter), ikke på dette udsnit (designgrenens
+     maalinger/farver-runde3-fejning.txt): alle kulører i farver,
+     gradienter, kanter, skygger og svg, på alle fire sider plus en
+     søgning med filterchips, i 1440, 390 og 360. To kulører står uden
+     for rollerne med vilje: --advarsel (#8a5300) på en note om udeladte
+     data, og Leaflets flag i kortets kreditering (Leaflets eget præfiks).
+
+     Nuancen er mørkere og mindre mættet end --kendt, men forskellen er
+     ikke det bærende — et øje, der ikke skelner dem, læser stadig rollen
+     rigtigt, fordi den ene altid er en flade med hvid tekst og den anden
+     altid er et tal. */
+  --handlingsflade: #083a34;
+  /* Hover går MØRKERE, væk fra --kendt. Runde 2's hover (#0b4a42) lå
+     ΔE00 1,27 fra --kendt: knappen blev «den kendte teal», netop når
+     nogen rørte den. #052a25 ligger 11,2 fra --kendt og 5,1 fra hvile-
+     farven — samme synlige skridt som før, den anden vej. */
+  --handlingsflade-hover: #052a25;
+}
+
+/* Én mørkegrøn handling pr. side: «Søg» i søgekortet, «Se annoncen» i
+   boligsidens rail. Alt andet, der kan trykkes på, er blæk. */
+.oek-kort .knap { background: var(--handlingsflade); border-color: var(--handlingsflade); }
+.oek-kort .knap:hover { background: var(--handlingsflade-hover); border-color: var(--handlingsflade-hover); }
+.soegeknap, .hero .soegeknap {
+  background: var(--handlingsflade); border-color: var(--handlingsflade); color: #fff;
+}
+.soegeknap:hover { background: var(--handlingsflade-hover); border-color: var(--handlingsflade-hover); }
+
+@media (max-width: 560px) {
+  /* Etiketten får sin egen linje. Stod den i første række, begyndte
+     anden række under etiketten og første række under byerne: to
+     venstrekanter i én blok, og det er det, der læses som skævt. Nu
+     begynder hver række med en by, ved samme kant. */
+  .hero .pop-navn { flex-basis: 100%; }
+}
+
+/* Udlejerbåndet: flad handlingsflade. Uden den gør omdirigeringen af
+   --accent (forslag.css) båndets gradient sort-grå. */
+.udlejerbaand { background: var(--handlingsflade); }
+
+/* ── Links er blæk — også kortets kreditering ─────────────────────
+   Fejningen fandt én link-farve, der ikke var vores: Leaflets standard-
+   blå (#0078a8) på «Leaflet | © OpenStreetMap». Krediteringen bliver
+   stående og synlig (OSM's flisepolitik); kun farven følger reglen.
+   To klasser, af samme grund som understregningen i forslag.css. */
+.leaflet-container .leaflet-control-attribution a { color: var(--blaek); }
+
+/* ── Boligsiden på 360 ─────────────────────────────────────────
+   Kolonnen gik fra 22 til 359 px — ingen højre margen og 15 px vandret
+   rul, i appen i dag uden noget lag. En 1fr-bane kan ikke blive
+   smallere end sit indholds min-content. (Designgrenen sætter desuden
+   nøgletallene i to kolonner; det er et designvalg og ikke en del af
+   rettelsen.) */
+@media (max-width: 980px) {
+  .spalter { grid-template-columns: minmax(0, 1fr); }
+}

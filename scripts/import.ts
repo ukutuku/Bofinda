@@ -131,8 +131,9 @@ const trin: Trin[] = [
     koer: async () => {
       const r = await sendAlarmer()
       for (const x of r) {
-        ud(`[mail] ${x.soegning} → ${x.modtager}: ${x.antal} boliger — `
-          + (x.sendt ? 'SENDT' : `ikke sendt (${x.grund})`))
+        ud(`[mail] ${x.soegning} → ${x.modtager}: ${x.antal} boliger`
+          + (x.udeladt ? ` (+${x.udeladt} taget ned, ikke mailet)` : '')
+          + ' — ' + (x.sendt ? 'SENDT' : `ikke sendt (${x.grund})`))
       }
       // RAPPORTÉR, naar en afsendelse gik galt. Graensen pr. modtager
       // oversaetter et kast til et resultat, saa trinet kaster ellers ikke,

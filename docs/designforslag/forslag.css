@@ -1,0 +1,104 @@
+/* ═══════════════════════════════════════════════════════════════
+   FORSLAG, A-UDSNITTET — lægges OVEN PÅ app/globals.css på main og rører
+   den ikke. Kun farven: tokens, omdirigeringen af --accent og de regler,
+   der fører farverollen ud på siden. Linjerne er skåret ud af
+   designforslagets forslag.css (claude/ecstatic-goodall-foq06c) og står i
+   samme rækkefølge; typografien, rytmen, boligkortet, boligsiden og
+   heroens typografi bliver dér. De er skrevet mod kontakt-ui eller hører
+   til heroens komposition.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Farve ─────────────────────────────────────────────────
+     Accenten betyder ÉN ting: hele betalingen til udlejer er kendt.
+     Alt, der er en handling, er blæk. Alt andet er gråt. */
+  --kendt:      #0f4d43;   /* brandarkets Mørk Teal, uændret */
+  --blaek:      #14161a;   /* tekst OG handling */
+  --blaek-hover:#2d3138;
+
+  /* De gamle navne peges om, så de 94 anvendelser af --accent bliver
+     til handling (blæk) uden at røre en eneste regel (94 i globals.css;
+     16 mere i beskeder/ og kontakt-ui/, se README). Kun de to steder,
+     der betyder «kendt» (.kort-pris og .oek-tal), peges tilbage på
+     --kendt nedenfor. */
+  --accent:     var(--blaek);
+  --accent-mrk: var(--blaek-hover);
+  --accent-lys: #ecebe6;
+
+  /* To grå, ikke tre. --svag og --daempet var to navne for samme farve
+     (#626975 / #5f6672, 1,05:1 imellem). Den ene er gjort mørkere, så
+     13 px kan læses: 7,1:1 mod sandbunden. */
+  --daempet:    #4d5452;
+  --svag:       var(--daempet);
+  --linje:      #e3dfd6;
+  --linje-svag: #eeebe4;
+
+  /* Ravgul skifter betydning. Før: «en oplysning mangler». Nu: «noget
+     står i vejen for dig» — en formularfejl, en annonce der ikke er
+     synlig, et filter der fjerner hele kilder. En manglende oplysning er
+     ikke en undtagelse: forbeholdene fordeler sig 46/27/25 % (9c9174e),
+     så der er ingen normaltilstand at advare om. Værdierne er uændrede. */
+
+}
+
+/* ── Kendt beløb: grøn tekst ─────────────────────────────────────
+   globals.css farver de to kendte beløb med var(--accent) (.kort-pris
+   og .oek-tal). Omdirigeringen ovenfor ville gøre dem til blæk, så de
+   peges tilbage her. Kun farven: størrelse og vægt står i designgrenens
+   forslag.css. .kort-pris.kun-leje og .oek-tal.ukendt-tal har højere
+   specificitet i globals.css og forbliver tekstfarve. */
+.kort-pris, .oek-tal { color: var(--kendt); }
+
+/* ── Handling: blæk, og links understreges ─────────────────── */
+/* Ordmærket er blæk. Runde 1 gav det --kendt som «brandets ene
+   plads»; det gjorde teal til to ting — et kendt beløb OG et navn — og
+   stod i den første linje, øjet møder. Grøn tekst er kun et beløb. */
+.maerke, .maerke:hover { color: var(--blaek); }
+/* To rester af den gamle teal, som fejningen af runde 3 fandt: de aktive
+   filterchips (en valgt tilstand) havde kant og «×» i --kendt's RGB, og
+   den valgte side i sidevælgeren havde en teal skygge. Begge er blæk. */
+.filterchips .chip { border-color: rgba(20,22,26,.18); }
+.filterchips .chip-x { background: rgba(20,22,26,.08); }
+.side-nu { box-shadow: 0 2px 8px rgba(20,22,26,.22); }
+
+/* ═══ UDEN FOR BILLEDERNE — samme tokens ═════════════════════ */
+/* Ingen fælles :focus-visible her. En blæk ring forsvinder på de mørke
+   flader, main har: udlejerbåndet (nu --handlingsflade, 1,44:1) og
+   lysbordets knapper (næsten sort). main's egne fokusregler bruger
+   var(--accent) og bliver blæk med omdirigeringen; resten beholder
+   browserens ring. Den ene ring, der ligger INDE i en flade, der nu er
+   blæk, er sorteringspillens (offset −2 px): den bliver hvid nedenfor. */
+/* Links er nu blæk ligesom teksten om dem, så understregningen er det,
+   der skiller dem ud. Den står i --daempet (7,1:1 mod sand) og ikke i
+   --linje (1,22:1, knap synlig). De fire sidste har text-decoration:
+   none i globals.css og blev før kun kendt på deres teal. */
+.populaere a, .begraensning a, .afmeld .note a, .broedkrumme a,
+.detalje-sti .sti-tilbage, .udlejerhandlinger a, .kontaktliste a, .ik-link {
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--daempet); }
+/* Valgt er ikke det samme som hover: valgt er blæk-fyld, hover er sand. */
+.sort-pille.valgt { background: var(--blaek); color: var(--kort); border-color: var(--blaek); }
+.sort-pille.valgt:focus-visible { outline-color: var(--kort); }
+/* Afkrydset er fyld, hover er kun en kant — de var den samme kant før. */
+.valgknap input:checked + span { background: var(--blaek); color: var(--kort); border-color: var(--blaek); }
+.valgknap input:checked + span b { color: var(--kort); }
+/* Trinbjælken: nu = fyld, gjort = ring, kommende = flad. Tre former,
+   ikke to toner på 1,00:1. Et flueben i markup ville gøre det helt. */
+.trinbjaelke .gjort button span { background: var(--kort); color: var(--blaek); box-shadow: inset 0 0 0 2px var(--blaek); }
+/* Kaskadefejl i dag: `.resultathoved .prisnote` (samme specificitet,
+   senere i filen) gør noten om tavse kilder grå på ravgul. Farverne her
+   er globals.css' egne for .prisnote.advarsel; ved indfoldningen er det
+   enklere at flytte den regel ned efter .resultathoved .prisnote. */
+.resultathoved .prisnote.advarsel { color: #7a5416; }
+.resultathoved .prisnote.advarsel strong { color: var(--advarsel); }
+/* Kortmærker er blæk; det valgte vendes om (hvidt med blæk-ring) og
+   skaleres. Før var det ravgult, 1,53:1 mod de andre. */
+.maerke-boble.valgt { background: var(--kort); color: var(--blaek); border-color: var(--blaek); }
+.kort.fremhaevet { border-color: var(--blaek); box-shadow: 0 0 0 2px var(--blaek), var(--skygge); }
+/* Slipfeltet: kanten bliver fuldt optrukket, ikke kun farvet. */
+.slipfelt.over { border-style: solid; border-color: var(--blaek); background: var(--kort); }
+/* OSM-krediteringens links (10,5 px blå uden understregning i dag).
+   Krediteringen må aldrig skjules; den må gerne kunne ses som links.
+   To klasser: leaflet.css' egen regel har (0,1,1) og indlæses af siden
+   EFTER globals.css, så med én klasse vandt Leaflet efter indfoldningen. */
+.leaflet-container .leaflet-control-attribution a { text-decoration: underline; }
+.side-nu { background: var(--blaek); color: var(--kort); }
