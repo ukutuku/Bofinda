@@ -178,6 +178,25 @@ console.log('\n══ 3 · konventionen gælder HVER måle-SQL ══')
     //  STIER — ikke om formen. «Gem en henvisning, følg den aldrig»
     //  dækker også nøgler, id'er, værtsnavne og kolonnenavne. Et
     //  «ingenting» fra et sti-filter er derfor ikke et nej.
+    //
+    //  ── ET FJERDE LED, OG DET HAR SIT EGET MODTRÆK ──────────────
+    //  «Hent genstanden frem for at citere fra hukommelsen» er det tredje
+    //  led, og det er rigtigt. Det er ikke nok.
+    //
+    //  Målt på mig selv: jeg skulle citere en doc-kommentar ordret og
+    //  hentede filen frem for at huske den — men hentede en ref, der var
+    //  overhalet 23 timer før. Citatet var ordret korrekt om en version,
+    //  der ikke fandtes længere.
+    //
+    //  De to led har FORSKELLIGE modtræk, og det er hele værdien af at
+    //  holde dem adskilt:
+    //
+    //      hukommelse → genstand      «hent den»
+    //      genstand   → NUVAERENDE    «tjek tidsstemplet»
+    //
+    //  «Hent den» ville ikke have hjulpet her, for det gjorde jeg. Samlet
+    //  under «vær omhyggelig» forsvinder forskellen, og så fanger man den
+    //  ene fejl med modtrækket mod den anden.
     if (seteTal) {
       const citat = hoved.match(/scripts\/test-[\w-]+\.ts/)?.[0]
       tjek(`  ${f} navngiver prøven, der kørte sætningerne`, citat != null)
@@ -196,20 +215,35 @@ console.log('\n══ 3 · konventionen gælder HVER måle-SQL ══')
     //  `scripts/`:
     //
     //      test-*.ts     13
+    //      test-*.mjs     0
     //      proev-*        3    scripts/proev-genskab.mjs
     //                          scripts/maalinger/proev-maal-sql.ts
     //                          docs/designforslag/maalinger/proev-maal.mjs
     //
-    //  **13 mod 3.** Omfanget står ved tallet, fordi det er forskellen:
-    //  søger man kun i `scripts/`, får man 2 og misser den i `docs/`.
-    //  Det tal blev rapporteret som en kendsgerning om repoet, og det var
-    //  et svar om én mappe. `ordet-maalt` (a) handler om netop det — et
-    //  tal uden sit omfang er ikke en måling.
+    //  Omfanget står ved tallet, fordi det er forskellen: søger man kun i
+    //  `scripts/`, får man 2 og misser den i `docs/`. Det tal blev engang
+    //  rapporteret som en kendsgerning om repoet, og det var et svar om én
+    //  mappe. `ordet-maalt` (a) — et tal uden sit omfang er ikke en måling.
     //
-    //  #49's kæde globber `test-*.ts`; #54's CI kører npm-nøglerne.
-    //  `proev-genskab.mjs` er nået gennem `db:backup:proev`, så «har et
-    //  mærke» og «står i en nøgle» er formodentlig TO spørgsmål og ikke
-    //  ét.
+    //  ── DERFOR «13 + 0» OG IKKE «13» ───────────────────────────
+    //  `test-*.mjs: 0` ser ud som en tom række. Den er formatets halve del.
+    //  #49's opdager globber nu BÅDE `.ts` og `.mjs`, så i dag falder
+    //  filnavnstællingen og kædens tal sammen — 13 = 13. Det er et
+    //  SAMMENFALD, ikke en identitet: `test-isolation.mjs` ligger på #52,
+    //  og lander den, finder kæden 14, mens en optælling af `.ts` stadig
+    //  siger 13.
+    //
+    //  Altså et tal, der holder op med at være sandt, fordi EN ANDEN PR
+    //  lander — uden at nogen rører det. «13 test-*.ts + 0 test-*.mjs på
+    //  b39329a» er ikke blot mere præcist; det er det eneste format, der
+    //  stadig er sandt efter #52. Samme fejl som ovenfor, med ENDELSEN som
+    //  omfanget i stedet for mappen.
+    //
+    //  #49's kæde globber `test-*.ts` og `test-*.mjs`; #54's CI kører
+    //  npm-nøglerne. `proev-genskab.mjs` er nået gennem `db:backup:proev`,
+    //  så «har et mærke» og «står i en nøgle» er TO spørgsmål og ikke ét —
+    //  og `scripts/proev-facilitetsudvidelse.mjs` (#60) er beviset: en
+    //  omvendt modprøve, der SKAL være nøgle-kun.
     //
     //  Når #49 er landet og Analytics har valgt mellem de to, skærpes
     //  kravet her til **«har et mærke eller står i en nøgle»** frem for
