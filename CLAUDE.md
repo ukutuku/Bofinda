@@ -65,10 +65,108 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   manglende er `altan eller terrasse`, CEJ's samlede ord. **Den udeladelse
   er med vilje** — det er en KILDES skrivemåde, ikke et spørgsmål, man kan
   stille en udlejer — så fuldstændighed ville rette en fejl, der ikke var
-  der. Svaret er derfor en DELING og ikke en fuldstændighed: hvert ord
-  skal stå enten i formularlisten eller på en navngiven liste over de
-  bevidst udeladte, håndhævet af en typevagt. Så tvinger et femte ord et
-  VALG frem for en tilføjelse. Ikke bygget endnu.
+  der. Svaret er derfor en DELING og ikke en fuldstændighed.
+
+  **Delingen er bygget.** Hvert `Facilitetsord` står enten i
+  `FACILITETER` (formularen) eller i `UDEN_FOR_FORMULAREN`, hvis værdi er
+  **grunden** til udeladelsen — den står i koden og ikke i en kommentar,
+  fordi en kommentar kan slettes uden at nogen tænker sig om. Typevagten
+  er to `KunNever<…>`-aliasser: ét på `Exclude<Facilitetsord, IFormularen
+  | Udeladt>` (et ord uden hjem) og ét på `Extract<IFormularen, Udeladt>`
+  (et ord i begge). Begge fejler med **TS2344, og fejlteksten navngiver
+  ordet**. Et sjette ord i `FACILITET` tvinger dermed et VALG frem for en
+  tilføjelse.
+
+  `FACILITETER` bindes med **`as const satisfies`**, ikke med en
+  annotation. Det er ikke stil: en annotation widener `vaerdi` til hele
+  unionen, og så kan delingen ikke udtrykkes. Det var netop derfor den
+  gamle binding kun dækkede den ene halvdel.
+
+  Efterprøvet i tre retninger — ord fjernet fra formularen, ord i begge
+  lister, sjette ord i `FACILITET` — alle tre giver TS2344 med ordet i
+  teksten. **Men `npm test` kører ingen typekontrol**: `test-rene-filer`
+  bruger esbuild, resten kører gennem tsx, og ingen af dem tjekker typer.
+  Typevagten fyrer altså kun under `npm run typecheck`. Derfor kører
+  `scripts/test-faciliteter.ts` den samme deling på VÆRDIERNE, så en PR,
+  hvor nogen kun kørte `npm test`, ikke kan skjule et hjemløst ord. Den
+  rigtige rettelse er `tsc --noEmit` i `npm test`; den er ikke taget.
+
+- **Opregningen af facilitetsfiltrene er UDLEDT af `FACILITET`s nøgler, og
+  må aldrig skrives i hånden igen.** De tre stod opregnet **14+ steder**:
+  `Filtre`, `hvor()`, `facetter()`, `opsummering()`, `facilitetsgrundlagPrBolig`,
+  `facilitetsgrundlag`, `tavseKilder`, `filtreFraParametre`, `tilParametre`,
+  `harFiltre`, `lib/filterpanel.ts`, `lib/alarm.ts`, `lib/maaling.ts`,
+  `lib/maalingsoeg.ts` ×3 og `app/page.tsx` ×5. Hvert sted var korrekt;
+  tilsammen var de en tidsindstillet fejl, for en udvidelse skulle huskes
+  i alle.
+
+  Det er ikke hygiejne. **Reglen om, hvad et facilitetsfilter udelader,
+  kan ikke «komme bagefter» en udvidelse, hvis opregningen er udledt**: et
+  nyt begreb bliver et felt, et filter, et aggregat, en afkrydsning, en
+  grundlagslinje med sine tre grupper og en `tavseKilder`-nulstilling af
+  sig selv.
+
+  **Feltnavnene på `Filtre` er uændrede, og det er et krav:**
+  `saved_searches.criteria` er en serialiseret `Filtre`, så en omdøbning
+  ville kræve en datamigrering af gemte søgninger. Derfor
+  `interface Filtre extends Partial<Record<Facilitetsnoegle, boolean>>` og
+  ikke en liste.
+
+  **Udledningen fandt en fejl, den også retter.** `facetter()` skrev
+  ordene af i SQL, og dens `udeplads` var
+  `array['altan','terrasse']` — **uden CEJ's «altan eller terrasse»**.
+  Filteret (`harFacilitet(FACILITET.udeplads)`) rammer det, tællingen
+  gjorde ikke. Og en afkrydsning skjules, når tallet er nul, så et kryds,
+  der VIRKER men ikke vises, var mulig. Aggregaterne er nu de samme
+  prædikater som filtrene.
+
+  **Teksten må stadig være fladens egen.** `lib/alarm.ts` har sit eget,
+  kortere `FILTERORD` («altan el. terrasse»), fordi mailens filterlinje
+  har mindre plads — samme forhold som de fire el-tekster. Det er bundet
+  med `satisfies`, så et nyt begreb uden en kort ordlyd er en
+  oversætterfejl. Men `npm test` typetjekker ikke, så faldbacken er
+  `?? FACILITETSNAVN[n]`: sand, blot længere. **Aldrig «undefined» i en
+  fremmeds indbakke.**
+
+  **Prøven er OMVENDT, og den kan ikke køre på #37's kører.** Kørerens
+  vagt 3 kræver, at en mutation bliver rød; her er påstanden den modsatte.
+  `npm run proev:udvidelse` tilføjer et begreb til `FACILITET` — kun der,
+  plus de to ting typevagten kræver — og forlanger, at **alt det afledte
+  går GRØNT uden at nogen har rørt det**. Går det ikke, er udledningen
+  ikke færdig. Den måler også, at grundlagslinjens tre grupper går op
+  (1 + 0 + 1 = 2), og at alarmlinjen aldrig skriver «undefined».
+
+  Forlægget sætter `address_match_level = 'access'` med en matchende
+  uuid. Default er `'failed'`, som `hvor()` udelukker — uden det ville
+  hver påstand være grøn af den forkerte grund — og `'unit'` ville bryde
+  check-constrainten `listing_address_level_honest`, som håndhæver, at
+  niveauet er sandt.
+- **Kildens ord oversættes til VORES — også i HTML-adapterne.** Dacas'
+  facilitetsliste var et `Set`, og et Set er et INPUT-filter: ordet slap
+  igennem og blev gemt i *kildens* stavemåde. Dacas var dermed den eneste
+  HTML-kilde, hvis udgangsordforråd var kildens eget, og to begreber fik
+  to stavemåder hver, fordi CEJ oversætter og Dacas ikke gjorde:
+  «fælles vaskeri» mod «fællesvaskeri», og «køle- og fryseskab» mod
+  «køle-/fryseskab». Nu er det en `Record<string, string>`, og CEJ's ord
+  vinder, fordi de ER vores — valgt én gang i en oversættelse.
+  De øvrige ord afbilder på sig selv; det er ikke støj, det er forskellen
+  mellem «samme ord» og «intet oversat».
+
+  `alabu.ts` og `laros.ts` sender stadig kildens egne strenge igennem
+  uoversat og er derfor de eneste med et **ubundet** ordforråd. Hvad de
+  har skrevet, kan kun basen svare på — `scripts/maal-felter.sql`,
+  spørgsmål 2.
+
+  **Målt 2. oktober 2026:** 33 forskellige ord kan skrives af de bundne
+  kilder, og **kun 5 af dem kan filtreres på**, fordi `FACILITET` dækker
+  tre begreber. De 28 øvrige gemmes og vises, men kan ikke søges på.
+  `scripts/test-faciliteter.ts` tæller ordene pr. kilde og afviser to ord,
+  der falder sammen under en snæver normalisering (tegnsætning,
+  mellemrum, bindeordet «og»). Den slår med vilje IKKE «delebolig» og
+  «delevenlig» sammen: CEJ's `sharing` står i gruppe med
+  `senior`/`student`/`youth` — en boligKATEGORI — mens Propsteps
+  `shareable` er en egenskab ved lejemålet. At slå dem sammen ville være
+  et gæt om CEJ's semantik.
 
   Formularen spørger om dem, fordi filtrene ellers skjuler hver eneste
   udlejerannonce for altid.
@@ -688,6 +786,39 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   skal regne med det. Bofinda er en kommerciel tjeneste. Skift kilde med
   `NEXT_PUBLIC_FLISE_URL` og `NEXT_PUBLIC_FLISE_KREDIT` — ikke med en
   kodeændring.
+- **Skrifttypen hentes fra Google ved BYGNING — aldrig af brugerens
+  browser.** `app/layout.tsx` bruger `next/font/google` (Inter). Under
+  `next build` henter Next stylesheetet fra `fonts.googleapis.com` og
+  skriftfilerne fra `fonts.gstatic.com`, lægger dem i `.next/static/media`
+  og skriver `@font-face` om til `/_next/static/media/*.woff2`. Siden
+  serverer dem selv.
+
+  **Målt 2. oktober 2026 på main b39329a:**
+  · 0 filer i `.next/static` og `.next/server` nævner nogen af de to
+    værter, og der ligger 7 skriftfiler (`.woff2`) i `.next/static/media`.
+  · Chromium på `/privatliv` gennem `next start` sendte 10 forespørgsler,
+    alle til siden selv, og Inter var indlæst.
+  · Proxyen så samtidig forbindelser til `www.google.com` og
+    `android.clients.google.com`. **De kom fra Chromium, ikke fra siden:**
+    de samme forbindelser kom på `about:blank` uden nogen server, og
+    serveren alene, besøgt med curl, gav ingen. Det er browserens egne
+    tjenester. Læs dem ikke som Bofindas.
+
+  **Derfor må privatlivspolitikken ikke nævne Google som tredjepart for
+  skrifttyper.** Det ville være usandt den anden vej. Ser nogen
+  `fonts.googleapis.com` i en byggelog, er det bygget, der henter — ikke
+  brugeren. Sætningen holder kun, så længe skrifttypen kommer gennem
+  `next/font`. Derfor fejler CI (trinnet «Skrifttypen er selvhostet»),
+  hvis det byggede nævner en af de to værter. Et `<link>` til Google
+  Fonts i en side ville gøre browseren til en, der kontakter Google, og
+  så skal politikken nævne det.
+
+  **Og bygget kræver net.** Uden adgang til de to værter fejler det med
+  «Failed to fetch `Inter` from Google Fonts». Målt: i et miljø uden
+  containerens proxy-variabler fejlede det netop sådan, mens prøverne var
+  grønne. En lukket kørsel, der fejler på dét, mangler net — ikke en
+  variabel. Skal bygget blive hermetisk, er vejen `next/font/local` med
+  filerne i repoet. Ikke bygget.
 - **Kortet vises kun, når der er filtreret.** Uden en søgning spænder
   mærkerne over hele landet, og udsnittet siger ingenting. Samme regel som
   gem-boksen og prisnoten — på forsiden er det svar på et spørgsmål,
@@ -715,6 +846,61 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   venligst, at billederne kan være fra en anden bolig." Et billede af noget
   andet end den bolig, brugeren kigger på, er værre end intet billede — hun
   tror, hun har set den.
+- **Et udtrukket faktum bærer det tekstspænd, det kom fra. Et faktum uden
+  spænd findes ikke.** Billedforbeholdet er reglens første — og indtil
+  videre eneste — kunde. Indtil nu gemte vi `images_may_differ = true` og
+  intet andet, og det er den fejl, reglen findes for: **omformulerer CEJ
+  sin sætning i morgen, bliver feltet `false` uden spor**, og en bolig
+  begynder at vise billeder, kilden tager forbehold for. Der var intet at
+  holde det op imod, så ingen prøve kunne se det.
+
+  `images_may_differ_evidence` er `{ uddrag, regel }`. Formen er
+  `availability_facts`' — evidens pr. række, hydreret gennem én parser,
+  fail closed — med `hvor`-disciplinen fra `Belaeg` i `lib/kildekontrakt.ts`:
+  spændet alene er ikke nok, der skal stå HVILKEN regel der ramte, ellers
+  kan det ikke prøves igen. Reglerne er navngivet i `FORBEHOLDSREGLER` i
+  `lib/billedforbehold.ts`; før stod de som to `const FORBEHOLD` i hver
+  sin adapter.
+
+  **Booleanen UDLEDES af belægget** (`r.imagesMayDifferEvidence != null` i
+  `lib/normalize.ts`), og adapteren leverer kun belægget. Sattes de hver
+  for sig, havde vi to udtryk for ét spørgsmål — den fejlform, der har sin
+  egen tabel længere nede. `npm test` kildetjekker, at ingen adapter kan
+  sætte booleanen selv.
+
+  **Spændet vises ALDRIG.** Det er en attest, ikke indhold. «Kopiér aldrig
+  kildens brødtekst» står uændret: vi gemmer de få ord, der bærer
+  faktummet, for at kunne efterprøve det — ikke for at gengive dem.
+  `MAKS_UDDRAG` (240) er den øvre grænse, så et regex, der en dag griber
+  for bredt, ikke gør attesten til en kopi; `belaegHolder` afviser et
+  spænd over grænsen.
+
+  **Visningen er IKKE betinget af, at belægget holder**, og det er
+  bevidst — det modsatte af billedvagten, hvor en vært uden for
+  allowlisten får billedet fjernet. Forskellen er, hvilken vej fejlen
+  koster: et billede, vi ikke viser, er en mangel, mens et forbehold, vi
+  ikke viser, er en PÅSTAND om, at billedet er af boligen. Gjorde vi
+  visningen betinget, ville en ændret regel SLETTE forbeholdet fra
+  skærmen — altså præcis den fejl, spændet blev indført for at fange, med
+  et ekstra lag til at skjule den. Belægget er til efterprøvning, ikke til
+  portvagt.
+
+  **Der er med vilje INGEN check-constraint** på «true kræver et belæg».
+  Den ser rigtig ud, også som `NOT VALID`, men `NOT VALID` håndhæver på
+  hver `UPDATE`: de rækker, der i dag står med `true`, har intet belæg og
+  kan ikke få et, før boligen hentes igen — og importøren flytter
+  `last_seen_at` på dem i mellemtiden, uden at hente detaljesiden. Den
+  update ville fejle, og afmeldingen ville derefter tage boligen. En
+  invariant, der stækker timekørslen, er dyrere end den fejl, den
+  beskytter mod. Begrundelsen står i `0021_billedforbehold_belaeg.sql`,
+  så den næste ikke «retter» det — sammen med den select, der tæller de
+  gamle rækker uden belæg. Tallet skal falde mod nul over et døgns
+  genopfriskning. **Om et belæg, der findes, stadig HOLDER, er der endnu
+  ingen måling for** — `belaegHolder()` kan svare, men ingen kører den
+  mod produktionen. Det står her frem for at blive kaldt bygget.
+
+  Rammen er bygget for ÉT felt. En generel ramme med én kunde er et gæt
+  om de næste ni.
 - **`landlord_id` er en del af grupperingsnøglen, og den skal blive der.**
   Den ser overflødig ud: kolonnen er NULL på hver eneste scrapede bolig, og
   `group by` samler NULL i én gruppe, så de eksisterende grupper er
@@ -852,6 +1038,47 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   telefonbillede bærer GPS for, hvor det er taget — altså hvor boligen
   ligger, ofte på meteren. Det er ikke vores at videregive, og udlejeren har
   ikke tænkt over det. Omtegningen på et canvas gør begge dele på én gang.
+- **«Uprøvet» er ikke én tilstand, og en måle-SQL skal sige HVILKEN af de
+  to den er.** De to forveksles let, og kun den ene er acceptabel:
+
+  | Tilstand | Undgåeligt? | I en fil, der skal køres i produktionen |
+  |---|---|---|
+  | **tallene er ikke set** | nej, ikke uden basen | **acceptabelt** |
+  | **syntaks og typer ikke kørt** | ja, altid | **aldrig acceptabelt** |
+
+  Skabelonen er én linje i filens hoved: *«Tallene er aldrig set; syntaks
+  og typer holder.»* Og den skal kunne dokumenteres — den prøve, der kørte
+  sætningerne, nævnes ved navn, **og citatet skal kunne opløses**: vagten
+  kalder `existsSync` på den sti, den fandt. Et citat, der kun har den
+  rigtige FORM, er en attest uden dækning — samme halve vagt som en
+  `imagesMayDiffer` uden sit tekstspænd. Første udgave af vagten her
+  bestod et citat til `scripts/test-findes-ikke.ts`.
+
+  Navnemønstret i vagten er bundet til `test-*.ts` indtil videre, og det
+  er en kendt sløjfe: et citat til `scripts/maalinger/proev-maal-sql.ts`
+  — repoets anden navnekonvention for prøvefiler — bliver afvist, selv om
+  filen findes. Kravet skærpes til «har et mærke eller står i en nøgle»,
+  når #49 er landet og det er afgjort, om de to er ét spørgsmål.
+
+  **Hvorfor det er en regel og ikke en vane.** `scripts/maal-felter.sql`
+  blev skrevet til en produktionskørsel samme aften. Første udkast havde
+  `cross join unnest(l.amenities)` og
+  `count(l.amenities) filter (where l.amenities <> '{}')`. `amenities` er
+  **jsonb**, ikke `text[]`. Den første fejler med en typefejl og opdages
+  i sekundet. Den anden **tier**: `'{}'` er et tomt *objekt* i jsonb og
+  aldrig lig en tom liste, så sætningen kører og svarer med et tal, ingen
+  har grund til at mistro. En SELECT, der kører og svarer forkert, er
+  værre end en, der fejler.
+
+  Begge var fanget af at køre sætningerne mod testbasen — PGlite med de
+  rigtige migrationer — mod et forlæg med facit skrevet i hånden FØRST.
+  Det kræver ingen produktionsadgang og koster ét script.
+  Se `scripts/test-maal-felter.ts`.
+
+  Vær særligt varsom med `jsonb`: `<> '{}'`, `= '[]'`, `unnest()` og
+  `array_length()` ser alle rigtige ud og gør noget andet, end de lover.
+  `lib/soeg.ts` har de former, der holder — `jsonb_array_length`,
+  `jsonb_exists`, `jsonb_array_elements_text`.
 - **Migrationer køres IKKE af Vercel-bygget** — et byg skal kunne lykkes
   uden en database. Derfor opdager ingenting en migration, der aldrig blev
   kørt: 0014 lå uden for produktionen, indtil en upload fejlede. **Kør
@@ -1457,6 +1684,31 @@ Migration 0013 sår `native`, fordi den er den eneste kilde uden adapter. Får
 en prøve brug for det rigtige register, er svaret `sikreKilde()` over
 `KILDER` — ikke ny SQL.
 
+### En sået række når ikke `hvor()` med standardværdierne
+
+`listings.address_match_level` har `default 'failed'`, og `hvor()` har
+`ne(addressMatchLevel, 'failed')` — med god grund: en bolig, vi ikke ved
+hvor ligger, vises ikke. **For en prøve er konsekvensen stille og grim:**
+forlægget er usynligt, hver påstand om et tomt resultat bliver grøn, og
+prøven måler ingenting.
+
+Det er sket. Seksten påstande i `scripts/_udvidelsespaastand.ts` stod
+grønne af den forkerte grund, indtil forlægget blev synligt. Ingen af dem
+var forkert skrevet.
+
+Sæt derfor begge, når du sår en række, der skal kunne findes:
+
+    address_match_level = 'access'
+    access_address_uuid = 'intern:…'      -- vilkårlig, men ikke null
+
+`'unit'` kræver `unit_address_uuid` i stedet. Check-constrainten
+`listing_address_level_honest` i `0000_init.sql` håndhæver, at niveauet er
+sandt, så et niveau uden sin uuid afvises af **basen** — det er den
+venlige af de to fejl.
+
+Modgiften mod den stille udgave er en **forudsætning**: mål, at forlægget
+er synligt, før du måler noget om det.
+
 ### Rettighedskontrollen — hvorfor den findes
 
 `npm run tjek:rettigheder` fejler, hvis noget i `public` mangler RLS eller
@@ -1725,6 +1977,52 @@ URL'en, og en URL-nøgle ville gøre boligen til en ny bolig.
 fra Varnish gennem hele undersøgelsen og den første import. Derfor fem forsøg
 i stedet for tre, og derfor tæller 502 og 504 nu som midlertidige i
 `lib/fetch.ts`. Deres eget indeks indeholder også sager, hvis side er væk.
+
+### Lejeperioden — målt 2. oktober 2026, og den bygges ikke
+
+**Ingen kilde oplyser UDBUDDETS lejeperiode i et felt, vi kan bruge.**
+Beslutningen er truffet, og grunden er ikke dækning. Derfor står den her,
+så den næste ikke bruger en dag på at opdage det igen.
+
+Hvad der blev målt:
+
+- **Nul felter og nul kode.** Helrepo-grep over `adapters/ lib/ app/ db/
+  scripts/` på kodelaget, først med et snævert mønster, så med et bredt
+  (`wait|month|until|varsel|frist|binding|period|term|…`). De eneste
+  varighedsfelter, vi læser, er `monthsOfDeposit`/`monthsOfPrepaid`
+  (findbolig — depositum i måneder), `MinWaitTimeInMonths`/
+  `WaitTimeTypeText` (alabu) og `onWaitingListSince` (propstep). Alle tre
+  handler om venteliste eller indflytningspris, ikke om lejeperiode.
+  Det snævre mønster missede Alabus felter; det er derfor begge er kørt.
+- **CEJ har feltet, og det siger intet.** `rentalPeriod` er `"unlimited"`
+  på **alle 63 målte**. Et felt uden variation er ikke en oplysning, der
+  kan filtreres på.
+- **home.dk har det ikke.** Nul træffere i de to cachede Nuxt-payloads og
+  i `scripts/kildeproever/home/feltbelaeg.json`. Stikprøve på **2**.
+- **De øvrige ni er IKKE målt.** Der er ingen cachede payloads, og
+  sessionen havde ingen netadgang til kildeværterne. Det står som ukendt
+  og ikke som et nej.
+
+**Og dét, der FINDES hos CEJ, er ikke vores at hente.** Nabofelterne til
+`rentalPeriod` er `vacatingAt`, `liableUntil` og `terminationNoticeDate`
+— altså fraflytningsdato, hæftelsesperiode og opsigelsesvarsel for den
+**NUVÆRENDE lejer**. Det er oplysninger om et navngivet menneske, der
+bor der nu, og de vedkommer ikke annoncen. Samme kildes payload bærer
+`tenant` med den nuværende lejers navn og private e-mail, målt på **24 af
+63**, og `reservation.lead` med en boligsøgendes navn, e-mail og telefon
+på **27 af 63**. Allowlisten i `adapters/cej.ts` holder dem alle ude, og
+den skal blive.
+
+**Feltet må derfor ikke høstes bredt — heller ikke hvis dækningen en dag
+bliver bedre.** Grunden er ikke, at tallet er for lavt. Grunden er, hvis
+oplysning det er: et opsigelsesvarsel i en udlejers system er den
+siddende lejers forhold, ikke udbuddets vilkår. Bliver `rentalPeriod` en
+dag varieret hos en kilde, er det ét felt, der kan vurderes for sig — og
+vurderingen skal vise, at værdien beskriver DET LEJEMÅL, der udbydes, og
+ikke en aftale med nogen, der bor der.
+
+Konsekvensen i dag: lejeperioden er ikke en kolonne, ikke et filter og
+ikke en sætning i beskrivelsen. Det er ikke et hul, der skal lukkes.
 
 ### Undersøgt 3. september 2026, ikke bygget
 

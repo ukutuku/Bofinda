@@ -898,14 +898,15 @@ hvem har lavet det, hvad giver licensen lov til, og hvor står det.
 | Fil | 2048 × 1365 px · 636.485 bytes · JPEG, sRGB |
 | SHA256 | `a2b2795193c96f2508593dc1dca77f62ea986a10dd2600cef331e64e245d5b5f` |
 
-Pexels-licensen tillader kommerciel brug uden kreditering. **Vi krediterer
-alligevel** — «Stemningsfoto: Taryn Elliott / Pexels» står på hero'en
-selv, af samme grund som kortflisernes kreditering står på kortet: den,
-der har lavet motivet, skal kunne ses af den, der ser det.
+Pexels-licensen tillader kommerciel brug uden kreditering. Forsidens
+foto vises uden tekstmærkat efter ejerens ønske den 3. oktober 2026.
+Fotograf, kilde og licens bevares her og ved billedstien i koden.
+Motivet er dekorativt og forestiller ikke en konkret bolig til leje.
 
-Ordet **«stemningsfoto»** er ikke pynt. Billedet er ikke en bolig, vi har
-til leje, og en forside, der viser en stue uden at sige hvad den er,
-lader læseren tro, at det er en annonce. Teksten siger, hvad billedet er.
+**Et andet hero-foto skal kunne vises uden kreditering.** `NEXT_PUBLIC_HERO_FOTO`
+kan overstyre motivet, men siden har ikke længere et krediteringsmærke og
+dermed ingen vej til at give en. Et billede, hvis licens kræver kreditering,
+må derfor ikke sættes der — kravet kan kun overholdes ved valget af foto.
 
 Bytes er **uændrede fra kilden** — ingen omkodning, ingen skalering,
 ingen retouchering. Beskæringen sker i CSS (`object-fit: cover` +

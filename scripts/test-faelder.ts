@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne/2
 //  Fældetabellen i CLAUDE.md er det, faelder/ siger.
 //
 //    npx tsx --tsconfig tsconfig.scripts.json scripts/test-faelder.ts
