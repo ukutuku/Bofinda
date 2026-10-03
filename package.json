@@ -37,7 +37,8 @@
     "cloud:maal": "scripts/cloud/maal.sh",
     "cloud:skaerm": "scripts/cloud/skaerm.sh",
     "staging:tjek": "tsx --tsconfig tsconfig.scripts.json scripts/staging/tjek.ts",
-    "staging:proev": "tsx --tsconfig tsconfig.scripts.json scripts/proever.ts staging"
+    "staging:proev": "tsx --tsconfig tsconfig.scripts.json scripts/proever.ts staging",
+    "proev:udvidelse": "node scripts/proev-facilitetsudvidelse.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

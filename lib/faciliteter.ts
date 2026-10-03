@@ -92,3 +92,53 @@ type _udenHjem = KunNever<Exclude<Facilitetsord, IFormularen | Udeladt>>
 /** Et ord, der staar BEGGE steder. Delingen skal ogsaa vaere disjunkt:
  *  et ord, formularen spoerger om, er ikke bevidst udeladt. */
 type _begge = KunNever<Extract<IFormularen, Udeladt>>
+
+// ═══════════════════════════════════════════════════════════════
+//  NØGLERNE — så opregningen aldrig skrives i hånden igen.
+//
+//  De tre filtre var opregnet 14+ steder: `Filtre`, `hvor()`,
+//  `facetter()`, `opsummering()`, `facilitetsgrundlag`, `tavseKilder`,
+//  `filtreFraParametre`, `tilParametre`, `harFiltre`, `filterpanel`,
+//  `alarm`, `maaling`, `maalingsoeg` ×3 og `app/page.tsx` ×5. Hvert
+//  sted var korrekt; tilsammen var de en tidsindstillet fejl, for en
+//  udvidelse skulle huskes i alle.
+//
+//  CLAUDE.md kræver, at et facilitetsfilter navngiver de kilder, der
+//  tier, og tæller de tre grupper. Den regel kan ikke «komme bagefter»
+//  en udvidelse, hvis opregningen er UDLEDT: et nyt begreb i FACILITET
+//  bliver et felt, et filter, et aggregat, en afkrydsning og en
+//  grundlagslinje af sig selv.
+//
+//  Nøglerne er stadig NAVNE og ikke numre, og feltnavnene på `Filtre`
+//  er uændrede — `saved_searches.criteria` er en serialiseret `Filtre`,
+//  så en omdøbning ville kræve en datamigrering af gemte søgninger.
+// ═══════════════════════════════════════════════════════════════
+
+/** Begreberne, ikke ordene. `kaeledyr` | `elevator` | `udeplads` i dag. */
+export type Facilitetsnoegle = keyof typeof FACILITET
+
+/**
+ * Nøglerne som en liste, til hver opregning.
+ *
+ * `Object.keys` og ikke en skrevet liste: en skrevet liste ville være
+ * det andet udtryk for `FACILITET`, og de to kunne drive fra hinanden —
+ * præcis den fejlform, hele denne fil handler om.
+ */
+export const FACILITETSNOEGLER = Object.keys(FACILITET) as Facilitetsnoegle[]
+
+/**
+ * Det, brugeren ser. Små bogstaver, fordi det er formen i filterchips
+ * og i alarmmailens filterlinje; afkrydsningen og grundlagslinjen
+ * bruger `stortForbogstav`, så der kun er ÉN streng pr. begreb.
+ *
+ * `satisfies Record<Facilitetsnoegle, string>` og ikke `Partial`: et nyt
+ * begreb UDEN et navn er TS2741. Uden den binding ville et nyt filter
+ * kunne nå skærmen med sin nøgle som etiket.
+ */
+export const FACILITETSNAVN = {
+  kaeledyr: 'kæledyr tilladt',
+  elevator: 'elevator',
+  udeplads: 'altan eller terrasse',
+} as const satisfies Record<Facilitetsnoegle, string>
+
+export const stortForbogstav = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
