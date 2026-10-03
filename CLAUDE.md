@@ -1058,6 +1058,12 @@ tabellen.
 værktøj eller et værn, men om DATA: et nul fra en tæller er «ingenting
 skete» og «vi holdt op med at måle» i samme tegn.
 
+**Form 5 · et værn, der dømmer rigtigt, mens handlingen løber videre ved
+siden af.** `dommen-uden-port` mangler ikke dækning: valideringen måler
+rigtigt og er korrekt rød. Der er bare ingen port, dommen kan lukke — og
+et værn, der er korrekt rødt, mens handlingen sker alligevel, er ikke et
+smallere værn. Det er intet værn.
+
 **Og to, der ikke er værn.** `kendt-følge`: en fejl, der er skrevet ned,
 ligner en fejl, der er håndteret. `det-stærkeste-faldback` er en anden
 akse end alle de andre — ikke hvor meget et værn dækker, men hvilken VEJ
@@ -1083,6 +1089,7 @@ commits, i PR-tekster og her.
 | **linjeankeret** · en scanner forankret til linjestart (`^`) | Ser kun kopier, hvor nøglen står FØRST på linjen. Alle seks kopier havde flere nøgler pr. linje, så scanneren meldte fire af seks — et tal, der ser ud som et svar. |
 | **prøvens-eget-forlæg** | Dækker slet ikke koden. Isoleringsflagene lå i trinlisten i `scripts/import.ts`; prøven byggede sine egne trin med sine egne flag. Vendes hvert eneste flag i koden, er sættet fortsat grønt — prøven så aldrig på dem. |
 | **den-rene-fils-påstand** · brugervendt tekst i en ren fil, prøvet i `npm test` | Teksten, ikke løftet. Brugervendt tekst, der gør et udsagn om systemet, lægges i en ren fil uden database, så den kan prøves — det er rigtigt. Men en påstand om ET ANDET modul kan ikke prøves der: den skal have sin egen prøve, hvor modulet bor. «Den kan stadig åbnes på sit eget link» handler om `hentBolig`, og prøven af forklaringsfilen var grøn, også hvis linket gav 404. En ren fil gør teksten prøvbar og løftet uprøvbart, hvis man ikke passer på. **Og en ren fil holder kun, hvis også dens hjælpefunktioner er rene** — en formatteringshjælper fra en komponent er det sjældent. Fletteopskriften til `opgave/kontakt-ui` ville have hentet `kr` fra `app/Boligkort` ind i `forklaring.ts`, og `Boligkort` importerer `lib/soeg` og dermed databasen. Intet ville have set det: `db/client.ts` forbinder først ved første brug, så en import-prøve bliver ikke rød, og prøverne kører under testbasen. `scripts/test-rene-filer.ts` måler derfor importgrafen med esbuild og tillader kun andre rene filer — en allowlist, så en ny hjælper skal på listen og selv bliver vogtet. |
+| **dommen-uden-port** · en validering, hvis exitkode intet læser | Intet — og det er pointen. Den dækker rigtigt og dømmer rigtigt; der er bare ingen port, dommen lukker. Valideringen af en konfliktløsning stoppede korrekt på ugyldig JSON, men `git add` stod som næste sætning i samme kald og kørte **alligevel**: filen blev staged MED konfliktmarkører, og `rebase --continue` gik igennem. Rettelsen er ikke at validere bedre — den er at gøre handlingen AFHÆNGIG af exitkoden i stedet for at lade den stå efter den. To sætninger efter hinanden lader rækkefølgen i filen afgøre resultatet frem for dommen. Mekanisk i `scripts/stage-gyldig.sh`, som beviser sig selv med `--modproev`. |
 | **kendt-følge** · en kendt fejl skrevet ned i stedet for rettet | Brugeren. En kendt usand brugervendt sætning er en fejl, ikke en følge. Den skal rettes, eller ændringen skal vente. At skrive den ned er ikke at have løst den — siden blev ved med at sige den, hver gang den blev vist. |
 | **værdisøgningen** · `git grep "'Lejlighed'"` | Finder kun den ene af tre skrivemåder. Nøglen er ens i alle kopier; værdien er netop det, en drevet kopi har ændret. |
 | **konflikt-fødte-ændringer** · `git log -S` / `-G` | Ser **ikke merges**. En linje, der opstod i en merges konfliktløsning, har ingen enkelt commit — og søgningen svarer TOMT. Det læses som «denne linje har ingen historik», når det betyder «denne historik er usynlig for dette værktøj». Brug `--diff-merges=first-parent`; `-m` finder den også, men differ mod hver forælder og over-rapporterer. Målt: `.kort-maerkater { right: 52px }` fandtes i nul commits, i én merge med flaget, og i fire med `-m`. |
