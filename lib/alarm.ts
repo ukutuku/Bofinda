@@ -152,8 +152,33 @@ export async function matchAlarmer(kun?: string[]): Promise<MatchResultat[]> {
   return ud
 }
 
+/**
+ * Hvem der får mail først: den søgning, hvis ældste ventende træf er ældst.
+ *
+ * Rækkefølgen afgør ikke, OM nogen får mail — mailen sendes før `sent_at`
+ * sættes, og det usendte bliver i køen til næste kørsel. Den afgør, hvem
+ * der venter en time ekstra, når en kørsel afbrydes undervejs. Før var
+ * ordenen søgningens navn: en collation, ingen havde valgt, og de samme
+ * navne kom sidst hver gang. Et id ville være lige så stabilt og lige så
+ * uretfærdigt. Ældste ventende først gør det modsatte: en søgning, der blev
+ * sprunget over, står forrest næste gang.
+ *
+ * `soegningId` afgør uafgjort, så ordenen er den samme fra kørsel til
+ * kørsel. Den sammenlignes som tekst i JS, ikke i basen — ingen collation.
+ */
+export const aeldsteVentendeFoerst = (
+  a: readonly { matchetKl: Date; soegningId: string }[],
+  b: readonly { matchetKl: Date; soegningId: string }[],
+): number => {
+  const ta = Math.min(...a.map((r) => +r.matchetKl))
+  const tb = Math.min(...b.map((r) => +r.matchetKl))
+  if (ta !== tb) return ta - tb
+  const ia = a[0]!.soegningId, ib = b[0]!.soegningId
+  return ia < ib ? -1 : ia > ib ? 1 : 0
+}
+
 /** Alt der ligger og venter — grupperet, så det kan læses som den besked,
- *  der ville være sendt. */
+ *  der ville være sendt, i den orden de sendes. */
 export async function ventende() {
   const raekker = await db
     .select({
@@ -192,7 +217,9 @@ export async function ventende() {
     .innerJoin(listings, eq(listings.id, alertMatches.listingId))
     .innerJoin(sources, eq(sources.id, listings.sourceId))
     .where(and(isNull(alertMatches.sentAt), isNotNull(savedSearches.confirmedAt)))
-    .orderBy(savedSearches.name, desc(alertMatches.matchedAt))
+    // Inde i én mail: nyeste træf først. `id` til sidst, så to træf fra
+    // samme øjeblik står ens fra kørsel til kørsel.
+    .orderBy(desc(alertMatches.matchedAt), alertMatches.id)
 
   const grupper = new Map<string, typeof raekker>()
   for (const r of raekker) {
@@ -200,7 +227,7 @@ export async function ventende() {
     n.push(r)
     grupper.set(r.soegningId, n)
   }
-  return [...grupper.values()]
+  return [...grupper.values()].sort(aeldsteVentendeFoerst)
 }
 
 /** Kriterierne som en linje, så det kan ses hvad søgningen faktisk beder om. */
