@@ -37,16 +37,13 @@
 --  afsender selv har fundet på, og aldrig en værdi. Derfor ingen
 --  udløbsdato, ligesom haendelser_daglig.
 --
---  ═══ FLETTEFARE: claude/betaling-og-adgangskontrol ═══
+--  ═══ INTEGRATION EFTER #57 ═══
 --
---  Den gren har 0021-0029. drizzle's migrator (drizzle-orm 0.38.4,
---  pg-core/dialect.js) kører KUN en migration, hvis dens `when` er større
---  end den senest kørte. `when` for denne er 1788811312600: efter 0020
---  (…592) og før grenens 0021 (…613). Flettes denne først, kører grenens
---  migrationer bagefter som de skal. Flettes grenen FØRST, skal denne
---  have nyt nummer og et `when` efter grenens sidste — ellers springes den
---  over uden en fejl. `db:status` opdager det, fordi den tæller kørte mod
---  journalposter, men den navngiver de SIDSTE poster, ikke den oversprungne.
+--  #57 har allerede 0021_billedforbehold_belaeg med when 1788811313592.
+--  Denne fil er derfor 0022 med when 1788811314592 og staar efter den.
+--  Drizzle koerer kun poster nyere end den sidst anvendte. Derfor skal
+--  baade nummer, placering og when foelge den faktisk landede journal.
+--  Koer db:backup (FAERDIG), db:migrate og db:status foer aktivering.
 -- ═══════════════════════════════════════════════════════════════
 
 create table "maaling_afvisninger" (

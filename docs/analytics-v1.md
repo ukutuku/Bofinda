@@ -596,7 +596,7 @@ at afsløre. En værdi uden for listen tælles desuden på selve rækken (`_afvi
 for loggen kan ikke tælles i en rapport.
 
 **Et kasseret event tælles uden om det, der kasserede det.** Tabellen
-`maaling_afvisninger` (migration 0021) har én række pr. dato, miljø, event,
+`maaling_afvisninger` (migration 0022) har én række pr. dato, miljø, event,
 nøgle og grund, uden identifikatorer. `spor()` skriver den direkte med
 `rens()`'s svar — aldrig som et event gennem `rens()`, for så holdt den op
 med at tælle, netop når `rens()` gik i stykker. Kaster `rens()` selv, tælles

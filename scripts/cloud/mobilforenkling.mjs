@@ -23,15 +23,12 @@
 //  Exit: 0 = alt grønt · 1 = noget fejlede · 2 = intet at måle på
 // ═══════════════════════════════════════════════════════════════
 import pw from 'playwright-core'
-import postgres from 'postgres'
+import { aabnIsoleretEllerStop } from './isoleret.mjs'
 import { mkdirSync } from 'node:fs'
 
 const BASE = process.env.BOFINDA_APP_BASE ?? 'http://127.0.0.1:3100'
 const UD = process.argv[2] ?? null
 if (UD) mkdirSync(UD, { recursive: true })
-if (!process.env.DATABASE_URL) {
-  console.error('FEJL: DATABASE_URL mangler — prøven kan ikke vælge en bolig.'); process.exit(2)
-}
 
 let fejl = 0
 const tjek = (ok, navn, note = '') => {
@@ -43,7 +40,8 @@ const tjek = (ok, navn, note = '') => {
 //  Én MED kendt total og areal (så kvadratmeterblokken kan optræde) og
 //  én UDEN total. De vælges i basen, ikke skrevet ind: et id i en prøve
 //  bliver forkert, næste gang datasættet bygges.
-const sql = postgres(process.env.DATABASE_URL, { ssl: false, max: 1, onnotice: () => {} })
+// Vagten ligger i isoleret.mjs — se noten dér om de tre signaler.
+const sql = await aabnIsoleretEllerStop()
 const [medTotal] = await sql`
   select id, postal_code from listings
   where status = 'active' and total_monthly is not null and size_m2 is not null

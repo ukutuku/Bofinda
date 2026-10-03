@@ -152,8 +152,15 @@
     {
       "idx": 21,
       "version": "7",
-      "when": 1788811312600,
-      "tag": "0021_maaling_afvisninger",
+      "when": 1788811313592,
+      "tag": "0021_billedforbehold_belaeg",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1788811314592,
+      "tag": "0022_maaling_afvisninger",
       "breakpoints": true
     }
   ]

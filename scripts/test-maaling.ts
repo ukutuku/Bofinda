@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  Prøver for produktanalytics.
 //
 //    1.  Forside vs. søgning skelnes på harFiltre(), ikke pathname
