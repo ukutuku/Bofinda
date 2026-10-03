@@ -585,11 +585,24 @@ komplet; en liste over tilladte kan.
 | `Bearer `, `eyJ`, `sb_secret`, `sb_publishable` | Hele eventet droppes | Tokens |
 | Absolut URL med vært ≠ bofinda.dk | Hele eventet droppes | Fanger både kilde-payloads og hele referrer-URL'er |
 | `canonical_city` ikke i `facetter().byer` | Nøglen droppes, `sted_slags='by_ukendt'` | Det er dét, der gør feltet kategorisk |
+| Værdi uden for feltets liste (`af`) | **Nøglen** droppes, eventet skrives, og nøglens navn står på rækken under `_afvist` | At kassere hele eventet slettede målingen selv: én ny værdi, og eventet holdt op med at blive skrevet. Personoplysningstjekket kører FØR listetjekket, så en mailadresse i et opregnet felt er stadig pii og kasserer hele eventet |
+| Påkrævet nøgle ikke sendt | Hele eventet droppes | Kravet prøves på det, der BLEV SENDT. En sendt nøgle med en værdi uden for listen har opfyldt det — ellers var rækken ovenfor virkningsløs netop for de påkrævede felter |
+| Forkert type (tekst i et talfelt, NaN, decimal i et heltalsfelt, under `mindst`) | Hele eventet droppes, og kassationen tælles i `maaling_afvisninger` | Uafklaret, ikke glemt: mål en uge, afgør så. `_afvist` kan ikke tælle det — et kasseret event har ingen række |
 | `environment` ikke i enum | Hele eventet droppes | Se afsnit 10 |
 
 **Droppet er ikke stille.** Hver afvisning logger eventnavn og den *nøgle*, der
 udløste den — aldrig værdien. Ellers ville værnet skjule den fejl, det findes for
-at afsløre.
+at afsløre. En værdi uden for listen tælles desuden på selve rækken (`_afvist`),
+for loggen kan ikke tælles i en rapport.
+
+**Et kasseret event tælles uden om det, der kasserede det.** Tabellen
+`maaling_afvisninger` (migration 0021) har én række pr. dato, miljø, event,
+nøgle og grund, uden identifikatorer. `spor()` skriver den direkte med
+`rens()`'s svar — aldrig som et event gennem `rens()`, for så holdt den op
+med at tælle, netop når `rens()` gik i stykker. Kaster `rens()` selv, tælles
+det som `rens-kastede`. Rækken med grunden `talt` skrives ubetinget hver dag,
+der måles, før `rens()`: findes den for en dag, er en manglende kassation et
+rigtigt nul; findes den ikke, blev der ikke talt.
 
 ### Fail-open
 
@@ -1136,6 +1149,7 @@ nummereret hovedkommentar, `tjek(navn, ok, note)`, kørt mod PGlite. Tilføjes t
 | 8 | canonical city | Kendt by → `canonical_city` sat, `sted_slags='by_kendt'`. Ukendt → nøglen mangler, `sted_slags='by_ukendt'` |
 | 9 | PII afvises | Event med mailadresse i en property skriver **nul** rækker. Samme for telefon, JWT og fremmed URL |
 | 10 | Ukendte properties | Nøglen forsvinder, eventet skrives, afvisningen tælles |
+| 10b | Værdi uden for listen | Nøglen forsvinder, eventet skrives med `_afvist`, også når nøglen er påkrævet. En mailadresse i samme felt kasserer stadig, og forkert type gør også. En afsender kan ikke selv skrive `_afvist` |
 | 11 | Fail-open | Med en skriver, der altid kaster: `tilmeld()` returnerer stadig `sendt`, og rækken i `saved_searches` findes |
 | 12 | Samtykke = nej | Rækker skrives, men `anonymous_id`, `session_id` og `user_id` er alle null, og ingen cookie sættes |
 | 13 | Samtykke = ja | Identifikatorerne er sat og er de samme på tværs af to requests |

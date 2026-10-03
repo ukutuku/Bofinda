@@ -604,3 +604,22 @@ export const haendelserDaglig = pgTable('haendelser_daglig', {
 }, (t) => ({
   pk: primaryKey({ columns: [t.dato, t.environment, t.eventName, t.sourceSlug] }),
 }))
+
+/**
+ * Tælleren for målinger, `rens()` kasserede. Se 0021_maaling_afvisninger.sql.
+ *
+ * Ingen identifikatorer: dato, miljø, event, nøgle og grund — alle fra
+ * allowlisten eller vores egne faste ord. Rækken med grund 'talt' skrives
+ * UBETINGET hver dag, der måles, så et nul kan skelnes fra «ikke talt».
+ */
+export const maalingAfvisninger = pgTable('maaling_afvisninger', {
+  dato: text('dato').notNull(),
+  environment: text('environment').notNull(),
+  eventName: text('event_name').notNull().default(''),
+  noegle: text('noegle').notNull().default(''),
+  grund: text('grund').notNull(),
+  antal: integer('antal').notNull().default(0),
+  sidstSkrevet: timestamp('sidst_skrevet', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.dato, t.environment, t.eventName, t.noegle, t.grund] }),
+}))

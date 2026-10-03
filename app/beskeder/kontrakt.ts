@@ -61,12 +61,40 @@
  * I gratis tilstand er det Supplys centrale adgangsbeslutning, der
  * afgør tilstanden. Brugerfladen kender ikke forskel på de to
  * tilstande; den får ét ord og viser det.
+ *
+ * ═══ LISTEN ER KILDEN, IKKE UNIONEN ═══
+ *
+ * `LAASEGRUNDE` stod før som `readonly Laasegrund[]` med unionen skrevet
+ * ovenfor. Den annotation UDVIDER listen: en DELMÆNGDE typechecker.
+ * Bindingen fangede altså en forkert værdi og ikke en manglende — og
+ * det er den manglende, der er farlig her, for `ukendt-tilstand` er
+ * allerede besluttet som en fjerde grund.
+ *
+ * Nu udledes unionen af listen. Så kan der ikke findes en låsegrund,
+ * listen ikke har — ikke fordi nogen husker det, men fordi den ikke
+ * kan skrives.
  */
-export type Laasegrund = 'login-kraevet' | 'abonnement-kraevet' | 'abonnement-udloebet'
+export const LAASEGRUNDE = [
+  'login-kraevet',
+  'abonnement-kraevet',
+  'abonnement-udloebet',
+] as const
 
-/** Alle tilstande, brugerfladen kan stå i. Bruges af prøvevisningen. */
-export const LAASEGRUNDE: readonly Laasegrund[] =
-  ['login-kraevet', 'abonnement-kraevet', 'abonnement-udloebet'] as const
+export type Laasegrund = (typeof LAASEGRUNDE)[number]
+
+/**
+ * Vagten mod at skrive unionen bredere end listen igen.
+ *
+ * Den eneste måde at genindføre fejlen på er at skrive
+ * `type Laasegrund = (typeof LAASEGRUNDE)[number] | 'ny-grund'`. Så er
+ * `_Overskydende` ikke længere `never`, typen herunder bliver `false`,
+ * og tildelingen af `true` fejler i `tsc`. Det er en prøve, der kører
+ * ved hver eneste oversættelse og ikke kun når nogen husker at køre
+ * prøvesættet.
+ */
+type _Overskydende = Exclude<Laasegrund, (typeof LAASEGRUNDE)[number]>
+const _ingenGrundeUdenForListen: [_Overskydende] extends [never] ? true : false = true
+void _ingenGrundeUdenForListen
 
 export interface Modpart {
   /** Udlejerens eller den boligsøgendes navn. Null → brugerfladen skriver rollen. */

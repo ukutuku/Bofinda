@@ -111,7 +111,41 @@ export type Rute = (typeof RUTER)[number]
 
 // ─── Eventmodellen ─────────────────────────────────────────────
 
-export type StedSlags = 'postnr' | 'by_kendt' | 'by_ukendt' | 'ingen'
+// ─── De opregnede værdier ──────────────────────────────────────
+//
+//  Hver liste herunder er ÉN værdi med to læsere: typen, som afsenderen
+//  skrives mod, og `af:` i allowlisten, som `rens()` afviser imod. Typen
+//  er AFLEDT af arrayet — ikke skrevet ved siden af det — så en ny værdi
+//  kan ikke komme ind det ene sted og glemmes det andet.
+//
+//  Før stod de seks lister skrevet af i allowlisten, og typerne stod for
+//  sig selv i interfacene. De var ens — men intet holdt dem ens. Havde
+//  typen fået en værdi, listen ikke havde, ville koden være grøn,
+//  afsenderen sende værdien, og `rens()` kassere HELE eventet som
+//  'forkert-type': en måling, der sletter sig selv, med kun en loglinje
+//  som spor. Se `Huller` nedenfor for vagten, der gør det til en
+//  oversætterfejl, også hvis nogen skriver en liste af igen — og
+//  'uden-for-listen' i `rens` for det, vagten ikke kan se.
+
+export const STEDSLAGS = ['postnr', 'by_kendt', 'by_ukendt', 'ingen'] as const
+export type StedSlags = (typeof STEDSLAGS)[number]
+
+/** Søgningens overtagelsesfilter. `Filtre.overtagelse` i lib/soeg.ts er
+ *  søgningens egen union; bindingen til den her er tildelingen i
+ *  `uddrag()` (lib/maalingsoeg.ts), som ikke oversætter, hvis søgningen
+ *  får en værdi, målingen ikke kender. Prøvet der, hvor tildelingen bor:
+ *  modproever/type-soegningen-faar-en-overtagelse.mjs. */
+export const OVERTAGELSER = ['nu', 'senere'] as const
+export type Overtagelse = (typeof OVERTAGELSER)[number]
+
+export const KILDEMAAL = ['kilde'] as const
+export type Kildemaal = (typeof KILDEMAAL)[number]
+
+export const KONTAKTMAAL = ['mail', 'telefon'] as const
+export type Kontaktmaal = (typeof KONTAKTMAAL)[number]
+
+export const KORTHANDLINGER = ['zoom', 'pan', 'maerke_klik'] as const
+export type Korthandling = (typeof KORTHANDLINGER)[number]
 
 /** Felterne i søgeformularen, som en diff kan pege på. */
 export const FILTERFELTER = [
@@ -174,7 +208,7 @@ export interface Filteruddrag {
   area_min?: number
   property_types?: string[]
   kilde?: string
-  overtagelse?: 'nu' | 'senere'
+  overtagelse?: Overtagelse
   venteliste?: boolean
   reserveret?: boolean
   full_economy?: boolean
@@ -265,16 +299,19 @@ export interface ImpressionProps {
 
 export interface GruppeProps { gruppe_antal: number; postnr?: string }
 export interface KildeProps {
-  maal: 'kilde'
+  maal: Kildemaal
   postnr?: string
   property_type?: string
-  fra_route?: string
+  fra_route?: Rute
 }
 export interface KontaktProps { har_mail: boolean; har_telefon: boolean }
-export interface KontaktklikProps { maal: 'mail' | 'telefon' }
+// FLETTEFARE: løses en konflikt her mod claude/betaling-og-adgangskontrol,
+// så læs noten ved ALLOWLIST først. Grenens lister passerer kun, så længe
+// allowlisten forbliver `as const satisfies`.
+export interface KontaktklikProps { maal: Kontaktmaal }
 export interface AlarmProps { filtertyper: string[]; antal_filtre?: number }
 export interface KontoProps { bandt_eksisterende?: boolean }
-export interface KortProps { slags: 'zoom' | 'pan' | 'maerke_klik' }
+export interface KortProps { slags: Korthandling }
 export interface FejlProps { handling: string; fejlklasse: string }
 
 // ─── Allowlisten ───────────────────────────────────────────────
@@ -290,11 +327,11 @@ interface Spec {
   mindst?: number
 }
 
-const FILTERUDDRAG: Record<string, Spec> = {
+const FILTERUDDRAG = {
   // sted_slags hoerer til uddraget, ikke kun til `search`: uden det kan
   // «hvilke soegninger giver aldrig noget» ikke besvares paa
   // empty_results alene, og det er praecis dét, eventet findes for.
-  sted_slags: { slags: 'tekst', af: ['postnr', 'by_kendt', 'by_ukendt', 'ingen'] },
+  sted_slags: { slags: 'tekst', af: STEDSLAGS },
   canonical_city: { slags: 'tekst' },
   postnr: { slags: 'tekst' },
   price_min: { slags: 'tal' },
@@ -303,13 +340,13 @@ const FILTERUDDRAG: Record<string, Spec> = {
   area_min: { slags: 'tal' },
   property_types: { slags: 'liste' },
   kilde: { slags: 'tekst' },
-  overtagelse: { slags: 'tekst', af: ['nu', 'senere'] },
+  overtagelse: { slags: 'tekst', af: OVERTAGELSER },
   venteliste: { slags: 'bool' },
   reserveret: { slags: 'bool' },
   full_economy: { slags: 'bool' },
   facilities: { slags: 'liste' },
   kort_vist: { slags: 'bool' },
-}
+} as const satisfies Record<string, Spec>
 
 /**
  * Pagineringens tre felter, delt af de tre soegeevents.
@@ -318,17 +355,17 @@ const FILTERUDDRAG: Record<string, Spec> = {
  * `mindst` afviser 0 og negative sider. En `Number()` af vilkaarlig URL-tekst
  * ville give NaN for «?side=abc» og slippe igennem et blot `typeof === number`.
  */
-const SIDEVISNING: Record<string, Spec> = {
+const SIDEVISNING = {
   side: { slags: 'tal', heltal: true, mindst: 1 },
   sider_i_alt: { slags: 'tal', heltal: true, mindst: 0 },
   komplet: { slags: 'bool' },
-}
+} as const satisfies Record<string, Spec>
 
-const UTM: Record<string, Spec> = {
+const UTM = {
   utm_source: { slags: 'tekst' },
   utm_medium: { slags: 'tekst' },
   utm_campaign: { slags: 'tekst' },
-}
+} as const satisfies Record<string, Spec>
 
 /**
  * Hvert event, og præcis de nøgler det må bære.
@@ -336,8 +373,35 @@ const UTM: Record<string, Spec> = {
  * Der står INGEN felter her, som brugeren har tastet. `sted` og `by` er
  * fritekst; `canonical_city` er den kanoniserede erstatning og skal have
  * været slået op i facetter() af kalderen — se `renser` og docs.
+ *
+ * ═══ FLETTEFARE · claude/betaling-og-adgangskontrol ═══
+ *
+ * Grenen har fem håndskrevne lister her: `funktion` og `tilstand` på
+ * paywall_blocked og checkout_started, `fase` på subscription_canceled.
+ * De passerer typevagten `Huller` — men KUN så længe allowlisten forbliver
+ * `as const satisfies`. Grenen selv har den annoterede form,
+ * `ALLOWLIST: Record<Eventnavn, Record<string, Spec>> = {`.
+ *
+ * Målt 2. oktober 2026 med en prøvefletning: git tager denne form og vagten
+ * med af sig selv; filens eneste konflikt ligger ved KontaktklikProps.
+ * Faren er en MANUEL løsning, der tager grenens erklæring. Den gør vagten
+ * blind for alle lister på én gang. I tsc er det ikke tavst — vagten har en
+ * gren for netop den form. Men npm test kører gennem tsx uden typetjek, så
+ * fjernes vagten for at få tsc grøn, ville prøvesættet intet se. Prøve 32 i
+ * scripts/test-maaling.ts gør derfor både annotationen og en slettet vagt
+ * røde i npm test.
+ *
+ * modproever/type-allowlist-annoteret.mjs beviser, at vagtens gren virker,
+ * og dens mønster er linjen herunder. Ændres linjen, afviser
+ * modprøvekøreren mutationen (dens vagt 4), og beviset er faldet ud af
+ * fletningen. Kør den efter fletningen med scripts/modproeve.mjs fra
+ * verktoej/modproevekoerer og den skærpede kommando, der kun er rød på
+ * vagtens egen meddelelse:
+ *
+ *   node scripts/modproeve.mjs modproever/type-allowlist-annoteret.mjs -- \
+ *     sh -c "! npx tsc --noEmit -p tsconfig.json | grep -q \"does not satisfy the constraint 'never'\""
  */
-export const ALLOWLIST: Record<Eventnavn, Record<string, Spec>> = {
+export const ALLOWLIST = {
   homepage_view: {
     boliger_i_alt: { slags: 'tal' },
     kilder_i_alt: { slags: 'tal' },
@@ -350,7 +414,9 @@ export const ALLOWLIST: Record<Eventnavn, Record<string, Spec>> = {
     sorter: { slags: 'tekst', kraevet: true },
     result_view_id: { slags: 'tekst' },
     ...FILTERUDDRAG,
-    sted_slags: { slags: 'tekst', kraevet: true, af: ['postnr', 'by_kendt', 'by_ukendt', 'ingen'] },
+    // Samme spec som i uddraget, blot kraevet: paa `search` ved vi altid,
+    // hvilken slags sted der blev soegt paa.
+    sted_slags: { ...FILTERUDDRAG.sted_slags, kraevet: true },
     ...SIDEVISNING,
     ...UTM,
   },
@@ -418,7 +484,7 @@ export const ALLOWLIST: Record<Eventnavn, Record<string, Spec>> = {
     postnr: { slags: 'tekst' },
   },
   source_click: {
-    maal: { slags: 'tekst', kraevet: true, af: ['kilde'] },
+    maal: { slags: 'tekst', kraevet: true, af: KILDEMAAL },
     postnr: { slags: 'tekst' },
     property_type: { slags: 'tekst' },
     fra_route: { slags: 'tekst', af: RUTER },
@@ -428,7 +494,7 @@ export const ALLOWLIST: Record<Eventnavn, Record<string, Spec>> = {
     har_telefon: { slags: 'bool', kraevet: true },
   },
   contact_click: {
-    maal: { slags: 'tekst', kraevet: true, af: ['mail', 'telefon'] },
+    maal: { slags: 'tekst', kraevet: true, af: KONTAKTMAAL },
   },
   alert_started: {},
   alert_created: {
@@ -444,13 +510,63 @@ export const ALLOWLIST: Record<Eventnavn, Record<string, Spec>> = {
   login_completed: {},
   filter_opened: {},
   map_interaction: {
-    slags: { slags: 'tekst', kraevet: true, af: ['zoom', 'pan', 'maerke_klik'] },
+    slags: { slags: 'tekst', kraevet: true, af: KORTHANDLINGER },
   },
   server_action_failed: {
     handling: { slags: 'tekst', kraevet: true },
     fejlklasse: { slags: 'tekst', kraevet: true },
   },
-}
+} as const satisfies Record<Eventnavn, Record<string, Spec>>
+
+/**
+ * Typevagten: kan en afsender sende en værdi, allowlisten afviser?
+ *
+ * For hver nøgle med en `af`-liste sammenholdes listen med feltets type i
+ * eventets props. Ligger en værdi i typen og ikke i listen, ville den
+ * oversætte, blive sendt og få HELE eventet kasseret af `rens()`. Her
+ * bliver den i stedet en oversætterfejl, der navngiver event, nøgle og
+ * værdi — også hvis listen skrives af i hånden igen, og også hvis feltets
+ * type er bredere end listen (`fra_route` var `string` mod `af: RUTER`).
+ *
+ * To grene fanger det, der ville gøre vagten blind. Mister allowlisten
+ * sine literaltyper — en annotation som `Record<string, Spec>` i stedet
+ * for `satisfies` — er `af` valgfri og `string[]` for typesystemet, og så
+ * kan intet sammenholdes. Det er en fejl, ikke et stille grønt.
+ *
+ * Hvad vagten IKKE ser:
+ *  · den modsatte vej, en værdi i listen, som typen ikke har — den koster
+ *    intet event;
+ *  · en værdi, der kommer fra køretidsdata og er castet til typen;
+ *  · et beacon fra en gammel browserfane, der sender en værdi, en nyere
+ *    deploy har fjernet fra listen.
+ * De to sidste afgøres først i `rens()`: nøglen droppes, eventet skrives,
+ * og nøglens navn står på rækken under `_afvist`.
+ */
+type Allowlist = typeof ALLOWLIST
+/** Props-typen for ét eventnavn. Bruges også af `meld()` i browseren. */
+export type PropsFor<N extends Eventnavn> = Extract<Haendelse, { navn: N }>['props']
+type Hul<N extends Eventnavn> = {
+  [K in keyof Allowlist[N]]: Allowlist[N][K] extends { af: readonly (infer V)[] }
+    ? string extends V
+      ? { event: N; noegle: K; listen_er_ukendt_for_typen: true }
+      : K extends keyof PropsFor<N>
+        ? [Exclude<NonNullable<PropsFor<N>[K]>, V>] extends [never]
+          ? never
+          : { event: N; noegle: K; uden_for_listen: Exclude<NonNullable<PropsFor<N>[K]>, V> }
+        : never
+    // `af` er en nøgle, men ikke en påkrævet: specen er den brede `Spec`,
+    // og om der er en liste, ved typesystemet ikke. Uden grenen her
+    // matchede en annoteret allowlist ingen af de to andre og meldte
+    // «ingen huller» — modprøven `type-allowlist-annoteret` slap igennem.
+    : 'af' extends keyof Allowlist[N][K]
+      ? { event: N; noegle: K; listen_er_ukendt_for_typen: true }
+      : never
+}[keyof Allowlist[N]]
+type Huller = { [N in Eventnavn]: Hul<N> }[Eventnavn]
+type IngenHuller<T extends never> = T
+// Fejler oversættelsen her, står hullet i meddelelsen: «Type '{ event: …;
+// noegle: …; uden_for_listen: … }' does not satisfy the constraint 'never'».
+type _AllowlistenDaekkerTyperne = IngenHuller<Huller>
 
 /**
  * Events, der udledes af AT EN SIDE RENDERES.
@@ -495,11 +611,18 @@ export function erGenrendering(faa: Hovedlaeser): boolean {
   return Boolean(faa('next-action') || faa('next-router-prefetch'))
 }
 
-/** Kun disse fyres fra browseren. Alt andet fra /api/maaling er en fejl. */
-export const KLIENTEVENTS: readonly Eventnavn[] = [
+/**
+ * Kun disse fyres fra browseren. Alt andet fra /api/maaling er en fejl.
+ *
+ * Typen er afledt, så `meld()` i app/Maaling.tsx kun tager disse navne:
+ * et klientevent, der mangler her, ville ellers oversætte og blive smidt
+ * væk af ruten uden en loglinje.
+ */
+export const KLIENTEVENTS = [
   'filter_opened', 'map_interaction', 'alert_started',
   'contact_click', 'listing_impression', 'search_submitted',
-]
+] as const satisfies readonly Eventnavn[]
+export type Klientevent = (typeof KLIENTEVENTS)[number]
 
 /**
  * `search_submitted` staar med vilje IKKE i RENDEREVENTS.
@@ -519,13 +642,27 @@ const TOKEN = /(?:^|\s)(?:Bearer\s|eyJ|sb_secret|sb_publishable|sbp_)/i
 const ABSOLUT_URL = /^[a-z][a-z0-9+.-]*:\/\//i
 const MAKS_TEGN = 120
 
+/**
+ * Konteksten, `rens` prøver før props. Ordene står ÉT sted, fordi
+ * tælleren i lib/maaling-server.ts gemmer dem: typen nedenfor binder
+ * `rens` til listen, så et nyt kontekstfelt er en oversætterfejl, indtil
+ * det står her — ikke en optælling, der tavst bliver til '(ukendt)'.
+ */
+export const KONTEKSTFELTER = [
+  'environment', 'identifikator', 'user_id', 'research_session_id',
+  'route', 'listing_id', 'source_slug',
+] as const
+export type Kontekstfelt = (typeof KONTEKSTFELTER)[number]
+
 export type Afvisning =
   | { grund: 'ukendt-event'; detalje: string }
   | { grund: 'ukendt-property'; detalje: string }
   | { grund: 'manglende-property'; detalje: string }
   | { grund: 'pii'; detalje: string }
   | { grund: 'forkert-type'; detalje: string }
-  | { grund: 'ugyldig-kontekst'; detalje: string }
+  /** En værdi uden for feltets `af`-liste. Nøglen droppes, eventet skrives. */
+  | { grund: 'uden-for-listen'; detalje: string }
+  | { grund: 'ugyldig-kontekst'; detalje: Kontekstfelt }
   | { grund: 'ufuldstaendigt-sideantal'; detalje: string }
 
 /**
@@ -591,7 +728,24 @@ export interface Renset {
   droppedeNoegler: string[]
   /** Noegler droppet af en KRYDSFELTSREGEL, ikke fordi de er ukendte. */
   ufuldstaendigeNoegler: string[]
+  /** Kendte noegler, hvis VAERDI stod uden for listen. Droppet, eventet
+   *  skrevet, og navnene staar paa raekken under `_afvist`. */
+  afvisteVaerdier: string[]
 }
+
+/**
+ * Nøglen på rækken, der tæller værdier uden for en liste.
+ *
+ * Kun nøglenavne fra allowlisten står i den — aldrig værdien. En afsender
+ * kan ikke selv sætte den: den står ikke i nogen allowlist, så sendes den,
+ * droppes den som enhver ukendt nøgle, og `rens` skriver sin egen.
+ *
+ * Tælleren står på rækken og ikke i loggen, fordi loggen ikke kan tælles i
+ * en rapport. Uden den viste en tragt et fald uden at kunne sige, om
+ * brugerne holdt op, eller vi holdt op med at måle — fælden
+ * `nullet-der-betyder-to-ting` i CLAUDE.md.
+ */
+export const AFVIST = '_afvist'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const SLUG = /^[a-z0-9][a-z0-9_-]{0,39}$/
@@ -614,7 +768,7 @@ export function udloeb(navn: Eventnavn, forsoeg: string | null, nu: Date): Date 
 export function rens(
   h: Haendelse, k: Kontekst, nu: Date = new Date(),
 ): { ok: true; renset: Renset } | { ok: false; fejl: Afvisning } {
-  const spec = ALLOWLIST[h.navn]
+  const spec: Readonly<Record<string, Spec>> | undefined = ALLOWLIST[h.navn]
   if (!spec) return { ok: false, fejl: { grund: 'ukendt-event', detalje: String(h.navn) } }
 
   if (!(MILJOEER as readonly string[]).includes(k.miljoe)) {
@@ -641,6 +795,7 @@ export function rens(
 
   const ud: Record<string, unknown> = {}
   const droppede: string[] = []
+  const afviste: string[] = []
   const raa = (h.props ?? {}) as Record<string, unknown>
 
   for (const [noegle, vaerdi] of Object.entries(raa)) {
@@ -655,6 +810,28 @@ export function rens(
     if (t === 'pii') {
       return { ok: false, fejl: { grund: 'pii', detalje: noegle } }
     }
+    // ── En værdi uden for listen: NØGLEN droppes, eventet skrives.
+    //
+    // Før kasserede den hele eventet som 'forkert-type'. Det er den måling,
+    // der sletter sig selv: én ny værdi i et opregnet felt, og eventet holder
+    // op med at blive skrevet — tragten viser 0. Typevagten (`Huller`) gør
+    // de fleste af dem til en oversætterfejl, men ikke en værdi fra
+    // køretidsdata eller et beacon fra en gammel browserfane.
+    //
+    // Værdien gemmes ikke, heller ikke i loggen. Nøglens NAVN står på
+    // rækken under `_afvist`, så tabet kan tælles i en rapport.
+    if (t === 'liste') { afviste.push(noegle); continue }
+    // ── Forkert type kasserer STADIG hele eventet. Uafklaret, ikke glemt.
+    //
+    // Om den skal behandles som en værdi uden for listen, afgøres med data,
+    // ikke ved et skøn: et event med forkert type når aldrig `haendelser`,
+    // så rækken kan ikke tælle det. Besluttet 2. oktober 2026: mål en uge,
+    // afgør så.
+    //
+    // `_afvist` er IKKE tælleren for forkert type — den står på rækken, og
+    // et kasseret event har ingen række. Tælleren er `maaling_afvisninger`,
+    // skrevet af spor() i lib/maaling-server.ts UDEN OM rens(), med en
+    // daglig 'talt'-række, så et nul kan skelnes fra «ikke talt».
     if (t === 'type') {
       return { ok: false, fejl: { grund: 'forkert-type', detalje: noegle } }
     }
@@ -678,11 +855,19 @@ export function rens(
     ufuldstaendige.push('sider_i_alt')
   }
 
+  // Kravet prøves på det, der BLEV SENDT — ikke på det, der står tilbage
+  // i `ud`. Ellers er ændringen virkningsløs netop for de påkrævede felter:
+  // en ukendt værdi i et påkrævet felt ville få nøglen droppet ovenfor og
+  // derefter hele eventet kasseret som 'manglende-property' — det samme tab
+  // som før, under et andet navn. En nøgle, der blev sendt med en værdi
+  // uden for listen, har opfyldt kravet; at værdien ikke kunne bruges,
+  // står i `_afvist`.
   for (const [noegle, s] of Object.entries(spec)) {
-    if (s.kraevet && ud[noegle] === undefined) {
+    if (s.kraevet && raa[noegle] == null) {
       return { ok: false, fejl: { grund: 'manglende-property', detalje: noegle } }
     }
   }
+  if (afviste.length) ud[AFVIST] = afviste
 
   const forsoeg = k.researchSessionId ?? null
   return {
@@ -690,6 +875,7 @@ export function rens(
     renset: {
       droppedeNoegler: droppede,
       ufuldstaendigeNoegler: ufuldstaendige,
+      afvisteVaerdier: afviste,
       raekke: {
         eventName: h.navn,
         environment: k.miljoe,
@@ -707,7 +893,7 @@ export function rens(
   }
 }
 
-function tjekVaerdi(s: Spec, v: unknown): 'ok' | 'pii' | 'type' {
+function tjekVaerdi(s: Spec, v: unknown): 'ok' | 'pii' | 'type' | 'liste' {
   switch (s.slags) {
     case 'tal': {
       if (typeof v !== 'number' || !Number.isFinite(v)) return 'type'
@@ -719,8 +905,14 @@ function tjekVaerdi(s: Spec, v: unknown): 'ok' | 'pii' | 'type' {
       return typeof v === 'boolean' ? 'ok' : 'type'
     case 'tekst': {
       if (typeof v !== 'string') return 'type'
+      // Personoplysningstjekket kører FØR listetjekket, så en mailadresse i
+      // et opregnet felt aldrig bliver til en «ukendt værdi». Byttes de to
+      // linjer, får en mailadresse i `maal` sin nøgle droppet og eventet
+      // skrevet med 'uden-for-listen' i loggen — værnets «hele eventet
+      // droppes, der skal larmes» ville være sat ud af kraft for hvert felt
+      // med en liste.
       if (farligTekst(v)) return 'pii'
-      if (s.af && !s.af.includes(v)) return 'type'
+      if (s.af && !s.af.includes(v)) return 'liste'
       return 'ok'
     }
     case 'skalar': {
