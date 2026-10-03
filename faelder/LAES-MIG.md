@@ -166,12 +166,28 @@ gren bærer #54. **#52 før #56 og #58 før #63 er dermed også betingelsen
 for, at den afhængige PR overhovedet kan MÅLES.** Det er en anden slags
 tvang end fletterækkefølgen, og derfor står den her ved den. Alle tre
 baser har konflikt med #49 i package.json, så lander #49 som nummer to,
-går alle tre kæder gennem den. Kun mellem #54 og #49 kan en base opdateres
-mod main uden konflikt:
+går alle tre kæder gennem den:
 
     #54 → #49 → #52 opdateres mod main → #56 fletter basen og pushes
     #54 → #49 → #58 opdateres mod main → #63 fletter basen og pushes
     #54 → #49 → #57 opdateres mod main → #60 rettes op mod #57 og pushes
+
+**Mellem #54 og #49 står et vindue, og det lukker.** Det er et tidsrum,
+ikke en rækkefølge: en rækkefølge kan tages i eget tempo, et vindue
+lukker, når #49 lander. I det kan alle seks få CI uden en eneste
+opløsning. Målt ved prøvefletning 3. oktober: hver af de tre baser
+opdateres rent mod main med #54, og hver stablet PR fletter sin
+opdaterede base rent og får `proever.yml` med. Efter #49 får en base kun
+#54 sammen med sin opløsning mod #49.
+
+**Vinduet sparer ingen opløsning; det flytter den.** En base, der er
+opdateret i vinduet, har stadig konflikt med main efter #49, nøjagtig som
+en, der ikke er. De tre kan heller ikke flettes før #49 for at slippe: de
+har konflikt med hinanden parvis, også i package.json. Det, vinduet
+køber, er en MÅLING FØR OPLØSNINGEN: seks PR'er får CI tidligere, og en
+rød kørsel efter opløsningen mod #49 kan skelnes fra én, der var rød i
+forvejen. Prisen er to opdateringer af hver base i stedet for én, og at
+#49 og alt bag den venter, så længe vinduet holdes åbent.
 
 **#60 er den vanskelige.** Dens base peger på #57's gren, men #57 er ikke
 forfader: fælles ophav `9aa215c`, og #57 har nu to commits, #60 mangler
