@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: oekonomi
 //  listings.description: samme tal, samme svar som kortet
 //
 //  Beskrivelsen skrev «Med varme og vand er den samlede månedlige

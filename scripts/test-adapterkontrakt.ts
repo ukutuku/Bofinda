@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  ADAPTERKONTRAKTEN — prøvet af OVERSÆTTEREN, ikke af en kørsel.
 //
 //  `detaljeBudgetPrKoersel` er TAVST VIRKNINGSLØST uden `listeGrundlag`.
@@ -24,11 +25,8 @@
 //  at den GODE kombination går rent igennem, og at afvisningen navngiver
 //  `listeGrundlag`.
 //
-//  ── Hvorfor den ikke ligger i sin egen npm-kommando ───────────
-//  `test:kerne` er én lang `&&`-kæde, og to åbne PR'er ændrer præcis den
-//  linje. En tredje samtidig ændring dér er en konflikt, ingen kan flette
-//  automatisk. Filen er derfor sin egen, men kaldes fra kæden, og
-//  opløsningen ved en konflikt er en union af de tre kommandoer.
+//  Opdageren finder filen via gruppe-maerket. Ingen haandskrevet
+//  kaedelinje i package.json: nye proever skal ikke erstatte mains kaede.
 // ═══════════════════════════════════════════════════════════════
 
 import { execFileSync } from 'node:child_process'

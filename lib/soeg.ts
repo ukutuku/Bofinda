@@ -9,7 +9,9 @@
 import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, ne, sql, type AnyColumn, type SQL } from 'drizzle-orm'
 import { db } from '../db/client'
 import { listingImages, listings, sources } from '../db/schema'
-import { FACILITET } from './faciliteter'
+import {
+  FACILITET, FACILITETSNOEGLER, type Facilitetsnoegle,
+} from './faciliteter'
 import { TILLADTE_VAERTER } from './billede'
 import { INDKOERING_TIMER } from './indkoering'
 import { beskrivelseFor } from './normalize'
@@ -20,7 +22,14 @@ import {
   type Availability, type Gruppesammenfatning,
 } from './availability'
 
-export interface Filtre {
+/**
+ * Facilitetsfiltrene er ARVET og ikke skrevet: `Partial<Record<…>>` over
+ * `FACILITETSNOEGLER`, saa et nyt begreb i FACILITET bliver et felt af
+ * sig selv. Feltnavnene er de samme som foer — `saved_searches.criteria`
+ * er en serialiseret `Filtre`, saa en omdoebning ville kraeve en
+ * datamigrering af gemte soegninger.
+ */
+export interface Filtre extends Partial<Record<Facilitetsnoegle, boolean>> {
   by?: string
   postnr?: string
   prisMin?: number      // oere
@@ -32,10 +41,6 @@ export interface Filtre {
   /** Normaliserede boligtyper. Typen kommer fra enum'en i skemaet, så
    *  filteret og kolonnen ikke kan komme fra hinanden. */
   boligtyper?: Boligtype[]
-  kaeledyr?: boolean
-  elevator?: boolean
-  /** Altan ELLER terrasse. To ord for den samme slags plads udenfor. */
-  udeplads?: boolean
   sorter?: Sortering
   // ── Availability-filtrene. De kan IKKE oversaettes til SQL: svaret
   // afhaenger af kildekontrakten og referenceNow, saa soeg() henter
@@ -192,9 +197,7 @@ export function hvor(f: Filtre) {
   if (f.kilder?.length) d.push(inArray(sources.slug, f.kilder))
   if (f.fuldOekonomi) d.push(FULD)
   if (f.boligtyper?.length) d.push(inArray(listings.propertyType, f.boligtyper))
-  if (f.kaeledyr) d.push(harFacilitet(FACILITET.kaeledyr))
-  if (f.elevator) d.push(harFacilitet(FACILITET.elevator))
-  if (f.udeplads) d.push(harFacilitet(FACILITET.udeplads))
+  for (const n of FACILITETSNOEGLER) if (f[n]) d.push(harFacilitet(FACILITET[n]))
   return and(...d)
 }
 
@@ -456,10 +459,11 @@ export function boligenErI(saet: SQL | undefined) {
 function facilitetsgrundlagPrBolig(f: Filtre) {
   return {
     oplyst: boligenErI(and(hvor(f), OPLYST)),
-    kaeledyr: boligenErI(hvor({ ...f, kaeledyr: true })),
-    elevator: boligenErI(hvor({ ...f, elevator: true })),
-    udeplads: boligenErI(hvor({ ...f, udeplads: true })),
-  }
+    // Ét praedikat pr. noegle, udledt. Et nyt begreb i FACILITET faar sit
+    // eget her uden at nogen roerer funktionen.
+    ...Object.fromEntries(FACILITETSNOEGLER.map((n) =>
+      [n, boligenErI(hvor({ ...f, [n]: true }))])),
+  } as { oplyst: SQL<boolean> } & Record<Facilitetsnoegle, SQL<boolean>>
 }
 
 /** Den annonce vi viser i stedet for en, der tabte repraesentantvalget. */
@@ -1273,9 +1277,7 @@ export function gruppeUrl(repraesentantId: string, f: Filtre = {}): string {
   for (const kilde of f.kilder ?? []) p.append('kilde', kilde)
   for (const type of f.boligtyper ?? []) p.append('type', type)
   if (f.fuldOekonomi) p.set('fuld', '1')
-  if (f.kaeledyr) p.set('kaeledyr', '1')
-  if (f.elevator) p.set('elevator', '1')
-  if (f.udeplads) p.set('udeplads', '1')
+  for (const n of FACILITETSNOEGLER) if (f[n]) p.set(n, '1')
   return `/gruppe?${p}`
 }
 
@@ -1404,9 +1406,9 @@ export async function opsummering(f: Filtre, referenceNow: Date = new Date()) {
       tier: sql<number>`count(*) filter (where not ${fac.oplyst})::int`,
       // De samme prædikater som filtrene selv bruger. To definitioner ville
       // betyde, at tallet og filteret kunne sige hver sit.
-      kaeledyr: sql<number>`count(*) filter (where ${fac.kaeledyr})::int`,
-      elevator: sql<number>`count(*) filter (where ${fac.elevator})::int`,
-      udeplads: sql<number>`count(*) filter (where ${fac.udeplads})::int`,
+      ...(Object.fromEntries(FACILITETSNOEGLER.map((n) =>
+        [n, sql<number>`count(*) filter (where ${fac[n]})::int`]),
+      ) as Record<Facilitetsnoegle, ReturnType<typeof sql<number>>>),
       // Boligtyperne, talt paa DENNE soegning. Se `boligtypegrundlag`
       // nedenfor for hvorfor de ikke maa komme fra `facetter()`.
       ...typeaggregater(),
@@ -1460,9 +1462,8 @@ async function opsummeringMedDomaene(f: Filtre, referenceNow: Date) {
       harIndflytning: sql<boolean>`${listings.moveInCost} is not null`,
       fuld: sql<boolean>`${FULD}`,
       oplyst: fac.oplyst,
-      kaeledyr: fac.kaeledyr,
-      elevator: fac.elevator,
-      udeplads: fac.udeplads,
+      ...(Object.fromEntries(FACILITETSNOEGLER.map((n) => [n, fac[n]]),
+      ) as Record<Facilitetsnoegle, SQL<boolean>>),
       type: listings.propertyType,
     })
     .from(listings)
@@ -1483,9 +1484,12 @@ async function opsummeringMedDomaene(f: Filtre, referenceNow: Date) {
     dyrest: priser.length ? Math.max(...priser) : null,
     oplyser: taeller((r) => r.oplyst),
     tier: taeller((r) => !r.oplyst),
-    kaeledyr: taeller((r) => r.kaeledyr),
-    elevator: taeller((r) => r.elevator),
-    udeplads: taeller((r) => r.udeplads),
+    // Castet er noedvendigt: `Object.fromEntries` giver
+    // `{ [k: string]: T }`, og uden det ville noeglerne falde ud af
+    // returtypen — saa ville `grundlag.elevator` ikke oversaette.
+    ...(Object.fromEntries(FACILITETSNOEGLER.map((n) =>
+      [n, taeller((r) => Boolean((r as Record<string, unknown>)[n]))]),
+    ) as Record<Facilitetsnoegle, number>),
     // Samme tal som SQL-grenens, talt paa de raekker domaenet slap igennem.
     typer: BOLIGTYPER
       .map((t) => ({ type: t, antal: taeller((r) => r.type === t) }))
@@ -1518,8 +1522,21 @@ async function opsummeringMedDomaene(f: Filtre, referenceNow: Date) {
  * app/page.tsx. Hver forespoergsel mere paa forsiden koster; de maalte tal
  * staar i CLAUDE.md under «Sider med flere forespørgsler».
  */
+/**
+ * Soegningen UDEN facilitetsfiltrene.
+ *
+ * Nulstillingen stod to steder som `{ ...f, kaeledyr: false, elevator:
+ * false, udeplads: false }`. Begge var korrekte, og begge skulle huskes
+ * ved en udvidelse — glemtes ét, ville grundlagslinjen staa med «0 tier»
+ * under et filter, der lige havde skjult boliger.
+ */
+export const udenFacilitetsfiltre = (f: Filtre): Filtre => ({
+  ...f,
+  ...Object.fromEntries(FACILITETSNOEGLER.map((n) => [n, false])),
+})
+
 export const facilitetsgrundlag = (f: Filtre, referenceNow?: Date) =>
-  opsummering({ ...f, kaeledyr: false, elevator: false, udeplads: false }, referenceNow)
+  opsummering(udenFacilitetsfiltre(f), referenceNow)
 
 export type Facilitetsgrundlag = Awaited<ReturnType<typeof opsummering>>
 
@@ -1599,7 +1616,7 @@ export async function tavseKilder(
   f: Filtre, referenceNow: Date = new Date(),
 ): Promise<Tavsekilder> {
   const grundlag = and(
-    hvorVist({ ...f, kaeledyr: false, elevator: false, udeplads: false }),
+    hvorVist(udenFacilitetsfiltre(f)),
     // Vores EGEN kilde hoerer ikke til her. Saetningen paastaar, at en
     // kilde aldrig oplyser faciliteter — og det er faktuelt forkert om
     // udlejerannoncer: formularen SPOERGER om dem. At én annonce ikke
@@ -1696,9 +1713,14 @@ export async function facetter() {
       slug: sources.slug,
       navn: sources.name,
       antal: sql<number>`count(*)::int`,
-      kaeledyr: sql<number>`count(*) filter (where jsonb_exists(coalesce(${listings.amenities}, '[]'::jsonb), 'kæledyr tilladt'))::int`,
-      elevator: sql<number>`count(*) filter (where jsonb_exists(coalesce(${listings.amenities}, '[]'::jsonb), 'elevator'))::int`,
-      udeplads: sql<number>`count(*) filter (where jsonb_exists_any(coalesce(${listings.amenities}, '[]'::jsonb), array['altan','terrasse']::text[]))::int`,
+      // UDLEDT af FACILITET gennem `harFacilitet` — samme praedikat som
+      // filteret selv. Her stod ordene skrevet af, og `udeplads` manglede
+      // CEJ's «altan eller terrasse»: taellingen var lavere end filteret,
+      // og CLAUDE.md skjuler en afkrydsning, hvis tallet er nul. Et kryds,
+      // der VIRKER men ikke vises, er praecis det, to udtryk for ét
+      // spoergsmaal koster.
+      ...Object.fromEntries(FACILITETSNOEGLER.map((n) =>
+        [n, sql<number>`count(*) filter (where ${harFacilitet(FACILITET[n])})::int`])),
       medFaciliteter: sql<number>`count(*) filter (where jsonb_array_length(coalesce(${listings.amenities}, '[]'::jsonb)) > 0)::int`,
     })
     .from(listings)
@@ -1727,11 +1749,9 @@ export async function facetter() {
     typer,
     // Samme regel som for typerne: tælles en facilitet til nul, vises
     // afkrydsningen ikke.
-    faciliteter: {
-      kaeledyr: sum((r) => r.kaeledyr),
-      elevator: sum((r) => r.elevator),
-      udeplads: sum((r) => r.udeplads),
-    },
+    faciliteter: Object.fromEntries(FACILITETSNOEGLER.map((n) =>
+      [n, sum((r) => Number((r as Record<string, unknown>)[n] ?? 0))],
+    )) as Record<Facilitetsnoegle, number>,
     /** Kilder der overhovedet oplyser faciliteter. */
     facilitetskilder: pr.filter((k) => k.medFaciliteter > 0).map((k) => k.navn),
   }
@@ -1914,9 +1934,7 @@ export function filtreFraParametre(sp: Soegeparametre): Filtre {
     kilder,
     fuldOekonomi: en(sp.fuld) === '1',
     boligtyper: boligtyper?.length ? boligtyper : undefined,
-    kaeledyr: en(sp.kaeledyr) === '1',
-    elevator: en(sp.elevator) === '1',
-    udeplads: en(sp.udeplads) === '1',
+    ...Object.fromEntries(FACILITETSNOEGLER.map((n) => [n, en(sp[n]) === '1'])),
     // Availability-filtrene. Ukendte vaerdier kasseres som alt andet.
     overtagelse: en(sp.overtagelse) === 'nu' ? 'nu'
       : en(sp.overtagelse) === 'senere' ? 'senere' : undefined,
@@ -1931,7 +1949,7 @@ export function filtreFraParametre(sp: Soegeparametre): Filtre {
 export function harFiltre(f: Filtre): boolean {
   return Boolean(f.by || f.postnr || f.prisMin != null || f.prisMax != null
     || f.vaerelserMin != null || f.arealMin != null || f.kilder?.length || f.fuldOekonomi
-    || f.boligtyper?.length || f.kaeledyr || f.elevator || f.udeplads
+    || f.boligtyper?.length || FACILITETSNOEGLER.some((n) => f[n])
     || f.overtagelse != null || f.ansoegningsform != null || f.markedsstatus != null)
 }
 

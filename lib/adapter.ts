@@ -1,4 +1,5 @@
 import type { IsoDate } from './dato'
+import type { Forbeholdsbelaeg } from './billedforbehold'
 // ═══════════════════════════════════════════════════════════════
 //  Adapter-kontrakten.
 //  En ny kilde skal vaere EN fil i adapters/ — ikke en ombygning.
@@ -62,7 +63,15 @@ export interface RawListing {
    * Saettes kun, naar kilden udtrykkeligt tager forbeholdet — aldrig som
    * vores egen vurdering af, om billederne ser rigtige ud.
    */
-  imagesMayDiffer?: boolean
+  /**
+   * Kildens eget forbehold om billederne, MED det spaend det stod i.
+   *
+   * Booleanen `imagesMayDiffer` paa raekken UDLEDES af den i
+   * lib/normalize.ts og saettes ikke her. Sattes de hver for sig, var de
+   * to udtryk for ét spoergsmaal — se CLAUDE.mds tabel over netop den
+   * fejlform. Et faktum uden spaend findes ikke.
+   */
+  imagesMayDifferEvidence?: Forbeholdsbelaeg
 }
 
 /**

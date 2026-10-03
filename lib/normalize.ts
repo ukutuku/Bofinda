@@ -8,6 +8,7 @@
 //  null. Ikke nul, ikke et estimat, ikke et eksempelbillede.
 // ═══════════════════════════════════════════════════════════════
 
+import type { Forbeholdsbelaeg } from './billedforbehold'
 import type { AvailabilityFacts, RawListing } from './adapter'
 import { vaskAdresse } from './address'
 import { oereTilKroner } from './money'
@@ -301,6 +302,7 @@ export interface NormaliseretBolig {
   imageUrls: string[]
   /** Kilden oplyser selv, at billederne kan vaere fra en anden bolig. */
   imagesMayDiffer: boolean
+  imagesMayDifferEvidence: Forbeholdsbelaeg | undefined
   /** Ren gennemstilling — normalisering FORTOLKER ikke availability. */
   availability: AvailabilityFacts | null
 }
@@ -373,7 +375,11 @@ export async function normaliser(
     imageUrls: r.imageUrls ?? [],
     // Standard er false: de fleste kilder tager intet forbehold, og et
     // forbehold, ingen har oplyst, ville vaere vores egen paastand.
-    imagesMayDiffer: r.imagesMayDiffer ?? false,
+    // ÉT UDTRYK. Booleanen udledes af belaegget, saa de to ikke kan
+    // saettes hver for sig og drive fra hinanden. Et faktum uden
+    // spaend findes ikke — og en boolean uden faktum gaar ikke ind.
+    imagesMayDiffer: r.imagesMayDifferEvidence != null,
+    imagesMayDifferEvidence: r.imagesMayDifferEvidence,
     availability: r.availability ?? null,
     amenities: r.amenities ?? [],
     description: genererBeskrivelse({

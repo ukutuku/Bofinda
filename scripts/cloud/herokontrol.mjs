@@ -103,7 +103,6 @@ for (const bredde of BREDDER) {
         ['den lille overskrift', '.hero-oejenbryn'],
         ['overskriften', '.hero h1'],
         ['brødteksten', '.hero-manchet'],
-        ['fotokrediteringen', '.hero-kredit'],
       ].map(([navn, vaelger]) => {
         const e = document.querySelector(vaelger)
         if (!e) return null
@@ -137,35 +136,10 @@ for (const bredde of BREDDER) {
   tjek(`${bredde} px · standardfotoet bruges uden miljøvariabel`, m.src === '/hero-stue.jpg', String(m.src))
   tjek(`${bredde} px · billedet er dekodet i browseren`, m.dekodet, `${m.nat}`)
   tjek(`${bredde} px · proportionerne bevares — cover, ingen stræk`, m.fit === 'cover', `${m.fit} · ${m.pos}`)
-  tjek(`${bredde} px · krediteringen står på skærmen`,
-    m.kredit === 'Stemningsfoto: Taryn Elliott / Pexels', String(m.kredit))
+  tjek(`${bredde} px · fotomærkatet er fjernet fra siden`,
+    m.kredit === null, String(m.kredit))
   tjek(`${bredde} px · søgeknappen er mindst 48 px høj`, m.knapH >= 48, `${m.knapH} px`)
 
-  // ── Krediteringen maa ikke ligge oven i teksten ──────────────
-  //  Den er absolut placeret 14 px fra toppen; hero'ens polstring
-  //  foroven er det eneste, der holder oejenbrynet fri af den. Da
-  //  polstringen blev sat ned paa mobil for at give plads til
-  //  boligerne, loeb de to sammen paa 390 px — laeseligt paa ingen af
-  //  dem. En pille, der daekker en overskrift, og en overskrift, der
-  //  daekker en pille, er den samme fejl.
-  //
-  //  Maalt paa LINJEKASSERNE, ikke elementernes: `.hero-oejenbryn` er
-  //  et <p> i fuld bredde og ville altid «overlappe» pillen, hvis man
-  //  maalte kassen. De rigtige kasser er der allerede — det er dem,
-  //  kontrastmaalingen bruger.
-  const kasser = (navn) => (m.tekster.find((t) => t.navn === navn)?.linjer ?? [])
-  const overlap = []
-  for (const k of kasser('fotokrediteringen')) {
-    for (const navn of ['den lille overskrift', 'overskriften', 'brødteksten']) {
-      for (const t of kasser(navn)) {
-        const x = Math.min(k.x + k.width, t.x + t.width) - Math.max(k.x, t.x)
-        const y = Math.min(k.y + k.height, t.y + t.height) - Math.max(k.y, t.y)
-        if (x > 0 && y > 0) overlap.push(`${navn} (${x}×${y} px)`)
-      }
-    }
-  }
-  tjek(`${bredde} px · krediteringen ligger ikke oven i hero-teksten`,
-    overlap.length === 0, overlap.join(' · ') || 'ingen')
   tjek(`${bredde} px · intet vandret overløb`, m.overloeb <= 0, `${m.overloeb} px`)
 
   /**
@@ -175,11 +149,16 @@ for (const bredde of BREDDER) {
    * `motiv` = 'sort'  — det samme sloer over et HELT SORT billede.
    *
    * Teksten skjules med `color: transparent`, IKKE med
-   * `visibility: hidden`. Forskellen betyder noget for
-   * fotokrediteringen: den har sin egen moerke pille bag sig, og
-   * `visibility: hidden` ville skjule pillen med, saa vi maalte hvid
-   * tekst mod fotoet i stedet for mod pillen. Med gennemsigtig farve
-   * bliver alt andet staaende, ogsaa `backdrop-filter`.
+   * `visibility: hidden`. Forskellen er, at `visibility: hidden` ogsaa
+   * skjuler elementets EGEN baggrund — fylder en tekst sin flade med
+   * en pille, et sloer eller et `backdrop-filter`, maaler man saa
+   * fladen BAG pillen i stedet for pillen. Med gennemsigtig farve
+   * bliver alt andet staaende.
+   *
+   * Eksemplet var fotokrediteringen, som havde sin egen moerke pille.
+   * Maerket blev fjernet 3. oktober 2026, men valget bliver staaende:
+   * det gaelder enhver tekst med egen baggrund, og hero-teksten kan
+   * faa en i morgen.
    *
    * FOERSTE UDGAVE AF DEN HER KONTROL MAALTE FORKERT PAA EN ANDEN MAADE.
    * Den laeste den laveste alfa i hele gradienten og regnede paa den.
