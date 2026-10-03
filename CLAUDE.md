@@ -65,10 +65,108 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   manglende er `altan eller terrasse`, CEJ's samlede ord. **Den udeladelse
   er med vilje** — det er en KILDES skrivemåde, ikke et spørgsmål, man kan
   stille en udlejer — så fuldstændighed ville rette en fejl, der ikke var
-  der. Svaret er derfor en DELING og ikke en fuldstændighed: hvert ord
-  skal stå enten i formularlisten eller på en navngiven liste over de
-  bevidst udeladte, håndhævet af en typevagt. Så tvinger et femte ord et
-  VALG frem for en tilføjelse. Ikke bygget endnu.
+  der. Svaret er derfor en DELING og ikke en fuldstændighed.
+
+  **Delingen er bygget.** Hvert `Facilitetsord` står enten i
+  `FACILITETER` (formularen) eller i `UDEN_FOR_FORMULAREN`, hvis værdi er
+  **grunden** til udeladelsen — den står i koden og ikke i en kommentar,
+  fordi en kommentar kan slettes uden at nogen tænker sig om. Typevagten
+  er to `KunNever<…>`-aliasser: ét på `Exclude<Facilitetsord, IFormularen
+  | Udeladt>` (et ord uden hjem) og ét på `Extract<IFormularen, Udeladt>`
+  (et ord i begge). Begge fejler med **TS2344, og fejlteksten navngiver
+  ordet**. Et sjette ord i `FACILITET` tvinger dermed et VALG frem for en
+  tilføjelse.
+
+  `FACILITETER` bindes med **`as const satisfies`**, ikke med en
+  annotation. Det er ikke stil: en annotation widener `vaerdi` til hele
+  unionen, og så kan delingen ikke udtrykkes. Det var netop derfor den
+  gamle binding kun dækkede den ene halvdel.
+
+  Efterprøvet i tre retninger — ord fjernet fra formularen, ord i begge
+  lister, sjette ord i `FACILITET` — alle tre giver TS2344 med ordet i
+  teksten. **Men `npm test` kører ingen typekontrol**: `test-rene-filer`
+  bruger esbuild, resten kører gennem tsx, og ingen af dem tjekker typer.
+  Typevagten fyrer altså kun under `npm run typecheck`. Derfor kører
+  `scripts/test-faciliteter.ts` den samme deling på VÆRDIERNE, så en PR,
+  hvor nogen kun kørte `npm test`, ikke kan skjule et hjemløst ord. Den
+  rigtige rettelse er `tsc --noEmit` i `npm test`; den er ikke taget.
+
+- **Opregningen af facilitetsfiltrene er UDLEDT af `FACILITET`s nøgler, og
+  må aldrig skrives i hånden igen.** De tre stod opregnet **14+ steder**:
+  `Filtre`, `hvor()`, `facetter()`, `opsummering()`, `facilitetsgrundlagPrBolig`,
+  `facilitetsgrundlag`, `tavseKilder`, `filtreFraParametre`, `tilParametre`,
+  `harFiltre`, `lib/filterpanel.ts`, `lib/alarm.ts`, `lib/maaling.ts`,
+  `lib/maalingsoeg.ts` ×3 og `app/page.tsx` ×5. Hvert sted var korrekt;
+  tilsammen var de en tidsindstillet fejl, for en udvidelse skulle huskes
+  i alle.
+
+  Det er ikke hygiejne. **Reglen om, hvad et facilitetsfilter udelader,
+  kan ikke «komme bagefter» en udvidelse, hvis opregningen er udledt**: et
+  nyt begreb bliver et felt, et filter, et aggregat, en afkrydsning, en
+  grundlagslinje med sine tre grupper og en `tavseKilder`-nulstilling af
+  sig selv.
+
+  **Feltnavnene på `Filtre` er uændrede, og det er et krav:**
+  `saved_searches.criteria` er en serialiseret `Filtre`, så en omdøbning
+  ville kræve en datamigrering af gemte søgninger. Derfor
+  `interface Filtre extends Partial<Record<Facilitetsnoegle, boolean>>` og
+  ikke en liste.
+
+  **Udledningen fandt en fejl, den også retter.** `facetter()` skrev
+  ordene af i SQL, og dens `udeplads` var
+  `array['altan','terrasse']` — **uden CEJ's «altan eller terrasse»**.
+  Filteret (`harFacilitet(FACILITET.udeplads)`) rammer det, tællingen
+  gjorde ikke. Og en afkrydsning skjules, når tallet er nul, så et kryds,
+  der VIRKER men ikke vises, var mulig. Aggregaterne er nu de samme
+  prædikater som filtrene.
+
+  **Teksten må stadig være fladens egen.** `lib/alarm.ts` har sit eget,
+  kortere `FILTERORD` («altan el. terrasse»), fordi mailens filterlinje
+  har mindre plads — samme forhold som de fire el-tekster. Det er bundet
+  med `satisfies`, så et nyt begreb uden en kort ordlyd er en
+  oversætterfejl. Men `npm test` typetjekker ikke, så faldbacken er
+  `?? FACILITETSNAVN[n]`: sand, blot længere. **Aldrig «undefined» i en
+  fremmeds indbakke.**
+
+  **Prøven er OMVENDT, og den kan ikke køre på #37's kører.** Kørerens
+  vagt 3 kræver, at en mutation bliver rød; her er påstanden den modsatte.
+  `npm run proev:udvidelse` tilføjer et begreb til `FACILITET` — kun der,
+  plus de to ting typevagten kræver — og forlanger, at **alt det afledte
+  går GRØNT uden at nogen har rørt det**. Går det ikke, er udledningen
+  ikke færdig. Den måler også, at grundlagslinjens tre grupper går op
+  (1 + 0 + 1 = 2), og at alarmlinjen aldrig skriver «undefined».
+
+  Forlægget sætter `address_match_level = 'access'` med en matchende
+  uuid. Default er `'failed'`, som `hvor()` udelukker — uden det ville
+  hver påstand være grøn af den forkerte grund — og `'unit'` ville bryde
+  check-constrainten `listing_address_level_honest`, som håndhæver, at
+  niveauet er sandt.
+- **Kildens ord oversættes til VORES — også i HTML-adapterne.** Dacas'
+  facilitetsliste var et `Set`, og et Set er et INPUT-filter: ordet slap
+  igennem og blev gemt i *kildens* stavemåde. Dacas var dermed den eneste
+  HTML-kilde, hvis udgangsordforråd var kildens eget, og to begreber fik
+  to stavemåder hver, fordi CEJ oversætter og Dacas ikke gjorde:
+  «fælles vaskeri» mod «fællesvaskeri», og «køle- og fryseskab» mod
+  «køle-/fryseskab». Nu er det en `Record<string, string>`, og CEJ's ord
+  vinder, fordi de ER vores — valgt én gang i en oversættelse.
+  De øvrige ord afbilder på sig selv; det er ikke støj, det er forskellen
+  mellem «samme ord» og «intet oversat».
+
+  `alabu.ts` og `laros.ts` sender stadig kildens egne strenge igennem
+  uoversat og er derfor de eneste med et **ubundet** ordforråd. Hvad de
+  har skrevet, kan kun basen svare på — `scripts/maal-felter.sql`,
+  spørgsmål 2.
+
+  **Målt 2. oktober 2026:** 33 forskellige ord kan skrives af de bundne
+  kilder, og **kun 5 af dem kan filtreres på**, fordi `FACILITET` dækker
+  tre begreber. De 28 øvrige gemmes og vises, men kan ikke søges på.
+  `scripts/test-faciliteter.ts` tæller ordene pr. kilde og afviser to ord,
+  der falder sammen under en snæver normalisering (tegnsætning,
+  mellemrum, bindeordet «og»). Den slår med vilje IKKE «delebolig» og
+  «delevenlig» sammen: CEJ's `sharing` står i gruppe med
+  `senior`/`student`/`youth` — en boligKATEGORI — mens Propsteps
+  `shareable` er en egenskab ved lejemålet. At slå dem sammen ville være
+  et gæt om CEJ's semantik.
 
   Formularen spørger om dem, fordi filtrene ellers skjuler hver eneste
   udlejerannonce for altid.
@@ -507,6 +605,25 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   den indsigtsret, den lover. **Det skal være på plads, før en fremmed
   udlejer opretter en annonce.**
 
+  **Tre spørgsmål, ikke ét.** De bliver blandet sammen hver gang, og kun
+  det første kan måles:
+
+  | Spørgsmålet | Hvad det er | Status |
+  |---|---|---|
+  | Tager DNS imod post? | en **måling** | **MÅLT 2. oktober 2026** (nedenfor) |
+  | Lander den i en postkasse? | **én testmail**, sendt af et menneske | ikke gjort — Johns |
+  | Svarer nogen inden en måned? | et **tilsagn**, ikke en måling | ikke givet |
+
+  Artikel 12, stk. 3 kræver det tredje: svar «uden unødig forsinkelse og i
+  alle tilfælde senest en måned» efter en anmodning. **Det kan ingen DNS-post
+  afgøre.** En grøn MX betyder, at posten ikke afvises i hegnet — ikke at
+  nogen læser den, og ikke at nogen svarer. De to sidste linjer er åbne.
+
+  **Nul-MX'en er bevisligt væk. Målt 2. oktober 2026 via DNS-over-HTTPS**
+  (ejeren kørte målingen; denne container har ikke udgående DNS eller DoH):
+
+      bofinda.dk  MX  →  10 mx.simply.com.
+
   **Løst 7. september 2026.** Domænet blev registreret 5. september og er
   siden flyttet til Simply, som nu er autoritativ (`ns1`–`ns3.simply.com`
   i DK Hostmasters delegering) og leverer indgående mail på
@@ -524,6 +641,24 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   ligger hos Resend, ikke hos os), `_dmarc`, og A-posten til Vercel.
   Efterprøv med `dig +short MX bofinda.dk` — står der `0 .`, er
   modtagelsen slået fra igen.
+
+  **Og uden `dig`:** en container uden udgående DNS kan stadig spørge over
+  HTTPS, hvis værten er tilladt. Så er påstanden efterprøvet i stedet for
+  læst:
+
+  ```bash
+  dig +short MX bofinda.dk                      # hvis DNS er åbent
+  curl -sH 'accept: application/dns-json' \
+    'https://cloudflare-dns.com/dns-query?name=bofinda.dk&type=MX'
+  curl -s 'https://dns.google/resolve?name=bofinda.dk&type=MX'
+  ```
+
+  Begge svarer JSON; `data` på et `type: 15`-svar er prioritet + vært.
+  Står der `0 .`, er modtagelsen slået fra igen. **Begge DoH-værter var
+  spærret i den container, hvor dette blev skrevet** (403 på CONNECT), så
+  kommandoerne står her uden at være kørt herfra — målingen ovenfor er
+  ejerens. Virker de heller ikke næste gang, er det stadig et åbent
+  spørgsmål og ikke et svar.
 
   Simply satte samtidig DMARC til **`p=reject`** (one.com havde `p=none`).
   Det rammer først den dag, `ALARM_AFSENDER` skifter fra Resends delte
@@ -681,6 +816,39 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   skal regne med det. Bofinda er en kommerciel tjeneste. Skift kilde med
   `NEXT_PUBLIC_FLISE_URL` og `NEXT_PUBLIC_FLISE_KREDIT` — ikke med en
   kodeændring.
+- **Skrifttypen hentes fra Google ved BYGNING — aldrig af brugerens
+  browser.** `app/layout.tsx` bruger `next/font/google` (Inter). Under
+  `next build` henter Next stylesheetet fra `fonts.googleapis.com` og
+  skriftfilerne fra `fonts.gstatic.com`, lægger dem i `.next/static/media`
+  og skriver `@font-face` om til `/_next/static/media/*.woff2`. Siden
+  serverer dem selv.
+
+  **Målt 2. oktober 2026 på main b39329a:**
+  · 0 filer i `.next/static` og `.next/server` nævner nogen af de to
+    værter, og der ligger 7 skriftfiler (`.woff2`) i `.next/static/media`.
+  · Chromium på `/privatliv` gennem `next start` sendte 10 forespørgsler,
+    alle til siden selv, og Inter var indlæst.
+  · Proxyen så samtidig forbindelser til `www.google.com` og
+    `android.clients.google.com`. **De kom fra Chromium, ikke fra siden:**
+    de samme forbindelser kom på `about:blank` uden nogen server, og
+    serveren alene, besøgt med curl, gav ingen. Det er browserens egne
+    tjenester. Læs dem ikke som Bofindas.
+
+  **Derfor må privatlivspolitikken ikke nævne Google som tredjepart for
+  skrifttyper.** Det ville være usandt den anden vej. Ser nogen
+  `fonts.googleapis.com` i en byggelog, er det bygget, der henter — ikke
+  brugeren. Sætningen holder kun, så længe skrifttypen kommer gennem
+  `next/font`. Derfor fejler CI (trinnet «Skrifttypen er selvhostet»),
+  hvis det byggede nævner en af de to værter. Et `<link>` til Google
+  Fonts i en side ville gøre browseren til en, der kontakter Google, og
+  så skal politikken nævne det.
+
+  **Og bygget kræver net.** Uden adgang til de to værter fejler det med
+  «Failed to fetch `Inter` from Google Fonts». Målt: i et miljø uden
+  containerens proxy-variabler fejlede det netop sådan, mens prøverne var
+  grønne. En lukket kørsel, der fejler på dét, mangler net — ikke en
+  variabel. Skal bygget blive hermetisk, er vejen `next/font/local` med
+  filerne i repoet. Ikke bygget.
 - **Kortet vises kun, når der er filtreret.** Uden en søgning spænder
   mærkerne over hele landet, og udsnittet siger ingenting. Samme regel som
   gem-boksen og prisnoten — på forsiden er det svar på et spørgsmål,
@@ -708,6 +876,61 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   venligst, at billederne kan være fra en anden bolig." Et billede af noget
   andet end den bolig, brugeren kigger på, er værre end intet billede — hun
   tror, hun har set den.
+- **Et udtrukket faktum bærer det tekstspænd, det kom fra. Et faktum uden
+  spænd findes ikke.** Billedforbeholdet er reglens første — og indtil
+  videre eneste — kunde. Indtil nu gemte vi `images_may_differ = true` og
+  intet andet, og det er den fejl, reglen findes for: **omformulerer CEJ
+  sin sætning i morgen, bliver feltet `false` uden spor**, og en bolig
+  begynder at vise billeder, kilden tager forbehold for. Der var intet at
+  holde det op imod, så ingen prøve kunne se det.
+
+  `images_may_differ_evidence` er `{ uddrag, regel }`. Formen er
+  `availability_facts`' — evidens pr. række, hydreret gennem én parser,
+  fail closed — med `hvor`-disciplinen fra `Belaeg` i `lib/kildekontrakt.ts`:
+  spændet alene er ikke nok, der skal stå HVILKEN regel der ramte, ellers
+  kan det ikke prøves igen. Reglerne er navngivet i `FORBEHOLDSREGLER` i
+  `lib/billedforbehold.ts`; før stod de som to `const FORBEHOLD` i hver
+  sin adapter.
+
+  **Booleanen UDLEDES af belægget** (`r.imagesMayDifferEvidence != null` i
+  `lib/normalize.ts`), og adapteren leverer kun belægget. Sattes de hver
+  for sig, havde vi to udtryk for ét spørgsmål — den fejlform, der har sin
+  egen tabel længere nede. `npm test` kildetjekker, at ingen adapter kan
+  sætte booleanen selv.
+
+  **Spændet vises ALDRIG.** Det er en attest, ikke indhold. «Kopiér aldrig
+  kildens brødtekst» står uændret: vi gemmer de få ord, der bærer
+  faktummet, for at kunne efterprøve det — ikke for at gengive dem.
+  `MAKS_UDDRAG` (240) er den øvre grænse, så et regex, der en dag griber
+  for bredt, ikke gør attesten til en kopi; `belaegHolder` afviser et
+  spænd over grænsen.
+
+  **Visningen er IKKE betinget af, at belægget holder**, og det er
+  bevidst — det modsatte af billedvagten, hvor en vært uden for
+  allowlisten får billedet fjernet. Forskellen er, hvilken vej fejlen
+  koster: et billede, vi ikke viser, er en mangel, mens et forbehold, vi
+  ikke viser, er en PÅSTAND om, at billedet er af boligen. Gjorde vi
+  visningen betinget, ville en ændret regel SLETTE forbeholdet fra
+  skærmen — altså præcis den fejl, spændet blev indført for at fange, med
+  et ekstra lag til at skjule den. Belægget er til efterprøvning, ikke til
+  portvagt.
+
+  **Der er med vilje INGEN check-constraint** på «true kræver et belæg».
+  Den ser rigtig ud, også som `NOT VALID`, men `NOT VALID` håndhæver på
+  hver `UPDATE`: de rækker, der i dag står med `true`, har intet belæg og
+  kan ikke få et, før boligen hentes igen — og importøren flytter
+  `last_seen_at` på dem i mellemtiden, uden at hente detaljesiden. Den
+  update ville fejle, og afmeldingen ville derefter tage boligen. En
+  invariant, der stækker timekørslen, er dyrere end den fejl, den
+  beskytter mod. Begrundelsen står i `0021_billedforbehold_belaeg.sql`,
+  så den næste ikke «retter» det — sammen med den select, der tæller de
+  gamle rækker uden belæg. Tallet skal falde mod nul over et døgns
+  genopfriskning. **Om et belæg, der findes, stadig HOLDER, er der endnu
+  ingen måling for** — `belaegHolder()` kan svare, men ingen kører den
+  mod produktionen. Det står her frem for at blive kaldt bygget.
+
+  Rammen er bygget for ÉT felt. En generel ramme med én kunde er et gæt
+  om de næste ni.
 - **`landlord_id` er en del af grupperingsnøglen, og den skal blive der.**
   Den ser overflødig ud: kolonnen er NULL på hver eneste scrapede bolig, og
   `group by` samler NULL i én gruppe, så de eksisterende grupper er
@@ -845,6 +1068,47 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   telefonbillede bærer GPS for, hvor det er taget — altså hvor boligen
   ligger, ofte på meteren. Det er ikke vores at videregive, og udlejeren har
   ikke tænkt over det. Omtegningen på et canvas gør begge dele på én gang.
+- **«Uprøvet» er ikke én tilstand, og en måle-SQL skal sige HVILKEN af de
+  to den er.** De to forveksles let, og kun den ene er acceptabel:
+
+  | Tilstand | Undgåeligt? | I en fil, der skal køres i produktionen |
+  |---|---|---|
+  | **tallene er ikke set** | nej, ikke uden basen | **acceptabelt** |
+  | **syntaks og typer ikke kørt** | ja, altid | **aldrig acceptabelt** |
+
+  Skabelonen er én linje i filens hoved: *«Tallene er aldrig set; syntaks
+  og typer holder.»* Og den skal kunne dokumenteres — den prøve, der kørte
+  sætningerne, nævnes ved navn, **og citatet skal kunne opløses**: vagten
+  kalder `existsSync` på den sti, den fandt. Et citat, der kun har den
+  rigtige FORM, er en attest uden dækning — samme halve vagt som en
+  `imagesMayDiffer` uden sit tekstspænd. Første udgave af vagten her
+  bestod et citat til `scripts/test-findes-ikke.ts`.
+
+  Navnemønstret i vagten er bundet til `test-*.ts` indtil videre, og det
+  er en kendt sløjfe: et citat til `scripts/maalinger/proev-maal-sql.ts`
+  — repoets anden navnekonvention for prøvefiler — bliver afvist, selv om
+  filen findes. Kravet skærpes til «har et mærke eller står i en nøgle»,
+  når #49 er landet og det er afgjort, om de to er ét spørgsmål.
+
+  **Hvorfor det er en regel og ikke en vane.** `scripts/maal-felter.sql`
+  blev skrevet til en produktionskørsel samme aften. Første udkast havde
+  `cross join unnest(l.amenities)` og
+  `count(l.amenities) filter (where l.amenities <> '{}')`. `amenities` er
+  **jsonb**, ikke `text[]`. Den første fejler med en typefejl og opdages
+  i sekundet. Den anden **tier**: `'{}'` er et tomt *objekt* i jsonb og
+  aldrig lig en tom liste, så sætningen kører og svarer med et tal, ingen
+  har grund til at mistro. En SELECT, der kører og svarer forkert, er
+  værre end en, der fejler.
+
+  Begge var fanget af at køre sætningerne mod testbasen — PGlite med de
+  rigtige migrationer — mod et forlæg med facit skrevet i hånden FØRST.
+  Det kræver ingen produktionsadgang og koster ét script.
+  Se `scripts/test-maal-felter.ts`.
+
+  Vær særligt varsom med `jsonb`: `<> '{}'`, `= '[]'`, `unnest()` og
+  `array_length()` ser alle rigtige ud og gør noget andet, end de lover.
+  `lib/soeg.ts` har de former, der holder — `jsonb_array_length`,
+  `jsonb_exists`, `jsonb_array_elements_text`.
 - **Migrationer køres IKKE af Vercel-bygget** — et byg skal kunne lykkes
   uden en database. Derfor opdager ingenting en migration, der aldrig blev
   kørt: 0014 lå uden for produktionen, indtil en upload fejlede. **Kør
@@ -933,7 +1197,32 @@ giver 404 — grænsen håndhæves ét sted og gælder både ruten og sitemap'et
 
 ## Arbejdsform
 
+- **Før enhver måling over historik: er klonen shallow?** To kommandoer, og
+  de koster ingenting:
+
+  ```bash
+  test -f .git/shallow && echo SHALLOW     # podede grænser findes
+  git rev-list --all --count              # hold tallet op mod en anden kilde
+  ```
+
+  **En shallow klon lyver om merge-base, om commit-afstand, og om hvad en
+  fletning skal flytte — uden at fejle.** `git log -S` finder ikke det, der
+  ligger uden for grænsen, og svarer med den ældste commit, den KAN se, som
+  om den var den første. `origin/main...gren` bruger merge-base og bliver
+  derfor også forkert.
+
+  Målt i denne container 2. oktober 2026: `.git/shallow` fandtes, 394 commits
+  mod 496 efter `git fetch --unshallow`. Konsekvenserne for målinger, der
+  allerede var skrevet, står i `docs/kildetilladelser.md` ved Balder-posten.
+  Ingen af dem fejlede; de svarede bare forkert.
+
+
 - Vis planen, før du ændrer filer.
+- **En konfliktpåstand er én kommando fra at være målt.**
+  `git merge-tree --write-tree <a> <b>` regner fletningen og svarer i
+  exitkoden — målt: 0 ren, 1 konflikt — uden at røre arbejdstræ, indeks
+  eller HEAD. «I hver sin hunk, altså ingen konflikt» var et gæt, og det
+  var forkert: den anden gren ændrede netop den linje, den nye stod efter.
 - Fase 1 er projektets port. Gå ikke videre, før én kørsel har været stabil.
 - Normalisering, adressevask, dedup og upsert ligger centralt i `lib/`,
   ikke i adapteren. En ny kilde er én fil i `adapters/`.
@@ -1032,62 +1321,88 @@ anden tilføjer en række. Det er selve den fejl, tabellen handler om: en
 identifikator, der ændrer sig under dig. Rækkerne grupperes derfor efter
 FORM og nævnes ved navn.
 
-**Form 1 · et værn, der læses som udtømmende, og ikke er det.** De fanger
-noget — og netop derfor ser de ud, som om de fanger resten. Her ligger
-`gitignore-skråstregen`, `splice-fra-enden`, `gentagelsesprøven`,
-`include-filteret`, `de-hentede-refs`, `delmængde-påstanden`,
-`facilitets-bindingen`, `linjeankeret` og `værdisøgningen`.
-
-**Form 2 · et værn, der måler sig selv i stedet for koden.** Værre end
-form 1: de måler noget rigtigt, blot mindre; disse måler ikke det, de
-handler om. `prøvens-eget-forlæg` og dens slægtning
-`den-rene-fils-påstand`, hvor prøven ser på den rigtige kode, men kun på
-den fil, teksten står i — ikke på det modul, teksten lover noget om.
-
-**Form 3 · et svar om værktøjet er ikke et svar om arbejdet.** Ikke et
-værn, der dækker for lidt, men et svar, der er SANDT om noget andet, end
-man læser det som. `konflikt-fødte-ændringer`, `værktøjets-kvittering`,
-`transpilerede-positioner` og `rørets-exitkode`. Se afsnittet efter
-tabellen.
-
-**Form 4 · et tal, der ikke kan sige, at det ikke blev målt.**
-`nullet-der-betyder-to-ting` står for sig, fordi den ikke handler om et
-værktøj eller et værn, men om DATA: et nul fra en tæller er «ingenting
-skete» og «vi holdt op med at måle» i samme tegn.
-
-**Og to, der ikke er værn.** `kendt-følge`: en fejl, der er skrevet ned,
-ligner en fejl, der er håndteret. `det-stærkeste-faldback` er en anden
-akse end alle de andre — ikke hvor meget et værn dækker, men hvilken VEJ
-en manglende værdi falder.
-
-Hver af dem har kostet mindst én omgang i dette repo.
-
 **Hver række har et NAVN, og navnet er identifikatoren — ikke nummeret.**
 Rækkefølgen har skiftet tre gange på en uge. «Den ottende række» er
 forældet, så snart en anden tilføjer en, og en henvisning, der stille
 kommer til at pege på noget andet, er samme fejl igen. Henvis til navnet i
 commits, i PR-tekster og her.
 
+**Tabellen og formlisterne er genereret.** Hver række er én fil i
+`faelder/`, og `npm run faelder` skriver blokken nedenfor. Ret filen, ikke
+blokken: `npm test` er rød, hvis blokken ikke er det, scriptet skriver.
+En ny række er en ny fil, så to sessioner kolliderer ikke længere i
+tekst, mennesker har skrevet. Støder to grene sammen i blokken, er
+opløsningen at tage en af siderne og køre `npm run faelder` igen.
+Formatet står i `faelder/LAES-MIG.md`.
+
+<!-- faelder:start · genereret af scripts/faelder.ts fra faelder/*.md — ret filerne, ikke blokken, og kør npm run faelder -->
+
+**Form 1 · et værn, der læses som udtømmende, og ikke er det.** De fanger noget — og netop derfor ser de ud, som om de fanger resten. Her ligger `de-hentede-refs`, `delmængde-påstanden`, `det-reproducerbare-tal`, `facilitets-bindingen`, `gentagelsesprøven`, `gitignore-skråstregen`, `include-filteret`, `linjeankeret`, `sammenlagte-påstande`, `splice-fra-enden` og `værdisøgningen`.
+
+**Form 2 · et værn, der måler sig selv i stedet for koden.** Værre end form 1: de måler noget rigtigt, blot mindre; disse måler ikke det, de handler om. Her ligger `den-rene-fils-påstand`, `prøvens-eget-forlæg` og `rød-af-en-anden-grund`. `den-rene-fils-påstand`: slægtning af `prøvens-eget-forlæg` — prøven ser på den rigtige kode, men kun på den fil, teksten står i, ikke på det modul, teksten lover noget om. `prøvens-eget-forlæg`: og set udefra — prøven kan måle det rigtige sted, og sandheden kan bo et andet: journalen mod det, produktionen allerede har kørt. `rød-af-en-anden-grund`: skærpelsen af `prøvens-eget-forlæg` — dér målte prøven en kopi; her måler modprøven den rigtige kode, men tæller ethvert rødt som sit eget.
+
+**Form 3 · et svar om værktøjet er ikke et svar om arbejdet.** Ikke et værn, der dækker for lidt, men et svar, der er SANDT om noget andet, end man læser det som. Se afsnittet efter tabellen. Her ligger `konflikt-fødte-ændringer`, `ordet-målt`, `rørets-exitkode`, `transpilerede-positioner` og `værktøjets-kvittering`.
+
+**Form 4 · et tal, der ikke kan sige, at det ikke blev målt.** Den handler ikke om et værktøj eller et værn, men om DATA: et nul fra en tæller er «ingenting skete» og «vi holdt op med at måle» i samme tegn. Her ligger `nullet-der-betyder-to-ting`.
+
+**Form 5 · et værn, der findes i KOPIER.** Ikke hvor meget én kopi dækker, men at der er flere. Her ligger `det-kopierede-værn`. `det-kopierede-værn`: den svageste kopi sætter gulvet, og et værn, der driver, er værre end en regel, der driver — en regel giver forkerte svar, som kan ses, mens et værn giver INGEN svar. Scriptet kører videre og melder produktionens tal som det syntetiske sæts.
+
+**Form 6 · forbrugeren og leverandøren mødes aldrig.** `leveret-men-ulæst` er `prøvens-eget-forlæg` vendt om: dér byggede forbrugeren sit eget forlæg, så den aldrig så det rigtige. Her SKREV leverandøren det rigtige — og forbrugeren læste et andet navn. Forskellen fra alle de øvrige er, at intet opstrøms fejlede: værnet kørte, det bestod, og værdien blev eksporteret. Fejlen lå i navnet alene. Her ligger `leveret-men-ulæst`.
+
+**Og de, der ikke er værn.** De handler ikke om, hvor meget et værn dækker. Her ligger `den-lånte-årsag`, `det-stærkeste-faldback` og `kendt-følge`. `det-stærkeste-faldback`: en anden akse end alle de andre — ikke hvor meget et værn dækker, men hvilken VEJ en manglende værdi falder. `kendt-følge`: en fejl, der er skrevet ned, ligner en fejl, der er håndteret.
+
+Hver af dem har kostet mindst én omgang i dette repo.
+
 | Fælden | Hvad den IKKE dækker |
 |---|---|
-| **gitignore-skråstregen** · `node_modules/` i `.gitignore` | Skråstregen matcher kun en MAPPE. Et symlink slap forbi og kom i versionsstyringen (`abad7ae`). Løst: mønstret står nu uden skråstreg. |
-| **splice-fra-enden** · `splice(-1)` | Læses som «fra enden» og fjerner ÉN post — ikke resten. Se `lib/ingest.ts` og `adapters/heimstaden.ts`. |
-| **gentagelsesprøven** · mod et uafgjort `ORDER BY` | Beviser stabilitet i DENNE forespørgselsplan, ikke at det afgørende led findes. Kald den samme forespørgsel fem gange, og Postgres svarer gerne det samme — også når leddet er fjernet. |
-| **include-filteret** · `grep --include=*.ts` | Ser ikke `.mjs`, `.sql`, `.md`. Svarer rent på et smallere spørgsmål — og siger ikke selv, at det var smallere. |
 | **de-hentede-refs** · `git grep` over `refs/heads refs/remotes` | Ser kun de refs, der ER HENTET. En gren, ingen har fetchet, findes ikke for søgningen. |
-| **delmængde-påstanden** · om «ændringen» | …hvor det målte var en DELMÆNGDE af den. Filteret ligger her i sætningens subjekt, ikke i kommandoen. |
+| **delmængde-påstanden** · om «ændringen» | …hvor det målte var en DELMÆNGDE af den. Filteret ligger her i sætningens subjekt, ikke i kommandoen. **Og en kontrol er farligere end en måling** (fra #55): den er designet til at svare JA, og en kontrol, der er skrevet sammen med rettelsen, arver rettelsens blinde vinkel og ser ud som et bevis. Målt: «0 af 54 grene sporer `node_modules`» bestod på en halv rettelse. Operatøren er «Hvad kigger den IKKE på?». **Spejlbilledet er modprøven.** Den er designet til at svare NEJ, så dens nej er lige så selvbekræftende som kontrollens ja, og den kræver det andet spørgsmål: «og af HVILKEN GRUND svarede den?». Se `rød-af-en-anden-grund`. Samme operatør, begge polariteter. |
+| **det-reproducerbare-tal** · «jeg kørte den to gange og fik det samme» | **Korrekthed.** Et tal kan reproducere præcist, fordi begge kørsler var forkerte på **hver sin** måde. Målt: en par-tabel over 228 PR-par gav **142 i konflikt** i to kørsler — én på en shallow klon (282 commits, 5 podede grænser), én på fuld historik (432). Totalen var identisk; `diff` på resultatfilerne afviger fra **fjerde linje**. Havde valideringen været «gentag og sammenlign totalen», var målingen blevet kaldt robust. **Det er den eneste fælde, der slår det normale forsvar mod målefejl, for gentagelsen ER forsvaret.** Modtrækket er ikke at gentage, men at **ændre forudsætningen** og se, om tallet flytter sig — her ville `git rev-list --all --count` alene have afsløret det. Se `.git/shallow`-kontrollen under Arbejdsform. |
 | **facilitets-bindingen** · `FACILITETER` mod `Facilitetsord` | Fanger en forkert VÆRDI, ikke en manglende. `readonly X[]` må have enhver længde — også nul. Se nedenfor. |
+| **gentagelsesprøven** · mod et uafgjort `ORDER BY` | Beviser stabilitet i DENNE forespørgselsplan, ikke at det afgørende led findes. Kald den samme forespørgsel fem gange, og Postgres svarer gerne det samme — også når leddet er fjernet. |
+| **gitignore-skråstregen** · et gitignore-mønster, læst i stedet for prøvet | Hvad det FAKTISK rammer. Et mønster er en påstand om matchning, og et mønster, der rammer nul, er **tavst**: ingen fejl, ingen advarsel, kun en fil der ikke blev ignoreret. Spørg git — `git status --porcelain --ignored` skriver `!!` for det ignorerede — læs ikke mønstret. **To tilfælde, samme form:** `node_modules/` med skråstreg matcher kun en MAPPE, så et symlink slap forbi og kom i versionsstyringen (`abad7ae`). Løst: mønstret står nu uden skråstreg. Og `proever-modproev` ramte ingenting, fordi mappen hedder `.proever-modproev` — det bogstavelige navn uden punktum matcher ikke navnet med punktum. Wildcard-mønstret `**/*` matcher derimod også skjulte mapper; det er målt med `git check-ignore -v .skjult/x`. Skråstregen og punktummet er ét tegn hver, der ændrer hvad mønstret rammer, uden at ændre hvad det ser ud som. Efterprøves af `scripts/proev-kvitteringen.sh`, afsnit C. |
+| **include-filteret** · `grep --include=*.ts` | Ser ikke `.mjs`, `.sql`, `.md`. Svarer rent på et smallere spørgsmål — og siger ikke selv, at det var smallere. **Delstrengen er samme fælde den anden vej: den svarer på et BREDERE spørgsmål.** Tre forekomster 2. oktober 2026, alle i greb, der skulle efterprøve noget: (1) `grep -q 'typecheck\|tsc'` mod `package.json`s `test`-nøgle matchede `tsconfig.scripts.json` — altså `tsc` inde i `tsconfig` — og meldte «JA, #49 typekontrollerer», ét skridt fra at modsige en rigtig måling; (2) et greb efter npm-nøgler, der kører `tsc`, matchede `--tsconfig` i **ti** nøgler. **Og (3) er den, rækken findes for:** i tilfælde (2) blev delstrengen SET i outputtet, rettet stiltiende, og konklusionen skrevet som om grebet havde været rigtigt. Den var tilfældigvis rigtig. **En rettelse, der ikke efterlader spor, lader den næste gå i den samme** — og den næste var mig, tre timer senere, med samme delstreng. Den dyreste af de tre er altså ikke den med den værste konsekvens, men den uden en note. **Fjerde forekomst, 3. oktober, og den vender rækken fra en advarsel til en regel: et FALSKT FRAVÆR.** De tre første gav et for bredt svar, der tilfældigvis var rigtigt. Den fjerde gav «findes ikke» om en liste, der fandtes — ni poster, nummereret `\| 1 \|` i en **tabelkolonne**, mod et greb efter listemarkører (`^\s*\d+[.)]`). **Genstanden var rigtig:** kommentaren hentet fra API'et, ikke en indsat kopi, altså rækken `ordet-målt`s (d) overholdt. Grebet meldte alligevel 0. Målt på samme objekt (kommentar `5968767129`, 4.999 tegn / 5.124 bytes): listemarkør-filteret **0**, tabelkolonne-filteret (`^\|\s*\d+\s*\|`) **9**. **Og nullet er kun DELVIST opklaret: kun filterforklaringen er bevist.** To forklaringer var mulige — filtret var blindt, eller hentningen lå før listen fandtes (listen oprettet 11:34:41Z, påstanden skrevet 11:52:47Z). Filtret giver 0 på objektet også i dag; hvornår hentningen kørte, kan ikke genskabes, fordi tidspunktet ikke blev skrevet ned. `ordet-målt` kræver allerede *tidspunkt* — her er, hvad fraværet koster: man kan ikke rense sin egen måling for den anden forklaring. **Et delvist opklaret nul, hvor delingen er navngivet, er mere værd end et helt opklaret et, hvor den ikke er.** **Et falsk fravær er den værste retning, og grunden er mekanisk:** et falsk positivt bliver opdaget af den næste, der kigger på det, man pegede på — et falsk negativt har ingenting at kigge på. Og efterprøvningsskridtet ER taget; det er netop derfor det overbeviser. **Reglen: en fraværspåstand kræver to filtre af FORSKELLIG FORM. Er de uenige, er fraværet filtrets.** Testbar i ét spørgsmål: *kan du nævne det andet filter, du brugte?* Kan du ikke, er dit «findes ikke» en påstand om dit greb og ikke om genstanden. Det er billigere end «vær omhyggelig», fordi det kan besvares. **Forskellig form — ikke samme filter to gange.** Det samme greb blev kørt igen, af en anden, og gav 0 igen. Det er `det-reproducerbare-tal` inde i denne række: gentagelsen er ikke forsvaret, når begge kørsler har samme blinde vinkel. Forudsætningen, der skal ændres, er **filtrets form**. **Og «søg begge stavemåder» er for smalt.** Den regel findes allerede, skrevet efter to forekomster i to andre dimensioner: slug-formen `sammenlagte-paastande` gav 0 mod en række skrevet med å (målt i `CLAUDE.md`: `paastande` **0**, `påstande` **1**), og et filter på rækker med `·` tabte `prøvens-eget-forlæg`, den ene af 22 rækker uden (målt: 22 rækker, 21 med `·`). Men **to stavemåder findes ikke af et tal**: `1.` og `\| 1 \|` er samme tegn i to opmærkninger. Stavemåde er et SPECIALTILFÆLDE af form, og den fjerde forekomst er netop en, specialtilfældet ikke dækker. Derfor står reglen om form. **Og modtrækket har en GRÆNSE, som skal stå her, fordi den svigter tavst på nabotilfældet.** To filtre af forskellig form fanger et **smalt filter**. De fanger ikke **indhold, der ikke er hvad det ligner**: en homoglyf — `U+043C CYRILLIC SMALL LETTER EM` i et dansk ord — ser latinsk ud, så to filtre, begge stavet latinsk, melder begge 0. Den klasse kræver en anden slags kontrol: en scanning for tegn uden for det forventede skriftsystem, én kommando — `python3 -c "import sys,unicodedata as u;[print(hex(ord(c)),u.name(c,'?')) for c in set(open('CLAUDE.md',encoding='utf-8').read()) if (c.isalpha() and not u.name(c,'').startswith('LATIN')) or u.category(c)=='So']"`. **Baseline, målt 3. oktober 2026 på både `main` og denne gren: ét distinkt tegn i én forekomst — `0x1f3e0 HOUSE BUILDING`** — og i en fletning med #61 desuden `0x2713`/`0x2717`, som står i rækken `rød-af-en-anden-grund`s egen celle; **hvert tegn skal kunne henvises til en række, det er pointen, ikke tallet 1**, i adressereglens eksempel på et ugyldigt vejnavn under «Må aldrig ske». **Og reglen gælder denne sætning selv:** står tegnet som glyf her, er forekomsterne to, mens baselinen siger én — derfor navngives kodepunktet. Målt: `main` **1** forekomst, denne gren **2** med glyffen i baselinen og **1** uden. **Uden baseline er kontrollen en anbefaling; med den er den en måling, nogen kan gentage.** Modprøvet ved at pode `U+043C` ind i et dansk ord med vilje: scanningen melder `0x43c CYRILLIC SMALL LETTER EM` ved siden af husets. |
 | **linjeankeret** · en scanner forankret til linjestart (`^`) | Ser kun kopier, hvor nøglen står FØRST på linjen. Alle seks kopier havde flere nøgler pr. linje, så scanneren meldte fire af seks — et tal, der ser ud som et svar. |
-| **prøvens-eget-forlæg** | Dækker slet ikke koden. Isoleringsflagene lå i trinlisten i `scripts/import.ts`; prøven byggede sine egne trin med sine egne flag. Vendes hvert eneste flag i koden, er sættet fortsat grønt — prøven så aldrig på dem. |
-| **den-rene-fils-påstand** · brugervendt tekst i en ren fil, prøvet i `npm test` | Teksten, ikke løftet. Brugervendt tekst, der gør et udsagn om systemet, lægges i en ren fil uden database, så den kan prøves — det er rigtigt. Men en påstand om ET ANDET modul kan ikke prøves der: den skal have sin egen prøve, hvor modulet bor. «Den kan stadig åbnes på sit eget link» handler om `hentBolig`, og prøven af forklaringsfilen var grøn, også hvis linket gav 404. En ren fil gør teksten prøvbar og løftet uprøvbart, hvis man ikke passer på. **Og en ren fil holder kun, hvis også dens hjælpefunktioner er rene** — en formatteringshjælper fra en komponent er det sjældent. Fletteopskriften til `opgave/kontakt-ui` ville have hentet `kr` fra `app/Boligkort` ind i `forklaring.ts`, og `Boligkort` importerer `lib/soeg` og dermed databasen. Intet ville have set det: `db/client.ts` forbinder først ved første brug, så en import-prøve bliver ikke rød, og prøverne kører under testbasen. `scripts/test-rene-filer.ts` måler derfor importgrafen med esbuild og tillader kun andre rene filer — en allowlist, så en ny hjælper skal på listen og selv bliver vogtet. |
-| **kendt-følge** · en kendt fejl skrevet ned i stedet for rettet | Brugeren. En kendt usand brugervendt sætning er en fejl, ikke en følge. Den skal rettes, eller ændringen skal vente. At skrive den ned er ikke at have løst den — siden blev ved med at sige den, hver gang den blev vist. |
+| **sammenlagte-påstande** · to prøver lagt i én for hastighedens skyld | **Evnen til at SKELNE.** En prøve, der dækker tre tilfælde i ét forlæg, er stadig rød når noget fejler — men den kan ikke sige hvilket, og prisen er usynlig indtil noget fejler. Målt: fire `tsc`-kørsler i `scripts/test-adapterkontrakt.ts` kostede 38 s; lagt i to blev modvægten ÉN påstand, der kan fejle af tre grunde. **21 sekunder for at kunne se forskel på tre fejl er billigt** — og noten skal da sige hvilken af de tre brækkede. Samme familie som `prøvens-eget-forlæg` og `dommen-uden-port`: et værn, der er korrekt rødt, men ikke brugbart rødt. |
+| **splice-fra-enden** · `splice(-1)` | Læses som «fra enden» og fjerner ÉN post — ikke resten. Se `lib/ingest.ts` og `adapters/heimstaden.ts`. |
 | **værdisøgningen** · `git grep "'Lejlighed'"` | Finder kun den ene af tre skrivemåder. Nøglen er ens i alle kopier; værdien er netop det, en drevet kopi har ændret. |
+| **den-rene-fils-påstand** · brugervendt tekst i en ren fil, prøvet i `npm test` | Teksten, ikke løftet. Brugervendt tekst, der gør et udsagn om systemet, lægges i en ren fil uden database, så den kan prøves — det er rigtigt. Men en påstand om ET ANDET modul kan ikke prøves der: den skal have sin egen prøve, hvor modulet bor. «Den kan stadig åbnes på sit eget link» handler om `hentBolig`, og prøven af forklaringsfilen var grøn, også hvis linket gav 404. En ren fil gør teksten prøvbar og løftet uprøvbart, hvis man ikke passer på. **Og en ren fil holder kun, hvis også dens hjælpefunktioner er rene** — en formatteringshjælper fra en komponent er det sjældent. Fletteopskriften til `opgave/kontakt-ui` ville have hentet `kr` fra `app/Boligkort` ind i `forklaring.ts`, og `Boligkort` importerer `lib/soeg` og dermed databasen. Intet ville have set det: `db/client.ts` forbinder først ved første brug, så en import-prøve bliver ikke rød, og prøverne kører under testbasen. `scripts/test-rene-filer.ts` måler derfor importgrafen med esbuild og tillader kun andre rene filer — en allowlist, så en ny hjælper skal på listen og selv bliver vogtet. |
+| **prøvens-eget-forlæg** | Dækker slet ikke koden. Isoleringsflagene lå i trinlisten i `scripts/import.ts`; prøven byggede sine egne trin med sine egne flag. Vendes hvert eneste flag i koden, er sættet fortsat grønt — prøven så aldrig på dem. **Og set udefra:** prøven måler det rigtige sted, men det sted er ikke der, hvor sandheden bor. Journalvagten, som #51 lægger i testbasen (`koerMigrationer`), efterprøver INTERN konsistens: hver `.sql` har en journalpost, og `when` stiger i journalens orden. Migrationssikkerhed afhænger af EKSTERN tilstand: hvad produktionen allerede har kørt. drizzle kører kun en migration, hvis dens `when` er større end den senest kørte. Sættes en ny post FØR en, produktionen har kørt, er journalen stigende og vagten grøn, mens produktionen springer den nye over uden en fejl. Det ser kun `db:status`, og den navngiver den forkerte. Fundet i vagten samme dag, den blev bygget, af den session, der byggede den, ved en prøvefletning mod #57, der tager samme nummer 0021. Modtrækket er ikke en bedre vagt i testbasen, men at spørge dér, hvor sandheden bor. |
+| **rød-af-en-anden-grund** · en modprøve, der kun kræver «rød» | At det var VÆRNET, der fangede den. En exitkode forskellig fra 0 siger, at noget gik galt — ikke at det rigtige gik galt. Målt 1. oktober 2026 på typevagten i `lib/maaling.ts`: `type-uddrag-annoteret` var rød af en spredningsfejl ved siden af vagten, og `type-allowlist-annoteret` slap igennem den samme vagt. Begge så ens ud, så længe kommandoen kun krævede rødt. Målt igen 2. oktober: to migrationsmutationer gav «0 roede, exit 1», og modprøvekøreren viser ikke prøvens udskrift. Skærpelsen: lad kommandoen kun være rød på værnets EGEN meddelelse — `sh -c "! <prøve> 2>&1 \| grep -q '<værnets meddelelse>'"` — og kør en KONTROL gennem samme kommando: en mutation, som et ANDET værn fanger, skal slippe igennem. Kør også kommandoen på den umuterede kode og se 0, ellers kan en prøve, der aldrig kom i gang, give grønt. Her er det MED VILJE grep's exitkode, der tæller (`rørets-exitkode` brugt som værktøj), og derfor kontrollen. **Og den har fanget sin egen forfatter.** Rækken er skrevet af fejlene ovenfor, af den session, der byggede `faelder/`. Samme eftermiddag trådte samme session i den igen, to gange. Modprøverne af opløsningen i `lib/alarm.ts` gav exit 1 med nul ✗, fordi `git checkout -m` skriver markørerne som `ours`/`theirs`, mens regexet ledte efter `HEAD`, så filen bar stadig konfliktmarkører. Og en prøvefletning gav ✓0 ✗0, fordi worktree'et var lagt på den forkerte gren. Begge blev fanget af rækkens egen regel, nemlig at exit 1 med nul ✗ er et nedbrud og ikke værnets meddelelse, og tallene blev målt om. Det er første nedskrevne gang, en række fanger sin forfatter, efter den stod i tabellen. **Den anden af de to har en uafhængig forekomst samme dag:** en kontrol kørt på den forkerte tilstand. Ejeren lavede den samme formiddag: `git checkout` fejlede på en beskidt `package-lock.json`, `tsc` kørte på den gamle gren og gav 0. Dér var svaret GRØNT, og det er den farlige polaritet: et grønt svar fra den forkerte tilstand ligner et grønt svar. To hænder, samme dag, samme fejl, så det er formens natur og ikke uopmærksomhed. Modtrækket er at navngive tilstanden: læg worktree'et på en SHA og ikke på `HEAD`, og skriv SHA'en ud ved siden af resultatet. |
 | **konflikt-fødte-ændringer** · `git log -S` / `-G` | Ser **ikke merges**. En linje, der opstod i en merges konfliktløsning, har ingen enkelt commit — og søgningen svarer TOMT. Det læses som «denne linje har ingen historik», når det betyder «denne historik er usynlig for dette værktøj». Brug `--diff-merges=first-parent`; `-m` finder den også, men differ mod hver forælder og over-rapporterer. Målt: `.kort-maerkater { right: 52px }` fandtes i nul commits, i én merge med flaget, og i fire med `-m`. |
-| **værktøjets-kvittering** · `Successfully rebased and updated refs/heads/…` | Indholdet. Kvitteringen er sand om værktøjets egen bogføring og **tavs om arbejdet**: `rebase --continue` spørger, om indeksposten er opmærket som løst — ikke om løsningen er rigtig. Målt: samme fil med byte-identisk indhold giver `needs merge` ustaged og `Successfully rebased` staged, og commit'en bærer tre konfliktmarkører, mens `git status` er tom. |
-| **transpilerede-positioner** · V8-dækning (`NODE_V8_COVERAGE`) over en `.ts`-fil | At positionerne peger i DEN FIL, du læser. `tsx` oversætter først, så dækningens `startOffset` er tegnpositioner i den TRANSPILEREDE JS. Et opslag «hvilken `tjek(`-linje ligger i en nul-range» rammer derfor ved siden af, og afvigelsen vokser med filens kommentarer. Målt: **187 af 485 påstande meldt udækkede i `test-redigering.ts` — alle 485 var kørt.** Stakspor ER kildekortlagt; tegnpositioner er ikke. |
-| **nullet-der-betyder-to-ting** · et maaletal, der er faldet til nul | Forskellen paa «ingenting skete» og «vi holdt op med at maale». Et nul fra en taeller er to udsagn i ét, og de kan ikke skelnes ved at se paa tallet. Maalt: `lib/maaling.ts`s allowlist har driftstilstandene og `funktion`-maengden skrevet af i haanden, paa linjerne omkring et `af: GRUNDE`, der ER bundet — og `Spec.af` er `readonly string[]`, saa oversaetteren tier. En ny vaerdi faar `rens()` til at kassere HELE eventet, og `paywall_blocked` holder op med at blive skrevet. Tragten viser saa 0. Samme form, uafhaengigt: `haendelser` gav 0 raekker for omraadesiderne, og det 0 betoed «ikke maalt». **Et maaletal skal kunne sige, at det ikke blev maalt** — en taeller ved siden af, en «sidst skrevet»-tid, eller en proeve, der skriver ét event igennem. Se #47. |
+| **ordet-målt** · «målt» skrevet om en kommando | **Mindst FIRE ting, og ordet komprimerer dem alle væk.** (a) hvilken **DELMÆNGDE** kommandoen så — `--include`, et glob, et substring-match; (b) hvilken **TRÆTILSTAND** den stod på — shallow klon, uhentede refs, et beskidt indeks; (c) hvilken **BLIND VINKEL** kommandoen selv har — `git log -S` ser ikke merges, `$?` ser ikke rørets første led; (d) hvilken **GENSTAND** den så på — originalen, eller en kopi, nogen har videregivet. Hvert led kan svigte alene, og ingen af dem fejler. **(d) er ikke (a):** (a) er filteret INDEN FOR genstanden, (d) er hvilken genstand filteret blev anvendt på. **Begge retninger findes, og begge skal stå her, for de forveksles netop når man HAR gjort den ene rigtigt.** *Rigtigt filter, forkert genstand:* links talt i en **indsat tekst** og udtalt om PR-kommentarer; et null læst i et **API** og udtalt om en anden sessions løkke. *Rigtig genstand, forkert filter:* en kommentar hentet fra API'et — altså (d) i orden — og søgt med et greb efter listemarkører mod en liste nummereret i en tabelkolonne; grebet meldte 0 om ni poster, og **(d) blev CITERET som dækning for hele målingen.** At have gjort det ene skridt rigtigt er den tilstand, hvor man holder op med at kigge. **Modtrækket er at hente selve genstanden, ikke en kopi** — for en PR-kommentar betyder det API'et, ikke den indsatte tekst — **og det dækker kun (d).** **Målt to gange på én dag, af to sessioner:** «fletningen er målt» skrevet om en `merge-tree`, der blev kørt BAGEFTER og gav konflikt; og en par-tabel, hvis total var stabil over to kørsler, mens hver detalje var forkert, fordi den ene stod på en shallow klon. Modeksemplet lå i samme rapport som det andet: `scripts/maal-billedloft.sql`s hoved siger, hvad tallet IKKE er. **Disciplinen fandtes ét sted og blev brudt et andet i samme tekst.** Derfor mekanisk: **et «målt» uden kommando, tidspunkt og trætilstand er en påstand, ikke en måling** — og *tidspunkt* står i den sætning og ikke i listen, fordi listen er, hvad ordet SKJULER, mens sætningen er, hvad en måling skal OPLYSE. De to er ikke samme liste, og det er grunden til, at tidspunkt ikke skal tilføjes som et femte punkt: det er der allerede. |
 | **rørets-exitkode** · `$?` efter en pipeline | Kommandoen. `$?` er den SIDSTE kommandos exitkode, ikke roerets. Maalt: `false \| head -1` giver **0**. Det er sket to gange paa én dag — en modproeve meldt som `exit=0`, hvor nullet var `head`s, og en byggekontrol laest som groen, hvor nullet var `tail`s. **Mekanisk loeseligt, og begge veje har en haage:** `set -o pipefail` giver 1 paa `false \| head -1` — men ogsaa **141** (SIGPIPE) paa `yes \| head -1`, hvor intet gik galt, saa den goer en VIRKENDE pipeline roed. Robust er derfor `${PIPESTATUS[0]}` (maalt: `1` mens `$?` er `0`), eller at koere kommandoen for sig og filtrere bagefter: `ud=$(kommando 2>&1); k=$?`. Samme familie som `transpilerede-positioner`: svaret er sandt om roeret og laeses som et svar om kommandoen. |
-| **det-stærkeste-faldback** · `??` og et sidste `else` | Dækker rigeligt — men falder mod det STÆRKESTE udsagn. Se nedenfor; det er en anden akse end de ti andre. |
+| **transpilerede-positioner** · V8-dækning (`NODE_V8_COVERAGE`) over en `.ts`-fil | At positionerne peger i DEN FIL, du læser. `tsx` oversætter først, så dækningens `startOffset` er tegnpositioner i den TRANSPILEREDE JS. Et opslag «hvilken `tjek(`-linje ligger i en nul-range» rammer derfor ved siden af, og afvigelsen vokser med filens kommentarer. Målt: **187 af 485 påstande meldt udækkede i `test-redigering.ts` — alle 485 var kørt.** Stakspor ER kildekortlagt; tegnpositioner er ikke. |
+| **værktøjets-kvittering** · hvad et `--continue` melder tilbage | Indholdet. Kvitteringen er sand om værktøjets egen bogføring og **tavs om arbejdet**: et `--continue` spørger, om indeksposten er opmærket som løst — ikke om løsningen er rigtig. Målt på samme fil med byte-identisk indhold: ustaged afvises den, staged kvitteres den, commit'en bærer tre konfliktmarkører, og `git status` er tom. **Det gælder alle fem kommandoer med et `--continue` — og det ER dem alle:** `am`, `cherry-pick`, `merge`, `rebase`, `revert`, talt op af Gits egen `--list-cmds` (oprindeligt 131 kommandoer scannet). Den medfølgende prøve udskriver sit aktuelle antal. `filter-branch -h` har en ti sekunders advarselsventetid; prøven slår den fra med `FILTER_BRANCH_SQUELCH_WARNING=1` og læser den indbyggede hjælp. Manglende hjælpetekst eller timeout afvises, så en manglende manual ikke tæller som et manglende flag. Fejlformen er identisk i alle fem. **Kvitteringen er forskellig i alle fem, og kun `rebase` siger «Successfully».** `merge`, `cherry-pick` og `revert` skriver en commit-linje — den læses som succes, netop fordi den ser ud som en almindelig commit — og `am` skriver `Applying: <emne>` i NUTID og påstår ingenting. De fire uden triumf-ordet er de værste: der er intet ord at blive mistænksom over. Og `merge` og `am` skriver ikke engang den diffstat, hvis oppustede linjetal ellers var det eneste numeriske spor. **Led derfor ikke efter en formulering.** Samme form hos os selv: opdagerens slutlinje skrev «ALT GRØNT» uden at navngive sig, og den stod umiddelbart efter den sidste prøves egen — en kvittering, der læses som om den kom fra det, den rapporterer om. Efterprøves af `scripts/proev-kvitteringen.sh`. **Anden forekomst, 3. oktober: et FORÆLDET METADATAFELT, læst som en oplysning om en beregning.** Målt: #60 svarer `mergeable_state: clean` med `base.ref` `skive/faciliteter-og-spaend` og `base.sha` `9aa215c`, mens den gren står på `fc7887c`, 3 commits længere fremme. **Men GitHubs egen prøvefletning er bygget på basens AKTUELLE hoved:** `refs/pull/60/merge` er `e757b3f` med forældrene `fc7887c` og `d9918c6` — basegrenens hoved og #60's hoved. Det dokumenterede er altså, at `base.sha` er forældet metadata; det er **ikke** dokumenteret, at der blev prøveflettet mod den forladte base. **Og `mergeable_state`s beregningsgrundlag skal ikke udledes af feltet** i nogen retning: svaret oplyser det ikke, og `base.sha` er ikke den oplysning. Feltet er stadig det farlige af sine tre skikkelser — fraværet ligner ingenting, fordi `mergeable` ikke beregnes på liste-endpointet og `jq '.mergeable'` gør fraværet til `null`; `dirty` er en advarsel; men `clean` læses som en påstand om en sammenligning, hvis grundlag svaret ikke nævner. Modtrækket er derfor ikke at læse `base.sha`, men at læse **flettereferencens forældre** (`git log -1 --format=%p refs/pull/<n>/merge`) eller at regne fletningen selv med `git merge-tree` mod basens hoved. **Tidligere udgave af denne celle** skrev, at svaret var «regnet mod `9aa215c`» og dermed forældet. Det var en forklaring uden måling bag, flettereferencen modsiger den, og tallene i den (to commits, `6bebccb`) var desuden overhalet. |
+| **nullet-der-betyder-to-ting** · et maaletal, der er faldet til nul | Forskellen paa «ingenting skete» og «vi holdt op med at maale». Et nul fra en taeller er to udsagn i ét, og de kan ikke skelnes ved at se paa tallet. Maalt: `lib/maaling.ts`s allowlist har driftstilstandene og `funktion`-maengden skrevet af i haanden, paa linjerne omkring et `af: GRUNDE`, der ER bundet — og `Spec.af` er `readonly string[]`, saa oversaetteren tier. En ny vaerdi faar `rens()` til at kassere HELE eventet, og `paywall_blocked` holder op med at blive skrevet. Tragten viser saa 0. Samme form, uafhaengigt: `haendelser` gav 0 raekker for omraadesiderne, og det 0 betoed «ikke maalt». **Et maaletal skal kunne sige, at det ikke blev maalt** — en taeller ved siden af, en «sidst skrevet»-tid, eller en proeve, der skriver ét event igennem. Se #47. |
+| **det-kopierede-værn** · samme vagt skrevet ud i hver fil | At den SVAGESTE kopi er den, der gælder. Målt 1. okt. 2026: isolationsvagten i `scripts/cloud/` fandtes i **ni kopier i fire stavemåder** — og **seks forbindelser havde ingen**, hvoraf én skrev til basen. Kopierne var hver især rigtige nok; mængden af dem var hullet. Et manglende værn fejler ikke, det **svarer**. Rettelsen er ét modul, alle kalder — og en prøve, der tæller forbindelser i stedet for at spørge, om der er nogen: et `Set` sagde grønt om en fil, der stod på allowlisten for en ANDEN bloks skyld. |
+| **leveret-men-ulæst** · wrapperen sætter `X`, det indpakkede læser `Y` | At sikkerheden blev LEVERET. `scripts/cloud/kontrol.sh` kalder `krav_isoleret`, det består, og den eksporterer `DATABASE_URL_DIRECT=<isoleret>`. Seks scripts læste `DATABASE_URL` og så derfor det OMGIVENDE miljø — produktionens URL fra `.env` — mens de kørte under den wrapper, der netop havde efterprøvet isolationen. Intet opstrøms fejlede: værnet kørte, bestod og leverede. Det er `prøvens-eget-forlæg` vendt om, og tegnet er det samme: **samme værdi under to navne, hvor den ene side skriver det ene og den anden læser det andet.** Målbart — hold de nøgler, et script LÆSER, op mod dem, dets wrapper SÆTTER. |
+| **den-lånte-årsag** · en forklaring, der passer på de datapunkter, man så | **De øvrige i samme tabel.** En årsag, der forklarer to tal, læses som årsagen til alle — og prøves ikke mod resten, netop fordi den passede. **Målt:** tegntal og bytetal for tabellens rækker afveg med 7 på begge `main`-rækker, og forklaringen «det er `\| **navn** ·`-præfikset» passede. Den er forkert: forskellen er **UTF-8**, og den var 7 begge gange, fordi begge rækker tilfældigvis har 5 flerbyte-tegn. Mod de samme to rækker på en anden gren er den **12 og 35**, og på de tre nye **27, 54 og 31** — altså ikke en konstant forskydning, men æøå og «» talt op. **Teorien forudsagde en konstant og blev aldrig prøvet mod de fire tal i samme tabel, hvor den varierer.** Modtrækket er ikke en bedre forklaring, men at prøve den mod det datapunkt, der ikke var med til at danne den. **Og den praktiske følge: skriv enheden ved tallet.** Tegn eller bytes — i dansk prosa er forskellen op mod 3 % og vokser med teksten, så en tabel med begge slags tal uden enhed er en sammenligning, der ikke er en sammenligning. **Og differencen er IKKE antallet af flerbyte-tegn:** tre-byte-tegn — tankestreg, ellipse, «» — tæller dobbelt. Målt på denne rækkes nabo `ordet-maalt`: 47 flerbyte-tegn giver 54 bytes ekstra, fordi 40×1 + 7×2 = 54, og de syv er alle tankestreger. Uden den linje ser ens egen kontrol ud som en regnefejl. **Tredje forekomst, og den er den vigtigste: jeg trådte i formen MENS jeg skrev rækken om den** — forklaringen om præfikset stod i selve den besked, hvor jeg katalogiserede en andens lånte årsag. De to andre gange i denne weekend fangede tabellen en forfatter af sin egen række og en læser; **denne udelukker den indvending, de ikke kan — at tabellen kun fanger dem, der ikke kender den.** Her kendte forfatteren formen, var i gang med at beskrive den, og trådte i den alligevel. Det er evidens for, at modtrækket skal være **mekanisk og ikke opmærksomhed**: **prøv forklaringen mod det datapunkt, der ikke var med til at danne den.** **Og grunden til, at det kan være mekanisk, er at man aldrig mangler dataene — man mangler at vende spørgsmålet mod dem.** Fem forekomster er gennemgået, og i hver eneste lå det modbevisende datapunkt allerede i hånden: tidsstemplet var dannet af kommentarens og aldrig prøvet mod afsenderens egne; årsagen var dannet af en API-måling og aldrig prøvet mod koden, den handlede om; nummereringen var dannet af en liste, nogen selv udvidede, og aldrig prøvet mod rækkens tekst; navnene var dannet af chat-rapporter og aldrig prøvet mod repoet (målt: **23 åbne PR'er, samtlige som `ukutuku`** — ét `gh api`-kald); og byteforskellen var dannet af to tal, hvor den tilfældigvis var ens, og aldrig prøvet mod de fire i samme tabel. **Det manglende var aldrig oplysninger. Det var skridtet** — og derfor kan det stå i en tjekliste frem for at kræve flid. |
+| **det-stærkeste-faldback** · `??` og et sidste `else` | Dækker rigeligt — men falder mod det STÆRKESTE udsagn. **Og forsigtig over for HVEM:** læseren, eller den vært vi henter fra? Begge findes, og den anden er værre på én måde. Se nedenfor; det er en anden akse end alle de andre. |
+| **kendt-følge** · en kendt fejl skrevet ned i stedet for rettet | Brugeren. En kendt usand brugervendt sætning er en fejl, ikke en følge. Den skal rettes, eller ændringen skal vente. At skrive den ned er ikke at have løst den — siden blev ved med at sige den, hver gang den blev vist. |
+
+<!-- faelder:slut -->
+
+**En note til `ordet-målt`s (d), om hvordan den blev til.** Leddet kom frem,
+fordi nogen i samtalen talte om «fjerde led» og «femte led» hen over tre
+omgange — og rækken har aldrig haft nummererede led. Den har lettede: (a),
+(b), (c), og nu (d). **Formen blev påført udefra og læst tilbage som rækkens
+egen**, og en anden session skrev «femte led» ind i en PR-kommentar på det ord,
+mens en tredje nægtede at citere nummeret, fordi de læste rækken først og ikke
+kunne finde det. Den tredje havde ret.
+
+Og «fjerde led: HVORNÅR» var ikke en tilføjelse: *tidspunkt* stod allerede i
+rækkens afsluttende sætning. **Noget, der fandtes, blev nummereret som nyt.**
+Det er nabo til `den-lånte-årsag` — dér hæftes en lånt **årsag**, her en lånt
+**form** — men det er ikke samme fejl, og det er bevidst en note og ikke en ny
+række: tabellen har nok rækker om samme mekanik, og den vokser ved at blive
+læst. (`den-lånte-årsag` stod kun i en sessionsrapport, da noten blev skrevet,
+og er derfor først navngivet her, hvor rækken findes.)
+
+**Modtrækket er rækkens eget (d):** hent genstanden. Her var genstanden rækken
+i filen, og den kunne have afgjort det med én kommando —
+`git show <commit>:CLAUDE.md | grep '^| \*\*ordet-målt'`. Målt på `488c719`:
+tre lettede led, ét `tidspunkt`, nul nummererede.
 
 **Fem af dem er den samme fejl fem gange: et usynligt filter.** Ved
 **include-filteret** kan filteret SES i kommandoen. Ved **de-hentede-refs**
@@ -1097,6 +1412,52 @@ filteret i det, sætningen handler OM. I **linjeankeret** ligger det i
 **regexet** — et `^` gør scanneren til en linjescanner, og den slags
 kopier står sjældent alene på deres linje. Og i **værdisøgningen** ligger
 det i, hvilken af flere skrivemåder man søgte efter.
+
+### Sådan må en række være skrevet — og hvorfor tællingen kun er en stedfortræder
+
+**En pibe afslutter cellen, også inde i en kodespan.** Vil en række citere et
+`|`, skal det escapes som `\|`. En række med to kolonner har derfor præcis
+**tre** uescapede piber, og en for meget deler cellen op uden at se forkert ud i
+kilden.
+
+Målt over hele grenen, én commit ad gangen: de første otte commits havde 18–21
+rækker og **nul** forkerte. `b26f90f` lagde række 22 ind med fire piber —
+cellen citerer sit eget præfiks — og fejlen stod gennem fem commits, til
+`5498748`. **Konventionen var altså 21 rækker dyb, da den 22. brød den.**
+
+```bash
+# hver række i fældetabellen: tre uescapede piber, ikke flere
+python3 - <<'SLUT'
+import io
+fejl = 0
+for l in io.open('CLAUDE.md', encoding='utf-8'):
+    if not l.startswith('| **'): continue
+    l = l.rstrip('\n')
+    raa = sum(1 for i, c in enumerate(l) if c == '|' and (i == 0 or l[i-1] != '\\'))
+    if raa != 3: print(raa, l[:60]); fejl += 1
+raise SystemExit(1 if fejl else 0)
+SLUT
+```
+
+Den er **ikke** bundet ind i `npm test`; den køres i hånden. Derfor exit 1 ved
+fund, så den kan bindes ind uden at skulle skrives om — og derfor er «gaten
+fandt fejlen første gang den kørte» sandt om et menneske, der kørte den, ikke
+om noget, der kører af sig selv.
+
+**Og her er, hvad tællingen IKKE siger.** Fejlen var af den slags, kun en
+renderer viser — og der er ingen renderer: GitHubs `/markdown` svarer **403**
+for en session, der er bundet til repoets egne stier, og en renderer installeres
+ikke i et delt `node_modules`. Fejlen kunne altså ikke **ses**, kun **udledes**.
+Tællingen virker som stedfortræder, fordi tabellens ældre rækker har etableret
+konventionen: **«rigtigt» er her defineret af fortilfælde, ikke af gengivelse.**
+Det er svagere end et billede og stærkere end ingenting, og det skal stå højt,
+for ellers læses en grøn tælling som «tabellen gengiver korrekt». **Den siger
+kun «den ligner de andre».**
+
+Den anden kontrol på tabellens egen tekst — scanningen for tegn uden for det
+forventede skriftsystem, med sin baseline — står i cellen `include-filteret`,
+fordi den er den rækkes grænse. De to svarer på hver sit spørgsmål,
+skriftsystem og celletælling, og er derfor ikke to udtryk for det samme.
 
 ### Form 3: et svar om værktøjet er ikke et svar om arbejdet
 
@@ -1199,6 +1560,37 @@ i «vi ved det ikke», koster den en unødig forsigtighed. Falder den ned i
 «el er ikke med» eller «fra 9 kr.», har vi sagt noget til et menneske, vi
 ikke havde dækning for. Er der ingen forsigtig gren at falde i, er det et
 tegn på, at oversættelsen skal være udtømmende i stedet.
+
+**Men «forsigtig» har to retninger, og de tre ovenfor er alle den ene.**
+Rækken handlede om udsagn TIL ET MENNESKE. Der findes en anden slags, hvor
+den sidste gren ikke siger noget, men GØR noget mod en fremmed:
+
+| | de tre ovenfor | den fjerde |
+|---|---|---|
+| hvad grenen gør | **siger** noget | **gør** noget |
+| over for hvem | læseren | den vært, vi henter fra |
+| eksempel | «El indgår ikke» | `budget = opslag ? … : `**`Infinity`** i `lib/ingest.ts` |
+| hvad det stærkeste er | den mest vidtgående påstand | **intet loft** |
+
+`detaljeBudgetPrKoersel` var tavst virkningsløst uden `listeGrundlag`, og
+faldbacket var `Infinity` — altså: mangler oplysningen om, hvor meget vi må
+hente, henter vi **uden grænse**. Det er samme form som «El indgår ikke»,
+men den stærkeste gren er her en handling mod nogens server.
+
+**Og de to er ikke lige slemme. Den anden er værre på én måde:** en usand
+sætning kan rettes, og så er den rettet — læseren ser den rigtige næste
+gang. **En overbelastet server husker.** Heimstadens CDN spærrede vores IP
+efter ~17 minutter (målt 2026-09-06), og spærringen gjaldt værten, ikke
+sætningen. Der er ingen rettelse, der tager den tilbage; der er kun en
+telefonsamtale, og den er ikke altid mulig.
+
+Derfor: **spørg ikke bare «er den sidste gren forsigtig», men «forsigtig
+over for hvem».** Er svaret «over for en fremmed vært», skal faldbacket
+være den strammeste værdi og ikke den løseste — og en manglende indstilling
+skal helst slet ikke være mulig at skrive. Her blev den gjort til en
+oversætterfejl (`SourceAdapter` er nu `Kildegrundlag & Detaljevagt`, hvor
+loftet kun kan stå sammen med grundlaget), fordi en forsigtig faldback
+stadig efterlader fælden åben for den næste.
 
 **Prøvens-eget-forlæg er den samme sygdom et lag længere ude.** Ved
 **linjeankeret** var værnet rigtigt monteret og bare for smalt. Her var
@@ -1332,6 +1724,31 @@ Kilderne sås ikke i testbasen. `sources` er et register, hvis sandhed ligger i
 Migration 0013 sår `native`, fordi den er den eneste kilde uden adapter. Får
 en prøve brug for det rigtige register, er svaret `sikreKilde()` over
 `KILDER` — ikke ny SQL.
+
+### En sået række når ikke `hvor()` med standardværdierne
+
+`listings.address_match_level` har `default 'failed'`, og `hvor()` har
+`ne(addressMatchLevel, 'failed')` — med god grund: en bolig, vi ikke ved
+hvor ligger, vises ikke. **For en prøve er konsekvensen stille og grim:**
+forlægget er usynligt, hver påstand om et tomt resultat bliver grøn, og
+prøven måler ingenting.
+
+Det er sket. Seksten påstande i `scripts/_udvidelsespaastand.ts` stod
+grønne af den forkerte grund, indtil forlægget blev synligt. Ingen af dem
+var forkert skrevet.
+
+Sæt derfor begge, når du sår en række, der skal kunne findes:
+
+    address_match_level = 'access'
+    access_address_uuid = 'intern:…'      -- vilkårlig, men ikke null
+
+`'unit'` kræver `unit_address_uuid` i stedet. Check-constrainten
+`listing_address_level_honest` i `0000_init.sql` håndhæver, at niveauet er
+sandt, så et niveau uden sin uuid afvises af **basen** — det er den
+venlige af de to fejl.
+
+Modgiften mod den stille udgave er en **forudsætning**: mål, at forlægget
+er synligt, før du måler noget om det.
 
 ### Rettighedskontrollen — hvorfor den findes
 
@@ -1601,6 +2018,52 @@ URL'en, og en URL-nøgle ville gøre boligen til en ny bolig.
 fra Varnish gennem hele undersøgelsen og den første import. Derfor fem forsøg
 i stedet for tre, og derfor tæller 502 og 504 nu som midlertidige i
 `lib/fetch.ts`. Deres eget indeks indeholder også sager, hvis side er væk.
+
+### Lejeperioden — målt 2. oktober 2026, og den bygges ikke
+
+**Ingen kilde oplyser UDBUDDETS lejeperiode i et felt, vi kan bruge.**
+Beslutningen er truffet, og grunden er ikke dækning. Derfor står den her,
+så den næste ikke bruger en dag på at opdage det igen.
+
+Hvad der blev målt:
+
+- **Nul felter og nul kode.** Helrepo-grep over `adapters/ lib/ app/ db/
+  scripts/` på kodelaget, først med et snævert mønster, så med et bredt
+  (`wait|month|until|varsel|frist|binding|period|term|…`). De eneste
+  varighedsfelter, vi læser, er `monthsOfDeposit`/`monthsOfPrepaid`
+  (findbolig — depositum i måneder), `MinWaitTimeInMonths`/
+  `WaitTimeTypeText` (alabu) og `onWaitingListSince` (propstep). Alle tre
+  handler om venteliste eller indflytningspris, ikke om lejeperiode.
+  Det snævre mønster missede Alabus felter; det er derfor begge er kørt.
+- **CEJ har feltet, og det siger intet.** `rentalPeriod` er `"unlimited"`
+  på **alle 63 målte**. Et felt uden variation er ikke en oplysning, der
+  kan filtreres på.
+- **home.dk har det ikke.** Nul træffere i de to cachede Nuxt-payloads og
+  i `scripts/kildeproever/home/feltbelaeg.json`. Stikprøve på **2**.
+- **De øvrige ni er IKKE målt.** Der er ingen cachede payloads, og
+  sessionen havde ingen netadgang til kildeværterne. Det står som ukendt
+  og ikke som et nej.
+
+**Og dét, der FINDES hos CEJ, er ikke vores at hente.** Nabofelterne til
+`rentalPeriod` er `vacatingAt`, `liableUntil` og `terminationNoticeDate`
+— altså fraflytningsdato, hæftelsesperiode og opsigelsesvarsel for den
+**NUVÆRENDE lejer**. Det er oplysninger om et navngivet menneske, der
+bor der nu, og de vedkommer ikke annoncen. Samme kildes payload bærer
+`tenant` med den nuværende lejers navn og private e-mail, målt på **24 af
+63**, og `reservation.lead` med en boligsøgendes navn, e-mail og telefon
+på **27 af 63**. Allowlisten i `adapters/cej.ts` holder dem alle ude, og
+den skal blive.
+
+**Feltet må derfor ikke høstes bredt — heller ikke hvis dækningen en dag
+bliver bedre.** Grunden er ikke, at tallet er for lavt. Grunden er, hvis
+oplysning det er: et opsigelsesvarsel i en udlejers system er den
+siddende lejers forhold, ikke udbuddets vilkår. Bliver `rentalPeriod` en
+dag varieret hos en kilde, er det ét felt, der kan vurderes for sig — og
+vurderingen skal vise, at værdien beskriver DET LEJEMÅL, der udbydes, og
+ikke en aftale med nogen, der bor der.
+
+Konsekvensen i dag: lejeperioden er ikke en kolonne, ikke et filter og
+ikke en sætning i beskrivelsen. Det er ikke et hul, der skal lukkes.
 
 ### Undersøgt 3. september 2026, ikke bygget
 

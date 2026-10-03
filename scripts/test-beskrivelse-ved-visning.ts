@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: oekonomi
 //  Beskrivelsen udledes ved visning — og grænsen ved `native` holder.
 //
 //  Kører mod PGlite gennem scripts/testbase.ts.

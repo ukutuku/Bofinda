@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: besked
 //  PRØVE · scripts/maal-alarmkoe.sql
 //
 //  Filen er GENERERET af scripts/generer-alarmkoe-sql.ts, og dens

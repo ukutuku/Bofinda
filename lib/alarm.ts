@@ -6,6 +6,9 @@
 //  tilbage.
 // ═══════════════════════════════════════════════════════════════
 
+import {
+  FACILITETSNAVN, FACILITETSNOEGLER, type Facilitetsnoegle,
+} from './faciliteter'
 import { and, asc, desc, eq, gt, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { alertMatches, crawlRuns, listings, savedSearches, sources, users } from '../db/schema'
@@ -226,6 +229,12 @@ export async function ventende() {
 }
 
 /** Kriterierne som en linje, så det kan ses hvad søgningen faktisk beder om. */
+const FILTERORD = {
+  kaeledyr: 'kæledyr tilladt',
+  elevator: 'elevator',
+  udeplads: 'altan el. terrasse',
+} as const satisfies Record<Facilitetsnoegle, string>
+
 export function beskrivFiltre(c: Record<string, unknown>): string {
   const f = somFiltre(c)
   const d: string[] = []
@@ -245,9 +254,15 @@ export function beskrivFiltre(c: Record<string, unknown>): string {
   if (f.overtagelse === 'senere') d.push('kan overtages senere')
   if (f.ansoegningsform === 'venteliste') d.push('venteliste')
   if (f.markedsstatus === 'reserveret') d.push('reserveret')
-  if (f.kaeledyr) d.push('kæledyr tilladt')
-  if (f.elevator) d.push('elevator')
-  if (f.udeplads) d.push('altan el. terrasse')
+  // MAILENS egne ord. Kortere end `FACILITETSNAVN`, fordi filterlinjen
+  // har mindre plads — samme forhold som de fire el-tekster i CLAUDE.md:
+  // spoergsmaalet besvares ét sted, teksten er flademes egen. `satisfies`
+  // goer et nyt begreb UDEN et ord til en oversaetterfejl her.
+  // `?? FACILITETSNAVN[n]`: `npm test` typetjekker IKKE, saa et nyt
+  // begreb uden en kort ordlyd ville ellers skrive «undefined» i en
+  // fremmeds indbakke. Faldbacken er sand — blot laengere — og
+  // `satisfies` paa FILTERORD goer manglen til en fejl under tsc.
+  for (const n of FACILITETSNOEGLER) if (f[n]) d.push(FILTERORD[n] ?? FACILITETSNAVN[n])
   return d.length ? d.join(' · ') : 'ingen filtre — alle boliger'
 }
 
@@ -505,10 +520,9 @@ export async function sendAlarmer(): Promise<SendResultat[]> {
     }
 
     if (!f.paaMail || f.afmeldt) {
-      // Hele koeen staar som `antal`: afmeldingen rammer alt, og de
-      // nedtagne er ikke engang VURDERET her — `udeladt` er derfor 0 og
-      // ikke udeladt. Et felt, der mangler, og et felt, der er nul, er
-      // to forskellige udsagn, og her er nul det sande.
+      // Afmeldingen er grunden til, at hele gruppen springes over.
+      // `antal` taeller her hele gruppen, og `udeladt` er 0 efter denne
+      // rapporteringskonvention. Statusfilteret ER beregnet ovenfor.
       ud.push({ soegning: navn, modtager: f.modtager, antal: alle.length, udeladt: 0,
         sendt: false, grund: 'afmeldt — mail slået fra' })
       continue

@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: besked
 //  ALARMMAILENS TEKST — tre usande udsagn, der landede uopfordret.
 //
 //  Mailen var den ENESTE brugervendte flade uden en prøve. `npm test`

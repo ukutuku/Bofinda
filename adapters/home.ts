@@ -77,12 +77,63 @@
 import type { DiscoveredListing, RawListing, SourceAdapter } from '../lib/adapter'
 import { isoDato } from '../lib/dato'
 import { politeFetch } from '../lib/fetch'
+import { laesDetaljeBudget } from './heimstaden'
 import { kronerTilOere } from '../lib/money'
 
 const ORIGIN = 'https://home.dk'
 const LISTE = `${ORIGIN}/til-leje/lejlighed/region-hovedstaden/koebenhavn-kommune/`
 /** Loft. Uden det kan en aendret paginering koere i ring. */
 const MAKS_SIDER = 60
+
+/**
+ * Loft over detaljehentninger pr. koersel.
+ *
+ * Hvorfor der skal vaere et: uden `listeGrundlag` var budgettet
+ * `Infinity` (se `lib/ingest.ts`), og hver NY eller genopdukket bolig blev
+ * hentet uden loft. I rolig drift er det ~10 i timen af de 229 — men i det
+ * urolige tilfaelde (foerste import, en afmeldingsboelge, en aendring i
+ * kildens noegler) kunne hele beholdningen hentes i én time.
+ *
+ * 25 er ikke maalt paa home.dk; det er Heimstadens standard, overtaget
+ * bevidst som det eneste fortilfaelde vi har for en kilde, hvis taalmodighed
+ * vi ikke kender. Overloebet skrives fra listen med `detail_fetched_at =
+ * NULL` og samles op af en senere koersel, saa ingen bolig forsvinder.
+ * Rettes den op, skal det staa paa et grundlag — se
+ * `docs/kildetilladelser.md` om kilder uden nedskrevet grundlag.
+ */
+export const STANDARD_DETALJEBUDGET_HOME = 25
+
+let budgetAdvaret = false
+/** Kun til proeven. */
+export const _nulstilHomeBudgetAdvarsel = () => { budgetAdvaret = false }
+
+function detaljeBudget(): number {
+  const { budget, afvist } = laesDetaljeBudget(
+    process.env.HOME_DETALJEBUDGET, STANDARD_DETALJEBUDGET_HOME)
+  if (afvist && !budgetAdvaret) {
+    budgetAdvaret = true
+    console.warn(`[home] HOME_DETALJEBUDGET IGNORERET: ${afvist}. `
+      + `Bruger standarden ${STANDARD_DETALJEBUDGET_HOME}.`)
+  }
+  return budget
+}
+
+/**
+ * Fingeraftrykket af de listefelter, der skal udloese en ny
+ * detaljehentning.
+ *
+ * **Gitteret har hverken status eller ledigdato.** Det er grunden til, at
+ * signaturen kun kan baere leje, areal og boligtype: aendrer en bolig
+ * udelukkende ledigdato, ser signaturen det IKKE, og boligen hentes foerst
+ * igen ved den rullende genopfriskning (`GENOPFRISK_EFTER_TIMER`, et
+ * doegn). Det er en kendt graense ved kildens liste, ikke et valg — og
+ * praecis den slags, `lib/adapter.ts` advarer om: et felt, der mangler her,
+ * kan aendre sig uden at nogen henter igen. Faar gitteret en dag et
+ * status- eller datofelt, hoerer det i signaturen samme dag.
+ */
+export function homeSignatur(g: Gitterrække): string {
+  return JSON.stringify([g.leje ?? null, g.areal ?? null, g.type ?? null])
+}
 
 export type Flad = unknown[]
 export type Ukendt = Record<string, unknown>
@@ -128,7 +179,7 @@ const TYPER: Record<string, string> = {
   villa: 'hus', house: 'hus', room: 'vaerelse',
 }
 
-interface Gitterrække {
+export interface Gitterrække {
   id: string
   url: string
   adresse: string
@@ -283,5 +334,34 @@ export function homeAdapter(): SourceAdapter {
       if (!g) throw new Error(`ikke i gitteret: ${url} (koer discover foerst)`)
       return laesSag(await hentNuxt(url), g, url)
     },
+
+    /**
+     * Detaljevagten. Gitteret baerer adresse, postnummer, areal, leje,
+     * boligtype og billeder — nok til en brugbar, ufuldstaendig bolig.
+     * Det, der KUN staar paa detaljesiden, er aconto, depositum,
+     * forudbetalt leje, vaerelsestal og ledigdato; de felter udelades her
+     * frem for at blive gaettet, saa en grundlags-raekke siger mindre end
+     * en hentet og intet usandt.
+     */
+    listeGrundlag(url: string) {
+      const g = gitter.get(url)
+      if (!g) return null
+      return {
+        grundlag: {
+          externalKey: g.id,
+          sourceUrl: url,
+          address: g.adresse,
+          postalCode: g.postnr,
+          sizeM2: g.areal,
+          propertyType: g.type,
+          rentMonthly: g.leje,
+          amenities: [],
+          imageUrls: g.billeder,
+        } satisfies RawListing,
+        detaljesignatur: homeSignatur(g),
+      }
+    },
+
+    get detaljeBudgetPrKoersel() { return detaljeBudget() },
   }
 }
