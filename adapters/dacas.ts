@@ -52,12 +52,46 @@ const ETIKETTER = {
 
 /** Faciliteter vi kender. Ukendte logges og springes over — vi tager ikke
  *  vilkaarlig tekst med ind i basen. */
-const FACILITETER = new Set([
-  'delevenlig', 'køle- og fryseskab', 'opvaskemaskine', 'vaskemaskine',
-  'gårdhave', 'fælles vaskeri', 'cykelparkering', 'depotrum',
-  'plads til barnevogn', 'altan', 'elevator', 'terrasse', 'have',
-  'kælderrum', 'tørretumbler', 'emhætte', 'komfur', 'ovn',
-])
+/**
+ * Kildens egne ord paa siden -> VORES ord.
+ *
+ * Var et `Set`, og det var fejlen. Et Set er et INPUT-filter: ordet
+ * slap igennem og blev gemt i kildens stavemaade. Dacas er dermed den
+ * eneste HTML-kilde, hvis udgangsordforraad var kildens eget — og to
+ * begreber endte med to stavemaader hver, fordi CEJ oversaetter og
+ * Dacas ikke gjorde:
+ *
+ *     «fælles vaskeri»       (Dacas' side)   vs  «fællesvaskeri»    (CEJ)
+ *     «køle- og fryseskab»   (Dacas' side)   vs  «køle-/fryseskab»  (CEJ)
+ *
+ * CEJ's ord vinder, fordi de ER vores: de staar i en oversaettelse,
+ * valgt én gang. De oevrige ord afbilder paa sig selv — det er ikke
+ * stoej, det er forskellen mellem «samme ord» og «intet oversat».
+ *
+ * Gamle raekker baerer den gamle stavemaade, indtil boligen hentes igen.
+ * Ingen af de to ord staar i FACILITET, saa intet filter aendrer svar
+ * imens; ordene vises kun.
+ */
+const FACILITETSORD: Record<string, string> = {
+  delevenlig: 'delevenlig',
+  'køle- og fryseskab': 'køle-/fryseskab',
+  opvaskemaskine: 'opvaskemaskine',
+  vaskemaskine: 'vaskemaskine',
+  'gårdhave': 'gårdhave',
+  'fælles vaskeri': 'fællesvaskeri',
+  cykelparkering: 'cykelparkering',
+  depotrum: 'depotrum',
+  'plads til barnevogn': 'plads til barnevogn',
+  altan: 'altan',
+  elevator: 'elevator',
+  terrasse: 'terrasse',
+  have: 'have',
+  'kælderrum': 'kælderrum',
+  'tørretumbler': 'tørretumbler',
+  'emhætte': 'emhætte',
+  komfur: 'komfur',
+  ovn: 'ovn',
+}
 const ukendteFaciliteter = new Set<string>()
 
 // ─── Hjaelpere ─────────────────────────────────────────────────
@@ -196,7 +230,8 @@ export function laesBolig(html: string, url: string): RawListing | null {
   const faciliteter: string[] = []
   for (const m of html.matchAll(/<div class="et_pb_text_inner">([^<]{2,40})<\/div>/g)) {
     const f = afkod(m[1]!).trim().toLowerCase()
-    if (FACILITETER.has(f)) faciliteter.push(f)
+    const vores = FACILITETSORD[f]
+    if (vores) faciliteter.push(vores)
     else if (f && !f.includes(':') && !/\d/.test(f) && f.length > 3) ukendteFaciliteter.add(f)
   }
 

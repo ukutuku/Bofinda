@@ -1,8 +1,9 @@
 #!/usr/bin/env node
+//  gruppe: kerne
 // ═══════════════════════════════════════════════════════════════
 //  Isolationsvagten: de tre signaler, og at alle kaldere går gennem den.
 //
-//  Kører under almindelig `node` og rører ingen database. De tre krav i
+//  Kører gennem tsx og rører ingen database. De tre krav i
 //  scripts/cloud/isoleret.mjs er RENE funktioner netop derfor — de tager
 //  tal og svar, kalderen har hentet.
 //
