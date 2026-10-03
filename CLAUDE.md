@@ -244,10 +244,40 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 
   Skellet ligger i dataene og kræver ingen ny kolonne: `other` i
   `total_monthly_components` uden en eneste navngiven post, og
-  `electricity_own_meter` ikke true. Udledningen er `eltilstand` i
-  `lib/eloplysning.ts` — ét sted, brugt af begge korttyper, boligsiden og
-  alarmmailen. Teksterne er forskellige de fire steder, fordi der er
+  `electricity_own_meter` ikke true. **Udledningen er `eltilstand` i
+  `lib/eloplysning.ts` — ét sted.** Teksterne er forskellige, fordi der er
   forskellig plads; spørgsmålet besvares kun ét sted.
+
+  **Hvor mange steder teksten står, er TALT og ikke skønnet.** Linjen
+  her sagde «brugt af begge korttyper, boligsiden og alarmmailen» og
+  «forskellige de fire steder». Tallet fire holdt — opregningen gjorde
+  ikke: de to korttyper deler ÉN implementering (`Ellinje`, jf. reglen
+  nedenfor), og `elUdsagn` manglede helt, selv om den betjener flest
+  flader. Optællingen står derfor som en tabel, så det er tallet, der er
+  bundet til koden.
+
+  **Fire steder oversætter en `Eltilstand` til el-forbeholdet.** Alle fire
+  er nu `satisfies Record<Eltilstand, …>` eller skal blive det:
+
+  | Sted | Flader den betjener | Formen |
+  |---|---|---|
+  | `Ellinje` i `app/Boligkort.tsx` | begge korttyper | ternær · mangler binding |
+  | `app/bolig/[id]/page.tsx` | boligsiden | ternær · mangler binding |
+  | `ELTEKST` i `lib/alarm.ts` | alarmmailen | **bundet** |
+  | `ELUDSAGN` i `lib/grundlag.ts` | `grundlagstekst` (begge korttyper + Mine gemte) og den genererede `listings.description` | **bundet** |
+
+  **To steder mere forgrener på en `Eltilstand`-værdi uden at oversætte
+  el-forbeholdet** — de vælger ordene for HVAD beløbet dækker, og begge
+  navngiver kun `'ukendt-daekning'`: `grundlagstekst` i `lib/grundlag.ts`
+  og `genererBeskrivelse` i `lib/normalize.ts`. De er et andet spørgsmål
+  med samme nøgle, og de hører med i optællingen, fordi en femte tilstand
+  også rammer dem — de falder bare til et `else`, der er sandt i dag.
+
+  **Seks steder i alt rører unionen.** Ændres `Eltilstand`, er det dem,
+  der skal gennemgås — og de to ubundne i tabellen er de eneste, hvor en
+  femte værdi stadig går tavst igennem. `elUdsagn` var den værste af de
+  fire at falde igennem i: den svarer `null`, og det bliver en tom streng
+  i beskrivelsen, altså et forbehold, der forsvinder uden spor.
 - **En grøn total må aldrig stå uden at el er gjort rede for.** Prisblokken
   bliver grøn (`.kort-pris` uden `.kun-leje`), så snart `total` er sat —
   uanset hvad totalen dækker. Mangler el i den, skal kortet sige det.
