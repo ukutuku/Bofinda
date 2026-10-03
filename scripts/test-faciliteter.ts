@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  FACILITETSORDENE — delingen, og driften mellem kilderne.
 //
 //  ── HVORFOR EN KØRENDE PRØVE, NÅR DER ER EN TYPEVAGT ────────

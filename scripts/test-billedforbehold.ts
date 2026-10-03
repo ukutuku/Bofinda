@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  BILLEDFORBEHOLDET BÆRER SIT SPÆND.
 //
 //  Fejlen, reglen findes for: vi gemte `true` og intet andet.

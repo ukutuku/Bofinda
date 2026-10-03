@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: oekonomi
 //  PRØVE · scripts/maal-felter.sql
 //
 //  Filen køres i produktionen af et menneske. Den kan derfor ikke prøves
@@ -23,7 +24,7 @@
 //        pastes uden en checkout. Så tælles der efter i stedet.
 // ═══════════════════════════════════════════════════════════════
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { FACILITET } from '../lib/faciliteter'
@@ -147,10 +148,109 @@ console.log('\n══ 3 · konventionen gælder HVER måle-SQL ══')
         : 'mangler «TALLENE ER ALDRIG SET» eller en erklæring om en kørsel')
     // Den første slags skal navngive den prøve, der kørte sætningerne.
     // Uden den er «syntaks og typer holder» en påstand uden dækning.
+    //
+    // ── CITATET SKAL OPLØSES, IKKE BLOT HAVE DEN RIGTIGE FORM ───
+    //  Første udgave prøvede kun, at hovedet indeholdt NOGET med formen
+    //  `scripts/test-<noget>.ts`. Den efterprøvede ikke, at filen
+    //  findes. Målt: et hoved, der citerede `scripts/test-findes-ikke.ts`,
+    //  stod GRØNT. Kravet gemte altså et citat, og intet opløste det.
+    //
+    //  Det er ANDEN INSTANS af samme form inden for ét døgn. Den første
+    //  var `imagesMayDiffer`, som gemte `true` uden det tekstspænd, det
+    //  kom fra; rettelsen dér var at gemme spændet OG lade `belaegHolder`
+    //  efterprøve, at spændet indeholder faktummet. Her er attesten et
+    //  filnavn, og `existsSync` er dens `belaegHolder`.
+    //
+    //  **Den første blev fundet af en anden læser, ikke af den, der
+    //  skrev den.** Begge gange skrev jeg vagten og så ikke, at den
+    //  manglede sin anden halvdel.
+    //
+    //  ── DEN TREDJE FINDES, OG DEN ER STØRRE END DE TO ───────────
+    //  `docs/kildetilladelser.md` gemmer kildenavne, værter og endpoints,
+    //  og **intet følger dem til adapterne**. Git & Releases skranke —
+    //  «hver kørende kilde skal kunne placeres i tabellen, og placeringen
+    //  skal følge af registret» — er ikke bygget. Samme form som de to
+    //  her, bare større: en henvisning gemt i dokumentation, aldrig slået
+    //  op i koden. Den har en ejer, så «led efter den tredje» er ikke en
+    //  opfordring uden adresse.
+    //
+    //  Og formen er bredere end stier. Et filter, der leder efter
+    //  litterale filstier uden et `existsSync` i nærheden, svarer om
+    //  STIER — ikke om formen. «Gem en henvisning, følg den aldrig»
+    //  dækker også nøgler, id'er, værtsnavne og kolonnenavne. Et
+    //  «ingenting» fra et sti-filter er derfor ikke et nej.
+    //
+    //  ── ET FJERDE LED, OG DET HAR SIT EGET MODTRÆK ──────────────
+    //  «Hent genstanden frem for at citere fra hukommelsen» er det tredje
+    //  led, og det er rigtigt. Det er ikke nok.
+    //
+    //  Målt på mig selv: jeg skulle citere en doc-kommentar ordret og
+    //  hentede filen frem for at huske den — men hentede en ref, der var
+    //  overhalet 23 timer før. Citatet var ordret korrekt om en version,
+    //  der ikke fandtes længere.
+    //
+    //  De to led har FORSKELLIGE modtræk, og det er hele værdien af at
+    //  holde dem adskilt:
+    //
+    //      hukommelse → genstand      «hent den»
+    //      genstand   → NUVAERENDE    «tjek tidsstemplet»
+    //
+    //  «Hent den» ville ikke have hjulpet her, for det gjorde jeg. Samlet
+    //  under «vær omhyggelig» forsvinder forskellen, og så fanger man den
+    //  ene fejl med modtrækket mod den anden.
     if (seteTal) {
-      tjek(`  ${f} navngiver prøven, der kørte sætningerne`,
-        /scripts\/test-[\w-]+\.ts/.test(hoved))
+      const citat = hoved.match(/scripts\/test-[\w-]+\.ts/)?.[0]
+      tjek(`  ${f} navngiver prøven, der kørte sætningerne`, citat != null)
+      tjek(`  ${f}: og den citerede prøve FINDES`,
+        citat != null && existsSync(citat), citat ?? 'intet citat')
     }
+    // ── HVORFOR `test-`-BINDINGEN BLIVER STAAENDE INDTIL VIDERE ──
+    //  Regexet hårdkoder `test-`, og det er en sløjfe: skulle en måle-SQL
+    //  citere `scripts/maalinger/proev-maal-sql.ts` — repoets ANDEN
+    //  navnekonvention for prøvefiler — ville tjekket AFVISE den. Målt:
+    //  rødt på et citat til en fil, der findes. Konventionen kan altså
+    //  ikke citere den fil, hvis brudthed udløste konventionen.
+    //
+    //  Den rettes IKKE her. Repoet har to navnekonventioner for
+    //  prøvefiler — **målt over HELE repoet på b39329a**, ikke i
+    //  `scripts/`:
+    //
+    //      test-*.ts     13
+    //      test-*.mjs     0
+    //      proev-*        3    scripts/proev-genskab.mjs
+    //                          scripts/maalinger/proev-maal-sql.ts
+    //                          docs/designforslag/maalinger/proev-maal.mjs
+    //
+    //  Omfanget står ved tallet, fordi det er forskellen: søger man kun i
+    //  `scripts/`, får man 2 og misser den i `docs/`. Det tal blev engang
+    //  rapporteret som en kendsgerning om repoet, og det var et svar om én
+    //  mappe. `ordet-maalt` (a) — et tal uden sit omfang er ikke en måling.
+    //
+    //  ── DERFOR «13 + 0» OG IKKE «13» ───────────────────────────
+    //  `test-*.mjs: 0` ser ud som en tom række. Den er formatets halve del.
+    //  #49's opdager globber nu BÅDE `.ts` og `.mjs`, så i dag falder
+    //  filnavnstællingen og kædens tal sammen — 13 = 13. Det er et
+    //  SAMMENFALD, ikke en identitet: `test-isolation.mjs` ligger på #52,
+    //  og lander den, finder kæden 14, mens en optælling af `.ts` stadig
+    //  siger 13.
+    //
+    //  Altså et tal, der holder op med at være sandt, fordi EN ANDEN PR
+    //  lander — uden at nogen rører det. «13 test-*.ts + 0 test-*.mjs på
+    //  b39329a» er ikke blot mere præcist; det er det eneste format, der
+    //  stadig er sandt efter #52. Samme fejl som ovenfor, med ENDELSEN som
+    //  omfanget i stedet for mappen.
+    //
+    //  #49's kæde globber `test-*.ts` og `test-*.mjs`; #54's CI kører
+    //  npm-nøglerne. `proev-genskab.mjs` er nået gennem `db:backup:proev`,
+    //  så «har et mærke» og «står i en nøgle» er TO spørgsmål og ikke ét —
+    //  og `scripts/proev-facilitetsudvidelse.mjs` (#60) er beviset: en
+    //  omvendt modprøve, der SKAL være nøgle-kun.
+    //
+    //  Når #49 er landet og Analytics har valgt mellem de to, skærpes
+    //  kravet her til **«har et mærke eller står i en nøgle»** frem for
+    //  et navnemønster — samtidig med deres valg, af præcis den grund
+    //  jeg selv gav om mit eget glob: to udtryk for ét spørgsmål skal
+    //  ikke drive fra hinanden fra dag ét.
     tjek(`  ${f} siger at den er skrivebeskyttet`, /SKRIVEBESKYTTET/.test(hoved))
   }
 }

@@ -749,6 +749,39 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   skal regne med det. Bofinda er en kommerciel tjeneste. Skift kilde med
   `NEXT_PUBLIC_FLISE_URL` og `NEXT_PUBLIC_FLISE_KREDIT` — ikke med en
   kodeændring.
+- **Skrifttypen hentes fra Google ved BYGNING — aldrig af brugerens
+  browser.** `app/layout.tsx` bruger `next/font/google` (Inter). Under
+  `next build` henter Next stylesheetet fra `fonts.googleapis.com` og
+  skriftfilerne fra `fonts.gstatic.com`, lægger dem i `.next/static/media`
+  og skriver `@font-face` om til `/_next/static/media/*.woff2`. Siden
+  serverer dem selv.
+
+  **Målt 2. oktober 2026 på main b39329a:**
+  · 0 filer i `.next/static` og `.next/server` nævner nogen af de to
+    værter, og der ligger 7 skriftfiler (`.woff2`) i `.next/static/media`.
+  · Chromium på `/privatliv` gennem `next start` sendte 10 forespørgsler,
+    alle til siden selv, og Inter var indlæst.
+  · Proxyen så samtidig forbindelser til `www.google.com` og
+    `android.clients.google.com`. **De kom fra Chromium, ikke fra siden:**
+    de samme forbindelser kom på `about:blank` uden nogen server, og
+    serveren alene, besøgt med curl, gav ingen. Det er browserens egne
+    tjenester. Læs dem ikke som Bofindas.
+
+  **Derfor må privatlivspolitikken ikke nævne Google som tredjepart for
+  skrifttyper.** Det ville være usandt den anden vej. Ser nogen
+  `fonts.googleapis.com` i en byggelog, er det bygget, der henter — ikke
+  brugeren. Sætningen holder kun, så længe skrifttypen kommer gennem
+  `next/font`. Derfor fejler CI (trinnet «Skrifttypen er selvhostet»),
+  hvis det byggede nævner en af de to værter. Et `<link>` til Google
+  Fonts i en side ville gøre browseren til en, der kontakter Google, og
+  så skal politikken nævne det.
+
+  **Og bygget kræver net.** Uden adgang til de to værter fejler det med
+  «Failed to fetch `Inter` from Google Fonts». Målt: i et miljø uden
+  containerens proxy-variabler fejlede det netop sådan, mens prøverne var
+  grønne. En lukket kørsel, der fejler på dét, mangler net — ikke en
+  variabel. Skal bygget blive hermetisk, er vejen `next/font/local` med
+  filerne i repoet. Ikke bygget.
 - **Kortet vises kun, når der er filtreret.** Uden en søgning spænder
   mærkerne over hele landet, og udsnittet siger ingenting. Samme regel som
   gem-boksen og prisnoten — på forsiden er det svar på et spørgsmål,
@@ -978,7 +1011,17 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
 
   Skabelonen er én linje i filens hoved: *«Tallene er aldrig set; syntaks
   og typer holder.»* Og den skal kunne dokumenteres — den prøve, der kørte
-  sætningerne, nævnes ved navn.
+  sætningerne, nævnes ved navn, **og citatet skal kunne opløses**: vagten
+  kalder `existsSync` på den sti, den fandt. Et citat, der kun har den
+  rigtige FORM, er en attest uden dækning — samme halve vagt som en
+  `imagesMayDiffer` uden sit tekstspænd. Første udgave af vagten her
+  bestod et citat til `scripts/test-findes-ikke.ts`.
+
+  Navnemønstret i vagten er bundet til `test-*.ts` indtil videre, og det
+  er en kendt sløjfe: et citat til `scripts/maalinger/proev-maal-sql.ts`
+  — repoets anden navnekonvention for prøvefiler — bliver afvist, selv om
+  filen findes. Kravet skærpes til «har et mærke eller står i en nøgle»,
+  når #49 er landet og det er afgjort, om de to er ét spørgsmål.
 
   **Hvorfor det er en regel og ikke en vane.** `scripts/maal-felter.sql`
   blev skrevet til en produktionskørsel samme aften. Første udkast havde
