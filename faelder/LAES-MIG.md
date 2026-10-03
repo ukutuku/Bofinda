@@ -159,6 +159,32 @@ er ikke en rækkefølge, men to grene med fælles ophav, og de flettes som to
 grene. **Fletter nogen #9, flettes hele #3 med**, og GitHub lukker #3 som
 flettet, uden at nogen har set på den for sig.
 
+**Med CI er to af dem mere end en fletterækkefølge.** Målt 3. oktober: #56
+og #63 står på baser uden `proever.yml`, og en PR's workflow læses af
+flettecommitten af hoved og base. De får intet check, før #52's og #58's
+gren bærer #54. **#52 før #56 og #58 før #63 er dermed også betingelsen
+for, at den afhængige PR overhovedet kan MÅLES.** Det er en anden slags
+tvang end fletterækkefølgen, og derfor står den her ved den. Alle tre
+baser har konflikt med #49 i package.json, så lander #49 som nummer to,
+går alle tre kæder gennem den. Kun mellem #54 og #49 kan en base opdateres
+mod main uden konflikt:
+
+    #54 → #49 → #52 opdateres mod main → #56 fletter basen og pushes
+    #54 → #49 → #58 opdateres mod main → #63 fletter basen og pushes
+    #54 → #49 → #57 opdateres mod main → #60 rettes op mod #57 og pushes
+
+**#60 er den vanskelige.** Dens base peger på #57's gren, men #57 er ikke
+forfader: fælles ophav `9aa215c`, og #57 har nu to commits, #60 mangler
+(`7ff1f1d` og `6bebccb`, begge lagt efter #60's sidste; i går én). At
+flette basen ind er samme kommando som for #56 og #63 og går rent i dag,
+men det er en anden opgave: den bringer kode ind, #60 aldrig er kørt med,
+og den mangler allerede nu, uafhængigt af #54. Opdateres #57's gren med
+rebase i stedet for fletning, får de fire fælles commits nye SHA'er, og så
+er det en `rebase --onto`, en tredje opgave. Og GitHubs egen prøvefletning
+for #60 står stadig på `9aa215c` (`base.sha` og flettecommittens første
+forælder), mens grenen står på `6bebccb`: «ren» på PR-listen er målt mod
+en base, grenen har forladt.
+
 **Og tæl commits mod `origin/main` efter en fetch.** Talt mod main, som den
 stod 6. september (`81a2edf`, 167 commits bag), var #9, #40, #35 og #19 på
 129, 135, 126 og 122 commits; mod main i dag er de 54, 1, 4 og 2. Hvem der
