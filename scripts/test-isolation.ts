@@ -3,9 +3,10 @@
 // ═══════════════════════════════════════════════════════════════
 //  Isolationsvagten: de tre signaler, og at alle kaldere går gennem den.
 //
-//  Kører gennem tsx og rører ingen database. De tre krav i
-//  scripts/cloud/isoleret.mjs er RENE funktioner netop derfor — de tager
-//  tal og svar, kalderen har hentet.
+//  Kører gennem tsx og åbner ingen databaseforbindelse. Importgrafen når
+//  postgres via aabnIsoleret, som denne prøve ikke kalder. De tre krav i
+//  scripts/cloud/isoleret.mjs prøves som rene funktioner med syntetiske
+//  tal og svar.
 //
 //  ── DEN STRUKTURELLE DEL ──────────────────────────────────────
 //

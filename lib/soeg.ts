@@ -228,6 +228,30 @@ export function hvor(f: Filtre) {
 // ═══════════════════════════════════════════════════════════════
 
 /**
+ * Dansk alfabetisk orden — kun for tekst, et menneske læser som en liste:
+ * kildenavnene på kortet og adresserne på /gruppe. Aldrig for pris, dato,
+ * id eller rangering; de er ikke alfabeter.
+ *
+ * Uden den sorterer produktionen efter basens en_US (ICU): Aalborg først,
+ * Å og Æ blandt A'erne. Dansk har Æ, Ø og Å efter Z og «aa» som «å».
+ *
+ * Collationen står i UDTRYKKET og aldrig på en kolonne eller et indeks. Et
+ * indeks bygget med en ICU-collation er bundet til ICU-versionen, og efter
+ * en opgradering kan det give forkerte svar med kun en logadvarsel. Et
+ * udtryk har ingen indeksafhængighed. Prisen er en sortering frem for en
+ * indeksgennemgang — og begge steder sorteres der i forvejen (EXPLAIN i
+ * CLAUDE.md, «Version og collation»).
+ *
+ * `da-x-icu`, ikke `da-DK-x-icu`: de sorterer ens, og den korte gælder
+ * også, hvis siden en dag dækker Norge eller Sverige.
+ *
+ * Testbasen har en ATTRAP med samme navn og ICU's roddata, så
+ * forespørgslerne kan køre. Den sorterer ikke dansk, og ingen prøve i
+ * `npm test` kan påstå dansk orden — se scripts/test-dansk-orden.ts.
+ */
+export const dansk = (udtryk: SQL | AnyColumn) => sql`${udtryk} collate "da-x-icu"`
+
+/**
  * Er raekken en udlejerannonce? Taget som funktion af kolonnen, fordi
  * spoergsmaalet stilles baade om den ydre raekke (`UDLEJERANNONCE`) og om
  * aliaset `l2` i `SAMME_BOLIG_ANDEN_KILDE` — og to skrivemaader af samme
@@ -288,7 +312,9 @@ const SAMME_BOLIG_ANDEN_KILDE = sql`(
  * definitioner ville betyde, at det, vi skjuler, og det, vi siger vi
  * skjuler, kunne komme fra hinanden.
  */
-const DEDUPNOEGLE = sql`case
+// Eksporteret til scripts/maalinger/skriv-bynavne-domaene-sql.ts, saa
+// maalingen grupperer paa den noegle, der koerer, og ikke paa en afskrift.
+export const DEDUPNOEGLE = sql`case
   when ${listings.addressMatchLevel} = 'unit' and ${listings.unitAddressUuid} is not null
     then 'unit:' || ${listings.unitAddressUuid}
   when ${listings.addressMatchLevel} = 'access' and ${listings.accessAddressUuid} is not null
@@ -346,6 +372,13 @@ export const UDLEJERANNONCE = erUdlejerannonce(listings.sourceType)
  * tidsorden — `id` er en tilfaeldig UUID — men goer valget stabilt mellem
  * koersler. Forklaringen til udlejeren foelger samme raekkefoelge:
  * app/udlejer/boliger/forklaring.ts.
+ *
+ * Alle fire led er EGENSKABER VED ANNONCEN — ikke ved filteret, ikke ved
+ * de andre annoncer. Derfor er rangeringen én fast orden over alle annoncer
+ * for en bolig, og repraesentanten for ethvert delsaet af dem er blot det
+ * hoejst rangerede medlem af delsaettet. Det er det, der goer domaenefiltrene
+ * til at rette (se `matcherDomaene`). Et nyt led, der afhaenger af
+ * filteret, ville bryde det.
  *
  * Alle fire led er NULL-frie ved konstruktion, saa det er ligegyldigt, om
  * NULL sorteres foerst eller sidst: `UDLEJERANNONCE` er `is not distinct
@@ -685,7 +718,7 @@ const KORTFELTER = {
   // De ANDRE kilder der har den samme bolig. Boligen vises én gang, men
   // kortet skal ikke lade som om, den kun findes ét sted.
   ogsaaHos: sql<string[]>`(
-    select coalesce(array_agg(distinct s2.name order by s2.name), '{}'::text[])
+    select coalesce(array_agg(distinct ${dansk(sql`s2.name`)} order by ${dansk(sql`s2.name`)}), '{}'::text[])
     from listings l2 join sources s2 on s2.id = l2.source_id
     where ${SAMME_BOLIG_ANDEN_KILDE})`,
 } as const
@@ -709,6 +742,26 @@ export function availabilityFor(
   return fortolkAvailability(fakta, kontrakt, referenceNow)
 }
 
+/**
+ * Domaenefiltrene — overtagelse, ansoegningsform, markedsstatus — afgoeres
+ * HER, i JS, fordi de kraever kildekontrakten og tidspunktet nu. En kopi i
+ * SQL ville vaere et andet udtryk for det samme.
+ *
+ * UAFKLARET, maales foer det rettes: filteret proeves i dag paa
+ * REPRAESENTANTEN, efter SQL har valgt den. Passer den ikke, men en anden
+ * annonce for samme bolig goer, vaelges ingen afloeser, og boligen
+ * forsvinder fra en soegning, den hoerer til i.
+ * scripts/maalinger/skriv-bynavne-domaene-sql.ts (D1 og D2) taeller, hvor
+ * mange boliger det rammer i produktionen.
+ *
+ * Rettelsen er oplagt, fordi rangeringens fire led er egenskaber ved
+ * annoncen og ikke ved filteret (se `ikkeRepraesentant`): rangeringen er
+ * én fast orden, og repraesentanten for de annoncer, der passer et filter,
+ * er den hoejst rangerede af dem. Altsaa: SQL rangerer som nu, ALLE
+ * annoncer for boliger med flere annoncer hentes, `matcherDomaene` koerer
+ * paa hver, og den foerste, der passer, vinder. Én rangering i SQL, ét
+ * domaene i JS, ingen kopi af nogen af dem.
+ */
 export const matcherDomaene = (f: Filtre, a: Availability): boolean =>
   (f.overtagelse == null || a.timing.status === f.overtagelse)
   && (f.ansoegningsform == null || a.ansoegning.status === f.ansoegningsform)
@@ -1360,9 +1413,9 @@ export async function hentGruppe(n: Gruppenoegle, f?: Filtre) {
     // trækker tallet ud først. Så ville 100 komme før 20.
     .orderBy(
       sql`nullif(regexp_replace(coalesce(${listings.houseNumber}, ''), '\\D', '', 'g'), '')::int nulls last`,
-      asc(listings.houseNumber),
-      asc(listings.floor),
-      asc(listings.door),
+      asc(dansk(listings.houseNumber)),
+      asc(dansk(listings.floor)),
+      asc(dansk(listings.door)),
     )
 }
 
@@ -1687,11 +1740,19 @@ export async function tavseKilder(
   return tavseAf(r)
 }
 
+/**
+ * Dansk orden i JS, til navnene i linjen om tavse kilder: «Dacas,
+ * findbolig.nu og LokalBolig», ikke kodeenhedsordenens «…LokalBolig og
+ * findbolig.nu». Node har fuld ICU; scripts/test-dansk-orden.ts fejler,
+ * hvis 'da' ikke findes, for så falder Intl tavst tilbage til roden.
+ */
+const DANSK_ORDEN = new Intl.Collator('da')
+
 /** Kun kilder, der aldrig oplyser faciliteter OG faktisk mister noget. */
 function tavseAf(r: { navn: string; antal: number; oplyser: number }[]): Tavsekilder {
   const tavse = r.filter((x) => x.oplyser === 0 && x.antal > 0)
   return {
-    navne: tavse.map((x) => x.navn).sort(),
+    navne: tavse.map((x) => x.navn).sort(DANSK_ORDEN.compare),
     antal: tavse.reduce((a, x) => a + x.antal, 0),
   }
 }

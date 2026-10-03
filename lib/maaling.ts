@@ -1,4 +1,3 @@
-import { FACILITETSNOEGLER } from './faciliteter'
 // ═══════════════════════════════════════════════════════════════
 //  Produktanalytics — typer, allowlist og værn.
 //
@@ -14,6 +13,8 @@ import { FACILITETSNOEGLER } from './faciliteter'
 //  Værnet er en ALLOWLIST, ikke en blocklist. En liste over forbudte ord
 //  kan aldrig blive komplet; en liste over tilladte kan.
 // ═══════════════════════════════════════════════════════════════
+
+import { FACILITETSNOEGLER } from './faciliteter'
 
 // ─── Miljø ─────────────────────────────────────────────────────
 

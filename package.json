@@ -28,7 +28,7 @@
     "db:backup": "node --env-file-if-exists=.env scripts/backup.mjs",
     "db:backup:proev": "node --env-file-if-exists=.env scripts/proev-genskab.mjs",
     "tjek:noegler": "node --env-file-if-exists=.env scripts/tjek-noegler.mjs",
-    "test:prod": "BOFINDA_PROEV_PRODUKTION=1 tsx --tsconfig tsconfig.scripts.json --env-file-if-exists=.env scripts/test-redigering.ts",
+    "test:prod": "BOFINDA_PROEV_PRODUKTION=1 tsx --tsconfig tsconfig.scripts.json --env-file-if-exists=.env scripts/test-redigering.ts && BOFINDA_PROEV_PRODUKTION=1 tsx --tsconfig tsconfig.scripts.json --env-file-if-exists=.env scripts/test-dansk-orden.ts",
     "tjek:rettigheder": "tsx --tsconfig tsconfig.scripts.json --env-file-if-exists=.env scripts/tjek-rettigheder.ts",
     "proev:kvitteringen": "bash scripts/proev-kvitteringen.sh",
     "faelder": "tsx --tsconfig tsconfig.scripts.json scripts/faelder.ts --skriv",
@@ -41,7 +41,8 @@
     "staging:tjek": "tsx --tsconfig tsconfig.scripts.json scripts/staging/tjek.ts",
     "staging:proev": "tsx --tsconfig tsconfig.scripts.json scripts/proever.ts staging",
     "proev:udvidelse": "node scripts/proev-facilitetsudvidelse.mjs",
-    "maal:alarmkoe": "tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/generer-alarmkoe-sql.ts"
+    "maal:alarmkoe": "tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/generer-alarmkoe-sql.ts",
+    "maaling:sql": "tsx --tsconfig tsconfig.scripts.json scripts/maalinger/skriv-bynavne-domaene-sql.ts --skriv"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

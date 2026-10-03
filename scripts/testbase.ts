@@ -24,7 +24,7 @@ import { drizzle } from 'drizzle-orm/pglite'
 import * as schema from '../db/schema'
 import { indsaetBase } from '../db/client'
 import { saetMiljoe } from '../lib/maaling'
-import { koerMigrationer, stubSupabase } from './pglite-skema.mjs'
+import { koerMigrationer, stubCollationer, stubSupabase } from './pglite-skema.mjs'
 import { sqllogger } from './sqlbaand'
 
 export interface Testbase {
@@ -47,6 +47,7 @@ export interface Testbase {
 export async function rejsTestbase(): Promise<Testbase> {
   const pg = await PGlite.create()
   await stubSupabase(pg)
+  await stubCollationer(pg)
   const migrationer = await koerMigrationer(pg)
   // Samme forespørgsels-API, anden driver. drizzle-orm/pglite og
   // drizzle-orm/postgres-js deler grænseflade, men ikke type.
@@ -74,6 +75,7 @@ if (process.argv[1]?.endsWith('testbase.ts')) {
     process.exit(1)
   }
   const t = await rejsTestbase()
-  console.log(`  testbase: PGlite, ${t.migrationer} migrationer, ingen forbindelse ud af processen\n`)
+  console.log(`  testbase: PGlite, ${t.migrationer} migrationer, ingen forbindelse ud af processen`)
+  console.log('  testbase: da-x-icu er en ATTRAP (attrap."da-x-icu", ICU-roden) — den sorterer ikke dansk\n')
   await import(`../${maal}`)
 }

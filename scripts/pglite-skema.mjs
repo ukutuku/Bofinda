@@ -53,6 +53,33 @@ export async function stubSupabase(db, authKolonner = ['id', 'email']) {
 }
 
 /**
+ * Produktionens danske collation — som ATTRAP, og i et skema, der hedder det.
+ *
+ * `lib/soeg.ts` sorterer kildenavne og adresser med `collate "da-x-icu"`.
+ * PGlite har kun ICU's roddata og ingen `da-x-icu`; uden en collation med
+ * navnet ville hver forespørgsel med `ogsaaHos` fejle. Attrappen er roden
+ * under dansk navn, skrevet ud som `locale = 'und'`: Aalborg står først, Å
+ * og Æ blandt A'erne. Den lader forespørgslerne KØRE. Den lader ingen prøve
+ * påstå dansk orden — det er fælde tolv i CLAUDE.md, og den danske orden
+ * prøves mod en base med rigtige ICU-data (scripts/test-dansk-orden.ts).
+ *
+ * NAVNET kan ikke ændres uden at ændre produktionskoden: den skal skrive
+ * `"da-x-icu"` for at virke i produktionen, og et navn fra en variabel ville
+ * være en søm, der også kunne flytte produktionens sortering uden at nogen
+ * så det. Derfor ligger attrappen i skemaet `attrap` og findes gennem
+ * `search_path`. Spørger nogen kataloget, hvad «da-x-icu» er her, svarer
+ * det `attrap | da-x-icu | und` — og testbasen skriver det ved hver
+ * opstart. EXPLAIN viser stadig det korte navn.
+ */
+export async function stubCollationer(db) {
+  await db.exec(`
+    create schema attrap;
+    create collation attrap."da-x-icu" (provider = icu, locale = 'und');
+    set search_path = "$user", public, attrap;
+  `)
+}
+
+/**
  * Migrationerne i JOURNALENS rækkefølge — ikke filnavnenes på disk. Det er
  * netop den forskel, `npm run db:status` findes for.
  *
