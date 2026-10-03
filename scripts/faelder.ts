@@ -73,6 +73,10 @@ export const FORMER = [
     tekst: '`leveret-men-ulæst` er `prøvens-eget-forlæg` vendt om: dér byggede forbrugeren sit eget forlæg, så den aldrig så det rigtige. Her SKREV leverandøren det rigtige — og forbrugeren læste et andet navn. Forskellen fra alle de øvrige er, at intet opstrøms fejlede: værnet kørte, det bestod, og værdien blev eksporteret. Fejlen lå i navnet alene.',
   },
   {
+    id: 'dom-uden-port', titel: 'Form 7 · et værn, der dømmer rigtigt, mens handlingen løber videre ved siden af.',
+    tekst: 'Den mangler ikke dækning: valideringen måler rigtigt og er korrekt rød. Der er bare ingen port, dommen kan lukke — og et værn, der er korrekt rødt, mens handlingen sker alligevel, er ikke et smallere værn. Det er intet værn.',
+  },
+  {
     id: 'ikke-vaern', titel: 'Og de, der ikke er værn.',
     tekst: 'De handler ikke om, hvor meget et værn dækker.',
   },
