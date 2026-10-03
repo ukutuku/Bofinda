@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  TAKTTABELLEN MÅ IKKE HAVE EN STANDARD.
 //
 //  Hver vært, en registreret kilde henter fra, skal stå i `VAERTSTAKT` —

@@ -85,6 +85,37 @@ function koer() {
   const commit = git('commit-tree', tree, '-p', git('rev-parse', 'HEAD'),
     '-m', 'modproeve: det iscenesatte')
   git('worktree', 'add', '--detach', '--quiet', traee, commit)
+  // Et SYMLINK, ikke en kopi: `npm ci` i hvert traee ville koste minutter
+  // og diskplads, og indholdet er alligevel det samme.
+  //
+  // ── OPRYDNING: KEND MAALREVISIONEN OG DEN DELTE STI ──────────
+  //
+  // Symlinket peger paa rodens installation. Slettes eller overskrives
+  // DEN mappe, rammes alle traeer, der bruger den. At fjerne selve
+  // linket er noget andet end at fjerne dets maal.
+  //
+  // Tilfaeldet, der fremkaldte den (2. okt. 2026): en gren sporede
+  // `node_modules` som symlink, fordi den forgrenede FOER abad7ae
+  // («node_modules ud af versionsstyringen»). Arbejdstraeet havde en
+  // rigtig mappe dér, saa `git status` viste ` D node_modules`, og en
+  // cherry-pick af rettelsen kunne ikke koere: urenheden VAR det, den
+  // skulle fjerne.
+  //
+  // Maalt i et isoleret repo med Git 2.51.1 og en rigtig mappe paa den
+  // sporede symlinks plads:
+  //   reset --hard til en revision UDEN den sporede sti beholdt mappen.
+  //   reset --hard til en revision MED symlinket erstattede mappen med
+  //   linket og slettede dens indhold. Risikoen afhaenger af maalet;
+  //   fravaer i maalrevisionen er ikke i sig selv bevis for sletning.
+  //
+  // reset --mixed flytter HEAD og indekset uden at skrive i arbejdstraeet.
+  // Skal stien ud af sporingen, kan det bevare installationen. Det goer
+  // IKKE automatisk traeet rent: gennemgaa diffen og bring kun de
+  // tilsigtede filer paa plads. `.gitignore` skal ogsaa passe; brug
+  // `node_modules` uden skraastreg for at ignorere baade mappe og link.
+  //
+  // Den oprindelige note viste, at mixed bevarede 53 poster. Den maalte
+  // ikke hard og kunne derfor ikke fastslaa, hvad hard ville slette.
   const nm = join(rod, 'node_modules')
   if (existsSync(nm)) symlinkSync(nm, join(traee, 'node_modules'), 'dir')
 

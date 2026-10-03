@@ -56,7 +56,7 @@ type Taktbeslutning = number | typeof IKKE_BESLUTTET | ReturnType<typeof standar
  * nu er en oversaetterfejl. Se `det-staerkeste-faldback` i CLAUDE.md:
  * faldbacket her var ogsaa det staerkeste mulige udsagn, bare om en takt.
  *
- * `scripts/tjek-takt.ts` fejler, hvis en registreret kildes vaert mangler
+ * `scripts/test-takt.ts` fejler, hvis en registreret kildes vaert mangler
  * en linje. Den koerer i `npm test`.
  *
  * ── HVAD TABELLEN IKKE DAEKKER ─────────────────────────────────────

@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne/1
 //  Prøver `scripts/kildetjek.ts` — laget, der afgør hvilke slags
 //  træffere et kildetjek må tælle med.
 //

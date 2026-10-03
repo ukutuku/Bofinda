@@ -1,10 +1,10 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  Prøver `scripts/maal-billedloft.sql` — den SQL, der skal køres i
-//  produktionen for at kende loftet før en hemmelighedsrotation.
+//  produktionen for at kende billedbestanden før en hemmelighedsrotation.
 //
-//  Filen erklærer «tallene er aldrig set; syntaks og typer holder», og
-//  konventionen i CLAUDE.md kræver, at den navngiver prøven, der kørte
-//  sætningerne. Det er denne. Uden den er «syntaks og typer holder» en
+//  Filen navngiver denne prøve som grundlag for syntaks og typer.
+//  Produktionens tal er ikke målt her. Uden den er «syntaks og typer holder» en
 //  påstand uden dækning — og `maal-felter.sql` var ét `<> '{}'` fra at
 //  svare forkert og TAVST i en produktionskørsel.
 //
@@ -94,7 +94,7 @@ async function koer(s: string): Promise<Raekke[]> {
   return (Array.isArray(svar) ? svar : (svar as { rows: unknown[] }).rows) as Raekke[]
 }
 
-console.log('\n══ 2 · sætning 1: loftet pr. vært ══')
+console.log('\n══ 2 · sætning 1: bestanden pr. vært ══')
 const pr = await koer(saetninger[0]!)
 const find = (v: string) => pr.find((r) => r['vaert'] === v)
 const d = find('dacas.dk'), f = find('findbolig.nu')
@@ -110,7 +110,7 @@ tjek(`findbolig.nu: ${FACIT.findbolig.distinkte} distinkt — den AFMELDTES bill
   Number(f?.['distinkte_billeder']) === FACIT.findbolig.distinkte,
   `${f?.['distinkte_billeder']} (2 ville betyde at den afmeldte tælles med)`)
 
-console.log('\n══ 3 · sætning 2: loftet i alt ══')
+console.log('\n══ 3 · sætning 2: bestanden i alt ══')
 const ialt = (await koer(saetninger[1]!))[0]!
 tjek(`${FACIT.ialt.distinkte} distinkte billeder i alt`,
   Number(ialt['distinkte_billeder_i_alt']) === FACIT.ialt.distinkte,
