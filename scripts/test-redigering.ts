@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  To ting, der er dyre at bryde uden at opdage det:
 //
 //    1. Rundturen — gem uden at ændre noget, og se om rækken overlever.

@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  Depositum og forudbetalt leje — hver for sig, hele vejen ud.
 //
 //  Kører mod PGlite gennem scripts/testbase.ts. Ingen produktion,
