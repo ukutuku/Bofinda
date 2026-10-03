@@ -1,0 +1,400 @@
+{
+ "variant": "efter",
+ "mobil": "baand",
+ "lag": "dette lag",
+ "foto": {
+  "_hvad": "Forsidefotoet som ÉT objekt. I appen svarer det til HERO_STANDARD i app/page.tsx, som i dag bærer url og kredit; forslaget lægger licens, fokus og slør til. Skiftes fotoet, skiftes alle felter i samme ændring. Slør-reglen for telefonen (sloerSmal, variant B): mindst max(gulvet, krævet + 0,05) og højst loftet 0,60. Gulvet er det tyndeste slør, hvormed den hvide tekst holder AA over et helt hvidt foto; maal-foto.mjs måler det (i dag 0,60). Derfor er sloerSmal 0,60 for ethvert foto, så længe gulvet er 0,60 — et tyndere slør gør dommen til «B · overvåges». Bred skærm (sloer): mindst krævet + 0,05; 0,95 er runde 2's godkendte værdi og ligger over reglen (krævet 0,80). Kreditering skal stå på én linje i alle telefonbredder, ellers afviser maal-foto.mjs fotoet.",
+  "url": "/hero-stue.jpg",
+  "kredit": "Stemningsfoto: Taryn Elliott / Pexels",
+  "licens": "Pexels-licensen, https://www.pexels.com/license/ — kreditering ikke påkrævet",
+  "kreditVedBilledet": false,
+  "fokus": "60% 50%",
+  "fokusSmal": "50% 66%",
+  "sloer": 0.95,
+  "sloerSmal": 0.6
+ },
+ "maal": {
+  "forside-390": {
+   "kort": 12,
+   "medFoto": 10,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.332
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    461,
+    412,
+    438,
+    461,
+    435,
+    510,
+    461,
+    487,
+    328,
+    302,
+    461,
+    435
+   ],
+   "foersteKortY": 671,
+   "overloeb": 0,
+   "kontrast": {
+    "øjenbryn": {
+     "vaerst": 7.13,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": false,
+     "raa": null,
+     "alfaMin": null,
+     "farve": "rgb(77, 84, 82)",
+     "px": 12,
+     "linjer": 1
+    },
+    "h1": {
+     "vaerst": 16.63,
+     "taerskel": 3,
+     "bestaar": true,
+     "paaFoto": false,
+     "raa": null,
+     "alfaMin": null,
+     "farve": "rgb(20, 22, 26)",
+     "px": 28,
+     "linjer": 1
+    },
+    "manchet": {
+     "vaerst": 16.63,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": false,
+     "raa": null,
+     "alfaMin": null,
+     "farve": "rgb(20, 22, 26)",
+     "px": 15,
+     "linjer": 2
+    }
+   },
+   "foto": {
+    "frihoejde": 130,
+    "tegningBevaret": 1,
+    "stoej": 0
+   },
+   "vaerstTaenkelige": {
+    "flade": "sort",
+    "gulv": null
+   },
+   "kreditering": {
+    "findes": true,
+    "hvor": "hero",
+    "y": 566,
+    "iFoersteVisning": true,
+    "px": 12,
+    "farve": "rgb(77, 84, 82)",
+    "kontrast": 6.4,
+    "linjer": 1,
+    "antalSynlige": 1,
+    "kandidater": [
+     {
+      "nr": 0,
+      "linjer": 1,
+      "hvor": "hero",
+      "tekst": "Stemningsfoto: Taryn Elliott / Pexels",
+      "y": 566,
+      "iFoersteVisning": true,
+      "px": 12,
+      "farve": "rgb(77, 84, 82)",
+      "baggrund": "rgba(0, 0, 0, 0)",
+      "skjult": false,
+      "iSiden": true,
+      "daekket": "0/3",
+      "overlap": "0/3",
+      "synlig": true,
+      "kontrast": 6.4,
+      "laeselig": true
+     }
+    ],
+    "dom": "OK"
+   },
+   "harFoto": true,
+   "foersteKort": {
+    "hoejder": {
+     "billedblok": 194,
+     "krop": 266,
+     "oekonomi": 118,
+     "kropPadding": "16px"
+    },
+    "titel": "Rækkehus · 3 vær. · 76 m²",
+    "top": 671,
+    "hoejde": 461,
+    "fold": 844,
+    "synligPx": 173,
+    "andel": 0.38,
+    "dele": {
+     "billede": false,
+     "antalBilleder": null,
+     "titel": false,
+     "adresse": false,
+     "overtagelse": false,
+     "pris": false
+    },
+    "foldFor": {
+     "billede": 866,
+     "titel": 905,
+     "adresse": 926,
+     "overtagelse": 949,
+     "pris": 991,
+     "helt": 1132
+    },
+    "foldVed": "vinduets bund"
+   },
+   "foersteKortFoersteBesoeg": {
+    "hoejder": {
+     "billedblok": 194,
+     "krop": 266,
+     "oekonomi": 118,
+     "kropPadding": "16px"
+    },
+    "titel": "Rækkehus · 3 vær. · 76 m²",
+    "top": 673,
+    "hoejde": 461,
+    "fold": 635,
+    "synligPx": 0,
+    "andel": 0,
+    "dele": {
+     "billede": false,
+     "antalBilleder": null,
+     "titel": false,
+     "adresse": false,
+     "overtagelse": false,
+     "pris": false
+    },
+    "foldFor": {
+     "billede": 868,
+     "titel": 907,
+     "adresse": 928,
+     "overtagelse": 951,
+     "pris": 993,
+     "helt": 1134
+    },
+    "foldVed": "samtykkebanneret"
+   },
+   "populaere": {
+    "raekker": 2,
+    "byKanter": [
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 43,
+    "overloeb": false
+   },
+   "luftUnderKort": 32,
+   "populaereBelastet": {
+    "raekker": 3,
+    "byKanter": [
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 67,
+    "overloeb": false
+   }
+  },
+  "forside-360": {
+   "kort": 12,
+   "medFoto": 10,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.333
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    444,
+    395,
+    444,
+    444,
+    418,
+    493,
+    444,
+    493,
+    351,
+    302,
+    444,
+    418
+   ],
+   "foersteKortY": 684,
+   "overloeb": 0,
+   "kontrast": {
+    "øjenbryn": {
+     "vaerst": 7.13,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": false,
+     "raa": null,
+     "alfaMin": null,
+     "farve": "rgb(77, 84, 82)",
+     "px": 12,
+     "linjer": 1
+    },
+    "h1": {
+     "vaerst": 16.63,
+     "taerskel": 3,
+     "bestaar": true,
+     "paaFoto": false,
+     "raa": null,
+     "alfaMin": null,
+     "farve": "rgb(20, 22, 26)",
+     "px": 28,
+     "linjer": 1
+    },
+    "manchet": {
+     "vaerst": 16.63,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": false,
+     "raa": null,
+     "alfaMin": null,
+     "farve": "rgb(20, 22, 26)",
+     "px": 15,
+     "linjer": 3
+    }
+   },
+   "foto": {
+    "frihoejde": 120,
+    "tegningBevaret": 1,
+    "stoej": 0
+   },
+   "vaerstTaenkelige": {
+    "flade": "sort",
+    "gulv": null
+   },
+   "kreditering": {
+    "findes": true,
+    "hvor": "hero",
+    "y": 579,
+    "iFoersteVisning": true,
+    "px": 12,
+    "farve": "rgb(77, 84, 82)",
+    "kontrast": 6.4,
+    "linjer": 1,
+    "antalSynlige": 1,
+    "kandidater": [
+     {
+      "nr": 0,
+      "linjer": 1,
+      "hvor": "hero",
+      "tekst": "Stemningsfoto: Taryn Elliott / Pexels",
+      "y": 579,
+      "iFoersteVisning": true,
+      "px": 12,
+      "farve": "rgb(77, 84, 82)",
+      "baggrund": "rgba(0, 0, 0, 0)",
+      "skjult": false,
+      "iSiden": true,
+      "daekket": "0/3",
+      "overlap": "0/3",
+      "synlig": true,
+      "kontrast": 6.4,
+      "laeselig": true
+     }
+    ],
+    "dom": "OK"
+   },
+   "harFoto": true,
+   "foersteKort": {
+    "hoejder": {
+     "billedblok": 177,
+     "krop": 266,
+     "oekonomi": 118,
+     "kropPadding": "16px"
+    },
+    "titel": "Rækkehus · 3 vær. · 76 m²",
+    "top": 684,
+    "hoejde": 444,
+    "fold": 780,
+    "synligPx": 96,
+    "andel": 0.22,
+    "dele": {
+     "billede": false,
+     "antalBilleder": null,
+     "titel": false,
+     "adresse": false,
+     "overtagelse": false,
+     "pris": false
+    },
+    "foldFor": {
+     "billede": 862,
+     "titel": 901,
+     "adresse": 922,
+     "overtagelse": 945,
+     "pris": 988,
+     "helt": 1129
+    },
+    "foldVed": "vinduets bund"
+   },
+   "foersteKortFoersteBesoeg": {
+    "hoejder": {
+     "billedblok": 177,
+     "krop": 266,
+     "oekonomi": 118,
+     "kropPadding": "16px"
+    },
+    "titel": "Rækkehus · 3 vær. · 76 m²",
+    "top": 686,
+    "hoejde": 444,
+    "fold": 553,
+    "synligPx": 0,
+    "andel": 0,
+    "dele": {
+     "billede": false,
+     "antalBilleder": null,
+     "titel": false,
+     "adresse": false,
+     "overtagelse": false,
+     "pris": false
+    },
+    "foldFor": {
+     "billede": 864,
+     "titel": 903,
+     "adresse": 924,
+     "overtagelse": 947,
+     "pris": 990,
+     "helt": 1131
+    },
+    "foldVed": "samtykkebanneret"
+   },
+   "populaere": {
+    "raekker": 2,
+    "byKanter": [
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 43,
+    "overloeb": false
+   },
+   "luftUnderKort": 32,
+   "populaereBelastet": {
+    "raekker": 4,
+    "byKanter": [
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 90,
+    "overloeb": false
+   }
+  }
+ }
+}

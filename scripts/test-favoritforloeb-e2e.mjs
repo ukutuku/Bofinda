@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: manuel
 //  Favoritforløbet, UDFØRT — ikke læst.
 //
 //  ═══ HVORFOR DEN FINDES VED SIDEN AF test-favoritforloeb.ts ═══

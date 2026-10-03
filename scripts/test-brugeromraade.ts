@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: konto
 //  Brugerområdet: favoritter og gemte søgninger.
 //
 //  Køres af scripts/testbase.ts mod PGlite — rigtig Postgres i processen,
@@ -226,7 +227,7 @@ async function koer() {
       match: 'unit', areal: raa!.sizeM2, vaerelser: raa!.rooms, type: raa!.propertyType,
       leje: raa!.rentMonthly, total: null, poster: [], elEgenMaaler: null,
       billeder: 0, forside: null, billedforbehold: false,
-      foerstSet: new Date(), hosKilden: null, ledigFra: null, ogsaaHos: [],
+      foerstSet: new Date(), hosKilden: null, nyhedMs: null, ledigFra: null, ogsaaHos: [],
       availabilityFacts: null,
     }
     let markup = ''

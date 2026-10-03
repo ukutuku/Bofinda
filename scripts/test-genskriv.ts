@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: oekonomi
 //  Backfillen af listings.description
 //
 //  Prøven rejser fire slags rækker i basen og kører genskrivningens
@@ -15,6 +16,7 @@
 //  hendes formular. Værnet skal virke, før klassen findes — ikke efter.
 // ═══════════════════════════════════════════════════════════════
 
+import { kildelag } from './kildetjek'
 import { and, eq, isNotNull, ne } from 'drizzle-orm'
 import { db } from '../db/client'
 import { listings, sources } from '../db/schema'
@@ -104,8 +106,11 @@ async function main() {
   tjek('første sætning er uændret', NY.startsWith(FOERSTE) && GAMMEL.startsWith(FOERSTE))
 
   console.log('\n══ 4 · kildetjek: værnet står i SQL\'en, ikke i en gren ══')
-  const kilde_ = (await import('node:fs')).readFileSync('scripts/genskriv-beskrivelse.ts', 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  // Kodelaget, ikke den rå fil: generatorens hoved beskriver begge
+  // økonomigrene i prosa, og et regex over hele filen ville ramme
+  // beskrivelsen af reglen i stedet for reglen. Se scripts/kildetjek.ts.
+  const kilde_ = kildelag(
+    (await import('node:fs')).readFileSync('scripts/genskriv-beskrivelse.ts', 'utf8'))
   tjek('ne(listings.sourceType, \'native\') står i forespørgslen',
     /\.where\([\s\S]*ne\(listings\.sourceType,\s*'native'\)/.test(kilde_))
   tjek('den frosne generator findes', /function gammelBeskrivelse/.test(kilde_))

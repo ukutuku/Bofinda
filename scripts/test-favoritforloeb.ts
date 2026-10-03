@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: konto
 //  Hjerteklikket, der venter paa et login.
 //
 //  ═══ FEJLEN, DER BLEV RETTET ═══

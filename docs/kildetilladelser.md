@@ -15,6 +15,202 @@ fejl, og fordi den eneste måde at kende forskel på "vi har fået lov" og
 > skal ikke i git. Se `CLAUDE.md`.
 
 ---
+---
+
+## Hullet, samlet: ingen af tilladelserne navngiver nogen
+
+**Dette afsnit fylder ikke noget ud. Det gør hullet synligt, så det ikke
+skal tælles af den, der leder.** Felterne nedenfor står urørte med vilje:
+de kan kun udfyldes af den, der førte samtalen, og et gæt ville være
+værre end et tomt felt. Men filens åbningssætning er «hvem har givet os
+lov til hvad, **hvornår, og af hvem**», og på to af de tre spørgsmål er
+svaret i dag blankt.
+
+Målt i denne fil og i `adapters/index.ts`:
+
+| | Antal |
+|---|---|
+| Kilder, der kører i timekørslen (`rigtigeKilder()`) | **11** |
+| Rækker i tabellen nedenfor | 13 |
+| Rækker **uden navn og rolle** på den, der gav lov | **13 af 13** |
+| Rækker **uden dato** | **11 af 13** — kun Laros og Alabu har en |
+| Rækker, hvor omfangs-kolonnen er tom | **8 af 13** |
+| Kørende kilder **uden en række overhovedet** | **3** |
+
+**De tre uden en række er `home.dk`, `Heimstaden` og `Birch Ejendomme`.**
+De står i `KILDER` uden `kunUdvikling`, altså kører de i `koerAlle` hver
+time. Der er ingen post om dem her. Det er ikke et tomt felt — det er et
+fravær, og det er den slags, man ikke kan tælle sig til. **De er lagt ud
+hver for sig nedenfor**, for de er ikke lige meget: Heimstaden har
+allerede spærret os én gang.
+
+**Balder er den mest iøjnefaldende.** Posten hedder «den udfyldte, som
+forbillede», og dens `Oplyst af` og `Dato` er begge `[UDFYLDES]`.
+Forbilledet er altså udfyldt på **omfanget** — værter, endpoint, nøgle,
+billedvært, som Balder-sagen lærte os — og blankt på **hvem og hvornår**.
+Det er værd at se som to forskellige slags fuldstændighed: posten er et
+forbillede for den ene og et eksempel på hullet for den anden.
+
+Omfangs-kolonnen er tom for otte, og det er den kolonne, filen selv
+kalder «den vigtige, og den er ikke en formalitet». Fire af de otte er
+kilder, vi kører i dag: `findbolig.nu`, `Propstep`, `Dacas` og
+`LokalBolig`.
+
+### De tre uden en række — hvad vi faktisk gør mod dem
+
+**De er ikke lige meget hver især, og rækkefølgen her er efter, hvor
+meget der står på spil, ikke alfabetisk.** Alt nedenfor er hentet fra
+koden og fra git; intet er udfyldt, og intet er formodet. Hvor en
+oplysning ikke findes, står det.
+
+Fælles for alle tre: Railway kører `npm run import` uden argumenter
+**hver time** (`cron 0 * * * *`, `railway.json` `startCommand`), og den
+kører `rigtigeKilder()`. Alle tre står i `KILDER` uden `kunUdvikling`, så
+de kontaktes hver time, hver dag.
+
+---
+
+#### 1 · Heimstaden — har allerede spærret os én gang
+
+| | |
+|---|---|
+| **Vært** | `www.heimstaden.dk` |
+| **Henter** | Listen `/ledige-lejeboliger/` — ét GET, hele udbuddet som `var _rentals = [...]`, ~200 enheder. Detaljesider under `/lejebolig/…` |
+| **Hvor ofte** | Discovery hver time. **Detaljer: højst 3 pr. kørsel** — `HEIMSTADEN_DETALJEBUDGET=3` står på Railway; adapterens egen standard er 25 (`heimstaden.ts:192`) |
+| **Takt** | **5 sekunder** pr. kald, ikke 1 — `VAERTSTAKT` i `lib/fetch.ts` |
+| **Grundlag** | **Ingen aftale.** Adapterens egen header siger det ordret: «INGEN aftale endnu — kilden hentes efter robots.txt» |
+| **robots.txt** | Målt **2026-09-06**: listesiden og `/lejebolig/`-detaljesiderne er tilladt; `/wp-admin/`, `/api/`, `/forms/` og `/*clean=true` er forbudt. Rentals-sitemappet ligger under `/api/feed/` og **bruges derfor ikke**, selv om sitemap-indekset annoncerer det |
+
+**Spærringen, med dato.** `9569414` (**2026-09-06**): *«Heimstadens CDN
+spærrede vores IP efter ~17 min ved 1 kald/s — mønsteret, ikke
+enkeltkaldet, udløste det.»* Det er den hændelse, hele detaljevagten,
+værtsspærren og den femsekunders takt blev bygget af.
+
+**Hvad der er gjort siden, og det er ikke ingenting.** `5d1d3f2`
+(2026-09-07) holdt kilden **ude** af cron'en med `kunUdvikling`, netop
+fordi et push ellers ville have kontaktet den inden for en time «uden at
+nogen havde besluttet det». `5796ac3` (2026-09-07) lukkede den ind igen
+efter **to kontrollerede prøver** — Mac 6. sep. 23:17 og Railway via SSH
+7. sep. 05:33, hver med 1 discovery + 3 detaljehentninger, 5 s takt, og
+**0 genforsøg, 0 fejl, 0 `fetch_failures`, 0 `host_blocks`, 0 falske
+afmeldinger**. Railway-prøven beviste det, Mac-prøven ikke kunne: deres
+CDN drøvler ikke vores datacenter-egress. Fuld detaljehøst er
+**udtrykkeligt ikke godkendt**.
+
+**Det, der mangler, er altså ikke forsigtighed — det er samtalen.** Vi
+kører i timen mod en vært, der har lukket os ude én gang, og grundlaget
+er vores egen læsning af deres robots.txt. Ingen hos Heimstaden har sagt
+ja til noget. **Det er den af de tre, der skal ringes til først.**
+
+---
+
+#### 2 · home.dk — størst i volumen, og uden nogen note om grundlaget
+
+| | |
+|---|---|
+| **Vært** | `home.dk` |
+| **Henter** | Listen `/til-leje/lejlighed/region-hovedstaden/koebenhavn-kommune/`, pagineret med `?page=N` (loft `MAKS_SIDER = 60`), plus detaljesider. Nuxt 3, alt ligger server-renderet i `__NUXT_DATA__` — ingen API-nøgle, ingen JS-kørsel |
+| **Hvor ofte** | Hver time. **Intet `listeGrundlag`, og derfor er detaljebudgettet `Infinity`** — se målingen nedenfor. Nye boliger hentes **uden loft**; oven i dem op til `GENOPFRISK_PR_KOERSEL` forfaldne (standard **60**, `lib/ingest.ts:61`) |
+| **Takt** | Standard — højst 1 kald/sekund |
+| **Grundlag** | **Intet noteret nogen steder.** Adapterens header nævner hverken aftale eller robots.txt — til forskel fra Heimstaden og Birch, som begge siger «INGEN aftale endnu» |
+| **robots.txt** | `Allow: /` — men kun læst i kortlægningen (`CLAUDE.md:1490`), **uden dato for hentningen** |
+
+**Den er størst af de tre i volumen** (229 boliger ved kortlægningen,
+`CLAUDE.md:1489` — ikke målt i basen her) og den eneste, hvor der ikke
+står noget om forholdet i adapteren. Fraværet af en «INGEN aftale
+endnu»-note må ikke læses som at der ER en: der er ingen post, ingen
+commit og ingen note.
+
+**robots.txt kunne ikke efterprøves her.** Gatewayen afviste CONNECT til
+både `home.dk` og `www.home.dk` med 403 (målt 2026-10-01). `Allow: /`
+står i kortlægningen uden dato for hentningen og er altså uciteret som
+de øvrige.
+
+#### Målingen: loftet er ikke 60, det findes ikke
+
+Jeg skrev først «op til 60 detaljesider pr. time». **Det var for
+generøst over for os selv.** De 60 er `GENOPFRISK_PR_KOERSEL`, som kun
+lofter den rullende genopfriskning. Budgettet, der skulle lofte de NYE,
+står i `lib/ingest.ts:448`:
+
+```ts
+const budget = opslag
+  ? Math.max(0, adapter.detaljeBudgetPrKoersel ?? Infinity)
+  : Infinity          // ← ingen listeGrundlag = intet loft
+```
+
+og trimningen er gated på det samme: `if (opslag && skalHentes.length >
+budget)` (`:512`). **Uden `listeGrundlag` hentes hver ny eller
+genopdukket bolig, uden loft.** Pr. kørsel er taget derfor
+«alle nye» + højst 60 forfaldne, og «alle nye» har intet tag.
+
+I rolig drift er det småt: med et 24-timers forfaldsvindue
+(`GENOPFRISK_EFTER_TIMER`) efterspørger 229 boliger ~10 hentninger i
+timen. Udsvinget ligger i det urolige tilfælde — en første import, en
+afmeldingsbølge, eller en ændring i kildens nøgler — hvor hele
+beholdningen kan blive hentet i én time ved ét kald i sekundet.
+
+**Og det er ikke home.dk-særligt.** Målt over registret: **8 af 11
+kørende kilder havde `budget = Infinity`** — findbolig, Propstep, Dacas,
+LokalBolig, Balder, home.dk, CEJ og Birch. De tre med et loft var
+Heimstaden, Laros og Alabu, og det er præcis de tre, hvor nogen var
+nødt til at tænke over det: én havde spærret os, én har `Crawl-delay:
+20`, én fik en kontrolleret import. **Loftet findes, hvor nogen blev
+tvunget til at tage stilling, og mangler alle andre steder** — ikke
+fordi nogen besluttede, at de otte skulle være uloftede, men fordi
+`opslag ? … : Infinity` er standarden, og ingen har været tilbage.
+
+Det er samme form som resten af denne fil: tilstanden opstod af sig
+selv, dér hvor ingen sag tvang en afgørelse.
+
+**home.dk har fået alle tre ting** (grundlag, loft 25, takt 5 s) på
+grenen `hotfix/detaljevagten-er-et-par`. Tilbage står **syv**, og de står nedenfor som åbne poster pr.
+kilde — ikke som en samlet note. Grunden til at de skal stå enkeltvis:
+en samlet note bliver afviklet som én opgave, og så bliver det næste
+loft en reaktion på et 503 i stedet for en beslutning.
+
+---
+
+#### 3 · Birch Ejendomme — mindst, og teknisk mest nøjsom
+
+| | |
+|---|---|
+| **Vært** | `birchejendomme.dk` (også billedværten — 1.412 af 1.412 URL'er målt 2026-09-06) |
+| **Henter** | `/bolig-feed?onlyvacant=1`, pagineret med `&pagenumber=N`; feedet oplyser selv `NoOfPages`, og vi følger det (loft `MAKS_SIDER = 20`). 59 enheder = 5 sider. Plus detaljesiden for depositum-beløbet |
+| **Hvor ofte** | Hver time. Som home.dk: **intet `listeGrundlag`, intet detaljebudget** — `9569414` noterer, at «birch og cej bekræfter 59/63 med 0 hentninger som før» |
+| **Takt** | Standard — højst 1 kald/sekund |
+| **Grundlag** | **Ingen aftale.** Adapterens header siger det ordret: «INGEN aftale endnu» |
+| **robots.txt** | Målt **2026-09-06**: tom `Disallow` — alt tilladt |
+
+Feedet er sidens eget datagrundlag, bundet i `find-bolig`-sidens
+`data-feed-url` — altså det kald, siden selv laver. Fem sider i timen mod
+en enkelt udlejer er den mindste belastning af de tre, og robots.txt er
+målt og dateret. **Det er den, der haster mindst** — men den mangler
+stadig sin række.
+
+---
+
+**Hvad de tre samtaler skal afgøre**, i den rækkefølge: om Heimstaden
+accepterer, at vi henter, og med hvilken takt og hvilket detaljebudget
+(de har spærret os én gang, og vi kører videre på vores egen læsning af
+deres robots.txt) · om home.dk har en holdning, vi slet ikke har spurgt
+om · og om Birch vil have deres eget feed hentet i timen.
+
+### Den dyreste uciterede regel i repoet
+
+**BoligPortal.** Reglen står tre steder — `CLAUDE.md:840`, `CLAUDE.md:1609`
+og posten nedenfor — og lyder hver gang, at deres robots.txt «forbyder
+crawling udtrykkeligt på skrift». **Ingen af de tre citerer en linje, og
+ingen af dem siger hvornår filen blev læst.**
+
+Den holder en hel kilde ude for altid. Prisen ved at tage fejl går begge
+veje: står der i virkeligheden noget andet, afviser vi en kilde uden
+grund — og er den rigtig, men udateret, kan vi ikke vise nogen hvorfor.
+En regel, der koster så meget, skal kunne efterprøves af den næste uden
+at hente noget.
+
+Hvad der skal stå: den eller de linjer, der forbyder os, ordret, og
+datoen for hentningen. Intet andet er nødvendigt.
 
 ## Sådan udfyldes omfangs-kolonnen
 
@@ -72,10 +268,120 @@ Står der `[UDFYLDES]`, mangler oplysningen, og linjen kan ikke bæres.
 | **Dato** | `[UDFYLDES]` |
 | **Form** | Telefon, optaget med samtykke |
 
-**robots.txt siger nej begge steder.** `www.balder.dk` har `Disallow: /api/`;
-`api.balder.dk` har `Disallow: /` til alle. Vi henter alligevel, fordi
-rettighedshaveren selv har givet lov. Det er en bevidst undtagelse, ikke
-en forglemmelse — se `CLAUDE.md`.
+**Om robots.txt — og hvilken af dem der overhovedet gælder.**
+robots.txt gælder **pr. origin**. Den vært, vi faktisk henter data fra,
+er `api.balder.dk` (`adapters/balder.ts:45`, `:151`); `www.balder.dk`
+bruges kun til det link, mennesker klikker på (`SIDE`, `:46`), og vi
+henter aldrig `/api/` dér. **`www.balder.dk/robots.txt`'s `Disallow:
+/api/` binder os derfor ikke** — den styrer stier under www, som vi
+ikke kalder. Den eneste, der er relevant, er `api.balder.dk`'s egen.
+
+Om den står der i repoet, at den har `Disallow: /` til alle
+(`adapters/balder.ts:17` og tidligere her). **Det er vores egen
+gengivelse — ingen linje er citeret, og ingen dato for hentningen er
+noteret.** Denne session kunne ikke efterprøve den: udgående trafik til
+`www.balder.dk` og `api.balder.dk` blev afvist af miljøets gateway
+(403 på CONNECT, målt 2026-10-01). Påstanden står altså som en af de
+uciterede, den skulle være et modeksempel på.
+
+**Vi omgår ikke noget.** Vi kalder et API, rettighedshaveren selv har
+anvist, med den nøgle de selv pegede på. At handle i strid med en
+robots.txt-linje **med ejerens tilladelse** er ikke en overtrædelse:
+robots.txt er et signal til fremmede, og har ejeren sagt ja, gælder
+deres ja. Formuleringen «vi overtræder deres forbud» er forkert og skal
+ikke bruges — den er den slags, der bliver citeret mod os.
+
+**Hvad der skal efterprøves, før nogen bygger videre:** hent
+`https://api.balder.dk/robots.txt`, skriv de linjer ind her, der
+angår os, og notér datoen. Og udfyld `Oplyst af` og `Dato` ovenfor —
+tilladelsen, der bærer hele konstruktionen, navngiver i dag ingen.
+Repoet har **tre** spor, og det indholdsmæssige er en commit-besked:
+
+| Spor | Hvad det siger |
+|---|---|
+| `adapters/balder.ts:4-13` | «aftalt med Balder selv», «de har bekræftet» |
+| **`d1f8434`** · 2026-09-04 · `fl` | **selve ræsonnementet** — citeret nedenfor |
+| `f8a3418` · 2026-09-05 | næste omtale af `BALDER_API_KEY`; handler om datafelter |
+
+**Ingen af de tre navngiver den, der gav lov, eller hvornår.**
+
+### Hvad `d1f8434` siger, ordret
+
+> Balder henter fra api.balder.dk efter aftale med rettighedshaveren. Både
+> www.balder.dk (`Disallow: /api/`) og api.balder.dk (`Disallow: /`) siger
+> nej i robots.txt; vi henter alligevel, fordi ejeren selv har givet lov.
+
+**Og dens formulering er upræcis på præcis den måde, dette afsnit advarer
+mod.** Den siger «begge siger nej, vi henter alligevel». Analysen ovenfor
+siger noget andet og mere nøjagtigt: robots.txt gælder **pr. origin**, vi
+kalder aldrig `/api/` på `www`, så `www.balder.dk`'s `Disallow` binder os
+ikke — og ejerens ja gælder `api.balder.dk`, hvor vi faktisk henter. Der er
+ét relevant direktiv, ikke to, og der er en tilladelse til det.
+
+**Commit-beskeden kan ikke rettes.** En rettelse ville kræve omskrevet
+historik, og det gør vi ikke. Den står i den permanente log, og en modpart,
+der søger, finder den før den finder dette afsnit. **Derfor står den her,
+med sin upræcished udpeget:** en dokumenteret upræcished er bedre end en,
+nogen andre finder først. Hvis nogen citerer linjen mod os, er svaret dette
+afsnit — ikke en forklaring, der skal opfindes i situationen.
+
+**Og det er en form, der er værd at kunne genkende:** to udtryk for ét
+retligt grundlag, hvor det ene er en **analyse i et dokument** og det andet
+en **indrømmelse i en commit-besked**. Det er samme familie som reglen og
+målingen, der drev fra hinanden (række 5 ovenfor) — men med en asymmetri,
+den ikke har: **dokumentet kan rettes, historikken kan ikke.** Når de to
+driver, er det derfor altid dokumentet, der skal bære forklaringen.
+
+### Den ene handling, Balder kræver
+
+> **`d1f8434` har en forfatter: `fl`, 4. september 2026 kl. 01:20** — og det
+> er repoets egen ejer. Den person vidste om aftalen den dag, den var
+> aktuel.
+
+Balder-rækken mangler `Oplyst af` (navn, rolle) og `Dato`, og det er den
+tilladelse, der bærer hele konstruktionen: et API bag `Disallow: /`, en
+nøgle fra kildens eget frontend-bundt. **For Balder er det ÉN samtale med
+forfatteren af `d1f8434`** — ikke de elleve, hullet ovenfor tæller. Den
+skal ikke se ud som den samme opgave: de andre kræver, at nogen husker en
+telefonsamtale fra september; denne kræver, at én person udfylder tre felter
+om sin egen commit.
+
+### Og det tekniske, som venter på en browser uden for containeren
+
+Afsnittet ovenfor beder om `api.balder.dk/robots.txt`'s linjer ordret, med
+en dato. **Det kan ikke hentes herfra:** miljøets gateway afviser CONNECT
+til både `api.balder.dk` og `www.balder.dk` med **403** (målt 2026-10-01 og
+igen 2026-10-02). Det er ikke en fejl at prøve igen at rette — det er en
+spærring, og den skal ikke omgås.
+
+**Noteret her, så den næste ikke bruger tid på det samme 403:** hentningen
+kræver en browser eller en maskine uden for cloud-containeren. Ét kald, læst
+af et menneske, linjerne skrevet ind her med datoen.
+
+---
+
+> **Rettelse 2. oktober 2026: her stod, at `f8a3418` var det eneste spor
+> ud over adapteren, og at dens besked handler om datafelter og ikke om
+> tilladelsen.** Det første var usandt. `d1f8434` ligger en dag tidligere
+> og er det indholdsmæssige spor.
+>
+> **Hvorfor sætningen kunne stå:** den blev skrevet fra en klon, hvis
+> shallow-grænse lå **efter** 4. september (`.git/shallow`, 394 commits mod
+> 496 efter `git fetch --unshallow`). `git log -S --reverse` svarede med den
+> ældste commit, den kunne se, som om den var den første. Den fejlede ikke;
+> den svarede forkert.
+>
+> Det er **form 1 i dette register** — en udtømmende-læst påstand om
+> repoets egen historik, skrevet fra en delmængde af den. Se
+> `det-reproducerbare-tal`, `ordet-maalt` og `.git/shallow`-kontrollen i
+> `CLAUDE.md`.
+>
+> To andre tal fra samme session flyttede sig og pegede den SIKRE vej, ved
+> et tilfælde og ikke ved design: grene der rører `app/Landkort.tsx` var
+> **4** og er **6**; `app/privatliv/page.tsx` var **6** og er **7**. Begge
+> blev brugt som begrundelse for at lade filerne ligge, så beslutningerne
+> står. Havde klonen talt for HØJT, havde jeg rørt en fil, fire sessioner
+> arbejdede i.
 
 ---
 
@@ -142,6 +448,440 @@ Alabu-medarbejderen nødvendigvis sagde:
 Deres robots.txt forbyder crawling udtrykkeligt på skrift, og der er
 ingen tilladelse. Kræver skriftlig aftale først.
 
+### Hvilke VEJE reglen dækker — og hvilken den ikke gør
+
+**Reglen ovenfor dækker én af to trafikveje til de samme værter.** Det skal
+stå her, for en regel, der dækker halvdelen uden at sige det, lover mere end
+den holder — og det er den samme usandhed, vi retter på boligkortene.
+
+| Vejen | Hvad | Takt | Står i registret |
+|---|---|---|---|
+| **Crawlen** | `politeFetch` i adapterne, 11 værter | `VAERTSTAKT`, pr. vært | **ja** — denne fil |
+| **Billedproxyen** | plain `fetch` i `app/api/billede/route.ts:47` | **ingen** | **nej** |
+
+`/api/billede` bruger `fetch` direkte. Der er **ingen** forekomst af
+`politeFetch`, `takt(` eller `pace(` i filen, så billedhentning er helt
+uden for takttabellen.
+
+**Og værterne er ikke adskilte. Målt: fire af de tolv i
+`TILLADTE_VAERTER` er de samme værter, crawlen pacer:**
+
+| Vært | Crawlens takt | Billedproxyens |
+|---|---|---|
+| `dacas.dk` | `VAERTSTAKT` | ingen |
+| `findbolig.nu` | `VAERTSTAKT` | ingen |
+| `birchejendomme.dk` | `VAERTSTAKT` | ingen |
+| `alabubolig.dk` | `VAERTSTAKT` | ingen |
+
+De otte øvrige billedværter (`alvis.b-cdn.net`, `app.propstep.com`,
+`boligio-media-production…`, `boligspot.b-cdn.net`, `home.mindworking.eu`,
+`hos.laros.dk`, `images.ctfassets.net`, `lokalbolig.io`) rammes kun ad
+billedvejen og har ingen linje nogen steder.
+
+Sætter nogen `dacas.dk` til 20 sekunder i `VAERTSTAKT`, vil registret
+altså sige «Dacas: 20 s», mens `/api/billede` henter fra `dacas.dk` så
+hurtigt, brugerne klikker. **Registret ville lyve om sin egen dækning.**
+
+#### Afbødningen — og den er reel, så ingen skal overreagere
+
+Svarene caches aggressivt, og signaturen binder `(url, bredde)`, så svaret
+aldrig ændrer sig:
+
+```
+route.ts:70   cache-control: public, max-age=31536000, immutable   (webp)
+route.ts:76   cache-control: public, max-age=86400                 (fallback)
+```
+
+Med en CDN foran er eksponeringen derfor **ét kald pr. distinkt billede pr.
+cacheperiode**, ikke ét pr. visning. **Det er ikke en hastesag.**
+
+#### Hvad der IKKE er målt, og hvad der skal måles
+
+Tre tal afgør, om noten er nok eller der skal en vagt til. **To af dem
+mangler**, og de kan ikke måles herfra — denne container har ingen
+produktionsbase, og prøvebasen har ingen boliger.
+
+- **Distinkte billeder på tværs af aktive boliger.** Det er loftet for kald
+  pr. cacheperiode. Kendte dele, fra kortlægningerne: Birch 1.412, home.dk
+  249, Dacas 177 — men det er pr. kilde og ikke de aktive. Kør:
+
+  ```sql
+  select substring(external_url from '^https?://([^/?#]+)') as vaert,
+         count(distinct external_url) as distinkte_billeder
+  from listing_images i
+  join listings l on l.id = i.listing_id
+  where l.status = 'active'
+  group by 1 order by 2 desc;
+  ```
+
+- **Buster en deploy CDN-cachen?** **Ikke verificeret.** Hvad der ER målt i
+  koden: URL'en er stabil på tværs af deploys, fordi signaturen kun binder
+  `(url, bredde)` og hemmeligheden ligger i `BILLED_HEMMELIGHED`
+  (`lib/billede.ts:121`) — ikke i noget deploy-afhængigt. Browserens egen
+  cache er derfor urørt af en deploy (`immutable`, et år). Om Vercels
+  kantcache tømmes ved en deploy, er et spørgsmål til Vercel og skal
+  efterprøves, ikke gættes.
+
+- **Og en ting, målingen af koden fandt undervejs:** roteres
+  `BILLED_HEMMELIGHED`, skifter **hver** signatur, og dermed hver URL.
+  Browser- og CDN-cache bliver irrelevante på én gang, og **hvert distinkt
+  billede hentes igen** — fra fire værter, crawlen pacer, ad en vej der
+  ikke pacer. En hemmelighedsrotation er altså ikke kun en
+  sikkerhedshandling; den er en genhentning af hele billedbestanden. Det
+  hører i en køreseddel for rotationen, og den findes ikke.
+
+**Udfaldet, efter tallene vi HAR:** overlappet er fire værter — nok til at
+noten her er påkrævet, ikke nok til at bygge en vagt på en cacheadfærd,
+ingen har målt. Vagten hører til, hvis tælleoverslaget er stort OG en
+deploy buster cachen. Begge dele skal måles først, og forespørgslen står
+ovenfor.
+
+#### Og det er samme form som rettelsen ovenfor
+
+Konflikten mellem registrets regel og afmeldingsmålingen var usynlig, fordi
+reglen stod i én fil og målingen i en PR-tekst. **Denne er samme fælde
+mellem to KODEVEJE** i stedet for mellem to dokumenter: begge henter fra
+`dacas.dk`, kun den ene er pacet, og ingen af de to filer nævner den anden.
+`lib/fetch.ts` ved ikke, at `/api/billede` findes, og omvendt.
+
+Tegnet at holde øje med er det samme: **to udtryk for ét spørgsmål** — her
+«hvor hurtigt henter vi fra denne vært» — hvor de to ikke kan udledes af
+hinanden.
+
+### Hvor de elleve kilder faktisk falder — målt i registret
+
+**Det er tabellen ovenfor, der afgør lofter og takter, og den gør det uden
+en vurdering pr. kilde.** Det eneste, der skal måles, er hvilken række hver
+kilde falder i — og det afgøres af, hvad DENNE fil dokumenterer for den,
+ikke af hvad vi synes om kilden.
+
+Målt 2. oktober 2026 i oversigtstabellen under «Kilderne»:
+
+| Række (stigende tilbageholdenhed) | Kilder | Hvad reglen kræver | Hvad de har i dag |
+|---|---|---|---|
+| **1** · nedskrevet tilladelse, navn og dato | **ingen** | aftalens takt | — |
+| **2** · kildens eget signal | Laros | kildens eget tal | **20 s ✓** (`Crawl-delay: 20`) |
+| **3** · kun vores egen robots.txt-læsning | findbolig.nu, Propstep, Dacas, LokalBolig, Balder, CEJ, Alabu Bolig | **strammeste takt + loft på detaljerne** | alle **1 s, intet loft ✗** |
+| **4** · kilden har sanktioneret os | Heimstaden | som 3, + loft hæves kun efter godkendt prøve | 5 s, loft 3 ✓ |
+| **5** · intet noteret overhovedet | home.dk, Heimstaden, Birch | ud af `koerAlle` + **synlig markering** | alle i cron'en ✗ |
+
+**Række 1 er tom.** Ingen af de elleve har en navngivet giver, og kun Laros
+og Alabu har en dato. En telefonisk tilladelse, hvis giver ingen kan
+nævne, er ikke «nedskrevet tilladelse med navn og dato» — den er række 3.
+Det er samme hul som afsnittet «Hullet, samlet» tæller, set fra reglens
+side.
+
+**Tre kilder kan ikke placeres af registret**, fordi de ingen række har:
+home.dk, Heimstaden og Birch falder derfor i række 5. For Heimstaden
+*findes* beslutningen — to kontrollerede prøver, `5796ac3`, detaljebudget 3
+— men den står i `adapters/index.ts` og i git, **ikke her**. Det er præcis
+det, skranken skal fange: ikke «har kilden en beslutning», men **kan
+registret placere den**.
+
+#### Hvad målingen ændrer ved mine egne anbefalinger
+
+Jeg skrev fire afkrydsningsfelter sorteret efter **eksponering** —
+Propstep ~736, LokalBolig ~232, Birch 59, Dacas 19. **Det var at genopfinde
+en beslutning, der allerede var truffet**, og med den forkerte nøgle.
+Tabellen sorterer efter **grundlag**, og den giver et andet og større svar:
+
+- **Syv kilder er i række 3**, ikke fire. findbolig.nu, Balder og CEJ kom
+  ikke med i min liste, fordi deres `extract()` ikke henter — men række 3
+  kræver **to** ting, og den anden er takten. Loftet er vakuøst for dem;
+  takten er det ikke.
+- **Dacas skal have den strammeste takt**, selv om jeg anbefalede «intet
+  loft». Begge kan være rigtige: loftet er vakuøst ved 19 boliger i ét
+  kald, takten er ikke. Mit nej gjaldt loftet og blev læst som et nej til
+  begge.
+- **Birch flytter fra række 3 til række 5**, fordi den slet ikke har en
+  række. Et loft er altså ikke nok for den; den skal have en post.
+- **Propstep står hvor jeg sagde**, men af reglens grund og ikke af min:
+  den er i række 3 som de seks andre, og dens størrelse afgør kun, hvor
+  hurtigt skaden sker (12,3 min mod Heimstadens målte ~17 ved samme takt).
+
+**Og tallene er stadig Johns.** Reglen siger «den strammeste takt»; den
+siger ikke hvor mange millisekunder det er. Det er stadig en beslutning —
+men nu er det ÉN beslutning om et tal, truffet én gang for række 3, i
+stedet for syv vurderinger pr. kilde.
+
+#### Skranken, som den så skal formuleres
+
+Ikke «hver kilde skal have en beslutning», men:
+
+> **Hver kørende kilde skal kunne placeres i tabellen, og placeringen skal
+> følge af registret.**
+
+Det er en stærkere skranke og en nemmere: den kræver ikke en vurdering,
+kun at filen indeholder det, placeringen afhænger af. Og den er målbar —
+den måling står ovenfor, og den kan skrives som et tjek. **Den er ikke
+bygget endnu**, fordi række 5's rettelse skal ind først: en skranke, der i
+dag ville sende tre kørende kilder ud af cron'en, ville producere
+`active`-løgnen i tre kilders fulde omfang.
+
+
+#### De syv tilbage — én åben beslutning pr. kilde
+
+**Først en rettelse af min egen optælling.** «8 af 11 uden loft» er sandt
+og siger mere, end tallet dækker. Et loft begrænser `skalHentes`, og
+`skalHentes` driver `extract()`. **Kalder `extract()` ikke ud på nettet,
+koster et manglende loft ingenting.** Målt i hver adapters `extract`-krop:
+
+| Kilde | `extract()` henter | Hvad et manglende loft koster |
+|---|---|---|
+| **Propstep** | `hentNextData` | ét kald pr. ny bolig, uden tag |
+| **LokalBolig** | `politeFetch` | ét kald pr. ny bolig, uden tag |
+| **Birch** | `politeFetch` | ét kald pr. ny bolig, uden tag |
+| **Dacas** | `politeFetch` | ét kald pr. ny bolig, uden tag |
+| findbolig.nu | kun cachen | **ingenting** — hele udbuddet kom i `discover()` |
+| Balder | kun cachen | **ingenting** — ét API-kald giver hele sættet |
+| CEJ | kun cachen | **ingenting** — listen bærer alt |
+
+Så beslutningen er åben for **fire** kilder, ikke syv. For de tre nederste
+ville et loft være en indstilling uden virkning — og det er præcis den
+slags, der lige er blevet gjort til en oversætterfejl. **De skal ikke have
+et loft; de skal have en note om hvorfor ikke.** Den står her.
+
+**Skranken er, at hver kilde har en NEDSKREVET beslutning — ikke at hver
+kilde har et loft.** Derfor står Dacas' linje her med et nej og en
+begrundelse, ikke som et felt, ingen nåede.
+
+Hver linje har en **anbefaling**, så beslutningen er et ja eller et nej og
+ikke fire vurderinger forfra:
+
+- [ ] **Propstep** — `propstep.com`, ~736 boliger. **ANBEFALING: loft og
+      egen takt.** Det stærkeste belæg står allerede i `CLAUDE.md`: uden
+      den inkrementelle import «ville en timekørsel af Propstep koste
+      **17.000 kald i døgnet** mod en lille udlejerplatform». Kilden er
+      altså navngivet som grunden til, at mekanismen findes — og den er
+      den eneste af de fire, der ikke har et loft i den. Dertil: **ingen
+      egen takt** (standard 1 s), så 736 nye falder på **12,3 minutter** —
+      mod Heimstadens målte ~17 **ved samme takt**. Det er ikke en
+      analogi: det er det samme tal på den samme skala, og marginen er
+      4,7 minutter. Rolig drift er lav, fordi
+      gitteret filtreres på postnummer før nogen detaljeside hentes; det
+      urolige tilfælde er ikke.
+- [ ] **LokalBolig** — `www.lokalbolig.dk`, ~232 lejemål.
+      **ANBEFALING: loft.** Kilden er **ustabil** — 503 fra Varnish gennem
+      hele undersøgelsen og den første import — og det er et argument FOR,
+      ikke imod: et uloftet udtræk mod en vakkelvorn backend er både
+      hårdere ved dem og dårligere data for os, fordi halvfærdige kørsler
+      er dét, afmeldingssikringen skal gætte sig ud af. Deres
+      `Content-Signal` beder i forvejen om mindre end tilladelsen giver, og
+      vi retter os efter det på billedbredder; takten hører i samme
+      overvejelse.
+- [ ] **Birch Ejendomme** — `birchejendomme.dk`, 59 enheder = 5 feed-sider.
+      **ANBEFALING: loft.** Ikke fordi tallet er stort, men fordi det er
+      lille: det er billigst at være forsvarlig over for den kilde, hvor vi
+      har **ingen nedskrevet tilladelse overhovedet** (se de tre kørende
+      kilder uden en række). Et loft på 59 koster os intet i rolig drift og
+      er det, der står i vejen den dag feedet vokser eller nøglerne skifter.
+- [ ] **Dacas** — `dacas.dk`, 19 boliger. **ANBEFALING: INTET loft.**
+      `lejlighed-sitemap.xml` er hele udbuddet og hentes i ét kald, så
+      **det urolige tilfælde ER 19 kald.** Et loft på 19 begrænser
+      ingenting, og et loft på mindre ville udskyde boliger uden at spare
+      nogen for noget. Linjen står her, fordi beslutningen skal være
+      skrevet ned — ikke fordi den mangler.
+
+**Og de tre, der ikke skal have et loft:**
+
+- **findbolig.nu**, **Balder**, **CEJ** — `extract()` læser fra den cache,
+  `discover()` fyldte. Hele udbuddet kommer i ét eller få kald, og et loft
+  på detaljehentninger ville ikke have noget at begrænse. **Skriv ikke et
+  loft på dem.** Skal deres belastning ned, er det `discover()`-kadencen
+  eller takten, der skal røres — ikke budgettet.
+
+**Hvorfor dette står pr. kilde og ikke som én note:** en samlet note
+bliver afviklet som én opgave, og den opgave bliver udskudt. Fire
+afkrydsningsfelter bliver fire beslutninger. Formålet er, at det næste
+loft bliver sat **fordi nogen besluttede det**, og ikke fordi en kilde
+svarede 503.
+
+## En kilde uden nedskrevet grundlag får den strammeste takt
+
+**Fraværet af en note er ikke en aftale.** Står der intet om en kilde i
+denne fil, betyder det, at ingen har spurgt — ikke at nogen har sagt ja.
+Og den tilstand skal koste os noget, ikke kilden: **ukendt grundlag giver
+den strammeste takt, vi har, ikke den løseste.**
+
+Reglen er ikke ny. Den blev truffet 7. september 2026 i `5d1d3f2`, om
+Heimstaden, og begrundelsen var denne:
+
+> Railway kører `npm run import` uden argumenter hver time […] Heimstaden
+> er registreret i `KILDER`, så et push ville få Railway til at kontakte
+> kilden inden for en time — **uden at nogen havde besluttet det.**
+
+**Den begrundelse blev aldrig generaliseret.** Den blev anvendt på den
+ene kilde, der havde udløst den — og Heimstaden havde udløst den ved at
+spærre vores IP. Men sætningen handler ikke om spærringen. Den handler
+om, at et push kan starte trafik mod en fremmed vært, som ingen har
+besluttet. **Det gælder hver kilde i registret.**
+
+Derfor, som regel og ikke som vurdering pr. kilde:
+
+| Grundlaget | Hvad kilden skal have |
+|---|---|
+| Nedskrevet tilladelse med navn og dato | den takt, aftalen siger — og ikke hurtigere |
+| Kildens eget signal (`Crawl-delay`, `Content-Signal`) | kildens eget tal, også når tilladelsen er bredere |
+| **Kun vores egen læsning af robots.txt** | **den strammeste takt og et loft på detaljerne** |
+| Kilden har sanktioneret os én gang | som ovenfor, **plus** at loftet kun hæves efter en godkendt kontrolleret prøve |
+| Intet noteret overhovedet | **ud af `koerAlle` (`kunUdvikling: true`) — OG en synlig markering i samme beslutning.** Uden markeringen er det ikke forsigtighed, det er en anden skade: se rettelsen nedenfor |
+
+Rækkefølgen er stigende i tilbageholdenhed, og det er med vilje: **jo
+mindre vi ved om, hvad kilden vil, jo mindre skal vi tage.** Det omvendte
+— at hente løsest dér, hvor vi ved mindst — er den tilstand, der opstår
+af sig selv, hvis ingen skriver reglen ned. Se målingen nedenfor: den var
+præcis den tilstand, vi var i.
+
+**Rækkerne udelukker ikke hinanden, og den strammeste gældende vinder.**
+Laros har både en dato og et `Crawl-delay`, altså række 1 og 2; den kører
+på 20 sekunder, fordi række 2 er den strammeste af de to. Det stod ikke
+skrevet, og det skal det: uden den sætning kan to læsere placere samme
+kilde i to rækker og begge have ret.
+
+### Rettelse 2. oktober 2026: række 5 producerede den skade, den skulle
+### undgå
+
+**Række 5 sagde «ud af `koerAlle`» og intet mere. Målt er det ikke en
+pause — det er en løgn i kildens fulde omfang.**
+
+Afmeldingen kører inde i `koerKilde` og er bundet til kilden:
+
+```ts
+// lib/ingest.ts:714
+.set({ status: 'delisted', delistedAt: sql`now()` })
+.where(and(
+  eq(listings.sourceId, kilde.id),      // ← pr. kilde
+  eq(listings.status, 'active'),
+  lt(listings.lastSeenAt, runStart),
+))
+```
+
+**En kilde, der ikke kører, afmelder derfor ingenting.** Dens boliger står
+`active` med data, der holder op med at blive opdateret, uden et mærke —
+for evigt. For home.dk er det 229 boliger. Det er vores eget princip vendt
+indad: en manglende oplysning skal være **synlig**, ikke fraværende.
+
+Derfor er rækken rettet: **`kunUdvikling: true` kræver en synlig markering
+i samme beslutning.** Ikke i næste commit — i samme, af samme grund som
+reglen om data og det, der forklarer dem.
+
+**Og hvorfor reglen kunne være i konflikt med en måling, vi selv havde
+foretaget:** reglen blev skrevet 7. september, i `5d1d3f2`, før nogen havde
+målt hvad `kunUdvikling` gør ved afmeldingen. Målingen kom 2. oktober — og
+den landede i en **PR-tekst**, mens reglen stod **her**. Ingen læser de to
+sammen, så konflikten var usynlig for begge.
+
+Det er dagens egen fælde på politikniveau: **to udtryk for ét spørgsmål,
+drevet fra hinanden — hvor det ene er en regel og det andet en måling.**
+`svarer-to-udtryk-paa-det-samme` i `CLAUDE.md` handler om kode; den gælder
+også her, og her er den sværere at se, fordi de to udtryk ikke engang er
+samme slags tekst. **Det er grunden til at lede efter den næste:** en måling,
+der modsiger en regel, siger det ikke selv. Når en måling rører noget, der
+står som en regel, hører den i regelteksten og ikke kun i den PR, der
+fandt den.
+
+**Og `kunUdvikling` er ikke en straf.** Kilden kan stadig køres ved navn
+(`npm run import -- <slug>`), så en kontrolleret prøve er mulig hele
+vejen. Det, flaget fjerner, er den automatiske kontakt, ingen besluttede.
+
+**Men den har en pris, og den skal nævnes:** afmeldningen kører inde i
+`koerKilde` og er bundet til kilden
+(`eq(listings.sourceId, kilde.id)`, `lib/ingest.ts:714`). En kilde, der
+ikke kører, afmelder derfor ingenting: dens boliger står `active` med
+data, der holder op med at blive opdateret, uden et mærke. For en kilde
+med få boliger er det til at bære. For en stor er det vores eget princip
+vendt imod os — en manglende oplysning skal være synlig, ikke fraværende.
+Vælges `kunUdvikling` for en stor kilde, hører en synlig markering med i
+samme beslutning.
+
+
+## Én identitet pr. forpligtelse
+
+**Deler to forhold samme identifikator, forplanter en sanktion i det ene
+sig til det andet.** Reglen er almen og gælder alt, en modpart kan
+blokere, spærre, afvise eller miskreditere: User-Agents, API-nøgler,
+afsenderdomæner, IP-omdømme og kontoidentiteter.
+
+Eksemplet, der gjorde den konkret: `BofindaBot/1.0` er **boligcrawlens**
+identitet. Skulle nogen en dag proxye kortfliser gennem vores egen server,
+ville det være nærliggende at genbruge den — den er jo vores, og den
+identificerer sig pænt. Men spærrede OpenStreetMap så `BofindaBot` for at
+have hentet fliser for hurtigt, ville spærringen ramme **boligcrawlen**,
+som aldrig havde hentet en flise. To forpligtelser over for to forskellige
+modparter, ét navn, og ingen måde at skille dem ad bagefter.
+
+Det samme gælder den anden vej: en kilde, der blokerer os for crawl, ville
+samtidig lukke kortet.
+
+Konkret, for hver slags:
+
+| Identifikator | Én pr. | Hvorfor |
+|---|---|---|
+| User-Agent | forpligtelse, ikke pr. app | En værts spærring rammer navnet, ikke formålet |
+| API-nøgle | modpart og miljø | En roteret eller spærret nøgle må ikke tage andet med sig |
+| Afsenderdomæne | postslags | Et alarmdomæne på en spamliste må ikke tage kontomails med |
+| IP / udgående vært | takt-regime | Heimstadens CDN spærrede **IP'en**, ikke UA'en (målt 2026-09-06) |
+| Referer | **kan ikke deles — den er den eneste, OSM har** | Se afsnittet nedenfor: fjernes den, er vi navnløse, ikke diskrete |
+
+### Modparten vælger, hvilken identitet den sanktionerer
+
+Den sidste række er ikke en formodning, og den er heller ikke en
+indvending mod reglen — den er dens anden halvdel. Heimstaden mødte
+alle kald fra vores IP med **503 efter ~17 minutter, uanset
+User-Agent** (målt 2026-09-06; se `VAERTSTAKT` i `lib/fetch.ts`).
+
+**Adskilte identiteter hjælper kun, hvis modparten sanktionerer den
+identitet, du adskilte — og det vælger den selv.** Havde vi givet
+flisehentningen sin egen User-Agent og troet os dækket, ville
+Heimstaden-tilfældet have ramt alligevel: de spærrede værten, ikke
+navnet. En adskillelse er altså ikke en garanti, men en reduktion af,
+hvor mange forpligtelser én sanktion KAN ramme. Derfor skal
+adskillelsen følge **den dyreste akse først**: er modparten kendt for
+at spærre på IP, er det den udgående vært, der skal deles — en ny UA
+ændrer ingenting.
+
+Reglen bliver dermed: adskil identiteterne, og **antag ikke, at
+adskillelsen holder**. Mål, hvad modparten faktisk sanktionerer på,
+første gang den sanktionerer.
+
+### Og der findes forpligtelser uden en alternativ identitet
+
+**OSM er det rene tilfælde, og det er derfor det hører her.** De ser
+aldrig vores IP: browseren henter fliserne direkte, så det er den
+besøgendes adresse, der rammer dem, og den siger intet om, hvem
+tjenesten er. De ser heller ikke en User-Agent, der er vores — den er
+browserens.
+
+**`Referer: https://bofinda.dk/` ER vores identitet dér. Den er den
+eneste, der findes.** Derfor er kravet om en gyldig Referer ikke en
+formalitet: det er den eneste måde, de kan knytte trafik til en
+tjeneste og tale med den, der belaster. Og derfor ville en restriktiv
+Referrer-Policy ikke bare være et brud på deres vilkår — den ville
+gøre os **uidentificerbare**, og svaret på uidentificerbar tung trafik
+er en blokering. Vi ville have sluttet ringen selv: fjernet det eneste
+navn, der kunne have reddet os, og derefter fået det, navnløs trafik
+får.
+
+| | Identitet over for OSM |
+|---|---|
+| IP | brugerens, ikke vores |
+| User-Agent | browserens, ikke vores |
+| Referer | **vores — og den eneste** |
+
+Det er den slags forpligtelse, man skal kunne genkende: **ét bånd, og
+ingen reserve.** Hvor de andre rækker handler om at dele identiteter
+op, handler denne om ikke at fjerne den sidste, der er tilbage.
+
+**Undtagelsen, der ikke er en undtagelse:** `lib/fetch.ts` lader
+`User-Agent` stå SIDST i header-objektet, så et enkelt kald ikke kan
+overskrive den. Det ser ud som stædighed og er det modsatte — det er dét,
+der holder én identitet knyttet til én forpligtelse. Se EDC-læren i
+`docs/supply-kortlaegning-2026-09-06.md` (revision 2026-09-07, afsnittet
+«Metodisk caveat»): en probe fik adgang med en **forkortet** UA uden
+bot-URL og kontakt, efter at den selvidentificerende var blokeret. Det er
+udtrykkeligt noteret som noget, der **ikke** må bruges som
+implementationsteknik.
+
 ## Billedaktiver i repoet
 
 Ikke en kilde til boligdata, men materiale, vi selv viser. Samme krav:
@@ -158,14 +898,15 @@ hvem har lavet det, hvad giver licensen lov til, og hvor står det.
 | Fil | 2048 × 1365 px · 636.485 bytes · JPEG, sRGB |
 | SHA256 | `a2b2795193c96f2508593dc1dca77f62ea986a10dd2600cef331e64e245d5b5f` |
 
-Pexels-licensen tillader kommerciel brug uden kreditering. **Vi krediterer
-alligevel** — «Stemningsfoto: Taryn Elliott / Pexels» står på hero'en
-selv, af samme grund som kortflisernes kreditering står på kortet: den,
-der har lavet motivet, skal kunne ses af den, der ser det.
+Pexels-licensen tillader kommerciel brug uden kreditering. Forsidens
+foto vises uden tekstmærkat efter ejerens ønske den 3. oktober 2026.
+Fotograf, kilde og licens bevares her og ved billedstien i koden.
+Motivet er dekorativt og forestiller ikke en konkret bolig til leje.
 
-Ordet **«stemningsfoto»** er ikke pynt. Billedet er ikke en bolig, vi har
-til leje, og en forside, der viser en stue uden at sige hvad den er,
-lader læseren tro, at det er en annonce. Teksten siger, hvad billedet er.
+**Et andet hero-foto skal kunne vises uden kreditering.** `NEXT_PUBLIC_HERO_FOTO`
+kan overstyre motivet, men siden har ikke længere et krediteringsmærke og
+dermed ingen vej til at give en. Et billede, hvis licens kræver kreditering,
+må derfor ikke sættes der — kravet kan kun overholdes ved valget af foto.
 
 Bytes er **uændrede fra kilden** — ingen omkodning, ingen skalering,
 ingen retouchering. Beskæringen sker i CSS (`object-fit: cover` +
@@ -175,3 +916,279 @@ Licensen forbyder at identificerbare personer fremstilles i et
 nedsættende lys, og at billedet sælges videre som et selvstændigt
 produkt. Ingen af delene er på tale: der er ingen personer i motivet, og
 det bruges som baggrund på vores egen forside.
+
+---
+
+## OpenStreetMap — kortfliser
+
+Ikke en boligkilde og ikke en mundtlig tilladelse. Den står her alligevel,
+fordi det er samme spørgsmål: **hvem har givet os lov til hvad, og hvad gør
+vi den dag, de trækker det tilbage.**
+
+| | |
+|---|---|
+| **Hvad vi bruger** | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` |
+| **Grundlag** | [Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/) — en offentlig politik, ikke en aftale med os |
+| **Hvem henter** | **Brugerens browser, direkte.** Fliserne går ikke gennem vores server, så OSM ser den besøgendes IP-adresse |
+| **Hvad de modtager** | IP-adressen, flisens `{z}/{x}/{y}` og `Referer: https://bofinda.dk/` — origin, målt; hverken sti eller query |
+| **Hvor vi bruger det** | `app/Landkort.tsx`, gengivet fra `app/bolig/[id]/page.tsx` og `app/page.tsx` (kun når der er filtreret). Begge er betingede: boligsiden kræver koordinater (`page.tsx:671`), søgesiden kræver mindst ét mærke (`kortMuligt`) |
+
+### Hvad flise-koordinaterne røber
+
+`{z}/{x}/{y}` ER udsnittet. Målt for en bolig på Vesterbrogade 1:
+
+| Zoom | Hvornår | Flisens bredde |
+|---|---|---|
+| 6 | forsiden uden filtrering | 353 km — siger ingenting |
+| 15 | én bolig, `fitBounds`' `maxZoom` | **690 m**, med markøren midt i |
+| 18 | brugeren har zoomet helt ind | **86 m** |
+
+OSM får altså IP'en sammen med omtrent hvor boligen ligger. Over et besøg
+er rækken af flise-requests hendes boligsøgning.
+
+**`/privatliv` nævner dem ikke i dag — det lukkes af [#29].** På `main`
+navngiver siden fire databehandlere (Supabase, Vercel, Railway, Resend)
+og ingen af dem er OSM. Det er ikke en usand sætning, for OSM er ikke
+vores databehandler: browseren kontakter dem direkte, og vi er aldrig i
+vejen. Men hun kan ikke se det nogen steder, og oplysningen er, hvor hun
+kigger på bolig.
+
+[#29] (`claude/privatliv-tekst-ned-til-virkeligheden`, commit `b8dcfcb`)
+tilføjer præcis det: en «direkte»-blok adskilt fra databehandlerne, med
+**OpenStreetMap-fonden (Storbritannien)**, flise-URL'ens koordinater
+`{z}/{x}/{y}` og hjemlen — artikel 6, stk. 1, litra f.
+**Dette er altså ikke et åbent punkt, men en afhængighed.** Lander [#29],
+er det dækket; lander den ikke, skal sætningen skrives ind i den gren,
+der overtager filen. Skriv den ikke som en syvende samtidig gren.
+
+[#29]: https://github.com/ukutuku/Bofinda/pull/29
+
+### De fem krav, og hvor vi står på hver
+
+Politikken er ikke en liste med pæne hensigter — den er betingelserne for,
+at vi må hente af en donationsdrevet tjeneste. Hvert krav er målt, og
+målingen står ved siden af, så den kan efterprøves i stedet for at blive
+troet.
+
+**Forbehold om kilden.** Denne session kunne ikke hente politikken selv —
+udgående trafik til `operations.osmfoundation.org` er spærret i miljøet.
+Citaterne nedenfor er ordrette, som de blev givet af ejeren, og
+formuleringen af krav 4 (de syv dage) kommer samme vej. **Læs politikken
+igen**, næste gang nogen rører kortet; den kan være ændret, og vi måler
+mod vores notat, ikke mod kilden.
+
+| # | Kravet | Vores status | Hvor det er målt |
+|---|---|---|---|
+| 1 | **Gyldig Referer. Ingen restriktiv Referrer-Policy.** «Web traffic requires a valid Referer header»; brugere «must not» sætte «a restrictive Referrer-Policy» | **Opfyldt.** Vi sætter ingen på fliserne. Browserens standard sender `Referer: https://bofinda.dk/` — origin, hverken sti eller query | Målt i Chromium, krydsoprindelse, `/bolig/<id>?filtre=2200`. `next.config.ts` har ingen `headers()`; `Landkort.tsx` sætter ingen `referrerPolicy` |
+| 2 | **Ingen forhentning, ingen bulk, ingen offline-kopi, ingen bot** | **Opfyldt, og bygget fast.** Leaflets flisekø er viewporten uden margen. Ingen service worker. De hovedløse kørsler bruger lokale fliser | Se de tre afsnit nedenfor |
+| 3 | **Synlig kreditering** | **Opfyldt.** Leaflets egen `attributionControl`, aldrig skjult, med «Meld en fejl i kortet» | `Landkort.tsx:106-107`. `beliggenhedkontrol.mjs` fejler, hvis krediteringen er tom |
+| 4 | **Fliserne skal caches lokalt (mindst syv dage), og vi må ikke sende `no-cache`** | **Opfyldt ved ikke at blande os.** Fliserne hentes af browseren direkte fra OSM, så deres egen `Cache-Control` gælder. Vi rører den ingen steder | Eneste `cache-control`, vi sætter, er på `/api/billede` — vores egen billedproxy, som aldrig ser en flise |
+| 5 | **Identificerbar User-Agent — ingen generisk eller proxy-UA** | **Opfyldt, fordi vi ikke proxyer.** Browserens egen UA når OSM. `BofindaBot` rører aldrig fliser | `lib/fetch.ts:11` er crawlerens UA og bruges ikke af kortet. `tile.openstreetmap.org` står IKKE i `TILLADTE_VAERTER` i `lib/billede.ts`, så `/api/billede` kan ikke bruges til fliser |
+
+#### Krav 2a — hentes der fliser uden for udsnittet?
+
+**Nej, og det er ikke en indstilling, vi har sat — det er Leaflets
+konstruktion.** Målt i `node_modules/leaflet/dist/leaflet-src.js` (1.9.4):
+
+- Køen af fliser, der hentes, løber fra `tileRange.min` til
+  `tileRange.max`, hvor `tileRange = _pxBoundsToTileRange(_getTiledPixelBounds(center))`
+  og `_getTiledPixelBounds` er `pixelCenter ± getSize()/2` — **viewporten,
+  uden margen** (linje 11736-11800).
+- `keepBuffer: 2` ser ud som en forhentning og er det ikke. Den bruges kun
+  til `noPruneRange`, der afgør, hvilke ALLEREDE hentede fliser der må
+  ryddes væk. Den indgår aldrig i køen (linje 11759).
+
+Mærkerne kan derfor ikke trække fliser ind uden for udsnittet: `fitBounds`
+sætter udsnittet, så det rummer mærkerne — efter det ER mærkerne udsnittet.
+Og uden filtrering vises kortet slet ikke (`kortMuligt` i `app/page.tsx:363`).
+
+**OPFØLGER: målingen hører ved indstillingen, ikke kun her.** Den næste,
+der vil «optimere» kortet, læser navnet `keepBuffer` — ikke
+`leaflet-src.js:11759`. Og vi bruger i dag Leaflets standard uden at
+skrive den, så der er ingenting at læse ved siden af. Linjen hører i
+`app/Landkort.tsx` ved `L.tileLayer(...)` (**linje 107** på `main` i dag):
+
+```ts
+// keepBuffer er IKKE en forhentning og maa ikke haeves «for at
+// optimere». Flisekoeen i _update() er viewporten uden margen
+// (leaflet-src.js 1.9.4:11755-11756); keepBuffer indgaar kun i
+// noPruneRange og afgoer, hvilke ALLEREDE hentede fliser der maa
+// ryddes (11759). Haeves den, beholdes flere fliser — men OSM's
+// politik handler om, hvad vi HENTER, og det tal aendrer sig ikke.
+// Saet den kun med en maaling ved siden af.
+```
+
+Den ligger **ikke** i denne ændring: fire grene rører `Landkort.tsx`, og
+deres første hunk begynder på linje 22. Den hører i den gren, der
+alligevel rører filen — sammen med citatet til headerens linje 14.
+
+#### Krav 2b — henter noget af vores værktøj fliser som bot?
+
+**Nej, og spærringen er et byg, ikke en aftale.** Repoet har 17 scripts,
+der kører hovedløs Chromium, og flere af dem åbner sider med kort
+(`/bolig/<id>`, `/?sted=…&kort=1`) og venter på `networkidle`. Uden en
+spærring ville hver kørsel være præcis den botkørsel, politikken forbyder.
+
+`scripts/cloud/byg.sh:23-24` bygger derfor testmiljøet med
+
+    NEXT_PUBLIC_FLISE_URL="http://127.0.0.1:$BOFINDA_AKTIVPORT/flise/{z}/{x}/{y}.png"
+    NEXT_PUBLIC_FLISE_KREDIT="Testfliser — lokalt genereret, ikke OpenStreetMap"
+
+og — det afgørende — **fejler bygget**, hvis `tile.openstreetmap.org`
+alligevel står i `.next/static` (`byg.sh:28-31`).
+
+**Spærringen ER set fyre.** En spærring, ingen har set fyre, er en
+antagelse — så den har fået sin modprøve. To arme, samme byg, forskel
+kun i variablen:
+
+| Arm | `NEXT_PUBLIC_FLISE_URL` | Byg | Vagten |
+|---|---|---|---|
+| muteret | **fjernet** | lykkes | **FYRER** — 1 fil i `.next/static` | 
+| kontrol | som `byg.sh` sætter den | lykkes | tav |
+
+Filen er `.next/static/chunks/444-<hash>.js` — klientbundtet med
+`Landkort.tsx`. Bemærk, at **bygget selv lykkes i begge arme**: uden
+vagten ville en droppet variabel ikke ytre sig nogen steder, og
+kontrollerne ville stille begynde at hente rigtige fliser. Det er
+præcis den slags fejl, der ikke har nogen rød linje at pege på.
+
+Samme bundt bar også `fixthemap` — altså faldt både URL og kreditering
+tilbage til OSM's, som `??` i `Landkort.tsx:41-45` foreskriver. De to
+falder sammen, og det er meningen. Fliserne genereres i
+hukommelsen af `scripts/cloud/aktiver.mjs`; der ligger ingen flisefiler i
+repoet. To kontroller blokerer desuden al ikke-loopback-trafik ved roden
+(`browserkontrol.mjs:71-75`, `browserkontrol-pagination.mjs:127`).
+
+Den rækkefølge er værd at forstå: `NEXT_PUBLIC_*` bages ind ved **bygget**,
+ikke ved start. At sætte variablen på processen, der starter appen, er for
+sent — `Landkort.tsx` er en klientkomponent, og værdien er allerede låst.
+Derfor findes `byg.sh` overhovedet.
+
+#### Krav 2c — offline-kopi, prefetch, arkiv?
+
+Målt: ingen service worker, ingen `caches.open`, intet `next-pwa`, intet
+workbox, ingen flisefiler i `public/` (kun `hero-stue.jpg`), og
+`next.config.ts` har ingen `headers()`. Der er ingen kode, der gemmer en
+flise nogen steder.
+
+#### Krav 5 — betingelsen for den dag, nogen proxyer fliserne
+
+I dag henter browseren direkte, og OSM ser browserens egen User-Agent.
+Lægger nogen en dag fliserne bag vores egen server — det er den eneste
+måde at bruge en nøglebaseret udbyder uden at lægge nøglen i browseren —
+så **skifter kravet fra at være opfyldt af sig selv til at være vores
+ansvar.** Betingelsen, skrevet ned nu, mens der ikke er travlt:
+
+- UA'en skal navngive Bofinda og bære en kontaktvej. En generisk
+  `node-fetch`, `axios` eller `Mozilla/5.0` er netop det, politikken
+  afviser, fordi den gør det umuligt at kontakte den, der belaster.
+- Den må **ikke** være `BofindaBot` fra `lib/fetch.ts` — se reglen om én
+  identitet pr. forpligtelse nedenfor.
+- Proxyen skal sende en Referer videre (krav 1 gælder stadig), respektere
+  flisernes `Cache-Control` i stedet for at hente på ny (krav 4), og
+  aldrig hente en flise, ingen bruger har bedt om (krav 2).
+- Og `tile.openstreetmap.org` skal da tilføjes `TILLADTE_VAERTER` i
+  `lib/billede.ts` **i samme ændring** — ellers returnerer `billedUrl()`
+  null, og kortet forsvinder uden en fejl nogen steder. Samme fælde som
+  Balder og home.dk.
+
+### Beredskabet: det er en miljøvariabel, ikke en ombygning
+
+Politikkens afsnit 7, ordret:
+
+> «Commercial services … should be especially aware that access may be
+> withdrawn at any point.»
+> — <https://operations.osmfoundation.org/policies/tiles/>
+
+Bofinda ER en kommerciel tjeneste. «Uden varsel» betyder, at valget skal
+være truffet FØR kortene forsvinder, ikke bagefter — derfor står
+alternativerne nedenfor og ikke i hovedet på den, der er på vagt den dag.
+
+Derfor er flise-URL'en ikke hardkodet. Forsvinder kortene:
+
+```bash
+NEXT_PUBLIC_FLISE_URL="https://<ny-udbyder>/{z}/{x}/{y}.png"
+NEXT_PUBLIC_FLISE_KREDIT="<den nye udbyders krævede kreditering>"
+```
+
+Begge er `NEXT_PUBLIC_*` og bages ind ved **bygget**, ikke ved start — et
+skift kræver derfor en ny deploy, men ingen kodeændring og ingen ny PR.
+
+**Tre ting skal følge med skiftet**, ellers bytter vi ét problem for et
+andet:
+
+1. **Krediteringen** skal være den nye udbyders egen ordlyd. Den er
+   synlig på kortet og må aldrig skjules — det er et krav hos OSM og hos
+   stort set enhver anden flisetjeneste.
+   Sættes variablen, **erstatter den hele strengen**, også OSM-linket
+   «Meld en fejl i kortet». Det er med vilje, og det virker, fordi `??`
+   binder løsere end `+` i `Landkort.tsx:43-45`: reservestrengen er
+   sammenkædningen, ikke kun første led. Efterprøvet — med variablen sat
+   er der nul forekomster af `fixthemap`. Havde det været omvendt, ville
+   et fremmed kort bære OSM's fejlmeldingslink.
+2. **`/privatliv`** skal navngive den nye udbyder som den tredjepart,
+   browseren kontakter direkte — og den dag er sætningen der nok ikke
+   endnu: siden nævner i dag ingen flisetjeneste (se det åbne punkt
+   ovenfor). Skiftes udbyder, før den sætning er skrevet, skal den
+   skrives med det samme og med det NYE navn. Står den allerede, er
+   det et navn, der bliver usandt samme sekund.
+3. **Den nye udbyders politik** skal læses efter for de krav, vi allerede
+   opfylder — gå tabellen «De fem krav» igennem punkt for punkt mod
+   hendes politik. Tallet står ét sted, i tabellen, så det ikke kan
+   drive fra den: her stod engang «de samme fire krav», mens tabellen
+   havde fem.
+
+Vælges en udbyder med API-nøgle, hører nøglen i miljøet og **aldrig** i
+`Landkort.tsx` — samme regel som `BALDER_API_KEY`. Bemærk dog, at en
+`NEXT_PUBLIC_`-variabel når browseren og derfor ikke er en hemmelighed;
+en nøglebaseret udbyder kræver enten en domænebegrænset nøgle eller en
+proxy gennem vores egen server.
+
+#### Hvad et skift koster — navngivne alternativer
+
+**Om prisen.** Beløbene herunder er IKKE efterprøvet i denne session:
+udgående trafik var spærret, og en pris, der er gættet, er værre end
+ingen pris. Hvert punkt navngiver derfor den side, der skal slås op, og
+beskriver i stedet den del af omkostningen, der **ikke** svinger —
+nøglen, krediteringen og hvem der ser brugerens IP. Det er som regel dét,
+der afgør valget.
+
+**1 · MapTiler** — `api.maptiler.com/maps/<stil>/{z}/{x}/{y}.png?key=…`
+OSM-baseret, rasterfliser i samme form som nu, så `NEXT_PUBLIC_FLISE_URL`
+kan pege direkte på den.
+· *Penge:* gratis niveau med et månedligt loft, derover abonnement.
+  Slå op på `maptiler.com/cloud/pricing`.
+· *Nøgle:* ja, i URL'en — og `NEXT_PUBLIC_*` når browseren, så den ER
+  offentlig. Brugbar kun med en oprindelsesbegrænset nøgle.
+· *Kreditering:* deres egen ordlyd, oven i OSM-bidragydernes.
+· *IP:* stadig en tredjepart, der ser den besøgendes IP. `/privatliv`
+  skal have nyt navn, ikke færre navne.
+
+**2 · Thunderforest** — `tile.thunderforest.com/<stil>/{z}/{x}/{y}.png?apikey=…`
+Også OSM-baseret raster, også et rent URL-skift.
+· *Penge:* gratis niveau med månedligt flise-loft, derover abonnement i
+  GBP. Slå op på `thunderforest.com/pricing`.
+· *Nøgle:* ja, i URL'en. Samme offentlighedsproblem som ovenfor.
+· *Kreditering:* deres egen, oven i OSM's.
+· *IP:* tredjepart, som nu.
+
+**3 · Vores egne fliser** — PMTiles af et Danmarks-udtræk, bygget med
+planetiler/OpenMapTiles og lagt på vores eget lager.
+· *Penge:* ingen licens. Lager og båndbredde, plus et byg der skal
+  gentages, når kortet skal være friskt. Et Danmarks-udtræk er lille nok
+  til at ligge i en almindelig bucket; en planet er det ikke.
+· *Nøgle:* ingen.
+· *Kreditering:* OSM-bidragydernes, stadig — dataene er deres.
+· *IP:* **ingen tredjepart ser brugerens IP.** Det er den eneste af de
+  tre, der fjerner den linje fra `/privatliv` i stedet for at skrive et
+  nyt navn i den. Omvendt flytter den driften til os: forsvinder vores
+  bucket, forsvinder kortet, og der er ingen at ringe til.
+
+Stadia Maps hører med på listen over dem, der skal slås op
+(`stadiamaps.com/pricing`); de tilbyder domænebegrænset adgang uden nøgle
+i URL'en, hvilket er den ene ting, 1 og 2 ikke kan.
+
+**Det hurtige valg den dag kortene er væk:** 1 eller 2, fordi de er ét
+miljøvariabel-skift plus en deploy. **Det rigtige valg på sigt** er 3,
+hvis kortet skal blive ved med at være vores — men den skal bygges, før
+den skal bruges, og det er grunden til at skrive det ned nu.

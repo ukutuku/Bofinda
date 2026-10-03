@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: manuel
 //  Kontoforløbets server actions og kvitteringer — UDFØRT i en
 //  rigtig browser.
 //

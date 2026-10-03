@@ -1,0 +1,379 @@
+/* ═══════════════════════════════════════════════════════════════
+   GREB — laget over forslag.css. De fem strukturgreb fra referencerne:
+   hero i fuld bredde, øjenbryn, svævende søgekort, konstant billed-
+   forhold og farvebånd med ét svævende kort. Tonen er et velsat
+   regnskab: sikre tal, rigelig luft, ingen udsmykning.
+
+   Kun CSS her. Det, der kræver ny markup (faner, felter i søgekortet,
+   kortet på båndet, håndskriften), står i greb.js som en MOCKUP af den
+   markup, page.tsx skal have — ikke som noget, der skal sendes.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* --handlingsflade: DEN ANDEN GRØNNE, og den har sit eget navn, så
+     den næste læser finder den.
+
+     Siden har to grønne, og de betyder hver sin ting efter, HVOR de
+     står — ikke efter nuancen:
+       · grøn TEKST  (--kendt #0f4d43)  = «hele betalingen til udlejer
+         er kendt». Kun på et beløb.
+       · grøn FLADE  (--handlingsflade) = «her handler du». Kun som
+         baggrund: den ene primære knap pr. side (Søg / Se annoncen) og
+         udlejerbåndet, som selv er en opfordring.
+     De bytter aldrig: ingen grøn flade bag et tal, ingen grøn tekst på
+     en knap, et link, et ikon eller ordmærket. Alt andet, der kan
+     trykkes på eller er valgt, er blæk. Reglen er efterprøvet i
+     browseren på runde 3 (maalinger/farver-runde3-fejning.json): alle
+     kulører i farver, gradienter, kanter, skygger og svg, på alle fire
+     sider plus en søgning med filterchips, i 1440, 390 og 360 og begge
+     telefonvarianter. To kulører står uden for rollerne med vilje:
+     --advarsel (#8a5300) på en note om udeladte data, og Leaflets flag
+     i kortets kreditering (Leaflets eget præfiks).
+
+     Nuancen er mørkere og mindre mættet end --kendt, men forskellen er
+     ikke det bærende — et øje, der ikke skelner dem, læser stadig rollen
+     rigtigt, fordi den ene altid er en flade med hvid tekst og den anden
+     altid er et tal. */
+  --handlingsflade: #083a34;
+  /* Hover går MØRKERE, væk fra --kendt. Runde 2's hover (#0b4a42) lå
+     ΔE00 1,27 fra --kendt: knappen blev «den kendte teal», netop når
+     nogen rørte den. #052a25 ligger 11,2 fra --kendt og 5,1 fra hvile-
+     farven — samme synlige skridt som før, den anden vej. */
+  --handlingsflade-hover: #052a25;
+  --svaev: 0 1px 2px rgba(20,22,26,.05), 0 12px 32px rgba(20,22,26,.09);
+  --svaev-let: 0 1px 2px rgba(20,22,26,.04), 0 6px 18px rgba(20,22,26,.06);
+}
+
+/* ── 0 · Fotoet: ét sted ─────────────────────────────────────────
+   Alt, der afhænger af MOTIVET, er en variabel her og sættes fra ét
+   objekt: i appen HERO_STANDARD i page.tsx (url, kredit, og nu også
+   fokus og slør), i forslaget heltefoto.json. Skiftes fotoet, skiftes
+   fokus, slør og kreditering i samme ændring — samme regel som
+   page.tsx allerede har for url og kredit.
+
+   Sløret er en fotoparameter, men ikke en redningsplanke. Hvor meget
+   slør et foto KRÆVER for at bære teksten, måles af
+   gengivelse/maal-foto.mjs mod de faktiske pixels. Kræver et foto så
+   meget, at motivet forsvinder bag teksten, afvises fotoet — det
+   rettes ikke med et tykkere slør. */
+.hero {
+  --hero-fokus: 60% 50%;       /* object-position, bred skærm */
+  --hero-fokus-smal: 50% 66%;  /* object-position, telefon */
+  --hero-sloer: .95;           /* bred: lyst underlag bag teksten */
+  --hero-sloer-smal: .60;      /* telefon (B): mørkt slør bag hvid tekst — gulvet (§ 6) */
+  /* Hvor langt søgekortet hænger ud over heroens underkant. Ét tal, læst
+     to steder: af kortets translateY og af krediteringen under kortet
+     (§ 7). Stod det to steder, ville krediteringen en dag ligge bag
+     kortet, uden at noget sagde det.
+     ALLE var() i de regler, der placerer kortet og krediteringen (§ 1,
+     § 3, § 6 A og § 7), har en bogstavelig reserveværdi, og reglerne står
+     på `.hero.fuldbredde`, ikke på `.hero`. Så holder krediteringen også,
+     hvis greb.css lander uden forslag.css (der definerer --l-*), og hvis
+     reglerne foldes ind i globals.css, hvor globals' egne ≤760-regler for
+     `.hero` og `.hero-soeg` står senere (0,1,0 taber til 0,2,0). Begge
+     tilstande prøves i gengivelse/kredit-udrulning.mjs. */
+  --hero-soeg-loeft: 48px;
+}
+
+/* ── 1 · Hero i fuld bredde ─────────────────────────────────────
+   Fotoet skal SES. I dag er højre halvdel sløret med 8–32 % hvidt og
+   venstre med 94–97 %, så motivet står som en grå skygge. Nu: rent
+   underlag under teksten (venstre 40 %), og så fotoet uden slør. */
+.hero { padding-top: var(--l-8); background: var(--bg); }
+.hero-billede img { object-position: var(--hero-fokus); }
+.hero.har-foto::after {
+  background: linear-gradient(90deg,
+    rgb(247 245 241 / var(--hero-sloer)) 0%, rgb(247 245 241 / var(--hero-sloer)) 34%,
+    rgb(247 245 241 / calc(var(--hero-sloer) * .74)) 44%, rgb(247 245 241 / 0) 58%);
+}
+@media (max-width: 900px) {
+  /* Mobilen betaler for hvert greb i folden. I dag står første kort
+     571 px nede på 390 (db4746b fik det ned fra 821); hvad hver variant
+     koster, står målt i GREB-3.md § 1. Krediteringen står ikke længere
+     øverst (§ 7), så heroen behøver ikke de 48 px, der holdt øjenbrynet
+     fri af pillen.
+     Bunden: kortet hænger 24 px ud over heroen (translateY), og under
+     det skal der være luft. Runde 2 satte margin-bottom LIG med
+     overhænget — og den regel var død kode, fordi de ubetingede regler i
+     § 3 stod senere med samme specificitet. Nu står § 3's værdier kun
+     for bred skærm, og her er margin = overhæng + 24 px (32 px luft til
+     «Nyeste boliger», som i variant A). Krediteringen står i de 32 px,
+     til højre (§ 7) — den koster ingen fold, så længe den står på ÉN
+     linje. Der er ikke plads til to; maal-foto.mjs afviser derfor en
+     kreditering, der brækker.
+     Runde 2's lyse, lodrette slør stod her; det er erstattet af B (§ 6). */
+  .hero.fuldbredde { --hero-soeg-loeft: 24px; padding-top: var(--l-6, 32px); margin-bottom: calc(var(--hero-soeg-loeft, 24px) + var(--l-5, 24px)); }
+  .hero h1 { margin-bottom: var(--l-2); font-size: var(--t-5); }
+  .hero-manchet { font-size: var(--t-2); }
+  .hero-oejenbryn { margin-bottom: var(--l-2); }
+  .hero.fuldbredde .hero-soeg { margin-top: var(--l-4, 16px); transform: translateY(var(--hero-soeg-loeft, 24px)); }
+}
+.hero h1 { max-width: 20ch; margin-bottom: var(--l-4); }
+.hero-manchet { max-width: 40ch; color: var(--blaek); }
+
+/* ── 2 · Øjenbryn ───────────────────────────────────────────────
+   Versaler, spatieret, lille, dæmpet. Grå, ikke teal: teal er et
+   udsagn om et beløb. Reglen: et øjenbryn står over en OVERSKRIFT,
+   aldrig over et tal — railens etiket forbliver sætningsstil. */
+.hero-oejenbryn, .ub-oejenbryn, .sektion-oejenbryn {
+  font-size: 12px; font-weight: var(--v-2); letter-spacing: .14em;
+  text-transform: uppercase; color: var(--daempet); margin: 0 0 var(--l-3);
+}
+
+/* ── 3 · Søgekortet, der svæver ind over heroens underkant ─────── */
+@media (min-width: 901px) {
+  .hero.fuldbredde .hero-soeg { transform: translateY(var(--hero-soeg-loeft, 48px)); margin-top: var(--l-7, 48px); }
+  .hero.fuldbredde { margin-bottom: var(--hero-soeg-loeft, 48px); }
+}
+.hero form.filtre {
+  background: var(--kort); border: 0; border-radius: 16px;
+  box-shadow: var(--svaev); padding: var(--l-3) var(--l-3) var(--l-3);
+}
+/* Faner hæftet ovenpå kortet (markup: greb.js). */
+.soeg-faner { display: flex; gap: 2px; margin: 0 0 -1px var(--l-4); position: relative; z-index: 1; }
+.soeg-faner a {
+  display: inline-flex; align-items: center; gap: var(--l-2); min-height: 44px;
+  padding: 0 var(--l-4); font-size: var(--t-2); color: var(--daempet); text-decoration: none;
+  background: rgba(255,255,255,.72); border-radius: 12px 12px 0 0;
+}
+.soeg-faner a b { font-weight: var(--v-1); color: var(--daempet); font-variant-numeric: tabular-nums; }
+.soeg-faner a[aria-current="page"] { background: var(--kort); color: var(--blaek); font-weight: var(--v-2); }
+.hero .soegebar { display: flex; align-items: stretch; gap: 0; }
+/* Felterne: tynd lodret streg imellem, label over, værdi under. */
+.hero .soegefelt, .soegefelt-ekstra {
+  padding: var(--l-2) var(--l-4); border-right: 1px solid var(--linje); min-width: 0;
+}
+.hero .sf-sted { flex: 1.6 1 0; }
+.soegefelt-ekstra { flex: 1 1 0; display: flex; flex-direction: column; justify-content: center; }
+.hero .soegefelt label, .soegefelt-ekstra label {
+  font-size: var(--t-1); font-weight: var(--v-2); color: var(--blaek); margin-bottom: 2px;
+}
+.soegefelt-ekstra span { font-size: var(--t-2); color: var(--daempet); }
+.hero .soegefelt input { font-size: var(--t-2); }
+/* Tekstknap i søgekortet på bred skærm, som i referencen. På en telefon
+   er «Filtre» den samme indrammede knap som på søgesiden — én handling,
+   én form. */
+@media (min-width: 901px) {
+  .hero .filterknap { border: 0; background: none; margin: 0 var(--l-2); color: var(--blaek); }
+}
+/* Én mørkegrøn handling pr. side: «Søg» i søgekortet, «Se annoncen» i
+   boligsidens rail. Alt andet, der kan trykkes på, er blæk. */
+.oek-kort .knap { background: var(--handlingsflade); border-color: var(--handlingsflade); }
+.oek-kort .knap:hover { background: var(--handlingsflade-hover); border-color: var(--handlingsflade-hover); }
+.soegeknap, .hero .soegeknap {
+  background: var(--handlingsflade); border-color: var(--handlingsflade); color: #fff;
+  border-radius: 12px; min-height: 56px; padding: 0 var(--l-5); font-size: var(--t-2);
+}
+.soegeknap:hover { background: var(--handlingsflade-hover); border-color: var(--handlingsflade-hover); }
+/* «Populære søgninger»: afstanden er gap'ens alene (16 px). Runde 2
+   lagde margin oven i den, så mellemrummene blev 24 og 28 px — hullet
+   midt i anden række. */
+.hero .populaere { margin: var(--l-3) var(--l-4) var(--l-1); font-size: var(--t-1); gap: var(--l-1) var(--l-4); }
+.hero .populaere a { color: var(--blaek); font-weight: var(--v-1); margin: 0; }
+.hero .pop-navn { color: var(--daempet); margin: 0; }
+@media (max-width: 900px) {
+  /* Smal skærm beholder den kompakte linje: den blev skåret fra 243 til
+     178 px høj af en grund (resultatdesign.md). De ekstra felter bor i
+     filtervinduet dér. */
+  .soegefelt-ekstra { display: none; }
+  .hero .soegebar { flex-wrap: wrap; }
+  .hero .soegefelt { border-right: 0; flex-basis: 100%; }
+  .soeg-faner { overflow-x: auto; margin-left: 0; }
+}
+@media (max-width: 560px) {
+  /* Telefonen får ikke fanerne: de koster en række over søgekortet, og
+     typerne står i «Filtre». Folden vejer tungere end referencen. */
+  .soeg-faner { display: none; }
+  .soeg-faner a { padding: 0 var(--l-3); font-size: var(--t-1); white-space: nowrap; min-height: 40px; }
+  .hero form.filtre { padding: var(--l-2); }
+  /* Etiketten får sin egen linje. Stod den i første række, begyndte
+     anden række under etiketten og første række under byerne: to
+     venstrekanter i én blok, og det er det, der læses som skævt. Nu
+     begynder hver række med en by, ved samme kant. */
+  /* Blokken står under nålen: 6 px er .soegebar's polstring (globals),
+     16 px feltets. Før stod den 14 px længere ude end alt over den. */
+  .hero .populaere { margin-left: calc(6px + var(--l-4)); margin-right: var(--l-2); }
+  .hero .pop-navn { flex-basis: 100%; }
+}
+
+/* ── 4 · Resultatnettet: svævende kort ─────────────────────────
+   Billedforholdet er allerede konstant (16:9, object-fit: cover,
+   målt 12/12). Det, der mangler, er elevationen: kortene ligger i dag
+   fladt på sandbunden med en hårstreg. */
+.kort { border-color: transparent; box-shadow: var(--svaev-let); border-radius: 16px; }
+.kort:hover { box-shadow: var(--svaev); border-color: transparent; }
+.kort-billede { border-radius: 0; }
+.maerkat.m-ny { font-weight: var(--v-2); }
+
+/* ── 5 · Farvebånd i fuld bredde med ét svævende kort ──────────
+   Båndet går til skærmkanten; indholdet holder rammens bredde. Flad
+   mørk teal — gradienten sluttede i den udfasede #14624f. */
+.udlejerbaand {
+  grid-column: fuld-start / fuld-slut; border-radius: 0; margin: var(--l-8) 0 0;
+  background: var(--handlingsflade);
+  /* Procent af gitterfeltet, ikke 100vw: 100vw tæller rullebjælken med
+     og giver vandret rul (samme fælde som `.galleri`s note). */
+  padding: var(--l-8) max(var(--ramme-luft), calc((100% - var(--ramme)) / 2));
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px);
+  gap: var(--l-6); align-items: center;
+}
+.udlejerbaand .ub-oejenbryn { color: rgba(255,255,255,.72); }
+.udlejerbaand h2 { font-size: var(--t-5); font-weight: var(--v-3); letter-spacing: var(--sp-tal); color: #fff; }
+.udlejerbaand p { color: rgba(255,255,255,.86); font-size: var(--t-2); }
+.ub-knap { margin-top: var(--l-5); background: #fff; color: var(--blaek); border-radius: 12px; }
+.ub-tekst { display: flex; flex-direction: column; align-items: flex-start; }
+/* Det svævende kort: tal vi kan dokumentere (markup: greb.js). */
+.ub-kort {
+  background: var(--kort); color: var(--blaek); border-radius: 16px;
+  box-shadow: 0 18px 48px rgba(0,0,0,.28); padding: var(--l-5);
+}
+.ub-kort .uk-etiket { font-size: 12px; font-weight: var(--v-2); letter-spacing: .14em;
+  text-transform: uppercase; color: var(--daempet); margin: 0 0 var(--l-3); }
+.ub-kort dl { margin: 0; display: grid; gap: var(--l-3); }
+.ub-kort dl div { display: grid; grid-template-columns: 96px 1fr; align-items: baseline; gap: var(--l-3);
+  padding-bottom: var(--l-3); border-bottom: 1px solid var(--linje); }
+.ub-kort dl div:last-child { border-bottom: 0; padding-bottom: 0; }
+.ub-kort dt { font-size: var(--t-5); font-weight: var(--v-3); letter-spacing: var(--sp-tal);
+  font-variant-numeric: tabular-nums; line-height: 1.1; text-align: right; }
+/* 252 er et ANTAL boliger, ikke et beløb — derfor blæk som 279 over den.
+   Grøn tekst står kun på et beløb. */
+.ub-kort dd { margin: 0; font-size: var(--t-2); color: var(--blaek); }
+.ub-kort .uk-note { margin: var(--l-4) 0 0; font-size: var(--t-1); color: var(--daempet); font-style: italic; }
+/* Talstriben beholder de tal, kortet på båndet ikke viser, og fylder
+   bredden ud med dem i stedet for at stå med tomme celler. */
+.talstribe { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+@media (max-width: 760px) {
+  .udlejerbaand { grid-template-columns: 1fr; padding-top: var(--l-7); padding-bottom: var(--l-7); }
+}
+
+/* ── Boligsiden uden billeder ───────────────────────────────────
+   Den stiplede kasse på 100 px ligner et element, der ikke nåede at
+   indlæse. Oplysningen bliver — som en linje, ikke som en tom ramme. */
+.ingen-billeder {
+  border: 0; background: none; padding: 0; margin: var(--l-2) 0 0; min-height: 0;
+  text-align: left; font-size: var(--t-1); font-style: italic; color: var(--daempet);
+}
+
+/* ── Variant: håndskrift ────────────────────────────────────────
+   Kun i varianten (greb.js sætter .hero-haand). Et enkelt menneskeligt
+   greb — ikke en stil. Caveat, Google Fonts, selvhostes som Plex. */
+.hero-haand {
+  font-family: 'Caveat', cursive; font-size: 34px; font-weight: 500; line-height: 1;
+  color: var(--blaek); margin: var(--l-4) 0 0; transform: rotate(-4deg);
+  transform-origin: left center; display: inline-block;
+}
+@media (max-width: 900px) { .hero-haand { font-size: 26px; margin-top: var(--l-3); } }
+
+/* ── 6 · Telefonen: B ──────────────────────────────────────────
+   På 390 stod fotoet som en stribe sofa mellem manchetten og
+   søgekortet; resten var hvidt slør. Et lyst slør bag mørk tekst kan
+   ikke virke på en smal skærm: der er ingen «venstre side» at lægge
+   teksten i, så sløret må dække det hele.
+
+   B: teksten PÅ fotoet, hvid på et mørkt slør, og fotoet løber bag
+   søgekortet. Foto, tekst og kort er ét objekt, og der står en rigtig
+   bolig på første skærm: billede, titel, adresse, overtagelsesdato.
+   B ER STANDARDEN, OG PORTEN ER GRUNDEN TIL, AT DET ER FORSVARLIGT.
+   Variant A (fotoet som et 3:1-bånd øverst, teksten under det) er
+   fjernet. Den lagde første boligkort 98 px lavere end B på 390 og 88
+   på 360 (GREB-3) — på det mål, der afgør, om nogen ser en bolig uden at
+   rulle. A's eneste fortrin var robusthed: teksten står på papir, så
+   kontrasten kan ikke gå tabt. Men den robusthed er maal-foto.mjs: et
+   foto, der kræver mere slør end loftet 0,60, AFVISES med exit 1, og
+   selvprøven viser, at porten kan sige nej. A var varianten for den, der
+   ikke kan måle fotoet. Vi kan. Afvises et foto, nogen gerne vil bruge,
+   er DET samtalen — ikke en variant, der koster 70–100 px for altid.
+
+   B kræver INGEN klasse. Står laget i appen, er B der — der er ingen
+   markup at vente på, og ingen rækkefølge mellem to udrulninger.
+
+   TEKSTEN ER REN HVID, ikke .84 og .94. Så holder B over ETHVERT foto:
+   det værst tænkelige er et helt hvidt, og blandingen af blæk over hvidt
+   er 255 − 235·a. Ved a = .60 bliver den 114, og ren hvid tekst står
+   4,7:1 mod den — over AA's 4,5 uden at kende fotoet (målt i
+   maal-foto.mjs, «værst tænkelige»). Med .84 var det 3,9:1, og så hang
+   kontrasten på netop dette fotos pixels: 5,48 var et tal, der skulle
+   overvåges. Samme greb som kreditpillen i globals.css («ren hvid og ikke
+   .92»). Gulvet gælder kun tekst i gradientens fulde tæthed (0–58 %):
+   manchettens bund står ved 39–45 % af heroen (målt i 320–900, med og
+   uden fanerne), og det værst tænkelige måles i alle ni bredder af
+   maal-foto.mjs — flytter en længere tekst ned i overgangen, falder tallet
+   dér, og dommen siger hvorfor. 0,60 er GULVET: det tyndeste slør, der
+   holder over et hvidt foto (maal-foto.mjs måler det). */
+@media (max-width: 900px) {
+  /* Sløret og bunden er BLÆK. Første udgave brugte rgb(10 20 18) og
+     #1d2422 — en tredje, unavngiven grøn flade (a* ≈ −3), som fejningen
+     ikke så, fordi den ikke læser gradienter. */
+  .hero.har-foto { background: var(--blaek); }
+  .hero.har-foto .hero-billede img { object-position: var(--hero-fokus-smal); }
+  .hero.har-foto::after {
+    background: linear-gradient(180deg,
+      rgb(20 22 26 / var(--hero-sloer-smal)) 0%, rgb(20 22 26 / var(--hero-sloer-smal)) 58%,
+      rgb(20 22 26 / calc(var(--hero-sloer-smal) * .35)) 100%);
+  }
+  .hero.har-foto .hero-oejenbryn, .hero.har-foto h1,
+  .hero.har-foto .hero-manchet, .hero.har-foto .hero-haand { color: #fff; }
+
+}
+
+/* ── 7 · Krediteringen: et krav, ikke en overskrift ───────────────
+   Den mørke pille øverst til højre var det første, øjet mødte på en
+   telefon — før øjenbrynet. Nu står den som en lille linje UNDER
+   søgekortet, ved kortets højrekant, på papiret.
+
+   FLYTNINGEN ER REN CSS, OG DET ER HELE POINTEN. page.tsx tegner
+   allerede `p.hero-kredit` som heroens sidste barn, med teksten fra det
+   samme objekt som fotoet (HERO_STANDARD eller NEXT_PUBLIC_HERO_FOTO_
+   KREDIT). Reglen her flytter DET element — den skjuler intet og
+   skriver ingen tekst. Derfor findes der ingen delvis udrulning:
+     · laget uden markupændring   → linjen under kortet
+     · laget er ikke landet        → pillen øverst, som i dag
+     · en markupændring alligevel  → reglen rammer intet; markuppens
+                                      egen kreditering står
+   Runde 3 flyttede den i markuppen (ind i footer.bund) og måtte derfor
+   lade være med at skjule pillen — så hang en licensforpligtelse på, at
+   nogen huskede rækkefølgen af to udrulninger. Den ændring er trukket
+   tilbage; page.tsx skal ikke røres.
+   Ikke `content:` med teksten i CSS'en: så stod navnet to steder, og et
+   foto skiftet med NEXT_PUBLIC_HERO_FOTO ville blive tilskrevet Taryn
+   Elliott — præcis den fejl, page.tsx' kommentar om HERO_STANDARD
+   advarer mod. Ikke `content: attr(…)` heller: attributten er en ny
+   markupændring, og så er rækkefølgen tilbage.
+   gengivelse/kredit-udrulning.mjs prøver alle tilstande og fejler med
+   exit 1, hvis én af dem står uden en synlig, læselig kreditering. */
+.hero.har-foto .hero-kredit {
+  position: absolute; z-index: 1; margin: 0;
+  top: calc(100% + var(--hero-soeg-loeft, 24px) + var(--l-2, 8px)); bottom: auto; left: auto;
+  /* Kortets højrekant: .hero-soeg er centreret i rammen med ramme-luft
+     indvendigt — samme regnestykke her. */
+  right: max(var(--ramme-luft, 22px), calc((100% - var(--ramme, 1300px)) / 2 + var(--ramme-luft, 22px)));
+  max-width: calc(100% - 2 * var(--ramme-luft, 22px)); text-align: right;
+  font-size: 12px; line-height: 16px; color: var(--daempet, #5f6672);
+  background: none; backdrop-filter: none; padding: 0; border-radius: 0;
+}
+/* Står krediteringen alligevel i fodnoten (en markupændring), skal den
+   ikke brække midt i navnet. */
+.bund .fotokredit { white-space: nowrap; }
+
+/* ── 8 · Links er blæk — også kortets kreditering ─────────────────
+   Fejningen fandt én link-farve, der ikke var vores: Leaflets standard-
+   blå (#0078a8) på «Leaflet | © OpenStreetMap». Krediteringen bliver
+   stående og synlig (OSM's flisepolitik); kun farven følger reglen. */
+.leaflet-container .leaflet-control-attribution a { color: var(--blaek); }
+
+/* ── 9 · Telefonens småting, fundet ved at se på billederne ───────
+   Her stod en «rettelse» af søgesidens titel. Den var ingen: bruddet
+   opstod først med lagets egen titelstørrelse (forslag.css, nu kun over
+   620 px), og reglen kunne ikke virke mod globals.css' nowrap. */
+@media (max-width: 980px) {
+  /* Boligsiden på 360: kolonnen gik fra 22 til 359 px — ingen højre
+     margen. En 1fr-bane kan ikke blive smallere end sit indholds
+     min-content, og nøgletallenes minmax(158px) er for bredt til to
+     kolonner. Fejlen er ældre end forslaget (i dag: 15 px vandret rul),
+     men laget skjulte den bare. */
+  .spalter { grid-template-columns: minmax(0, 1fr); }
+  .noegletal { grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr)); }
+}
+/* Enlige ord på sidste linje («mangler.», «Bofinda», «kilder»). */
+.hero-manchet, .udlejerbaand p, .ub-kort dd { text-wrap: pretty; }
+.hero h1, .udlejerbaand h2 { text-wrap: balance; }

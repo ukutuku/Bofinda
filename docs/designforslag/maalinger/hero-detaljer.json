@@ -1,0 +1,54 @@
+{
+  "_hvad": "Småmålinger bag enkelttal i GREB-3.md. Syntetisk testbase, next dev på 127.0.0.1:3100, 30. september 2026.",
+  "luftUnderSoegekortet": {
+    "_hvad": "px mellem søgekortets underkant og «Nyeste boliger» på forsiden, og første korts y. Runde 3's varianter står i greb3/efter-*/maal.json (luftUnderKort).",
+    "foer-390": {
+      "luftUnderKort": 2,
+      "foersteKort": 571
+    },
+    "foer-360": {
+      "luftUnderKort": 2,
+      "foersteKort": 571
+    },
+    "runde2-390": {
+      "luftUnderKort": 8,
+      "foersteKort": 622
+    },
+    "runde2-360": {
+      "luftUnderKort": 8,
+      "foersteKort": 645
+    }
+  },
+  "fotobaandetsForhold": {
+    "_hvad": "Første korts y i variant A med tre forhold på fotobåndet, samme foto og fokus 50% 62–66%. 3:1 blev valgt.",
+    "390": {
+      "12/5": 703,
+      "5/2": 697,
+      "3/1": 671
+    },
+    "360": {
+      "12/5 mere end 3/1 (px)": 30,
+      "5/2 mere end 3/1 (px)": 24,
+      "_kilde": "målt af talverifikatoren med samme script"
+    }
+  },
+  "bagOejenbrynet1440": {
+    "_hvad": "Det rå foto bag øjenbrynets tekstudstrækning på 1440 (slør slukket): andel pixels med luminans under 110/255, og det mørkeste pixel. Forklarer, hvorfor bred skærm kræver 0,80 slør.",
+    "moerkeAndel": 0.386,
+    "moerkestePixel": 16,
+    "motiv": "dørkarm i mørkt træ og køleskab i fotoets venstre kant"
+  },
+  "netvaerk": {
+    "_hvad": "Proxyens svar på CONNECT til kildernes værter.",
+    "tidspunkt": "2026-09-30T14:34Z",
+    "svar": "403 på dacas.dk, www.dacas.dk, propstep.com, www.propstep.com, app.propstep.com, nova-api.jeudan.dk, www.balder.dk, api.balder.dk, images.ctfassets.net"
+  },
+  "tegningVedSloerB": {
+    "_hvad": "Variant B på 390 med det nuværende foto: fotoets tegning tilbage (kalibreret, se hero-maal.mjs) ved forskellige slør. Grundlag for reglen «højst 0,45 krævet → B».",
+    "0.40": 0.62,
+    "0.45": 0.58,
+    "0.50": 0.53,
+    "0.55": 0.48,
+    "0.60": 0.43
+  }
+}

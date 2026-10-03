@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: besked
 //  SERVERSIDE-MUREN foran kontaktoplysninger.
 //
 //  ── HVORFOR FILEN FINDES ──────────────────────────────────────
@@ -28,6 +29,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { existsSync, readFileSync } from 'node:fs'
+import { kildelag } from './kildetjek'
 import { db } from '../db/client'
 import { listings, sources, users } from '../db/schema'
 import {
@@ -162,10 +164,13 @@ async function koer() {
     // ramte eksemplet i stedet for koden. Altså nøjagtig den fælde,
     // prøven selv er sat til at fange — en tekstsøgning, der rammer sin
     // egen dokumentation. Strimlet kilde, ikke rå.
-    const udenKommentarer = (t: string) =>
-      t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
-
-    const binding = udenKommentarer(readFileSync('app/kontakt-ui/server/beslutning.ts', 'utf8'))
+    //
+    // Strimlingen stod her som to `.replace()`, og den samme linje stod
+    // ordret i test-beskrivelse.ts og test-genskriv.ts — og i fire
+    // andre udgaver på betalingsgrenen. Den ser kun hele linjers `//`,
+    // så en EFTERHÆNGT kommentar ville stadig kunne gøre prøven grøn.
+    // Nu ét sted: `kildelag(t, 'kode')`.
+    const binding = kildelag(readFileSync('app/kontakt-ui/server/beslutning.ts', 'utf8'))
     const adgangFindes = existsSync('lib/adgang.ts')
     const kobletTil = /import\s*\{[^}]*\bmaaBruge\b[^}]*\}\s*from\s*['"][^'"]*lib\/adgang['"]/.test(binding)
 
@@ -178,7 +183,7 @@ async function koer() {
     }
 
     // Uanset hvad: muren selv må aldrig få sin egen regel.
-    const mur = udenKommentarer(readFileSync('lib/kontaktmur.ts', 'utf8'))
+    const mur = kildelag(readFileSync('lib/kontaktmur.ts', 'utf8'))
     const egenRegel = /\bsubscriptions\b|\bdrift\b|\badgangTil\b|hentBrugerId/.test(mur)
     tjek('lib/kontaktmur.ts har INGEN egen adgangsregel', !egenRegel,
       egenRegel ? 'muren er begyndt at afgøre selv' : 'den spørger og adlyder')

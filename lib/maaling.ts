@@ -14,6 +14,8 @@
 //  kan aldrig blive komplet; en liste over tilladte kan.
 // ═══════════════════════════════════════════════════════════════
 
+import { FACILITETSNOEGLER } from './faciliteter'
+
 // ─── Miljø ─────────────────────────────────────────────────────
 
 export const MILJOEER = ['produktion', 'preview', 'udvikling', 'proeve'] as const
@@ -123,7 +125,10 @@ export type StedSlags = 'postnr' | 'by_kendt' | 'by_ukendt' | 'ingen'
 export const FILTERFELTER = [
   'by', 'postnr', 'prisMin', 'prisMax', 'vaerelser', 'areal', 'type', 'kilde',
   'sorter', 'overtagelse', 'venteliste', 'reserveret', 'fuld',
-  'kaeledyr', 'elevator', 'udeplads', 'alle',
+  // Facilitetsnoeglerne UDLEDT, saa et nyt begreb bliver et maalbart
+  // felt af sig selv i stedet for at mangle i diffen.
+  ...FACILITETSNOEGLER,
+  'alle',
 ] as const
 export type Filterfelt = (typeof FILTERFELTER)[number]
 

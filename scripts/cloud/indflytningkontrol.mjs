@@ -38,16 +38,13 @@
 //  Exit: 0 = alt grønt · 1 = noget fejlede · 2 = intet at måle på
 // ═══════════════════════════════════════════════════════════════
 import pw from 'playwright-core'
-import postgres from 'postgres'
+import { aabnIsoleretEllerStop } from './isoleret.mjs'
 import { mkdirSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 
 const BASE = process.env.BOFINDA_APP_BASE ?? 'http://127.0.0.1:3100'
 const UD = process.argv[2] ?? null
 if (UD) mkdirSync(UD, { recursive: true })
-if (!process.env.DATABASE_URL) {
-  console.error('FEJL: DATABASE_URL mangler — prøven kan ikke så sine rækker.'); process.exit(2)
-}
 
 let fejl = 0
 const tjek = (ok, navn, note = '') => {
@@ -73,7 +70,9 @@ const SAG = [
 ]
 
 const PRAEFIKS = `indflytning-proeve-${Date.now()}`
-const sql = postgres(process.env.DATABASE_URL, { ssl: false, max: 1, onnotice: () => {} })
+// Vagten ligger i isoleret.mjs. Scriptet SLETTER raekker til sidst, og
+// det gjorde det foer uden at spoerge, hvilken base den talte med.
+const sql = await aabnIsoleretEllerStop()
 
 const [kilde] = await sql`select id from sources where slug = 'test-alfa'`
 if (!kilde) {

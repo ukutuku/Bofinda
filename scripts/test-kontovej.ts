@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: konto
 //  Kontoforløbets destination, callbacken og sessionens cookies.
 //
 //  ═══ HVOR ATTRAPPEN SIDDER ═══

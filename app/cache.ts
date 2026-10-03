@@ -3,8 +3,9 @@
 //
 //  `facetter()` og `forsidetal()` regnes på hele bestanden — byer, kilder,
 //  boligtyper, faciliteter, p90. Importen kører én gang i timen, så de
-//  svarer det samme hele vejen igennem. At regne dem ved hvert besøg var
-//  fire forespørgsler pr. sidevisning uden nogen ny oplysning til gengæld.
+//  svarer det samme hele vejen igennem. At regne dem ved hvert besøg er
+//  fem forespørgsler pr. sidevisning (`facetter` 3, `forsidetal` 2 — målt
+//  30. september 2026, se CLAUDE.md) uden nogen ny oplysning til gengæld.
 //
 //  Ligger her og ikke i lib/soeg.ts med vilje: `next/cache` hører til
 //  webappen. Workeren og alarmen kører i tsx uden Next omkring sig, og de

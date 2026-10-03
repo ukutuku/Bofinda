@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: konto
 //  Bindingen af en auth-konto til vores egen brugerrække.
 //
 //  Prøverne kalder `bindKonto` — den RIGTIGE produktionslogik, ikke en

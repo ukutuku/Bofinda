@@ -79,8 +79,8 @@ Tallene afhænger af Supabase-planen. Slå dem op under
 
 | Forbruger | Går på | Forbindelser |
 |---|---|---:|
-| Vercel-lambdaer | Supavisor `:6543` | 1 hver, mange klienter |
-| Worker på Railway | `:5432` | 10 |
+| Vercel-lambdaer | Supavisor `:6543` | 5 hver, mange klienter |
+| Worker på Railway | `:5432` | 5 |
 | `drizzle-kit`, psql, ad hoc | `:5432` | 5 |
 
 Frontenden tæller mod Supavisors klientgrænse, ikke mod Postgres'
@@ -225,7 +225,7 @@ cron-planen er det, der starter den igen.
 
 | Variabel | Værdi | Hvorfor |
 |---|---|---|
-| `DATABASE_URL_DIRECT` | Supabase **session pooler**, port 5432 | Det eneste, workeren bruger. `VERCEL` er ikke sat, så `db/client.ts` vælger worker-profilen: pool på 10, prepared statements slået til. |
+| `DATABASE_URL_DIRECT` | Supabase **session pooler**, port 5432 | Det eneste, workeren bruger. `VERCEL` er ikke sat, så `db/client.ts` vælger worker-profilen: pool på 5, prepared statements slået til. |
 | `ADDRESS_WASHER` | `simpel` | Indtil DAR er bygget. |
 | `CRAWLER_USER_AGENT` | `BofindaBot/1.0 (+https://bofinda.dk/bot; kontakt@bofinda.dk)` | Crawleren præsenterer sig altid. |
 | `CRAWLER_RATE_MS` | `1000` | Ét request i sekundet per domæne. |
@@ -300,7 +300,7 @@ kun kører importøren.
 
 | Variabel | Værdi | Hvorfor |
 |---|---|---|
-| `DATABASE_URL` | Supabase **transaction pooler**, port **6543** | `NEXT_RUNTIME` er sat på Vercel, så `db/client.ts` vælger serverless-profilen: pool på 1, `prepare: false`. |
+| `DATABASE_URL` | Supabase **transaction pooler**, port **6543** | `NEXT_RUNTIME` er sat på Vercel, så `db/client.ts` vælger serverless-profilen: pool på 5, `prepare: false`. |
 | `BILLED_HEMMELIGHED` | **nøjagtig samme værdi som lokalt** | Signerer `/api/billede`. En anden værdi gør hver eneste udsendt billed-URL ugyldig på én gang. |
 | `NEXT_PUBLIC_BASE_URL` | `https://<dit-domæne>` | Bruges i alarmmailens links og i `sitemap.xml`. Peger den forkert, virker afmeldingslinket ikke. |
 | `CRAWLER_USER_AGENT` | `BofindaBot/1.0 (+https://bofinda.dk/bot; kontakt@bofinda.dk)` | Billed-proxyen præsenterer sig over for kilderne. |

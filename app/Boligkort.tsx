@@ -18,6 +18,7 @@ import { stort, typeord } from '../lib/boligtype'
 import type { Favoritstatus } from '../lib/favoritter'
 import { Favoritknap } from './Favoritknap'
 import { grundlagstekst, type Grundlagsspoergsmaal } from '../lib/grundlag'
+import { dageMellem, kalenderdag } from '../lib/dato'
 
 // ─── Formatering ───────────────────────────────────────────────
 
@@ -160,6 +161,51 @@ function Kilder({ navn, ogsaa }: { navn: string; ogsaa: string[] }) {
   )
 }
 
+/**
+ * «ny»-maerkaten. ÉT sted, begge korttyper — samme grund som `Ellinje`.
+ *
+ * TO fejl rettet paa én gang. De er den samme fejl set fra hver sin side:
+ * et spoergsmaal, der blev besvaret to steder.
+ *
+ * 1. DATOEN. Maerkaten regnede sin egen `b.hosKilden ?? b.foerstSet`,
+ *    mens sorteringen brugte `NYHEDSDATO` i lib/soeg.ts. De svarer paa
+ *    det samme — «hvornaar blev den her ny?» — og vores var det
+ *    STAERKESTE faldback: `?? foerstSet` kan ikke give null, mens
+ *    NYHEDSDATO giver null for et bagkatalog. Foelgen var, at en kilde
+ *    ved sin foerste import stod med «ny» paa hele bestanden i tre
+ *    doegn, mens «nyeste» lagde praecis de samme raekker SIDST. Kortet
+ *    og listen, det stod i, sagde hver sit.
+ *    Datoen kommer nu som et FELT fra forespoergslen (`nyhedMs`).
+ *
+ * 2. TEKSTEN. `siden()` runder et tidsrum: «for 1 dag siden» daekker
+ *    23,5–35,5 timer. Kl. 08 om morgenen hed alt, vi havde set siden
+ *    kl. 08:30 i gaar, altsaa «i dag» — ogsaa en bolig fra kl. 12 i
+ *    gaar. Kalenderen er et andet spoergsmaal end uret, og den findes
+ *    som `kalenderdag()` i lib/dato.ts, i dansk zone.
+ *
+ * 3. URET. Enkeltkortet regnede paa `Date.now()`, gruppekortet paa
+ *    `nu`. Kommentaren ovenfor sagde allerede «aldrig fra Date.now():
+ *    referenceNow kommer eksplicit fra siden». Nu gaelder det begge.
+ */
+const NY_DAGE = 2
+
+function nyhedsmaerkat(nyhed: Date | null, nu: Date, gruppe = false) {
+  // Null = bagkatalog (eller ingen dato overhovedet). Ingen maerkat —
+  // samme svar som sorteringens `nulls last`.
+  if (nyhed == null) return null
+  // En kildedato i fremtiden klemmes til i dag. «Ny · -2 dage» er
+  // meningsloest, og at skjule maerkaten paa en annonce, kilden selv
+  // kalder helt ny, ville vaere at skjule en oplysning, vi har.
+  const dage = Math.max(0, dageMellem(kalenderdag(nyhed), kalenderdag(nu)))
+  if (dage > NY_DAGE) return null
+  const hvad = gruppe ? 'Ny bolig' : 'Ny'
+  return (
+    <span className="maerkat m-ny">
+      {dage === 0 ? `${hvad} i dag` : dage === 1 ? `${hvad} i går` : `${hvad} · ${dage} dage`}
+    </span>
+  )
+}
+
 // ─── Kortet ────────────────────────────────────────────────────
 
 export function Kort({ b, nu, position, favorit }: {
@@ -168,11 +214,6 @@ export function Kort({ b, nu, position, favorit }: {
   // Availability fra DOMÆNET — aldrig fra legacy ledigFra/ansoegning, og
   // aldrig fra Date.now(): referenceNow kommer eksplicit fra siden.
   const avail = availabilityFor(b, nu)
-  // Hvor laenge boligen har vaeret til leje, ikke hvor laenge den har ligget
-  // i vores base. Ved foerste import er alt "set for 9 min. siden", og et
-  // maerkat der siger "ny" om en annonce fra juli er en loegn.
-  const paaMarkedet = b.hosKilden ?? b.foerstSet
-  const nyligt = Date.now() - paaMarkedet.getTime() < 1000 * 60 * 60 * 24 * 3
   // ── Overskriften ────────────────────────────────────────────
   // Boligtype, vaerelser, areal — ét led, ikke tre chips. Det er svaret
   // paa «hvad er det her», og det er dét, en der leder efter bolig
@@ -234,9 +275,9 @@ export function Kort({ b, nu, position, favorit }: {
   // egen ærlighedsregel vendt på hovedet. En bolig, der ser ledig ud og
   // ikke er det, er samme fejl som en total, der lader som om aconto er
   // kendt.
-  const nymaerkat = nyligt
-    ? <span className="maerkat m-ny">ny {siden(paaMarkedet)}</span>
-    : null
+  // Hvor laenge boligen har vaeret til leje, ikke hvor laenge den har
+  // ligget i vores base — og med indkoeringsvagten, se `nyhedsmaerkat`.
+  const nymaerkat = nyhedsmaerkat(b.nyhedMs == null ? null : new Date(b.nyhedMs), nu)
   const status = [
     avail.ansoegning.status === 'venteliste' ? 'venteliste' : null,
     avail.marked.status === 'reserveret' ? 'reserveret' : null,
@@ -377,7 +418,10 @@ export function Kort({ b, nu, position, favorit }: {
           {/* Egen klasse, saa den kan saettes ned i vaegt uden at tage
               indflytningsprisen med: begge var `.total`, og alderen paa en
               annonce vejer ikke det samme som et beloeb, hun skal betale. */}
-          {!nyligt && (
+          {/* Herkomstlinjen staar, naar maerkaten IKKE goer — ét udtryk,
+              ikke to. `nyligt` var en anden udregning af samme
+              spoergsmaal og kunne drive fra maerkaten. */}
+          {!nymaerkat && (
             <div className="total set-linje">
               {b.hosKilden ? `annonceret ${siden(b.hosKilden)}` : `set ${siden(b.foerstSet)}`}
             </div>
@@ -424,7 +468,6 @@ export function Gruppekort({ g, nu, position, filtre, favorit }: {
   g: Gruppe; nu: Date; position?: number; filtre?: Filtre; favorit?: Favoritstatus
 }) {
   const { noegle: n, repraesentant: r } = g
-  const nyligt = nu.getTime() - g.nyesteMarkedet.getTime() < 1000 * 60 * 60 * 24 * 3
 
   // Overtagelsen sammenfattes af MEDLEMMERNES domæneresultater — som
   // tællinger, aldrig som én status for alle. Aldrig legacy ledigMin/Max.
@@ -481,9 +524,7 @@ export function Gruppekort({ g, nu, position, filtre, favorit }: {
   // Ét maerkat, som paa enkeltkortet. «ny bolig», ikke «ny» — det er én
   // i gruppen, der er kommet til. De tre statusord staar i metalinjen;
   // se noten paa enkeltkortet om hvorfor de BLIVER.
-  const nymaerkat = nyligt
-    ? <span className="maerkat m-ny">ny bolig {siden(g.nyesteMarkedet)}</span>
-    : null
+  const nymaerkat = nyhedsmaerkat(g.nyhed, nu, true)
   // Kun naar det gaelder HELE gruppen. Repraesentanten maa ikke tale for
   // de andre — det er den samme regel som for kildemaerkaterne.
   const status = [
@@ -595,14 +636,23 @@ export function Gruppekort({ g, nu, position, filtre, favorit }: {
             {' '}<small>kr/md {n.total ? 'til udlejer' : 'i husleje'}</small>
           </div>
 
+          {/* `min`/`max` springer null over. Oplyser kun én af fem en
+              indflytningspris, stod der foer «indflytning 15.000 kr.» —
+              et tal, der kun gaelder den ene, skrevet som om det gjaldt
+              kortet. Kortet maa kun paastaa det, der gaelder HELE
+              gruppen; men at udelade tallet ville skjule en oplysning, vi
+              har. Derfor staar det med sin daekning. */}
           {g.indflytningMin != null && (
             <div className="kort-indflytning">
               indflytning{' '}
               <b>
-                {g.indflytningMin === g.indflytningMax
+                {g.indflytningMin === g.indflytningMax && g.indflytningUkendte === 0
                   ? `${kr(g.indflytningMin)} kr.`
                   : `fra ${kr(g.indflytningMin)} kr.`}
               </b>
+              {g.indflytningUkendte > 0 && (
+                <small> — oplyst for {g.antal - g.indflytningUkendte} af {g.antal}</small>
+              )}
             </div>
           )}
 

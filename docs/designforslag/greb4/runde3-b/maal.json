@@ -1,0 +1,426 @@
+{
+ "variant": "efter",
+ "mobil": "moerk",
+ "lag": "andet lag",
+ "foto": null,
+ "maal": {
+  "forside-390": {
+   "kort": 12,
+   "medFoto": 10,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.332
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    461,
+    412,
+    438,
+    461,
+    435,
+    510,
+    461,
+    487,
+    328,
+    302,
+    461,
+    435
+   ],
+   "foersteKortY": 573,
+   "overloeb": 0,
+   "kontrast": {
+    "øjenbryn": {
+     "vaerst": 5.48,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1.69,
+     "alfaMin": 0.55,
+     "farve": "rgba(255, 255, 255, 0.84)",
+     "px": 12,
+     "linjer": 1
+    },
+    "h1": {
+     "vaerst": 6.83,
+     "taerskel": 3,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1.77,
+     "alfaMin": 0.3,
+     "farve": "rgb(255, 255, 255)",
+     "px": 28,
+     "linjer": 1
+    },
+    "manchet": {
+     "vaerst": 5.67,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1.48,
+     "alfaMin": 0.55,
+     "farve": "rgba(255, 255, 255, 0.94)",
+     "px": 15,
+     "linjer": 2
+    }
+   },
+   "foto": {
+    "frihoejde": 195,
+    "tegningBevaret": 0.43,
+    "stoej": 0
+   },
+   "vaerstTaenkelige": {
+    "flade": "hvid",
+    "gulv": 0.65,
+    "øjenbryn": {
+     "vaerst": 3.85,
+     "taerskel": 4.5,
+     "bestaar": false,
+     "alfaMin": 0.65
+    },
+    "h1": {
+     "vaerst": 4.69,
+     "taerskel": 3,
+     "bestaar": true,
+     "alfaMin": 0.5
+    },
+    "manchet": {
+     "vaerst": 4.37,
+     "taerskel": 4.5,
+     "bestaar": false,
+     "alfaMin": 0.65
+    }
+   },
+   "kreditering": {
+    "findes": true,
+    "hvor": "fodnote",
+    "y": 24913,
+    "iFoersteVisning": false,
+    "px": 12,
+    "farve": "rgb(77, 84, 82)",
+    "kontrast": 7.13,
+    "linjer": 1,
+    "antalSynlige": 1,
+    "kandidater": [
+     {
+      "nr": 0,
+      "linjer": 1,
+      "hvor": "fodnote",
+      "tekst": "Stemningsfoto: Taryn Elliott / Pexels.",
+      "y": 24913,
+      "iFoersteVisning": false,
+      "px": 12,
+      "farve": "rgb(77, 84, 82)",
+      "baggrund": "rgba(0, 0, 0, 0)",
+      "skjult": false,
+      "iSiden": true,
+      "daekket": "0/3",
+      "overlap": "0/3",
+      "synlig": true,
+      "kontrast": 7.13,
+      "laeselig": true
+     }
+    ],
+    "dom": "OK"
+   },
+   "harFoto": true,
+   "foersteKort": {
+    "hoejder": {
+     "billedblok": 194,
+     "krop": 266,
+     "oekonomi": 118,
+     "kropPadding": "16px"
+    },
+    "titel": "Rækkehus · 3 vær. · 76 m²",
+    "top": 573,
+    "hoejde": 461,
+    "fold": 844,
+    "synligPx": 271,
+    "andel": 0.59,
+    "dele": {
+     "billede": true,
+     "antalBilleder": null,
+     "titel": true,
+     "adresse": true,
+     "overtagelse": false,
+     "pris": false
+    },
+    "foldFor": {
+     "billede": 768,
+     "titel": 807,
+     "adresse": 828,
+     "overtagelse": 851,
+     "pris": 893,
+     "helt": 1034
+    },
+    "foldVed": "vinduets bund"
+   },
+   "foersteKortFoersteBesoeg": {
+    "hoejder": {
+     "billedblok": 194,
+     "krop": 266,
+     "oekonomi": 118,
+     "kropPadding": "16px"
+    },
+    "titel": "Rækkehus · 3 vær. · 76 m²",
+    "top": 575,
+    "hoejde": 461,
+    "fold": 635,
+    "synligPx": 60,
+    "andel": 0.13,
+    "dele": {
+     "billede": false,
+     "antalBilleder": null,
+     "titel": false,
+     "adresse": false,
+     "overtagelse": false,
+     "pris": false
+    },
+    "foldFor": {
+     "billede": 770,
+     "titel": 809,
+     "adresse": 830,
+     "overtagelse": 853,
+     "pris": 895,
+     "helt": 1036
+    },
+    "foldVed": "samtykkebanneret"
+   },
+   "populaere": {
+    "raekker": 2,
+    "byKanter": [
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 43,
+    "overloeb": false
+   },
+   "luftUnderKort": 32,
+   "populaereBelastet": {
+    "raekker": 3,
+    "byKanter": [
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 67,
+    "overloeb": false
+   }
+  },
+  "forside-360": {
+   "kort": 12,
+   "medFoto": 10,
+   "rammeForhold": [
+    1.778
+   ],
+   "kildeForhold": [
+    1.333
+   ],
+   "objectFit": [
+    "cover"
+   ],
+   "korthoejder": [
+    444,
+    395,
+    444,
+    444,
+    418,
+    493,
+    444,
+    493,
+    351,
+    302,
+    444,
+    418
+   ],
+   "foersteKortY": 596,
+   "overloeb": 0,
+   "kontrast": {
+    "øjenbryn": {
+     "vaerst": 5.48,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1.69,
+     "alfaMin": 0.55,
+     "farve": "rgba(255, 255, 255, 0.84)",
+     "px": 12,
+     "linjer": 1
+    },
+    "h1": {
+     "vaerst": 6.83,
+     "taerskel": 3,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1.79,
+     "alfaMin": 0.3,
+     "farve": "rgb(255, 255, 255)",
+     "px": 28,
+     "linjer": 1
+    },
+    "manchet": {
+     "vaerst": 5.84,
+     "taerskel": 4.5,
+     "bestaar": true,
+     "paaFoto": true,
+     "raa": 1.54,
+     "alfaMin": 0.55,
+     "farve": "rgba(255, 255, 255, 0.94)",
+     "px": 15,
+     "linjer": 3
+    }
+   },
+   "foto": {
+    "frihoejde": 219,
+    "tegningBevaret": 0.43,
+    "stoej": 0
+   },
+   "vaerstTaenkelige": {
+    "flade": "hvid",
+    "gulv": 0.65,
+    "øjenbryn": {
+     "vaerst": 3.85,
+     "taerskel": 4.5,
+     "bestaar": false,
+     "alfaMin": 0.65
+    },
+    "h1": {
+     "vaerst": 4.69,
+     "taerskel": 3,
+     "bestaar": true,
+     "alfaMin": 0.5
+    },
+    "manchet": {
+     "vaerst": 4.37,
+     "taerskel": 4.5,
+     "bestaar": false,
+     "alfaMin": 0.65
+    }
+   },
+   "kreditering": {
+    "findes": true,
+    "hvor": "fodnote",
+    "y": 24928,
+    "iFoersteVisning": false,
+    "px": 12,
+    "farve": "rgb(77, 84, 82)",
+    "kontrast": 7.13,
+    "linjer": 1,
+    "antalSynlige": 1,
+    "kandidater": [
+     {
+      "nr": 0,
+      "linjer": 1,
+      "hvor": "fodnote",
+      "tekst": "Stemningsfoto: Taryn Elliott / Pexels.",
+      "y": 24928,
+      "iFoersteVisning": false,
+      "px": 12,
+      "farve": "rgb(77, 84, 82)",
+      "baggrund": "rgba(0, 0, 0, 0)",
+      "skjult": false,
+      "iSiden": true,
+      "daekket": "0/3",
+      "overlap": "0/3",
+      "synlig": true,
+      "kontrast": 7.13,
+      "laeselig": true
+     }
+    ],
+    "dom": "OK"
+   },
+   "harFoto": true,
+   "foersteKort": {
+    "hoejder": {
+     "billedblok": 177,
+     "krop": 266,
+     "oekonomi": 118,
+     "kropPadding": "16px"
+    },
+    "titel": "Rækkehus · 3 vær. · 76 m²",
+    "top": 596,
+    "hoejde": 444,
+    "fold": 780,
+    "synligPx": 184,
+    "andel": 0.41,
+    "dele": {
+     "billede": true,
+     "antalBilleder": null,
+     "titel": false,
+     "adresse": false,
+     "overtagelse": false,
+     "pris": false
+    },
+    "foldFor": {
+     "billede": 774,
+     "titel": 813,
+     "adresse": 834,
+     "overtagelse": 857,
+     "pris": 900,
+     "helt": 1041
+    },
+    "foldVed": "vinduets bund"
+   },
+   "foersteKortFoersteBesoeg": {
+    "hoejder": {
+     "billedblok": 177,
+     "krop": 266,
+     "oekonomi": 118,
+     "kropPadding": "16px"
+    },
+    "titel": "Rækkehus · 3 vær. · 76 m²",
+    "top": 598,
+    "hoejde": 444,
+    "fold": 553,
+    "synligPx": 0,
+    "andel": 0,
+    "dele": {
+     "billede": false,
+     "antalBilleder": null,
+     "titel": false,
+     "adresse": false,
+     "overtagelse": false,
+     "pris": false
+    },
+    "foldFor": {
+     "billede": 776,
+     "titel": 815,
+     "adresse": 836,
+     "overtagelse": 859,
+     "pris": 902,
+     "helt": 1043
+    },
+    "foldVed": "samtykkebanneret"
+   },
+   "populaere": {
+    "raekker": 2,
+    "byKanter": [
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 43,
+    "overloeb": false
+   },
+   "luftUnderKort": 32,
+   "populaereBelastet": {
+    "raekker": 4,
+    "byKanter": [
+     0
+    ],
+    "mellemrum": [
+     16
+    ],
+    "hoejde": 90,
+    "overloeb": false
+   }
+  }
+ }
+}

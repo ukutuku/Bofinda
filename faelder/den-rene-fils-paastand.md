@@ -1,0 +1,7 @@
+---
+navn: den-rene-fils-påstand
+form: 2
+faelde: brugervendt tekst i en ren fil, prøvet i `npm test`
+kort: slægtning af `prøvens-eget-forlæg` — prøven ser på den rigtige kode, men kun på den fil, teksten står i, ikke på det modul, teksten lover noget om.
+---
+Teksten, ikke løftet. Brugervendt tekst, der gør et udsagn om systemet, lægges i en ren fil uden database, så den kan prøves — det er rigtigt. Men en påstand om ET ANDET modul kan ikke prøves der: den skal have sin egen prøve, hvor modulet bor. «Den kan stadig åbnes på sit eget link» handler om `hentBolig`, og prøven af forklaringsfilen var grøn, også hvis linket gav 404. En ren fil gør teksten prøvbar og løftet uprøvbart, hvis man ikke passer på. **Og en ren fil holder kun, hvis også dens hjælpefunktioner er rene** — en formatteringshjælper fra en komponent er det sjældent. Fletteopskriften til `opgave/kontakt-ui` ville have hentet `kr` fra `app/Boligkort` ind i `forklaring.ts`, og `Boligkort` importerer `lib/soeg` og dermed databasen. Intet ville have set det: `db/client.ts` forbinder først ved første brug, så en import-prøve bliver ikke rød, og prøverne kører under testbasen. `scripts/test-rene-filer.ts` måler derfor importgrafen med esbuild og prøver hver fil på det løfte, der står ordret i dens hoved — ikke på en husregel. Hver pakke i grafen skal være klassificeret (en allowlist), og et nyt løfte i et hoved er rødt, til nogen har sat det på listen.

@@ -202,4 +202,3 @@ export function Gemtkort({ b }: { b: GemtBolig }) {
     </li>
   )
 }
-

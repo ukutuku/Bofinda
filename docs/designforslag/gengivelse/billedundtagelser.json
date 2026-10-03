@@ -1,0 +1,2722 @@
+{
+ "om": "Billeder i docs/ uden kvittering fra vagten, beholdt ved beslutning (GREB-5 § 5). Listen er lukket: nye bevisbilleder lever i artefaktet, ikke i repoet. En post fjernes, når filen fjernes; der lægges ingen til. Herkomsten er «kendt» (designforslagets egne gengivelser) eller «ikke efterset» (fra main); den sidste har en frist på 90 dage fra lukningen, hvorefter npm test er rød, indtil billedet er efterset eller fjernet.",
+ "lukket": "2026-10-01",
+ "filer": [
+  {
+   "fil": "docs/designforslag/efter/kort-1400.png",
+   "sha256": "5df6523f7b7a181eabc91bba119f4bb158874a812a832a1d847db764944edce1",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/efter/liste-1440.png",
+   "sha256": "019a3a28fb81b6602271968610284de26371a8df69d78d897d5d8ea89150cad6",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/efter/liste-390.png",
+   "sha256": "89e0f5b735ad9d46649e81017c4f5c3bc57c99c1381f57cd885e9ebe84c0391a",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/efter/side-kendt-1440-hele.png",
+   "sha256": "6f073e7134b875803d3b38ff877ab771179cba72ea3f0fe36c575bb4889b0c7a",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/efter/side-kendt-1440.png",
+   "sha256": "c2144fad0fe959ac0c102b30b1640b793d58e1d749ea981fbf3aacdee96bcd59",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/efter/side-kendt-390.png",
+   "sha256": "51861204d739670904f017519c61887fc675112675d1ae58ee2c8f38bdbfe03e",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/efter/side-klump-1440.png",
+   "sha256": "61bc23ebf632b4ada74c34a0d124699822f344713245bc3fb502d41cd51b29f2",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/efter/side-klump-390.png",
+   "sha256": "d4c76c7d44029e8175f1d81b98ac439bae3d3e6080c5f43451089c59500183df",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/foer/kort-1400.png",
+   "sha256": "3fcd56adf7a509a24195f6bf71c5d35850a1d134c6f08b92279ffac15e5a4ff1",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/foer/liste-1440.png",
+   "sha256": "d9cd0d0a921df20ecc99ba645772c87bd1323c6607efebb758d534ac3ba4eabb",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/foer/liste-390.png",
+   "sha256": "154b12ddc481595acd68c56773ced9596c5dbd487fb130ea7756ddfdc2817e12",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/foer/side-kendt-1440-hele.png",
+   "sha256": "bf97b71a30da8a2c8fc9d9c52bbf09c58f0d7a6522137d9eddd2f02a209f9eeb",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/foer/side-kendt-1440.png",
+   "sha256": "b98377e4bf15e31434fcced5dfb950ad97fa43dd6892fdd4bcb709d5f66f35c0",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/foer/side-kendt-390.png",
+   "sha256": "ed1ff57929677b762de1e310688292a3dd9190882691deb0f7b6f6af531db83c",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/foer/side-klump-1440.png",
+   "sha256": "67b5434d472963a81b4cc8a0e903fe32cf23f390a789f4051d1be44fb702ac9f",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/foer/side-klump-390.png",
+   "sha256": "2c63cc522d57cecd34dd8e074fb343b219f66bf502f40499989f7dbf34bebab1",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter-haand/bolig-billeder-1440.png",
+   "sha256": "6896b17e2454cf3d9deaea7bde04ece412019fb300ca1dbd415a5afa1da782cf",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter-haand/bolig-billeder-390.png",
+   "sha256": "47b99bd2b3306a3ebf654559e0226b05953bf4cda1dfb1ba0cc9c37182338263",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter-haand/bolig-uden-1440.png",
+   "sha256": "c57decbd14b9df29d2d6d8b29f88c0f95198ddefad9fd12fb41f0cd02dabc617",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter-haand/bolig-uden-390.png",
+   "sha256": "5547796e45e01b0f8975afcff02f71c68be43494ce38bcfa42ba7b3b2400d02b",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter-haand/forside-1440-bund.png",
+   "sha256": "1f071664db4504e852ed4d3981ea1dda3a8ff5494d2e37dd89f599fd42bb6f5c",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter-haand/forside-1440.png",
+   "sha256": "b2efb3df55a1622b9631be7b3c7d99b3ff86270240c5adb02c9b2acf20ff953f",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter-haand/forside-390-bund.png",
+   "sha256": "11729147aec3f0c150fcc60d8f47fca711c4273be11b58ab37d05e16ed239d88",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter-haand/forside-390.png",
+   "sha256": "dff82b1f3751504e792118b9724bb19f341428fa729bc2c77927116ccf94daf8",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter-haand/soegning-1440.png",
+   "sha256": "d8d257aa9f1a107469525e2820c937bf62f05353639311915d8d1cd006d79b4b",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter-haand/soegning-390.png",
+   "sha256": "c8a249503bef4d6d77cec62fd822227e732e5aeec01fcebb7580b427b62ce4ee",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter/bolig-billeder-1440.png",
+   "sha256": "6896b17e2454cf3d9deaea7bde04ece412019fb300ca1dbd415a5afa1da782cf",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter/bolig-billeder-390.png",
+   "sha256": "bf2fcc919e0384c17469ebe4ed3eb9476e7390834ec3e8431490de02d0cdad28",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter/bolig-uden-1440.png",
+   "sha256": "c57decbd14b9df29d2d6d8b29f88c0f95198ddefad9fd12fb41f0cd02dabc617",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter/bolig-uden-390.png",
+   "sha256": "7de7df3dc6d04f9827837cb78875edfba9ffdbe49a4db21e0fd3b676fbe6b808",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter/forside-1440-bund.png",
+   "sha256": "aff1588abf25ccf78f13bc2446ed8aece4cb3f29297c2e2d428fbf2357859a1a",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter/forside-1440.png",
+   "sha256": "a8023f0f2dc835b2e95042ce0d8ea46f9c2e7eb0c632e698e2d0135c2014064a",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter/forside-390-bund.png",
+   "sha256": "f01b817be8fb8380987d88d24b39bc35349fd859cc507e4e9bdf3bb2f0084ea6",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter/forside-390.png",
+   "sha256": "bba01a0621d5400a7133045b71c5d890894f0dd8e6d2f459f2859679d56e775c",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter/soegning-1440.png",
+   "sha256": "d8d257aa9f1a107469525e2820c937bf62f05353639311915d8d1cd006d79b4b",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/efter/soegning-390.png",
+   "sha256": "dc84612aa54707bdd434863d65b007434a840b0107f6cce1e196efb0cbc7b020",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/foer/bolig-billeder-1440.png",
+   "sha256": "be690ca4796c776a37362be3c230c284620eadc514a289523aaa70b99e4b94ec",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/foer/bolig-billeder-390.png",
+   "sha256": "52aacc6da82f478360969fae3c09a5dbdc8d6da1be32f6ab7916818343872bad",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/foer/bolig-uden-1440.png",
+   "sha256": "618ddbb500085102e05e38237ed4178d88e5a12e4752ea4786a3597cf95d0ac9",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/foer/bolig-uden-390.png",
+   "sha256": "84810ddaea0a738d5842fd3f806fe92861934586da85d88f00dc7c1e5957f2c4",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/foer/forside-1440-bund.png",
+   "sha256": "20b1c07369e16aad35964125c006b2259fdd4998006a58b9c21270bb862ae77a",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/foer/forside-1440.png",
+   "sha256": "be20511750f4e1f5bb6537a8a69560d80cde6a7dd0d730d3baf7d5ff76697193",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/foer/forside-390-bund.png",
+   "sha256": "fb99eb4893d50adce95954dc2161cc1dba5e7a5e7a8fb0bffcfa2142eeaae06b",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/foer/forside-390.png",
+   "sha256": "bca41bcb24fa777531ea66724248847f8bc9bf3901a72080766906137295baf4",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/foer/soegning-1440.png",
+   "sha256": "59e5dbcfb7e0ab75de083f91e73a4d02b88a2b85a59479ef029b85c387c286f5",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb/foer/soegning-390.png",
+   "sha256": "d3f7a9365a7b2df27ed10af34c93d81c0d46c1bf1fc839730fa559599e0cb478",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/bolig-billeder-1440.png",
+   "sha256": "a3597787e0a9fc9cc9fe3c221766a86dfe571c695caa157124dda15110f274e0",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/bolig-billeder-360.png",
+   "sha256": "a64bc579125b5dd4a9eab856d79e719311571bb59e4451841ad0f4d04e0cdd5a",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/bolig-billeder-390.png",
+   "sha256": "b99f85a4a0ac88add26db2195a35950eac78f59b4d6e350a33e3777962da40b4",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/bolig-uden-1440.png",
+   "sha256": "ae341159ceea150d883ba19c487f70d7677543c2767a35d99b0107b4cee17ebf",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/bolig-uden-360.png",
+   "sha256": "45e66301ad1ebac8731e839315242242b50522639fd222ad42515bcb549b8ea9",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/bolig-uden-390.png",
+   "sha256": "3b119f45a552dbeb6f5383c35ab70f4d90dbff9438d986e5a446936d899c27e8",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/forside-1440-bund.png",
+   "sha256": "a9489e5a1add2cdb77f3e7fd0af0a94b2eef9aa03a583d1530263df4dfb7945c",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/forside-1440.png",
+   "sha256": "b73c8fc2de73c3b11b1b81e236a364f13c606eca6843ac2e7742412631274aca",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/forside-360-bund.png",
+   "sha256": "1ccbdd583757b875c8eeed4fe2fe8986be0c8fc811ccb4c590a1e535944fc1ff",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/forside-360.png",
+   "sha256": "4d644421f91d933b6201eaa6a5b18057dd9bea3180b41ae6a0220211d770d60b",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/forside-390-bund.png",
+   "sha256": "ad75fbe2618594f21c64ce37118ae41be783de50f48a9094f2b41c0200cb3cad",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/forside-390.png",
+   "sha256": "7067b07b4f33f14e2e81845792dde58e15a654bb3ab547c9651d1ba758c13a8f",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/soegekort-belastet-1440.png",
+   "sha256": "14e0cb40c4cab3763b25f2cfc73fee12a54f06cae719d15357f27bdd10b3308b",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/soegekort-belastet-360.png",
+   "sha256": "d90058696dac75212a8740a523e44c308a0b160b5004d5ac3a0f3daabd87818e",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/soegekort-belastet-390.png",
+   "sha256": "df6ad5c424bd33ea5676e2bc2aea1bf1e87e375ff259f61a9986736bc9b851d5",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/soegning-1440.png",
+   "sha256": "f5dd7892038513222e7867ade5605bce894ea2d3de57410de21a348b0d78908e",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/soegning-360.png",
+   "sha256": "5da9c9bd3072f6a180418096abeac5fffe6fab4a4d0ffa882a9d2e21d4a8683f",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-baand/soegning-390.png",
+   "sha256": "7383ce6a1630a290217236b2388a9c16872e8fef0b134b4a8a58a6a373ba8246",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-moerk/forside-360-bund.png",
+   "sha256": "32318b24e2c8f7bbe56726382dbfae0647cdf72bdf1a9c7c6c5a60994e75c1e5",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-moerk/forside-360.png",
+   "sha256": "d627b62cb7f6f36088d6fcbc9f6122916605e39db15ef58577828cc7d3916870",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-moerk/forside-390-bund.png",
+   "sha256": "93b06cb752692614b309d9d75f20a31b774090a83137a7378cf88cae30194d78",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-moerk/forside-390.png",
+   "sha256": "fe3d27c316c03082a2eada7f49a4bc340afdbe3de0db080465e89ebc75b070bb",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-moerk/soegekort-belastet-360.png",
+   "sha256": "5bb317467fd9b1e43ac19ccaae047aac82560397ecc99c292193a729c15f064f",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/efter-moerk/soegekort-belastet-390.png",
+   "sha256": "3277d74cfe6b41f85b861d48e63a681ee00b53ea05a9feaaf5fdde3f9325cb59",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/bolig-billeder-1440.png",
+   "sha256": "be28c833da29cdd29fd242d8addd4a50dd107063f9cde5ac0ff839d25af36aa1",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/bolig-billeder-360.png",
+   "sha256": "3628e60018f01b968376b0b45dfbe78ff381e0c98c42777372b132d9b8e929b1",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/bolig-billeder-390.png",
+   "sha256": "c3b6122f8aa06cf9b0d6bb93a91a364495f9ed827f889b5ade13da7754e072c2",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/bolig-uden-1440.png",
+   "sha256": "d130ae4da8d8d634608cc4235ca0b41f99c8592944a9492bd814d79080b8fd30",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/bolig-uden-360.png",
+   "sha256": "83c1551b90aea1d0082388cee65408837ca0a56c88f9214ba01ab921048ebd07",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/bolig-uden-390.png",
+   "sha256": "4dd929701731adfe4dcd541fbefaa198344217155489561cef22ca1004e4de0f",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/forside-1440-bund.png",
+   "sha256": "ffac0199b37ecc22998a57df7f8033c66cbe7ed03356484155a75da90ce1cf0c",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/forside-1440.png",
+   "sha256": "878de6e964b0960976358c9163053e3f5ffed5b36efa1599458a29dee02118e7",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/forside-360-bund.png",
+   "sha256": "1642eca0e933d5e4fa9cd283b51dd228c23303511988de2bef54a3acf826814e",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/forside-360.png",
+   "sha256": "e30908abdfba441bca41bdb123b737745f8b20fb1ec45e470a6127d555bb54de",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/forside-390-bund.png",
+   "sha256": "fb99eb4893d50adce95954dc2161cc1dba5e7a5e7a8fb0bffcfa2142eeaae06b",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/forside-390.png",
+   "sha256": "75e5913127f8704d10a6b0c9501fbc734bc3ddc4a91b861391720e81ed8ec303",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/soegekort-belastet-1440.png",
+   "sha256": "7d5b0f11d3441af086670409b5cc993c13a57562ec528523d89ae61605046389",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/soegekort-belastet-360.png",
+   "sha256": "097364f42f4c1272c037f5c6738a07a98ee74b5625ef7408d428e8e21f5183db",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/soegekort-belastet-390.png",
+   "sha256": "55b49c0c4e24fbb626f194e41a60bf0e0afc209a9ac2d07d4a04f781e1f978a0",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/soegning-1440.png",
+   "sha256": "666b58d36756e7f661891c3255af57e2b9b64ecab12e5c350a91a35d81bedec6",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/soegning-360.png",
+   "sha256": "808819ae4209b3bc97816c23011a96bf473d1ee8a7705021e6b13a6c68ba2be1",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foer/soegning-390.png",
+   "sha256": "bda090f505af649f6046871a6a6c87f4d9b34519571a69cebe897e308455e7f3",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/moerkt-foto-tyndt-underlag/baand-360.jpg",
+   "sha256": "f845124f2a3260fa7d3990ee9c78d1a81f9a3a7e738352f9f4d36f08153c5c58",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/moerkt-foto-tyndt-underlag/baand-390.jpg",
+   "sha256": "216f18a340aeb2e9a4c5d7e408ff30a2baba0b8051fcf4c3ac02f6a350f2fc54",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/moerkt-foto-tyndt-underlag/bred-1440.jpg",
+   "sha256": "e4b91fdef9c790ff4fa2346721d8cb2ccf9db610e85fc2eabe4b9a5f80ceb620",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/moerkt-foto-tyndt-underlag/moerk-360.jpg",
+   "sha256": "c6b13e15110a4bc8846016658ed19070a60e935b5e4e71c9616067edc3d5871b",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/moerkt-foto-tyndt-underlag/moerk-390.jpg",
+   "sha256": "abd83adf363cd7bd701fe58f632c9a361ce7bcc1e88ab6f56dc442f9a956d2d2",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/nuvaerende/baand-360.jpg",
+   "sha256": "eee873ace51c30d975d2f1c98aa8f5b5628bf43dfa1824eed49332fd3eb73b5d",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/nuvaerende/baand-390.jpg",
+   "sha256": "e1a546951a44a0846c7134e50d074077fb499df7f0864aff65521ce92bc9a9b0",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/nuvaerende/bred-1440.jpg",
+   "sha256": "8f6afff08b507289d7b5b91d69e592a4328edc41b3285d075885bf59e52f19db",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/nuvaerende/moerk-360.jpg",
+   "sha256": "6dd3f3429960f66055120b7b6f25c0ffc2bb6d8564ad10e4fb42f00b5374cfc6",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/nuvaerende/moerk-390.jpg",
+   "sha256": "0aaf93d7968d802cf650ae02771b7466bc3a087435a89bc41fdb78061ca3fd36",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/overbelyst-foto-loftet/baand-360.jpg",
+   "sha256": "1dd539f4593728265f7d7ca90abd2e4f6eea7a6dae0797f73c019b1e1fe939d0",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/overbelyst-foto-loftet/baand-390.jpg",
+   "sha256": "7cafa99f369e063c3ae748d6ecb46f1dab3ab41e6fc2bad8f9b53759d147c7e6",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/overbelyst-foto-loftet/bred-1440.jpg",
+   "sha256": "69dd9609f936dbe275531d1bbccf585f8b9c9c16c7d8e4021922041bed554525",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/overbelyst-foto-loftet/moerk-360.jpg",
+   "sha256": "4527a08392a80263625d7981fe603042f6adff942ad9ac759eb56778903bfc45",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/overbelyst-foto-loftet/moerk-390.jpg",
+   "sha256": "22bf3dc5e148ef6349df1fa44ccab483ec38cb5cc812f282a5bd1e54250f5a9a",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/tyndt-moerkt-sloer/baand-360.jpg",
+   "sha256": "eee873ace51c30d975d2f1c98aa8f5b5628bf43dfa1824eed49332fd3eb73b5d",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/tyndt-moerkt-sloer/baand-390.jpg",
+   "sha256": "e1a546951a44a0846c7134e50d074077fb499df7f0864aff65521ce92bc9a9b0",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/tyndt-moerkt-sloer/bred-1440.jpg",
+   "sha256": "8f6afff08b507289d7b5b91d69e592a4328edc41b3285d075885bf59e52f19db",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/tyndt-moerkt-sloer/moerk-360.jpg",
+   "sha256": "171323025b350ad53d65a96c959cdf988ef44af74390de5571eeed8d3c12cb14",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/tyndt-moerkt-sloer/moerk-390.jpg",
+   "sha256": "cbf4dfd72d9cbb650f79839925ece3adc2504429850417e03ce66ba679d9c199",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/uden-licens/baand-360.jpg",
+   "sha256": "eee873ace51c30d975d2f1c98aa8f5b5628bf43dfa1824eed49332fd3eb73b5d",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/uden-licens/baand-390.jpg",
+   "sha256": "e1a546951a44a0846c7134e50d074077fb499df7f0864aff65521ce92bc9a9b0",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/uden-licens/bred-1440.jpg",
+   "sha256": "8f6afff08b507289d7b5b91d69e592a4328edc41b3285d075885bf59e52f19db",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/uden-licens/moerk-360.jpg",
+   "sha256": "6dd3f3429960f66055120b7b6f25c0ffc2bb6d8564ad10e4fb42f00b5374cfc6",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/foto/uden-licens/moerk-390.jpg",
+   "sha256": "0aaf93d7968d802cf650ae02771b7466bc3a087435a89bc41fdb78061ca3fd36",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/runde2/forside-360-bund.png",
+   "sha256": "3f11d12e71f144fafbedfb2f96431e81621ca8244ac155d5780b505c65d45e3f",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/runde2/forside-360.png",
+   "sha256": "031aa9768bee8fe601a0a3247d21f16527ea5731d7d1d51e0e5087963adf5e9f",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/runde2/forside-390-bund.png",
+   "sha256": "f01b817be8fb8380987d88d24b39bc35349fd859cc507e4e9bdf3bb2f0084ea6",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/runde2/forside-390.png",
+   "sha256": "8686b80849255b15334cf6185a7c06e9b923c22a0de71d4ab0eb0d44aa457727",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/runde2/soegekort-belastet-360.png",
+   "sha256": "5f94a203f403704c9492e0ef32b16c126e0a706f04b7787280b856d8af2137cb",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb3/runde2/soegekort-belastet-390.png",
+   "sha256": "53480ed05914c00d067aeb900943bcc98d12edd05736161c196d666bb045c6da",
+   "dato": "2026-09-30",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/a/forside-360-bund.jpg",
+   "sha256": "7e8f11e382f3b900115073b46640089d83586210e32f5bb836b508b6daf92aa3",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/a/forside-360-foerste-besoeg.jpg",
+   "sha256": "364edbe84fd73f8712349bb931440bc3eb982bb8e75bcb02ee3df3e5cfeb8993",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/a/forside-360.jpg",
+   "sha256": "2dc974a86f8a0be1c1f4d57f485feb30890170858b979fccda6a1e74a1d21f0b",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/a/forside-390-bund.jpg",
+   "sha256": "40bfa440dfe925578187c18ab0bb08f2cbf3255168215d8eca82e25165ba8e19",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/a/forside-390-foerste-besoeg.jpg",
+   "sha256": "62411995c65d80e291a1714e51b1d392237f82e3739fa3fe63784fa4a5e7cd96",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/a/forside-390.jpg",
+   "sha256": "969431693933c7dba390c8339c6a893c196516a9c25160464f7b3ac7b36714c0",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/a/soegekort-belastet-360.jpg",
+   "sha256": "c2392141c16113a1717d2ed5e7a0183854e07bcb10985da042ec8d142d84c471",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/a/soegekort-belastet-390.jpg",
+   "sha256": "83f4741b168c87e803bb72dae7ca217569170f1aa437abaa9f95e7bf7e48b502",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/bolig-billeder-1440.jpg",
+   "sha256": "341564c148758f798e6713c6e699e916db35491d494f2b9c20d52539c4ac46b8",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/bolig-billeder-360.jpg",
+   "sha256": "4f2e7d3aff1cce7f26bdfeb1b643d6f2cb5bf8927946d32aeffa4d76fba12f64",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/bolig-billeder-390.jpg",
+   "sha256": "f9d48a33732a1f80681c027a90942013f6d4e666f283316a9c0656b1efb15868",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/bolig-uden-1440.jpg",
+   "sha256": "1898d4dbb5baeb5c31bf798293edc5a2a76593d3ff46db98229cf776c6065427",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/bolig-uden-360.jpg",
+   "sha256": "d541f610bf7fbc29dfe8c2d626e9a105973237c2c5c519c1a0c05fcce110303b",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/bolig-uden-390.jpg",
+   "sha256": "2453212a080a548098300c155e3967e14c6869bf34e8a3b305fca467b783858c",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/forside-1440-bund.jpg",
+   "sha256": "6f395342a4a0a1af873f591da32bf8ea9913b276618d7a30a6d2f9238b49bf03",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/forside-1440-foerste-besoeg.jpg",
+   "sha256": "574f29829c1bf23addd473883ee5f3ef87b31688b25dd6cbc768bf578baa2716",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/forside-1440.jpg",
+   "sha256": "9b4d0d2562da74a13e328e60c20b4eef7fffbf859a81d0e0eca87a5a609b2f39",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/forside-360-bund.jpg",
+   "sha256": "334a8033cc23d425bc06aa038c1cdd0eefe34eb177b9b70f16beefc51eec0f20",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/forside-360-foerste-besoeg.jpg",
+   "sha256": "01966f7e6e56e4256450d656822df1451f9d14e280188ea2781919dd5233ab38",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/forside-360.jpg",
+   "sha256": "cc2e50ccf65b1cf7bed516d3bb32c880a9b586046ead89b28155346e55f940b7",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/forside-390-bund.jpg",
+   "sha256": "b81e32e9822b428c08a13a770b806640e0b207afae51600c53fe727a60158993",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/forside-390-foerste-besoeg.jpg",
+   "sha256": "88bf4a50982eb2cafbae3c37d520ae51f628143b77a3dc7e18bd3dec4581714a",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/forside-390.jpg",
+   "sha256": "aa10d234b50356ea8251d63def864fb29e88c75d9ea2e72134144c598248d2d2",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/soegekort-belastet-1440.jpg",
+   "sha256": "b000c23b5b3bf757d00306379c304f245af058e9aba76847948242307decafd4",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/soegekort-belastet-360.jpg",
+   "sha256": "4e50aafe3f3a3f8d828a4363cec0b18be3e5971cae974073d20562e6267fc3a0",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/soegekort-belastet-390.jpg",
+   "sha256": "942600549282ffe056118dbb82c9a51a89de672a172c43dbeaa509baf981bd6f",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/soegning-1440.jpg",
+   "sha256": "462ed102799cfebf8d04c0c9ccab675adc31dfcb65616be4c986a08456b92ab7",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/soegning-360.jpg",
+   "sha256": "ca3a1d7fe2668899073f5d827de1e8a07116d86a3c3da68235a6210648247de7",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/b/soegning-390.jpg",
+   "sha256": "bf18816e987d72dcda9204e94f4e766f84446bbe4c52b47ee5aceca661a647a4",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foer/forside-1440-bund.jpg",
+   "sha256": "ff4c9d3c2c3b539b5c8edde9126d804aaa025a6db207e4107b62a026710cea0d",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foer/forside-1440-foerste-besoeg.jpg",
+   "sha256": "83dd0beebef360395b03143b0dd3673b1d665eaaeae695098f2fe7e8cc3b55e0",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foer/forside-1440.jpg",
+   "sha256": "6ca531a466dc2cadd1e099404f0832039d47f9c42e458ba544e86d31bf811111",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foer/forside-360-bund.jpg",
+   "sha256": "1ef4398f2ae3b24ba6334dd4503e9bc2c89615350472ed1480404afa417ac9c9",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foer/forside-360-foerste-besoeg.jpg",
+   "sha256": "cbb95a0ef32187c1856c98bbbd377eda4347f266bebb2fe8210349ffb28d64f2",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foer/forside-360.jpg",
+   "sha256": "33482688f7559a45c20a3a539ee9e96604da2cbf53eeb29c6eb3f8e810d3555b",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foer/forside-390-bund.jpg",
+   "sha256": "6b21669039e64e85407e83c3f3d0711412c1552c67a15411ccf3ecd0346707f2",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foer/forside-390-foerste-besoeg.jpg",
+   "sha256": "8c6d23a3c44a8d6b70541b060a7b823cd911ac46dfc061445cb3b67a6b9d190f",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foer/forside-390.jpg",
+   "sha256": "b86072f715270d7dfd413b01da57419a201f4230230f4bad260d1c2c79c2fcf7",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foer/soegekort-belastet-1440.jpg",
+   "sha256": "b5eba40c69eefc35ca1826d19e37584f53033c015d2d46064630a515ba43c6ef",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foer/soegekort-belastet-360.jpg",
+   "sha256": "c1e5191b315d6e01181b710feeaa927897a2b9ee2e1fb54c64da73bcea3515d2",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foer/soegekort-belastet-390.jpg",
+   "sha256": "c7bf8b615f17e49ede35003c064b4db93b52fc3ffa3126e63dfa11de8d5ff36f",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foto/nuvaerende/A-360.jpg",
+   "sha256": "f276fd149bdf2be4d9a9b2bf67e50021c36b535aadddd3a44acb33435a5965ca",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foto/nuvaerende/A-390.jpg",
+   "sha256": "81a7bf871c70f047a8d6e418ea88db33ccd468029412f968c722a2975f9c56dc",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foto/nuvaerende/B-320.jpg",
+   "sha256": "61140948dd2fd342d18303f934c622e34f81263c2609a1a875cabf38361aa55d",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foto/nuvaerende/B-360.jpg",
+   "sha256": "3945ab157b036d98614e632c0a151a17925a5e61ff93ef180331fcce3cec8faa",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foto/nuvaerende/B-375.jpg",
+   "sha256": "a383b2db1d7233cce5c67a5865f55a61615e21bafb596f98d8e3c90427920e4b",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foto/nuvaerende/B-390.jpg",
+   "sha256": "65dd05b372046047a69e13c0cb82cb7dce5a04ba61be2dc0885fa41c4244736e",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foto/nuvaerende/B-414.jpg",
+   "sha256": "7ba01af33653c2e9663a4517aa8c798f6fe6bd99a956d9e97d0dbe02c7f992a5",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foto/nuvaerende/B-430.jpg",
+   "sha256": "5b89b8583e2abfba86b6703578e3161288cfeef19ce0a485146490214fc26bda",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foto/nuvaerende/B-600.jpg",
+   "sha256": "fa00c0dd1decd26626fe064642eed5fe816bd24e3a3a2d8088824124b25b660c",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foto/nuvaerende/B-768.jpg",
+   "sha256": "50522f796c885b06588bbe8778cedccbcc6f4d59767374c427a2228c8afec15a",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foto/nuvaerende/B-900.jpg",
+   "sha256": "5732d0529c3197e48fee20723c6763cdf338c633f12c9f5503979406563cbd78",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/foto/nuvaerende/bred-1440.jpg",
+   "sha256": "8f6afff08b507289d7b5b91d69e592a4328edc41b3285d075885bf59e52f19db",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/a-kun-css-360.png",
+   "sha256": "6529448b246b2409d6eb09914e74fa7b9bd5162b3b1f5ba10eeb995094651f34",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/a-kun-css-390.png",
+   "sha256": "4c90276fe5e03c3f2699f2da021f29dbfa12166c5617977cad27a34fad5cc924",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/foldet-360.png",
+   "sha256": "c30b24bc70f8837679ce381170324592f38c8c72e7c96e0eb5040a890cc7aecc",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/foldet-390.png",
+   "sha256": "13beceb0acef5389ef44bf5095c09aec08d6f7645ae99c9de8c53a4e29062cb8",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/i-dag-360.png",
+   "sha256": "8a9e1a85d44977d6e26898b970dac89d83d190430127eebc3baef55b26c0cd5f",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/i-dag-390.png",
+   "sha256": "0413a895d3d1a418f7fbf29414c0ef14eaff0fcc5a5f1bb801362ec18eae7b1c",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/kun-css-360.png",
+   "sha256": "c30b24bc70f8837679ce381170324592f38c8c72e7c96e0eb5040a890cc7aecc",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/kun-css-390.png",
+   "sha256": "13beceb0acef5389ef44bf5095c09aec08d6f7645ae99c9de8c53a4e29062cb8",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/kun-greb-360.png",
+   "sha256": "505a8859ff390c64225507f48ca285aa46a258661cf6a807fd275971f3b7c119",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/kun-greb-390.png",
+   "sha256": "00f850398530b429854b26a02693a5a9a21f8704183ca380980049cbffe6b6ec",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/lag-og-mockup-360.png",
+   "sha256": "c30b24bc70f8837679ce381170324592f38c8c72e7c96e0eb5040a890cc7aecc",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/lag-og-mockup-390.png",
+   "sha256": "13beceb0acef5389ef44bf5095c09aec08d6f7645ae99c9de8c53a4e29062cb8",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/markup-flyttet-360.png",
+   "sha256": "55e977b7bc3a18171afd48aa18177ca82e18171e9d8d63800bb45fb4a5199312",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/markup-flyttet-390.png",
+   "sha256": "ad2b6c7e2fc793eb1d6aa1f5cc19a2e89fd358dcb9a06c42096dac77c5b172b3",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/markup-flyttet-og-css-360.png",
+   "sha256": "70759b7ee3a53ca7ec1759aabb504bfbcdeb50d654bb0429522432db893be292",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/markup-flyttet-og-css-390.png",
+   "sha256": "cb809a7caad5ca78a5737e787e5c79c7ba95d02923b520f8117ccbfa73d20d2e",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/modproeve-bleg-390.png",
+   "sha256": "3e7a215554c80fef8ea31ae3ec85611b218daab1073e158dfa78e2cafcbecdb0",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/modproeve-daekket-390.png",
+   "sha256": "f7ce717da26786cc652ca18760acedc9f0c8566827911574a676578e91bce963",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/modproeve-env-uden-kredit-390.png",
+   "sha256": "2485eb5747bd27b3bd8759180d77dcf051ec418be321f9ad2b90dba49f529556",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/modproeve-foldet-gammel-spec-390.png",
+   "sha256": "fd3f065ae515ac07e0e1eeee23a06203146b2ce2bf51a714ee557420b76fc329",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/modproeve-kun-greb-uden-reserve-390.png",
+   "sha256": "e78a9edfcff13a74077442f5d74b0e75a66d5fc644f724bfc1fe761e1f472558",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/modproeve-overlap-390.png",
+   "sha256": "a17be842a82f2c978acb1452ee4d5ea78dc84444cc7f05a6c3995f073be35373",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/modproeve-skjult-390.png",
+   "sha256": "2485eb5747bd27b3bd8759180d77dcf051ec418be321f9ad2b90dba49f529556",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/kredit/modproeve-to-390.png",
+   "sha256": "13beceb0acef5389ef44bf5095c09aec08d6f7645ae99c9de8c53a4e29062cb8",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/runde2/forside-360-bund.jpg",
+   "sha256": "3e468cbd561d4125dcddb3129fa29bc5f729a4c8437d33cd4f5263c38ced1102",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/runde2/forside-360-foerste-besoeg.jpg",
+   "sha256": "67db5a724c1deb7600371ea83df2c3581805b8dbfb4bb62bc007fc6356aa9268",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/runde2/forside-360.jpg",
+   "sha256": "b8d2e9820d45a82db5be5aff3c9f81d767a3a3d106dc3a3a9df957aebea2b27d",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/runde2/forside-390-bund.jpg",
+   "sha256": "cfb32502c8cab71aa5d82a15231b6fc5f1f35a4916b71dfbb5f869e68766ec00",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/runde2/forside-390-foerste-besoeg.jpg",
+   "sha256": "e4a180ef90ebc8480d3773cd27b2ff4b8038fa976205e3e323e6811267bd9a9a",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/runde2/forside-390.jpg",
+   "sha256": "c2c14091fbee46aa31447ddaac81568a332bccd2ae56d3333f51b2c87d3512f9",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/runde2/soegekort-belastet-360.jpg",
+   "sha256": "0100801efaba41a5d63efe356145c99829dfa6b265e0f9576f8a3a30aae1e00c",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/runde2/soegekort-belastet-390.jpg",
+   "sha256": "ee3343ffa8f249dd921d20a9ed5fe4b39b543c6e74f56bdc353da74b8063bd60",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/runde3-b/forside-360-bund.jpg",
+   "sha256": "7324aa6909f54f9f8fbbae9d1cef610e05537600ecc93379b5eb45951724b850",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/runde3-b/forside-360-foerste-besoeg.jpg",
+   "sha256": "51ddfcd7e50c53d97a82427df8c5506b018785fab422edc30aec8ad0426aa475",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/runde3-b/forside-360.jpg",
+   "sha256": "f5f2dec3bf7bea83068ed59fd77622822d6fe18fb8225eb8939a6ecb07bff54c",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/runde3-b/forside-390-bund.jpg",
+   "sha256": "55562efb68bc6578a19f3ddd56abfdcdf93b2d0700db8a52c2fc3bf46a171969",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/runde3-b/forside-390-foerste-besoeg.jpg",
+   "sha256": "64f3f92d60325e21a7fec034e5afe7cf9a05371bee7b6658c466d1395a00d3f4",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/runde3-b/forside-390.jpg",
+   "sha256": "35b08a9a65231bd76b3c3bbc26899032514e83e379babe41b46e7017006c65dd",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/runde3-b/soegekort-belastet-360.jpg",
+   "sha256": "4e50aafe3f3a3f8d828a4363cec0b18be3e5971cae974073d20562e6267fc3a0",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/greb4/runde3-b/soegekort-belastet-390.jpg",
+   "sha256": "942600549282ffe056118dbb82c9a51a89de672a172c43dbeaa509baf981bd6f",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Skrevet før vagten fandtes (designforslagets runde 1–4), i et miljø uden adgang til nogen kildes vært: mod testbasens syntetiske boliger eller som file://-mockup. Ingen kvittering, fordi der ingen vagt var. Beholdt, ikke godkendt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/skriftproeve.png",
+   "sha256": "11513d92999b09df4a23a8bb91c6232532ba76488d0123a42de811239e2bd04a",
+   "dato": "2026-09-26",
+   "herkomst": "kendt",
+   "grund": "Skriftprøven fra runde 1 (40a8302): fem syntetiske boligkort, ét pr. skrift. Efterset 2. oktober 2026: fotoet i kortene er heltefotoet public/hero-stue.jpg (Taryn Elliott / Pexels, Pexels-licensen, se heltefoto.json), ikke et kildebillede; kildenavnene er tekst i mockuppen. Skrevet før vagten fandtes, derfor uden kvittering. Beholdt: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/boligdetalje-desktop-hele.png",
+   "sha256": "8ad4345bd8fc77c3a89201e790321ed56ae5514a91f6d495f612bc47c06b534c",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/boligdetalje-desktop.png",
+   "sha256": "692abd0a695ccafedf59b19219e3c5f538378bfe5f5a83ab0fad636c00a96d7c",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/boligdetalje-mobil-hele.png",
+   "sha256": "8c636d47e924e9e2665deda740c26cf6ea2781c6040561ec5d18934e19eab4e2",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/boligdetalje-mobil.png",
+   "sha256": "d7f54db05da5a43ea13d4ee4387a124ef802ce0d112446cd851a8ce669700102",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/boligdetalje-uden-foto-desktop.png",
+   "sha256": "152af037fff3617a85eefb8998fd78c8de0fa84457f41d1f704a6d5d9727a680",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/boligdetalje-uden-foto-mobil.png",
+   "sha256": "678028c236a83999f78b54064a79e3f6df7f9f69e338e874e34c05adeff467bb",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/boligdetalje-ukendt-udgift-desktop.png",
+   "sha256": "a5fd05af9ac53fb7dca98e58adf5e842b464ee1baba441f976c89eca3be928be",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/boligdetalje-ukendt-udgift-mobil.png",
+   "sha256": "8f7e2d4316a396f768a7c98e27bda18f1a4306e676d3ff7e0c4f9cb7a47e4f0f",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/forside-bred-hele.png",
+   "sha256": "b4759d8ca9ce69b1c7af0468e900b97391648d142cb43ff6d63ba5cdad39acdd",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/forside-bred.png",
+   "sha256": "041163b0209064aed225d1cc1f0dae03984d77155ba16bd50d2c3cc8b05efc11",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/forside-desktop-hele.png",
+   "sha256": "19e97200156fc4e7a99a44c1d81b6ec684bc815d54fdb4a33a8453ca1091bd6c",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/forside-desktop.png",
+   "sha256": "f2884917502c0e02c5e0c5b6b7e4aa976936be77b6a42d9c2a1fa8af5aae5fa7",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/forside-mellem-hele.png",
+   "sha256": "a8db39649629ac22f3fd0a2614c8f70f0c87750971a02da682deb8a8fc2fe7dc",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/forside-mellem.png",
+   "sha256": "1863c5e4d0da007484986479c0de79ac6e99ccfff17e6400ed830deb1aee2841",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/forside-mobil-hele.png",
+   "sha256": "5f8faaca4cb54a7938ca7dc7181d2613f780e1909bf588bef00d599a7ab92439",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/forside-mobil.png",
+   "sha256": "ed061cd502780b4be2d91db5efa0645df50daf2b91d2cf03f24514c9542bd4a3",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/forside-tablet-hele.png",
+   "sha256": "573f1f75aa39996ee8b348a9826f574f251a48d1dacdb72c0929fc046ac8510f",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/forside-tablet.png",
+   "sha256": "87fdf58723c2cf6ae70b7d79fda21dd0a9fc67b684a84e22ae020a491ddf097b",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/gruppeside-desktop-hele.png",
+   "sha256": "1caf0c67f7cc014cfa68a5a9680723272ca86f9db874189636eb64bdfd0295fa",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/gruppeside-desktop.png",
+   "sha256": "1caf0c67f7cc014cfa68a5a9680723272ca86f9db874189636eb64bdfd0295fa",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/gruppeside-mellem.png",
+   "sha256": "92c332510c0f2eca0e350eab2a9dd5184ed6eb3f6081d59b19cf40097954e53a",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/gruppeside-mobil-hele.png",
+   "sha256": "d8cdd48bcab1d3494b50fdf7f974ca1952252a30843dce2d1bf0143fe27318e3",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/gruppeside-mobil.png",
+   "sha256": "ec8ede43642c705836c9b06a7c004a97e7bbd925a1ce3383f01632f2d907203c",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/gruppeside-tablet.png",
+   "sha256": "e5889cf59be51d5ce8d4cd0c008efc50e143db8dfa4687c051dee357c42464e6",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/soegeresultater-desktop-hele.png",
+   "sha256": "9c4a6ff9228938354524e0c9a7eb1194d204971cd740621040a2adfbebf2f304",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/soegeresultater-desktop.png",
+   "sha256": "3073090063fbf1231739e8ad0fe4a861296b7ca62d9cb98d84e058d2cce8e895",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/soegeresultater-mellem-hele.png",
+   "sha256": "1a1dd7c370f2bdb9d69b6e32d88326536e3897be9af66d6bdd5c02bf36fa17e9",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/soegeresultater-mellem.png",
+   "sha256": "421c066ade6f36c283764a6bfaf6e9636c1946dfd3736b2b6b15cb3fd83fab9a",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/soegeresultater-mobil-hele.png",
+   "sha256": "0f40f0b823b58115ef9b15c19fc95386d190cfc14e361444a6e2972fb0b7058f",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/soegeresultater-mobil.png",
+   "sha256": "4f1b56b3938ebbe30170017241652127bf28b829f620291800f3f0e725510cf7",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/soegeresultater-tablet-hele.png",
+   "sha256": "674c017a45b2dab235539fcda2ccadcdcc0bee06cba1edb3c1e1f7fdb62325f9",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/designloeft/soegeresultater-tablet.png",
+   "sha256": "a4264a4f124327594d15bf04863a2f56282aea2786e96c8a1a8cbd53d8c26731",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/eksempler/boligdetalje-desktop-efter.png",
+   "sha256": "a42a780b10806661c3a500f6a4c7a5586c4dd7d989349aa5c686019b1e149456",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/eksempler/boligdetalje-desktop-foer.png",
+   "sha256": "611de5fc4c548f71bedae8229ce8c411f57eb4498a93dd97098b31bd474e163b",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/eksempler/boligdetalje-mobil-efter.png",
+   "sha256": "e66aa5ba90e22a5e7e5311b7cbe9ce4a86e9709091ded616aff3903b9c53c781",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/eksempler/boligdetalje-mobil-foer.png",
+   "sha256": "f4467c5fab282094161495952ff5921959126a8af7c2f8d70f34b0d2cd265040",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/eksempler/forside-desktop-efter.png",
+   "sha256": "ff83a70f26f962e2768aa5506fd6ce537ee4942f8ed8ca9ef1e269759b24e5fe",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/eksempler/forside-desktop-foer.png",
+   "sha256": "a59e6a9cd662da2f3e599c666939adefb372f36bbbaf14d7f1034b14dc1794bd",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/eksempler/forside-mobil-efter.png",
+   "sha256": "3b1ad9cbafec07207b81204b1e1886b27c4ebd277ca5865c44e285357a12fd15",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/eksempler/forside-mobil-foer.png",
+   "sha256": "e5df4dfe9f2845b650269884062da2db95885522a882979bbed5fc87d53be460",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/eksempler/resultater-filtre-desktop-efter.png",
+   "sha256": "121b5fb41da299c5751c083fa1ba96acef56fb3c8fcd94d0ac212e596f363fbc",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/eksempler/resultater-filtre-desktop-foer.png",
+   "sha256": "094096f991ff3460fbba39bc6f9a08997c205cc9e92842f64f8faa76e426c214",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/eksempler/resultater-filtre-mobil-efter.png",
+   "sha256": "95ada895f8487510bbbe7d544e9d985b27b45f8324709f880a0af4e5b751b5f4",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/eksempler/resultater-filtre-mobil-foer.png",
+   "sha256": "5b9fd5528bde8cb9c86a408876ef3112080ed20e099d3a75f5a7784dab19eca6",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/fe16c39-kontrol/filtre-aabne-1440.png",
+   "sha256": "215629f27034f15134251425e620e4de9958687a6599b3ceec3e06fe5b14697d",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/fe16c39-kontrol/filtre-aabne-390.png",
+   "sha256": "7f9e3a324738470428dbc380ebdf2a42790ae2c58efb73a8c27715adfcca645a",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/fe16c39-kontrol/filtre-aabne-768.png",
+   "sha256": "45ef53dddb886c5156c935157bf32208cf5f8648373feda7cbf61a4e0fbf4880",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/fe16c39-kontrol/galleriknap-1440.png",
+   "sha256": "191b807ca0831bb29e3791d98a4c1c41a5fff666731927b2e4151bb2bdf99bd0",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/fe16c39-kontrol/galleriknap-390.png",
+   "sha256": "ef704f7c9fde25ba18f31ea75f3a9bb81c8c8ed429c4401d879345f45918d91a",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/fe16c39-kontrol/galleriknap-768.png",
+   "sha256": "db0c9637e849a3a10b87a4ebf8a1920afa8a734215a55fc881c2b2b5c6897154",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/fe16c39-kontrol/sidefod-390.png",
+   "sha256": "85db324970770a292a132cba2375ef9c9298a9b7ab700e0658fcbb0d7afb1186",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/fotokontrol/galleri-desktop.png",
+   "sha256": "aef6ed11e767e7b68670101ffb62d584bce7d40862bc32cabe47f1793daa06d8",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/fotokontrol/galleri-mobil.png",
+   "sha256": "13cc0869c1cc6048d41f916a1352b8c11cf4b882eacd8cef2ec3c581b481b682",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/fotokontrol/kort-desktop.png",
+   "sha256": "5dc403e47fa8b57b426c0eb3fa640de8580b150441039ba2aece12b9c35fa40d",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/fotokontrol/kort-mobil.png",
+   "sha256": "9ff5afe92b610797189fff5d3c0e08144e2f31a2724f0db9ce8e0f8f9c547ae5",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/fotokontrol/lysbord-desktop.png",
+   "sha256": "c9ac1039d07743bafc6337e61b383dbdb4e710fb3b01603d897da69f1bec6f07",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/fotokontrol/lysbord-mobil.png",
+   "sha256": "f61ca31735507e526be8fd3c300544819b5dcbdcf23893bfcdc9686a7ba481cd",
+   "dato": "2026-09-13",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/geometri/galleri-desktop-moerkt-motiv.png",
+   "sha256": "11f6228b9a0752941c984f17703c7dd54ad71c537c78312da2473f70e296779e",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/geometri/galleri-desktop.png",
+   "sha256": "78a880f07a44d6665cd0e7d9f3da51688f87ef846cdd5e24812377f1aa1216f0",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/geometri/galleri-mobil-moerkt-motiv.png",
+   "sha256": "61116850823b457a228a9a44c6f722d04afe0dfe4ab16c162178218664f7a56d",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/geometri/galleri-mobil.png",
+   "sha256": "9d494e72e30c297b4bf5265b41acbe774cb81d4a3150487e44c7a93933f0a582",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/geometri/kort-desktop.png",
+   "sha256": "ef1702974a57ea6e03745a550fa3cf3d8891f1e56513713a14131c7f9825d5a6",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/geometri/kort-mobil.png",
+   "sha256": "0d5cccd64c654ee34d917366d9abf8eed01d5c7d5976cc6a3434aa31e9a3bc8c",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/geometri/lysbord-desktop.png",
+   "sha256": "cf00ffd57912c7718e42baea74fa5f3d14fd9ae493ee3d261c853fb3560299ba",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/frontend-lancering-v2/geometri/lysbord-mobil.png",
+   "sha256": "dc59435f7a262d0ebe256e471519d372b0ddf8e8297fc9500457b62b1bf8293e",
+   "dato": "2026-09-12",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/efter/med-kort-1100.png",
+   "sha256": "6012ffaf62e0a6d8cf35da74bd67a6db5a4e83300be703b8b03ad02dcab46a93",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/efter/med-kort-1440.png",
+   "sha256": "7c4feabb170eb5792dd3d38750a5ef2f7f77dbcd36aca6b1ccb2cab67fa79a2d",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/efter/med-kort-390.png",
+   "sha256": "67bbe71babf9731182b52494d6a5ad5689b57b7deb0a8559750f0b2df179ca77",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/efter/med-kort-768.png",
+   "sha256": "f93d312d75e426ab49064bfd1269d5bada3c1e8b4996fa4e51093b17b11f409b",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/efter/uden-kort-1100.png",
+   "sha256": "cf217ba302f8b88f7795432bdeb10646e741283a8961bf2606af5acf8e9af270",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/efter/uden-kort-1440.png",
+   "sha256": "81c3652ef6b51f8f5e92b4b7591dfc80b84b98902ba35d8745f71ff84d1f615f",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/efter/uden-kort-390.png",
+   "sha256": "9c25026c02b999979e179969fca82c9ddc311edd06d4d5a22d0171a63685e70c",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/efter/uden-kort-768.png",
+   "sha256": "1fb3d24a0120425d1f64763fe39a21a9debdccde264e704dcff66abfbbe49b74",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/foer/med-kort-1100.png",
+   "sha256": "ec6ed9c07eaafacd068432e87da9bd50f87d92d14dc8bde81fd1d8e24abf539d",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/foer/med-kort-1440.png",
+   "sha256": "dd576730ba755d32070b0b03220188c6c94ecdcd37f01561e47a7be3bc88cee0",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/foer/med-kort-390.png",
+   "sha256": "67bbe71babf9731182b52494d6a5ad5689b57b7deb0a8559750f0b2df179ca77",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/foer/med-kort-768.png",
+   "sha256": "8b120bf756ca2cdcd17b8126d28ab46ef175ac807dff13cf5ed0516da61666b8",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/foer/uden-kort-1100.png",
+   "sha256": "89261cb424d1498ccb0fd5df82175950d3db29318b522b6631acb305cf6edbe4",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/foer/uden-kort-1440.png",
+   "sha256": "d30ac8f5b131c1244602499795e77dcc51288e13fc91b22ce7201e0308bb6acc",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/foer/uden-kort-390.png",
+   "sha256": "9c25026c02b999979e179969fca82c9ddc311edd06d4d5a22d0171a63685e70c",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/foer/uden-kort-768.png",
+   "sha256": "505a951c7b62164043d29d082fc0ecde91a9ec8301822ee88f6f388bc58bf868",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/tilfaelde/1440-enkelt.png",
+   "sha256": "bc03c2259a65ad36ccd02bfc6cf05fb2473e5de196f11ed3cde29f9f9b1bb286",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/tilfaelde/1440-gruppe.png",
+   "sha256": "b0f7ec7f76c4cfad0ba5ab09bf37a94996acebd6a0816eba2cf5874291049e1d",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/tilfaelde/1440-uden-foto.png",
+   "sha256": "e764498cb4b77fb2332d98915de6568671ee213e726800bc181e373e8f829247",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/tilfaelde/1440-ukendt-aconto.png",
+   "sha256": "9f4169dbedd3532f81703c77d526caaf80191f43ef86b1ffe49730a4eb6abcd1",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/tilfaelde/390-enkelt.png",
+   "sha256": "33dc8ea3128f490b8e39d8129b4a8d34c854a9b5ecb49785c586772686a77b5e",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/tilfaelde/390-gruppe.png",
+   "sha256": "fbd0c95425a5e1a6ce86ff58d916a7568142c25813371e499b06ba410b64837a",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/tilfaelde/390-uden-foto.png",
+   "sha256": "77e17588b230572a66e1ab6206fe05c3d3eaa7c384241221e31f0bd786b47ecb",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/tilfaelde/390-ukendt-aconto.png",
+   "sha256": "4158797d45ec1b70305e8ac423b95f8f7503675015b1b7a8a6da2d192f715df0",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/tilfaelde/billedforbehold-1440.png",
+   "sha256": "9b74c69400bf45892d1930eec1d7b248397f94be47d929e4a169cbe2cedf7095",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/tilfaelde/billedforbehold-390.png",
+   "sha256": "245a3d65c9ea55d6dcdbd7d534fed68c19ff927b1b39e984f6ec09f27a3c6a3e",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/tilfaelde/former-1440.png",
+   "sha256": "347982fa12586d0e4a0bca9515bfe4c3fdde725fca902ced7342582183b74a3f",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/tilfaelde/former-390.png",
+   "sha256": "aa2b8c758f8d303eb5be4e2cd1c6869734cc3934f5fdabc2a7ad3628caacdf20",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/tilfaelde/indflytning-1440.png",
+   "sha256": "47d3e7ece05872a758c88306ce6c97d66000f19bf1e7c45853e15386873988f2",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kortdesign/tilfaelde/indflytning-390.png",
+   "sha256": "97ce866db079b2dba18068e3e8024c4f994724fc8c007d7699d56218ce80e600",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/filtre-1100.png",
+   "sha256": "fc2bb88af494b6a2861b2287c80856656cb9d5292f7eadc0c73eba05ffe08cb1",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/filtre-1440.png",
+   "sha256": "3d4c2d83491995b2e092ba537d3977aab8fe240dc19fbf69f85f6c88c5e19b73",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/filtre-390.png",
+   "sha256": "c158dafaab6b3da500405e59fedd54b6b6b5ec1593b90323666a6502e3150be5",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/filtre-768.png",
+   "sha256": "54495baf83f4f2f31a722fb49399bea4b889bdaf4aaba0c7a180c34176de22a3",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/forside-1100.png",
+   "sha256": "4067ac7dbd444743ed1e8c22d291fd0a10c45721104d33ebe36c0de9bf301502",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/forside-1440.png",
+   "sha256": "314038b959280f76772fbd43e3270c9a1d20668d4e0c7316a8e206047a283d8b",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/forside-390.png",
+   "sha256": "59d1eac6777b5d63273119d0fecbd82451f297c68a66ad760f0b87d4e50a495c",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/forside-768.png",
+   "sha256": "66bf7ae895c4cfc862e2a359e1a7d112e969d4fae44daa56a23ad211d7a1b9fa",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/resultat-1100.png",
+   "sha256": "f6628c06bba3d58ae4b3105f17670676a0428dd02416a66088afe70d451a50dd",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/resultat-1440.png",
+   "sha256": "47aaa2d47b612a44a7912966353d4d9c215312556e22c7af4692c86446d8eaa4",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/resultat-390.png",
+   "sha256": "daeeac6b299f2954a6b2e5ff2e1c56366c2c05fdb659516f342f23f04b20ad04",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/resultat-768.png",
+   "sha256": "19229c6b69f4156eab04b1c95a593f84ed4cacf7d6d1f7ee93474ed0cbba576e",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/resultat-liste-1100.png",
+   "sha256": "d1902188b812060b4b5a3dd95693f8fd1e990dd51af9b037cbcee023c9f0d773",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/resultat-liste-1440.png",
+   "sha256": "1e7ddf6ccc134684cbea15f65c5129a8acf59313ee8998116696842fd8cf86ec",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/resultat-liste-390.png",
+   "sha256": "bfb0030461d9676ac8f4422ac5551d6a7e43bc7a1f885d9ffb40afd368f8a035",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/resultat-liste-768.png",
+   "sha256": "66ba84911c3edc7c355b4e7d11c2960ccdab10b942dc5782d16a57592c8a4381",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/udenkoord-1100.png",
+   "sha256": "979247a4c41993438ce770741ef32e79daa543668161c0c518889b8ed9745a48",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/udenkoord-1440.png",
+   "sha256": "5cd405dc054ee3a640473a957ba80f63e3eaac8cf9a6b5b100868a9b810a6162",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/udenkoord-390.png",
+   "sha256": "72c6a0c3d8b711025675c3b7c59f3e8cf2e0ff7dbe50981a96eeeb82e8960694",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/efter/udenkoord-768.png",
+   "sha256": "1fde0913d73528a1efa0572bb60521f657b487d5ac4e94640d369bf1089c95ad",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/filtre/datatilfaelde-1440.png",
+   "sha256": "649bfa597f0c1b3457bf7630b8c430e1dbcfd6abf08c36a24385599e079d8fc3",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/filtre/datatilfaelde-390.png",
+   "sha256": "bb1d17005a3aa35a2d6727d4bc41e58d1aa6b725d3dde7a8be1f2083be5ec633",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/filtre/dialog-1100.png",
+   "sha256": "7e467b232148b7a81f73c2f2ee87519ef78216d1ca6b530a29129f434e559787",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/filtre/dialog-1440.png",
+   "sha256": "7b1bf5df77b828866a309679759d1200ce42cdce313e170d05369dd5158c4d63",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/filtre/dialog-390.png",
+   "sha256": "f42a4a74ac55a94f5eba5071cc071f4caa6af4fe4b06a42172ce09c13120f834",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/filtre/dialog-768.png",
+   "sha256": "2a0a3b9c2196a96693c00f121363542663f243490fd4da375dc6d25fe2ebc385",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/filtre/lang-adresse-390.png",
+   "sha256": "3c2e07e273a46ba22d366664dbf061c76044eb3e9b221960b6dc975ed7a950cf",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/filtre/negativ-fokus.png",
+   "sha256": "7ab6b5f121a3ab5ba126c97c78ff253ce34f4bb7284e8149ddeb7d279901f60a",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/filtre/tastatur-390.png",
+   "sha256": "c8fe43719f36e07de565affe41519f57f09d724bd57b29fb485bb7f2e5c1caee",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/filtre/uden-js.png",
+   "sha256": "7bb4db6f3c27b9ab40094b0f856b164fa36a22a0668ae8733bbd906ed6fe2545",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/filtre-1100.png",
+   "sha256": "388d898d94ea307d9e9e4044b134785032a3b4a616afe4cbb0539aebd9651034",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/filtre-1440.png",
+   "sha256": "2688e97fd0d3effde51027a8edf3473aa06cd268bedfadd927d54166b5ba823c",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/filtre-390.png",
+   "sha256": "8cb86552df4fae43fdaf7b6cd8c0f99ae619b4f937d79efdb8856d008314b6f3",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/filtre-768.png",
+   "sha256": "964a846b9f7c50ace7417a27fa49d5c9425556f2a888b9b3d532181258b7d3a8",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/forside-1100.png",
+   "sha256": "9aae0918723e21fcfa41cd6bfe5ea31223327078042a4f3de27dcf11eb5f8785",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/forside-1440.png",
+   "sha256": "b80e9013db731536117b6d35edeed4bd0d1dfc98db105658150c78dee1f0a225",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/forside-390.png",
+   "sha256": "d18a09a9f9e7e5b799ac0c780b4f2ae3ad50dcbb8276933acc060e493bc907c6",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/forside-768.png",
+   "sha256": "665ff8d16d74dc2d3fe5f5a6caa93ae014ae0fb8aa29b747ee13386af877c58c",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/resultat-1100.png",
+   "sha256": "4c027bd7e79c44c34e411a0f047c0d69f76b7cfe358be42f0f2e6604e45d0b83",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/resultat-1440.png",
+   "sha256": "13aff89936752867a12ad10c6c78c1fa713d8ae5bc304c15a9db588045170f9a",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/resultat-390.png",
+   "sha256": "5cba04693b336e66530011b6f855095f22c5d8526a519eb555879f6c4f86803b",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/resultat-768.png",
+   "sha256": "03d605e7ea26ed6bc8875934ebb02f61c116d5c4c8523d94704572d900442cd1",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/resultat-liste-1100.png",
+   "sha256": "7515126a1e1c053bf35791c21ceee451bcf5b117985a3ec651aa8ffcbf3e5918",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/resultat-liste-1440.png",
+   "sha256": "e55324b3a8aa11df709f4d4bc103c11e1e79950ad0333b66a01b468ce4f3019d",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/resultat-liste-390.png",
+   "sha256": "55a692ded7ddeeff944649be8f91c343610ddb0926df61d49f4a3e2226c8488a",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/resultat-liste-768.png",
+   "sha256": "fdd73886dfa5826d8f0a31202b219f8c8b9c3522eeb7f18165951e2a52293112",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/udenkoord-1100.png",
+   "sha256": "3471e134208638010e1fb65f151019067f0ea38f5cde68d43afc0d33dfceb0e5",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/udenkoord-1440.png",
+   "sha256": "aa9fa539ae8ac43348f6063411035b9224e62e707e288d768d8fee6c9b7650bc",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/udenkoord-390.png",
+   "sha256": "b4257b1ac99e16eb22ce8f7d518cf9d9ce027af1b52542a070a80b0abee797af",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/foer/udenkoord-768.png",
+   "sha256": "0031d949249a0522d5b0fe61ee9c22bb9b9f0f69861ef009c7bd0f3380e9f457",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/kort/1440-enkelt.png",
+   "sha256": "97d138819f7677dc49bb3431334a8c3b93245351732794c153cce59eba12fcb1",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/kort/1440-gruppe.png",
+   "sha256": "f83281926fe15517f19521cd6a423b31ffca53c324effb08cca6ea9fdbb08c08",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/kort/1440-status.png",
+   "sha256": "b591bf3dd7dc61477469aa6f6c5ed0873f1c5a98ee3995a9b77304aafce51c50",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/kort/1440-uden-foto.png",
+   "sha256": "ac508c61ee20d991b434375fcc3f4a77eecbaff3679271194f40d6bc241dd4c8",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/kort/1440-ukendt-aconto.png",
+   "sha256": "f50d57a3ccdecabf400c423072e76d9795f99991b0714a15d2f3f05b7c36b2fe",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/kort/390-enkelt.png",
+   "sha256": "470c465c56ba5a984fc913e338afd60be7bdb6ae33c41ad4da611f6f3a60f69a",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/kort/390-gruppe.png",
+   "sha256": "5885588cee98f79ad3f3d71ee81b7764f5418da4856e73bca60723385ee75ccd",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/kort/390-status.png",
+   "sha256": "b974aa46fef4615dc700d3920db6b671f3367753957702bb20c2b10d6e0eeb8f",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/kort/390-uden-foto.png",
+   "sha256": "143f04bf37a924a2ba7126d276ddb791ff50e89d90a17558aceda876c05350a5",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/kort/390-ukendt-aconto.png",
+   "sha256": "1bf6af849cb2dbdae4edad418b10ccdf080c9c2f4aac5c470ef5b57bd003511a",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/kort/mobil-kortvisning.png",
+   "sha256": "9864ce91e8116903df41dd5d0f6ac91133b6149291ee5872350d852608093d4a",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/resultatdesign/kort/mobil-udenkoord.png",
+   "sha256": "c8b67bd423397258ed95ed0592a81f1b4886691bac91f25f5c038b17b9d4f318",
+   "dato": "2026-09-14",
+   "herkomst": "ikke efterset",
+   "grund": "Fra main, skrevet før vagten fandtes. Herkomsten er hverken afgjort af vagten eller efterset i denne ændring; posten gør billedet synligt som undtagelse, den godkender det ikke. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/bevis/a-bolig-billeder-320.jpg",
+   "sha256": "7999172dc83c362f85705f2f004b710c513353fa732be662bd850ad97031aafc",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Del A's måling på main's egen app (#39, 1. oktober 2026) mod testbasens 280 syntetiske boliger, før og med udsnittet. Skrevet før vagten fandtes, derfor uden kvittering. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/bevis/a-bolig-billeder-360.jpg",
+   "sha256": "a646ea784b25015a4ac1c5741030edc7b92f7af76b42ceac5bbb1bb2e6a57e52",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Del A's måling på main's egen app (#39, 1. oktober 2026) mod testbasens 280 syntetiske boliger, før og med udsnittet. Skrevet før vagten fandtes, derfor uden kvittering. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/bevis/a-forside-1440-bund.jpg",
+   "sha256": "095bbfe28223026da0ee472178981706ad9f1242ef287e13b13e63ed03cafeb3",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Del A's måling på main's egen app (#39, 1. oktober 2026) mod testbasens 280 syntetiske boliger, før og med udsnittet. Skrevet før vagten fandtes, derfor uden kvittering. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/bevis/a-forside-320.jpg",
+   "sha256": "4f5b59434baccc7c9a488c8e877d1f6f00121c754731f6853ba3088217964ca3",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Del A's måling på main's egen app (#39, 1. oktober 2026) mod testbasens 280 syntetiske boliger, før og med udsnittet. Skrevet før vagten fandtes, derfor uden kvittering. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/bevis/a-forside-390.jpg",
+   "sha256": "add91c8d291be713ca589fed80229d892f7498eedcf7df55abce43eac0f3720e",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Del A's måling på main's egen app (#39, 1. oktober 2026) mod testbasens 280 syntetiske boliger, før og med udsnittet. Skrevet før vagten fandtes, derfor uden kvittering. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/bevis/foer-bolig-billeder-320.jpg",
+   "sha256": "39b74d28f1a707fa8467caedf58faa177376719e9ab984ed0c1685d55a7e8b80",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Del A's måling på main's egen app (#39, 1. oktober 2026) mod testbasens 280 syntetiske boliger, før og med udsnittet. Skrevet før vagten fandtes, derfor uden kvittering. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/bevis/foer-bolig-billeder-360.jpg",
+   "sha256": "015e313663876da4cb6d0e7280622177e9c50d5f0ad1d77c6b6fc4f4836a012a",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Del A's måling på main's egen app (#39, 1. oktober 2026) mod testbasens 280 syntetiske boliger, før og med udsnittet. Skrevet før vagten fandtes, derfor uden kvittering. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/bevis/foer-forside-1440-bund.jpg",
+   "sha256": "ff4c9d3c2c3b539b5c8edde9126d804aaa025a6db207e4107b62a026710cea0d",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Del A's måling på main's egen app (#39, 1. oktober 2026) mod testbasens 280 syntetiske boliger, før og med udsnittet. Skrevet før vagten fandtes, derfor uden kvittering. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/bevis/foer-forside-320.jpg",
+   "sha256": "ea789cfa82737cfc89c15c083fd87a593a6d657bfd03b4258cfaf839ad3c6607",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Del A's måling på main's egen app (#39, 1. oktober 2026) mod testbasens 280 syntetiske boliger, før og med udsnittet. Skrevet før vagten fandtes, derfor uden kvittering. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/designforslag/bevis/foer-forside-390.jpg",
+   "sha256": "b86072f715270d7dfd413b01da57419a201f4230230f4bad260d1c2c79c2fcf7",
+   "dato": "2026-10-01",
+   "herkomst": "kendt",
+   "grund": "Del A's måling på main's egen app (#39, 1. oktober 2026) mod testbasens 280 syntetiske boliger, før og med udsnittet. Skrevet før vagten fandtes, derfor uden kvittering. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kontomails/eksempler/kvittering-bolig-desktop.png",
+   "sha256": "ad95c070166a2412f3a1761ac76f735ef288c5476578f2f0bfb0e9a43b25efcb",
+   "dato": "2026-09-30",
+   "herkomst": "ikke efterset",
+   "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kontomails/eksempler/kvittering-bolig-mobil.png",
+   "sha256": "ed5e67b16dae9a62a6140c134de83ed658986e8b6d2c88cc6bec28cb4eda35a3",
+   "dato": "2026-09-30",
+   "herkomst": "ikke efterset",
+   "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kontomails/eksempler/kvittering-udenlogin-desktop.png",
+   "sha256": "d6a43eaa544676225237b4dd310d9d7a21c9941be9273d25a0e19b6ce2e6515a",
+   "dato": "2026-09-30",
+   "herkomst": "ikke efterset",
+   "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kontomails/eksempler/kvittering-udenlogin-mobil.png",
+   "sha256": "aa5f111430465b5dc8e02877a072bc9da1e842b6f07171501d797970db09c438",
+   "dato": "2026-09-30",
+   "herkomst": "ikke efterset",
+   "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kontomails/eksempler/kvittering-udlejer-desktop.png",
+   "sha256": "b0119e74077064689f2d8026cd46a5d03de498f63003e7976c16d3c8a83a7f17",
+   "dato": "2026-09-30",
+   "herkomst": "ikke efterset",
+   "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kontomails/eksempler/kvittering-udlejer-mobil.png",
+   "sha256": "ff523d129d9f007cc33a5fdee0eaf2dd96b71c16362ab4dd7423b5586171f525",
+   "dato": "2026-09-30",
+   "herkomst": "ikke efterset",
+   "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kontomails/eksempler/mail-desktop.png",
+   "sha256": "c55f3cb8830b9fe96f9cc4b1aa46d9ed3f1d8b85d68d513d34257939a889d5ab",
+   "dato": "2026-09-30",
+   "herkomst": "ikke efterset",
+   "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kontomails/eksempler/mail-mobil.png",
+   "sha256": "17f9b72d2df31168092f53493b7442a27e019b6c490a17c0bc1a92f2aea6a19f",
+   "dato": "2026-09-30",
+   "herkomst": "ikke efterset",
+   "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  }
+ ]
+}

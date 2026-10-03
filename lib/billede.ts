@@ -118,6 +118,9 @@ export function breddeTilladt(url: string, bredde: number): boolean {
 }
 
 function hemmelighed(): string {
+  // Rotation aendrer nygenererede signerede URL'er og kan give flere
+  // cachemisses. Billedproxyen bruger ikke crawlerens takttabel.
+  // .env.example beskriver graensen og optaellingen af billedbestanden.
   const s = process.env.BILLED_HEMMELIGHED
   if (!s || s.length < 16) {
     throw new Error('BILLED_HEMMELIGHED mangler eller er for kort (mindst 16 tegn)')
