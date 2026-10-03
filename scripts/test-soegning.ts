@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  Søgningens korrekthed: domænefilteret, udsnittet og optællingerne.
 //
 //  Kører mod PGlite gennem scripts/testbase.ts — ingen produktion,

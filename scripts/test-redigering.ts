@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  To ting, der er dyre at bryde uden at opdage det:
 //
 //    1. Rundturen — gem uden at ændre noget, og se om rækken overlever.
@@ -3629,7 +3630,38 @@ async function main() {
         taktFor('www.laros.dk') >= 20000, String(taktFor('www.laros.dk')))
       tjek('laros takt: andre værter er upåvirkede (standard 1 s)',
         taktFor('proeve-anden-vaert.invalid') === 1000, String(taktFor('proeve-anden-vaert.invalid')))
-      _saetTakt('proeve-takt.invalid', 400)
+      // ── TAKTEN, MÅLT PÅ VÆGURET — MED EN MARGEN ──────────────
+      //  Påstanden her handler om, at pacingen SKETE: forskellen mellem
+      //  ~400 ms og 0. Den handler IKKE om, at en 400 ms timer aldrig
+      //  fyrer et millisekund tidligt — det er en påstand om Node, ikke
+      //  om `pace()` i lib/fetch.ts, og den hører ingen steder i dette
+      //  sæt. Uden margen målte den altså timerens præcision i stedet
+      //  for pacerens adfærd.
+      //
+      //  Målt 2. oktober 2026: **399 ms, rød**, mens tre prøvekørsler
+      //  kørte samtidig. Bagefter 100 forsøg mod den rigtige
+      //  `politeFetch` — 60 i tomgang, 40 under otte travle løkker på
+      //  fire kerner — gav min 400, median 401, max 405 og **ingen**
+      //  under 400. Mekanismen er altså IKKE genskabt, og rettelsen
+      //  hviler på påstandens form plus den ene observation.
+      //
+      //  En GitHub-runner er to delte kerner med naboer, og en
+      //  flakkende CI-check er værre end ingen: den lærer folk at køre
+      //  igen, til den bliver grøn.
+      //
+      //  Margenen koster ingen dækning, der betyder noget: takten er et
+      //  HELTAL i `VAERTSTAKT`, så en regression er et forkert tal eller
+      //  ingen pacing — ikke en drift på fem procent. Fjernes pacingen,
+      //  bliver tallet ~0 og påstanden rød med 360 ms at give af.
+      //  Tabellens egen værdi prøves eksakt og utimet lige ovenfor
+      //  (`taktFor`), så de to spørgsmål er delt: hvad står i tabellen,
+      //  og skete pacingen.
+      //
+      //  Det målte tal står stadig i udskriften, så en ægte regression
+      //  kan ses i stedet for kun at blive meldt.
+      const TAKT_MS = 400
+      const MARGEN_MS = 40
+      _saetTakt('proeve-takt.invalid', TAKT_MS)
       const rigtigFetchT = globalThis.fetch
       globalThis.fetch = (async () => new Response('ok', { status: 200 })) as typeof fetch
       try {
@@ -3637,7 +3669,9 @@ async function main() {
         await politeFetch('https://proeve-takt.invalid/a')
         await politeFetch('https://proeve-takt.invalid/b')
         const brugt = Date.now() - t0
-        tjek('laros takt: to kald mod samme vært holder takten (≥ 400 ms målt)', brugt >= 400, `${brugt} ms`)
+        tjek(
+          `laros takt: to kald mod samme vært holder takten (≥ ${TAKT_MS - MARGEN_MS} ms af ${TAKT_MS})`,
+          brugt >= TAKT_MS - MARGEN_MS, `${brugt} ms`)
       } finally { globalThis.fetch = rigtigFetchT }
 
       // Budgettet: eget env-navn, egen konservativ standard, rører ikke Heimstaden.

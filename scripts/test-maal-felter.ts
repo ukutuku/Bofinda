@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: oekonomi
 //  PRØVE · scripts/maal-felter.sql
 //
 //  Filen køres i produktionen af et menneske. Den kan derfor ikke prøves
