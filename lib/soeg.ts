@@ -696,6 +696,15 @@ const KORTFELTER = {
   lng: listings.lng,
   foerstSet: listings.firstSeenAt,
   hosKilden: listings.sourceCreatedAt,
+  // Datoen «ny»-maerkaten regner paa — SAMME udtryk som «nyeste» sorterer
+  // paa, ikke en kopi. Kortet regnede foer sin egen `hosKilden ??
+  // foerstSet`, og den kan aldrig give null: et bagkatalog, som
+  // sorteringen lagde sidst, stod alligevel med «ny» i tre doegn.
+  //
+  // Som epoke-millisekunder og ikke som `sql<Date>`: det er den form,
+  // gruppens tal allerede har (`nyhedMs` nedenfor), og én form betyder,
+  // at de to korttyper ikke kan komme til at fortolke datoen forskelligt.
+  nyhedMs: sql<number | null>`(extract(epoch from ${NYHEDSDATO}) * 1000)::float8`,
   url: listings.sourceUrl,
   kilde: sources.slug,
   kildeNavn: sources.name,
@@ -929,7 +938,13 @@ export interface Gruppe {
   matchende: number | null
   /** Har ALLE i gruppen den samme bolig hos en anden kilde? */
   alleOgsaaAndetsteds: boolean
-  nyesteMarkedet: Date
+  /**
+   * Gruppens nyhedsdato: den nyeste `NYHEDSDATO` blandt medlemmerne.
+   * `null`, naar ingen af dem har én — altsaa naar hele gruppen er
+   * bagkatalog. Saa faar kortet ingen «ny»-maerkat, praecis som
+   * sorteringen lagger gruppen sidst.
+   */
+  nyhed: Date | null
 }
 
 export type Visning =
@@ -1120,8 +1135,12 @@ function gruppevindue(f: Filtre, graense: number, forskyd: number) {
       // maaske kun gaelder den ene, vi tilfaeldigvis valgte.
       alleOgsaaAndetsteds: sql<boolean>`bool_and(exists (
         select 1 from listings l2 where ${SAMME_BOLIG_ANDEN_KILDE}))`,
-      nyesteMarkedetMs: sql<number>`(extract(epoch from
-        max(coalesce(${listings.sourceCreatedAt}, ${listings.firstSeenAt}))) * 1000)::float8`,
+      // `max(NYHEDSDATO)`, ikke `max(coalesce(kildedato, foerstSet))`.
+      // Det andet var gruppekortets egen kopi af spoergsmaalet «hvornaar
+      // blev den her ny», og den havde intet bagkatalogsvagt — mens
+      // GRUPPEORDEN.nyeste lige ovenfor sorterer paa `max(NYHEDSDATO)`.
+      // To udtryk, ét spoergsmaal; nu ét udtryk.
+      nyhedMs: sql<number | null>`(extract(epoch from max(${NYHEDSDATO})) * 1000)::float8`,
       // Den nyeste i gruppen. Dens billede er det, der er hentet sidst.
       repraesentant: sql<string>`(array_agg(${listings.id}::text
         order by coalesce(${listings.sourceCreatedAt}, ${listings.firstSeenAt}) desc))[1]`,
@@ -1224,7 +1243,7 @@ async function byg(
         alleUdenElHarEgenMaaler: r.alleUdenElHarEgenMaaler ?? false,
         nogenUkendtDaekning: r.nogenUkendtDaekning ?? false,
         alleOgsaaAndetsteds: r.alleOgsaaAndetsteds ?? false,
-        nyesteMarkedet: new Date(r.nyesteMarkedetMs),
+        nyhed: r.nyhedMs == null ? null : new Date(r.nyhedMs),
         matchende,
       },
     })

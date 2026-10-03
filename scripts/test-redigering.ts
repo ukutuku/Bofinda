@@ -453,7 +453,7 @@ async function main() {
     antal: 3, repraesentant: bolig(n), prisMin: 1300000, prisMax: 1500000,
     arealMin: 70, arealMax: 90, type: 'lejlighed', ledigMin: null, ledigMax: null,
     ledigUkendte: 0, indflytningMin: null, indflytningMax: null,
-    ensPoster: true, alleOgsaaAndetsteds: false, nyesteMarkedet: new Date(),
+    ensPoster: true, alleOgsaaAndetsteds: false, nyhed: new Date(),
     nogenUdenEl: true, alleUdenElHarEgenMaaler: false, nogenUkendtDaekning: false,
     availability: {
       timing: { nu: 0, senere: 0, unknown: 3, conflict: 0 },
