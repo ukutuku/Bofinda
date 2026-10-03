@@ -24,6 +24,7 @@
 // ═══════════════════════════════════════════════════════════════
 import pw from 'playwright-core'
 import { mkdirSync } from 'node:fs'
+import { aabnIsoleretEllerStop } from './isoleret.mjs'
 
 const APP = process.env.BOFINDA_APP ?? 'http://127.0.0.1:3100'
 if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(APP)) {
@@ -460,9 +461,10 @@ if (!process.env.DATABASE_URL) {
 //  afgør om boligen kan betales, og billedforbeholdet er kildens eget
 //  «billederne kan være fra en anden bolig». Et layout, der taber dem
 //  på en bredde, taber dem i tavshed.
-if (process.env.DATABASE_URL) {
-  const { default: postgres } = await import('postgres')
-  const sql = postgres(process.env.DATABASE_URL, { ssl: false, max: 1, onnotice: () => {} })
+if (process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL) {
+  // Her stod INGEN vagt. Blokken ovenfor (:333) har én; den her havde
+  // ingen, og den SKRIVER. Vagten ligger nu i isoleret.mjs.
+  const sql = await aabnIsoleretEllerStop()
   const c = await br.newContext({ viewport: { width: 1440, height: 1200 } })
   const p = await c.newPage()
   // Samtykkebanneret ligger over listen og ville staa hen over de kort,
@@ -473,6 +475,25 @@ if (process.env.DATABASE_URL) {
   await p.goto(APP + '/?sted=Attrapby&kort=0', { waitUntil: 'networkidle' })
   const ider = await p.evaluate(() => [...document.querySelectorAll('.liste a.kort:not([data-gruppe])')]
     .filter((k) => k.querySelector('.kort-billede img')).slice(0, 2).map((k) => k.dataset.bolig))
+  // Fandt siden ikke to kort, er `ider` kort eller tom, og `where id =
+  // undefined` er ikke et spoergsmaal, man skal stille en base.
+  indflytning: {
+  if (ider.length < 2) {
+    console.log('\n· indflytningspris og billedforbehold: sprunget over '
+      + `(fandt ${ider.length} af 2 enkeltkort med foto)`)
+    await sql.end()
+    break indflytning
+  }
+  // GENDANNELSEN SKAL KENDE DET, DEN OVERSKREV.
+  // Her stod `set move_in_cost = null` og `images_may_differ = false` i
+  // finally — hardkodede vaerdier, ikke de fangede. Havde raekkerne en
+  // rigtig indflytningspris, var den VAEK bagefter, og scriptet meldte
+  // «testdata gendannet». Blokken paa :446 goer det rigtigt (`f.url`);
+  // den her gjorde ikke. Fejlen er en defekt uanset hvilken base den
+  // rammer — ogsaa staging, hvor staging-demo.sql kan indeholde Attrapby.
+  const foer = await sql`
+    select id, move_in_cost, images_may_differ from listings
+    where id = any(${[ider[0], ider[1]]}::uuid[])`
   try {
     // 34.500 kr. i indflytning og kildens billedforbehold — på hver sit
     // kort, så de to kan ses hver for sig.
@@ -549,19 +570,36 @@ if (process.env.DATABASE_URL) {
       }
     }
   } finally {
-    await sql`update listings set move_in_cost = null where id = ${ider[0]}`
-    await sql`update listings set images_may_differ = false where id = ${ider[1]}`
+    // Tilbage til det FANGEDE, ikke til null/false.
+    for (const f of foer) {
+      await sql`update listings
+        set move_in_cost = ${f.move_in_cost}, images_may_differ = ${f.images_may_differ}
+        where id = ${f.id}`
+    }
     // KUN de to raekker, proeven selv rorte. Linjen taalte foer hver
     // eneste raekke i basen med en indflytningspris — og med demodataene
     // inde stod der «16 raekker har stadig indflytning», som om
     // oprydningen var mislykkedes. Den havde ikke rort dem.
-    const [{ n }] = await sql`select count(*)::int as n from listings
-      where id = any(${[ider[0], ider[1]]}::uuid[])
-        and (move_in_cost is not null or images_may_differ)`
-    console.log(`  · testdata gendannet (${n} af 2 prøverækker har stadig indflytning eller forbehold)`)
+    //
+    // Og den sammenligner nu med det FANGEDE. Foer spurgte den «er
+    // move_in_cost null?», hvilket var det rigtige spoergsmaal om en
+    // gendannelse til null — og det forkerte om en gendannelse til det,
+    // der stod foer. Havde raekken en rigtig pris, ville den gamle linje
+    // melde oprydningen mislykket, netop naar den var lykkedes.
+    const efter = await sql`
+      select id, move_in_cost, images_may_differ from listings
+      where id = any(${[ider[0], ider[1]]}::uuid[])`
+    const fangetVed = new Map(foer.map((f) => [f.id, f]))
+    const n = efter.filter((e) => {
+      const f = fangetVed.get(e.id)
+      return !f || e.move_in_cost !== f.move_in_cost
+        || e.images_may_differ !== f.images_may_differ
+    }).length
+    console.log(`  · testdata gendannet (${n} af 2 prøverækker afviger fra det fangede)`)
     await sql.end()
   }
   await c.close()
+  }
 }
 
 await br.close()

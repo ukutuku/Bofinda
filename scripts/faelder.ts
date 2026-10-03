@@ -65,6 +65,10 @@ export const FORMER = [
     tekst: 'Den handler ikke om et værktøj eller et værn, men om DATA: et nul fra en tæller er «ingenting skete» og «vi holdt op med at måle» i samme tegn.',
   },
   {
+    id: '5', titel: 'Form 5 · et værn, der findes i KOPIER.',
+    tekst: 'Ikke hvor meget én kopi dækker, men at der er flere.',
+  },
+  {
     id: 'ikke-vaern', titel: 'Og de, der ikke er værn.',
     tekst: 'De handler ikke om, hvor meget et værn dækker.',
   },

@@ -25,7 +25,7 @@ mellemrum, så den må gerne brydes. En lodret streg skrives \| som i
 tabellen — ellers splitter den rækken, og filen afvises.
 ```
 
-- `form` er `1`, `2`, `3`, `4` eller `ikke-vaern`. Formernes overskrifter og
+- `form` er `1`, `2`, `3`, `4`, `5` eller `ikke-vaern`. Formernes overskrifter og
   beskrivelser står i `FORMER` i `scripts/faelder.ts`. En ny form er en
   bevidst ændring dér.
 - `kostet` udelades for en fælde, der har kostet mindst én omgang. Den

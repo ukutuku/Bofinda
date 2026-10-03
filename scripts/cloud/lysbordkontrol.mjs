@@ -29,13 +29,11 @@
 //  Exit: 0 = alt groent · 1 = noget fejlede · 2 = intet at maale paa
 // ═══════════════════════════════════════════════════════════════
 import pw from 'playwright-core'
-import postgres from 'postgres'
+import { aabnIsoleretEllerStop } from './isoleret.mjs'
 const BASE = process.env.BOFINDA_APP_BASE ?? 'http://127.0.0.1:3100'
 const UD = process.argv[2] ?? null
-if (!process.env.DATABASE_URL) {
-  console.error('FEJL: DATABASE_URL mangler — proeven kan ikke vaelge en bolig.'); process.exit(2)
-}
-const sql = postgres(process.env.DATABASE_URL, { ssl: false, max: 1, onnotice: () => {} })
+// Vagten ligger i isoleret.mjs — se noten dér om de tre signaler.
+const sql = await aabnIsoleretEllerStop()
 const [b] = await sql`
   select l.id, count(i.*)::int as n from listings l
   join listing_images i on i.listing_id = l.id
