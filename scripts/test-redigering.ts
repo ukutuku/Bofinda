@@ -83,6 +83,7 @@ import {
   oekonomigrundlag, opsummering, soeg, soegGrupperet, tavseKilder, udenDubletter,
 } from '../lib/soeg'
 import { dedupNoegle } from '../lib/dedup'
+import { belaegHolder } from '../lib/billedforbehold'
 import { FACILITET } from '../lib/faciliteter'
 import {
   mineBoliger, opdaterBolig, opretBolig, renTekst, somFormular, tjekAdresse,
@@ -2620,11 +2621,28 @@ async function main() {
       'OBS! billederne er ikke fra det præcise lejemål.',
       'Billederne er nødvendigvis ikke fra denne lejlighed, men en tilsvarende.',
     ]
+    // Adapteren leverer nu BELAEGGET, ikke booleanen — den udledes i
+    // lib/normalize.ts. Derfor proeves `imagesMayDifferEvidence`, og
+    // samtidig at spaendet FAKTISK indeholder faktummet: en attest, der
+    // ikke kan efterproeves, er ingen attest.
+    const belaeg = (t: string) =>
+      cejLaes(cejItem({ description: `<p>${t}</p>` }))!.imagesMayDifferEvidence
     tjek('cej forbehold: alle tre målte varianter fanges',
-      forbeholdstekster.every((t) => cejLaes(cejItem({ description: `<p>${t}</p>` }))!.imagesMayDiffer))
+      forbeholdstekster.every((t) => belaeg(t) != null))
+    tjek('cej forbehold: og hvert spænd bærer faktummet',
+      forbeholdstekster.every((t) => {
+        const b = belaeg(t)
+        return b != null && b.regel === 'cej' && belaegHolder(b)
+      }))
+    tjek('cej forbehold: spændet er et UDSNIT, ikke hele beskrivelsen',
+      forbeholdstekster.every((t) => {
+        const b = belaeg(t)!
+        return b.uddrag.length < t.length && t.includes(b.uddrag.split(' ')[0]!)
+      }))
     tjek('cej forbehold: AI-sætningen alene er IKKE forbeholdet',
-      !cejLaes(cejItem({ description: '<p>Billederne i annoncen er AI-redigerede.</p>' }))!.imagesMayDiffer)
-    tjek('cej forbehold: almindelig beskrivelse udløser intet', cb.imagesMayDiffer === false)
+      belaeg('Billederne i annoncen er AI-redigerede.') == null)
+    tjek('cej forbehold: almindelig beskrivelse udløser intet',
+      cb.imagesMayDifferEvidence === undefined)
 
     const indeholderPerson = (x: unknown) => {
       const tekst = JSON.stringify(x) ?? ''
