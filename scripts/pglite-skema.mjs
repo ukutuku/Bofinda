@@ -24,10 +24,20 @@ import { readFileSync, readdirSync } from 'node:fs'
  * håndhæve noget her. Se CLAUDE.md under «Testbasen».
  */
 export async function stubSupabase(db, authKolonner = ['id', 'email']) {
+  // Rollerne er KLYNGEomfattende, ikke databaseomfattende. I PGlite er
+  // klyngen ny hver gang, men paa en rigtig server deles den af flere
+  // databaser — og der findes rollerne allerede, naar nabodatabasen har
+  // faaet skemaet. `create role` ville da fejle med 42710 og tage hele
+  // opstillingen med sig.
   await db.exec(`
-    create role anon;
-    create role authenticated;
-    create role service_role;
+    do $$ begin
+      if not exists (select 1 from pg_roles where rolname = 'anon')
+        then create role anon; end if;
+      if not exists (select 1 from pg_roles where rolname = 'authenticated')
+        then create role authenticated; end if;
+      if not exists (select 1 from pg_roles where rolname = 'service_role')
+        then create role service_role; end if;
+    end $$;
     create schema auth;
     create table auth.users (${authKolonner
       .map((k) => (k === 'id' ? '"id" uuid primary key' : `"${k}" text`))
@@ -39,6 +49,33 @@ export async function stubSupabase(db, authKolonner = ['id', 'email']) {
     create function storage.foldername(t text) returns text[]
       language sql as $$ select string_to_array(t, '/') $$;
     alter table storage.objects enable row level security;
+  `)
+}
+
+/**
+ * Produktionens danske collation — som ATTRAP, og i et skema, der hedder det.
+ *
+ * `lib/soeg.ts` sorterer kildenavne og adresser med `collate "da-x-icu"`.
+ * PGlite har kun ICU's roddata og ingen `da-x-icu`; uden en collation med
+ * navnet ville hver forespørgsel med `ogsaaHos` fejle. Attrappen er roden
+ * under dansk navn, skrevet ud som `locale = 'und'`: Aalborg står først, Å
+ * og Æ blandt A'erne. Den lader forespørgslerne KØRE. Den lader ingen prøve
+ * påstå dansk orden — det er fælde tolv i CLAUDE.md, og den danske orden
+ * prøves mod en base med rigtige ICU-data (scripts/test-dansk-orden.ts).
+ *
+ * NAVNET kan ikke ændres uden at ændre produktionskoden: den skal skrive
+ * `"da-x-icu"` for at virke i produktionen, og et navn fra en variabel ville
+ * være en søm, der også kunne flytte produktionens sortering uden at nogen
+ * så det. Derfor ligger attrappen i skemaet `attrap` og findes gennem
+ * `search_path`. Spørger nogen kataloget, hvad «da-x-icu» er her, svarer
+ * det `attrap | da-x-icu | und` — og testbasen skriver det ved hver
+ * opstart. EXPLAIN viser stadig det korte navn.
+ */
+export async function stubCollationer(db) {
+  await db.exec(`
+    create schema attrap;
+    create collation attrap."da-x-icu" (provider = icu, locale = 'und');
+    set search_path = "$user", public, attrap;
   `)
 }
 

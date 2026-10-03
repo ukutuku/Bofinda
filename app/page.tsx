@@ -1,3 +1,4 @@
+import { FACILITETSNAVN, FACILITETSNOEGLER, stortForbogstav } from '../lib/faciliteter'
 import {
   boligtypegrundlag,
   facilitetsgrundlag, filtreFraParametre, harFiltre, oekonomigrundlag,
@@ -37,26 +38,20 @@ export const dynamic = 'force-dynamic'
  * gradient i produktionen, uden at nogen kan se hvorfor. Nu virker den
  * uden ny opsaetning nogen steder.
  *
- * Krediteringen staar HER, sammen med stien, af samme grund som
- * `eltilstand` ligger ét sted: billedet og navnet paa den, der har taget
- * det, er ét spoergsmaal. Skifter stien, skal navnet med i samme
- * aendring — ellers tilskriver siden en fotograf et billede, hun ikke
- * har taget.
+ * Fotograf og licens dokumenteres her og i docs/kildetilladelser.md.
+ * Fotoet vises uden krediteringsmaerkat paa forsiden.
  *
  *   Foto:    Taryn Elliott / Pexels
  *   Kilde:   https://www.pexels.com/photo/scandinavian-interior-of-a-living-room-9565782/
  *   Licens:  https://www.pexels.com/license/ — fri til kommerciel brug,
- *            kreditering ikke paakraevet, men vi giver den alligevel.
+ *            kreditering ikke paakraevet.
  *   Fil:     2048x1365, 636.485 bytes, uaendrede bytes fra kilden.
  *            sha256 a2b2795193c96f2508593dc1dca77f62ea986a10dd2600cef331e64e245d5b5f
  *
  * Se ogsaa `docs/kildetilladelser.md`, hvor rettighederne pr. kilde
  * staar samlet.
  */
-const HERO_STANDARD = {
-  url: '/hero-stue.jpg',
-  kredit: 'Stemningsfoto: Taryn Elliott / Pexels',
-} as const
+const HERO_STANDARD = '/hero-stue.jpg'
 
 /** "A", "A og B", "A, B og C" — dansk opremsning, ikke join(', '). */
 const sammenskriv = (n: string[]): string =>
@@ -227,7 +222,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // som `sum` — og så koster tallene ingenting. Er en sat, er det én
   // forespørgsel mere (~75 ms), og det er netop dér, hun har brug for at se,
   // hvad filteret skjuler.
-  const facFiltre = f.kaeledyr || f.elevator || f.udeplads
+  const facFiltre = FACILITETSNOEGLER.some((n) => f[n])
   const grundlag = facFiltre ? await facilitetsgrundlag(f, nu) : sum
   // Kun naar hun faktisk har krydset af. Uden et filter er linjen en
   // advarsel mod noget, hun ikke har gjort.
@@ -270,26 +265,19 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // Panelets tilstand ligger i URL'en som kortets. Se noten ved <details>.
   const panelAabent = en(sp.flere) === '1'
 
-  // Hero-fotoet OG dets kreditering, beregnet ét sted.
+  // Det lokale standardfoto kan fortsat overstyres med en miljoevariabel.
   //
-  // De to er ét spoergsmaal — «hvilket billede staar der, og hvem har
-  // taget det» — og maa derfor ikke kunne svares forskelligt. Var de to
-  // selvstaendige udtryk, kunne en miljoevariabel skifte MOTIVET, mens
-  // krediteringen blev staaende paa det gamle; saa ville siden tilskrive
-  // en fotograf et billede, hun ikke har taget. Derfor ét objekt.
+  // KRAVET TIL EN OVERSTYRING: billedet skal kunne vises UDEN
+  // kreditering. Forsiden har ikke laengere et krediteringsmaerke, og
+  // der er dermed ingen vej til at give en — saa et foto, hvis licens
+  // KRAEVER kreditering, kan ikke lovligt saettes her.
   //
-  // Standarden er `public/hero-stue.jpg`, som ligger i repoet og foelger
-  // koden. Ingen miljoevariabel kraeves — hverken lokalt eller paa
-  // Vercel. `NEXT_PUBLIC_HERO_FOTO` kan stadig overstyre den, og saa
-  // foelger `NEXT_PUBLIC_HERO_FOTO_KREDIT` med som DEN fladeS kreditering.
-  const hero = process.env.NEXT_PUBLIC_HERO_FOTO
-    ? {
-      url: process.env.NEXT_PUBLIC_HERO_FOTO,
-      kredit: process.env.NEXT_PUBLIC_HERO_FOTO_KREDIT || null,
-    }
-    : { url: HERO_STANDARD.url, kredit: HERO_STANDARD.kredit }
-  const heroFoto = hero.url
-  const heroKredit = hero.kredit
+  // Det var netop derfor, sti og kreditering foer laa i ét objekt: de
+  // svarede paa ét spoergsmaal. Da maerket forsvandt, forsvandt den
+  // halvdel af svaret, og tilbage staar et krav, der kun kan skrives.
+  // Standardfotoet opfylder det (Pexels, kreditering ikke paakraevet);
+  // se `docs/kildetilladelser.md`.
+  const heroFoto = process.env.NEXT_PUBLIC_HERO_FOTO || HERO_STANDARD
 
   // De aktive filtre som noget, der kan ses OG fjernes. Navnene paa
   // typer og kilder kommer fra de samme kilder som feltet i panelet —
@@ -741,29 +729,20 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
               </p>
             </section>
 
-            {(fac.faciliteter.kaeledyr > 0 || fac.faciliteter.elevator > 0
-              || fac.faciliteter.udeplads > 0) && (
+            {FACILITETSNOEGLER.some((n) => fac.faciliteter[n] > 0) && (
               <section className="fd-afsnit">
                 <h3>Faciliteter</h3>
                 <div className="valgknapper" aria-describedby="faciliteter-note">
-                  {fac.faciliteter.kaeledyr > 0 && (
-                    <label className="valgknap">
-                      <input type="checkbox" id="kaeledyr" name="kaeledyr" value="1" aria-describedby="faciliteter-note" defaultChecked={f.kaeledyr} />
-                      <span>Kæledyr tilladt</span>
+                  {/* Udledt af FACILITET. Samme regel som for typerne:
+                      tælles en facilitet til nul, vises afkrydsningen ikke
+                      — et valg, der aldrig giver træf, er værre end intet
+                      valg. Et nyt begreb får sin afkrydsning af sig selv. */}
+                  {FACILITETSNOEGLER.filter((n) => fac.faciliteter[n] > 0).map((n) => (
+                    <label key={n} className="valgknap">
+                      <input type="checkbox" id={n} name={n} value="1" aria-describedby="faciliteter-note" defaultChecked={f[n]} />
+                      <span>{stortForbogstav(FACILITETSNAVN[n])}</span>
                     </label>
-                  )}
-                  {fac.faciliteter.elevator > 0 && (
-                    <label className="valgknap">
-                      <input type="checkbox" id="elevator" name="elevator" value="1" aria-describedby="faciliteter-note" defaultChecked={f.elevator} />
-                      <span>Elevator</span>
-                    </label>
-                  )}
-                  {fac.faciliteter.udeplads > 0 && (
-                    <label className="valgknap">
-                      <input type="checkbox" id="udeplads" name="udeplads" value="1" aria-describedby="faciliteter-note" defaultChecked={f.udeplads} />
-                      <span>Altan eller terrasse</span>
-                    </label>
-                  )}
+                  ))}
                 </div>
                 {/* ── TALLENE STÅR PÅ SKÆRMEN, IKKE BAG EN KLIK ────
                     Linjerne lå et øjeblik i en lukket «Om oplysningerne».
@@ -784,18 +763,23 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                     linjerne står samlet UNDER pillerækken i stedet for
                     interleavet mellem tre afkrydsningsrækker. */}
                 <div id="faciliteter-note" className="fd-grundlagsliste">
-                  {[
-                    ['Kæledyr tilladt', fac.faciliteter.kaeledyr, grundlag.kaeledyr],
-                    ['Elevator', fac.faciliteter.elevator, grundlag.elevator],
-                    ['Altan eller terrasse', fac.faciliteter.udeplads, grundlag.udeplads],
-                  ].filter(([, vises]) => (vises as number) > 0).map(([navn, , oplyser]) => (
-                    <p key={navn as string} className="filtergrundlag">
-                      <b>{navn}</b>: {(oplyser as number).toLocaleString('da-DK')} nævner det ·{' '}
-                      {(grundlag.antal - grundlag.tier - (oplyser as number)).toLocaleString('da-DK')}
-                      {' '}nævner andre faciliteter ·{' '}
-                      {grundlag.tier.toLocaleString('da-DK')} mangler oplysninger og vises ikke
-                    </p>
-                  ))}
+                  {/* UDLEDT, og det er hele pointen: CLAUDE.md kræver, at
+                      linjen nævner TRE grupper under hver afkrydsning.
+                      Stod opregningen i hånden, skulle reglen huskes ved
+                      hver udvidelse — og et nyt begreb ville få en
+                      afkrydsning uden en linje. Nu kan de to ikke skilles. */}
+                  {FACILITETSNOEGLER.filter((n) => fac.faciliteter[n] > 0).map((n) => {
+                    const oplyser = grundlag[n]
+                    return (
+                      <p key={n} className="filtergrundlag">
+                        <b>{stortForbogstav(FACILITETSNAVN[n])}</b>:{' '}
+                        {oplyser.toLocaleString('da-DK')} nævner det ·{' '}
+                        {(grundlag.antal - grundlag.tier - oplyser).toLocaleString('da-DK')}
+                        {' '}nævner andre faciliteter ·{' '}
+                        {grundlag.tier.toLocaleString('da-DK')} mangler oplysninger og vises ikke
+                      </p>
+                    )
+                  })}
                 </div>
               </section>
             )}
@@ -938,7 +922,12 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
               «Lejeboliger på Østerbro (116)» og lader det være. */}
           <div className="sidetitel resultat-titel">
             <h1>
-              Lejeboliger{stedNavn ? ` i ${stedNavn}` : ' i hele Danmark'}
+              {/* Stednavnet er ÉT led og maa ikke braekke: «København
+                  S» delt over to linjer laeses som to steder, og
+                  postnummersiderne har navne som «2300 København S». */}
+              Lejeboliger{stedNavn
+                ? <> i <span className="stednavn">{stedNavn}</span></>
+                : ' i hele Danmark'}
               <span className="titeltal">({sum.antal.toLocaleString('da-DK')})</span>
             </h1>
             {visninger.length > 0 && (
@@ -992,7 +981,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         </>
       ) : (
         <>
-        {/* Lokalt stemningsfoto; kilde og kreditering vælges samlet ovenfor. */}
+        {/* Dekorativt forsidefoto; kilde og licens er dokumenteret ovenfor. */}
         <section className={heroFoto ? 'hero fuldbredde har-foto' : 'hero fuldbredde'}>
           {heroFoto && (
             <div className="hero-billede" aria-hidden="true">
@@ -1009,9 +998,6 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             </p>
           </div>
           <div className="hero-soeg">{formular}</div>
-          {heroFoto && heroKredit && (
-            <p className="hero-kredit">{heroKredit}</p>
-          )}
         </section>
 
         </>
@@ -1045,8 +1031,16 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           <div className="optaelling">
             <span>{sum.medTotal} med samlet pris til udlejer</span>
             <span>{sum.medIndflytning} med indflytningspris</span>
+            {/* Ét beloeb er ikke et spaend. Er billigst og dyrest det
+                samme — én bolig, eller flere til samme pris — stod der
+                «10.320–10.320 kr/md», som om der var noget at vaelge
+                imellem. */}
             {sum.billigst != null && sum.dyrest != null && (
-              <span>{kr(sum.billigst)}–{kr(sum.dyrest)} kr/md</span>
+              <span>
+                {sum.billigst === sum.dyrest
+                  ? `${kr(sum.billigst)} kr/md`
+                  : `${kr(sum.billigst)}–${kr(sum.dyrest)} kr/md`}
+              </span>
             )}
           </div>
         )}
@@ -1092,8 +1086,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         {/* Faciliteter er en POSITIV liste. Filtrerer hun på elevator, ryger
             alle boliger fra kilder, der bare ikke skriver det — og det ligner
             "der er ingen". Det skal stå på skærmen, ikke kun i koden. */}
-        {soegt && (f.kaeledyr || f.elevator || f.udeplads)
-          && tavse.navne.length > 0 && (
+        {soegt && facFiltre && tavse.navne.length > 0 && (
           /* Frafaldet er ikke jævnt fordelt. Tre kilder oplyser aldrig
              faciliteter, så et kryds fjerner dem HELT — filteret er også et
              kildefilter. Navnene beregnes, så linjen retter sig selv, hvis en

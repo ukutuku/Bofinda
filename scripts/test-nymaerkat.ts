@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  «ny»-mærkaten: datoen, kalenderen og uret.
 //
 //  Kører mod PGlite gennem scripts/testbase.ts. Data sås her i filen.

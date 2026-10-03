@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  To ting, der er dyre at bryde uden at opdage det:
 //
 //    1. Rundturen — gem uden at ændre noget, og se om rækken overlever.
@@ -33,7 +34,10 @@ import { matchAlarmer } from '../lib/alarm'
 import { byForPostnr } from '../lib/omraade'
 import { laesBolig as dacasLaes } from '../adapters/dacas'
 import { readFileSync } from 'node:fs'
-import { laesSag as homeLaes } from '../adapters/home'
+import {
+  laesSag as homeLaes, homeSignatur, homeAdapter,
+  STANDARD_DETALJEBUDGET_HOME, _nulstilHomeBudgetAdvarsel,
+} from '../adapters/home'
 import { noeglerISag, sagstypeFor } from './home-felter'
 import { laes as balderLaes } from '../adapters/balder'
 import { findSearchResponse as cejFind, laes as cejLaes } from '../adapters/cej'
@@ -82,6 +86,7 @@ import {
   oekonomigrundlag, opsummering, soeg, soegGrupperet, tavseKilder, udenDubletter,
 } from '../lib/soeg'
 import { dedupNoegle } from '../lib/dedup'
+import { belaegHolder } from '../lib/billedforbehold'
 import { FACILITET } from '../lib/faciliteter'
 import {
   mineBoliger, opdaterBolig, opretBolig, renTekst, somFormular, tjekAdresse,
@@ -105,15 +110,55 @@ const tjek = (navn: string, ok: boolean, note = '') => {
  * base, er ikke en proeve — den er et groent flueben uden daekning, og det
  * er vaerre end ingenting, fordi nogen tror, den holder. Derfor skrives
  * hver overspringning ud, og antallet staar i bunden.
+ *
+ * ═══ HVER OVERSPRINGNING HAR TO GRUNDE, OG DE ER FORSKELLIGE ═══
+ *
+ * Den foerste er faelles og staar ovenfor: forholdet findes ikke paa en
+ * tom base. Den ANDEN er, hvad proeven ville sige, hvis man fjernede
+ * vagten alligevel — og den er ikke den samme de fem steder. Maalt 1.
+ * oktober 2026 ved at saette BOFINDA_PROEV_PRODUKTION=1 paa PGlite:
+ *
+ *     ✓ ingen aktiv bolig har billeder paa en ukendt vaert
+ *     ✗ ingen kilde har alle 48 kort paa forsiden
+ *     ✗ 2200 giver et bynavn
+ *     ✗ der findes tavse kilder at naevne
+ *     ✗ de daekker et positivt antal boliger
+ *
+ * DEN ENE BLIVER GROEN PAA INGENTING. Den taeller raekker og kraever
+ * nul; nul raekker giver nul. Fjernes vagten, staar der et flueben, hvor
+ * ingenting blev maalt — den vaerste udgang, fordi den ligner et bevis.
+ *
+ * DE FIRE ANDRE BLIVER ROEDE PAA INGENTING, og faren er en anden: den
+ * naeste «hjaelper» ved at goere dem groenne. Enten ved at svaekke
+ * praedikatet (`> 1` bliver til `>= 1`) eller ved at saa et fikstur for
+ * 2200 — og saa maaler proeven sit eget forlaeg i stedet for det
+ * rigtige udbud. Begge veje ender samme sted som den foerste.
+ *
+ * Derfor staar begge grunde ved HVERT kaldsted, ikke kun her. En
+ * faellesforklaring et sted laeses ikke af den, der staar ved linjen.
  */
 const MOD_PRODUKTION = process.env.BOFINDA_PROEV_PRODUKTION === '1'
 let sprunget = 0
+/**
+ * @param navn    Paastanden.
+ * @param kald    Selve maalingen.
+ * @param note    Tal til udskriften.
+ * @param udenData Hvad proeven ville SIGE paa en tom base — den anden
+ *   grund. `'groen'` betyder at overspringningen er det eneste, der
+ *   holder et falsk flueben ude; `'roed'` at den holder en falsk
+ *   «rettelse» ude. Den skrives ud, saa den staar paa skaermen og ikke
+ *   kun i en kommentar.
+ */
 const tjekProd = async (
   navn: string, kald: () => boolean | Promise<boolean>, note?: () => string | Promise<string>,
+  udenData: 'groen' | 'roed' = 'roed',
 ) => {
   if (!MOD_PRODUKTION) {
     sprunget++
-    console.log(`  ⊘ ${navn}  — kræver rigtige data (npm run test:prod)`)
+    const anden = udenData === 'groen'
+      ? 'uden dem ville den blive GRØN på ingenting'
+      : 'uden dem ville den blive RØD på ingenting'
+    console.log(`  ⊘ ${navn}  — kræver rigtige data (npm run test:prod); ${anden}`)
     return
   }
   tjek(navn, await kald(), note ? await note() : '')
@@ -289,8 +334,23 @@ async function main() {
   // kilden brugte TO vaerter og gennemgangen fandt kun den ene —
   // 25 boliger med 249 billeder stod uden.
   //
-  // Kraever rigtige data: paa en tom testbase er der ingen boliger at
-  // maale paa, og proeven ville bestaa uden at have set noget.
+  // ═══ TO GRUNDE TIL AT DEN SPRINGES OVER ═══
+  //
+  // 1 · DEN KRAEVER RIGTIGE DATA. Forholdet er «findes der en aktiv bolig
+  //     med billedraekker, hvor ingen af vaerterne er tilladt» — og det
+  //     kan kun maales paa et rigtigt udbud. Maalt paa testbasen: 0
+  //     aktive boliger HAR overhovedet billedraekker.
+  //
+  // 2 · UDEN DEM LYVER DEN. Praedikatet er `tabte.length === 0`, og nul
+  //     raekker giver nul. Den er den ENESTE af de fem, der bliver
+  //     GROEN paa en tom base (maalt 1. oktober 2026 med
+  //     BOFINDA_PROEV_PRODUKTION=1 paa PGlite). Fjerner man vagten for
+  //     at «faa den med i npm test», staar der et flueben, hvor
+  //     ingenting blev maalt — og netop den her regel er brudt TRE
+  //     gange i produktionen uden at nogen opdagede det.
+  //
+  // Overspringningen er altsaa ikke en mangel, der skal lukkes. Den er
+  // det eneste, der holder et falsk groent ude.
   console.log('\n══ ingen bolig må have billeder på en ukendt vært ══')
   // Raa SQL med vores egne aliaser: forespoergslen skal naevne den samme
   // tabel to gange — én gang for at faa vaertsnavnet frem, og én gang i
@@ -313,11 +373,21 @@ async function main() {
       tabte = ((r as unknown as { rows?: typeof tabte }).rows ?? (r as unknown as typeof tabte))
       return tabte.length === 0
     },
-    () => tabte.map((t) => `${t.vaert}: ${t.boliger} boliger`).join(' · '))
+    () => tabte.map((t) => `${t.vaert}: ${t.boliger} boliger`).join(' · '),
+    'groen')
 
-  // Den bogstavelige udgave, som kun giver mening med et rigtigt udbud:
-  // ingen enkelt kilde maa tage hele forsiden. Det gjorde home.dk — 48 af
-  // 48 — den dag den blev koblet paa.
+  // ═══ TO GRUNDE ═══
+  //
+  // 1 · DEN KRAEVER RIGTIGE DATA. Fordelingen af forsidens 48 kort paa
+  //     kilder findes kun i et rigtigt udbud. Det var ikke teoretisk:
+  //     home.dk tog 48 af 48 den dag, den blev koblet paa.
+  //
+  // 2 · UDEN DEM BLIVER DEN ROED. `fordeling.length > 1` paa nul kilder
+  //     er `false`. Faren er derfor ikke et falsk groent, men en
+  //     «rettelse»: svaekker man praedikatet til `>= 1` for at faa den
+  //     groen paa testbasen, kan den ALDRIG mere fejle — ogsaa ikke den
+  //     dag én kilde igen tager hele forsiden. Lad den vaere roed, og
+  //     lad vagten springe den over.
   console.log('\n══ ingen enkelt kilde må tage hele forsiden ══')
   let fordeling: [string, number][] = []
   await tjekProd('ingen kilde har alle 48 kort på forsiden',
@@ -333,6 +403,19 @@ async function main() {
     },
     () => fordeling.map(([k, n]) => `${k} ${n}`).join(' · '))
 
+  // ═══ TO GRUNDE ═══
+  //
+  // 1 · DEN KRAEVER RIGTIGE DATA. `byForPostnr` slaar op i de boliger, VI
+  //     allerede har, med samme `mode()`-forespoergsel som
+  //     omraadesiderne bygger deres navne af. Uden boliger i 2200 er der
+  //     intet navn at finde.
+  //
+  // 2 · UDEN DEM BLIVER DEN ROED — og den naerliggende «rettelse» er at
+  //     saa en bolig i 2200. Saa maaler proeven sit eget fikstur: den
+  //     bekraefter, at `mode()` kan laese den raekke, proeven lige har
+  //     skrevet, og siger intet om, at opslaget virker paa det rigtige
+  //     udbud. Linjen under — at et UKENDT postnummer giver null — kan
+  //     maales paa en tom base og goer det derfor uden vagt.
   console.log('\n══ byen udledes af postnummeret ══')
   await tjekProd('2200 giver et bynavn',
     async () => (await byForPostnr('2200')) !== null,
@@ -681,6 +764,83 @@ async function main() {
     aSag.utilitiesOther === 60000, String(aSag.utilitiesOther))
   tjek('almindelig sag: indflytningsprisen er IKKE regnet af delene',
     aSag.moveInCost === undefined, String(aSag.moveInCost))
+
+  // ── home.dk: detaljevagten ───────────────────────────────────
+  //  home.dk koerte med budget = Infinity, fordi den manglede
+  //  listeGrundlag — og UDEN grundlaget er et budget tavst
+  //  virkningsloest (se scripts/test-adapterkontrakt.ts). Derfor hoerer
+  //  de tre ting sammen: grundlag, loft og takt.
+  console.log('\n══ home.dk: detaljevagten — grundlag, loft og takt ══')
+  {
+    const hm = homeAdapter()
+    tjek('home vagt: adapteren erklærer listeGrundlag, budget, vært og type',
+      typeof hm.listeGrundlag === 'function'
+      && hm.listeGrundlag!('https://home.dk/findes-ikke') === null
+      && hm.host === 'home.dk' && hm.sourceType === 'spider')
+
+    // Signaturen: gitteret har hverken status eller dato, så den kan kun
+    // bære leje, areal og type. Den grænse PRØVES her, så den ikke bliver
+    // en overraskelse — og så en senere udvidelse af gitteret bliver synlig.
+    const sig = homeSignatur(HJEM_G)
+    tjek('home vagt: signatur ændres ved ny leje',
+      homeSignatur({ ...HJEM_G, leje: 1300000 }) !== sig)
+    tjek('home vagt: … og ved nyt areal eller ny boligtype',
+      homeSignatur({ ...HJEM_G, areal: 71 }) !== sig
+      && homeSignatur({ ...HJEM_G, type: 'raekkehus' }) !== sig)
+    tjek('home vagt: signatur er stabil for uændret gitterrække',
+      homeSignatur({ ...HJEM_G }) === sig)
+    tjek('home vagt: adresse og billeder er IKKE i signaturen',
+      homeSignatur({ ...HJEM_G, adresse: 'Andenvej 2, 2300 København S' }) === sig
+      && homeSignatur({ ...HJEM_G, billeder: [] }) === sig)
+
+    // Takten. Tallet er ikke målt på home.dk — det er Heimstadens,
+    // overtaget fordi kildens tålmodighed er ukendt. Prøven låser, at
+    // den ER sat, og at den ikke smitter af på andre værter.
+    tjek('home takt: home.dk har mindst 5 sekunder mellem kald',
+      taktFor('home.dk') >= 5000, String(taktFor('home.dk')))
+    tjek('home takt: andre værter er upåvirkede (standard 1 s)',
+      taktFor('proeve-home-anden.invalid') === 1000)
+
+    // Budgettet: eget env-navn, egen standard, rører ikke de andre kilder.
+    const gemtHome = process.env.HOME_DETALJEBUDGET
+    const foerHome = {
+      hs: heimstadenAdapter().detaljeBudgetPrKoersel,
+      laros: larosAdapter().detaljeBudgetPrKoersel,
+    }
+    try {
+      delete process.env.HOME_DETALJEBUDGET
+      _nulstilHomeBudgetAdvarsel()
+      tjek(`home budget: standard ${STANDARD_DETALJEBUDGET_HOME} uden env`,
+        hm.detaljeBudgetPrKoersel === STANDARD_DETALJEBUDGET_HOME
+        && STANDARD_DETALJEBUDGET_HOME === 25, String(hm.detaljeBudgetPrKoersel))
+      process.env.HOME_DETALJEBUDGET = '4'
+      tjek('home budget: env=4 giver 4', hm.detaljeBudgetPrKoersel === 4)
+      process.env.HOME_DETALJEBUDGET = '0'
+      tjek('home budget: env=0 giver 0 — et loft på nul er et gyldigt valg',
+        hm.detaljeBudgetPrKoersel === 0, String(hm.detaljeBudgetPrKoersel))
+      process.env.HOME_DETALJEBUDGET = 'syv'
+      _nulstilHomeBudgetAdvarsel()
+      const advarsler: string[] = []
+      const rigtigWarn = console.warn
+      console.warn = (...a: unknown[]) => { advarsler.push(a.map(String).join(' ')) }
+      let daarlig: number | undefined
+      try { daarlig = hm.detaljeBudgetPrKoersel } finally { console.warn = rigtigWarn }
+      tjek('home budget: ugyldig env falder tilbage til standarden',
+        daarlig === STANDARD_DETALJEBUDGET_HOME, String(daarlig))
+      tjek('home budget: og den siger tydeligt, at værdien blev IGNORERET',
+        advarsler.some((a) => a.includes('IGNORERET') && a.includes('syv')),
+        JSON.stringify(advarsler))
+      // Uændret før og efter — ikke «=== et bestemt tal».
+      tjek('home budget: env rører IKKE andre kilder — uændret før og efter',
+        heimstadenAdapter().detaljeBudgetPrKoersel === foerHome.hs
+        && larosAdapter().detaljeBudgetPrKoersel === foerHome.laros,
+        `hs ${foerHome.hs} · laros ${foerHome.laros}`)
+    } finally {
+      if (gemtHome === undefined) delete process.env.HOME_DETALJEBUDGET
+      else process.env.HOME_DETALJEBUDGET = gemtHome
+      _nulstilHomeBudgetAdvarsel()
+    }
+  }
 
   // ── Syntetiske randtilfaelde — IKKE kildeobservationer ───────
   // Det her er opdigtede payloads i home.dk's form, bygget til at proeve
@@ -2170,6 +2330,23 @@ async function main() {
     console.log('\n══ tavse kilder ══')
     // Med et facilitetsfilter, som siden kalder den: linjen siger, hvad
     // krydset fjerner, og uden et kryds fjerner det ingenting.
+    //
+    // ═══ TO GRUNDE TIL AT DE TO NAESTE SPRINGES OVER ═══
+    //
+    // 1 · DE KRAEVER RIGTIGE DATA. «Hvilke kilder oplyser ALDRIG
+    //     faciliteter» er et udsagn om bestanden — tre kilder og 399
+    //     boliger, maalt 4. september 2026. Testbasen har kun det, denne
+    //     proeve selv har skrevet, og der er ingen tavs kilde at naevne.
+    //
+    // 2 · UDEN DEM BLIVER DE ROEDE, og «rettelsen» ligger lige for: saa en
+    //     kilde uden faciliteter, saa bliver `navne.length > 0` sand.
+    //     Men saa maaler de, at `tavseKilder` kan finde den raekke,
+    //     proeven lige har lagt — ikke at linjen paa skaermen er sand om
+    //     det rigtige udbud. Og det er netop dét, linjen paastaar.
+    //
+    // Resten af blokken maaler det, der KAN maales uden et udbud: at
+    // vores egen kilde ikke naevnes, og at domaenefilteret taelles med.
+    // De staar derfor uden vagt.
     const tk = await tavseKilder({ elevator: true })
     await tjekProd('der findes tavse kilder at nævne',
       () => tk.navne.length > 0, () => tk.navne.join(', '))
@@ -2524,11 +2701,28 @@ async function main() {
       'OBS! billederne er ikke fra det præcise lejemål.',
       'Billederne er nødvendigvis ikke fra denne lejlighed, men en tilsvarende.',
     ]
+    // Adapteren leverer nu BELAEGGET, ikke booleanen — den udledes i
+    // lib/normalize.ts. Derfor proeves `imagesMayDifferEvidence`, og
+    // samtidig at spaendet FAKTISK indeholder faktummet: en attest, der
+    // ikke kan efterproeves, er ingen attest.
+    const belaeg = (t: string) =>
+      cejLaes(cejItem({ description: `<p>${t}</p>` }))!.imagesMayDifferEvidence
     tjek('cej forbehold: alle tre målte varianter fanges',
-      forbeholdstekster.every((t) => cejLaes(cejItem({ description: `<p>${t}</p>` }))!.imagesMayDiffer))
+      forbeholdstekster.every((t) => belaeg(t) != null))
+    tjek('cej forbehold: og hvert spænd bærer faktummet',
+      forbeholdstekster.every((t) => {
+        const b = belaeg(t)
+        return b != null && b.regel === 'cej' && belaegHolder(b)
+      }))
+    tjek('cej forbehold: spændet er et UDSNIT, ikke hele beskrivelsen',
+      forbeholdstekster.every((t) => {
+        const b = belaeg(t)!
+        return b.uddrag.length < t.length && t.includes(b.uddrag.split(' ')[0]!)
+      }))
     tjek('cej forbehold: AI-sætningen alene er IKKE forbeholdet',
-      !cejLaes(cejItem({ description: '<p>Billederne i annoncen er AI-redigerede.</p>' }))!.imagesMayDiffer)
-    tjek('cej forbehold: almindelig beskrivelse udløser intet', cb.imagesMayDiffer === false)
+      belaeg('Billederne i annoncen er AI-redigerede.') == null)
+    tjek('cej forbehold: almindelig beskrivelse udløser intet',
+      cb.imagesMayDifferEvidence === undefined)
 
     const indeholderPerson = (x: unknown) => {
       const tekst = JSON.stringify(x) ?? ''
@@ -2820,6 +3014,20 @@ async function main() {
     // Adapteren læser env ved HVER kørsel — og siger højt, når den ignorerer.
     const gemtBudgetEnv = process.env.HEIMSTADEN_DETALJEBUDGET
     const hsAd = heimstadenAdapter()
+    // Isolationen måles som UÆNDRET FØR OG EFTER, ikke som «=== undefined».
+    //
+    // Før stod her, at cej og birch havde `undefined`. Det er sandt i dag og
+    // er ikke det, prøven handler om: spørgsmålet er, om HEIMSTADENS variabel
+    // kan ramme en anden kilde. Får cej eller birch et loft en dag — og det
+    // er netop det, docs/kildetilladelser.md lægger op til for de otte
+    // uloftede kilder — så bliver prøven rød af en grund, der intet har med
+    // ændringen at gøre, og den næste retter prøven i stedet for at læse den.
+    // Snapshottet tages FØR variablen røres, så sammenligningen er prøvens
+    // eget forlæg og ikke en påstand om, hvad de to kilder tilfældigvis har.
+    const foerEnv = {
+      cej: cejAdapter().detaljeBudgetPrKoersel,
+      birch: birchAdapter().detaljeBudgetPrKoersel,
+    }
     try {
       delete process.env.HEIMSTADEN_DETALJEBUDGET
       tjek('budget: adapteren uden env giver 25', hsAd.detaljeBudgetPrKoersel === 25)
@@ -2839,9 +3047,13 @@ async function main() {
         JSON.stringify(advarsler))
 
       // Andre kilder må ikke kunne rammes af Heimstadens variabel.
-      tjek('budget: env rører IKKE andre kilder',
-        cejAdapter().detaljeBudgetPrKoersel === undefined
-        && birchAdapter().detaljeBudgetPrKoersel === undefined)
+      const efterEnv = {
+        cej: cejAdapter().detaljeBudgetPrKoersel,
+        birch: birchAdapter().detaljeBudgetPrKoersel,
+      }
+      tjek('budget: env rører IKKE andre kilder — uændret før og efter',
+        efterEnv.cej === foerEnv.cej && efterEnv.birch === foerEnv.birch,
+        `cej ${foerEnv.cej}→${efterEnv.cej} · birch ${foerEnv.birch}→${efterEnv.birch}`)
     } finally {
       if (gemtBudgetEnv === undefined) delete process.env.HEIMSTADEN_DETALJEBUDGET
       else process.env.HEIMSTADEN_DETALJEBUDGET = gemtBudgetEnv
@@ -3516,7 +3728,38 @@ async function main() {
         taktFor('www.laros.dk') >= 20000, String(taktFor('www.laros.dk')))
       tjek('laros takt: andre værter er upåvirkede (standard 1 s)',
         taktFor('proeve-anden-vaert.invalid') === 1000, String(taktFor('proeve-anden-vaert.invalid')))
-      _saetTakt('proeve-takt.invalid', 400)
+      // ── TAKTEN, MÅLT PÅ VÆGURET — MED EN MARGEN ──────────────
+      //  Påstanden her handler om, at pacingen SKETE: forskellen mellem
+      //  ~400 ms og 0. Den handler IKKE om, at en 400 ms timer aldrig
+      //  fyrer et millisekund tidligt — det er en påstand om Node, ikke
+      //  om `pace()` i lib/fetch.ts, og den hører ingen steder i dette
+      //  sæt. Uden margen målte den altså timerens præcision i stedet
+      //  for pacerens adfærd.
+      //
+      //  Målt 2. oktober 2026: **399 ms, rød**, mens tre prøvekørsler
+      //  kørte samtidig. Bagefter 100 forsøg mod den rigtige
+      //  `politeFetch` — 60 i tomgang, 40 under otte travle løkker på
+      //  fire kerner — gav min 400, median 401, max 405 og **ingen**
+      //  under 400. Mekanismen er altså IKKE genskabt, og rettelsen
+      //  hviler på påstandens form plus den ene observation.
+      //
+      //  En GitHub-runner er to delte kerner med naboer, og en
+      //  flakkende CI-check er værre end ingen: den lærer folk at køre
+      //  igen, til den bliver grøn.
+      //
+      //  Margenen koster ingen dækning, der betyder noget: takten er et
+      //  HELTAL i `VAERTSTAKT`, så en regression er et forkert tal eller
+      //  ingen pacing — ikke en drift på fem procent. Fjernes pacingen,
+      //  bliver tallet ~0 og påstanden rød med 360 ms at give af.
+      //  Tabellens egen værdi prøves eksakt og utimet lige ovenfor
+      //  (`taktFor`), så de to spørgsmål er delt: hvad står i tabellen,
+      //  og skete pacingen.
+      //
+      //  Det målte tal står stadig i udskriften, så en ægte regression
+      //  kan ses i stedet for kun at blive meldt.
+      const TAKT_MS = 400
+      const MARGEN_MS = 40
+      _saetTakt('proeve-takt.invalid', TAKT_MS)
       const rigtigFetchT = globalThis.fetch
       globalThis.fetch = (async () => new Response('ok', { status: 200 })) as typeof fetch
       try {
@@ -3524,7 +3767,9 @@ async function main() {
         await politeFetch('https://proeve-takt.invalid/a')
         await politeFetch('https://proeve-takt.invalid/b')
         const brugt = Date.now() - t0
-        tjek('laros takt: to kald mod samme vært holder takten (≥ 400 ms målt)', brugt >= 400, `${brugt} ms`)
+        tjek(
+          `laros takt: to kald mod samme vært holder takten (≥ ${TAKT_MS - MARGEN_MS} ms af ${TAKT_MS})`,
+          brugt >= TAKT_MS - MARGEN_MS, `${brugt} ms`)
       } finally { globalThis.fetch = rigtigFetchT }
 
       // Budgettet: eget env-navn, egen konservativ standard, rører ikke Heimstaden.

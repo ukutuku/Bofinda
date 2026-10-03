@@ -9,9 +9,12 @@
 import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, ne, sql, type AnyColumn, type SQL } from 'drizzle-orm'
 import { db } from '../db/client'
 import { listingImages, listings, sources } from '../db/schema'
-import { FACILITET } from './faciliteter'
+import {
+  FACILITET, FACILITETSNOEGLER, type Facilitetsnoegle,
+} from './faciliteter'
 import { TILLADTE_VAERTER } from './billede'
 import { INDKOERING_TIMER } from './indkoering'
+import { beskrivelseFor } from './normalize'
 import { KILDEKONTRAKTER } from './kildekontrakt'
 import { laesAvailabilityFacts } from './fakta'
 import {
@@ -19,7 +22,14 @@ import {
   type Availability, type Gruppesammenfatning,
 } from './availability'
 
-export interface Filtre {
+/**
+ * Facilitetsfiltrene er ARVET og ikke skrevet: `Partial<Record<…>>` over
+ * `FACILITETSNOEGLER`, saa et nyt begreb i FACILITET bliver et felt af
+ * sig selv. Feltnavnene er de samme som foer — `saved_searches.criteria`
+ * er en serialiseret `Filtre`, saa en omdoebning ville kraeve en
+ * datamigrering af gemte soegninger.
+ */
+export interface Filtre extends Partial<Record<Facilitetsnoegle, boolean>> {
   by?: string
   postnr?: string
   prisMin?: number      // oere
@@ -31,10 +41,6 @@ export interface Filtre {
   /** Normaliserede boligtyper. Typen kommer fra enum'en i skemaet, så
    *  filteret og kolonnen ikke kan komme fra hinanden. */
   boligtyper?: Boligtype[]
-  kaeledyr?: boolean
-  elevator?: boolean
-  /** Altan ELLER terrasse. To ord for den samme slags plads udenfor. */
-  udeplads?: boolean
   sorter?: Sortering
   // ── Availability-filtrene. De kan IKKE oversaettes til SQL: svaret
   // afhaenger af kildekontrakten og referenceNow, saa soeg() henter
@@ -191,9 +197,7 @@ export function hvor(f: Filtre) {
   if (f.kilder?.length) d.push(inArray(sources.slug, f.kilder))
   if (f.fuldOekonomi) d.push(FULD)
   if (f.boligtyper?.length) d.push(inArray(listings.propertyType, f.boligtyper))
-  if (f.kaeledyr) d.push(harFacilitet(FACILITET.kaeledyr))
-  if (f.elevator) d.push(harFacilitet(FACILITET.elevator))
-  if (f.udeplads) d.push(harFacilitet(FACILITET.udeplads))
+  for (const n of FACILITETSNOEGLER) if (f[n]) d.push(harFacilitet(FACILITET[n]))
   return and(...d)
 }
 
@@ -222,6 +226,30 @@ export function hvor(f: Filtre) {
 //  Det her er en VISNING, ikke et filter. `hvor()` er urort, saa alarmen
 //  matcher stadig paa de enkelte raekker.
 // ═══════════════════════════════════════════════════════════════
+
+/**
+ * Dansk alfabetisk orden — kun for tekst, et menneske læser som en liste:
+ * kildenavnene på kortet og adresserne på /gruppe. Aldrig for pris, dato,
+ * id eller rangering; de er ikke alfabeter.
+ *
+ * Uden den sorterer produktionen efter basens en_US (ICU): Aalborg først,
+ * Å og Æ blandt A'erne. Dansk har Æ, Ø og Å efter Z og «aa» som «å».
+ *
+ * Collationen står i UDTRYKKET og aldrig på en kolonne eller et indeks. Et
+ * indeks bygget med en ICU-collation er bundet til ICU-versionen, og efter
+ * en opgradering kan det give forkerte svar med kun en logadvarsel. Et
+ * udtryk har ingen indeksafhængighed. Prisen er en sortering frem for en
+ * indeksgennemgang — og begge steder sorteres der i forvejen (EXPLAIN i
+ * CLAUDE.md, «Version og collation»).
+ *
+ * `da-x-icu`, ikke `da-DK-x-icu`: de sorterer ens, og den korte gælder
+ * også, hvis siden en dag dækker Norge eller Sverige.
+ *
+ * Testbasen har en ATTRAP med samme navn og ICU's roddata, så
+ * forespørgslerne kan køre. Den sorterer ikke dansk, og ingen prøve i
+ * `npm test` kan påstå dansk orden — se scripts/test-dansk-orden.ts.
+ */
+export const dansk = (udtryk: SQL | AnyColumn) => sql`${udtryk} collate "da-x-icu"`
 
 /**
  * Er raekken en udlejerannonce? Taget som funktion af kolonnen, fordi
@@ -284,7 +312,9 @@ const SAMME_BOLIG_ANDEN_KILDE = sql`(
  * definitioner ville betyde, at det, vi skjuler, og det, vi siger vi
  * skjuler, kunne komme fra hinanden.
  */
-const DEDUPNOEGLE = sql`case
+// Eksporteret til scripts/maalinger/skriv-bynavne-domaene-sql.ts, saa
+// maalingen grupperer paa den noegle, der koerer, og ikke paa en afskrift.
+export const DEDUPNOEGLE = sql`case
   when ${listings.addressMatchLevel} = 'unit' and ${listings.unitAddressUuid} is not null
     then 'unit:' || ${listings.unitAddressUuid}
   when ${listings.addressMatchLevel} = 'access' and ${listings.accessAddressUuid} is not null
@@ -342,6 +372,13 @@ export const UDLEJERANNONCE = erUdlejerannonce(listings.sourceType)
  * tidsorden — `id` er en tilfaeldig UUID — men goer valget stabilt mellem
  * koersler. Forklaringen til udlejeren foelger samme raekkefoelge:
  * app/udlejer/boliger/forklaring.ts.
+ *
+ * Alle fire led er EGENSKABER VED ANNONCEN — ikke ved filteret, ikke ved
+ * de andre annoncer. Derfor er rangeringen én fast orden over alle annoncer
+ * for en bolig, og repraesentanten for ethvert delsaet af dem er blot det
+ * hoejst rangerede medlem af delsaettet. Det er det, der goer domaenefiltrene
+ * til at rette (se `matcherDomaene`). Et nyt led, der afhaenger af
+ * filteret, ville bryde det.
  *
  * Alle fire led er NULL-frie ved konstruktion, saa det er ligegyldigt, om
  * NULL sorteres foerst eller sidst: `UDLEJERANNONCE` er `is not distinct
@@ -455,10 +492,11 @@ export function boligenErI(saet: SQL | undefined) {
 function facilitetsgrundlagPrBolig(f: Filtre) {
   return {
     oplyst: boligenErI(and(hvor(f), OPLYST)),
-    kaeledyr: boligenErI(hvor({ ...f, kaeledyr: true })),
-    elevator: boligenErI(hvor({ ...f, elevator: true })),
-    udeplads: boligenErI(hvor({ ...f, udeplads: true })),
-  }
+    // Ét praedikat pr. noegle, udledt. Et nyt begreb i FACILITET faar sit
+    // eget her uden at nogen roerer funktionen.
+    ...Object.fromEntries(FACILITETSNOEGLER.map((n) =>
+      [n, boligenErI(hvor({ ...f, [n]: true }))])),
+  } as { oplyst: SQL<boolean> } & Record<Facilitetsnoegle, SQL<boolean>>
 }
 
 /** Den annonce vi viser i stedet for en, der tabte repraesentantvalget. */
@@ -689,7 +727,7 @@ const KORTFELTER = {
   // De ANDRE kilder der har den samme bolig. Boligen vises én gang, men
   // kortet skal ikke lade som om, den kun findes ét sted.
   ogsaaHos: sql<string[]>`(
-    select coalesce(array_agg(distinct s2.name order by s2.name), '{}'::text[])
+    select coalesce(array_agg(distinct ${dansk(sql`s2.name`)} order by ${dansk(sql`s2.name`)}), '{}'::text[])
     from listings l2 join sources s2 on s2.id = l2.source_id
     where ${SAMME_BOLIG_ANDEN_KILDE})`,
 } as const
@@ -713,6 +751,26 @@ export function availabilityFor(
   return fortolkAvailability(fakta, kontrakt, referenceNow)
 }
 
+/**
+ * Domaenefiltrene — overtagelse, ansoegningsform, markedsstatus — afgoeres
+ * HER, i JS, fordi de kraever kildekontrakten og tidspunktet nu. En kopi i
+ * SQL ville vaere et andet udtryk for det samme.
+ *
+ * UAFKLARET, maales foer det rettes: filteret proeves i dag paa
+ * REPRAESENTANTEN, efter SQL har valgt den. Passer den ikke, men en anden
+ * annonce for samme bolig goer, vaelges ingen afloeser, og boligen
+ * forsvinder fra en soegning, den hoerer til i.
+ * scripts/maalinger/skriv-bynavne-domaene-sql.ts (D1 og D2) taeller, hvor
+ * mange boliger det rammer i produktionen.
+ *
+ * Rettelsen er oplagt, fordi rangeringens fire led er egenskaber ved
+ * annoncen og ikke ved filteret (se `ikkeRepraesentant`): rangeringen er
+ * én fast orden, og repraesentanten for de annoncer, der passer et filter,
+ * er den hoejst rangerede af dem. Altsaa: SQL rangerer som nu, ALLE
+ * annoncer for boliger med flere annoncer hentes, `matcherDomaene` koerer
+ * paa hver, og den foerste, der passer, vinder. Én rangering i SQL, ét
+ * domaene i JS, ingen kopi af nogen af dem.
+ */
 export const matcherDomaene = (f: Filtre, a: Availability): boolean =>
   (f.overtagelse == null || a.timing.status === f.overtagelse)
   && (f.ansoegningsform == null || a.ansoegning.status === f.ansoegningsform)
@@ -843,6 +901,16 @@ export interface Gruppe {
   availability: Gruppesammenfatning
   indflytningMin: number | null
   indflytningMax: number | null
+  /**
+   * Hvor mange i gruppen oplyser INGEN indflytningspris?
+   *
+   * `min`/`max` springer null over, saa et kort med fem boliger, hvor én
+   * har prisen, skrev «indflytning 15.000 kr.» — som om det gjaldt alle
+   * fem. Det er «kortet paastaar kun det, der gaelder for hele gruppen»
+   * brudt af en aggregatfunktions standardadfaerd. Samme form som
+   * `ledigUkendte` lige ovenfor, og af samme grund.
+   */
+  indflytningUkendte: number
   /** Har alle samme aconto-poster? Ellers står posterne ikke på kortet. */
   ensPoster: boolean
   /** Mangler MINDST én i gruppen et el-beløb? Så skal kortet sige det. */
@@ -1037,6 +1105,7 @@ function gruppevindue(f: Filtre, graense: number, forskyd: number) {
       // filtrere FOER udsnittet skaeres.
       alleFactsJson: sql<{ id: string; fakta: unknown }[]>`json_agg(
         json_build_object('id', ${listings.id}::text, 'fakta', ${listings.availabilityFacts}))`,
+      indflytningUkendte: sql<number>`count(*) filter (where ${listings.moveInCost} is null)::int`,
       indflytningMin: sql<number | null>`min(${listings.moveInCost})::int`,
       indflytningMax: sql<number | null>`max(${listings.moveInCost})::int`,
       // coalesce, fordi count(distinct) springer null over: ellers ville
@@ -1168,6 +1237,7 @@ async function byg(
         ledigUkendte: r.ledigUkendte,
         availability: sammenfatning,
         indflytningMin: r.indflytningMin, indflytningMax: r.indflytningMax,
+        indflytningUkendte: r.indflytningUkendte,
         ensPoster: r.postsaet === 1,
         nogenUdenEl: r.nogenUdenEl ?? false,
         alleUdenElHarEgenMaaler: r.alleUdenElHarEgenMaaler ?? false,
@@ -1279,9 +1349,7 @@ export function gruppeUrl(repraesentantId: string, f: Filtre = {}): string {
   for (const kilde of f.kilder ?? []) p.append('kilde', kilde)
   for (const type of f.boligtyper ?? []) p.append('type', type)
   if (f.fuldOekonomi) p.set('fuld', '1')
-  if (f.kaeledyr) p.set('kaeledyr', '1')
-  if (f.elevator) p.set('elevator', '1')
-  if (f.udeplads) p.set('udeplads', '1')
+  for (const n of FACILITETSNOEGLER) if (f[n]) p.set(n, '1')
   return `/gruppe?${p}`
 }
 
@@ -1364,9 +1432,9 @@ export async function hentGruppe(n: Gruppenoegle, f?: Filtre) {
     // trækker tallet ud først. Så ville 100 komme før 20.
     .orderBy(
       sql`nullif(regexp_replace(coalesce(${listings.houseNumber}, ''), '\\D', '', 'g'), '')::int nulls last`,
-      asc(listings.houseNumber),
-      asc(listings.floor),
-      asc(listings.door),
+      asc(dansk(listings.houseNumber)),
+      asc(dansk(listings.floor)),
+      asc(dansk(listings.door)),
     )
 }
 
@@ -1410,9 +1478,9 @@ export async function opsummering(f: Filtre, referenceNow: Date = new Date()) {
       tier: sql<number>`count(*) filter (where not ${fac.oplyst})::int`,
       // De samme prædikater som filtrene selv bruger. To definitioner ville
       // betyde, at tallet og filteret kunne sige hver sit.
-      kaeledyr: sql<number>`count(*) filter (where ${fac.kaeledyr})::int`,
-      elevator: sql<number>`count(*) filter (where ${fac.elevator})::int`,
-      udeplads: sql<number>`count(*) filter (where ${fac.udeplads})::int`,
+      ...(Object.fromEntries(FACILITETSNOEGLER.map((n) =>
+        [n, sql<number>`count(*) filter (where ${fac[n]})::int`]),
+      ) as Record<Facilitetsnoegle, ReturnType<typeof sql<number>>>),
       // Boligtyperne, talt paa DENNE soegning. Se `boligtypegrundlag`
       // nedenfor for hvorfor de ikke maa komme fra `facetter()`.
       ...typeaggregater(),
@@ -1466,9 +1534,8 @@ async function opsummeringMedDomaene(f: Filtre, referenceNow: Date) {
       harIndflytning: sql<boolean>`${listings.moveInCost} is not null`,
       fuld: sql<boolean>`${FULD}`,
       oplyst: fac.oplyst,
-      kaeledyr: fac.kaeledyr,
-      elevator: fac.elevator,
-      udeplads: fac.udeplads,
+      ...(Object.fromEntries(FACILITETSNOEGLER.map((n) => [n, fac[n]]),
+      ) as Record<Facilitetsnoegle, SQL<boolean>>),
       type: listings.propertyType,
     })
     .from(listings)
@@ -1489,9 +1556,12 @@ async function opsummeringMedDomaene(f: Filtre, referenceNow: Date) {
     dyrest: priser.length ? Math.max(...priser) : null,
     oplyser: taeller((r) => r.oplyst),
     tier: taeller((r) => !r.oplyst),
-    kaeledyr: taeller((r) => r.kaeledyr),
-    elevator: taeller((r) => r.elevator),
-    udeplads: taeller((r) => r.udeplads),
+    // Castet er noedvendigt: `Object.fromEntries` giver
+    // `{ [k: string]: T }`, og uden det ville noeglerne falde ud af
+    // returtypen — saa ville `grundlag.elevator` ikke oversaette.
+    ...(Object.fromEntries(FACILITETSNOEGLER.map((n) =>
+      [n, taeller((r) => Boolean((r as Record<string, unknown>)[n]))]),
+    ) as Record<Facilitetsnoegle, number>),
     // Samme tal som SQL-grenens, talt paa de raekker domaenet slap igennem.
     typer: BOLIGTYPER
       .map((t) => ({ type: t, antal: taeller((r) => r.type === t) }))
@@ -1524,8 +1594,21 @@ async function opsummeringMedDomaene(f: Filtre, referenceNow: Date) {
  * app/page.tsx. Hver forespoergsel mere paa forsiden koster; de maalte tal
  * staar i CLAUDE.md under «Sider med flere forespørgsler».
  */
+/**
+ * Soegningen UDEN facilitetsfiltrene.
+ *
+ * Nulstillingen stod to steder som `{ ...f, kaeledyr: false, elevator:
+ * false, udeplads: false }`. Begge var korrekte, og begge skulle huskes
+ * ved en udvidelse — glemtes ét, ville grundlagslinjen staa med «0 tier»
+ * under et filter, der lige havde skjult boliger.
+ */
+export const udenFacilitetsfiltre = (f: Filtre): Filtre => ({
+  ...f,
+  ...Object.fromEntries(FACILITETSNOEGLER.map((n) => [n, false])),
+})
+
 export const facilitetsgrundlag = (f: Filtre, referenceNow?: Date) =>
-  opsummering({ ...f, kaeledyr: false, elevator: false, udeplads: false }, referenceNow)
+  opsummering(udenFacilitetsfiltre(f), referenceNow)
 
 export type Facilitetsgrundlag = Awaited<ReturnType<typeof opsummering>>
 
@@ -1605,7 +1688,7 @@ export async function tavseKilder(
   f: Filtre, referenceNow: Date = new Date(),
 ): Promise<Tavsekilder> {
   const grundlag = and(
-    hvorVist({ ...f, kaeledyr: false, elevator: false, udeplads: false }),
+    hvorVist(udenFacilitetsfiltre(f)),
     // Vores EGEN kilde hoerer ikke til her. Saetningen paastaar, at en
     // kilde aldrig oplyser faciliteter — og det er faktuelt forkert om
     // udlejerannoncer: formularen SPOERGER om dem. At én annonce ikke
@@ -1676,11 +1759,19 @@ export async function tavseKilder(
   return tavseAf(r)
 }
 
+/**
+ * Dansk orden i JS, til navnene i linjen om tavse kilder: «Dacas,
+ * findbolig.nu og LokalBolig», ikke kodeenhedsordenens «…LokalBolig og
+ * findbolig.nu». Node har fuld ICU; scripts/test-dansk-orden.ts fejler,
+ * hvis 'da' ikke findes, for så falder Intl tavst tilbage til roden.
+ */
+const DANSK_ORDEN = new Intl.Collator('da')
+
 /** Kun kilder, der aldrig oplyser faciliteter OG faktisk mister noget. */
 function tavseAf(r: { navn: string; antal: number; oplyser: number }[]): Tavsekilder {
   const tavse = r.filter((x) => x.oplyser === 0 && x.antal > 0)
   return {
-    navne: tavse.map((x) => x.navn).sort(),
+    navne: tavse.map((x) => x.navn).sort(DANSK_ORDEN.compare),
     antal: tavse.reduce((a, x) => a + x.antal, 0),
   }
 }
@@ -1702,9 +1793,14 @@ export async function facetter() {
       slug: sources.slug,
       navn: sources.name,
       antal: sql<number>`count(*)::int`,
-      kaeledyr: sql<number>`count(*) filter (where jsonb_exists(coalesce(${listings.amenities}, '[]'::jsonb), 'kæledyr tilladt'))::int`,
-      elevator: sql<number>`count(*) filter (where jsonb_exists(coalesce(${listings.amenities}, '[]'::jsonb), 'elevator'))::int`,
-      udeplads: sql<number>`count(*) filter (where jsonb_exists_any(coalesce(${listings.amenities}, '[]'::jsonb), array['altan','terrasse']::text[]))::int`,
+      // UDLEDT af FACILITET gennem `harFacilitet` — samme praedikat som
+      // filteret selv. Her stod ordene skrevet af, og `udeplads` manglede
+      // CEJ's «altan eller terrasse»: taellingen var lavere end filteret,
+      // og CLAUDE.md skjuler en afkrydsning, hvis tallet er nul. Et kryds,
+      // der VIRKER men ikke vises, er praecis det, to udtryk for ét
+      // spoergsmaal koster.
+      ...Object.fromEntries(FACILITETSNOEGLER.map((n) =>
+        [n, sql<number>`count(*) filter (where ${harFacilitet(FACILITET[n])})::int`])),
       medFaciliteter: sql<number>`count(*) filter (where jsonb_array_length(coalesce(${listings.amenities}, '[]'::jsonb)) > 0)::int`,
     })
     .from(listings)
@@ -1733,11 +1829,9 @@ export async function facetter() {
     typer,
     // Samme regel som for typerne: tælles en facilitet til nul, vises
     // afkrydsningen ikke.
-    faciliteter: {
-      kaeledyr: sum((r) => r.kaeledyr),
-      elevator: sum((r) => r.elevator),
-      udeplads: sum((r) => r.udeplads),
-    },
+    faciliteter: Object.fromEntries(FACILITETSNOEGLER.map((n) =>
+      [n, sum((r) => Number((r as Record<string, unknown>)[n] ?? 0))],
+    )) as Record<Facilitetsnoegle, number>,
     /** Kilder der overhovedet oplyser faciliteter. */
     facilitetskilder: pr.filter((k) => k.medFaciliteter > 0).map((k) => k.navn),
   }
@@ -1799,7 +1893,9 @@ export async function hentBolig(id: string) {
       forudbetalt: listings.prepaidRent,
       ansoegning: listings.applicationType,
       faciliteter: listings.amenities,
-      beskrivelse: listings.description,
+      // Det GEMTE felt, ikke det, siden viser. For alt andet end native
+      // udledes teksten nedenfor — se `beskrivelseFor` i lib/normalize.ts.
+      gemtBeskrivelse: listings.description,
       aabentHus: listings.openHouseAt,
       status: listings.status,
       foerstSet: listings.firstSeenAt,
@@ -1840,7 +1936,21 @@ export async function hentBolig(id: string) {
     .where(eq(listingImages.listingId, id))
     .orderBy(asc(listingImages.position))
 
-  return { ...b, billeder }
+  // Beskrivelsen afgoeres ÉT sted. `gemtBeskrivelse` destruktureres ud, saa
+  // kolonnen ikke kan laeses direkte af en skabelon: er den med i typen,
+  // er det kun et spoergsmaal om tid, foer nogen tegner den.
+  const { gemtBeskrivelse, ...resten } = b
+  const beskrivelse = beskrivelseFor({
+    erUdlejerannonce: b.egenAnnonce,
+    gemtBeskrivelse,
+    propertyType: b.type, rooms: b.vaerelser, sizeM2: b.areal,
+    street: b.vej, houseNumber: b.husnr, postalCode: b.postnr, city: b.by,
+    rentMonthly: b.leje, totalMonthly: b.total, totalMonthlyComponents: b.poster,
+    utilitiesElectricity: b.el, electricityOwnMeter: b.elEgenMaaler,
+    availableFrom: b.ledigFra,
+  })
+
+  return { ...resten, beskrivelse, billeder }
 }
 
 export type BoligDetalje = NonNullable<Awaited<ReturnType<typeof hentBolig>>>
@@ -1904,9 +2014,7 @@ export function filtreFraParametre(sp: Soegeparametre): Filtre {
     kilder,
     fuldOekonomi: en(sp.fuld) === '1',
     boligtyper: boligtyper?.length ? boligtyper : undefined,
-    kaeledyr: en(sp.kaeledyr) === '1',
-    elevator: en(sp.elevator) === '1',
-    udeplads: en(sp.udeplads) === '1',
+    ...Object.fromEntries(FACILITETSNOEGLER.map((n) => [n, en(sp[n]) === '1'])),
     // Availability-filtrene. Ukendte vaerdier kasseres som alt andet.
     overtagelse: en(sp.overtagelse) === 'nu' ? 'nu'
       : en(sp.overtagelse) === 'senere' ? 'senere' : undefined,
@@ -1921,7 +2029,7 @@ export function filtreFraParametre(sp: Soegeparametre): Filtre {
 export function harFiltre(f: Filtre): boolean {
   return Boolean(f.by || f.postnr || f.prisMin != null || f.prisMax != null
     || f.vaerelserMin != null || f.arealMin != null || f.kilder?.length || f.fuldOekonomi
-    || f.boligtyper?.length || f.kaeledyr || f.elevator || f.udeplads
+    || f.boligtyper?.length || FACILITETSNOEGLER.some((n) => f[n])
     || f.overtagelse != null || f.ansoegningsform != null || f.markedsstatus != null)
 }
 
