@@ -89,6 +89,28 @@ export async function stubCollationer(db) {
 export async function koerMigrationer(db, mappe = 'db/migrations') {
   const journal = JSON.parse(readFileSync(`${mappe}/meta/_journal.json`, 'utf8')).entries
   const filer = readdirSync(mappe).filter((f) => f.endsWith('.sql'))
+
+  // ── De to former, drizzle springer over i tavshed ───────────────
+  // Tallet «N migrationer» tæller journalposter. Uden de to tjek nedenfor
+  // kunne det se ud som et svar på «er migrationerne dækket» og dække
+  // mindre: en fil uden post blev hverken kørt eller talt.
+  //
+  // 1. En .sql-fil uden journalpost køres aldrig — hverken her eller af
+  //    drizzle-kit i produktionen.
+  const udenPost = filer.filter((f) => !journal.some((e) => f.startsWith(e.tag)))
+  if (udenPost.length) {
+    throw new Error(`${udenPost.join(', ')} har ingen post i meta/_journal.json og ville aldrig blive kørt`)
+  }
+  // 2. drizzle-orm kører kun en migration, hvis dens `when` er større end
+  //    den senest kørte (pg-core/dialect.js:62). Falder `when` i journalens
+  //    rækkefølge, springes den senere post over i produktionen. Se CLAUDE.md
+  //    under «Migrationer køres IKKE af Vercel-bygget». Hvad der ALLEREDE er
+  //    kørt i produktionen, kan testbasen ikke se — det kan kun db:status.
+  for (let i = 1; i < journal.length; i++) {
+    if (!(journal[i].when > journal[i - 1].when)) {
+      throw new Error(`${journal[i].tag} har when ${journal[i].when}, ikke efter ${journal[i - 1].tag} (${journal[i - 1].when}) — drizzle ville springe den over`)
+    }
+  }
   for (const post of journal) {
     const fil = filer.find((f) => f.startsWith(post.tag))
     if (!fil) throw new Error(`journalen nævner ${post.tag}, men filen mangler`)

@@ -32,6 +32,9 @@
 //   28.  Server Action-revalidering tæller ikke som en sidevisning
 //   29.  Paginering: valgfri metadata, heltalsværn, komplethedsreglen
 //   30.  search_submitted: en observeret indsendelse, ikke en rendering
+//   31.  En værdi uden for listen: nøglen droppes, eventet skrives, _afvist
+//   32.  Typevagten står, og allowlisten er ikke annoteret
+//   33.  Tælleren for kasserede events: uden om rens(), og et nul er læsbart
 //
 //  Deliberate break-tests: se docs/analytics-v1.md. Hver af dem laves
 //  midlertidigt i koden, køres, ses rød og rulles tilbage. En prøve, der
@@ -40,16 +43,18 @@
 //    npm test
 // ═══════════════════════════════════════════════════════════════
 
+import { readFileSync } from 'node:fs'
 import { eq, sql as dsql } from 'drizzle-orm'
 import { db } from '../db/client'
-import { haendelser, haendelserDaglig, savedSearches, users } from '../db/schema'
+import { haendelser, haendelserDaglig, maalingAfvisninger, savedSearches, users } from '../db/schema'
 import { bekraeft, tilmeld } from '../lib/alarm'
 import {
-  ALLOWLIST, KLIENTEVENTS, MILJOEER, RENDEREVENTS, RUTER, erGenrendering, iStikproeve, miljoe,
+  AFVIST, ALLOWLIST, KLIENTEVENTS, MILJOEER, RENDEREVENTS, RUTER, erGenrendering, iStikproeve, miljoe,
   rens, saetAktiv, saetMiljoe, udloeb, type Haendelse, type Kontekst,
 } from '../lib/maaling'
 import {
-  _saetDedup, _saetHoveder, _saetKontekst, opdaterDagsaggregat, ryddHaendelser, spor,
+  _nulstilAfvisninger, _nulstilTaeller, _saetDedup, _saetHoveder, _saetKontekst, afvisninger,
+  opdaterDagsaggregat, ryddHaendelser, spor,
 } from '../lib/maaling-server'
 import {
   C_ANONYM, C_SAMTYKKE, C_SESSION, SESSION_MAKS_MS,
@@ -953,6 +958,175 @@ _saetDedup(new Set())
   tjek('30 · udløbsklassen er produktets, ikke impressionernes',
     Math.round((udloeb('search_submitted', null, new Date()).getTime() - Date.now())
       / 86400000) === 365)
+}
+
+// ─── 31 · En værdi uden for listen ─────────────────────────────
+//
+// Før kasserede `rens` hele eventet. Nu droppes nøglen, eventet skrives,
+// og nøglens navn står på rækken under `_afvist`. Fire ting skal holde
+// ved siden af: kravet prøves på det SENDTE, en mailadresse er stadig pii,
+// forkert type kasserer stadig, og en afsender kan ikke selv skrive
+// `_afvist`.
+{
+  const H = (navn: string, props: Record<string, unknown>) => ({ navn, props }) as unknown as Haendelse
+
+  const sms = rens(H('contact_click', { maal: 'sms' }), K())
+  tjek('31 · et påkrævet felt med en værdi uden for listen: eventet skrives',
+    sms.ok, sms.ok ? '' : sms.fejl.grund)
+  tjek('31 · …uden nøglen, og med nøglens navn i _afvist',
+    sms.ok && !('maal' in sms.renset.raekke.properties)
+    && JSON.stringify(sms.renset.raekke.properties[AFVIST]) === '["maal"]'
+    && JSON.stringify(sms.renset.afvisteVaerdier) === '["maal"]',
+    sms.ok ? JSON.stringify(sms.renset.raekke.properties) : '')
+  tjek('31 · værdien står ingen steder på rækken',
+    sms.ok && !JSON.stringify(sms.renset.raekke).includes('sms'))
+
+  // `sted_slags` er både påkrævet og opregnet på search.
+  const kommune = rens(H('search', {
+    result_count: 3, antal_filtre: 1, sorter: 'nyeste', sted_slags: 'kommune',
+  }), K())
+  tjek('31 · kravet prøves på det, der blev SENDT — sted_slags på search',
+    kommune.ok && kommune.renset.raekke.properties.result_count === 3
+    && JSON.stringify(kommune.renset.raekke.properties[AFVIST]) === '["sted_slags"]',
+    kommune.ok ? '' : kommune.fejl.grund)
+
+  const intet = rens(H('contact_click', {}), K())
+  tjek('31 · et påkrævet felt, der IKKE blev sendt, kasserer stadig',
+    !intet.ok && intet.fejl.grund === 'manglende-property')
+
+  const mail = rens(H('contact_click', { maal: 'nogen@eksempel.dk' }), K())
+  tjek('31 · en mailadresse i et opregnet felt er pii, ikke en ukendt værdi',
+    !mail.ok && mail.fejl.grund === 'pii', mail.ok ? 'skrevet' : mail.fejl.grund)
+
+  const tal = rens(H('contact_click', { maal: 5 }), K())
+  tjek('31 · forkert type kasserer stadig hele eventet',
+    !tal.ok && tal.fejl.grund === 'forkert-type')
+
+  const falsk = rens(H('contact_click', { maal: 'mail', [AFVIST]: ['hemmelig'] }), K())
+  tjek('31 · en afsender kan ikke selv skrive _afvist',
+    falsk.ok && !(AFVIST in falsk.renset.raekke.properties)
+    && falsk.renset.droppedeNoegler.includes(AFVIST))
+
+  const ren = rens(H('contact_click', { maal: 'mail' }), K())
+  tjek('31 · et rent event har ingen _afvist',
+    ren.ok && !(AFVIST in ren.renset.raekke.properties))
+
+  tjek('31 · ingen allowlist-post hedder _afvist',
+    !Object.values(ALLOWLIST).some((s) => AFVIST in s))
+
+  // Hele vejen gennem spor(): rækken skrives, og loggen har sin egen grund.
+  await ryd()
+  _nulstilAfvisninger()
+  await spor(H('map_interaction', { slags: 'rotation' }), '/')
+  const r = await raekker()
+  tjek('31 · gennem spor(): rækken skrives med _afvist',
+    r.length === 1
+    && JSON.stringify((r[0]?.properties as Record<string, unknown> | undefined)?.[AFVIST]) === '["slags"]',
+    `${r.length} rækker`)
+  tjek('31 · …og afvisningen logges som uden-for-listen, ikke som forkert-type',
+    afvisninger().some((a) => a.grund === 'uden-for-listen' && a.detalje === 'slags')
+    && !afvisninger().some((a) => a.grund === 'forkert-type'))
+  _nulstilAfvisninger()
+}
+
+// ─── 32 · Typevagten står, og allowlisten er ikke annoteret ─────
+//
+// npm test kører gennem tsx, der oversætter UDEN at typetjekke. En slettet
+// typevagt eller en annoteret allowlist bliver derfor kun rød i tsc, ikke
+// her — og det er netop den løsning, en fletning med betalingsgrenen kan
+// ende i (se FLETTEFARE ved ALLOWLIST i lib/maaling.ts). Prøven læser
+// produktionsfilen, ikke en kopi. Den ser, at vagten STÅR, ikke at den
+// VIRKER; det gør modprøverne modproever/type-*.mjs.
+{
+  const kilde = readFileSync('lib/maaling.ts', 'utf8')
+  tjek('32 · ALLOWLIST bærer ingen udvidende annotation',
+    /^export const ALLOWLIST = \{$/m.test(kilde) && !/export const ALLOWLIST\s*:/.test(kilde))
+  tjek('32 · ALLOWLIST lukkes med as const satisfies',
+    /^\} as const satisfies Record<Eventnavn, Record<string, Spec>>$/m.test(kilde))
+  tjek('32 · typevagten står',
+    /^type _AllowlistenDaekkerTyperne = IngenHuller<Huller>$/m.test(kilde))
+}
+
+// ─── 33 · Tælleren for kasserede events ────────────────────────
+//
+// Et kasseret event har ingen række i `haendelser`; `maaling_afvisninger`
+// tæller det. Prøverne går gennem den rigtige spor() og læser tabellen.
+// Hver dag får sin egen dato (`nu`), så prøverne ikke deler rækker.
+{
+  const H = (navn: string, props: Record<string, unknown>) => ({ navn, props }) as unknown as Haendelse
+  const taeller = () => db.select().from(maalingAfvisninger)
+  const paa = async (dato: string) => (await taeller()).filter((x) => x.dato === dato)
+  const kl = (dato: string) => new Date(`${dato}T12:00:00Z`)
+  await ryd()
+  await db.delete(maalingAfvisninger)
+  _nulstilTaeller()
+
+  // A · En dag, hvor ALT blev kasseret, er stadig en talt dag.
+  await spor(H('contact_click', { maal: 5 }), '/', { nu: kl('2026-11-01') })
+  await spor(H('contact_click', { maal: 6 }), '/', { nu: kl('2026-11-01') })
+  const a = await paa('2026-11-01')
+  const talt = a.find((x) => x.grund === 'talt')
+  const ft = a.find((x) => x.grund === 'forkert-type')
+  tjek('33 · dagens talt-række skrives, også når alt blev kasseret',
+    Boolean(talt) && talt?.antal === 0 && talt?.environment === 'proeve',
+    JSON.stringify(a.map((x) => [x.grund, x.eventName, x.noegle, x.antal])))
+  tjek('33 · forkert type tælles med event og nøgle — to gange er 2',
+    ft?.eventName === 'contact_click' && ft?.noegle === 'maal' && ft?.antal === 2)
+  tjek('33 · kassationerne nåede ikke haendelser', (await raekker()).length === 0)
+
+  // B · En dag uden måling har ingen talt-række: dér er der intet nul.
+  saetAktiv(false)
+  await spor(H('contact_click', { maal: 5 }), '/', { nu: kl('2026-11-02') })
+  saetAktiv(true)
+  tjek('33 · en dag uden måling har INGEN række — et hul, ikke et nul',
+    (await paa('2026-11-02')).length === 0)
+
+  // C · Kontekst og ukendte eventnavne: kun vores egne ord gemmes.
+  await spor(H('homepage_view', {}), '/hemmelig' as never,
+    { nu: kl('2026-11-03'), kontekst: K({ rute: '/hemmelig' as never }) })
+  await spor(H('nogen@eksempel.dk', {}), '/', { nu: kl('2026-11-03') })
+  const c = await paa('2026-11-03')
+  tjek('33 · ugyldig kontekst tælles under kontekstfeltet',
+    c.some((x) => x.grund === 'ugyldig-kontekst' && x.noegle === 'route' && x.eventName === 'homepage_view'))
+  tjek('33 · et ukendt eventnavn gemmes som (ukendt), aldrig som det sendte',
+    c.some((x) => x.grund === 'ukendt-event' && x.eventName === '(ukendt)')
+    && !JSON.stringify(await taeller()).includes('@'))
+
+  // D · Kaster rens() selv, tælles det. Uden om rens() — ellers tav tælleren
+  // netop dér.
+  const kaster = new Proxy({}, { ownKeys() { throw new Error('rens i stykker') } })
+  await spor(H('map_interaction', kaster as Record<string, unknown>), '/', { nu: kl('2026-11-04') })
+  const d = await paa('2026-11-04')
+  tjek('33 · når rens() kaster, tælles det som rens-kastede',
+    d.some((x) => x.grund === 'rens-kastede' && x.eventName === 'map_interaction' && x.antal === 1)
+    && d.some((x) => x.grund === 'talt'),
+    JSON.stringify(d.map((x) => [x.grund, x.eventName])))
+
+  // E · Et rent event tælles ikke som kassation — kun dagen.
+  await ryd()
+  await spor(H('contact_click', { maal: 'mail' }), '/', { nu: kl('2026-11-05') })
+  const e = await paa('2026-11-05')
+  tjek('33 · et rent event giver kun talt-rækken', e.length === 1 && e[0]?.grund === 'talt')
+
+  // F · Fejler tælleren, tager den ikke eventet med sig — og dagen står som
+  // ikke talt, hvad den også var.
+  await ryd()
+  _nulstilTaeller()
+  await db.execute(dsql`alter table maaling_afvisninger rename to maaling_afvisninger_vaek`)
+  try {
+    await spor(H('contact_click', { maal: 'telefon' }), '/', { nu: kl('2026-11-06') })
+  } finally {
+    await db.execute(dsql`alter table maaling_afvisninger_vaek rename to maaling_afvisninger`)
+  }
+  tjek('33 · en tæller, der fejler, tager ikke eventet med sig',
+    (await raekker()).length === 1)
+  tjek('33 · …og dagen står som ikke talt', (await paa('2026-11-06')).length === 0)
+  await spor(H('contact_click', { maal: 'mail' }), '/', { nu: kl('2026-11-06') })
+  tjek('33 · …indtil næste event skriver den: hukommelsen sættes først efter en skrivning',
+    (await paa('2026-11-06')).some((x) => x.grund === 'talt'))
+
+  await db.delete(maalingAfvisninger)
+  _nulstilTaeller()
 }
 
 // ─── Oprydning ─────────────────────────────────────────────────

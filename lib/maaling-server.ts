@@ -17,10 +17,10 @@
 import { cache } from 'react'
 import { sql as dsql } from 'drizzle-orm'
 import { db } from '../db/client'
-import { haendelser } from '../db/schema'
+import { haendelser, maalingAfvisninger } from '../db/schema'
 import {
-  RENDEREVENTS, aktiv, erGenrendering, impressionPct, iStikproeve, miljoe, rens,
-  type Afvisning, type Haendelse, type Hovedlaeser, type Kontekst, type Raekke, type Rute,
+  ALLOWLIST, RENDEREVENTS, aktiv, erGenrendering, impressionPct, iStikproeve, miljoe, rens,
+  type Afvisning, type Haendelse, type Hovedlaeser, type Kontekst, type Miljoe, type Raekke, type Rute,
 } from './maaling'
 import { C_ANONYM, C_FORSOEG, C_SESSION, laesForsoeg, laesSamtykke, type Laeser } from './samtykke'
 
@@ -169,6 +169,12 @@ export async function spor(
     const k = o.kontekst ?? await kontekst(rute, o.brugerId)
     if (!k) return
 
+    // UBETINGET og FØR rens(): dagens 'talt'-række. Den er det, der gør et
+    // nul i tælleren læsbart — se `taelDag`. Stod den efter rens(), ville
+    // en dag, hvor alt blev kasseret, se ud, som om der ikke blev talt.
+    const nu = o.nu ?? new Date()
+    await efter(() => taelDag(k.miljoe, nu))
+
     // Impressions findes kun for stikprøvens sessioner. Tjekket ligger
     // ogsaa her, ikke kun i browseren: klienten kan ikke stoles paa, og
     // sample_andel skal svare til den andel, raekken faktisk blev
@@ -199,9 +205,24 @@ export async function spor(
       ev = { ...h, props: { ...h.props, sample_andel: pct / 100 } }
     }
 
-    const nu = o.nu ?? new Date()
-    const r = rens(ev, k, nu)
-    if (!r.ok) { noterAfvist(ev.navn, r.fejl); return }
+    // Kaster rens() selv, er eventet også kasseret — og det er netop dén
+    // fejl, tælleren skal kunne se. Uden try her slugte spor()'s egen catch
+    // den, og tælleren stod på nul, mens rens() var i stykker.
+    let r: ReturnType<typeof rens>
+    try {
+      r = rens(ev, k, nu)
+    } catch (e) {
+      process.stdout.write(`[maaling] rens() kastede for ${ev.navn}: ${(e as Error).message}\n`)
+      await efter(() => taelAfvisning(k.miljoe, kendtEvent(ev.navn), '', 'rens-kastede', nu))
+      return
+    }
+    if (!r.ok) {
+      const fejl = r.fejl
+      noterAfvist(ev.navn, fejl)
+      const { event, noegle } = taellerNavne(ev.navn, fejl)
+      await efter(() => taelAfvisning(k.miljoe, event, noegle, fejl.grund, nu))
+      return
+    }
     for (const n of r.renset.droppedeNoegler) {
       noterAfvist(ev.navn, { grund: 'ukendt-property', detalje: n })
     }
@@ -211,6 +232,12 @@ export async function spor(
     // «afsenderen sender et sideantal, vi ikke tror paa».
     for (const n of r.renset.ufuldstaendigeNoegler) {
       noterAfvist(ev.navn, { grund: 'ufuldstaendigt-sideantal', detalje: n })
+    }
+    // Egen grund igen: noeglen er kendt, VAERDIEN var det ikke. Eventet
+    // skrives, og noeglen staar ogsaa paa raekken under `_afvist`, saa
+    // tabet kan taelles i en rapport og ikke kun i loggen.
+    for (const n of r.renset.afvisteVaerdier) {
+      noterAfvist(ev.navn, { grund: 'uden-for-listen', detalje: n })
     }
 
     const noegle = dedupnoegle(r.renset.raekke)
@@ -258,6 +285,92 @@ async function skriv(r: Raekke): Promise<void> {
     // En databasefejl i analytics er stadig fail-open. Den skal ses i
     // loggen, ikke i brugerens svar.
     process.stdout.write(`[maaling] skrivning fejlede: ${(e as Error).message}\n`)
+  }
+}
+
+// ─── Tælleren for kasserede events ─────────────────────────────
+
+/**
+ * Et kasseret event har ingen række i `haendelser`. Tælleren her er det
+ * eneste, der kan sige, hvor ofte det sker. Se 0021_maaling_afvisninger.sql
+ * for læsereglen.
+ *
+ * MÅLEAPPARATET GÅR UDEN OM DET, DET MÅLER. Tælleren skrives direkte med
+ * rens()'s svar — aldrig som et event GENNEM rens(). Gik den gennem
+ * rens(), holdt den op med at tælle netop når rens() gik i stykker.
+ *
+ * ET NUL SKAL KUNNE SIGE, AT DET IKKE BLEV MÅLT. `taelDag` skriver rækken
+ * 'talt' ubetinget, første gang en instans måler på en dag. Uden den var
+ * nul rækker både «intet kasseret» og «vi holdt op med at tælle» — fælden
+ * `nullet-der-betyder-to-ting` i CLAUDE.md.
+ *
+ * Ingen identifikatorer, og intet en afsender selv har skrevet: kun
+ * eventnavne, nøgler og kontekstfelter, allowlisten selv kender.
+ */
+export type Taellergrund = Afvisning['grund'] | 'talt' | 'rens-kastede'
+
+let _taltDag: string | null = null
+/** Prøverne nulstiller instansens hukommelse om, at dagen er talt. */
+export function _nulstilTaeller() { _taltDag = null }
+
+const dagFor = (nu: Date) => nu.toISOString().slice(0, 10)
+
+const ALLE = ALLOWLIST as Readonly<Record<string, Readonly<Record<string, unknown>>>>
+
+/** Et eventnavn, allowlisten kender — eller '(ukendt)', aldrig det sendte. */
+function kendtEvent(navn: string): string {
+  return Object.hasOwn(ALLE, navn) ? navn : '(ukendt)'
+}
+
+/** Hvad tælleren må gemme om en kassation: allowlistens egne ord. */
+export function taellerNavne(navn: string, f: Afvisning): { event: string; noegle: string } {
+  const event = kendtEvent(navn)
+  const spec = ALLE[event]
+  switch (f.grund) {
+    case 'ukendt-event': return { event, noegle: '' }
+    // Typen binder detaljen til KONTEKSTFELTER i lib/maaling.ts.
+    case 'ugyldig-kontekst': return { event, noegle: f.detalje }
+    default: return { event, noegle: spec && Object.hasOwn(spec, f.detalje) ? f.detalje : '(ukendt)' }
+  }
+}
+
+async function taelAfvisning(
+  m: Miljoe, event: string, noegle: string, grund: Taellergrund, nu: Date,
+): Promise<void> {
+  await taelOp(m, event, noegle, grund, nu, 1)
+}
+
+/**
+ * Dagens 'talt'-række, én gang pr. instans pr. dag og miljø. Hukommelsen
+ * sættes først, når skrivningen lykkedes — fejler den, prøves den igen ved
+ * næste event, i stedet for at dagen tavst står som ikke-talt.
+ */
+async function taelDag(m: Miljoe, nu: Date): Promise<void> {
+  const noegle = `${dagFor(nu)}:${m}`
+  if (_taltDag === noegle) return
+  if (await taelOp(m, '', '', 'talt', nu, 0)) _taltDag = noegle
+}
+
+async function taelOp(
+  m: Miljoe, event: string, noegle: string, grund: Taellergrund, nu: Date, plus: 0 | 1,
+): Promise<boolean> {
+  try {
+    await db.insert(maalingAfvisninger)
+      .values({ dato: dagFor(nu), environment: m, eventName: event, noegle, grund, antal: plus, sidstSkrevet: nu })
+      .onConflictDoUpdate({
+        target: [
+          maalingAfvisninger.dato, maalingAfvisninger.environment, maalingAfvisninger.eventName,
+          maalingAfvisninger.noegle, maalingAfvisninger.grund,
+        ],
+        set: { antal: dsql`${maalingAfvisninger.antal} + ${plus}`, sidstSkrevet: nu },
+      })
+    return true
+  } catch (e) {
+    // Fail-open som resten: tælleren må aldrig vælte produktet. Mangler
+    // dagens 'talt'-række af den grund, læses dagen som «ikke talt» — og
+    // det er sandt.
+    process.stdout.write(`[maaling] tælleren fejlede: ${(e as Error).message}\n`)
+    return false
   }
 }
 

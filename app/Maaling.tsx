@@ -15,7 +15,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { useEffect } from 'react'
-import type { Eventnavn } from '../lib/maaling'
+import type { Eventnavn, Klientevent, PropsFor } from '../lib/maaling'
 
 interface Post {
   navn: Eventnavn
@@ -55,8 +55,19 @@ function tom() {
   } catch { /* maaling maa aldrig kaste ind i siden */ }
 }
 
-/** Andre klientkomponenter melder ind her i stedet for at kende køen. */
-export function meld(navn: Eventnavn, props: Record<string, unknown> = {}, ekstra: Partial<Post> = {}) {
+/**
+ * Andre klientkomponenter melder ind her i stedet for at kende køen.
+ *
+ * Typebundet til eventets props, som serversidens `spor()`. Før tog den
+ * `Record<string, unknown>`: `meld('contact_click', { maal: 'sms' })`
+ * oversatte, og `rens()` ville have kasseret klikket på serveren uden
+ * andet spor end en loglinje. Navnet skal stå i KLIENTEVENTS — ellers
+ * smider /api/maaling det væk. `ekstra` kan ikke bære `navn` eller
+ * `props`; så kunne den overskrive de typebundne.
+ */
+export function meld<N extends Klientevent>(
+  navn: N, props: PropsFor<N>, ekstra: Pick<Partial<Post>, 'listingId' | 'sourceSlug'> = {},
+) {
   try {
     window.dispatchEvent(new CustomEvent('bofinda:maaling', {
       detail: { navn, props, ...ekstra },
