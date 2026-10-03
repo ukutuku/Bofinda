@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-//  Supabase-klienten, uden databasen.
+//  Supabase-klienten til Auth, uden direkte databaseimport fra db/client.
 //
 //  ═══ HVORFOR DEN IKKE BARE LIGGER I lib/auth.ts ═══
 //
@@ -9,7 +9,8 @@
 //  klasse som reglen om `lib/faciliteter.ts` og databasen, og som
 //  `lib/maaling-server.ts` og `next/headers`.
 //
-//  Filen er derfor REN: `@supabase/ssr` og intet andet.
+//  Filen importerer `@supabase/ssr`, men ikke vores direkte SQL-klient.
+//  SDK'en kan kontakte Supabase; dette er ikke et loefte om intet netvaerk.
 //
 //  ═══ COOKIEKURVEN KOMMER IND UDEFRA ═══
 //

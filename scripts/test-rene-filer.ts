@@ -75,6 +75,11 @@ interface Loefte {
  * prøves derfor dér, hvor siden bor.
  */
 const LOEFTER: readonly Loefte[] = [
+  { fil: 'app/udlejer/Kvitteringsblok.tsx', loefte: 'Filen er REN: ingen hooks, ingen database, ingen next/headers.' },
+  { fil: 'lib/adgangskode.ts', loefte: 'Filen er REN: ingen database, ingen next/headers, ingen React.' },
+  { fil: 'lib/gemoenske.ts', loefte: 'Ingen database, ingen next/headers, ingen React, ingen node:crypto.' },
+  { fil: 'lib/kilde.ts', loefte: 'den importerer derfor ikke databasen' },
+  { fil: 'lib/kontovej.ts', loefte: 'Filen er REN: ingen database, ingen next/headers, ingen React.' },
   { fil: 'docs/designforslag/gengivelse/proev-billedkontrol.mjs', loefte: 'Billedkontrollen i npm test — uden browser, app eller database.' },
   { fil: 'lib/koersel.ts', loefte: 'Ren logik: ingen database, ingen next-import.' },
   { fil: 'app/udlejer/boliger/forklaring.ts', loefte: 'Ren fil — ingen database, ingen React' },
@@ -107,6 +112,10 @@ const LOEFTER: readonly Loefte[] = [
 
 /** Hoveder, der nævner databasen uden at love noget om filens import. */
 const IKKE_LOEFTER: Readonly<Record<string, string>> = {
+  'lib/supabase-klient.ts': 'afgraenser direkte import fra db/client; bruger udtrykkeligt Supabase SDK, som denne kontrol klassificerer som database',
+  'scripts/cloud/samtidighed.ts': 'kraever isoleret PostgreSQL; ingen produktionsdatabase er en miljoegraense, ikke et importloefte',
+  'scripts/test-brugeromraade.ts': 'kraever PGlite gennem testbase; ingen produktionsdatabase er en miljoegraense, ikke et importloefte',
+  'scripts/test-gendannelse-actions.mjs': 'beskriver et tidligere utilstraekkeligt forloeb uden database; proeven kraever nu udtrykkeligt en isoleret testbase',
   'scripts/cloud/isoleret.mjs': 'løftet handler om de tre rene vagter; aabnIsoleret i samme modul åbner udtrykkeligt en forbindelse',
   'scripts/proever.ts': 'beskriver en forkert afledning om en ANDEN prøves databasebehov, ikke sit eget importløfte',
   'scripts/test-alarmmail.ts': 'kun afsnit 1–3 er uden base; afsnit 1b kører udtrykkeligt den rigtige afsendelse under testbasen',
