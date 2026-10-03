@@ -18,7 +18,7 @@
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { GULV, blindeImporter, formFraGraf, graf, gulvposter, laegPlan, laesMaerke } from './proever'
+import { GULV, blindeImporter, findProever, formFraGraf, graf, gulvposter, laegPlan, laesMaerke } from './proever'
 
 const ROD = fileURLToPath(new URL('..', import.meta.url))
 const MAPPE = '.proever-modproev'
@@ -134,7 +134,17 @@ export async function modproev(): Promise<number> {
       // bliver liggende i scripts/ — ikke i modproevens egen mappe, som
       // ryddes i det ydre finally. Doer processen midt i, staar den som
       // scripts/.modproev-flyttet-… og kan hentes tilbage med git status.
-      const n = gulvposter().length
+      // `n` var FØR to spørgsmål i ét: gulvets længde OG antallet af
+      // filer, opdageren finder. De er kun ens, så længe ingen har lagt
+      // en prøve til siden gulvet blev målt — og gulvets egen note siger
+      // udtrykkeligt, at en ny prøve er «additivt gratis». Derfor blev
+      // påstanden rød på den FØRSTE PR, der tilføjede en prøvefil, med
+      // en besked, der lignede et gulvbrud, mens gulvet var opfyldt.
+      // Målt: én mærket attrap-fil på ren main gengav fejlen ordret.
+      // De to tal læses nu hver for sig, og det fundne tælles FØR
+      // flytningen, så det er det faktiske og ikke et afledt.
+      const fundetFoer = findProever().length
+      const maalt = gulvposter().length
       const offer = GULV.pr.kerne[0]!
       const skjult = offer.replace(/(^|\/)(test-)/, '$1.modproev-flyttet-$2')
       renameSync(join(ROD, offer), join(ROD, skjult))
@@ -145,8 +155,8 @@ export async function modproev(): Promise<number> {
         tjek('… og afvisningen NAVNGIVER den, der forsvandt',
           linje?.includes(offer) === true, offer)
         tjek('… og siger baade det fundne og det maalte antal',
-          new RegExp(`${n - 1} proevefiler fundet, ${n} maalt`).test(linje ?? ''),
-          `${n - 1} af ${n}`)
+          new RegExp(`${fundetFoer - 1} proevefiler fundet, ${maalt} maalt`).test(linje ?? ''),
+          `${fundetFoer - 1} fundet af ${maalt} maalt`)
       } finally {
         renameSync(join(ROD, skjult), join(ROD, offer))
       }
