@@ -332,7 +332,10 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
    Ingen pladsholder og intet eksempelbillede: vi opfinder ikke data,
    heller ikke billeddata. Mangler kilden billeder, staar det i
    stedlinjen — det er en oplysning, ikke en dekoration. */
-.kort.uden-billede .kort-krop { padding: 16px 17px 14px; }
+/* 52px til hoejre: uden foto ligger hjertet i kroppens egen oeverste
+   linje, og pladsen reserveres dér. Samme regel som .kort-maerkater —
+   ét svar pr. sted. */
+.kort.uden-billede .kort-krop { padding: 16px 52px 14px 17px; }
 
 /* FORHOLDET BOR PAA RAMMEN, IKKE PAA BILLEDET.
    Det stod foer paa `img`, og dér var det uden virkning i den sidestillede
@@ -355,9 +358,17 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
 /* Fotoet naar kortets kant: ingen egen radius, kortets `overflow:
    hidden` klipper hjoernerne. 16/9 som i referencen — et 4/3-billede
    over en 286 px spalte blev 215 px hoejt og skubbede oekonomien ned. */
+/* FORHOLDET STÅR ÉT STED.
+   Billedfeltet og pilestriben skal have præcis samme højde: pilene er
+   søskende til kortets link og måler sig mod hylsteret, så de kan ikke
+   arve feltets ramme. Stod tallet to steder, ville en ændring af det ene
+   lægge pilene ved siden af det, de handler om — og begge erklæringer
+   ville se rigtige ud hver for sig. Det er den fejlform, CLAUDE.md
+   samler seks tilfælde af. */
+.kort-hylster, .kort { --kort-forhold: 16 / 9; }
 .kort-billede {
   background: var(--linje-svag); position: relative;
-  border-radius: 0; overflow: hidden; aspect-ratio: 16/9;
+  border-radius: 0; overflow: hidden; aspect-ratio: var(--kort-forhold);
 }
 /* Billedet trækkes ganske lidt op i kontrast ved hover — kortet
    reagerer som ét element, ikke som en ramme med et billede i. */
@@ -370,6 +381,212 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
   background: rgba(20,22,26,.66); backdrop-filter: blur(3px); color: #fff;
   font-size: 11px; font-weight: 560; padding: 3px 9px; border-radius: var(--r-pille);
 }
+
+/* ═══ BILLEDBLADRING ═══════════════════════════════════════════
+   Pilene, den lodrette rulning og reserven, når et billede fejler.
+
+   ── PILENE LIGGER UDEN FOR KORTETS LINK ──
+   På søgekortet er `.bladrepile` en SØSKENDE til `a.kort`, ikke et barn:
+   en <button> i et <a> er ugyldig HTML, og `kortkontrol.mjs` afviser
+   hvert fokuserbart element inde i linket. Derfor har de heller ikke
+   billedfeltet som forælder og kan ikke bruge `inset: 0` — de måler sig
+   mod `.kort-hylster` og får SAMME forhold som feltet, så de lander
+   præcis oven på det. Ændres `.kort-billede`s `aspect-ratio`, skal den
+   her med i samme ændring; de svarer på det samme spørgsmål.
+   På Gemte boliger ligger de derimod inde i `.gemt-foto`, som selv er
+   `position: relative` med forholdet — der er `inset: 0` det rigtige. */
+.bladrepile {
+  position: absolute; inset: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 8px;
+  /* Fladen må ikke æde klik. Kun knapperne tager imod; resten går
+     igennem til linket nedenunder, så et almindeligt billedklik stadig
+     åbner annoncen. */
+  pointer-events: none;
+}
+.kort-hylster > .bladrepile { inset: 0 0 auto 0; aspect-ratio: var(--kort-forhold); }
+
+/* 44 × 44 px. Det er gulvet for en handling i dette projekt, og det
+   gælder også en knap, der skal være diskret: diskret er en farve, ikke
+   en størrelse. Baggrunden er mørk nok til, at den hvide pil holder
+   kontrast over et lyst foto — målt som sammensat farve mod hvidt. */
+.bladrepil {
+  pointer-events: auto;
+  width: 44px; height: 44px; min-width: 44px; padding: 0;
+  display: grid; place-items: center;
+  border: 1px solid rgba(255,255,255,.34);
+  border-radius: var(--r-pille);
+  background: rgba(18,20,24,.55);
+  backdrop-filter: blur(3px);
+  color: #fff; cursor: pointer; line-height: 0;
+  transition: background .14s ease, border-color .14s ease, opacity .12s ease;
+}
+.bladrepil:hover {
+  background: rgba(18,20,24,.78);
+  border-color: rgba(255,255,255,.6);
+}
+.bladrepil:focus-visible {
+  outline: 2px solid #fff; outline-offset: 2px;
+  background: rgba(18,20,24,.82);
+}
+
+/* ── PÅ EN COMPUTER VISES PILENE FØRST VED HOVER ───────────────
+   Diskret på en skærm med mus, uændret på en berøringsskærm. Valget
+   træffes på `hover` og `pointer` — altså på hvad pegeenheden KAN,
+   ikke på hvor bred skærmen er. En smal browser på en bærbar har
+   stadig en mus, og en bred tablet har stadig ingen hover; en
+   breddegrænse ville ramme dem begge forkert.
+
+   `not (any-pointer: coarse)` ER KRITERIET, IKKE PYNT. `hover` og
+   `pointer` svarer kun for den PRIMÆRE pegeenhed. På en bærbar med
+   både mus og berøringsskærm er svaret musen, og uden dette led blev
+   pilene skjult — også for den, der bruger fingeren på netop den
+   maskine. `any-pointer` spørger til, om der OVERHOVEDET findes en
+   grov pegeenhed, og ét ja er nok til at lade pilene stå. Det er med
+   vilje konservativt: at skjule en knap for en finger er en værre
+   fejl end at vise en knap, en mus ikke havde brug for endnu.
+
+   Kan browseren ikke `not (…)` i en medieforespørgsel, er hele
+   blokken ugyldig og kasseres — og så står pilene synlige. Den
+   fejler altså til den sikre side, samme vej som `@supports` nedenfor.
+
+   HVORFOR `:has()`. Pilene er søskende til `a.kort` og ligger altså
+   UDEN FOR billedfeltet i DOM'en — se noten ved `.bladrepile`. Ingen
+   kombinator går fra et barnebarn til en onkel, så «vis pilene, når
+   billedet er hovered» kan kun skrives på den fælles forælder.
+   De øvrige led er ikke dubletter. Fire ting ligger OVEN PÅ billedet
+   uden at være inde i det: pilene selv, hjertet, fejlbeskeden og dens
+   «Prøv igen». Pegeren, der rører en af dem, har forladt
+   `.kort-billede` — og uden leddet ville pilene blinke væk, mens
+   brugeren stadig ser sig selv pege på billedet. Målt: uden
+   `.favoritknap:hover` slukkede pilene, når musen kom hen over
+   hjertet i øverste højre hjørne. Alle led står i ÉN `:has()`, så de
+   ikke kan skride fra hinanden.
+   Tælleren og mærkatet står IKKE på listen, og det er ikke en
+   forglemmelse: de ligger inde i `.kort-billede` og er dækket af
+   det første led. Efterprøvet, ikke formodet.
+   BILLEDKOLONNEN er sit eget led, og det er det, der holder båndet ved
+   billedets underkant åbent — se `.kort-billedblok::after` nedenfor.
+   `:not(:has())` holder afgrænsningen: kildens forbehold om billederne
+   er TEKST, og den skal ikke alene vise pilene. Strimlen ligger oven på
+   forbeholdets øverste 2 px og vinder træfprøven dér, så båndet virker
+   også på de kort — mens teksten under den ikke gør.
+   På Gemte boliger ligger pilene INDE i `.gemt-foto`, som selv ER
+   billedfladen. Der rækker et almindeligt `:hover`.
+
+   `@supports` er ikke pynt. Uden den ville en browser uden `:has()`
+   kassere afsløringsreglen som ugyldig, beholde `opacity: 0` og
+   efterlade pilene usynlige for altid — en skjult knap, ingen kan
+   finde. Kan browseren ikke `:has()`, laves der intet om.
+
+   `:focus` og ikke `:focus-visible`. Tastaturbrugeren er dækket af
+   dem begge. Men en pil, der lige er KLIKKET på, beholder fokus, når
+   musen flytter sig væk, og `:focus-visible` matcher ikke efter et
+   klik — så ville der stå en fokuseret, USYNLIG knap tilbage, som et
+   Enter ville aktivere. Ringen tegnes stadig kun af `:focus-visible`
+   ovenfor; det her handler alene om at kunne SE den knap, der har
+   fokus.
+
+   FOKUS VISER BEGGE PILE, ikke kun den ene. Derfor står `:focus` også
+   inde i `:has()`. Uden det led målte vi `[1, 0]`: den, der tabber hen
+   til «forrige», kunne ikke se, at der også er en «næste». Musen viser
+   parret; tastaturet skal vise det samme. Den frittstående
+   `.bladrepil:focus` bliver stående som garantien for, at en
+   fokuseret knap aldrig kan være usynlig — også hvis den en dag
+   sidder i en anden beholder end de to her.
+
+   Kun `.bladrepil` dæmpes. Tælleren, hjertet, fejlbeskeden og «Prøv
+   igen» er deres egne klasser og er uberørte — en besked, man skal
+   finde med musen, er ingen besked. */
+@supports selector(:has(*)) {
+  @media (hover: hover) and (pointer: fine) and (not (any-pointer: coarse)) {
+    .bladrepil { opacity: 0; }
+    /* ── HOVEROMRÅDET SKAL LIGGE STILLE, NÅR KORTET LØFTER SIG ──
+       `.kort:hover` løfter hele kortet `--kort-loeft`. Billedets
+       underkant flyttede sig dermed OP under pegeren, og stod den i
+       båndet lige over kanten, slap hover ved den mindste bevægelse:
+       pilene kom frem og forsvandt igen. Målt før rettelsen, 1 px over
+       den synlige underkant: begge pile slukkede i alle seks punkter
+       langs kanten.
+
+       Feltet her er formet som BILLEDET — af samme `--kort-forhold`,
+       som billedet selv bruger — og `--kort-loeft` længere ned.
+       `clip-path` skærer alt væk på nær de nederste pixels, så det, der
+       kan RAMMES, er en strimmel lige under fotoet. Den følger med
+       kortet op, så foreningen af billedet og strimlen dækker det samme
+       sted på SKÆRMEN, uanset om kortet er løftet.
+
+       TRE TING GØR DEN PÅ ÉN GANG, og hver af dem er målt:
+       · `clip-path` holder den VÆK fra billedet. Et felt, der dækkede
+         hele fotoet, fangede fingeren før billedfladen og tog swipet:
+         3C gik fra 1/3 → 2/3 til 1/3 → 1/3.
+       · Den er forankret til BILLEDET og ikke til kolonnens bund, så
+         båndet også holder på de kort, der har kildens billedforbehold
+         under fotoet.
+       · Den ligger inde i kortets link, så et klik på den åbner
+         annoncen som et klik på billedet.
+       `content-box` er nødvendig: med `border-box` ville forholdet tage
+       kanten af feltets egen højde, og der ville ingen strimmel være.
+
+       Hvorfor ikke en gennemsigtig underkant på `.kort-billede` selv:
+       den gør elementets rammekasse 2 px højere end det, øjet ser, og
+       to kontroller i `kortkontrol.mjs` måler netop den kasse — «højst
+       én skillelinje per kort» og «billedforbeholdet står ved sit
+       foto». Kassen og fotoet ville være to udtryk for det samme, der
+       pegede hvert sit sted. Begge blev røde; det er sådan, den vej
+       blev fravalgt.
+
+       Reglen bor HER, inde i `@supports`, fordi den kun tjener
+       afsløringen. Kan browseren ikke `:has()`, er pilene synlige hele
+       tiden, og så er der hverken et bånd at holde åbent eller en
+       `clip-path` at være afhængig af. */
+    .kort-billedblok { position: relative; }
+    .kort-billedblok::after {
+      content: ''; position: absolute; left: 0; right: 0; top: 0;
+      box-sizing: content-box;
+      aspect-ratio: var(--kort-forhold);
+      border-bottom: var(--kort-loeft) solid transparent;
+      clip-path: inset(calc(100% - var(--kort-loeft)) 0 0 0);
+    }
+    .kort-hylster:has(.kort-billede:hover, .favoritknap:hover,
+                      .bladrepil:hover, .bladrepil:focus) .bladrepil,
+    .kort-hylster:has(.kort-billedblok:hover):not(:has(.billedforbehold:hover)) .bladrepil,
+    .gemt-foto:hover .bladrepil,
+    .gemt-foto:has(.bladrepil:focus) .bladrepil,
+    .bladrepil:focus { opacity: 1; }
+  }
+}
+/* Her stod `.bladrepil:disabled`. Den regel kunne aldrig fyre: pilene
+   saettes ALDRIG disabled — komponenten siger det udtrykkeligt og
+   begrunder det, for en knap, der slaar sig selv fra midt i et
+   tastetryk, mister fokus til <body>. En doed regel, der beskriver
+   praecis den tilstand, koden forbyder, er en invitation til at
+   indfoere den; derfor er den vaek. Travlheden siges med `aria-busy`. */
+
+@media (prefers-reduced-motion: reduce) { .bladrepil { transition: none; } }
+
+/* ── LODRET RULNING ER BRUGERENS, VANDRET ER VORES ──
+   `pan-y` siger til browseren: behold den lodrette panorering, og send
+   det vandrette til JavaScript. Det er dét, der gør, at en swipe kan
+   skifte billede UDEN at `preventDefault` nogen sinde bliver kaldt — og
+   uden den ville en skrå bevægelse kunne låse siden fast under fingeren. */
+/* `pinch-zoom` SKAL MED. `pan-y` alene tager knib-zoom fra brugeren på
+   hvert eneste boligfoto — og et foto er netop det, man zoomer på. Med
+   begge beholder browseren både den lodrette panorering og zoomen, og
+   kun det vandrette svirp når JavaScript. */
+.kort-billede, .gemt-foto { touch-action: pan-y pinch-zoom; }
+
+/* ── RESERVEN, NÅR ET BILLEDE FEJLER ──
+   Billedet bliver stående i DOM'en: `.kort-billede` skal indeholde
+   præcis ét <img>, og både `fotokontrol.mjs` og `kortkontrol.mjs` måler
+   rammen mod dét ene billede. Det TEGNES bare ikke, og rammens egen
+   flade — den, der altid har været der — er reserven. */
+.kort-billede.billede-fejlede img { visibility: hidden; }
+.billede-fejl {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  padding: 0 12px; text-align: center;
+  font-size: 12px; color: var(--svag);
+}
 .kort-krop {
   padding: 15px 16px 14px; min-width: 0;
   display: flex; flex-direction: column;
@@ -379,7 +596,10 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
    foto er der ingen flade at ligge paa, og saa staar de oeverst i
    kroppen — samme maerkater, ét sted i koden. */
 .kort-maerkater {
-  position: absolute; left: 10px; top: 10px; right: 10px;
+  /* right: 52px, ikke 10px — der skal vaere plads til favoritknappen i
+     hjoernet. Reglen er hjertets, ikke maerkaternes, og foelger derfor
+     med brugeromraadet. */
+  position: absolute; left: 10px; top: 10px; right: 52px;
   display: flex; flex-wrap: wrap; gap: 5px; pointer-events: none;
 }
 .kort-maerkater .maerkat { box-shadow: 0 1px 3px rgba(20,22,26,.16); }
@@ -487,9 +707,21 @@ button:hover, .knap:hover { background: var(--accent-mrk); border-color: var(--a
   font-weight: 650; color: var(--tekst);
 }
 /* Alderen paa annoncen er baggrundsstof. Egen raekke, svagest vaegt. */
-.set-linje { flex-basis: 100%; order: 10; font-size: 12px; color: var(--svag); }
-.poster { flex-basis: 100%; order: 9; font-size: 12px; color: var(--svag); margin-top: 2px; }
-.el { flex-basis: 100%; order: 6; font-size: 12px; color: var(--svag); }
+/* ═══ GRUNDLAGSLINJEN ═══
+
+   Afloeser `.poster` (order 9) og `.el` (order 6) — to linjer i hver sin
+   ende af blokken, som svarede paa det samme spoergsmaal og skulle
+   laeses sammen. Nu ÉN linje, ÉN plads, lige under tallet den
+   forklarer. Se docs/kortdesign.md.
+
+   `.ukendt` er ogsaa vaek: manglen staar nu i selve prisetiketten
+   («+ aconto (ikke oplyst)»), og saa er der intet tilbage at saette i
+   en advarselsfarve. Den stod paa 27 % af kortene — for ofte til at
+   raabe. */
+.kort-grundlag {
+  flex-basis: 100%; order: 6;
+  font-size: 12.5px; line-height: 1.45; color: var(--svag); margin-top: 2px;
+}
 
 /* Billedet og det, der hoerer til billedet, er ÉT gitterfelt.
 
@@ -2312,6 +2544,20 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
 .formok { color: var(--accent); background: var(--accent-lys); border-radius: var(--r-s);
   padding: 9px 12px; font-size: 13.5px; margin: 12px 0 0; line-height: 1.5; }
 
+/* Bekraeftelseslinket kunne ikke veksles. Staar OVER formularerne, ikke
+   inde i én af dem: den vej videre kan vaere begge to — log ind, hvis
+   kontoen allerede er bekraeftet, ellers opret igen for et nyt link. */
+.kontoenkelt { max-width: 420px; }
+.kontoglemt { margin-top: 12px; text-align: center; }
+.kontoglemt a { color: var(--daempet); text-decoration: underline; }
+.kontoglemt a:hover { color: var(--accent); }
+.kontook { border-left: 3px solid var(--accent); margin-bottom: 16px; }
+.kontook p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.55; }
+.kontook p:last-child { margin-bottom: 0; }
+.kontofejl { border-left: 3px solid var(--vaek); margin-bottom: 16px; }
+.kontofejl p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.55; }
+.kontofejl p:last-child { margin-bottom: 0; }
+
 /* Trinbjælken. Trinnene kan klikkes frit — man skal kunne gå tilbage og
    rette noget uden at miste det, man allerede har skrevet. */
 .trinbjaelke { list-style: none; display: flex; gap: 6px; margin: 0 0 16px; padding: 0; flex-wrap: wrap; }
@@ -2760,4 +3006,382 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
   .oekonomi-linje { margin-top: 9px; gap: 3px 14px; }
   .fakta { margin-top: 8px; }
   .kort-fod { padding-top: 8px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BRUGEROMRÅDET
+   Ingen nye farver og ingen ny formsprog — alt hentes fra de
+   variabler, resten af siden allerede bruger.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Hylsteret om et boligkort ──────────────────────────────────
+   Findes KUN for at give favoritknappen noget at ligge oven paa.
+   Knappen er en <button>, og en <button> inde i kortets <a> er ugyldig
+   HTML — derfor er de to soeskende, ikke far og barn.
+   Hylsteret er posten i `.liste` praecis som kortet var foer, saa
+   afstandene er uaendrede. `.liste` er nu et GITTER med
+   `align-items: start`; hylsteret er gittercellen, og `flex: 1` paa
+   kortet fylder den ud, saa kortet er lige saa hoejt som foer. */
+.kort-hylster { position: relative; display: flex; flex-direction: column; }
+.kort-hylster > .kort { flex: 1; }
+
+/* Pladsen til knappen reserveres ALTID, ogsaa naar den ikke vises.
+   Saa flytter der sig ingenting, naar man logger ind eller ud.
+
+   HVOR pladsen ligger, foelger kortet — og kortet er lavet om.
+   Foer var kortet vandret med billedet i venstre spalte og `.kort-krop`
+   oeverst til hoejre; dér laa hjertet oven i kroppen, og reglen var
+   `.kort-krop { padding-right: 44px }`. Det nye kort er LODRET: fotoet
+   ligger oeverst i fuld bredde, hjertet ligger PAA fotoet, og kroppen
+   staar nedenunder med hele bredden. En blank `padding-right: 44px`
+   ville dér klemme pris, indflytningspris og fod ind mod midten paa
+   hvert eneste kort for at holde en plads, der ikke bliver brugt —
+   knappen er ikke flyttet, den blev aldrig fjernet, og det er
+   polstringen, der skal passe til den nye form.
+
+   Det, der FAKTISK ligger i hjertets hjoerne paa det nye kort, er
+   maerkatraekken paa fotoet — og uden foto er det kroppens egen
+   oeverste linje. Begge steder er pladsen reserveret DÉR, hvor reglen
+   i forvejen staar, saa der kun er ét svar pr. sted:
+   `.kort-maerkater { right: 52px }` og
+   `.kort.uden-billede .kort-krop { padding: 16px 52px 14px 17px }`,
+   begge oppe i kortafsnittet. En modregel her ville vaere det samme
+   svar skrevet to gange. Skal knappen flytte sig, er det de to tal
+   plus `top`/`right` nedenfor, der skal foelges ad. */
+
+.favoritknap {
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  width: 34px; height: 34px; padding: 0;
+  display: grid; place-items: center;
+  border: 1px solid var(--linje); border-radius: 999px;
+  background: var(--kort); color: var(--svag);
+  cursor: pointer; line-height: 0;
+  transition: color .14s, border-color .14s, background .14s, transform .16s ease;
+}
+.favoritknap:hover { color: var(--accent); border-color: var(--accent); }
+.favoritknap:disabled { cursor: progress; opacity: .65; }
+/* Tilstanden staar i FORMEN (fyldt hjerte) og i RAMMEN — ikke i
+   farven alene. Et graatonet display giver det samme svar. */
+.favoritknap.er-gemt {
+  color: var(--accent); border-color: var(--accent);
+  background: var(--accent-lys); box-shadow: inset 0 0 0 1px var(--accent);
+}
+.favoritknap.fejlede { color: var(--vaek); border-color: var(--vaek); background: var(--vaek-lys); }
+.favoritknap:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.favoritknap-login { text-decoration: none; }
+
+/* ── Genindsat ved integrationen ────────────────────────────────
+   `.raek1` blev slettet fra denne fil i 4a1d2af (designloeftet), men
+   `app/udlejer/boliger/page.tsx` bruger den stadig — den side er ikke
+   en del af redesignet. Uden reglen falder «Mine annoncer»-kortets
+   oeverste raekke fra flex til blokstabling, og maerkatet («udgivet» /
+   «vises ikke») ryger ned under adressen i stedet for ud til hoejre.
+   Reglerne er ordret dem, der stod paa main. */
+.raek1 { display: flex; justify-content: space-between; gap: 14px; align-items: baseline; }
+@media (max-width: 560px) {
+  .raek1 { flex-direction: column; align-items: flex-start; gap: 7px; }
+}
+
+/* ── Hjertet skal foelge kortet ─────────────────────────────────
+   Det her er et INTEGRATIONSFUND: hver side er rigtig alene.
+   Redesignet gav `.kort:hover` et loeft paa 2 px; favoritknappen kom
+   fra brugeromraadet og er absolut placeret paa `.kort-hylster`, som
+   ligger UDEN OM kortet og derfor ikke loefter sig. Sat sammen glider
+   kortet op under et hjerte, der bliver staaende.
+   Knappen kan ikke flyttes ind i kortet — en <button> i et <a> er
+   ugyldig HTML, og det er hele grunden til, at hylsteret findes. Saa
+   foelger hjertet med i stedet, med samme varighed og samme kurve. */
+.kort-hylster:hover .favoritknap { transform: translateY(-2px); }
+@media (prefers-reduced-motion: reduce) {
+  .kort-hylster:hover .favoritknap { transform: none; }
+}
+
+/* Boligsidens overskriftsrække: knappen ved siden af h1. */
+.hoved-titel { display: flex; align-items: flex-start; gap: 12px; }
+.hoved-titel h1 { flex: 1; min-width: 0; }
+.hoved-titel .favoritknap { position: static; flex: none; margin-top: 4px; }
+
+/* ── Min side ─────────────────────────────────────────────────── */
+/* Bredere end 780 px, fordi gemte boliger nu staar i to spalter. To
+   kort à ~420 px er den stoerrelse, soegesidens kort ogsaa har ved
+   kortvisning — den samme bolig skal ikke skifte format, fordi hun
+   gemte den. Prosablokkene faar hver deres loft nedenfor; en linje paa
+   880 px er ikke til at laese. */
+.minside { max-width: 880px; }
+.minside h1 { margin: 0 0 6px; }
+.minside-top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; margin-bottom: 22px; flex-wrap: wrap;
+}
+.minside-hvem { margin: 0; font-size: 13px; color: var(--daempet); }
+.minside .manchet { margin: 0 0 20px; color: var(--daempet); max-width: 58ch; }
+.knaplink {
+  display: inline-block; text-decoration: none; font-size: 13px;
+  padding: 6px 12px; border: 1px solid var(--linje); border-radius: var(--r-s);
+}
+
+/* ── Afsnittets hoved ──────────────────────────────────────────
+   Overskrift og optaelling paa én linje. Tallet er svaret paa
+   overskriften, ikke en note under den — og de to afsnit paa siden faar
+   den samme grammatik, saa de laeses som ét omraade.
+   `align-items: baseline`, saa tallet staar paa overskriftens grundlinje
+   og ikke midt i den. */
+.blok-hoved {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  justify-content: space-between; gap: 4px 16px; margin-bottom: 15px;
+}
+.blok-hoved h2 { margin: 0; }
+.blok-hoved .grundlag {
+  margin: 0; font-size: 13px; color: var(--daempet);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Listerne ─────────────────────────────────────────────────
+   `.gemte-liste` er faellesskallen for begge afsnit — og selektoren,
+   favoritregressionen laeser listen med. Gitteret ligger paa
+   `.gemte-kort`, saa gemte soegninger beholder deres enkeltspalte. */
+.gemte-liste { list-style: none; margin: 0; padding: 0; display: flex;
+  flex-direction: column; gap: 10px; }
+
+/* To spalter paa skaerm, én paa telefon. Bruddet gaar ved 620 px —
+   samme sted som soegelistens kort — og `1fr 1fr` frem for auto-fit,
+   saa et ulige antal kort ikke braekker gitteret om paa sidste raekke.
+   `align-items: stretch` er standard og er dét, der giver ens hoeje
+   kort: foden lander i bunden af hvert kort, ikke under sin egen tekst. */
+.gemte-liste.gemte-kort {
+  display: grid; grid-template-columns: 1fr; gap: 16px;
+}
+@media (min-width: 620px) {
+  .gemte-liste.gemte-kort { grid-template-columns: 1fr 1fr; }
+}
+
+/* KORTET BRYDER EFTER SIN EGEN BREDDE, IKKE EFTER VINDUETS.
+   Samme regel som søgelistens kort, og af samme grund: ved to spalter
+   er kortet 329 px bredt på en 768 px skærm, og en medieforespørgsel
+   ser kun de 768. Containeren står her, så en fremtidig brydning i
+   kortet kan spørge kortet og ikke skærmen — det var netop dén fejl,
+   der lod adresserne brække ét ord per linje på søgesiden. */
+.gemt-kort {
+  container-type: inline-size; container-name: gemtkort;
+  display: flex; flex-direction: column; min-width: 0;
+  background: var(--kort); border: 1px solid var(--linje);
+  border-radius: var(--r); overflow: hidden;
+  box-shadow: var(--skygge-flad);
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.gemt-kort:hover { border-color: #d6cfc0; box-shadow: var(--skygge-loeft); }
+@media (prefers-reduced-motion: reduce) { .gemt-kort { transition: none; } }
+/* Fokusringen skal ses OM kortet, naar adressen inde i det har fokus.
+   Ellers staar en 2 px ring om en 14 px tekstlinje midt i et kort, og
+   det er ikke til at se, hvor man er. `:focus-within` og ikke `:focus`,
+   fordi ringen hoerer til kortet og fokus til linket. */
+.gemt-kort:focus-within { border-color: var(--accent); }
+
+/* ── Billedfeltet ─────────────────────────────────────────────
+   Det staar ALTID, og det har altid samme forhold — det er dét, der
+   giver gitteret ens kort og en rolig kant ned gennem spalterne.
+
+   Baggrunden ER fallback'et: et fladt sandfarvet felt med et hus-omrids
+   og et ord. Den ligger under billedet, ikke i stedet for det, og
+   daekker derfor to tilfaelde med én mekanisme — billedet der aldrig
+   fandtes, og billedet der fejler undervejs. Et `img` med tom `alt`
+   tegner ingenting ved en fejlet hentning, og saa staar feltet tilbage.
+   Ingen JavaScript, ingen `onError`, intet eksempelfoto. */
+.gemt-foto {
+  position: relative; aspect-ratio: 16 / 9;
+  background: var(--linje-svag); flex: none;
+}
+.gemt-fotolink { display: block; width: 100%; height: 100%; }
+.gemt-foto img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.gemt-foto.uden-foto {
+  display: flex; align-items: center; justify-content: center;
+}
+/* Hus-omridset. Stort, meget svagt og bag teksten — et tegn paa, at
+   feltet er tomt med vilje, ikke en knap og ikke et billede der
+   indlaeses. Samme ikon som noegletallene bruger. */
+.gemt-foto.uden-foto::before {
+  content: ''; position: absolute; width: 46px; height: 46px;
+  top: 50%; left: 50%; transform: translate(-50%, calc(-50% - 11px));
+  background: var(--svag); opacity: .22;
+  -webkit-mask: var(--ikon-hus) center/contain no-repeat;
+  mask: var(--ikon-hus) center/contain no-repeat;
+}
+.gemt-intetfoto {
+  position: relative; margin-top: 42px;
+  font-size: 12px; color: var(--svag); letter-spacing: .01em;
+}
+.gemt-antal {
+  position: absolute; left: 9px; bottom: 9px;
+  background: rgba(20,22,26,.66); backdrop-filter: blur(3px); color: #fff;
+  font-size: 11px; font-weight: 560; padding: 3px 9px; border-radius: var(--r-pille);
+}
+
+/* ── Kortets krop ─────────────────────────────────────────────
+   `flex: 1` + foden med `margin-top: auto`: foden staar i bunden af
+   kortet, ogsaa naar nabokortet er hoejere. Uden det flyder «gemt den»
+   op under en kort adresse, og de to spalter faar hver sin fodlinje. */
+.gemt-indhold {
+  display: flex; flex-direction: column; flex: 1; min-width: 0;
+  padding: 15px 16px 13px;
+}
+.gemt-overskrift {
+  margin: 0; font-size: 16.5px; font-weight: 690;
+  letter-spacing: -0.02em; line-height: 1.3;
+}
+/* Adressen er indgangen til boligen — den skal kunne laeses som et link,
+   ikke som graa brødtekst. `.adresse` har en global regel med
+   `color: var(--daempet)`; her er den kortets handling. */
+.gemt-kort .adresse {
+  display: inline-block; margin: 4px 0 0;
+  font-size: 14px; font-weight: 560; line-height: 1.4;
+  color: var(--tekst); text-decoration: none;
+}
+.gemt-kort .adresse:hover { text-decoration: underline; }
+.gemt-sted { margin: 2px 0 0; font-size: 12.5px; color: var(--daempet); }
+
+.gemt-oekonomi { margin-top: 12px; }
+/* Skellet mellem huslejen og hele beloebet til udlejeren siges med ORD.
+   Farven er det andet lag, ikke det foerste: en groen total og en sort
+   husleje kan skelnes paa afstand, men det er etiketten, der er
+   oplysningen. */
+.gemt-pris {
+  margin: 0; font-size: 21px; font-weight: 720; letter-spacing: -0.032em;
+  color: var(--accent); line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.gemt-pris small {
+  font-size: 12.5px; font-weight: 530; color: var(--daempet);
+  letter-spacing: 0; margin-left: 2px;
+}
+.gemt-pris.kun-leje { color: var(--tekst); }
+/* Et beloeb, vi ikke har, staar som ord i normal stoerrelse — et stort
+   tomt tal ville trække blikket til noget, der ikke er der. */
+.gemt-pris.ingen-pris {
+  font-size: 13.5px; font-weight: 500; letter-spacing: 0;
+  color: var(--daempet);
+}
+.gemt-kort .ukendt {
+  display: block; margin: 8px 0 0; flex-basis: auto;
+  background: var(--advarsel-lys); color: var(--advarsel);
+  font-size: 12.5px; line-height: 1.45; padding: 7px 11px;
+  border-radius: var(--r-s);
+}
+.gemt-kort .el {
+  flex-basis: auto; margin: 7px 0 0;
+  font-size: 12px; color: var(--svag); line-height: 1.45;
+}
+.gemt-kort .billedforbehold { margin: 7px 0 0; font-size: 11.5px; }
+
+/* En bolig, kilden har taget ned, bliver STAAENDE. Den daempes, men
+   den skjules ikke — hun har selv lagt den der. Fotoet daempes med, saa
+   forskellen ses i skimningen og ikke foerst i statusboksen. */
+.utilgaengelig .adresse { color: var(--daempet); }
+.gemt-kort.utilgaengelig { background: #fcfbf9; }
+.gemt-kort.utilgaengelig .gemt-foto img { opacity: .55; }
+.gemt-kort.utilgaengelig .gemt-pris { color: var(--daempet); }
+.gemt-status {
+  margin: 10px 0 0; font-size: 12.5px; line-height: 1.5;
+  color: var(--advarsel); background: var(--advarsel-lys);
+  border-radius: var(--r-s); padding: 7px 10px;
+}
+.gemt-status strong { color: inherit; }
+
+/* ── Foden ────────────────────────────────────────────────────
+   «Gemt den», kilden og Fjern. Baggrundsstof om kortet, ikke om
+   boligen — derfor nederst, i mindste vaegt og over en skillelinje.
+   `margin-top: auto` skubber den til bunden af kortet. */
+/* FODEN BRÆKKER IKKE — TEKSTEN GØR.
+   `flex-wrap: wrap` lod formularen falde ned på sin egen linje, så snart
+   «gemt den · kilde» blev for lang, og så stod en 64 px knap i venstre
+   hjørne med et tomt felt ved siden af. Rettet med `nowrap` og en
+   sporlinje, der må krympe (`min-width: 0`): teksten ombrydes inde i sin
+   egen spalte, og knappen bliver liggende til højre, lodret centreret
+   mod tekstblokken. Målt ved 390 px, hvor foden er 262 px bred: 184 px
+   til teksten, som bruger to linjer, og knappen står hvor den plejer.
+   Alternativet — en knap i fuld bredde — blev prøvet og forkastet: otte
+   brede knapper ned gennem siden trækker blikket til «Fjern» frem for
+   til boligerne, og handlingen skal være sekundær. */
+.gemt-fod {
+  margin-top: auto; padding-top: 11px;
+  border-top: 1px solid var(--linje-svag);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: nowrap;
+}
+.gemt-spor { margin: 0; font-size: 12px; color: var(--svag); min-width: 0; }
+/* Fjern er en rigtig knap i en formular: tastatur virker af sig selv,
+   og der er ingen JavaScript at fejle. 44 px hoej, som resten af
+   projektets handlinger — ogsaa naar den er sekundaer. */
+.gemt-fjern {
+  font-size: 13px; font-weight: 560; padding: 8px 15px; min-height: 44px;
+  display: inline-flex; align-items: center; flex: none;
+}
+.gemt-kort .adresse:focus-visible,
+.gemt-fjern:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+  border-radius: var(--r-s);
+}
+
+/* ── Gemte søgninger ──────────────────────────────────────────
+   Samme kortsprog som boligerne — ramme, radius og en fod — men i én
+   spalte: en soegning er en linje tekst, ikke et billede. */
+.gemte-soegninger { gap: 12px; }
+/* Samme brydning som boligkortenes fod, og af samme grund: teksten
+   ombrydes i sin egen spalte, og handlingen bliver liggende til højre.
+   Stod der `wrap`, faldt «Afmeld» ned under teksten og venstrestillet på
+   en telefon — en knap, der er faldet af, midt i et afsnit der ellers
+   læser som kort. */
+.gemt-soegning {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  flex-wrap: nowrap; gap: 14px; padding: 14px 16px;
+  background: var(--kort); border: 1px solid var(--linje);
+  border-radius: var(--r);
+}
+.gemt-krop { min-width: 0; flex: 1; }
+.gemt-krop .adresse {
+  margin: 0; font-size: 15px; font-weight: 620;
+  color: var(--tekst); text-decoration: none;
+}
+a.adresse:hover { text-decoration: underline; }
+.gemt-krop .sted { font-size: 12.5px; color: var(--daempet); margin-top: 3px; }
+.gemt-hoejre { display: flex; align-items: center; gap: 10px; flex: none; }
+.gemt-hoejre .knaplink {
+  min-height: 44px; display: inline-flex; align-items: center;
+}
+.gemt-hoejre .knaplink:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.gemt-soegning.utilgaengelig { background: #fcfbf9; }
+
+.tom-boks {
+  border: 1px dashed var(--linje); border-radius: var(--r);
+  padding: 20px 22px; color: var(--daempet); font-size: 14px;
+  max-width: 62ch;
+}
+.tom-boks p { margin: 0 0 8px; }
+.tom-boks p:last-child { margin-bottom: 0; }
+.tom-boks strong { color: var(--tekst); }
+
+.topmin {
+  margin-left: auto; font-size: 13px; color: var(--daempet);
+  text-decoration: none; align-self: center;
+}
+.topmin:hover { color: var(--accent); }
+/* I den nye brandbjaelke ligger «Min side» i `.tophandlinger`, som selv
+   baerer `margin-left: auto`. Bliver den staaende ogsaa paa linket,
+   skubbes «Min side» vaek fra «Opret annonce», som den hoerer sammen
+   med. Den ydre gruppe holder hoejrestillingen; linket lader vaere.
+   Ligger linket i stedet direkte i toplinjen — som paa grenen, den kom
+   fra — gaelder reglen ovenfor uaendret. */
+.tophandlinger .topmin {
+  margin-left: 0; font-size: 14.5px;
+  /* «Min side» er to ord, og under 720 px er `.topnav` skjult, saa
+     `.tophandlinger` baerer maerket, dette link OG «Opret annonce».
+     Uden `nowrap` braekker linket i to linjer paa en smal telefon og
+     goer bjaelken 23 px hoejere end den skal vaere. Maalt paa 320 px:
+     45 px hoej mod en linjehoejde paa 22. `.nav-primaer` har den
+     allerede af samme grund. Der er plads nok — linket slutter paa
+     158 af 320 px — det er klemningen, ikke bredden, der braekker det. */
+  white-space: nowrap;
 }

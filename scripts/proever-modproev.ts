@@ -201,6 +201,15 @@ export async function modproev(): Promise<number> {
         p.poster.some((q) => q.fil === mjs) ? '' : 'IKKE fundet')
       tjek('… og uden afvisning, naar den har sit maerke', p.afvist.length === 0,
         p.afvist.slice(0, 1).join('') || 'ingen')
+      const dynamisk = "const sti = '../db/client'\nexport const hent = () => import(sti)\n"
+      writeFileSync(join(ROD, mjs), '// gruppe: manuel\n' + dynamisk)
+      const manuel = await laegPlan()
+      tjek('manuel dynamisk proeve registreres uden udledt paakaldelse',
+        manuel.afvist.length === 0 && manuel.poster.some((q) => q.fil === mjs && q.maerke.gruppe === 'manuel'))
+      writeFileSync(join(ROD, mjs), '// gruppe: kerne\n' + dynamisk)
+      const automatisk = await laegPlan()
+      tjek('samme dynamiske proeve afvises i den automatiske kaede',
+        automatisk.afvist.some((a) => a.includes(mjs) && a.includes('ikke en literal')))
       writeFileSync(join(ROD, mjs), 'export const x = 1\n')
       const p2 = await laegPlan()
       tjek('… og UDEN maerke afvises den som enhver .ts',

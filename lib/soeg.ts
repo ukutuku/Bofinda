@@ -505,7 +505,17 @@ export interface Repraesentant {
   adresse: string
   postnr: string | null
   by: string | null
+  /**
+   * Parret baeres videre RAAT, og svaret udledes hos den, der skriver
+   * saetningen. Der er ikke plads til det samme ord to steder: kortets
+   * maerkat hedder «Udlejeren selv», mens Mine annoncer skriver «… hos
+   * udlejeren selv» midt i en saetning. Ét spoergsmaal, to tekster — se
+   * `erEgenAnnonce` og `kildeetiket` i lib/kilde.ts.
+   */
+  /** Kompatibilitet med den landede dubletforklaring. Samme kildenavn. */
   kilde: string
+  kildeNavn: string
+  kildetype: string | null
   billeder: number
   harTotal: boolean
   /**
@@ -557,7 +567,13 @@ export async function repraesentantFor(ids: string[]): Promise<Map<string, Repra
       adresse: listings.addressRaw,
       postnr: listings.postalCode,
       by: listings.city,
-      kilde: sources.name,
+      // Hvem vandt — til linjen paa Mine annoncer: «… viser den i
+      // stedet: <adresse> hos X». Taber en udlejer til en ANDEN
+      // udlejerannonce, skrev `sources.name` «hos Bofinda» om en annonce,
+      // der ikke er hentet nogen steder. Typen foelger med, saa sidens
+      // egen saetning kan udlede svaret ét sted; se lib/kilde.ts.
+      kildeNavn: sources.name,
+      kildetype: listings.sourceType,
       // Samme tal, som rangeringen brugte. Se UNIKKE_BILLEDER.
       billeder: UNIKKE_BILLEDER,
       harTotal: sql<boolean>`(${listings.totalMonthly} is not null)`,
@@ -573,7 +589,8 @@ export async function repraesentantFor(ids: string[]): Promise<Map<string, Repra
     const v = efterNoegle.get(t.noegle)
     if (v) svar.set(t.id, {
       id: v.id, adresse: v.adresse, postnr: v.postnr, by: v.by,
-      kilde: v.kilde, billeder: v.billeder, harTotal: v.harTotal,
+      kilde: v.kildeNavn, kildeNavn: v.kildeNavn, kildetype: v.kildetype,
+      billeder: v.billeder, harTotal: v.harTotal,
       udlejerannonce: v.udlejerannonce,
     })
   }

@@ -2661,6 +2661,62 @@
    "dato": "2026-10-01",
    "herkomst": "kendt",
    "grund": "Del A's måling på main's egen app (#39, 1. oktober 2026) mod testbasens 280 syntetiske boliger, før og med udsnittet. Skrevet før vagten fandtes, derfor uden kvittering. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kontomails/eksempler/kvittering-bolig-desktop.png",
+   "sha256": "ad95c070166a2412f3a1761ac76f735ef288c5476578f2f0bfb0e9a43b25efcb",
+   "dato": "2026-09-30",
+   "herkomst": "ikke efterset",
+   "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kontomails/eksempler/kvittering-bolig-mobil.png",
+   "sha256": "ed5e67b16dae9a62a6140c134de83ed658986e8b6d2c88cc6bec28cb4eda35a3",
+   "dato": "2026-09-30",
+   "herkomst": "ikke efterset",
+   "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kontomails/eksempler/kvittering-udenlogin-desktop.png",
+   "sha256": "d6a43eaa544676225237b4dd310d9d7a21c9941be9273d25a0e19b6ce2e6515a",
+   "dato": "2026-09-30",
+   "herkomst": "ikke efterset",
+   "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kontomails/eksempler/kvittering-udenlogin-mobil.png",
+   "sha256": "aa5f111430465b5dc8e02877a072bc9da1e842b6f07171501d797970db09c438",
+   "dato": "2026-09-30",
+   "herkomst": "ikke efterset",
+   "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kontomails/eksempler/kvittering-udlejer-desktop.png",
+   "sha256": "b0119e74077064689f2d8026cd46a5d03de498f63003e7976c16d3c8a83a7f17",
+   "dato": "2026-09-30",
+   "herkomst": "ikke efterset",
+   "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kontomails/eksempler/kvittering-udlejer-mobil.png",
+   "sha256": "ff523d129d9f007cc33a5fdee0eaf2dd96b71c16362ab4dd7423b5586171f525",
+   "dato": "2026-09-30",
+   "herkomst": "ikke efterset",
+   "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kontomails/eksempler/mail-desktop.png",
+   "sha256": "c55f3cb8830b9fe96f9cc4b1aa46d9ed3f1d8b85d68d513d34257939a889d5ab",
+   "dato": "2026-09-30",
+   "herkomst": "ikke efterset",
+   "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
+  },
+  {
+   "fil": "docs/kontomails/eksempler/mail-mobil.png",
+   "sha256": "17f9b72d2df31168092f53493b7442a27e019b6c490a17c0bc1a92f2aea6a19f",
+   "dato": "2026-09-30",
+   "herkomst": "ikke efterset",
+   "grund": "Mailskabelonernes eksempler fra kontomails-arbejdet (698ef85, «Gendannelse af adgangskode, og kontomails med BOFINDAs maerke»), skrevet 30. september 2026, før vagten fandtes. Herkomsten er ikke efterset af denne session. Beholdt af samme grund som designforslagets: omskreven historik er værre end vægten (GREB-5 § 5)."
   }
  ]
 }

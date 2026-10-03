@@ -10,6 +10,8 @@ import { Galleri } from './Galleri'
 import { Kontakt } from './Kontakt'
 import { Maaling } from '../../Maaling'
 import { Landkort } from '../../Landkort'
+import { Favoritknap } from '../../Favoritknap'
+import { favoritIder, statusFor } from '../../../lib/favoritter'
 import { maalingstilstand, spor } from '../../../lib/maaling-server'
 import { typenavn } from '../../../lib/boligtype'
 
@@ -63,6 +65,10 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
   const nu = new Date()
   const avail = b ? availabilityFor(b, nu) : null
   if (!b) notFound()
+
+  // Efter notFound(): en bolig, der ikke findes, skal ikke koste et opslag
+  // i favoritterne.
+  const favkontekst = await favoritIder()
 
   const galleri = b.billeder
     .map((x) => ({ lille: billedUrl(x.url, 800), stor: billedUrl(x.url, 1600) }))
@@ -484,7 +490,21 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
             {avail!.adgang.krav.includes('bopaelskrav')
               && <span className="maerkat m-kilde">Bopælspligt</span>}
           </div>
-          <h1>{adresselinje(b)}</h1>
+          {/* Hjertet staar ved sidens navn, ikke paa et billede: her er
+              der ét udbud og ingen kortflade at lægge det paa.
+              `.hoved-titel .favoritknap` saetter den `position: static`,
+              saa den foelger overskriften i stedet for at blive absolut
+              placeret som paa kortene. Samme komponent, tredje kaldested
+              — scripts/test-favoritforloeb.ts 1C og 1D efterser kilden,
+              saa et kaldested ikke kan falde fra, uden at nogen ser det. */}
+          <div className="hoved-titel">
+            <h1>{adresselinje(b)}</h1>
+            <Favoritknap
+              listingId={b.id}
+              status={statusFor(favkontekst, b.id)}
+              adresse={adresselinje(b)}
+            />
+          </div>
           <p className="sted">{b.postnr} {b.by}</p>
           <ul className="noegletal">
             {noegletal.map((n, i) => (

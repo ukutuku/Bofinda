@@ -1,4 +1,5 @@
 import { Kort, kr } from '../Boligkort'
+import { favoritIder, statusFor } from '../../lib/favoritter'
 import {
   filtreFraParametre, gruppenoegleFra, gruppenoegleFraBolig, hentGruppe, type Soegeparametre,
 } from '../../lib/soeg'
@@ -40,6 +41,10 @@ export default async function Side(
   // Gamle nøglelinks bruger også postnr/værelser, men til selve nøglen.
   // Kun id-linkene læser derfor parametrene som søgefiltre.
   const boliger = n ? await hentGruppe(n, b ? filtreFraParametre(sp) : undefined) : []
+  // Hjertet skal ogsaa staa paa gruppens adresser. Uden den her linje
+  // virkede favoritter paa forsiden og omraadesiderne, men ikke naar man
+  // foldede en gruppe ud — samme bolig, to svar.
+  const favkontekst = await favoritIder()
 
   if (!n || boliger.length === 0) {
     return (
@@ -116,7 +121,9 @@ export default async function Side(
 
       <div className="listeomraade">
         <div className="liste">
-          {boliger.map((b) => <Kort key={b.id} b={b} nu={nu} />)}
+          {boliger.map((b) => (
+            <Kort key={b.id} b={b} nu={nu} favorit={statusFor(favkontekst, b.id)} />
+          ))}
         </div>
       </div>
     </div>

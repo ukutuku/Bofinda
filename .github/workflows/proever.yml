@@ -103,6 +103,10 @@ jobs:
       - name: tsc (scripts)
         run: npx tsc --noEmit -p tsconfig.scripts.json
 
+      # Opdageren aendres med kontogruppen; dens afvisning skal ogsaa proeves.
+      - name: Opdagerens modproeve
+        run: npm run proever:modproev
+
       - name: npm test
         run: npm test
 

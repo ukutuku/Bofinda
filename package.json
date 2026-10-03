@@ -43,7 +43,10 @@
     "proev:udvidelse": "node scripts/proev-facilitetsudvidelse.mjs",
     "maal:alarmkoe": "tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/generer-alarmkoe-sql.ts",
     "maaling:sql": "tsx --tsconfig tsconfig.scripts.json scripts/maalinger/skriv-bynavne-domaene-sql.ts --skriv",
-    "proev:billedkontrol": "node docs/designforslag/gengivelse/proev-billedkontrol.mjs && node docs/designforslag/gengivelse/proev-testkaede.mjs --selvproeve"
+    "proev:billedkontrol": "node docs/designforslag/gengivelse/proev-billedkontrol.mjs && node docs/designforslag/gengivelse/proev-testkaede.mjs --selvproeve",
+    "test:konto": "tsx --tsconfig tsconfig.scripts.json scripts/proever.ts konto",
+    "cloud:samtidighed": "scripts/cloud/samtidighed.sh",
+    "cloud:hoveder": "scripts/cloud/prod-hoveder.sh"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

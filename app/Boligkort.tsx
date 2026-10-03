@@ -12,12 +12,31 @@ import { eltilstand, type Eltilstand } from '../lib/eloplysning'
 // Typens navn kommer ÉT sted fra. Kortet og filtrene sagde før hver sit
 // om `andet`, og `villa` fandtes kun i den ene liste. Se lib/boligtype.ts.
 import { stort, typeord } from '../lib/boligtype'
+// Brugeromraadet. Alt herunder er TILFOEJET og gengives kun, naar
+// `favorit` er sat — kaldere uden proppen faar ordret det samme kort som
+// foer. Se commit-beskeden for hvad der IKKE er roert.
+import type { Favoritstatus } from '../lib/favoritter'
+import { Favoritknap } from './Favoritknap'
+import { grundlagstekst, type Grundlagsspoergsmaal } from '../lib/grundlag'
 import { dageMellem, kalenderdag } from '../lib/dato'
 
 // ─── Formatering ───────────────────────────────────────────────
 
 export const kr = (oere: number | null) =>
   oere == null ? null : (oere / 100).toLocaleString('da-DK', { maximumFractionDigits: 0 })
+
+/**
+ * Adressen uden postnummer og by.
+ *
+ * Den bor HER og ikke i app/min-side/, fordi Gemtkort viser den samme
+ * adresse som kortet. To trimninger, der driver fra hinanden, ville
+ * betyde at den samme bolig staar med to forskellige adresser to steder
+ * paa sitet — og begge udtryk ville se rigtige ud hver for sig.
+ */
+export const udenSted = (adresse: string, postnr: string | null, by: string | null) =>
+  adresse
+    .replace(new RegExp(`,?\\s*${postnr ?? ''}\\s*${by ?? ''}\\s*$`, 'i'), '')
+    .replace(/,\s*$/, '').trim()
 
 const MDR = ['januar','februar','marts','april','maj','juni',
              'juli','august','september','oktober','november','december']
@@ -189,7 +208,9 @@ function nyhedsmaerkat(nyhed: Date | null, nu: Date, gruppe = false) {
 
 // ─── Kortet ────────────────────────────────────────────────────
 
-export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: number }) {
+export function Kort({ b, nu, position, favorit }: {
+  b: Bolig; nu: Date; position?: number; favorit?: Favoritstatus
+}) {
   // Availability fra DOMÆNET — aldrig fra legacy ledigFra/ansoegning, og
   // aldrig fra Date.now(): referenceNow kommer eksplicit fra siden.
   const avail = availabilityFor(b, nu)
@@ -263,7 +284,7 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
     avail.adgang.krav.includes('bopaelskrav') ? 'bopælspligt' : null,
   ].filter(Boolean) as string[]
 
-  return (
+  const kortet = (
     <a
       className={`kort${forside ? '' : ' uden-billede'}`}
       href={`/bolig/${b.id}`}
@@ -421,6 +442,14 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
       </div>
     </a>
   )
+  return favorit
+    ? (
+      <div className="kort-hylster">
+        {kortet}
+        <Favoritknap listingId={b.id} status={favorit} adresse={vist} />
+      </div>
+    )
+    : kortet
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -435,7 +464,9 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
 //  Er aconto-posterne ikke ens, står de slet ikke.
 // ═══════════════════════════════════════════════════════════════
 
-export function Gruppekort({ g, nu, position, filtre }: { g: Gruppe; nu: Date; position?: number; filtre?: Filtre }) {
+export function Gruppekort({ g, nu, position, filtre, favorit }: {
+  g: Gruppe; nu: Date; position?: number; filtre?: Filtre; favorit?: Favoritstatus
+}) {
   const { noegle: n, repraesentant: r } = g
 
   // Overtagelsen sammenfattes af MEDLEMMERNES domæneresultater — som
@@ -502,7 +533,7 @@ export function Gruppekort({ g, nu, position, filtre }: { g: Gruppe; nu: Date; p
     alleBopael ? 'bopælspligt' : null,
   ].filter(Boolean) as string[]
 
-  return (
+  const kortet = (
     <a
       className={`kort gruppekort${forside ? '' : ' uden-billede'}`}
       href={gruppeUrl(r.id, filtre)}
@@ -668,6 +699,17 @@ export function Gruppekort({ g, nu, position, filtre }: { g: Gruppe; nu: Date; p
       </div>
     </a>
   )
+  // Samme form som paa enkeltkortet: hylster kun naar knappen er der, saa
+  // en kalder uden `favorit` faar ordret det samme kort som foer. Begge
+  // korttyper skal svare ens paa «kan den gemmes» — se npm test.
+  return favorit
+    ? (
+      <div className="kort-hylster">
+        {kortet}
+        <Favoritknap listingId={r.id} status={favorit} adresse={n.vej} />
+      </div>
+    )
+    : kortet
 }
 
 /** Ét element i listen: enten en bolig eller en gruppe af ens boliger. */
@@ -727,8 +769,21 @@ function Ellinje({ tilstand }: { tilstand: Eltilstand | null }) {
  * lib/soeg — og saa spoergsmaalet «bliver position 40 nogensinde set?»
  * kan besvares. Uden den er en impression bare et tal uden sted.
  */
-export function Visningskort({ v, nu, position, filtre }: { v: Visning; nu: Date; position?: number; filtre?: Filtre }) {
+/**
+ * Grundlagslinjen som komponent.
+ *
+ * Teksten regnes i lib/grundlag.ts — her gengives den bare. Saa kan
+ * reglen proeves uden at gengive et kort, og Gemtkort paa Min side kan
+ * bruge den samme linje som boligkortet uden at kopiere udledningen.
+ */
+export function Grundlag(s: Grundlagsspoergsmaal) {
+  return <div className="kort-grundlag">{grundlagstekst(s)}</div>
+}
+
+export function Visningskort({ v, nu, position, filtre, favorit }: {
+  v: Visning; nu: Date; position?: number; filtre?: Filtre; favorit?: Favoritstatus
+}) {
   return v.slags === 'gruppe'
-    ? <Gruppekort g={v.gruppe} nu={nu} position={position} filtre={filtre} />
-    : <Kort b={v.bolig} nu={nu} position={position} />
+    ? <Gruppekort g={v.gruppe} nu={nu} position={position} filtre={filtre} favorit={favorit} />
+    : <Kort b={v.bolig} nu={nu} position={position} favorit={favorit} />
 }

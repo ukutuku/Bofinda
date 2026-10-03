@@ -30,15 +30,21 @@ export default function Layout({ children }: { children: ReactNode }) {
 
             KUN DESTINATIONER, DER FINDES. Referencen viser «Priser»,
             «Inbox», «Log ind» og «Kom i gang». Priser og Inbox har
-            produktet ikke; login hører til PR #3 og er ikke på denne
-            gren. En menu, der lover sider, vi ikke har, er en tom knap i
-            en situation, hvor nogen leder efter noget. */}
+            produktet ikke. En menu, der lover sider, vi ikke har, er en
+            tom knap i en situation, hvor nogen leder efter noget.
+
+            «Min side» står her nu, fordi ruten kommer med denne skive.
+            Linket er STATISK tekst med vilje: skulle bjælken vise, om man
+            er logget ind, skulle layoutet læse cookies — og så blev hver
+            eneste side dynamisk, også /privatliv, som i dag prærenderes.
+            Login-status står på Min side, hvor den betyder noget. */}
         <header className="top">
           <div className="ramme toplinje">
             <a className="maerke" href="/">BOFINDA</a>
             <nav className="topnav" aria-label="Hovedmenu">
               <a href="/">Lejeboliger</a>
               <a href="/udlejer">For udlejere</a>
+              <a href="/min-side">Min side</a>
             </nav>
             <div className="tophandlinger">
               <a className="nav-primaer" href="/udlejer/opret">Opret annonce</a>
@@ -53,6 +59,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="ramme">{children}</div>
         <footer className="sidefod">
           <div className="ramme">
+            <a href="/min-side">Min side</a>
             <a href="/udlejer">Udlej din bolig</a>
             <a href="/privatliv">Privatlivspolitik</a>
             {/* Tilbagetrækning skal være lige så let som at sige ja. */}

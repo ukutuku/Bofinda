@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  OPDAGEREN — prøvekæden udledt af filerne selv.
 //
-//      npm test                alle fire grupper
+//      npm test                alle automatiske grupper
 //      npm run test:kerne      én gruppe
 //      tsx scripts/proever.ts --vis        hvad den ville køre
 //      tsx scripts/proever.ts --modproev   beviser afvisningsreglen
@@ -72,6 +72,7 @@ export const GRUPPER = {
   adaptere: { noegle: 'test:adaptere', iNpmTest: true },
   oekonomi: { noegle: 'test:oekonomi', iNpmTest: true },
   besked:   { noegle: 'test:besked',   iNpmTest: true },
+  konto:    { noegle: 'test:konto',    iNpmTest: true },
   staging:  { noegle: 'staging:proev', iNpmTest: false },
   manuel:   { noegle: '(ingen)',       iNpmTest: false },
 } as const
@@ -258,7 +259,10 @@ export async function graf(fil: string): Promise<Metafile> {
       platform: 'node', format: 'esm',
       tsconfig: join(ROD, 'tsconfig.json'), jsx: 'automatic',
       logLevel: 'silent',
-      external: ['pg-native', 'esbuild', 'typescript'],
+      // Next er runtime-rammen, ikke projektets importgraf. Dets valgfrie
+      // tracing-peer findes ikke i alle npm ci-installationer. Repoets egne
+      // imports foelges stadig, herunder server actions og db/client.
+      external: ['pg-native', 'esbuild', 'typescript', 'next', 'next/*'],
     })
     return r.metafile
   } catch (e) {
@@ -321,6 +325,10 @@ export async function laegPlan(rod = ROD): Promise<Plan> {
     const m = laesMaerke(kilde)
     if (!m.ok) { afvist.push(`${fil}: ${m.grund}`); continue }
 
+    // Manuel betyder ingen automatisk paakaldelse eller udledt importgraf.
+    // Gulvet ovenfor forhindrer stadig, at en kraevet proeve flyttes hertil.
+    if (m.m.gruppe === 'manuel') { poster.push({ fil, maerke: m.m, form: { testbase: false, billedhemmelighed: false } }); continue }
+
     // Scanningen FOER grafen: den er praecis, og den goer glob-eksplosionen
     // uopnaaelig for den fil, vi selv har i haanden.
     const blind = blindeImporter(fil, kilde)
@@ -328,7 +336,6 @@ export async function laegPlan(rod = ROD): Promise<Plan> {
       for (const b of blind) afvist.push(`${fil}:${b.linje}: \`${b.tekst}\` — ${b.form}`)
       continue
     }
-    if (m.m.gruppe === 'manuel') { poster.push({ fil, maerke: m.m, form: { testbase: false, billedhemmelighed: false } }); continue }
 
     let g: Metafile
     try { g = await graf(fil) } catch (e) { afvist.push(String((e as Error).message)); continue }
