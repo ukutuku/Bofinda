@@ -20,6 +20,7 @@
 //  men koden skal ikke læne sig på det.
 // ═══════════════════════════════════════════════════════════════
 
+import { FACILITETSNOEGLER } from './faciliteter'
 import type { Filtre } from './soeg'
 import type { Filteruddrag, Filterfelt, Haendelse, StedSlags } from './maaling'
 
@@ -40,9 +41,7 @@ export function uddrag(f: Filtre, kender: Bykender): Filteruddrag & { sted_slags
   const sted_slags: StedSlags = f.postnr ? 'postnr'
     : f.by ? (kendtBy ? 'by_kendt' : 'by_ukendt')
       : 'ingen'
-  const faciliteter = [
-    f.kaeledyr && 'kaeledyr', f.elevator && 'elevator', f.udeplads && 'udeplads',
-  ].filter((x): x is string => typeof x === 'string')
+  const faciliteter = FACILITETSNOEGLER.filter((n) => f[n])
 
   return {
     sted_slags,
@@ -76,7 +75,7 @@ export function antalFiltre(f: Filtre): number {
     f.vaerelserMin != null, f.arealMin != null,
     Boolean(f.kilder?.length), Boolean(f.fuldOekonomi),
     Boolean(f.boligtyper?.length),
-    Boolean(f.kaeledyr), Boolean(f.elevator), Boolean(f.udeplads),
+    ...FACILITETSNOEGLER.map((n) => Boolean(f[n])),
     f.overtagelse != null, f.ansoegningsform != null, f.markedsstatus != null,
   ]
   return sat.filter(Boolean).length
@@ -101,9 +100,7 @@ function felter(f: Filtre, kender: Bykender): Felter {
   if (f.ansoegningsform) u.venteliste = true
   if (f.markedsstatus) u.reserveret = true
   if (f.fuldOekonomi) u.fuld = true
-  if (f.kaeledyr) u.kaeledyr = true
-  if (f.elevator) u.elevator = true
-  if (f.udeplads) u.udeplads = true
+  for (const n of FACILITETSNOEGLER) if (f[n]) u[n] = true
   return u
 }
 

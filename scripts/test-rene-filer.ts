@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne/0
 //  RENE FILER — og alt, hvad de trækker med sig.
 //
 //  En ren fil har ingen database, ingen next-import og ingen React.

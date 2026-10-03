@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+//  gruppe: kerne
 // ═══════════════════════════════════════════════════════════════
 //  Isolationsvagten: de tre signaler, og at alle kaldere går gennem den.
 //

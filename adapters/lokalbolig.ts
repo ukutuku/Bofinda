@@ -15,6 +15,7 @@
 //  forsvinder i en time. Det gør den — se noten i lib/ingest.ts.
 // ═══════════════════════════════════════════════════════════════
 
+import { findForbehold } from '../lib/billedforbehold'
 import type { DiscoveredListing, RawListing, SourceAdapter } from '../lib/adapter'
 import { isoDato } from '../lib/dato'
 import { politeFetch } from '../lib/fetch'
@@ -127,7 +128,6 @@ const tal = (s: string, navn: string) => {
  * kigger på, er værre end intet billede — hun tror, hun har set den.
  * Teksten står i `description`, som vi ellers ikke bruger til noget.
  */
-const FORBEHOLD = /billederne\s+kan\s+v(æ|ae)re\s+fra\s+en\s+anden\s+bolig/i
 
 /** Kun værten vi hotlinker fra. Deres CDN-URL'er (esoftsystems, diakrit)
  *  står også i payloaden, men dem har vi hverken lov til eller grund til. */
@@ -230,7 +230,7 @@ export function laesBolig(html: string, url: string): RawListing | null {
   // (Den oprindelige note havde ret i én ting: hvert BILLEDE har også et
   // felt ved navn `description`, så et opslag på feltnavnet rammer forbi.
   // Derfor prøves teksten, ikke feltet.)
-  const forbehold = FORBEHOLD.test(s)
+  const forbehold = findForbehold(s, 'lokalbolig')
 
   // Billederne vises NU, også med forbeholdet — med kildens forbehold ved
   // siden af. Før blev de kasseret, og det er også en påstand: den siger
@@ -273,7 +273,7 @@ export function laesBolig(html: string, url: string): RawListing | null {
     sourceCreatedAt: tekst(s, 'createdDate'),
     sourceUpdatedAt: tekst(s, 'lastUpdated'),
     imageUrls: billeder,
-    imagesMayDiffer: forbehold,
+    imagesMayDifferEvidence: forbehold ?? undefined,
     // Kilden HAR et statusobjekt (caseStatus), men det stod {null,null,""}
     // paa alle maalte sider — et felt uden indhold giver intet rawStatus.
     // Datoen gemmes raat; kontrakten har den som uafklaret.
