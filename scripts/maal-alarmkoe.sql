@@ -9,8 +9,8 @@
 --      psql "$DATABASE_URL_DIRECT" -f scripts/maal-alarmkoe.sql
 --
 --  SKRIVEBESKYTTET. Kun `select`. Koer den fra en checkout af main med
---  .env, eller fra ejerens maskine; sessionen, der skrev filen, har
---  ingen databaseadgang.
+--  .env, eller fra ejerens maskine.
+--  TALLENE ER ALDRIG SET i produktionen. Proeven bruger saaede data.
 --
 --  ── GENERERET. RET IKKE I HAANDEN ───────────────────────
 --  scripts/generer-alarmkoe-sql.ts skriver filen, og
