@@ -148,6 +148,13 @@
       "when": 1788811312592,
       "tag": "0020_haendelser",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1788811313592,
+      "tag": "0021_billedforbehold_belaeg",
+      "breakpoints": true
     }
   ]
 }

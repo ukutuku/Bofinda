@@ -88,12 +88,11 @@ function koer() {
   // Et SYMLINK, ikke en kopi: `npm ci` i hvert traee ville koste minutter
   // og diskplads, og indholdet er alligevel det samme.
   //
-  // ── OPRYDNING I ET SAADANT TRAEE: BRUG IKKE `reset --hard` ────
+  // ── OPRYDNING: KEND MAALREVISIONEN OG DEN DELTE STI ──────────
   //
-  // Symlinket peger paa roden. Det goer, at en oprydning i ET traee kan
-  // oedelaegge ALLE de andre, og den skadevirkning ligger uden for den
-  // kommandos eget arbejdstraee — derfor staar noten her, hvor linket
-  // laves, og ikke dér hvor nogen ville rydde op.
+  // Symlinket peger paa rodens installation. Slettes eller overskrives
+  // DEN mappe, rammes alle traeer, der bruger den. At fjerne selve
+  // linket er noget andet end at fjerne dets maal.
   //
   // Tilfaeldet, der fremkaldte den (2. okt. 2026): en gren sporede
   // `node_modules` som symlink, fordi den forgrenede FOER abad7ae
@@ -102,20 +101,21 @@ function koer() {
   // cherry-pick af rettelsen kunne ikke koere: urenheden VAR det, den
   // skulle fjerne.
   //
-  //   reset --hard   vil bringe arbejdstraeet i overensstemmelse med
-  //                  maalet. Maalet sporer ikke stien, saa git forsoeger
-  //                  at FJERNE den — og rammer den rigtige mappe, som
-  //                  alle de andre traeer symlinker ind i.
-  //   reset --mixed  flytter HEAD og indekset og skriver IKKE i
-  //                  arbejdstraeet. Stien bliver usporet og — med
-  //                  `node_modules` uden skraastreg i .gitignore —
-  //                  ignoreret. Traeet er rent, mappen er uroert.
-  //                  En enkelt `git checkout -- <fil>` bagefter bringer
-  //                  de filer i linje, der faktisk skal aendres.
+  // Maalt i et isoleret repo med Git 2.51.1 og en rigtig mappe paa den
+  // sporede symlinks plads:
+  //   reset --hard til en revision UDEN den sporede sti beholdt mappen.
+  //   reset --hard til en revision MED symlinket erstattede mappen med
+  //   linket og slettede dens indhold. Risikoen afhaenger af maalet;
+  //   fravaer i maalrevisionen er ikke i sig selv bevis for sletning.
   //
-  // Efterproevet frem for formodet: 53 poster i `node_modules` foer og
-  // efter. Et «det plejer at virke» er ikke en maaling, naar prisen for
-  // at tage fejl er tretten traeer.
+  // reset --mixed flytter HEAD og indekset uden at skrive i arbejdstraeet.
+  // Skal stien ud af sporingen, kan det bevare installationen. Det goer
+  // IKKE automatisk traeet rent: gennemgaa diffen og bring kun de
+  // tilsigtede filer paa plads. `.gitignore` skal ogsaa passe; brug
+  // `node_modules` uden skraastreg for at ignorere baade mappe og link.
+  //
+  // Den oprindelige note viste, at mixed bevarede 53 poster. Den maalte
+  // ikke hard og kunne derfor ikke fastslaa, hvad hard ville slette.
   const nm = join(rod, 'node_modules')
   if (existsSync(nm)) symlinkSync(nm, join(traee, 'node_modules'), 'dir')
 

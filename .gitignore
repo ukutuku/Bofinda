@@ -30,3 +30,8 @@ backup/
 
 # Cloud-testmiljøets skærmbilleder — output, ikke kildekode.
 skaermbilleder/
+
+# Modproevens egen temp-mappe. Den SKAL kunne ses af findProever, saa den
+# staar ikke i SPRING_OVER — men den maa ikke kunne committes. Uden
+# skraastreg, saa et symlink ikke slipper forbi (abad7ae).
+.proever-modproev
