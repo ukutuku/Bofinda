@@ -27,6 +27,13 @@
 //    npm test
 // ═══════════════════════════════════════════════════════════════
 
+// Test-kæden: billedkontrollen må ikke kunne flettes ud af npm test, uden at
+// noget bliver rødt. Prøven kaldes HER og ikke fra "test"-linjen, fordi en
+// fletning erstatter den linje — og denne fil køres af begge siders kæde.
+// Se docs/designforslag/FLETNING.md.
+import { execFileSync } from 'node:child_process'
+try { execFileSync(process.execPath, [new URL('../docs/designforslag/gengivelse/proev-testkaede.mjs', import.meta.url).pathname], { stdio: 'inherit' }) } catch { process.exit(1) }
+
 import { and, eq, sql as dsql } from 'drizzle-orm'
 import { db, luk } from '../db/client'
 import { alertMatches, crawlRuns, fetchFailures, hostBlocks, listingImages, listings, savedSearches, sources, users } from '../db/schema'

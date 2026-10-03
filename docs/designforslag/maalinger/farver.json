@@ -1,0 +1,6493 @@
+{
+ "meta": {
+  "maalt": "2026-09-30T15:14:53.100Z",
+  "base": "http://127.0.0.1:3100",
+  "data": "SYNTETISK seed i isoleret lokal Postgres (280 boliger)",
+  "boliger": {
+   "medBilleder": "12ef9b7d-e0d1-46c0-ade6-2b1b2e3d887c",
+   "udenBilleder": "01bf6b41-cdc3-46f5-bb74-c26a9d71a27f"
+  },
+  "lag": {
+   "forslag.css": "d39a9d7870c1ef75",
+   "greb.css": "4a231c7ebec81cb0",
+   "greb.js": "f4c3b1f38c22edc7"
+  },
+  "globalsSha": "ccb00f0cebdc146b",
+  "samtykke": {
+   "390": "nej",
+   "1440": "nej"
+  },
+  "note": "Syntetiske data. Farver målt med getComputedStyle i Chromium (playwright-core), kilder fundet med CDP CSS.getMatchedStylesForNode og slået op i filerne."
+ },
+ "de00Proeve": "ΔE00: 34/34 Sharma-par rammer facit til 4 decimaler; største afvigelse 4.95e-5\npar 1: 2.0425 (facit 2.0425)\nhvid 100.0000,-0.0000,0.0000  sort 0.0000,0.0000,0.0000\nrød 53.2408,80.0925,67.2032 (facit 53.2408,80.0925,67.2032)",
+ "lagKontrol": [
+  {
+   "tilstand": "foer",
+   "bredde": 1440,
+   "side": "forside",
+   "soegFaner": false,
+   "ubKort": false,
+   "soegefeltEkstra": 0,
+   "udlejerbaand": true,
+   "samtykkeBanner": false,
+   "forslagCss": false
+  },
+  {
+   "tilstand": "foer",
+   "bredde": 1440,
+   "side": "soeg",
+   "soegFaner": false,
+   "ubKort": false,
+   "soegefeltEkstra": 0,
+   "udlejerbaand": false,
+   "samtykkeBanner": false,
+   "forslagCss": false
+  },
+  {
+   "tilstand": "foer",
+   "bredde": 1440,
+   "side": "bolig-med-billeder",
+   "soegFaner": false,
+   "ubKort": false,
+   "soegefeltEkstra": 0,
+   "udlejerbaand": false,
+   "samtykkeBanner": false,
+   "forslagCss": false
+  },
+  {
+   "tilstand": "foer",
+   "bredde": 1440,
+   "side": "bolig-uden-billeder",
+   "soegFaner": false,
+   "ubKort": false,
+   "soegefeltEkstra": 0,
+   "udlejerbaand": false,
+   "samtykkeBanner": false,
+   "forslagCss": false
+  },
+  {
+   "tilstand": "runde2",
+   "bredde": 1440,
+   "side": "forside",
+   "soegFaner": true,
+   "ubKort": true,
+   "soegefeltEkstra": 3,
+   "udlejerbaand": true,
+   "samtykkeBanner": false,
+   "forslagCss": true
+  },
+  {
+   "tilstand": "runde2",
+   "bredde": 1440,
+   "side": "soeg",
+   "soegFaner": false,
+   "ubKort": false,
+   "soegefeltEkstra": 0,
+   "udlejerbaand": false,
+   "samtykkeBanner": false,
+   "forslagCss": true
+  },
+  {
+   "tilstand": "runde2",
+   "bredde": 1440,
+   "side": "bolig-med-billeder",
+   "soegFaner": false,
+   "ubKort": false,
+   "soegefeltEkstra": 0,
+   "udlejerbaand": false,
+   "samtykkeBanner": false,
+   "forslagCss": true
+  },
+  {
+   "tilstand": "runde2",
+   "bredde": 1440,
+   "side": "bolig-uden-billeder",
+   "soegFaner": false,
+   "ubKort": false,
+   "soegefeltEkstra": 0,
+   "udlejerbaand": false,
+   "samtykkeBanner": false,
+   "forslagCss": true
+  },
+  {
+   "tilstand": "foer",
+   "bredde": 390,
+   "side": "forside",
+   "soegFaner": false,
+   "ubKort": false,
+   "soegefeltEkstra": 0,
+   "udlejerbaand": true,
+   "samtykkeBanner": false,
+   "forslagCss": false
+  },
+  {
+   "tilstand": "foer",
+   "bredde": 390,
+   "side": "soeg",
+   "soegFaner": false,
+   "ubKort": false,
+   "soegefeltEkstra": 0,
+   "udlejerbaand": false,
+   "samtykkeBanner": false,
+   "forslagCss": false
+  },
+  {
+   "tilstand": "foer",
+   "bredde": 390,
+   "side": "bolig-med-billeder",
+   "soegFaner": false,
+   "ubKort": false,
+   "soegefeltEkstra": 0,
+   "udlejerbaand": false,
+   "samtykkeBanner": false,
+   "forslagCss": false
+  },
+  {
+   "tilstand": "foer",
+   "bredde": 390,
+   "side": "bolig-uden-billeder",
+   "soegFaner": false,
+   "ubKort": false,
+   "soegefeltEkstra": 0,
+   "udlejerbaand": false,
+   "samtykkeBanner": false,
+   "forslagCss": false
+  },
+  {
+   "tilstand": "foer",
+   "bredde": 390,
+   "side": "soeg-kort-valgt",
+   "soegFaner": false,
+   "ubKort": false,
+   "soegefeltEkstra": 0,
+   "udlejerbaand": false,
+   "samtykkeBanner": false,
+   "forslagCss": false
+  },
+  {
+   "tilstand": "runde2",
+   "bredde": 390,
+   "side": "forside",
+   "soegFaner": true,
+   "ubKort": true,
+   "soegefeltEkstra": 3,
+   "udlejerbaand": true,
+   "samtykkeBanner": false,
+   "forslagCss": true
+  },
+  {
+   "tilstand": "runde2",
+   "bredde": 390,
+   "side": "soeg",
+   "soegFaner": false,
+   "ubKort": false,
+   "soegefeltEkstra": 0,
+   "udlejerbaand": false,
+   "samtykkeBanner": false,
+   "forslagCss": true
+  },
+  {
+   "tilstand": "runde2",
+   "bredde": 390,
+   "side": "bolig-med-billeder",
+   "soegFaner": false,
+   "ubKort": false,
+   "soegefeltEkstra": 0,
+   "udlejerbaand": false,
+   "samtykkeBanner": false,
+   "forslagCss": true
+  },
+  {
+   "tilstand": "runde2",
+   "bredde": 390,
+   "side": "bolig-uden-billeder",
+   "soegFaner": false,
+   "ubKort": false,
+   "soegefeltEkstra": 0,
+   "udlejerbaand": false,
+   "samtykkeBanner": false,
+   "forslagCss": true
+  },
+  {
+   "tilstand": "runde2",
+   "bredde": 390,
+   "side": "soeg-kort-valgt",
+   "soegFaner": false,
+   "ubKort": false,
+   "soegefeltEkstra": 0,
+   "udlejerbaand": false,
+   "samtykkeBanner": false,
+   "forslagCss": true
+  }
+ ],
+ "tokens": {
+  "maalt": {
+   "foer": {
+    "--kendt": null,
+    "--accent": "#0f4d43",
+    "--accent-mrk": "#083a34",
+    "--flade-groen": null,
+    "--flade-groen-hover": null,
+    "--blaek": null,
+    "--blaek-hover": null,
+    "--tekst": "#14161a",
+    "--daempet": null
+   },
+   "runde2": {
+    "--kendt": "#0f4d43",
+    "--accent": "#14161a",
+    "--accent-mrk": "#2d3138",
+    "--flade-groen": "#083a34",
+    "--flade-groen-hover": "#0b4a42",
+    "--blaek": "#14161a",
+    "--blaek-hover": "#2d3138",
+    "--tekst": "#14161a",
+    "--daempet": null
+   }
+  },
+  "defineret": {
+   "--kendt": [
+    {
+     "fil": "runde2-lag/forslag.css:33",
+     "vaerdi": "#0f4d43"
+    }
+   ],
+   "--accent": [
+    {
+     "fil": "app/globals.css:20",
+     "vaerdi": "#0f4d43"
+    },
+    {
+     "fil": "runde2-lag/forslag.css:41",
+     "vaerdi": "var(--blaek)"
+    }
+   ],
+   "--accent-mrk": [
+    {
+     "fil": "app/globals.css:22",
+     "vaerdi": "#083a34"
+    },
+    {
+     "fil": "runde2-lag/forslag.css:42",
+     "vaerdi": "var(--blaek-hover)"
+    }
+   ],
+   "--flade-groen": [
+    {
+     "fil": "runde2-lag/greb.css:16",
+     "vaerdi": "#083a34"
+    }
+   ],
+   "--flade-groen-hover": [
+    {
+     "fil": "runde2-lag/greb.css:17",
+     "vaerdi": "#0b4a42"
+    }
+   ],
+   "--blaek": [
+    {
+     "fil": "runde2-lag/forslag.css:34",
+     "vaerdi": "#14161a"
+    }
+   ],
+   "--blaek-hover": [
+    {
+     "fil": "runde2-lag/forslag.css:35",
+     "vaerdi": "#2d3138"
+    }
+   ],
+   "--tekst": [
+    {
+     "fil": "app/globals.css:14",
+     "vaerdi": "#14161a"
+    }
+   ],
+   "--daempet": [
+    {
+     "fil": "app/globals.css:15",
+     "vaerdi": "#5f6672"
+    },
+    {
+     "fil": "runde2-lag/forslag.css:48",
+     "vaerdi": "#4d5452"
+    }
+   ]
+  }
+ },
+ "elementer": [
+  {
+   "id": "opret",
+   "rolle": "baggrund",
+   "egenskab": "background-color",
+   "foer": [
+    {
+     "hex": "#0f4d43",
+     "bredde": "0px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#f7f5f1",
+     "token": "--accent: #0f4d43",
+     "kilde": "`.topnav a.nav-primaer, .tophandlinger .nav-primaer { background: var(--accent) }` app/globals.css:152 · `--accent: #0f4d43` app/globals.css:20",
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "forside@390",
+      "soeg@390",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "foerNavn": "«Opret annonce» i headeren",
+   "foerIkkeSynlig": [],
+   "runde2": [
+    {
+     "hex": "#14161a",
+     "bredde": "0px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#f7f5f1",
+     "token": "--accent: var(--blaek) → --blaek: #14161a",
+     "kilde": "`.topnav a.nav-primaer, .tophandlinger .nav-primaer { background: var(--accent) }` app/globals.css:152 · `--accent: var(--blaek)` runde2-lag/forslag.css:41 · `--blaek: #14161a` runde2-lag/forslag.css:34",
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "forside@390",
+      "soeg@390",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "runde2Navn": "«Opret annonce» i headeren",
+   "runde2IkkeSynlig": []
+  },
+  {
+   "id": "opret",
+   "rolle": "tekst",
+   "egenskab": "color",
+   "foer": [
+    {
+     "hex": "#ffffff",
+     "bredde": "0px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#f7f5f1",
+     "token": "#fff",
+     "kilde": "`.topnav a.nav-primaer, .tophandlinger .nav-primaer { color: #fff }` app/globals.css:152",
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "forside@390",
+      "soeg@390",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "foerNavn": "«Opret annonce» i headeren",
+   "foerIkkeSynlig": [],
+   "runde2": [
+    {
+     "hex": "#ffffff",
+     "bredde": "0px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#f7f5f1",
+     "token": "#fff",
+     "kilde": "`.topnav a.nav-primaer, .tophandlinger .nav-primaer { color: #fff }` app/globals.css:152",
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "forside@390",
+      "soeg@390",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "runde2Navn": "«Opret annonce» i headeren",
+   "runde2IkkeSynlig": []
+  },
+  {
+   "id": "soeg",
+   "rolle": "baggrund",
+   "egenskab": "background-color",
+   "foer": [
+    {
+     "hex": "#0f4d43",
+     "bredde": "0px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#ffffff",
+     "token": "--accent: #0f4d43",
+     "kilde": "`.soegeknap { background: var(--accent) }` app/globals.css:1259 · `--accent: #0f4d43` app/globals.css:20",
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "foerNavn": "«Søg»-knappen",
+   "foerIkkeSynlig": [],
+   "runde2": [
+    {
+     "hex": "#083a34",
+     "bredde": "0px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#ffffff",
+     "token": "--flade-groen: #083a34",
+     "kilde": "`.soegeknap, .hero .soegeknap { background: var(--flade-groen) }` runde2-lag/greb.css:101 · `--flade-groen: #083a34` runde2-lag/greb.css:16",
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "runde2Navn": "«Søg»-knappen",
+   "runde2IkkeSynlig": []
+  },
+  {
+   "id": "soeg",
+   "rolle": "tekst",
+   "egenskab": "color",
+   "foer": [
+    {
+     "hex": "#ffffff",
+     "bredde": "0px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#ffffff",
+     "token": "#fff",
+     "kilde": "`.soegeknap { color: #fff }` app/globals.css:1259",
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "foerNavn": "«Søg»-knappen",
+   "foerIkkeSynlig": [],
+   "runde2": [
+    {
+     "hex": "#ffffff",
+     "bredde": "0px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#ffffff",
+     "token": "#fff",
+     "kilde": "`.soegeknap, .hero .soegeknap { color: #fff }` runde2-lag/greb.css:101",
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "runde2Navn": "«Søg»-knappen",
+   "runde2IkkeSynlig": []
+  },
+  {
+   "id": "soeg",
+   "rolle": "kant",
+   "egenskab": "border-top-color",
+   "foer": [
+    {
+     "hex": "#ffffff",
+     "bredde": "0px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#ffffff",
+     "token": "0",
+     "kilde": "`.soegeknap { border: 0 }` app/globals.css:1259",
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "foerNavn": "«Søg»-knappen",
+   "foerIkkeSynlig": [],
+   "runde2": [
+    {
+     "hex": "#083a34",
+     "bredde": "0px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#ffffff",
+     "token": "--flade-groen: #083a34",
+     "kilde": "`.soegeknap, .hero .soegeknap { border-color: var(--flade-groen) }` runde2-lag/greb.css:101 · `--flade-groen: #083a34` runde2-lag/greb.css:16",
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "runde2Navn": "«Søg»-knappen",
+   "runde2IkkeSynlig": []
+  },
+  {
+   "id": "ordmaerke",
+   "rolle": "tekst",
+   "egenskab": "color",
+   "foer": [
+    {
+     "hex": "#0f4d43",
+     "bredde": "0px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#f7f5f1",
+     "token": "--accent: #0f4d43",
+     "kilde": "`.maerke { color: var(--accent) }` app/globals.css:140 · `--accent: #0f4d43` app/globals.css:20",
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "forside@390",
+      "soeg@390",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "foerNavn": "Ordmærket BOFINDA",
+   "foerIkkeSynlig": [],
+   "runde2": [
+    {
+     "hex": "#0f4d43",
+     "bredde": "0px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#f7f5f1",
+     "token": "--kendt: #0f4d43",
+     "kilde": "`.maerke, .maerke:hover { color: var(--kendt) }` runde2-lag/forslag.css:82 · `--kendt: #0f4d43` runde2-lag/forslag.css:33",
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "forside@390",
+      "soeg@390",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "runde2Navn": "Ordmærket BOFINDA",
+   "runde2IkkeSynlig": []
+  },
+  {
+   "id": "naal-a",
+   "rolle": "fyld (maske på ::before)",
+   "egenskab": "background-color",
+   "foer": [
+    {
+     "hex": "#0f4d43",
+     "bredde": "0px",
+     "opacitet": 0.72,
+     "tegnet": "#527f78",
+     "bagved": "#ffffff",
+     "token": "--accent: #0f4d43",
+     "kilde": "`.soegefelt::before { background: var(--accent) }` app/globals.css:1197 · `--accent: #0f4d43` app/globals.css:20",
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "foerNavn": "Nål a: ikonet i «By eller område»",
+   "foerIkkeSynlig": [],
+   "runde2": [
+    {
+     "hex": "#14161a",
+     "bredde": "0px",
+     "opacitet": 0.72,
+     "tegnet": "#56575a",
+     "bagved": "#ffffff",
+     "token": "--accent: var(--blaek) → --blaek: #14161a",
+     "kilde": "`.soegefelt::before { background: var(--accent) }` app/globals.css:1197 · `--accent: var(--blaek)` runde2-lag/forslag.css:41 · `--blaek: #14161a` runde2-lag/forslag.css:34",
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "runde2Navn": "Nål a: ikonet i «By eller område»",
+   "runde2IkkeSynlig": []
+  },
+  {
+   "id": "naal-b",
+   "rolle": "fyld (maske på ::before)",
+   "egenskab": "background-color",
+   "foer": [
+    {
+     "hex": "#5f6672",
+     "bredde": "0px",
+     "opacitet": 0.6,
+     "tegnet": "#9c9fa5",
+     "bagved": "#f7f5f1",
+     "token": "currentColor = color fra «.detalje-hoved .sted» (var(--daempet) → #5f6672)",
+     "kilde": "`.detalje-hoved .sted::before { background: currentColor }` app/globals.css:773 · `.detalje-hoved .sted { color: var(--daempet) }` app/globals.css:769 · `--daempet: #5f6672` app/globals.css:15",
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ]
+    }
+   ],
+   "foerNavn": "Nål b: ved postnummer/by på boligsiden",
+   "foerIkkeSynlig": [],
+   "runde2": [
+    {
+     "hex": "#4d5452",
+     "bredde": "0px",
+     "opacitet": 0.6,
+     "tegnet": "#919492",
+     "bagved": "#f7f5f1",
+     "token": "currentColor = color fra «.detalje-hoved .sted» (var(--daempet) → #4d5452)",
+     "kilde": "`.detalje-hoved .sted::before { background: currentColor }` app/globals.css:773 · `.detalje-hoved .sted { color: var(--daempet) }` app/globals.css:769 · `--daempet: #4d5452` runde2-lag/forslag.css:48",
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ]
+    }
+   ],
+   "runde2Navn": "Nål b: ved postnummer/by på boligsiden",
+   "runde2IkkeSynlig": []
+  },
+  {
+   "id": "naal-c",
+   "rolle": "fyld",
+   "egenskab": "background-color",
+   "foer": [
+    {
+     "hex": "#0f4d43",
+     "bredde": "2px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#dddddd",
+     "token": "--accent: #0f4d43",
+     "kilde": "`.maerke-boble { background: var(--accent) }` app/globals.css:2130 · `--accent: #0f4d43` app/globals.css:20",
+     "steder": [
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "foerNavn": "Nål c: markør på kortet (ikke valgt)",
+   "foerIkkeSynlig": [
+    "soeg@390"
+   ],
+   "runde2": [
+    {
+     "hex": "#14161a",
+     "bredde": "2px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#dddddd",
+     "token": "--accent: var(--blaek) → --blaek: #14161a",
+     "kilde": "`.maerke-boble { background: var(--accent) }` app/globals.css:2130 · `--accent: var(--blaek)` runde2-lag/forslag.css:41 · `--blaek: #14161a` runde2-lag/forslag.css:34",
+     "steder": [
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "runde2Navn": "Nål c: markør på kortet (ikke valgt)",
+   "runde2IkkeSynlig": [
+    "soeg@390"
+   ]
+  },
+  {
+   "id": "naal-c",
+   "rolle": "kant",
+   "egenskab": "border-top-color",
+   "foer": [
+    {
+     "hex": "#ffffff",
+     "bredde": "2px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#dddddd",
+     "token": "2px solid #fff",
+     "kilde": "`.maerke-boble { border: 2px solid #fff }` app/globals.css:2130",
+     "steder": [
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "foerNavn": "Nål c: markør på kortet (ikke valgt)",
+   "foerIkkeSynlig": [
+    "soeg@390"
+   ],
+   "runde2": [
+    {
+     "hex": "#ffffff",
+     "bredde": "2px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#dddddd",
+     "token": "2px solid #fff",
+     "kilde": "`.maerke-boble { border: 2px solid #fff }` app/globals.css:2130",
+     "steder": [
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "runde2Navn": "Nål c: markør på kortet (ikke valgt)",
+   "runde2IkkeSynlig": [
+    "soeg@390"
+   ]
+  },
+  {
+   "id": "naal-c",
+   "rolle": "tal",
+   "egenskab": "color",
+   "foer": [
+    {
+     "hex": "#ffffff",
+     "bredde": "2px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#dddddd",
+     "token": "#fff",
+     "kilde": "`.maerke-boble { color: #fff }` app/globals.css:2130",
+     "steder": [
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "foerNavn": "Nål c: markør på kortet (ikke valgt)",
+   "foerIkkeSynlig": [
+    "soeg@390"
+   ],
+   "runde2": [
+    {
+     "hex": "#ffffff",
+     "bredde": "2px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#dddddd",
+     "token": "#fff",
+     "kilde": "`.maerke-boble { color: #fff }` app/globals.css:2130",
+     "steder": [
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "runde2Navn": "Nål c: markør på kortet (ikke valgt)",
+   "runde2IkkeSynlig": [
+    "soeg@390"
+   ]
+  },
+  {
+   "id": "naal-c-valgt",
+   "rolle": "fyld",
+   "egenskab": "background-color",
+   "foer": [
+    {
+     "hex": "#8a5300",
+     "bredde": "2px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#dddddd",
+     "token": "--advarsel: #8a5300",
+     "kilde": "`.maerke-boble.valgt { background: var(--advarsel) }` app/globals.css:2134 · `--advarsel: #8a5300` app/globals.css:25",
+     "steder": [
+      "soeg@1440",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "foerNavn": "Nål c: markør på kortet (valgt, efter klik)",
+   "foerIkkeSynlig": [],
+   "runde2": [
+    {
+     "hex": "#ffffff",
+     "bredde": "2px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#dddddd",
+     "token": "--kort: #ffffff",
+     "kilde": "`.maerke-boble.valgt { background: var(--kort) }` runde2-lag/forslag.css:222 · `--kort: #ffffff` app/globals.css:13",
+     "steder": [
+      "soeg@1440",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "runde2Navn": "Nål c: markør på kortet (valgt, efter klik)",
+   "runde2IkkeSynlig": [
+    "soeg@390"
+   ]
+  },
+  {
+   "id": "naal-c-valgt",
+   "rolle": "kant",
+   "egenskab": "border-top-color",
+   "foer": [
+    {
+     "hex": "#ffffff",
+     "bredde": "2px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#dddddd",
+     "token": "2px solid #fff",
+     "kilde": "`.maerke-boble { border: 2px solid #fff }` app/globals.css:2130",
+     "steder": [
+      "soeg@1440",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "foerNavn": "Nål c: markør på kortet (valgt, efter klik)",
+   "foerIkkeSynlig": [],
+   "runde2": [
+    {
+     "hex": "#14161a",
+     "bredde": "2px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#dddddd",
+     "token": "--blaek: #14161a",
+     "kilde": "`.maerke-boble.valgt { border-color: var(--blaek) }` runde2-lag/forslag.css:222 · `--blaek: #14161a` runde2-lag/forslag.css:34",
+     "steder": [
+      "soeg@1440",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "runde2Navn": "Nål c: markør på kortet (valgt, efter klik)",
+   "runde2IkkeSynlig": [
+    "soeg@390"
+   ]
+  },
+  {
+   "id": "naal-c-valgt",
+   "rolle": "tal",
+   "egenskab": "color",
+   "foer": [
+    {
+     "hex": "#ffffff",
+     "bredde": "2px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#dddddd",
+     "token": "#fff",
+     "kilde": "`.maerke-boble { color: #fff }` app/globals.css:2130",
+     "steder": [
+      "soeg@1440",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "foerNavn": "Nål c: markør på kortet (valgt, efter klik)",
+   "foerIkkeSynlig": [],
+   "runde2": [
+    {
+     "hex": "#14161a",
+     "bredde": "2px",
+     "opacitet": 1,
+     "tegnet": null,
+     "bagved": "#dddddd",
+     "token": "--blaek: #14161a",
+     "kilde": "`.maerke-boble.valgt { color: var(--blaek) }` runde2-lag/forslag.css:222 · `--blaek: #14161a` runde2-lag/forslag.css:34",
+     "steder": [
+      "soeg@1440",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "runde2Navn": "Nål c: markør på kortet (valgt, efter klik)",
+   "runde2IkkeSynlig": [
+    "soeg@390"
+   ]
+  },
+  {
+   "id": "naal-d",
+   "rolle": "fyld (maske)",
+   "egenskab": "background-color",
+   "foer": [
+    {
+     "hex": "#14161a",
+     "bredde": "0px",
+     "opacitet": 0.75,
+     "tegnet": "#4f5053",
+     "bagved": "#ffffff",
+     "token": "currentColor = color fra «.filterknap, .kortvalg» (var(--tekst) → #14161a)",
+     "kilde": "`.fk-ikon, .kv-ikon { background: currentColor }` app/globals.css:1240 · `.filterknap, .kortvalg { color: var(--tekst) }` app/globals.css:1232 · `--tekst: #14161a` app/globals.css:14",
+     "steder": [
+      "soeg@1440",
+      "soeg@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "foerNavn": "Nål d: ikonet i «Vis kort»/«Vis liste» (ekstra)",
+   "foerIkkeSynlig": [],
+   "runde2": [
+    {
+     "hex": "#14161a",
+     "bredde": "0px",
+     "opacitet": 0.75,
+     "tegnet": "#4f5053",
+     "bagved": "#ffffff",
+     "token": "currentColor = color fra «.filterknap, .kortvalg» (var(--tekst) → #14161a)",
+     "kilde": "`.fk-ikon, .kv-ikon { background: currentColor }` app/globals.css:1240 · `.filterknap, .kortvalg { color: var(--tekst) }` app/globals.css:1232 · `--tekst: #14161a` app/globals.css:14",
+     "steder": [
+      "soeg@1440",
+      "soeg@390",
+      "soeg-kort-valgt@390"
+     ]
+    }
+   ],
+   "runde2Navn": "Nål d: ikonet i «Vis kort»/«Vis liste» (ekstra)",
+   "runde2IkkeSynlig": []
+  }
+ ],
+ "hover": [
+  {
+   "tilstand": "foer",
+   "id": "opret",
+   "navn": "«Opret annonce» i headeren",
+   "color": "#ffffff",
+   "baggrund": "#083a34",
+   "kant": "#ffffff"
+  },
+  {
+   "tilstand": "foer",
+   "id": "soeg",
+   "navn": "«Søg»-knappen",
+   "color": "#ffffff",
+   "baggrund": "#083a34",
+   "kant": "#083a34"
+  },
+  {
+   "tilstand": "runde2",
+   "id": "opret",
+   "navn": "«Opret annonce» i headeren",
+   "color": "#ffffff",
+   "baggrund": "#2d3138",
+   "kant": "#ffffff"
+  },
+  {
+   "tilstand": "runde2",
+   "id": "soeg",
+   "navn": "«Søg»-knappen",
+   "color": "#ffffff",
+   "baggrund": "#0b4a42",
+   "kant": "#0b4a42"
+  }
+ ],
+ "fejning": {
+  "foer": {
+   "fund": 476,
+   "grupper": [
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "span.maerke-boble",
+     "tekst": "",
+     "antal": 37,
+     "steder": [
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "span.maerkat.m-ny",
+     "tekst": "ny for 2 dage siden",
+     "antal": 22,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.gruppe-flere",
+     "tekst": "Se de 3 adresser →",
+     "antal": 20,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "span.maerkat.m-ny",
+     "tekst": "ny for 1 dag siden",
+     "antal": 18,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "span.maerkat.m-ny",
+     "tekst": "ny bolig for 2 dage siden",
+     "antal": 18,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "span.maerkat.m-ny",
+     "tekst": "ny bolig for 1 dag siden",
+     "antal": 16,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.gruppe-flere",
+     "tekst": "Se de 5 adresser →",
+     "antal": 14,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.gruppe-flere",
+     "tekst": "Se de 6 adresser →",
+     "antal": 14,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.gruppe-flere",
+     "tekst": "Se de 4 adresser →",
+     "antal": 10,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "a.maerke",
+     "tekst": "BOFINDA",
+     "antal": 8,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "forside@390",
+      "soeg@390",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "a.nav-primaer",
+     "tekst": "Opret annonce",
+     "antal": 8,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "forside@390",
+      "soeg@390",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0078a8",
+     "selektor": "div.leaflet-control-attribution.leaflet-control > a",
+     "tekst": "Leaflet",
+     "antal": 5,
+     "steder": [
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0078a8"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "a.knap",
+     "tekst": "Se annoncen hos Prøvekilde Gamma",
+     "antal": 4,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "border-top-color",
+     "hex": "#0f4d43",
+     "selektor": "a.knap",
+     "tekst": "Se annoncen hos Prøvekilde Gamma",
+     "antal": 4,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "border-right-color",
+     "hex": "#0f4d43",
+     "selektor": "a.knap",
+     "tekst": "Se annoncen hos Prøvekilde Gamma",
+     "antal": 4,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "border-bottom-color",
+     "hex": "#0f4d43",
+     "selektor": "a.knap",
+     "tekst": "Se annoncen hos Prøvekilde Gamma",
+     "antal": 4,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "border-left-color",
+     "hex": "#0f4d43",
+     "selektor": "a.knap",
+     "tekst": "Se annoncen hos Prøvekilde Gamma",
+     "antal": 4,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "a.sti-tilbage",
+     "tekst": "Forside",
+     "antal": 4,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "a.sti-tilbage > span",
+     "tekst": "←",
+     "antal": 4,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "button.soegeknap",
+     "tekst": "Søg",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "details.metode > summary",
+     "tekst": "Sådan beregner vi",
+     "antal": 4,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "8.480–12.360",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 17.950",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "24.330",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "21.660",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 21.410",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "7.270",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 9.530",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 17.260",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "20.520",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 13.580",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "24.380",
+     "antal": 4,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "div.soegefelt.sf-sted::before",
+     "tekst": "By eller område",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#527f78"
+     ],
+     "opacitet": [
+      0.72
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.nt-hus::before",
+     "tekst": "Studieboligboligtype",
+     "antal": 4,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#3d6f66"
+     ],
+     "opacitet": [
+      0.8
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#083a34",
+     "selektor": "a.ub-knap",
+     "tekst": "Opret annonce →",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#083a34"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "div.gem-raek > button",
+     "tekst": "Send mig besked",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "border-top-color",
+     "hex": "#0f4d43",
+     "selektor": "div.gem-raek > button",
+     "tekst": "Send mig besked",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "border-right-color",
+     "hex": "#0f4d43",
+     "selektor": "div.gem-raek > button",
+     "tekst": "Send mig besked",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "border-bottom-color",
+     "hex": "#0f4d43",
+     "selektor": "div.gem-raek > button",
+     "tekst": "Send mig besked",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "border-left-color",
+     "hex": "#0f4d43",
+     "selektor": "div.gem-raek > button",
+     "tekst": "Send mig besked",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.gruppe-flere",
+     "tekst": "Se de 2 adresser →",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "19.220",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "9.110",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "14.220",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 21.690",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 18.040",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 9.800",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 19.940",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "21.600",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "15.160",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "17.160",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "16.210",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 9.150",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 24.010",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "20.930",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 13.090",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "15.030",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "16.990",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "13.470",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "13.690",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "21.790–36.970",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 19.920",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "14.630–27.350",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "14.730–19.710",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "17.370",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "13.550",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "17.100",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "13.590",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "17.430",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "21.540–40.480",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "21.360–28.870",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "12.310–16.420",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 7.790",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "8.300",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "11.430",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "17.010",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 22.190",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "12.010",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 14.970",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "24.420",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "24.040",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "13.790",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "8.280",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "19.500",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "9.230",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 23.580",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "8.680",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "9.020",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "18.890",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "16.000",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "9.340",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "23.960",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "24.110",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "13.620",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "16.870",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "8.270",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "12.560",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "23.890",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "7.730",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.oek-tal",
+     "tekst": "22.320",
+     "antal": 2,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-med-billeder@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.oek-tal",
+     "tekst": "23.580",
+     "antal": 2,
+     "steder": [
+      "bolig-uden-billeder@1440",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "li > strong",
+     "tekst": "264",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.nt-doer::before",
+     "tekst": "2værelser",
+     "antal": 2,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-med-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#3d6f66"
+     ],
+     "opacitet": [
+      0.8
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.nt-doer::before",
+     "tekst": "5værelser",
+     "antal": 2,
+     "steder": [
+      "bolig-uden-billeder@1440",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#3d6f66"
+     ],
+     "opacitet": [
+      0.8
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.nt-maal::before",
+     "tekst": "51 m²boligareal",
+     "antal": 2,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-med-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#3d6f66"
+     ],
+     "opacitet": [
+      0.8
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.nt-maal::before",
+     "tekst": "45 m²boligareal",
+     "antal": 2,
+     "steder": [
+      "bolig-uden-billeder@1440",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#3d6f66"
+     ],
+     "opacitet": [
+      0.8
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.nt-moent::before",
+     "tekst": "22.320 kr.pr. md. til udlejer",
+     "antal": 2,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-med-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#3d6f66"
+     ],
+     "opacitet": [
+      0.8
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.nt-moent::before",
+     "tekst": "23.580 kr.pr. md. til udlejer",
+     "antal": 2,
+     "steder": [
+      "bolig-uden-billeder@1440",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#3d6f66"
+     ],
+     "opacitet": [
+      0.8
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "li.ts-hus > strong",
+     "tekst": "279",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "li.ts-kalender > strong",
+     "tekst": "12",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "li.ts-moent > strong",
+     "tekst": "252",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "p.gem-vilkaar > a",
+     "tekst": "Sådan behandler vi dine oplysninger",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "text-decoration-color",
+     "hex": "#0f4d43",
+     "selektor": "p.gem-vilkaar > a",
+     "tekst": "Sådan behandler vi dine oplysninger",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "p.hero-oejenbryn",
+     "tekst": "Lejeboliger med overblik",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "p.populaere > a",
+     "tekst": "Prøveby N",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "p.populaere > a",
+     "tekst": "Attrapby",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "p.populaere > a",
+     "tekst": "Prøveby S",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "p.populaere > a",
+     "tekst": "Fiktivby",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "span.ik-flise.ik-filter::before",
+     "tekst": "",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "span.ik-flise.ik-klokke::before",
+     "tekst": "",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "span.ik-flise.ik-moent::before",
+     "tekst": "",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "span.maerke-boble",
+     "tekst": "3",
+     "antal": 2,
+     "steder": [
+      "soeg@1440"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "span.maerke-boble",
+     "tekst": "5",
+     "antal": 2,
+     "steder": [
+      "soeg@1440"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "span.maerke-boble",
+     "tekst": "4",
+     "antal": 2,
+     "steder": [
+      "soeg@1440"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "span.maerke-boble",
+     "tekst": "6",
+     "antal": 2,
+     "steder": [
+      "soeg@1440"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "span.side-nu",
+     "tekst": "1",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "border-top-color",
+     "hex": "#0f4d43",
+     "selektor": "span.side-nu",
+     "tekst": "1",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "border-right-color",
+     "hex": "#0f4d43",
+     "selektor": "span.side-nu",
+     "tekst": "1",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "border-bottom-color",
+     "hex": "#0f4d43",
+     "selektor": "span.side-nu",
+     "tekst": "1",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "border-left-color",
+     "hex": "#0f4d43",
+     "selektor": "span.side-nu",
+     "tekst": "1",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "text-decoration-color",
+     "hex": "#0f4d43",
+     "selektor": "div.gruppe-flere",
+     "tekst": "Se de 5 adresser →",
+     "antal": 1,
+     "steder": [
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.ts-hus::before",
+     "tekst": "279lejeboliger fra 4 kilder",
+     "antal": 1,
+     "steder": [
+      "forside@1440"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#33685f"
+     ],
+     "opacitet": [
+      0.85
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.ts-kalender::before",
+     "tekst": "12kan overtages nu",
+     "antal": 1,
+     "steder": [
+      "forside@1440"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#33685f"
+     ],
+     "opacitet": [
+      0.85
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.ts-moent::before",
+     "tekst": "252med hele udgiften til udlejer oplyst ",
+     "antal": 1,
+     "steder": [
+      "forside@1440"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#33685f"
+     ],
+     "opacitet": [
+      0.85
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "span.maerke-boble",
+     "tekst": "2",
+     "antal": 1,
+     "steder": [
+      "soeg@1440"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "ul.talstribe.punkter > li::before",
+     "tekst": "264 timerfra en bolig annonceres, til de",
+     "antal": 1,
+     "steder": [
+      "forside@1440"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#33685f"
+     ],
+     "opacitet": [
+      0.85
+     ]
+    }
+   ],
+   "samlet": [
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "klasse": "kendt beløb",
+     "antal": 160,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "tekster": [
+      "19.220",
+      "8.480–12.360",
+      "9.110",
+      "14.220",
+      "fra 21.690",
+      "fra 17.950",
+      "fra 18.040",
+      "fra 9.800",
+      "fra 19.940",
+      "21.600",
+      "15.160",
+      "17.160",
+      "16.210",
+      "fra 9.150",
+      "fra 24.010",
+      "20.930",
+      "fra 13.090",
+      "15.030",
+      "24.330",
+      "16.990",
+      "13.470",
+      "13.690",
+      "21.660",
+      "21.790–36.970",
+      "fra 19.920",
+      "fra 21.410",
+      "14.630–27.350",
+      "14.730–19.710",
+      "17.370",
+      "13.550",
+      "17.100",
+      "7.270",
+      "13.590",
+      "17.430",
+      "fra 9.530",
+      "fra 17.260",
+      "21.540–40.480",
+      "20.520",
+      "21.360–28.870",
+      "fra 13.580",
+      "12.310–16.420",
+      "fra 7.790",
+      "8.300",
+      "11.430",
+      "17.010",
+      "fra 22.190",
+      "12.010",
+      "fra 14.970",
+      "24.420",
+      "24.040",
+      "13.790",
+      "8.280",
+      "19.500",
+      "9.230",
+      "fra 23.580",
+      "24.380",
+      "8.680",
+      "9.020",
+      "18.890",
+      "16.000",
+      "9.340",
+      "23.960",
+      "24.110",
+      "13.620",
+      "16.870",
+      "8.270",
+      "12.560",
+      "23.890",
+      "7.730"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "span.maerkat.m-ny",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 74,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "tekster": [
+      "ny for 1 dag siden",
+      "ny bolig for 1 dag siden",
+      "ny bolig for 2 dage siden",
+      "ny for 2 dage siden"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.gruppe-flere",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 60,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "tekster": [
+      "Se de 3 adresser →",
+      "Se de 5 adresser →",
+      "Se de 4 adresser →",
+      "Se de 6 adresser →",
+      "Se de 2 adresser →"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "span.maerke-boble",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 46,
+     "elementer": 0,
+     "steder": [
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "3",
+      "5",
+      "",
+      "4",
+      "6",
+      "2"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "border-*-color",
+     "hex": "#0f4d43",
+     "selektor": "a.knap",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 16,
+     "elementer": 0,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "Se annoncen hos Prøvekilde Gamma"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "a.maerke",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 8,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "forside@390",
+      "soeg@390",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "BOFINDA"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "a.nav-primaer",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 8,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "forside@390",
+      "soeg@390",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "Opret annonce"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "border-*-color",
+     "hex": "#0f4d43",
+     "selektor": "div.gem-raek > button",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 8,
+     "elementer": 0,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "tekster": [
+      "Send mig besked"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "p.populaere > a",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 8,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "tekster": [
+      "Prøveby N",
+      "Attrapby",
+      "Prøveby S",
+      "Fiktivby"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "border-*-color",
+     "hex": "#0f4d43",
+     "selektor": "span.side-nu",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 8,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "tekster": [
+      "1"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0078a8",
+     "selektor": "div.leaflet-control-attribution.leaflet-control > a",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 5,
+     "elementer": 0,
+     "steder": [
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "Leaflet"
+     ],
+     "tegnet": [
+      "#0078a8"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "a.knap",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 4,
+     "elementer": 0,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "Se annoncen hos Prøvekilde Gamma"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "a.sti-tilbage",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 4,
+     "elementer": 0,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "Forside"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "a.sti-tilbage > span",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 4,
+     "elementer": 0,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "←"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "button.soegeknap",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 4,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "tekster": [
+      "Søg"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "details.metode > summary",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 4,
+     "elementer": 0,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "Sådan beregner vi"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.oek-tal",
+     "klasse": "kendt beløb",
+     "antal": 4,
+     "elementer": 0,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "22.320",
+      "23.580"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "div.soegefelt.sf-sted::before",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 4,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "tekster": [
+      "By eller område"
+     ],
+     "tegnet": [
+      "#527f78"
+     ],
+     "maske": true
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.nt-doer::before",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 4,
+     "elementer": 0,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "2værelser",
+      "5værelser"
+     ],
+     "tegnet": [
+      "#3d6f66"
+     ],
+     "maske": true
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.nt-hus::before",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 4,
+     "elementer": 0,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "Studieboligboligtype"
+     ],
+     "tegnet": [
+      "#3d6f66"
+     ],
+     "maske": true
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.nt-maal::before",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 4,
+     "elementer": 0,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "51 m²boligareal",
+      "45 m²boligareal"
+     ],
+     "tegnet": [
+      "#3d6f66"
+     ],
+     "maske": true
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.nt-moent::before",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 4,
+     "elementer": 0,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "22.320 kr.pr. md. til udlejer",
+      "23.580 kr.pr. md. til udlejer"
+     ],
+     "tegnet": [
+      "#3d6f66"
+     ],
+     "maske": true
+    },
+    {
+     "egenskab": "color",
+     "hex": "#083a34",
+     "selektor": "a.ub-knap",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 2,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "tekster": [
+      "Opret annonce →"
+     ],
+     "tegnet": [
+      "#083a34"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "div.gem-raek > button",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 2,
+     "elementer": 0,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "tekster": [
+      "Send mig besked"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "li > strong",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 2,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "tekster": [
+      "264"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "li.ts-hus > strong",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 2,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "tekster": [
+      "279"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "li.ts-kalender > strong",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 2,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "tekster": [
+      "12"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "li.ts-moent > strong",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 2,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "tekster": [
+      "252"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "p.gem-vilkaar > a",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 2,
+     "elementer": 0,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "tekster": [
+      "Sådan behandler vi dine oplysninger"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "text-decoration-color",
+     "hex": "#0f4d43",
+     "selektor": "p.gem-vilkaar > a",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 2,
+     "elementer": 0,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "tekster": [
+      "Sådan behandler vi dine oplysninger"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "p.hero-oejenbryn",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 2,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "tekster": [
+      "Lejeboliger med overblik"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "span.ik-flise.ik-filter::before",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 2,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "tekster": [
+      ""
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": true
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "span.ik-flise.ik-klokke::before",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 2,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "tekster": [
+      ""
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": true
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "span.ik-flise.ik-moent::before",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 2,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "tekster": [
+      ""
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": true
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "span.side-nu",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 2,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "tekster": [
+      "1"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "text-decoration-color",
+     "hex": "#0f4d43",
+     "selektor": "div.gruppe-flere",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 1,
+     "elementer": 0,
+     "steder": [
+      "soeg@390"
+     ],
+     "tekster": [
+      "Se de 5 adresser →"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.ts-hus::before",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 1,
+     "elementer": 0,
+     "steder": [
+      "forside@1440"
+     ],
+     "tekster": [
+      "279lejeboliger fra 4 kilder"
+     ],
+     "tegnet": [
+      "#33685f"
+     ],
+     "maske": true
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.ts-kalender::before",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 1,
+     "elementer": 0,
+     "steder": [
+      "forside@1440"
+     ],
+     "tekster": [
+      "12kan overtages nu"
+     ],
+     "tegnet": [
+      "#33685f"
+     ],
+     "maske": true
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "li.ts-moent::before",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 1,
+     "elementer": 0,
+     "steder": [
+      "forside@1440"
+     ],
+     "tekster": [
+      "252med hele udgiften til udlejer oplyst "
+     ],
+     "tegnet": [
+      "#33685f"
+     ],
+     "maske": true
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#0f4d43",
+     "selektor": "ul.talstribe.punkter > li::before",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 1,
+     "elementer": 0,
+     "steder": [
+      "forside@1440"
+     ],
+     "tekster": [
+      "264 timerfra en bolig annonceres, til de"
+     ],
+     "tegnet": [
+      "#33685f"
+     ],
+     "maske": true
+    }
+   ]
+  },
+  "runde2": {
+   "fund": 210,
+   "grupper": [
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "a.maerke",
+     "tekst": "BOFINDA",
+     "antal": 8,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "forside@390",
+      "soeg@390",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0078a8",
+     "selektor": "div.leaflet-control-attribution.leaflet-control > a",
+     "tekst": "Leaflet",
+     "antal": 5,
+     "steder": [
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0078a8"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "text-decoration-color",
+     "hex": "#0078a8",
+     "selektor": "div.leaflet-control-attribution.leaflet-control > a",
+     "tekst": "Leaflet",
+     "antal": 5,
+     "steder": [
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#0078a8"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#083a34",
+     "selektor": "a.knap",
+     "tekst": "Se annoncen hos Prøvekilde Gamma",
+     "antal": 4,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#083a34"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "border-top-color",
+     "hex": "#083a34",
+     "selektor": "a.knap",
+     "tekst": "Se annoncen hos Prøvekilde Gamma",
+     "antal": 4,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#083a34"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "border-right-color",
+     "hex": "#083a34",
+     "selektor": "a.knap",
+     "tekst": "Se annoncen hos Prøvekilde Gamma",
+     "antal": 4,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#083a34"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "border-bottom-color",
+     "hex": "#083a34",
+     "selektor": "a.knap",
+     "tekst": "Se annoncen hos Prøvekilde Gamma",
+     "antal": 4,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#083a34"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "border-left-color",
+     "hex": "#083a34",
+     "selektor": "a.knap",
+     "tekst": "Se annoncen hos Prøvekilde Gamma",
+     "antal": 4,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#083a34"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#083a34",
+     "selektor": "button.soegeknap",
+     "tekst": "Søg",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#083a34"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "8.480–12.360",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 17.950",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "24.330",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "21.660",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 21.410",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "7.270",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 9.530",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 17.260",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "20.520",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 13.580",
+     "antal": 4,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "24.380",
+     "antal": 4,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "19.220",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "9.110",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "14.220",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 21.690",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 18.040",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 9.800",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 19.940",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "21.600",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "15.160",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "17.160",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "16.210",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 9.150",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 24.010",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "20.930",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 13.090",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "15.030",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "16.990",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "13.470",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "13.690",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "21.790–36.970",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 19.920",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "14.630–27.350",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "14.730–19.710",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "17.370",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "13.550",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "17.100",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "13.590",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "17.430",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "21.540–40.480",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "21.360–28.870",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "12.310–16.420",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 7.790",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "8.300",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "11.430",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "17.010",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 22.190",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "12.010",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 14.970",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "24.420",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "24.040",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "13.790",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "8.280",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "19.500",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "9.230",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "fra 23.580",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "8.680",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "9.020",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "18.890",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "16.000",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "9.340",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "23.960",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "24.110",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "13.620",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "16.870",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "8.270",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "12.560",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "23.890",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "tekst": "7.730",
+     "antal": 2,
+     "steder": [
+      "soeg@1440",
+      "soeg@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.oek-tal",
+     "tekst": "22.320",
+     "antal": 2,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-med-billeder@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.oek-tal",
+     "tekst": "23.580",
+     "antal": 2,
+     "steder": [
+      "bolig-uden-billeder@1440",
+      "bolig-uden-billeder@390"
+     ],
+     "klasse": "kendt beløb",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "dt.kendt",
+     "tekst": "252",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "antal boliger med kendt beløb (ikke et beløb)",
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "opacitet": [
+      1
+     ]
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#083a34",
+     "selektor": "section.udlejerbaand",
+     "tekst": "For udlejereUdlej din bolig på BofindaVi",
+     "antal": 2,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "klasse": "IKKE et kendt beløb",
+     "tegnet": [
+      "#083a34"
+     ],
+     "opacitet": [
+      1
+     ]
+    }
+   ],
+   "samlet": [
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.kort-pris",
+     "klasse": "kendt beløb",
+     "antal": 160,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "tekster": [
+      "19.220",
+      "8.480–12.360",
+      "9.110",
+      "14.220",
+      "fra 21.690",
+      "fra 17.950",
+      "fra 18.040",
+      "fra 9.800",
+      "fra 19.940",
+      "21.600",
+      "15.160",
+      "17.160",
+      "16.210",
+      "fra 9.150",
+      "fra 24.010",
+      "20.930",
+      "fra 13.090",
+      "15.030",
+      "24.330",
+      "16.990",
+      "13.470",
+      "13.690",
+      "21.660",
+      "21.790–36.970",
+      "fra 19.920",
+      "fra 21.410",
+      "14.630–27.350",
+      "14.730–19.710",
+      "17.370",
+      "13.550",
+      "17.100",
+      "7.270",
+      "13.590",
+      "17.430",
+      "fra 9.530",
+      "fra 17.260",
+      "21.540–40.480",
+      "20.520",
+      "21.360–28.870",
+      "fra 13.580",
+      "12.310–16.420",
+      "fra 7.790",
+      "8.300",
+      "11.430",
+      "17.010",
+      "fra 22.190",
+      "12.010",
+      "fra 14.970",
+      "24.420",
+      "24.040",
+      "13.790",
+      "8.280",
+      "19.500",
+      "9.230",
+      "fra 23.580",
+      "24.380",
+      "8.680",
+      "9.020",
+      "18.890",
+      "16.000",
+      "9.340",
+      "23.960",
+      "24.110",
+      "13.620",
+      "16.870",
+      "8.270",
+      "12.560",
+      "23.890",
+      "7.730"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "border-*-color",
+     "hex": "#083a34",
+     "selektor": "a.knap",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 16,
+     "elementer": 0,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "Se annoncen hos Prøvekilde Gamma"
+     ],
+     "tegnet": [
+      "#083a34"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "a.maerke",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 8,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "forside@390",
+      "soeg@390",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "BOFINDA"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0078a8",
+     "selektor": "div.leaflet-control-attribution.leaflet-control > a",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 5,
+     "elementer": 0,
+     "steder": [
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "Leaflet"
+     ],
+     "tegnet": [
+      "#0078a8"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "text-decoration-color",
+     "hex": "#0078a8",
+     "selektor": "div.leaflet-control-attribution.leaflet-control > a",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 5,
+     "elementer": 0,
+     "steder": [
+      "soeg@1440",
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "Leaflet"
+     ],
+     "tegnet": [
+      "#0078a8"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#083a34",
+     "selektor": "a.knap",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 4,
+     "elementer": 0,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "Se annoncen hos Prøvekilde Gamma"
+     ],
+     "tegnet": [
+      "#083a34"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#083a34",
+     "selektor": "button.soegeknap",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 4,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "soeg@1440",
+      "forside@390",
+      "soeg@390"
+     ],
+     "tekster": [
+      "Søg"
+     ],
+     "tegnet": [
+      "#083a34"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "div.oek-tal",
+     "klasse": "kendt beløb",
+     "antal": 4,
+     "elementer": 0,
+     "steder": [
+      "bolig-med-billeder@1440",
+      "bolig-uden-billeder@1440",
+      "bolig-med-billeder@390",
+      "bolig-uden-billeder@390"
+     ],
+     "tekster": [
+      "22.320",
+      "23.580"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "color",
+     "hex": "#0f4d43",
+     "selektor": "dt.kendt",
+     "klasse": "antal boliger med kendt beløb (ikke et beløb)",
+     "antal": 2,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "tekster": [
+      "252"
+     ],
+     "tegnet": [
+      "#0f4d43"
+     ],
+     "maske": false
+    },
+    {
+     "egenskab": "background-color",
+     "hex": "#083a34",
+     "selektor": "section.udlejerbaand",
+     "klasse": "IKKE et kendt beløb",
+     "antal": 2,
+     "elementer": 0,
+     "steder": [
+      "forside@1440",
+      "forside@390"
+     ],
+     "tekster": [
+      "For udlejereUdlej din bolig på BofindaVi"
+     ],
+     "tegnet": [
+      "#083a34"
+     ],
+     "maske": false
+    }
+   ]
+  }
+ },
+ "de00": {
+  "reference": {
+   "token": "--kendt",
+   "hex": "#0f4d43",
+   "note": "--kendt findes kun i runde 2; i før har --accent samme værdi (#0f4d43)."
+  },
+  "raekker": [
+   {
+    "hex": "#0f4d43",
+    "slags": "computed (fejningen)",
+    "de00": 0,
+    "lab": {
+     "L": 28.94,
+     "C": 21.79,
+     "h": 178.9
+    },
+    "hsl": [
+     170,
+     0.674,
+     0.18
+    ],
+    "hvor": [
+     "før: div.kort-pris (color)",
+     "før: span.maerkat.m-ny (color)",
+     "før: div.gruppe-flere (color)",
+     "før: span.maerke-boble (background-color)",
+     "før: a.knap (border-*-color)",
+     "før: a.maerke (color)",
+     "før: a.nav-primaer (background-color)",
+     "før: div.gem-raek > button (border-*-color)",
+     "før: p.populaere > a (color)",
+     "før: span.side-nu (border-*-color)",
+     "før: a.knap (background-color)",
+     "før: a.sti-tilbage (color)",
+     "før: a.sti-tilbage > span (color)",
+     "før: button.soegeknap (background-color)",
+     "før: details.metode > summary (color)",
+     "før: div.oek-tal (color)",
+     "før: div.soegefelt.sf-sted::before (background-color)",
+     "før: li.nt-doer::before (background-color)",
+     "før: li.nt-hus::before (background-color)",
+     "før: li.nt-maal::before (background-color)",
+     "før: li.nt-moent::before (background-color)",
+     "før: div.gem-raek > button (background-color)",
+     "før: li > strong (color)",
+     "før: li.ts-hus > strong (color)",
+     "før: li.ts-kalender > strong (color)",
+     "før: li.ts-moent > strong (color)",
+     "før: p.gem-vilkaar > a (color)",
+     "før: p.gem-vilkaar > a (text-decoration-color)",
+     "før: p.hero-oejenbryn (color)",
+     "før: span.ik-flise.ik-filter::before (background-color)",
+     "før: span.ik-flise.ik-klokke::before (background-color)",
+     "før: span.ik-flise.ik-moent::before (background-color)",
+     "før: span.side-nu (background-color)",
+     "før: div.gruppe-flere (text-decoration-color)",
+     "før: li.ts-hus::before (background-color)",
+     "før: li.ts-kalender::before (background-color)",
+     "før: li.ts-moent::before (background-color)",
+     "før: ul.talstribe.punkter > li::before (background-color)",
+     "runde 2: div.kort-pris (color)",
+     "runde 2: a.maerke (color)",
+     "runde 2: div.oek-tal (color)",
+     "runde 2: dt.kendt (color)"
+    ]
+   },
+   {
+    "hex": "#0b4a42",
+    "slags": "computed (hover, uden for fejningen)",
+    "de00": 1.27,
+    "lab": {
+     "L": 27.74,
+     "C": 21.11,
+     "h": 181.9
+    },
+    "hsl": [
+     172,
+     0.741,
+     0.167
+    ],
+    "hvor": [
+     "runde 2: «Søg»-knappen ved hover (baggrund)"
+    ]
+   },
+   {
+    "hex": "#083a34",
+    "slags": "computed (fejningen)",
+    "de00": 6.21,
+    "lab": {
+     "L": 21.3,
+     "C": 17.61,
+     "h": 182.9
+    },
+    "hsl": [
+     173,
+     0.758,
+     0.129
+    ],
+    "hvor": [
+     "før: a.ub-knap (color)",
+     "runde 2: a.knap (border-*-color)",
+     "runde 2: a.knap (background-color)",
+     "runde 2: button.soegeknap (background-color)",
+     "runde 2: section.udlejerbaand (background-color)"
+    ]
+   },
+   {
+    "hex": "#33685f",
+    "slags": "tegnet: sammensat med opacitet over baggrunden",
+    "de00": 9.36,
+    "lab": {
+     "L": 40.3,
+     "C": 20.12,
+     "h": 181.1
+    },
+    "hsl": [
+     170,
+     0.342,
+     0.304
+    ],
+    "hvor": [
+     "før: li.ts-hus::before (#0f4d43 × opacitet)",
+     "før: li.ts-kalender::before (#0f4d43 × opacitet)",
+     "før: li.ts-moent::before (#0f4d43 × opacitet)",
+     "før: ul.talstribe.punkter > li::before (#0f4d43 × opacitet)"
+    ]
+   },
+   {
+    "hex": "#3d6f66",
+    "slags": "tegnet: sammensat med opacitet over baggrunden",
+    "de00": 12.03,
+    "lab": {
+     "L": 43.24,
+     "C": 19.26,
+     "h": 180.8
+    },
+    "hsl": [
+     169,
+     0.291,
+     0.337
+    ],
+    "hvor": [
+     "før: li.nt-doer::before (#0f4d43 × opacitet)",
+     "før: li.nt-hus::before (#0f4d43 × opacitet)",
+     "før: li.nt-maal::before (#0f4d43 × opacitet)",
+     "før: li.nt-moent::before (#0f4d43 × opacitet)"
+    ]
+   },
+   {
+    "hex": "#527f78",
+    "slags": "tegnet: sammensat med opacitet over baggrunden",
+    "de00": 18.54,
+    "lab": {
+     "L": 49.89,
+     "C": 17.14,
+     "h": 183.7
+    },
+    "hsl": [
+     171,
+     0.215,
+     0.41
+    ],
+    "hvor": [
+     "før: div.soegefelt.sf-sted::before (#0f4d43 × opacitet)"
+    ]
+   },
+   {
+    "hex": "#0078a8",
+    "slags": "computed (fejningen)",
+    "de00": 27.14,
+    "lab": {
+     "L": 47.31,
+     "C": 34.95,
+     "h": 253
+    },
+    "hsl": [
+     197,
+     1,
+     0.329
+    ],
+    "hvor": [
+     "før: div.leaflet-control-attribution.leaflet-control > a (color)",
+     "runde 2: div.leaflet-control-attribution.leaflet-control > a (color)",
+     "runde 2: div.leaflet-control-attribution.leaflet-control > a (text-decoration-color)"
+    ]
+   }
+  ],
+  "tokenmatrix": [
+   {
+    "token": "--kendt",
+    "hex": "#0f4d43",
+    "--kendt": 0,
+    "--flade-groen": 6.21,
+    "--flade-groen-hover": 1.27,
+    "--blaek": 24.24
+   },
+   {
+    "token": "--flade-groen",
+    "hex": "#083a34",
+    "--kendt": 6.21,
+    "--flade-groen": 0,
+    "--flade-groen-hover": 5.15,
+    "--blaek": 19.29
+   },
+   {
+    "token": "--flade-groen-hover",
+    "hex": "#0b4a42",
+    "--kendt": 1.27,
+    "--flade-groen": 5.15,
+    "--flade-groen-hover": 0,
+    "--blaek": 23.36
+   },
+   {
+    "token": "--blaek",
+    "hex": "#14161a",
+    "--kendt": 24.24,
+    "--flade-groen": 19.29,
+    "--flade-groen-hover": 23.36,
+    "--blaek": 0
+   }
+  ]
+ }
+}

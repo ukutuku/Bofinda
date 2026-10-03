@@ -1,0 +1,1752 @@
+[
+ {
+  "bredde": 1440,
+  "tilstand": "i-dag",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 7.14,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 7.14,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 1440,
+  "tilstand": "kun-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 1440,
+  "tilstand": "kun-greb",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 4.77,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 4.77,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 1440,
+  "tilstand": "foldet",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 1440,
+  "tilstand": "lag-og-mockup",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 1440,
+  "tilstand": "a-kun-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 1440,
+  "tilstand": "markup-flyttet",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "fodnote",
+  "kontrast": 5.08,
+  "kandidater": [
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 5.08,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 1440,
+  "tilstand": "markup-flyttet-og-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "fodnote",
+  "kontrast": 7.13,
+  "kandidater": [
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 7.13,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 1440,
+  "tilstand": "modproeve-skjult",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "1/0",
+    "overlap": "0/0",
+    "skjult": true,
+    "iSiden": false
+   }
+  ]
+ },
+ {
+  "bredde": 1440,
+  "tilstand": "modproeve-daekket",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "3/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 1440,
+  "tilstand": "modproeve-bleg",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": 1.2,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": false,
+    "kontrast": 1.2,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 1440,
+  "tilstand": "modproeve-to",
+  "modproeve": true,
+  "dom": "2 KREDITERINGER",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   },
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 7.13,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 1440,
+  "tilstand": "modproeve-overlap",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "0/3",
+    "overlap": "3/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 1440,
+  "tilstand": "modproeve-kun-greb-uden-reserve",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": 1.06,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": false,
+    "kontrast": 1.06,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 1440,
+  "tilstand": "modproeve-env-uden-kredit",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": null,
+  "kontrast": null,
+  "kandidater": []
+ },
+ {
+  "bredde": 768,
+  "tilstand": "i-dag",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.2,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.2,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 768,
+  "tilstand": "kun-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 768,
+  "tilstand": "kun-greb",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 4.77,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 4.77,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 768,
+  "tilstand": "foldet",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 768,
+  "tilstand": "lag-og-mockup",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 768,
+  "tilstand": "a-kun-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 768,
+  "tilstand": "markup-flyttet",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "fodnote",
+  "kontrast": 5.08,
+  "kandidater": [
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 5.08,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 768,
+  "tilstand": "markup-flyttet-og-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "fodnote",
+  "kontrast": 7.13,
+  "kandidater": [
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 7.13,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 768,
+  "tilstand": "modproeve-skjult",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "1/0",
+    "overlap": "0/0",
+    "skjult": true,
+    "iSiden": false
+   }
+  ]
+ },
+ {
+  "bredde": 768,
+  "tilstand": "modproeve-daekket",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "3/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 768,
+  "tilstand": "modproeve-bleg",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": 1.2,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": false,
+    "kontrast": 1.2,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 768,
+  "tilstand": "modproeve-to",
+  "modproeve": true,
+  "dom": "2 KREDITERINGER",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   },
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 7.13,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 768,
+  "tilstand": "modproeve-overlap",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "0/3",
+    "overlap": "3/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 768,
+  "tilstand": "modproeve-env-uden-kredit",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": null,
+  "kontrast": null,
+  "kandidater": []
+ },
+ {
+  "bredde": 390,
+  "tilstand": "i-dag",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.49,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.49,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 390,
+  "tilstand": "kun-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 390,
+  "tilstand": "kun-greb",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 4.77,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 4.77,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 390,
+  "tilstand": "foldet",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 390,
+  "tilstand": "lag-og-mockup",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 390,
+  "tilstand": "a-kun-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 390,
+  "tilstand": "markup-flyttet",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "fodnote",
+  "kontrast": 5.08,
+  "kandidater": [
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 5.08,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 390,
+  "tilstand": "markup-flyttet-og-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "fodnote",
+  "kontrast": 7.13,
+  "kandidater": [
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 7.13,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 390,
+  "tilstand": "modproeve-skjult",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "1/0",
+    "overlap": "0/0",
+    "skjult": true,
+    "iSiden": false
+   }
+  ]
+ },
+ {
+  "bredde": 390,
+  "tilstand": "modproeve-daekket",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "3/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 390,
+  "tilstand": "modproeve-bleg",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": 1.2,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": false,
+    "kontrast": 1.2,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 390,
+  "tilstand": "modproeve-to",
+  "modproeve": true,
+  "dom": "2 KREDITERINGER",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   },
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 7.13,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 390,
+  "tilstand": "modproeve-overlap",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "0/3",
+    "overlap": "3/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 390,
+  "tilstand": "modproeve-kun-greb-uden-reserve",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "0/3",
+    "overlap": "2/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 390,
+  "tilstand": "modproeve-foldet-gammel-spec",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": 1.87,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": false,
+    "kontrast": 1.87,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 390,
+  "tilstand": "modproeve-env-uden-kredit",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": null,
+  "kontrast": null,
+  "kandidater": []
+ },
+ {
+  "bredde": 360,
+  "tilstand": "i-dag",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.49,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.49,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 360,
+  "tilstand": "kun-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 360,
+  "tilstand": "kun-greb",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 4.77,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 4.77,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 360,
+  "tilstand": "foldet",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 360,
+  "tilstand": "lag-og-mockup",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 360,
+  "tilstand": "a-kun-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 360,
+  "tilstand": "markup-flyttet",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "fodnote",
+  "kontrast": 5.08,
+  "kandidater": [
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 5.08,
+    "daekket": "0/6",
+    "overlap": "0/6",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 360,
+  "tilstand": "markup-flyttet-og-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "fodnote",
+  "kontrast": 7.13,
+  "kandidater": [
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 7.13,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 360,
+  "tilstand": "modproeve-skjult",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "1/0",
+    "overlap": "0/0",
+    "skjult": true,
+    "iSiden": false
+   }
+  ]
+ },
+ {
+  "bredde": 360,
+  "tilstand": "modproeve-daekket",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "3/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 360,
+  "tilstand": "modproeve-bleg",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": 1.2,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": false,
+    "kontrast": 1.2,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 360,
+  "tilstand": "modproeve-to",
+  "modproeve": true,
+  "dom": "2 KREDITERINGER",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   },
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 7.13,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 360,
+  "tilstand": "modproeve-overlap",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "0/3",
+    "overlap": "3/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 360,
+  "tilstand": "modproeve-kun-greb-uden-reserve",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "0/3",
+    "overlap": "2/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 360,
+  "tilstand": "modproeve-foldet-gammel-spec",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "0/3",
+    "overlap": "1/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 360,
+  "tilstand": "modproeve-env-uden-kredit",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": null,
+  "kontrast": null,
+  "kandidater": []
+ },
+ {
+  "bredde": 320,
+  "tilstand": "i-dag",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.49,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.49,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 320,
+  "tilstand": "kun-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 320,
+  "tilstand": "kun-greb",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 4.77,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 4.77,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 320,
+  "tilstand": "foldet",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 320,
+  "tilstand": "lag-og-mockup",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 320,
+  "tilstand": "a-kun-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 320,
+  "tilstand": "markup-flyttet",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "fodnote",
+  "kontrast": 5.08,
+  "kandidater": [
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 5.08,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 320,
+  "tilstand": "markup-flyttet-og-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "fodnote",
+  "kontrast": 7.13,
+  "kandidater": [
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 7.13,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 320,
+  "tilstand": "modproeve-skjult",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "1/0",
+    "overlap": "0/0",
+    "skjult": true,
+    "iSiden": false
+   }
+  ]
+ },
+ {
+  "bredde": 320,
+  "tilstand": "modproeve-daekket",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "3/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 320,
+  "tilstand": "modproeve-bleg",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": 1.2,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": false,
+    "kontrast": 1.2,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 320,
+  "tilstand": "modproeve-to",
+  "modproeve": true,
+  "dom": "2 KREDITERINGER",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   },
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 7.13,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 320,
+  "tilstand": "modproeve-overlap",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "0/3",
+    "overlap": "3/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 320,
+  "tilstand": "modproeve-kun-greb-uden-reserve",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "0/3",
+    "overlap": "3/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 320,
+  "tilstand": "modproeve-env-uden-kredit",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": null,
+  "kontrast": null,
+  "kandidater": []
+ },
+ {
+  "bredde": 280,
+  "tilstand": "i-dag",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.49,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.49,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 280,
+  "tilstand": "kun-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 280,
+  "tilstand": "kun-greb",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 4.77,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 4.77,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 280,
+  "tilstand": "foldet",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 280,
+  "tilstand": "lag-og-mockup",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 280,
+  "tilstand": "a-kun-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 280,
+  "tilstand": "markup-flyttet",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "fodnote",
+  "kontrast": 5.08,
+  "kandidater": [
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 5.08,
+    "daekket": "0/6",
+    "overlap": "0/6",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 280,
+  "tilstand": "markup-flyttet-og-css",
+  "modproeve": false,
+  "dom": "OK",
+  "hvor": "fodnote",
+  "kontrast": 7.13,
+  "kandidater": [
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 7.13,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 280,
+  "tilstand": "modproeve-skjult",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "1/0",
+    "overlap": "0/0",
+    "skjult": true,
+    "iSiden": false
+   }
+  ]
+ },
+ {
+  "bredde": 280,
+  "tilstand": "modproeve-daekket",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "3/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 280,
+  "tilstand": "modproeve-bleg",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": 1.2,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": false,
+    "kontrast": 1.2,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 280,
+  "tilstand": "modproeve-to",
+  "modproeve": true,
+  "dom": "2 KREDITERINGER",
+  "hvor": "hero",
+  "kontrast": 6.4,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 6.4,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   },
+   {
+    "hvor": "fodnote",
+    "synlig": true,
+    "laeselig": true,
+    "kontrast": 7.13,
+    "daekket": "0/3",
+    "overlap": "0/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 280,
+  "tilstand": "modproeve-overlap",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": "hero",
+  "kontrast": null,
+  "kandidater": [
+   {
+    "hvor": "hero",
+    "synlig": false,
+    "daekket": "0/3",
+    "overlap": "1/3",
+    "skjult": false,
+    "iSiden": true
+   }
+  ]
+ },
+ {
+  "bredde": 280,
+  "tilstand": "modproeve-env-uden-kredit",
+  "modproeve": true,
+  "dom": "INGEN SYNLIG KREDITERING",
+  "hvor": null,
+  "kontrast": null,
+  "kandidater": []
+ }
+]

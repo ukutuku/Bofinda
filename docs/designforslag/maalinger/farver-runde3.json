@@ -1,0 +1,408 @@
+{
+ "r3-forside-1440": {
+  "opret": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "soeg": {
+   "v": "rgb(8, 58, 52)",
+   "op": "1"
+  },
+  "maerke": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "naal": {
+   "v": "rgb(20, 22, 26)",
+   "op": "0.72"
+  },
+  "markoer": null,
+  "sted": null,
+  "kendt": "#0f4d43",
+  "handling": "#083a34"
+ },
+ "r3-soeg-1440": {
+  "opret": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "soeg": {
+   "v": "rgb(8, 58, 52)",
+   "op": "1"
+  },
+  "maerke": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "naal": {
+   "v": "rgb(20, 22, 26)",
+   "op": "0.72"
+  },
+  "markoer": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "sted": null,
+  "kendt": "#0f4d43",
+  "handling": "#083a34"
+ },
+ "r3-bolig-1440": {
+  "opret": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "soeg": null,
+  "maerke": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "naal": null,
+  "markoer": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "sted": {
+   "v": "rgb(77, 84, 82)",
+   "op": "0.6"
+  },
+  "kendt": "#0f4d43",
+  "handling": "#083a34"
+ },
+ "r3-forside-390": {
+  "opret": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "soeg": {
+   "v": "rgb(8, 58, 52)",
+   "op": "1"
+  },
+  "maerke": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "naal": {
+   "v": "rgb(20, 22, 26)",
+   "op": "0.72"
+  },
+  "markoer": null,
+  "sted": null,
+  "kendt": "#0f4d43",
+  "handling": "#083a34"
+ },
+ "r3-soeg-390": {
+  "opret": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "soeg": {
+   "v": "rgb(8, 58, 52)",
+   "op": "1"
+  },
+  "maerke": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "naal": {
+   "v": "rgb(20, 22, 26)",
+   "op": "0.72"
+  },
+  "markoer": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "sted": null,
+  "kendt": "#0f4d43",
+  "handling": "#083a34"
+ },
+ "r3-bolig-390": {
+  "opret": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "soeg": null,
+  "maerke": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "naal": null,
+  "markoer": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "sted": {
+   "v": "rgb(77, 84, 82)",
+   "op": "0.6"
+  },
+  "kendt": "#0f4d43",
+  "handling": "#083a34"
+ },
+ "r3-forside-360": {
+  "opret": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "soeg": {
+   "v": "rgb(8, 58, 52)",
+   "op": "1"
+  },
+  "maerke": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "naal": {
+   "v": "rgb(20, 22, 26)",
+   "op": "0.72"
+  },
+  "markoer": null,
+  "sted": null,
+  "kendt": "#0f4d43",
+  "handling": "#083a34"
+ },
+ "r3-soeg-360": {
+  "opret": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "soeg": {
+   "v": "rgb(8, 58, 52)",
+   "op": "1"
+  },
+  "maerke": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "naal": {
+   "v": "rgb(20, 22, 26)",
+   "op": "0.72"
+  },
+  "markoer": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "sted": null,
+  "kendt": "#0f4d43",
+  "handling": "#083a34"
+ },
+ "r3-bolig-360": {
+  "opret": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "soeg": null,
+  "maerke": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "naal": null,
+  "markoer": {
+   "v": "rgb(20, 22, 26)",
+   "op": "1"
+  },
+  "sted": {
+   "v": "rgb(77, 84, 82)",
+   "op": "0.6"
+  },
+  "kendt": "#0f4d43",
+  "handling": "#083a34"
+ },
+ "foer-forside-1440": {
+  "opret": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "soeg": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "maerke": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "naal": {
+   "v": "rgb(15, 77, 67)",
+   "op": "0.72"
+  },
+  "markoer": null,
+  "sted": null,
+  "kendt": "",
+  "handling": ""
+ },
+ "foer-soeg-1440": {
+  "opret": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "soeg": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "maerke": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "naal": {
+   "v": "rgb(15, 77, 67)",
+   "op": "0.72"
+  },
+  "markoer": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "sted": null,
+  "kendt": "",
+  "handling": ""
+ },
+ "foer-bolig-1440": {
+  "opret": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "soeg": null,
+  "maerke": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "naal": null,
+  "markoer": null,
+  "sted": {
+   "v": "rgb(95, 102, 114)",
+   "op": "0.6"
+  },
+  "kendt": "",
+  "handling": ""
+ },
+ "foer-forside-390": {
+  "opret": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "soeg": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "maerke": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "naal": {
+   "v": "rgb(15, 77, 67)",
+   "op": "0.72"
+  },
+  "markoer": null,
+  "sted": null,
+  "kendt": "",
+  "handling": ""
+ },
+ "foer-soeg-390": {
+  "opret": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "soeg": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "maerke": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "naal": {
+   "v": "rgb(15, 77, 67)",
+   "op": "0.72"
+  },
+  "markoer": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "sted": null,
+  "kendt": "",
+  "handling": ""
+ },
+ "foer-bolig-390": {
+  "opret": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "soeg": null,
+  "maerke": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "naal": null,
+  "markoer": null,
+  "sted": {
+   "v": "rgb(95, 102, 114)",
+   "op": "0.6"
+  },
+  "kendt": "",
+  "handling": ""
+ },
+ "foer-forside-360": {
+  "opret": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "soeg": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "maerke": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "naal": {
+   "v": "rgb(15, 77, 67)",
+   "op": "0.72"
+  },
+  "markoer": null,
+  "sted": null,
+  "kendt": "",
+  "handling": ""
+ },
+ "foer-soeg-360": {
+  "opret": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "soeg": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "maerke": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "naal": {
+   "v": "rgb(15, 77, 67)",
+   "op": "0.72"
+  },
+  "markoer": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "sted": null,
+  "kendt": "",
+  "handling": ""
+ },
+ "foer-bolig-360": {
+  "opret": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "soeg": null,
+  "maerke": {
+   "v": "rgb(15, 77, 67)",
+   "op": "1"
+  },
+  "naal": null,
+  "markoer": null,
+  "sted": {
+   "v": "rgb(95, 102, 114)",
+   "op": "0.6"
+  },
+  "kendt": "",
+  "handling": ""
+ },
+ "hover": "rgb(5, 42, 37)"
+}
