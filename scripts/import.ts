@@ -129,20 +129,20 @@ const trin: Trin[] = [
   {
     navn: 'mail',
     koer: async () => {
-      const r = await sendAlarmer()
-      for (const x of r) {
-        ud(`[mail] ${x.soegning} → ${x.modtager}: ${x.antal} boliger`
-          + (x.udeladt ? ` (+${x.udeladt} taget ned, ikke mailet)` : '')
-          + ' — ' + (x.sendt ? 'SENDT' : `ikke sendt (${x.grund})`))
+      const resultater = await sendAlarmer()
+      for (const r of resultater) {
+        ud(`[mail] ${r.soegning} → ${r.modtager}: ${r.antal} boliger`
+          + (r.udeladt ? ` (+${r.udeladt} taget ned, ikke mailet)` : '')
+          + ' — ' + (r.sendt ? 'SENDT' : `ikke sendt (${r.grund})`))
       }
       // RAPPORTÉR, naar en afsendelse gik galt. Graensen pr. modtager
       // oversaetter et kast til et resultat, saa trinet kaster ellers ikke,
       // og en koersel hvor INGEN fik mail ville give exitkode 0. `fejl` er
       // sat af lib/mail.ts og kun ved fejl — en afvist modtager, en
       // manglende noegle og 60-minutters-uret er politik, ikke fejl.
-      const daarlige = r.filter((x) => x.fejl)
+      const daarlige = resultater.filter((x) => x.fejl)
       if (daarlige.length) {
-        throw new Error(`${daarlige.length} af ${r.length} mails gik galt: `
+        throw new Error(`${daarlige.length} af ${resultater.length} mails gik galt: `
           + daarlige.map((x) => `${x.modtager} (${x.grund})`).join(' · '))
       }
     },
