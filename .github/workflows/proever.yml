@@ -1,0 +1,130 @@
+# ═══════════════════════════════════════════════════════════════
+#  Prøverne på hver PR og hvert push til main.
+#
+#    npm ci · tsc (app) · tsc (scripts) · npm test · next build
+#
+#  Før denne fil var den eneste check på en PR «Vercel Preview Comments»,
+#  og en PR blev flettet på `mergeable_state: clean`, som intet siger om
+#  npm test. Det kostede to gange på én dag, begge fanget af et menneske:
+#  en rebaset gren var rød, efter at main havde flyttet sig, og et
+#  baggrundsjob meldte exit 0, hvor nullet var `echo`s.
+#
+#  ═══ DER ER INGEN DATABASE HER — OG DET ER SPÆRRINGEN ═══
+#
+#  Workflowen har ALDRIG DATABASE_URL, DATABASE_URL_DIRECT eller nogen
+#  produktionsnøgle i sit miljø, og den må aldrig få dem. Fraværet er ikke
+#  en udeladelse, det er værnet. npm test kører mod PGlite i processen og
+#  loader ikke .env, så uden DATABASE_URL kan en prøve ikke nå
+#  produktionen, uanset hvad koden gør — samme regel som testbasen i
+#  CLAUDE.md. Før den regel skrev npm test i produktionsbasen, og
+#  udvikling og produktion er den samme base: en CI med DATABASE_URL ville
+#  køre hver PR, også en halvfærdig, mod de rigtige data.
+#
+#  Trinnet «Ingen produktionsvariabler» håndhæver det. Det læser
+#  variabelnavnene i .env.example — ikke en liste skrevet af her — og
+#  fejler, før noget andet kører, hvis én af dem er sat. En ny hemmelighed
+#  i .env.example er dermed dækket af sig selv. Kræver en prøve en dag en
+#  af dem «for at virke», er det prøven, der skal laves om, ikke
+#  spærringen.
+#
+#  ═══ MÅLT, FØR FILEN BLEV SKREVET ═══
+#
+#  2. oktober 2026 på main b39329a, i et arbejdstræ uden .env:
+#  · Med et TOMT miljø — kun PATH og HOME — er begge tsc og npm test
+#    grønne (1.089 ✓, 0 ✗). Den eneste variabel, prøverne kræver, er
+#    BILLED_HEMMELIGHED, og den sætter package.json selv på de prøver,
+#    der bruger den.
+#  · next build er grøn uden en eneste af appens variabler. Men den
+#    henter skrifttypen Inter fra Google Fonts under bygget (`next/font`
+#    i app/layout.tsx), så den kræver net. I det helt tomme miljø fejlede
+#    den på containerens TLS-proxy, ikke på en manglende variabel; med
+#    kun proxy-variablerne tilbage var den grøn. En Actions-runner har
+#    direkte net.
+#  Om PGlite (WASM i processen) kører i en Actions-runner, er målt af den
+#  første kørsel på den PR, der indførte filen.
+# ═══════════════════════════════════════════════════════════════
+
+name: Prøver
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: proever-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  proever:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Ingen produktionsvariabler
+        run: |
+          navne=$(sed -n 's/^\([A-Z][A-Z0-9_]*\)=.*/\1/p' .env.example)
+          antal=$(printf '%s\n' $navne | grep -c . || true)
+          # En tom liste ville gøre trinnet grønt uden at have set efter.
+          if [ "$antal" -lt 1 ]; then
+            echo "::error::fandt ingen variabelnavne i .env.example — spærringen ville intet prøve"
+            exit 1
+          fi
+          fejl=0
+          for v in $navne; do
+            if [ -n "${!v+x}" ]; then
+              echo "::error::$v er sat i CI-miljøet. Prøverne må aldrig kunne nå produktionen — se workflowens hoved."
+              fejl=1
+            fi
+          done
+          if [ -e .env ]; then
+            echo "::error::.env findes i checkout'et"
+            fejl=1
+          fi
+          if [ "$fejl" -eq 0 ]; then
+            echo "$antal variabelnavne fra .env.example prøvet: ingen er sat"
+          fi
+          exit $fejl
+
+      - run: npm ci
+
+      - name: tsc (app)
+        run: npx tsc --noEmit
+
+      - name: tsc (scripts)
+        run: npx tsc --noEmit -p tsconfig.scripts.json
+
+      - name: npm test
+        run: npm test
+
+      - name: next build
+        run: npm run build
+
+      # Skrifttypen hentes fra Google ved BYGNING og serveres derefter af
+      # siden selv — brugerens browser kontakter aldrig Google for den. Det
+      # er en privatlivskendsgerning (se CLAUDE.md), og den holder kun, så
+      # længe det byggede ikke nævner Googles skriftværter. Kommer et
+      # <link> til Google Fonts ind, er politikken usand, og så er dette rødt.
+      - name: Skrifttypen er selvhostet
+        run: |
+          fund=$(grep -rlE 'fonts\.(googleapis|gstatic)\.com' .next/static .next/server || true)
+          if [ -n "$fund" ]; then
+            echo "::error::Det byggede nævner Googles skriftværter — brugerens browser ville kontakte Google:"
+            echo "$fund"
+            exit 1
+          fi
+          antal=$(ls .next/static/media | grep -c '\.woff2$' || true)
+          if [ "$antal" -lt 1 ]; then
+            echo "::error::ingen .woff2 i .next/static/media — skrifttypen er ikke selvhostet, eller bygget ændrede form"
+            exit 1
+          fi
+          echo "ingen Google-skriftvært i det byggede; $antal skriftfiler serveres af siden selv"
