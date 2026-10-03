@@ -40,7 +40,8 @@
     "cloud:skaerm": "scripts/cloud/skaerm.sh",
     "staging:tjek": "tsx --tsconfig tsconfig.scripts.json scripts/staging/tjek.ts",
     "staging:proev": "tsx --tsconfig tsconfig.scripts.json scripts/proever.ts staging",
-    "proev:udvidelse": "node scripts/proev-facilitetsudvidelse.mjs"
+    "proev:udvidelse": "node scripts/proev-facilitetsudvidelse.mjs",
+    "maal:alarmkoe": "tsx --tsconfig tsconfig.scripts.json scripts/testbase.ts scripts/generer-alarmkoe-sql.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",
