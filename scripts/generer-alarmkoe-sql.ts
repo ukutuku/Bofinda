@@ -197,8 +197,8 @@ export function byg(): string {
 --      psql "$DATABASE_URL_DIRECT" -f ${UDFIL}
 --
 --  SKRIVEBESKYTTET. Kun \`select\`. Koer den fra en checkout af main med
---  .env, eller fra ejerens maskine; sessionen, der skrev filen, har
---  ingen databaseadgang.
+--  .env, eller fra ejerens maskine.
+--  TALLENE ER ALDRIG SET i produktionen. Proeven bruger saaede data.
 --
 --  \u2500\u2500 GENERERET. RET IKKE I HAANDEN \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 --  scripts/generer-alarmkoe-sql.ts skriver filen, og
