@@ -1150,6 +1150,52 @@ filteret i det, sætningen handler OM. I **linjeankeret** ligger det i
 kopier står sjældent alene på deres linje. Og i **værdisøgningen** ligger
 det i, hvilken af flere skrivemåder man søgte efter.
 
+### Sådan må en række være skrevet — og hvorfor tællingen kun er en stedfortræder
+
+**En pibe afslutter cellen, også inde i en kodespan.** Vil en række citere et
+`|`, skal det escapes som `\|`. En række med to kolonner har derfor præcis
+**tre** uescapede piber, og en for meget deler cellen op uden at se forkert ud i
+kilden.
+
+Målt over hele grenen, én commit ad gangen: de første otte commits havde 18–21
+rækker og **nul** forkerte. `b26f90f` lagde række 22 ind med fire piber —
+cellen citerer sit eget præfiks — og fejlen stod gennem fem commits, til
+`5498748`. **Konventionen var altså 21 rækker dyb, da den 22. brød den.**
+
+```bash
+# hver række i fældetabellen: tre uescapede piber, ikke flere
+python3 - <<'SLUT'
+import io
+fejl = 0
+for l in io.open('CLAUDE.md', encoding='utf-8'):
+    if not l.startswith('| **'): continue
+    l = l.rstrip('\n')
+    raa = sum(1 for i, c in enumerate(l) if c == '|' and (i == 0 or l[i-1] != '\\'))
+    if raa != 3: print(raa, l[:60]); fejl += 1
+raise SystemExit(1 if fejl else 0)
+SLUT
+```
+
+Den er **ikke** bundet ind i `npm test`; den køres i hånden. Derfor exit 1 ved
+fund, så den kan bindes ind uden at skulle skrives om — og derfor er «gaten
+fandt fejlen første gang den kørte» sandt om et menneske, der kørte den, ikke
+om noget, der kører af sig selv.
+
+**Og her er, hvad tællingen IKKE siger.** Fejlen var af den slags, kun en
+renderer viser — og der er ingen renderer: GitHubs `/markdown` svarer **403**
+for en session, der er bundet til repoets egne stier, og en renderer installeres
+ikke i et delt `node_modules`. Fejlen kunne altså ikke **ses**, kun **udledes**.
+Tællingen virker som stedfortræder, fordi tabellens ældre rækker har etableret
+konventionen: **«rigtigt» er her defineret af fortilfælde, ikke af gengivelse.**
+Det er svagere end et billede og stærkere end ingenting, og det skal stå højt,
+for ellers læses en grøn tælling som «tabellen gengiver korrekt». **Den siger
+kun «den ligner de andre».**
+
+Den anden kontrol på tabellens egen tekst — scanningen for tegn uden for det
+forventede skriftsystem, med sin baseline — står i cellen `include-filteret`,
+fordi den er den rækkes grænse. De to svarer på hver sit spørgsmål,
+skriftsystem og celletælling, og er derfor ikke to udtryk for det samme.
+
 ### Form 3: et svar om værktøjet er ikke et svar om arbejdet
 
 De tre rækker `konflikt-fødte-ændringer`, `værktøjets-kvittering` og
