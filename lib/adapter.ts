@@ -113,7 +113,8 @@ export interface DiscoveredListing {
   url: string
 }
 
-export interface SourceAdapter {
+/** Det, hver kilde skal have. Detaljevagten laegges oven i som et PAR. */
+export interface Kildegrundlag {
   /** Skal matche sources.slug i databasen. */
   id: string
   sourceType: 'feed' | 'spider'
@@ -125,31 +126,66 @@ export interface SourceAdapter {
 
   /** Hent én bolig. Kastes der, springes den bolig over — resten koerer videre. */
   extract(url: string): Promise<RawListing>
-
-  /**
-   * Detaljevagten — valgfri. Kan listen alene levere en brugbar (men
-   * ufuldstaendig) bolig, kan importlaget noejes med at hente detaljesiden,
-   * naar boligen er NY, naar `detaljesignatur` har AENDRET sig, eller naar
-   * detaljerne er blevet for gamle. Alt andet skrives fra listen eller
-   * bekraeftes uden netvaerkskald.
-   *
-   * `detaljesignatur` er et fingeraftryk af PRAECIS de listefelter, der
-   * skal udloese en ny detaljehentning (status, dato, leje …). Den gemmes
-   * i basen og sammenlignes ved naeste koersel — vaelg felterne bevidst:
-   * et felt der mangler her, kan aendre sig uden at nogen henter igen.
-   *
-   * Kaldes med URL'er fra samme discover()-koersel — laes fra cachen.
-   */
-  listeGrundlag?(url: string): { grundlag: RawListing; detaljesignatur: string } | null
-
-  /**
-   * Loft over detaljehentninger pr. koersel for denne kilde — nye,
-   * aendrede og forfaldne tilsammen, prioriteret i den raekkefoelge.
-   * Kun laest, naar `listeGrundlag` findes: uden den ville et loft
-   * efterlade nye boliger usynlige i stedet for som grundlags-raekker.
-   */
-  detaljeBudgetPrKoersel?: number
 }
+
+/**
+ * Detaljevagten er et PAR, og oversaetteren haandhaever det.
+ *
+ * `detaljeBudgetPrKoersel` er TAVST VIRKNINGSLOEST uden `listeGrundlag`:
+ * loftet i `lib/ingest.ts` er `opslag ? (budget ?? Infinity) : Infinity`,
+ * og trimningen er gated paa `opslag`. Saetter man kun budgettet, bliver
+ * det laest af ingenting, og kilden henter videre uden loft — mens den,
+ * der satte det, tror der er et. Samme slags fejl som `sources.enabled`:
+ * en knap, der ikke virker, er vaerre end ingen knap.
+ *
+ * Parret stod som en KOMMENTAR paa budgettet («Kun laest, naar
+ * listeGrundlag findes») og var ikke haandhaevet af noget. Alle tre
+ * adaptere med et budget havde ogsaa grundlaget — men det var held, ikke
+ * en regel. Nu er det en oversaetterfejl.
+ *
+ * Hvorfor loftet overhovedet KRAEVER grundlaget: uden `listeGrundlag` har
+ * importlaget ingen bolig at skrive, naar budgettet er brugt op. Med
+ * grundlaget skrives overloebet fra listen med `detail_fetched_at = NULL`,
+ * som en senere koersel samler op. Et loft uden grundlag ville altsaa
+ * efterlade nye boliger USYNLIGE i stedet for ufuldstaendige — og det er
+ * grunden til, at `Infinity` blev valgt som faldback dengang.
+ *
+ * Skal en kilde have et loft, er `listeGrundlag` altsaa ikke en formalitet
+ * at tilfoeje ved siden af. Den er det, der goer loftet forsvarligt.
+ */
+export type Detaljevagt =
+  | {
+      /**
+       * Kan listen alene levere en brugbar (men ufuldstaendig) bolig, kan
+       * importlaget noejes med at hente detaljesiden, naar boligen er NY,
+       * naar `detaljesignatur` har AENDRET sig, eller naar detaljerne er
+       * blevet for gamle. Alt andet skrives fra listen eller bekraeftes
+       * uden netvaerkskald.
+       *
+       * `detaljesignatur` er et fingeraftryk af PRAECIS de listefelter,
+       * der skal udloese en ny detaljehentning (status, dato, leje …). Den
+       * gemmes i basen og sammenlignes ved naeste koersel — vaelg felterne
+       * bevidst: et felt der mangler her, kan aendre sig uden at nogen
+       * henter igen.
+       *
+       * Kaldes med URL'er fra samme discover()-koersel — laes fra cachen.
+       */
+      listeGrundlag(url: string): { grundlag: RawListing; detaljesignatur: string } | null
+      /**
+       * Loft over detaljehentninger pr. koersel for denne kilde — nye,
+       * aendrede og forfaldne tilsammen, prioriteret i den raekkefoelge.
+       * Udelades den, er der intet loft, og det er et VALG: se
+       * `docs/kildetilladelser.md` om kilder uden nedskrevet grundlag.
+       */
+      detaljeBudgetPrKoersel?: number
+    }
+  | {
+      /** Ingen detaljevagt. Saa maa der heller ikke staa et loft. */
+      listeGrundlag?: undefined
+      detaljeBudgetPrKoersel?: undefined
+    }
+
+export type SourceAdapter = Kildegrundlag & Detaljevagt
 
 /** Kilde-URL ind, stabil noegle ud. Samme URL giver altid samme noegle. */
 export async function keyFromUrl(url: string): Promise<string> {
