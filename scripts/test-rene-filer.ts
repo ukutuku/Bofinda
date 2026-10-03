@@ -75,6 +75,7 @@ interface Loefte {
  * prøves derfor dér, hvor siden bor.
  */
 const LOEFTER: readonly Loefte[] = [
+  { fil: 'lib/koersel.ts', loefte: 'Ren logik: ingen database, ingen next-import.' },
   { fil: 'app/udlejer/boliger/forklaring.ts', loefte: 'Ren fil — ingen database, ingen React' },
   { fil: 'lib/faciliteter.ts', loefte: 'Ligger i sin EGEN fil uden databaseimport' },
   { fil: 'lib/billedloft.ts', loefte: 'Filen maa IKKE importere databasen' },
