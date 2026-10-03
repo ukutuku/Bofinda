@@ -33,7 +33,10 @@ import { matchAlarmer } from '../lib/alarm'
 import { byForPostnr } from '../lib/omraade'
 import { laesBolig as dacasLaes } from '../adapters/dacas'
 import { readFileSync } from 'node:fs'
-import { laesSag as homeLaes } from '../adapters/home'
+import {
+  laesSag as homeLaes, homeSignatur, homeAdapter,
+  STANDARD_DETALJEBUDGET_HOME, _nulstilHomeBudgetAdvarsel,
+} from '../adapters/home'
 import { noeglerISag, sagstypeFor } from './home-felter'
 import { laes as balderLaes } from '../adapters/balder'
 import { findSearchResponse as cejFind, laes as cejLaes } from '../adapters/cej'
@@ -759,6 +762,83 @@ async function main() {
     aSag.utilitiesOther === 60000, String(aSag.utilitiesOther))
   tjek('almindelig sag: indflytningsprisen er IKKE regnet af delene',
     aSag.moveInCost === undefined, String(aSag.moveInCost))
+
+  // ── home.dk: detaljevagten ───────────────────────────────────
+  //  home.dk koerte med budget = Infinity, fordi den manglede
+  //  listeGrundlag — og UDEN grundlaget er et budget tavst
+  //  virkningsloest (se scripts/test-adapterkontrakt.ts). Derfor hoerer
+  //  de tre ting sammen: grundlag, loft og takt.
+  console.log('\n══ home.dk: detaljevagten — grundlag, loft og takt ══')
+  {
+    const hm = homeAdapter()
+    tjek('home vagt: adapteren erklærer listeGrundlag, budget, vært og type',
+      typeof hm.listeGrundlag === 'function'
+      && hm.listeGrundlag!('https://home.dk/findes-ikke') === null
+      && hm.host === 'home.dk' && hm.sourceType === 'spider')
+
+    // Signaturen: gitteret har hverken status eller dato, så den kan kun
+    // bære leje, areal og type. Den grænse PRØVES her, så den ikke bliver
+    // en overraskelse — og så en senere udvidelse af gitteret bliver synlig.
+    const sig = homeSignatur(HJEM_G)
+    tjek('home vagt: signatur ændres ved ny leje',
+      homeSignatur({ ...HJEM_G, leje: 1300000 }) !== sig)
+    tjek('home vagt: … og ved nyt areal eller ny boligtype',
+      homeSignatur({ ...HJEM_G, areal: 71 }) !== sig
+      && homeSignatur({ ...HJEM_G, type: 'raekkehus' }) !== sig)
+    tjek('home vagt: signatur er stabil for uændret gitterrække',
+      homeSignatur({ ...HJEM_G }) === sig)
+    tjek('home vagt: adresse og billeder er IKKE i signaturen',
+      homeSignatur({ ...HJEM_G, adresse: 'Andenvej 2, 2300 København S' }) === sig
+      && homeSignatur({ ...HJEM_G, billeder: [] }) === sig)
+
+    // Takten. Tallet er ikke målt på home.dk — det er Heimstadens,
+    // overtaget fordi kildens tålmodighed er ukendt. Prøven låser, at
+    // den ER sat, og at den ikke smitter af på andre værter.
+    tjek('home takt: home.dk har mindst 5 sekunder mellem kald',
+      taktFor('home.dk') >= 5000, String(taktFor('home.dk')))
+    tjek('home takt: andre værter er upåvirkede (standard 1 s)',
+      taktFor('proeve-home-anden.invalid') === 1000)
+
+    // Budgettet: eget env-navn, egen standard, rører ikke de andre kilder.
+    const gemtHome = process.env.HOME_DETALJEBUDGET
+    const foerHome = {
+      hs: heimstadenAdapter().detaljeBudgetPrKoersel,
+      laros: larosAdapter().detaljeBudgetPrKoersel,
+    }
+    try {
+      delete process.env.HOME_DETALJEBUDGET
+      _nulstilHomeBudgetAdvarsel()
+      tjek(`home budget: standard ${STANDARD_DETALJEBUDGET_HOME} uden env`,
+        hm.detaljeBudgetPrKoersel === STANDARD_DETALJEBUDGET_HOME
+        && STANDARD_DETALJEBUDGET_HOME === 25, String(hm.detaljeBudgetPrKoersel))
+      process.env.HOME_DETALJEBUDGET = '4'
+      tjek('home budget: env=4 giver 4', hm.detaljeBudgetPrKoersel === 4)
+      process.env.HOME_DETALJEBUDGET = '0'
+      tjek('home budget: env=0 giver 0 — et loft på nul er et gyldigt valg',
+        hm.detaljeBudgetPrKoersel === 0, String(hm.detaljeBudgetPrKoersel))
+      process.env.HOME_DETALJEBUDGET = 'syv'
+      _nulstilHomeBudgetAdvarsel()
+      const advarsler: string[] = []
+      const rigtigWarn = console.warn
+      console.warn = (...a: unknown[]) => { advarsler.push(a.map(String).join(' ')) }
+      let daarlig: number | undefined
+      try { daarlig = hm.detaljeBudgetPrKoersel } finally { console.warn = rigtigWarn }
+      tjek('home budget: ugyldig env falder tilbage til standarden',
+        daarlig === STANDARD_DETALJEBUDGET_HOME, String(daarlig))
+      tjek('home budget: og den siger tydeligt, at værdien blev IGNORERET',
+        advarsler.some((a) => a.includes('IGNORERET') && a.includes('syv')),
+        JSON.stringify(advarsler))
+      // Uændret før og efter — ikke «=== et bestemt tal».
+      tjek('home budget: env rører IKKE andre kilder — uændret før og efter',
+        heimstadenAdapter().detaljeBudgetPrKoersel === foerHome.hs
+        && larosAdapter().detaljeBudgetPrKoersel === foerHome.laros,
+        `hs ${foerHome.hs} · laros ${foerHome.laros}`)
+    } finally {
+      if (gemtHome === undefined) delete process.env.HOME_DETALJEBUDGET
+      else process.env.HOME_DETALJEBUDGET = gemtHome
+      _nulstilHomeBudgetAdvarsel()
+    }
+  }
 
   // ── Syntetiske randtilfaelde — IKKE kildeobservationer ───────
   // Det her er opdigtede payloads i home.dk's form, bygget til at proeve
@@ -2915,6 +2995,20 @@ async function main() {
     // Adapteren læser env ved HVER kørsel — og siger højt, når den ignorerer.
     const gemtBudgetEnv = process.env.HEIMSTADEN_DETALJEBUDGET
     const hsAd = heimstadenAdapter()
+    // Isolationen måles som UÆNDRET FØR OG EFTER, ikke som «=== undefined».
+    //
+    // Før stod her, at cej og birch havde `undefined`. Det er sandt i dag og
+    // er ikke det, prøven handler om: spørgsmålet er, om HEIMSTADENS variabel
+    // kan ramme en anden kilde. Får cej eller birch et loft en dag — og det
+    // er netop det, docs/kildetilladelser.md lægger op til for de otte
+    // uloftede kilder — så bliver prøven rød af en grund, der intet har med
+    // ændringen at gøre, og den næste retter prøven i stedet for at læse den.
+    // Snapshottet tages FØR variablen røres, så sammenligningen er prøvens
+    // eget forlæg og ikke en påstand om, hvad de to kilder tilfældigvis har.
+    const foerEnv = {
+      cej: cejAdapter().detaljeBudgetPrKoersel,
+      birch: birchAdapter().detaljeBudgetPrKoersel,
+    }
     try {
       delete process.env.HEIMSTADEN_DETALJEBUDGET
       tjek('budget: adapteren uden env giver 25', hsAd.detaljeBudgetPrKoersel === 25)
@@ -2934,9 +3028,13 @@ async function main() {
         JSON.stringify(advarsler))
 
       // Andre kilder må ikke kunne rammes af Heimstadens variabel.
-      tjek('budget: env rører IKKE andre kilder',
-        cejAdapter().detaljeBudgetPrKoersel === undefined
-        && birchAdapter().detaljeBudgetPrKoersel === undefined)
+      const efterEnv = {
+        cej: cejAdapter().detaljeBudgetPrKoersel,
+        birch: birchAdapter().detaljeBudgetPrKoersel,
+      }
+      tjek('budget: env rører IKKE andre kilder — uændret før og efter',
+        efterEnv.cej === foerEnv.cej && efterEnv.birch === foerEnv.birch,
+        `cej ${foerEnv.cej}→${efterEnv.cej} · birch ${foerEnv.birch}→${efterEnv.birch}`)
     } finally {
       if (gemtBudgetEnv === undefined) delete process.env.HEIMSTADEN_DETALJEBUDGET
       else process.env.HEIMSTADEN_DETALJEBUDGET = gemtBudgetEnv
