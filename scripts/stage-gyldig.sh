@@ -34,9 +34,8 @@ if [ "${1:-}" = '--tjek' ]; then
   ekstra="${2:?--tjek kraever en kommando}"; shift 2
 fi
 
-# ── Modproeven. Den hoerer HER og ikke i en ny proevefil: en ny
-#    proevefil skal tilfoejes package.json's proevekaede, og netop den
-#    linje er repoets mest omstridte. Porten kan bevise sig selv.
+# ── Modproeven. Porten beviser sig selv i en midlertidig git-base.
+#    scripts/test-stage-gyldig.mjs kalder den fra den afledte proevekaede.
 if [ "${1:-}" = '--modproev' ]; then
   arb="$(mktemp -d)"
   trap 'rm -rf "$arb"' EXIT

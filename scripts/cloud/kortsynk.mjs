@@ -28,7 +28,7 @@
 //  Exit: 0 = alt grønt · 1 = noget fejlede
 // ═══════════════════════════════════════════════════════════════
 import pw from 'playwright-core'
-import postgres from 'postgres'
+import { aabnIsoleretEllerStop } from './isoleret.mjs'
 import { mkdirSync } from 'node:fs'
 
 const BASE = process.env.BOFINDA_APP_BASE ?? 'http://127.0.0.1:3100'
@@ -45,8 +45,11 @@ const tjek = (ok, navn, note = '') => {
 // Findes demodataene i den her base?
 let harDemo = false
 let demotal = { n: 0, med: 0 }
-if (process.env.DATABASE_URL) {
-  const sql = postgres(process.env.DATABASE_URL, { ssl: false, max: 1, onnotice: () => {} })
+// Overspringningen er LEGITIM her: afsnittet er en feature-proeve («har
+// den her base demodataene?»), ikke en skrivning. Men er der SAT en URL,
+// skal den gennem vagten — ellers er «if (url)» hele kontrollen.
+if (process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL) {
+  const sql = await aabnIsoleretEllerStop()
   const [r] = await sql`
     select count(*)::int as n, count(l.lat)::int as med
     from listings l join sources s on s.id = l.source_id

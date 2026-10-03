@@ -1,0 +1,43 @@
+-- Belaegget for billedforbeholdet: det tekstspaend, kildens egen saetning
+-- blev fundet i, plus hvilken regel der ramte. Se lib/billedforbehold.ts.
+--
+-- Indtil nu stod der kun `images_may_differ = true` og intet andet.
+-- Omformulerer kilden sin saetning, bliver feltet false UDEN SPOR, og en
+-- bolig begynder at vise billeder, kilden tager forbehold for.
+alter table "listings"
+  add column if not exists "images_may_differ_evidence" jsonb;
+
+-- ── HVORFOR DER IKKE ER EN CHECK-CONSTRAINT ──────────────────
+-- «Et faktum uden spaend findes ikke» ser ud som en invariant for basen:
+--
+--   check (images_may_differ is not true or images_may_differ_evidence is not null)
+--
+-- Den maa IKKE laegges ind, heller ikke som NOT VALID.
+--
+-- NOT VALID springer de EKSISTERENDE raekker over, men haandhaever paa
+-- hver INSERT og UPDATE. De raekker, der i dag staar med `true`, har
+-- intet belaeg og kan ikke faa et, foer boligen hentes igen — og
+-- importoeren opdaterer dem i mellemtiden: en bolig, der kun BEKRAEFTES
+-- i discovery, faar `last_seen_at` flyttet uden at detaljesiden hentes
+-- (se GENOPFRISK_PR_KOERSEL i lib/ingest.ts). Den update ville ramme
+-- constrainten og fejle, og afmeldingen ville derefter tage boligen,
+-- fordi `last_seen_at` ikke blev flyttet. En invariant, der staekker
+-- timekoerslen, er dyrere end den fejl, den beskytter mod.
+--
+-- Invarianten haandhaeves derfor dér, hvor skrivningen sker:
+-- `imagesMayDiffer` UDLEDES af belaegget i lib/normalize.ts, saa de to
+-- ikke kan saettes hver for sig. En boolean uden faktum kan altsaa ikke
+-- SKRIVES; de gamle raekker er de eneste, der kan baere den.
+--
+-- Hvor mange det er, kan maales naar som helst — tallet skal falde mod
+-- nul, efterhaanden som bestanden genopfriskes over et doegn:
+--
+--   select s.name, count(*)::int as uden_belaeg
+--   from listings l join sources s on s.id = l.source_id
+--   where l.status = 'active' and l.images_may_differ
+--     and l.images_may_differ_evidence is null
+--   group by s.name order by uden_belaeg desc;
+--
+-- Om et BELAEG, der findes, stadig holder, kan kun koden svare paa —
+-- `belaegHolder()` koerer reglen igen paa spaendet. Der er ingen maaling
+-- for det endnu, og det staar her frem for at blive kaldt bygget.

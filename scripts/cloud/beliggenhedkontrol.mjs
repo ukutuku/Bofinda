@@ -30,15 +30,12 @@
 //  Exit: 0 = alt groent · 1 = noget fejlede · 2 = intet at maale paa
 // ═══════════════════════════════════════════════════════════════
 import pw from 'playwright-core'
-import postgres from 'postgres'
+import { aabnIsoleretEllerStop } from './isoleret.mjs'
 import { mkdirSync } from 'node:fs'
 
 const BASE = process.env.BOFINDA_APP_BASE ?? 'http://127.0.0.1:3100'
 const UD = process.argv[2] ?? null
 if (UD) mkdirSync(UD, { recursive: true })
-if (!process.env.DATABASE_URL) {
-  console.error('FEJL: DATABASE_URL mangler — proeven kan ikke vaelge en bolig.'); process.exit(2)
-}
 
 let fejl = 0
 const tjek = (ok, navn, note = '') => {
@@ -49,7 +46,9 @@ const tjek = (ok, navn, note = '') => {
 const vaert = (u) => { try { return new URL(u).host } catch { return u } }
 
 // En bolig MED koordinat, og en UDEN — begge tilstande skal maales.
-const sql = postgres(process.env.DATABASE_URL, { ssl: false, max: 1, onnotice: () => {} })
+// Vagten ligger i isoleret.mjs — ét sted, tre signaler. Foer stod her
+// kun «er DATABASE_URL sat», og den spurgte ikke hvad den pegede paa.
+const sql = await aabnIsoleretEllerStop()
 const [med] = await sql`
   select id, address_raw, postal_code from listings
   where status = 'active' and lat is not null and lng is not null limit 1`

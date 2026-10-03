@@ -19,6 +19,17 @@ export interface MailResultat {
   sendt: boolean
   grund?: string
   id?: string
+  /**
+   * Sandt kun naar det GIK GALT — ikke naar en spaerring med vilje sagde nej.
+   *
+   * En afvist modtager, en manglende noegle og en for nylig sendt mail er
+   * alle `sendt: false`, men de er POLITIK og ikke fejl. Kalderen skal kunne
+   * skelne uden at laese `grund` som tekst: to udtryk for det samme
+   * spoergsmaal — ét i en streng og ét i en sammenligning — driver fra
+   * hinanden. Se scripts/import.ts, som lader mail-trinet fejle hoerbart,
+   * naar og kun naar dette flag er sat.
+   */
+  fejl?: true
 }
 
 const liste = (v: string | undefined) =>
@@ -72,8 +83,19 @@ export async function sendMail(opts: {
   })
 
   if (!res.ok) {
-    return { sendt: false, grund: `Resend svarede ${res.status}: ${(await res.text()).slice(0, 200)}` }
+    let krop = ''
+    try { krop = (await res.text()).slice(0, 200) } catch { krop = '(kroppen kunne ikke laeses)' }
+    return { sendt: false, fejl: true, grund: `Resend svarede ${res.status}: ${krop}` }
   }
-  const j = await res.json() as { id?: string }
-  return { sendt: true, id: j.id }
+  // 200 betyder, at Resend HAR taget mailen. Kan kroppen ikke laeses, mangler
+  // vi kun deres id — ikke leveringen. Foer kastede `res.json()` her ud i
+  // kalderen, og et tomt eller ikke-JSON svar blev derfor rapporteret som en
+  // afsendelsesfejl: en loegn i loggen, og en GARANTERET dublet naeste
+  // koersel, fordi `sent_at` saa ikke blev sat paa en mail, der var sendt.
+  try {
+    const j = await res.json() as { id?: string }
+    return { sendt: true, id: j.id }
+  } catch {
+    return { sendt: true }
+  }
 }
