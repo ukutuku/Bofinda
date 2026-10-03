@@ -69,6 +69,10 @@ export const FORMER = [
     tekst: 'Ikke hvor meget én kopi dækker, men at der er flere.',
   },
   {
+    id: '6', titel: 'Form 6 · forbrugeren og leverandøren mødes aldrig.',
+    tekst: '`leveret-men-ulæst` er `prøvens-eget-forlæg` vendt om: dér byggede forbrugeren sit eget forlæg, så den aldrig så det rigtige. Her SKREV leverandøren det rigtige — og forbrugeren læste et andet navn. Forskellen fra alle de øvrige er, at intet opstrøms fejlede: værnet kørte, det bestod, og værdien blev eksporteret. Fejlen lå i navnet alene.',
+  },
+  {
     id: 'ikke-vaern', titel: 'Og de, der ikke er værn.',
     tekst: 'De handler ikke om, hvor meget et værn dækker.',
   },
