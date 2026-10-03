@@ -75,6 +75,7 @@ interface Loefte {
  * prøves derfor dér, hvor siden bor.
  */
 const LOEFTER: readonly Loefte[] = [
+  { fil: 'docs/designforslag/gengivelse/proev-billedkontrol.mjs', loefte: 'Billedkontrollen i npm test — uden browser, app eller database.' },
   { fil: 'lib/koersel.ts', loefte: 'Ren logik: ingen database, ingen next-import.' },
   { fil: 'app/udlejer/boliger/forklaring.ts', loefte: 'Ren fil — ingen database, ingen React' },
   { fil: 'lib/faciliteter.ts', loefte: 'Ligger i sin EGEN fil uden databaseimport' },

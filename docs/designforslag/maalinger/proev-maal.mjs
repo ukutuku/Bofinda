@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  Prøven af reglen «kommandoen navngiver sit mål og afviser som
 //  standard» — kørt mod de RIGTIGE kommandoer (laast-base.mjs › kraevMaal,
-//  de to målescripts og importer-testbase.sh), hver i sin egen proces.
+//  maalescripts, importer-testbase.sh og app-skud.mjs), hver i sin egen proces.
 //  Ikke mod en kopi af vagten. Produktionens og stagings ref læses af
 //  scripts/staging/maal.ts, samme sted som vagten læser dem.
 //
@@ -19,7 +19,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { spawnSync, execFileSync } from 'node:child_process'
 import { join } from 'node:path'
-import { mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 const HER = new URL('.', import.meta.url).pathname
 const ROD = join(HER, '../../..')
@@ -40,6 +40,14 @@ const vagt = (args, url, ekstra = {}) => spawnSync(process.execPath, ['-e',
 const cli = (script, args, url) => spawnSync(process.execPath, [join(HER, script), ...args],
   { env: { ...RENT, ROD, ...(url ? { DATABASE_URL_DIRECT: url } : {}) }, encoding: 'utf8' })
 const imp = (env) => spawnSync('bash', [join(HER, '../gengivelse/importer-testbase.sh'), 'propstep'], { env: { ...RENT, ...env }, encoding: 'utf8' })
+
+const appskud = (url) => {
+  const ud = join(tmpdir(), `proev-maal-${process.pid}-${Math.round(performance.now())}`)
+  const r = spawnSync(process.execPath, [join(HER, '../gengivelse/app-skud.mjs'), ud, 'efter'], { env: { ...RENT, DATABASE_URL_DIRECT: url }, encoding: 'utf8' })
+  r.skrev = existsSync(ud)
+  if (r.skrev) rmSync(ud, { recursive: true, force: true })
+  return r
+}
 
 // Attrappen: en `npx`, der skriver det miljø, importen ville have kørt med.
 const attrapMappe = mkdtempSync(join(tmpdir(), 'npx-attrap-'))
@@ -89,6 +97,9 @@ const T = [
   ['--maal prod mod :6543', vagt(['--maal', 'prod'], POOLER.replace(':5432', ':6543')), 3],
   // ── de rigtige kommandolinjer ───────────────────────────────────
   ['maal-prisspaend.mjs uden flag', cli('maal-prisspaend.mjs', [], TEST), 3],
+  ['maal-ny.mjs uden flag', cli('maal-ny.mjs', [], TEST), 3],
+  ['maal-forsidetal.mjs uden flag', cli('maal-forsidetal.mjs', [], TEST), 3],
+  ['maal-ny.mjs --maal prod mod testbasen', cli('maal-ny.mjs', ['--maal', 'prod'], TEST), 3],
   ['maal-chips.mjs uden flag', cli('maal-chips.mjs', [], TEST), 3],
   ['maal-chips.mjs --prod (den gamle form)', cli('maal-chips.mjs', ['--prod'], TEST), 3],
   ['maal-prisspaend.mjs --maal test mod en fjern base', cli('maal-prisspaend.mjs', ['--maal', 'test'], POOLER), 3],
@@ -103,6 +114,11 @@ const T = [
     const ok = r.status === 0 && r.stdout.includes(`MAAL=${testUrl}`) && r.stdout.includes('RESEND=fravaerende') && r.stdout.includes('ARGS=tsx scripts/import.ts propstep')
     return { status: ok ? 0 : 99, stdout: r.stdout, stderr: r.stderr }
   })(), 0],
+  // ── app-skud: altid testbasen, og intet skrevet ved afvisning ──
+  ...[['en fjern base', POOLER], ['testbasen med ?dbname=postgres', TEST + '&dbname=postgres']].map(([n, u]) => {
+    const r = appskud(u)
+    return [`app-skud.mjs mod ${n}: exit 3 og intet skrevet`, { status: r.status === 3 && !r.skrev ? 3 : (r.skrev ? 98 : r.status), stdout: r.stdout, stderr: r.stderr + (r.skrev ? '\n(udmappen blev oprettet)' : '') }, 3]
+  }),
 ]
 rmSync(attrapMappe, { recursive: true, force: true })
 let fejl = 0

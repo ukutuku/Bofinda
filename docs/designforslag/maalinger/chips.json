@@ -1,0 +1,796 @@
+{
+  "note": "SYNTETISKE data fra den isolerede lokale testbase (280 boliger; Attrapby, Prøveby N, Prøveby S, Fiktivby). Ingen tal her er produktionstal. Målt 2026-09-30T14:50:41.212Z",
+  "1_chiprækken": {
+    "kode": "app/page.tsx:1044-1051 (<div className=optaelling> med tre <span>); CSS app/globals.css:1934-1946 (pille), 1960-1970 og 1987-1990 (≤560 px: ingen pille, «·»-skille)",
+    "er_filtre": false,
+    "begrundelse": "Tre <span> uden href/role/tabindex; 0 fokusérbare elementer i rækken; cursor auto. Rene udsagn fra opsummering() (lib/soeg.ts:1172-1203).",
+    "1440_informationschip": [
+      {
+        "tekst": "56 med samlet pris til udlejer",
+        "element": "span",
+        "cursor": "auto",
+        "border": "1px solid rgb(232, 229, 222)",
+        "radius": "999px",
+        "baggrund": "rgb(255, 255, 255)",
+        "farve": "rgb(95, 102, 114)",
+        "fontWeight": "400",
+        "padding": "4px 12px",
+        "hoejde": 29,
+        "ikon_foer": "\"\""
+      },
+      {
+        "tekst": "0 med indflytningspris",
+        "element": "span",
+        "cursor": "auto",
+        "border": "1px solid rgb(232, 229, 222)",
+        "radius": "999px",
+        "baggrund": "rgb(255, 255, 255)",
+        "farve": "rgb(95, 102, 114)",
+        "fontWeight": "400",
+        "padding": "4px 12px",
+        "hoejde": 29,
+        "ikon_foer": "\"\""
+      },
+      {
+        "tekst": "7.270–25.390 kr/md",
+        "element": "span",
+        "cursor": "auto",
+        "border": "1px solid rgb(232, 229, 222)",
+        "radius": "999px",
+        "baggrund": "rgb(255, 255, 255)",
+        "farve": "rgb(95, 102, 114)",
+        "fontWeight": "400",
+        "padding": "4px 12px",
+        "hoejde": 29,
+        "ikon_foer": "\"\""
+      }
+    ],
+    "1440_klikbar_filterchip_til_sammenligning": [
+      {
+        "tekst": "mindst 2 værelser×",
+        "element": "a",
+        "cursor": "pointer",
+        "border": "1px solid rgba(15, 77, 67, 0.18)",
+        "radius": "999px",
+        "baggrund": "rgb(231, 241, 236)",
+        "farve": "rgb(8, 58, 52)",
+        "fontWeight": "560",
+        "padding": "5px 9px 5px 12px",
+        "hoejde": 29,
+        "ikon_foer": "none"
+      },
+      {
+        "tekst": "Ryd alle",
+        "element": "a",
+        "cursor": "pointer",
+        "border": "1px solid rgba(0, 0, 0, 0)",
+        "radius": "999px",
+        "baggrund": "rgba(0, 0, 0, 0)",
+        "farve": "rgb(95, 102, 114)",
+        "fontWeight": "500",
+        "padding": "5px 8px",
+        "hoejde": 29,
+        "ikon_foer": "none"
+      }
+    ],
+    "390_informationschip": [
+      {
+        "tekst": "65 med samlet pris til udlejer",
+        "element": "span",
+        "cursor": "auto",
+        "border": "0px none rgb(95, 102, 114)",
+        "radius": "0px",
+        "baggrund": "rgba(0, 0, 0, 0)",
+        "farve": "rgb(95, 102, 114)",
+        "fontWeight": "400",
+        "padding": "0px",
+        "hoejde": 17,
+        "ikon_foer": "\"\""
+      },
+      {
+        "tekst": "0 med indflytningspris",
+        "element": "span",
+        "cursor": "auto",
+        "border": "0px none rgb(95, 102, 114)",
+        "radius": "0px",
+        "baggrund": "rgba(0, 0, 0, 0)",
+        "farve": "rgb(95, 102, 114)",
+        "fontWeight": "400",
+        "padding": "0px",
+        "hoejde": 17,
+        "ikon_foer": "\"·\""
+      },
+      {
+        "tekst": "7.270–25.390 kr/md",
+        "element": "span",
+        "cursor": "auto",
+        "border": "0px none rgb(95, 102, 114)",
+        "radius": "0px",
+        "baggrund": "rgba(0, 0, 0, 0)",
+        "farve": "rgb(95, 102, 114)",
+        "fontWeight": "400",
+        "padding": "0px",
+        "hoejde": 17,
+        "ikon_foer": "\"·\""
+      }
+    ],
+    "fokusbare_i_raekken": 0,
+    "konklusion": "Ved 1440 har informationschippen og den klikbare filterchip samme højde (29 px) og samme radius (999px); de skilles kun på farve, vægt, ikon og markør. Ved 390 er det ren tekst med «·»."
+  },
+  "2_hvor_fravaeret_ellers_staar": {
+    "enkeltkort": "app/Boligkort.tsx:339-343 — linjen tegnes kun ved b.indflytning != null; ingen tekst når den mangler",
+    "gruppekort": "app/Boligkort.tsx:567-576 — min/max(move_in_cost) (lib/soeg.ts:821-822) springer null over, og der tælles ingen ukendte (jf. ledigUkendte, lib/soeg.ts:809). Kortet kan skrive «indflytning X kr.» om en gruppe, hvor kun én har prisen. Læst i koden; kan ikke gengives her, for seedet har 0 indflytningspriser.",
+    "boligside": "app/bolig/[id]/page.tsx:106 visIndflytning = indflytning || depositum || forudbetalt; blokken tegnes kun da (303). Mangler alle tre, står intet. Nøgletalsstrippen udelader den (174-175) med henvisning til «Boligen» nedenfor (160-164), men «Boligen» har ingen indflytningslinje.",
+    "konklusion": "For en bolig uden indflytningspris, depositum og forudbetalt leje er nul-chippen i dag det ENESTE sted, fraværet står. Skjules den uden erstatning, brydes «En manglende oplysning skal være synlig, ikke fraværende»."
+  },
+  "3_fordeling_lokal_base": {
+    "vej": "filtreFraParametre(sp) → harFiltre(f) → opsummering(f, nu) i lib/soeg.ts — samme vej som app/page.tsx:190/224",
+    "daekning_pr_kilde": [
+      {
+        "kilde": "native",
+        "type": "native",
+        "antal": 36,
+        "medTotal": 36,
+        "medIndflytning": 0,
+        "medDepositum": 0,
+        "medForudbetalt": 0
+      },
+      {
+        "kilde": "test-alfa",
+        "type": "spider",
+        "antal": 83,
+        "medTotal": 70,
+        "medIndflytning": 0,
+        "medDepositum": 0,
+        "medForudbetalt": 0
+      },
+      {
+        "kilde": "test-beta",
+        "type": "feed",
+        "antal": 81,
+        "medTotal": 74,
+        "medIndflytning": 0,
+        "medDepositum": 0,
+        "medForudbetalt": 0
+      },
+      {
+        "kilde": "test-gamma",
+        "type": "spider",
+        "antal": 80,
+        "medTotal": 73,
+        "medIndflytning": 0,
+        "medDepositum": 0,
+        "medForudbetalt": 0
+      }
+    ],
+    "seed_har_indflytningspriser": false,
+    "stedet_alene": {
+      "fordeling_medTotal": {
+        "soegninger_med_chiprække": 8,
+        "lig_nul": 0,
+        "en_eller_to": 0,
+        "lig_antal": 0,
+        "andel_min": 0.886,
+        "andel_median": 0.908,
+        "andel_max": 0.915
+      },
+      "fordeling_medIndflytning": {
+        "soegninger_med_chiprække": 8,
+        "lig_nul": 8,
+        "en_eller_to": 0,
+        "lig_antal": 0,
+        "andel_min": 0,
+        "andel_median": 0,
+        "andel_max": 0
+      },
+      "soegninger": [
+        {
+          "sted": "9001",
+          "antal": 76,
+          "medTotal": 69,
+          "medIndflytning": 0
+        },
+        {
+          "sted": "9002",
+          "antal": 70,
+          "medTotal": 62,
+          "medIndflytning": 0
+        },
+        {
+          "sted": "9003",
+          "antal": 71,
+          "medTotal": 65,
+          "medIndflytning": 0
+        },
+        {
+          "sted": "9004",
+          "antal": 62,
+          "medTotal": 56,
+          "medIndflytning": 0
+        },
+        {
+          "sted": "Attrapby",
+          "antal": 71,
+          "medTotal": 65,
+          "medIndflytning": 0
+        },
+        {
+          "sted": "Fiktivby",
+          "antal": 62,
+          "medTotal": 56,
+          "medIndflytning": 0
+        },
+        {
+          "sted": "Prøveby N",
+          "antal": 76,
+          "medTotal": 69,
+          "medIndflytning": 0
+        },
+        {
+          "sted": "Prøveby S",
+          "antal": 70,
+          "medTotal": 62,
+          "medIndflytning": 0
+        }
+      ]
+    },
+    "sted_eller_intet_plus_et_filter": {
+      "antal_kombinationer": 261,
+      "fordeling_medTotal": {
+        "soegninger_med_chiprække": 234,
+        "lig_nul": 9,
+        "en_eller_to": 12,
+        "lig_antal": 62,
+        "andel_min": 0,
+        "andel_median": 0.917,
+        "andel_max": 1
+      },
+      "fordeling_medIndflytning": {
+        "soegninger_med_chiprække": 234,
+        "lig_nul": 234,
+        "en_eller_to": 0,
+        "lig_antal": 0,
+        "andel_min": 0,
+        "andel_median": 0,
+        "andel_max": 0
+      },
+      "nul_total_eksempler": [
+        {
+          "sp": {
+            "sted": "9001",
+            "type": "andet"
+          },
+          "antal": 2,
+          "medTotal": 0,
+          "medIndflytning": 0,
+          "billigst": 1565000,
+          "dyrest": 1693000
+        },
+        {
+          "sp": {
+            "sted": "9002",
+            "type": "andet"
+          },
+          "antal": 2,
+          "medTotal": 0,
+          "medIndflytning": 0,
+          "billigst": 1145000,
+          "dyrest": 1561000
+        },
+        {
+          "sp": {
+            "sted": "9003",
+            "type": "andet"
+          },
+          "antal": 1,
+          "medTotal": 0,
+          "medIndflytning": 0,
+          "billigst": 1032000,
+          "dyrest": 1032000
+        },
+        {
+          "sp": {
+            "sted": "9004",
+            "type": "andet"
+          },
+          "antal": 1,
+          "medTotal": 0,
+          "medIndflytning": 0,
+          "billigst": 1898000,
+          "dyrest": 1898000
+        },
+        {
+          "sp": {
+            "sted": "Attrapby",
+            "type": "andet"
+          },
+          "antal": 1,
+          "medTotal": 0,
+          "medIndflytning": 0,
+          "billigst": 1032000,
+          "dyrest": 1032000
+        },
+        {
+          "sp": {
+            "sted": "Fiktivby",
+            "type": "andet"
+          },
+          "antal": 1,
+          "medTotal": 0,
+          "medIndflytning": 0,
+          "billigst": 1898000,
+          "dyrest": 1898000
+        },
+        {
+          "sp": {
+            "sted": "Prøveby N",
+            "type": "andet"
+          },
+          "antal": 2,
+          "medTotal": 0,
+          "medIndflytning": 0,
+          "billigst": 1565000,
+          "dyrest": 1693000
+        },
+        {
+          "sp": {
+            "sted": "Prøveby S",
+            "type": "andet"
+          },
+          "antal": 2,
+          "medTotal": 0,
+          "medIndflytning": 0,
+          "billigst": 1145000,
+          "dyrest": 1561000
+        },
+        {
+          "sp": {
+            "type": "andet"
+          },
+          "antal": 6,
+          "medTotal": 0,
+          "medIndflytning": 0,
+          "billigst": 1032000,
+          "dyrest": 1898000
+        }
+      ],
+      "nul_total_med_spaend": 9,
+      "nul_total_spaend_af_en_pris": 4,
+      "spaend_af_en_pris_i_alt": 4,
+      "smaa_total_eksempler": [
+        {
+          "sp": {
+            "sted": "9001",
+            "overtagelse": "senere"
+          },
+          "antal": 2,
+          "medTotal": 2
+        },
+        {
+          "sp": {
+            "sted": "9002",
+            "prisMax": "8000"
+          },
+          "antal": 2,
+          "medTotal": 2
+        },
+        {
+          "sp": {
+            "sted": "9002",
+            "overtagelse": "nu"
+          },
+          "antal": 2,
+          "medTotal": 2
+        },
+        {
+          "sp": {
+            "sted": "9003",
+            "prisMax": "8000"
+          },
+          "antal": 3,
+          "medTotal": 2
+        },
+        {
+          "sp": {
+            "sted": "9003",
+            "overtagelse": "nu"
+          },
+          "antal": 2,
+          "medTotal": 2
+        },
+        {
+          "sp": {
+            "sted": "9003",
+            "overtagelse": "senere"
+          },
+          "antal": 2,
+          "medTotal": 2
+        },
+        {
+          "sp": {
+            "sted": "Attrapby",
+            "prisMax": "8000"
+          },
+          "antal": 3,
+          "medTotal": 2
+        },
+        {
+          "sp": {
+            "sted": "Attrapby",
+            "overtagelse": "nu"
+          },
+          "antal": 2,
+          "medTotal": 2
+        },
+        {
+          "sp": {
+            "sted": "Attrapby",
+            "overtagelse": "senere"
+          },
+          "antal": 2,
+          "medTotal": 2
+        },
+        {
+          "sp": {
+            "sted": "Prøveby N",
+            "overtagelse": "senere"
+          },
+          "antal": 2,
+          "medTotal": 2
+        },
+        {
+          "sp": {
+            "sted": "Prøveby S",
+            "prisMax": "8000"
+          },
+          "antal": 2,
+          "medTotal": 2
+        },
+        {
+          "sp": {
+            "sted": "Prøveby S",
+            "overtagelse": "nu"
+          },
+          "antal": 2,
+          "medTotal": 2
+        }
+      ],
+      "kilde_alene": [
+        {
+          "kilde": "native",
+          "antal": 36,
+          "medTotal": 36,
+          "medIndflytning": 0
+        },
+        {
+          "kilde": "test-alfa",
+          "antal": 83,
+          "medTotal": 70,
+          "medIndflytning": 0
+        },
+        {
+          "kilde": "test-beta",
+          "antal": 81,
+          "medTotal": 74,
+          "medIndflytning": 0
+        },
+        {
+          "kilde": "test-gamma",
+          "antal": 80,
+          "medTotal": 73,
+          "medIndflytning": 0
+        }
+      ],
+      "lav_total_andel_eksempler": []
+    }
+  },
+  "3b_produktion_fra_repoet": {
+    "maalt_daekning_af_move_in_cost": "FINDES IKKE i repoet. docs/supply-baseline-2026-09-06.md:3-11 måler depositum og forudbetalt (0 % i alle kilder undtagen native), ikke move_in_cost. Propstep og LokalBolig regner move_in_cost af depositum/forudbetalt, de læser men ikke gemmer (app/bolig/[id]/page.tsx:88-92), så 0 % depositum er ikke 0 % indflytningspris. docs/designforslag/README.md:381 nævner «80 % af kortene» uden at sige, hvilken base.",
+    "saetter_move_in_cost": {
+      "propstep": "adapters/propstep.ts:204-209 (kun når husleje, depositum og forudbetalt kendes)",
+      "lokalbolig": "adapters/lokalbolig.ts:200-204 (samme betingelse)",
+      "findbolig": "adapters/findbolig.ts:205-210 (husleje, måneder depositum/forudbetalt og aconto)",
+      "balder": "adapters/balder.ts:115-119 (kildens combined_upfront_payment)",
+      "dacas": "adapters/dacas.ts:219-220 (kildens Indflytningspris)",
+      "heimstaden": "adapters/heimstaden.ts:172-177 (kildens Indflytningspris, når den findes)",
+      "laros": "adapters/laros.ts:159",
+      "native": "lib/udlejer.ts:100-108 (kun med depositum og forudbetalt)"
+    },
+    "saetter_aldrig_move_in_cost": {
+      "home": "adapters/home.ts:24-26",
+      "cej": "adapters/cej.ts:320-323 (gemmer delene, ikke summen)",
+      "birch": "adapters/birch.ts:121-124 (kun depositum)",
+      "alabu": "adapters/alabu.ts:28-30"
+    },
+    "hvornaar_nul_opstaar": "Altid ved kildefilter på home.dk, CEJ, Birch eller Alabu; i områder, hvor kun de fire har boliger (home.dk: 228 synlige, 169 i kbh+frb, 58 i storkbh — supply-baseline linje 6); og hvor de betingede adaptere mangler et led. Hyppigheden kan ikke måles herfra. maal.mjs --prod gør det (kun select)."
+  },
+  "4_forslag_gengivet_i_dom": {
+    "anvendt": "Kun i browseren (page.evaluate); ingen fil i repoet ændret",
+    "linje_variant": {
+      "attrapby@1440": {
+        "foer": {
+          "chips": [
+            "65 med samlet pris til udlejer",
+            "0 med indflytningspris",
+            "7.270–25.390 kr/md"
+          ],
+          "linjer": 1,
+          "hovedHoejde": 32,
+          "prikForrest": []
+        },
+        "efter": {
+          "chips": [
+            "65 med samlet pris til udlejer",
+            "7.270–25.390 kr/md"
+          ],
+          "linjer": 1,
+          "hovedHoejde": 55,
+          "prikForrest": [],
+          "note": {
+            "tekst": "Ingen indflytningspris for de 71 — spørg udlejeren.",
+            "kontrast": 5.08,
+            "hoejde": 18,
+            "fontSize": "12px",
+            "farve": "rgb(98, 105, 117)"
+          }
+        },
+        "vandretOverloeb": false
+      },
+      "attrapby-andet@1440": {
+        "foer": {
+          "chips": [
+            "0 med samlet pris til udlejer",
+            "0 med indflytningspris",
+            "10.320–10.320 kr/md"
+          ],
+          "linjer": 1,
+          "hovedHoejde": 32,
+          "prikForrest": []
+        },
+        "efter": {
+          "chips": [
+            "0 med samlet pris til udlejer",
+            "10.320–10.320 kr/md"
+          ],
+          "linjer": 1,
+          "hovedHoejde": 55,
+          "prikForrest": [],
+          "note": {
+            "tekst": "Ingen indflytningspris for boligen — spørg udlejeren.",
+            "kontrast": 5.08,
+            "hoejde": 18,
+            "fontSize": "12px",
+            "farve": "rgb(98, 105, 117)"
+          }
+        },
+        "vandretOverloeb": false
+      },
+      "attrapby@390": {
+        "foer": {
+          "chips": [
+            "65 med samlet pris til udlejer",
+            "0 med indflytningspris",
+            "7.270–25.390 kr/md"
+          ],
+          "linjer": 2,
+          "hovedHoejde": 38,
+          "prikForrest": [
+            "7.270–25.390 kr/md"
+          ]
+        },
+        "efter": {
+          "chips": [
+            "65 med samlet pris til udlejer",
+            "7.270–25.390 kr/md"
+          ],
+          "linjer": 1,
+          "hovedHoejde": 42,
+          "prikForrest": [],
+          "note": {
+            "tekst": "Ingen indflytningspris for de 71 — spørg udlejeren.",
+            "kontrast": 5.08,
+            "hoejde": 18,
+            "fontSize": "12px",
+            "farve": "rgb(98, 105, 117)"
+          }
+        },
+        "vandretOverloeb": false
+      },
+      "attrapby-andet@390": {
+        "foer": {
+          "chips": [
+            "0 med samlet pris til udlejer",
+            "0 med indflytningspris",
+            "10.320–10.320 kr/md"
+          ],
+          "linjer": 2,
+          "hovedHoejde": 38,
+          "prikForrest": [
+            "10.320–10.320 kr/md"
+          ]
+        },
+        "efter": {
+          "chips": [
+            "0 med samlet pris til udlejer",
+            "10.320–10.320 kr/md"
+          ],
+          "linjer": 1,
+          "hovedHoejde": 42,
+          "prikForrest": [],
+          "note": {
+            "tekst": "Ingen indflytningspris for boligen — spørg udlejeren.",
+            "kontrast": 5.08,
+            "hoejde": 18,
+            "fontSize": "12px",
+            "farve": "rgb(98, 105, 117)"
+          }
+        },
+        "vandretOverloeb": false
+      },
+      "attrapby@360": {
+        "foer": {
+          "chips": [
+            "65 med samlet pris til udlejer",
+            "0 med indflytningspris",
+            "7.270–25.390 kr/md"
+          ],
+          "linjer": 2,
+          "hovedHoejde": 38,
+          "prikForrest": [
+            "7.270–25.390 kr/md"
+          ]
+        },
+        "efter": {
+          "chips": [
+            "65 med samlet pris til udlejer",
+            "7.270–25.390 kr/md"
+          ],
+          "linjer": 1,
+          "hovedHoejde": 42,
+          "prikForrest": [],
+          "note": {
+            "tekst": "Ingen indflytningspris for de 71 — spørg udlejeren.",
+            "kontrast": 5.08,
+            "hoejde": 18,
+            "fontSize": "12px",
+            "farve": "rgb(98, 105, 117)"
+          }
+        },
+        "vandretOverloeb": false
+      },
+      "attrapby-andet@360": {
+        "foer": {
+          "chips": [
+            "0 med samlet pris til udlejer",
+            "0 med indflytningspris",
+            "10.320–10.320 kr/md"
+          ],
+          "linjer": 2,
+          "hovedHoejde": 38,
+          "prikForrest": [
+            "10.320–10.320 kr/md"
+          ]
+        },
+        "efter": {
+          "chips": [
+            "0 med samlet pris til udlejer",
+            "10.320–10.320 kr/md"
+          ],
+          "linjer": 1,
+          "hovedHoejde": 42,
+          "prikForrest": [],
+          "note": {
+            "tekst": "Ingen indflytningspris for boligen — spørg udlejeren.",
+            "kontrast": 5.08,
+            "hoejde": 18,
+            "fontSize": "12px",
+            "farve": "rgb(98, 105, 117)"
+          }
+        },
+        "vandretOverloeb": false
+      }
+    },
+    "inline_variant": {
+      "attrapby@1440": {
+        "hovedHoejde": 32,
+        "prikForrest": []
+      },
+      "attrapby-andet@1440": {
+        "hovedHoejde": 32,
+        "prikForrest": []
+      },
+      "attrapby@390": {
+        "hovedHoejde": 38,
+        "prikForrest": [
+          "Ingen indflytningspris for de 71 — spørg udlejeren."
+        ]
+      },
+      "attrapby-andet@390": {
+        "hovedHoejde": 38,
+        "prikForrest": [
+          "Ingen indflytningspris for boligen — spørg udlejeren."
+        ]
+      },
+      "attrapby@360": {
+        "hovedHoejde": 38,
+        "prikForrest": [
+          "Ingen indflytningspris for de 71 — spørg udlejeren."
+        ]
+      },
+      "attrapby-andet@360": {
+        "hovedHoejde": 38,
+        "prikForrest": [
+          "Ingen indflytningspris for boligen — spørg udlejeren."
+        ]
+      }
+    },
+    "saetningslaengder": {
+      "360": [
+        {
+          "tekst": "Vi har ingen indflytningspris for de 71 boliger. Spørg udlejeren, hvad der skal betales ved indflytning.",
+          "hoejde": 36,
+          "linjer": 2
+        },
+        {
+          "tekst": "Vi har ingen indflytningspris for de 71 boliger — spørg udlejeren.",
+          "hoejde": 36,
+          "linjer": 2
+        },
+        {
+          "tekst": "Ingen indflytningspris for de 71 — spørg udlejeren.",
+          "hoejde": 18,
+          "linjer": 1
+        }
+      ],
+      "390": [
+        {
+          "tekst": "Vi har ingen indflytningspris for de 71 boliger. Spørg udlejeren, hvad der skal betales ved indflytning.",
+          "hoejde": 36,
+          "linjer": 2
+        },
+        {
+          "tekst": "Vi har ingen indflytningspris for de 71 boliger — spørg udlejeren.",
+          "hoejde": 36,
+          "linjer": 2
+        },
+        {
+          "tekst": "Ingen indflytningspris for de 71 — spørg udlejeren.",
+          "hoejde": 18,
+          "linjer": 1
+        }
+      ],
+      "1440": [
+        {
+          "tekst": "Vi har ingen indflytningspris for de 71 boliger. Spørg udlejeren, hvad der skal betales ved indflytning.",
+          "hoejde": 18,
+          "linjer": 1
+        },
+        {
+          "tekst": "Vi har ingen indflytningspris for de 71 boliger — spørg udlejeren.",
+          "hoejde": 18,
+          "linjer": 1
+        },
+        {
+          "tekst": "Ingen indflytningspris for de 71 — spørg udlejeren.",
+          "hoejde": 18,
+          "linjer": 1
+        }
+      ]
+    }
+  },
+  "filer": [
+    "maal.mjs",
+    "browser.mjs",
+    "forslag-browser.mjs",
+    "tekstbredde.mjs",
+    "maaling-db.json",
+    "browser.json",
+    "forslag-browser.json",
+    "forslag-browser-inline.json",
+    "tekstbredde.json",
+    "foer-*.png",
+    "efter-*.png",
+    "efter-inline-*.png",
+    "resultathoved-*.png"
+  ]
+}

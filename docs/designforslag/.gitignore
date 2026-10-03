@@ -1,0 +1,7 @@
+# Arbejdsfiler, som gengivelse/*.mjs lægger i udmappen (hentede skrifter,
+# runde 2's lag til sammenligning, fotomålingens prøveattrapper). De hører
+# ikke til i repoet, heller ikke når udmappen er greb3/.
+.fonte/
+.runde2-lag/
+.runde3-lag/
+_attrapper/
