@@ -1,0 +1,111 @@
+{
+  "measured_by": "Codex",
+  "purpose": "Two bounded public source observations; no import and no database writes",
+  "cases": [
+    {
+      "id": "177P009541",
+      "case_type": "projektsag",
+      "source_url": "https://home.dk/bella-tower/leje/condo/oerestads-boulevard-34a-4-2300-koebenhavn-s/sag-177P009541/",
+      "retrieved_utc": "2026-09-15T22:06:22.394226+00:00",
+      "source_html_sha256": "0ee17f612ce081c735219c78f7c7040dd170488e06c8d292e90a3e794143eed7",
+      "source_nuxt_sha256": "37ca7584ddb7114fcb425c595e5d9f02d9d311d400b6b286cce8979cb7d8e334",
+      "fixture": "177P009541-nuxt-minimal.json",
+      "fixture_sha256": "a2c997f571df1ab5c39d88153cf5a21acf9795715cf47586c3f2e37098db6f98",
+      "source_case_index": 4,
+      "source_array_length": 3738,
+      "retained_indices": [
+        4,
+        5,
+        7,
+        12,
+        14,
+        15,
+        16,
+        20,
+        21,
+        22,
+        23,
+        40,
+        42,
+        43
+      ],
+      "observed": {
+        "id": "177P009541",
+        "offer": {
+          "rentalPricePerMonth": {
+            "amount": 14300,
+            "displayValue": "14.300 kr."
+          },
+          "rentalUtilitiesPerMonth": null,
+          "rentalSecurityDeposit": {
+            "amount": 42900,
+            "displayValue": "42.900 kr."
+          },
+          "rentalPricePrePaid": {
+            "amount": 14300,
+            "displayValue": "14.300 kr."
+          }
+        },
+        "stats": {
+          "rooms": 2,
+          "floorArea": 58
+        }
+      },
+      "money_unit": "DKK in amount; convert to ore for Bofinda"
+    },
+    {
+      "id": "1770021346",
+      "case_type": "almindelig sag",
+      "source_url": "https://home.dk/leje/lejligheder/grethe-ingmanns-vej-43-th-2450-koebenhavn-sv/sag-1770021346/",
+      "retrieved_utc": "2026-09-15T22:06:22.440075+00:00",
+      "source_html_sha256": "601eb237b031c14562fb59476aaae9648242cad2241b0af5b7c814fc6a376fcd",
+      "source_nuxt_sha256": "e886c5de0ab445c72c0c0bff8a2b8a5525dc7c733a89e71e8c9d2cfa786c8611",
+      "fixture": "1770021346-nuxt-minimal.json",
+      "fixture_sha256": "0f498811d7b41bbc059a9c26a3cf49dd613a3902931d0e9db3f33a74f2f1bafe",
+      "source_case_index": 4,
+      "source_array_length": 3895,
+      "retained_indices": [
+        4,
+        5,
+        11,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        37,
+        40,
+        41
+      ],
+      "observed": {
+        "id": "1770021346",
+        "offer": {
+          "rentalPricePerMonth": {
+            "amount": 15800,
+            "displayValue": "15.800 kr."
+          },
+          "rentalUtilitiesPerMonth": {
+            "amount": 600,
+            "displayValue": "600 kr."
+          },
+          "rentalSecurityDeposit": {
+            "amount": 15800,
+            "displayValue": "15.800 kr."
+          },
+          "rentalPricePrePaid": {
+            "amount": 15800,
+            "displayValue": "15.800 kr."
+          }
+        },
+        "stats": {
+          "rooms": 2,
+          "floorArea": 70
+        }
+      },
+      "money_unit": "DKK in amount; convert to ore for Bofinda"
+    }
+  ]
+}

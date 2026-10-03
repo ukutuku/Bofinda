@@ -25,6 +25,34 @@
 //  Kilden oplyser den ikke, og et tal, vi selv har lagt sammen, ville se
 //  lige saa sikkert ud som et oplyst.
 //
+//  ── DEPOSITUM, FORUDBETALT LEJE OG VAERELSER — MAALT ─────────
+//  Feltnavnene er talt paa TO hentede detaljesider 15. sep. 2026, én af
+//  hver sagstype. Belaegget ligger i scripts/kildeproever/home/ med url,
+//  tidspunkt, SHA-256 af baade siden og payloaden, og de reducerede
+//  Nuxt-arrays med ORIGINALE indekser:
+//
+//    deposit      offer.rentalSecurityDeposit.amount    kroner
+//    prepaidRent  offer.rentalPricePrePaid.amount       kroner
+//    rooms        stats.rooms                           antal
+//
+//  Alle tre laeses fra SAGENS EGET id-bundne objekt, som alt andet her.
+//  Det er ikke pedanteri: den flade Nuxt-serialisering goer en forkert
+//  noegle DOBBELT tavs — rammer man et navn, kilden ikke har, giver
+//  `los()` undefined og feltet forsvinder uden en fejl; rammer man et
+//  navn i en NABOSAGS projektion, faar man et rigtigt udseende tal fra
+//  en anden bolig. Begge fejl har filen allerede haft (se `d[121]`
+//  ovenfor og id-bindingen i `laesSag`).
+//
+//  Indtil maalingen forelaa, stod felterne usatte med vilje. Kilde-
+//  undersoegelsen 3. sep. (CLAUDE.md) havde set beloebene paa den
+//  RENDEREDE side, men ikke i payloaden, og et feltnavn maa ikke
+//  gaettes. `scripts/home-felter.ts` taeller noeglerne, hvis det skal
+//  goeres igen — for en tredje sagstype, eller hvis kilden laegger om.
+//
+//  FAELDE, som har kostet tid: `room: 'vaerelse'` i TYPER nedenfor er en
+//  boligTYPE-oversaettelse, ikke et antal — den slaas op mod `type`.
+//  Vaerelsestallet er `stats.rooms` og intet andet.
+//
 //  ── Om billederne ────────────────────────────────────────────
 //  De ligger IKKE paa home.dk, og der er TO vaerter, ikke én. Hvilken
 //  foelger sagstypen, og det kan ses paa sagsnummeret:
@@ -49,6 +77,7 @@
 import type { DiscoveredListing, RawListing, SourceAdapter } from '../lib/adapter'
 import { isoDato } from '../lib/dato'
 import { politeFetch } from '../lib/fetch'
+import { laesDetaljeBudget } from './heimstaden'
 import { kronerTilOere } from '../lib/money'
 
 const ORIGIN = 'https://home.dk'
@@ -56,10 +85,60 @@ const LISTE = `${ORIGIN}/til-leje/lejlighed/region-hovedstaden/koebenhavn-kommun
 /** Loft. Uden det kan en aendret paginering koere i ring. */
 const MAKS_SIDER = 60
 
-type Flad = unknown[]
-type Ukendt = Record<string, unknown>
+/**
+ * Loft over detaljehentninger pr. koersel.
+ *
+ * Hvorfor der skal vaere et: uden `listeGrundlag` var budgettet
+ * `Infinity` (se `lib/ingest.ts`), og hver NY eller genopdukket bolig blev
+ * hentet uden loft. I rolig drift er det ~10 i timen af de 229 — men i det
+ * urolige tilfaelde (foerste import, en afmeldingsboelge, en aendring i
+ * kildens noegler) kunne hele beholdningen hentes i én time.
+ *
+ * 25 er ikke maalt paa home.dk; det er Heimstadens standard, overtaget
+ * bevidst som det eneste fortilfaelde vi har for en kilde, hvis taalmodighed
+ * vi ikke kender. Overloebet skrives fra listen med `detail_fetched_at =
+ * NULL` og samles op af en senere koersel, saa ingen bolig forsvinder.
+ * Rettes den op, skal det staa paa et grundlag — se
+ * `docs/kildetilladelser.md` om kilder uden nedskrevet grundlag.
+ */
+export const STANDARD_DETALJEBUDGET_HOME = 25
 
-async function hentNuxt(url: string): Promise<Flad> {
+let budgetAdvaret = false
+/** Kun til proeven. */
+export const _nulstilHomeBudgetAdvarsel = () => { budgetAdvaret = false }
+
+function detaljeBudget(): number {
+  const { budget, afvist } = laesDetaljeBudget(
+    process.env.HOME_DETALJEBUDGET, STANDARD_DETALJEBUDGET_HOME)
+  if (afvist && !budgetAdvaret) {
+    budgetAdvaret = true
+    console.warn(`[home] HOME_DETALJEBUDGET IGNORERET: ${afvist}. `
+      + `Bruger standarden ${STANDARD_DETALJEBUDGET_HOME}.`)
+  }
+  return budget
+}
+
+/**
+ * Fingeraftrykket af de listefelter, der skal udloese en ny
+ * detaljehentning.
+ *
+ * **Gitteret har hverken status eller ledigdato.** Det er grunden til, at
+ * signaturen kun kan baere leje, areal og boligtype: aendrer en bolig
+ * udelukkende ledigdato, ser signaturen det IKKE, og boligen hentes foerst
+ * igen ved den rullende genopfriskning (`GENOPFRISK_EFTER_TIMER`, et
+ * doegn). Det er en kendt graense ved kildens liste, ikke et valg — og
+ * praecis den slags, `lib/adapter.ts` advarer om: et felt, der mangler her,
+ * kan aendre sig uden at nogen henter igen. Faar gitteret en dag et
+ * status- eller datofelt, hoerer det i signaturen samme dag.
+ */
+export function homeSignatur(g: Gitterrække): string {
+  return JSON.stringify([g.leje ?? null, g.areal ?? null, g.type ?? null])
+}
+
+export type Flad = unknown[]
+export type Ukendt = Record<string, unknown>
+
+export async function hentNuxt(url: string): Promise<Flad> {
   const res = await politeFetch(url, 3, { headers: { Accept: 'text/html' } })
   if (!res.ok) throw new Error(`home ${url} gav ${res.status}`)
   const m = /<script type="application\/json"[^>]*id="__NUXT_DATA__"[^>]*>(.*?)<\/script>/s
@@ -69,7 +148,7 @@ async function hentNuxt(url: string): Promise<Flad> {
 }
 
 /** Ét opslag, derefter kun struktureI rekursion. Se noten i hovedet. */
-function los(d: Flad, i: unknown, dyb = 0): unknown {
+export function los(d: Flad, i: unknown, dyb = 0): unknown {
   if (dyb > 10) return null
   const v = typeof i === 'number' && Number.isInteger(i) && i >= 0 && i < d.length ? d[i] : i
   if (Array.isArray(v)) return v.map((x) => los(d, x, dyb + 1))
@@ -91,7 +170,7 @@ const oere = (v: unknown): number | undefined => {
 }
 
 /** Alle objekter i payloaden der har et bestemt felt. */
-const medFelt = (d: Flad, felt: string): Ukendt[] =>
+export const medFelt = (d: Flad, felt: string): Ukendt[] =>
   d.filter((x): x is Ukendt =>
     !!x && typeof x === 'object' && !Array.isArray(x) && felt in (x as Ukendt))
 
@@ -100,7 +179,7 @@ const TYPER: Record<string, string> = {
   villa: 'hus', house: 'hus', room: 'vaerelse',
 }
 
-interface Gitterrække {
+export interface Gitterrække {
   id: string
   url: string
   adresse: string
@@ -172,18 +251,31 @@ export function laesSag(d: Flad, g: Gitterrække, url: string): RawListing {
   const avail = (sag['availability'] ?? {}) as Ukendt
   const ledig = tekst(avail['rentalAvailableFrom'])
 
+  // Vaerelsestallet fra SAGENS EGET stats-objekt — samme id-binding som
+  // tilbuddet, billederne og ledigdatoen. Arealet laeses fra gitterets
+  // `stats.floorArea`; rummene staar ved siden af det paa detaljesiden.
+  const stats = (sag['stats'] ?? {}) as Ukendt
+
   return {
     externalKey: g.id,
     sourceUrl: url,
     address: g.adresse,
     postalCode: g.postnr,
     sizeM2: g.areal,
+    rooms: tal(stats['rooms']),
     propertyType: g.type,
     availableFrom: ledig ? ledig.slice(0, 10) : undefined,
     rentMonthly: leje,
     // ÉT samlet beloeb. Kilden siger ikke hvad det daekker, saa det er
     // uspecificeret rest — ikke varme, ikke vand, ikke el.
     utilitiesOther: oere(tilbud['rentalUtilitiesPerMonth']),
+    // Kildens EGNE beloeb, hver for sig. `oere()` bevarer forskellen paa
+    // et oplyst nul (amount: 0 -> 0) og et fravaerende felt (-> undefined):
+    // «udlejer opkraever intet» og «udlejer oplyser intet» er to udsagn.
+    // Summen regnes ALDRIG: `moveInCost` er kildens eget tal eller intet,
+    // og home.dk oplyser den ikke — se noten i hovedet og i lib/adapter.ts.
+    deposit: oere(tilbud['rentalSecurityDeposit']),
+    prepaidRent: oere(tilbud['rentalPricePrePaid']),
     amenities: [],
     imageUrls: fraSagen.length ? fraSagen : g.billeder,
     // Hvad kilden SAGDE, fra sagens EGET availability-objekt (samme
@@ -242,5 +334,34 @@ export function homeAdapter(): SourceAdapter {
       if (!g) throw new Error(`ikke i gitteret: ${url} (koer discover foerst)`)
       return laesSag(await hentNuxt(url), g, url)
     },
+
+    /**
+     * Detaljevagten. Gitteret baerer adresse, postnummer, areal, leje,
+     * boligtype og billeder — nok til en brugbar, ufuldstaendig bolig.
+     * Det, der KUN staar paa detaljesiden, er aconto, depositum,
+     * forudbetalt leje, vaerelsestal og ledigdato; de felter udelades her
+     * frem for at blive gaettet, saa en grundlags-raekke siger mindre end
+     * en hentet og intet usandt.
+     */
+    listeGrundlag(url: string) {
+      const g = gitter.get(url)
+      if (!g) return null
+      return {
+        grundlag: {
+          externalKey: g.id,
+          sourceUrl: url,
+          address: g.adresse,
+          postalCode: g.postnr,
+          sizeM2: g.areal,
+          propertyType: g.type,
+          rentMonthly: g.leje,
+          amenities: [],
+          imageUrls: g.billeder,
+        } satisfies RawListing,
+        detaljesignatur: homeSignatur(g),
+      }
+    },
+
+    get detaljeBudgetPrKoersel() { return detaljeBudget() },
   }
 }

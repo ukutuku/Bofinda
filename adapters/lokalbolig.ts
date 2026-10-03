@@ -15,6 +15,7 @@
 //  forsvinder i en time. Det gør den — se noten i lib/ingest.ts.
 // ═══════════════════════════════════════════════════════════════
 
+import { findForbehold } from '../lib/billedforbehold'
 import type { DiscoveredListing, RawListing, SourceAdapter } from '../lib/adapter'
 import { isoDato } from '../lib/dato'
 import { politeFetch } from '../lib/fetch'
@@ -127,7 +128,6 @@ const tal = (s: string, navn: string) => {
  * kigger på, er værre end intet billede — hun tror, hun har set den.
  * Teksten står i `description`, som vi ellers ikke bruger til noget.
  */
-const FORBEHOLD = /billederne\s+kan\s+v(æ|ae)re\s+fra\s+en\s+anden\s+bolig/i
 
 /** Kun værten vi hotlinker fra. Deres CDN-URL'er (esoftsystems, diakrit)
  *  står også i payloaden, men dem har vi hverken lov til eller grund til. */
@@ -145,7 +145,11 @@ const ukendteTyper = new Set<string>()
 
 // ─── Allowlisten ───────────────────────────────────────────────
 
-function laesBolig(html: string, url: string): RawListing | null {
+/**
+ * Parsningen af en boligside, uden netvaerk. Eksporteret KUN til proeven:
+ * den skal kunne koere mod en frossen payload.
+ */
+export function laesBolig(html: string, url: string): RawListing | null {
   const hele = flight(html)
   const i = hele.indexOf(GRAENSE)
   const s = i > 0 ? hele.slice(0, i) : hele
@@ -226,7 +230,7 @@ function laesBolig(html: string, url: string): RawListing | null {
   // (Den oprindelige note havde ret i én ting: hvert BILLEDE har også et
   // felt ved navn `description`, så et opslag på feltnavnet rammer forbi.
   // Derfor prøves teksten, ikke feltet.)
-  const forbehold = FORBEHOLD.test(s)
+  const forbehold = findForbehold(s, 'lokalbolig')
 
   // Billederne vises NU, også med forbeholdet — med kildens forbehold ved
   // siden af. Før blev de kasseret, og det er også en påstand: den siger
@@ -255,12 +259,21 @@ function laesBolig(html: string, url: string): RawListing | null {
     rentMonthly: leje != null ? kronerTilOere(leje) : undefined,
     utilitiesOther: aconto,
     moveInCost,
+    // Kildens EGNE beloeb, hver for sig. Kilden regner i KRONER — det er
+    // derfor `moveInCost` ovenfor konverterer SUMMEN — saa hvert beloeb
+    // konverteres her ÉN gang, praecis som `rentMonthly` lige over.
+    // Uafhaengigt af `moveInCost`: den kraever alle tre beloeb, men et
+    // depositum er en oplysning i sig selv, ogsaa naar de andre mangler.
+    // Et oplyst NUL overlever: `tal()` giver 0 videre (Number.isFinite),
+    // og kronerTilOere(0) er 0 — ikke «ikke oplyst».
+    deposit: depositum != null ? kronerTilOere(depositum) : undefined,
+    prepaidRent: forudbetalt != null ? kronerTilOere(forudbetalt) : undefined,
     lat,
     lng,
     sourceCreatedAt: tekst(s, 'createdDate'),
     sourceUpdatedAt: tekst(s, 'lastUpdated'),
     imageUrls: billeder,
-    imagesMayDiffer: forbehold,
+    imagesMayDifferEvidence: forbehold ?? undefined,
     // Kilden HAR et statusobjekt (caseStatus), men det stod {null,null,""}
     // paa alle maalte sider — et felt uden indhold giver intet rawStatus.
     // Datoen gemmes raat; kontrakten har den som uafklaret.

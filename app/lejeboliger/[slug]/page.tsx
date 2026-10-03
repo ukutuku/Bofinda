@@ -5,6 +5,7 @@ import { findOmraade, naboer, statistik, type Omraade } from '../../../lib/omraa
 import { antalBoliger, soegGrupperet, type Soegeparametre } from '../../../lib/soeg'
 import { Visningskort, kr } from '../../Boligkort'
 import { Sider, sideUrl } from '../../Sider'
+import { typeord } from '../../../lib/boligtype'
 
 /** Kort pr. side — samme tal som søgesiden. */
 const PR_SIDE = 48
@@ -22,11 +23,10 @@ export const dynamic = 'force-dynamic'
 /** "København S" -> "i København S". Postnumre laeses "i 2300 København S". */
 const iOmraadet = (o: Omraade) => `i ${o.navn}`
 
-const TYPENAVN: Record<string, string> = {
-  lejlighed: 'lejligheder', raekkehus: 'rækkehuse', hus: 'huse',
-  vaerelse: 'værelser', studiebolig: 'studieboliger', andet: 'boliger',
-  ukendt: 'boliger uden oplyst type',
-}
+// `ukendt` er ikke en boligtype — det er spanden for raekker UDEN en
+// type, og den hoerer derfor ikke i lib/boligtype.ts. Selve typerne
+// kommer derfra.
+const UDEN_TYPE = 'boliger uden oplyst type'
 
 const filterFor = (slags: string, vaerdi: string) =>
   slags === 'by' ? { by: vaerdi } : { postnr: vaerdi }
@@ -148,7 +148,7 @@ export default async function Side({ params, searchParams }: {
 
   const typeListe = s.typer
     .filter((t) => t.antal > 0)
-    .map((t) => `${t.antal} ${TYPENAVN[t.type] ?? t.type}`)
+    .map((t) => `${t.antal} ${t.type === 'ukendt' ? UDEN_TYPE : typeord(t.type, true) ?? t.type}`)
 
   return (
     <div className="omraade">

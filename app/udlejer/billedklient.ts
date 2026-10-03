@@ -20,8 +20,9 @@
 const MAKS_KANT = 1600
 /** Filer større end det er en fejltagelse, ikke et billede. */
 export const MAKS_FIL = 25 * 1024 * 1024
-/** Loft paa antal. Uden det hobede de sig op usynligt. */
-export const MAKS_BILLEDER = 20
+/** Loft paa antal. Uden det hobede de sig op usynligt. Serveren haandhaever
+ *  det SAMME tal — det bor i lib/billedloft.ts, ikke her. */
+export { MAKS_BILLEDER } from '../../lib/billedloft'
 
 export interface Klargjort {
   blob: Blob

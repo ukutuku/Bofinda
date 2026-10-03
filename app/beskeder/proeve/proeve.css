@@ -1,0 +1,34 @@
+/* Kun til prøvevisningen. Beskedmodulet selv har sin egen fil og ser
+   ikke denne — det skal se ud, som det gør i produktet. */
+.proeve { padding: 20px 0 56px; }
+
+.proeve-banner {
+  background: var(--advarsel-lys); border: 1px solid #ecd9b4;
+  border-left: 4px solid var(--advarsel);
+  border-radius: var(--r-s); padding: 12px 14px; margin-bottom: 18px;
+  font-size: 13.5px; color: #6b4300; line-height: 1.5;
+}
+.proeve-titel { margin: 0 0 14px; font-size: 26px; }
+
+.proeve-valg {
+  border: 1px solid var(--linje); border-radius: var(--r);
+  background: var(--kort); padding: 12px 14px 10px; margin: 0 0 18px;
+}
+.proeve-valg legend { font-size: 12px; color: var(--daempet); padding: 0 4px; }
+.proeve-knapper { display: flex; flex-wrap: wrap; gap: 6px; }
+.proeve-valgknap {
+  display: inline-flex; align-items: center; min-height: 36px; padding: 5px 12px;
+  border: 1px solid var(--linje); border-radius: var(--r-pille);
+  font-size: 13px; cursor: pointer; background: #fff;
+}
+.proeve-valgknap.er-valgt {
+  background: var(--accent-lys); border-color: var(--accent); color: var(--accent-mrk);
+  font-weight: 600;
+}
+/* Radioknappen er der stadig — den er bare ikke tegnet. Fjernedes den,
+   forsvandt piletastbetjeningen og gruppens navn med den. */
+.proeve-valgknap input {
+  position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
+}
+.proeve-valgknap:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.proeve-hvad { margin: 10px 2px 2px; font-size: 12.5px; color: var(--svag); }

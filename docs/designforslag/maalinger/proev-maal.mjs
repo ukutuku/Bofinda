@@ -1,18 +1,21 @@
 // ═══════════════════════════════════════════════════════════════
 //  Prøven af reglen «kommandoen navngiver sit mål og afviser som
 //  standard» — kørt mod de RIGTIGE kommandoer (laast-base.mjs › kraevMaal,
-//  de tre målescripts, importer-testbase.sh og app-skud.mjs), hver i sin
-//  egen proces. Ikke mod en kopi af vagten.
+//  maalescripts, importer-testbase.sh og app-skud.mjs), hver i sin egen proces.
+//  Ikke mod en kopi af vagten. Produktionens og stagings ref læses af
+//  scripts/staging/maal.ts, samme sted som vagten læser dem.
 //
 //      node docs/designforslag/maalinger/proev-maal.mjs
 //
-//  Ingen forbindelse åbnes, og intet importeres: de afviste tilfælde
+//  Kræver Node ≥ 22.18: prøven og vagtens prod-gren læser refs'ene af
+//  scripts/staging/maal.ts, og plain node stripper typerne fra 22.18.
+//
+//  Ingen forbindelse åbnes, og ingen boliger importeres: de afviste tilfælde
 //  stopper i vagten, de godkendte kraevMaal-tilfælde stopper, før en
 //  forbindelse ville blive åbnet, og importen kører mod en attrap af
 //  `npx` forrest i PATH, som kun skriver sit miljø ud. Derfor er også en
 //  modprøve med en svækket importvagt ufarlig, når netværket er åbent.
-//  Et afvist kald må ikke have skrevet noget: app-skud.mjs' udmappe skal
-//  ikke findes bagefter. Exit 1 ved afvigelse.
+//  Exit 1 ved afvigelse.
 // ═══════════════════════════════════════════════════════════════
 import { spawnSync, execFileSync } from 'node:child_process'
 import { join } from 'node:path'
@@ -21,19 +24,23 @@ import { tmpdir } from 'node:os'
 const HER = new URL('.', import.meta.url).pathname
 const ROD = join(HER, '../../..')
 const LB = join(HER, 'laast-base.mjs')
+const { STAGING_REF, PRODUKTION_REF } = await import(join(ROD, 'scripts/staging/maal.ts'))
 const TEST = 'postgres://x:y@127.0.0.1:55432/bofinda_test?sslmode=disable'
-const POOLER = 'postgres://postgres.abcdefghijklmnopqrst:y@aws-0-eu-central-1.pooler.supabase.com:5432/postgres'
-const DIREKTE = 'postgres://postgres:y@db.abcdefghijklmnopqrst.supabase.co:5432/postgres'
-const STAGING = 'postgres://postgres.prgmenbwabwkgitjclrj:y@aws-0-eu-central-1.pooler.supabase.com:5432/postgres'
+const POOLER = `postgres://postgres.${PRODUKTION_REF}:y@aws-0-eu-central-1.pooler.supabase.com:5432/postgres`
+const DIREKTE = `postgres://postgres:y@db.${PRODUKTION_REF}.supabase.co:5432/postgres`
+const STAGING = `postgres://postgres.${STAGING_REF}:y@aws-0-eu-central-1.pooler.supabase.com:5432/postgres`
+const ANDEN = 'abcdefghijklmnopqrst'
 const RENT = { PATH: process.env.PATH, HOME: process.env.HOME }
 
 const vagt = (args, url, ekstra = {}) => spawnSync(process.execPath, ['-e',
-  `import(${JSON.stringify(LB)}).then((m) => { const r = m.kraevMaal(${JSON.stringify(args)}); console.log(r.maal) })`],
+  `import(${JSON.stringify(LB)}).then(async (m) => { const r = await m.kraevMaal(${JSON.stringify(args)}); console.log(r.maal) })`],
   { env: { ...RENT, ...(url ? { DATABASE_URL_DIRECT: url } : {}), ...ekstra }, encoding: 'utf8' })
-// De rigtige kommandolinjer — plain node: vagten står før enhver .ts-import.
+// De rigtige kommandolinjer, i plain node: vagten afviser, før målescriptet
+// importerer appens kode.
 const cli = (script, args, url) => spawnSync(process.execPath, [join(HER, script), ...args],
   { env: { ...RENT, ROD, ...(url ? { DATABASE_URL_DIRECT: url } : {}) }, encoding: 'utf8' })
 const imp = (env) => spawnSync('bash', [join(HER, '../gengivelse/importer-testbase.sh'), 'propstep'], { env: { ...RENT, ...env }, encoding: 'utf8' })
+
 const appskud = (url) => {
   const ud = join(tmpdir(), `proev-maal-${process.pid}-${Math.round(performance.now())}`)
   const r = spawnSync(process.execPath, [join(HER, '../gengivelse/app-skud.mjs'), ud, 'efter'], { env: { ...RENT, DATABASE_URL_DIRECT: url }, encoding: 'utf8' })
@@ -55,6 +62,7 @@ const T = [
   ['--base alene (den gamle form)', vagt(['--base'], TEST), 3],
   ['--maal test uden DATABASE_URL_DIRECT', vagt(['--maal', 'test'], null), 3],
   ['ugyldig URL', vagt(['--maal', 'test'], 'postgres://[ugyldig'), 3],
+  ['ugyldig procentkodning i brugernavnet', vagt(['--maal', 'prod'], 'postgres://postgres.%E0:y@aws-0-eu-central-1.pooler.supabase.com:5432/postgres'), 3],
   // ── test: positivt, læst af miljoe.sh ───────────────────────────
   ['--maal test mod testbasen', vagt(['--maal', 'test'], TEST), 0],
   ['--maal test mod en fjern base', vagt(['--maal', 'test'], POOLER), 3],
@@ -65,24 +73,38 @@ const T = [
   // ── prod: positivt — kun Supabase, /postgres, ikke staging ──────
   ['--maal prod mod session-pooleren', vagt(['--maal', 'prod'], POOLER), 0],
   ['--maal prod mod direkte vært', vagt(['--maal', 'prod'], DIREKTE), 0],
+  // Et andet Supabase-projekt end produktionen — før godkendt, fordi kun
+  // staging var udelukket.
+  ['--maal prod mod en anden ref (pooler)', vagt(['--maal', 'prod'], POOLER.replace(PRODUKTION_REF, ANDEN)), 3],
+  ['--maal prod mod en anden ref (direkte)', vagt(['--maal', 'prod'], DIREKTE.replace(PRODUKTION_REF, ANDEN)), 3],
+  // Poolerformens ref står i brugernavnet; den alene må ikke godkende en
+  // anden vært.
+  ['--maal prod: produktionens ref i brugernavnet, vært 127.0.0.1', vagt(['--maal', 'prod'], `postgres://postgres.${PRODUKTION_REF}:y@127.0.0.1:5432/postgres`), 3],
+  // Hver kanal tæller: produktionens ref i brugernavnet må ikke godkende et
+  // andet projekts direkte vært, og omvendt.
+  ['--maal prod: produktionens ref i brugernavnet, et andet projekts direkte vært', vagt(['--maal', 'prod'], `postgres://postgres.${PRODUKTION_REF}:y@db.${ANDEN}.supabase.co:5432/postgres`), 3],
+  ['--maal prod: produktionens direkte vært, et andet projekt i brugernavnet', vagt(['--maal', 'prod'], `postgres://postgres.${ANDEN}:y@db.${PRODUKTION_REF}.supabase.co:5432/postgres`), 3],
   ['--maal prod mod testbasen', vagt(['--maal', 'prod'], TEST), 3],
   ...['LOCALHOST', 'localhost.', '127.1', '127.0.0.2', '0.0.0.0', '[::ffff:127.0.0.1]', 'host.docker.internal', 'db.invalid,127.0.0.1'].map((v) =>
-    // Stien er /postgres, som Supabase's: så er værtskravet den ENESTE
-    // barriere, og tilfældet prøver netop det (modprøven fandt, at stien
-    // /bofinda_test ellers afviste dem i forvejen).
-    [`--maal prod mod ${v} (sti /postgres)`, vagt(['--maal', 'prod'], `postgres://x:y@${v}:5432/postgres`), 3]),
+    // Stien er /postgres, som Supabase's, og brugernavnet bærer
+    // produktionens ref: så er værtskravet den ENESTE barriere, og
+    // tilfældet prøver netop det (en modprøve fandt, at stien
+    // /bofinda_test og siden ref-kravet ellers afviste dem i forvejen).
+    [`--maal prod mod ${v} (sti /postgres, produktionens ref)`, vagt(['--maal', 'prod'], `postgres://postgres.${PRODUKTION_REF}:y@${v}:5432/postgres`), 3]),
   ['--maal prod mod staging', vagt(['--maal', 'prod'], STAGING), 3],
-  ['--maal prod mod staging med versaler', vagt(['--maal', 'prod'], 'postgres://postgres:y@db.PRGMENBWABWKGITJCLRJ.supabase.co:5432/postgres'), 3],
+  ['--maal prod mod staging med versaler', vagt(['--maal', 'prod'], `postgres://postgres:y@db.${STAGING_REF.toUpperCase()}.supabase.co:5432/postgres`), 3],
   ['--maal prod mod en Supabase-vært med /bofinda_test', vagt(['--maal', 'prod'], POOLER.replace(/\/postgres$/, '/bofinda_test')), 3],
   ['--maal prod mod :6543', vagt(['--maal', 'prod'], POOLER.replace(':5432', ':6543')), 3],
   // ── de rigtige kommandolinjer ───────────────────────────────────
   ['maal-prisspaend.mjs uden flag', cli('maal-prisspaend.mjs', [], TEST), 3],
   ['maal-ny.mjs uden flag', cli('maal-ny.mjs', [], TEST), 3],
+  ['maal-forsidetal.mjs uden flag', cli('maal-forsidetal.mjs', [], TEST), 3],
+  ['maal-ny.mjs --maal prod mod testbasen', cli('maal-ny.mjs', ['--maal', 'prod'], TEST), 3],
   ['maal-chips.mjs uden flag', cli('maal-chips.mjs', [], TEST), 3],
   ['maal-chips.mjs --prod (den gamle form)', cli('maal-chips.mjs', ['--prod'], TEST), 3],
-  ['maal-forsidetal.mjs uden flag', cli('maal-forsidetal.mjs', [], TEST), 3],
   ['maal-prisspaend.mjs --maal test mod en fjern base', cli('maal-prisspaend.mjs', ['--maal', 'test'], POOLER), 3],
-  ['maal-ny.mjs --maal prod mod testbasen', cli('maal-ny.mjs', ['--maal', 'prod'], TEST), 3],
+  ['maal-prisspaend.mjs --maal prod mod testbasen', cli('maal-prisspaend.mjs', ['--maal', 'prod'], TEST), 3],
+  ['maal-chips.mjs --maal prod mod testbasen', cli('maal-chips.mjs', ['--maal', 'prod'], TEST), 3],
   // ── importen ────────────────────────────────────────────────────
   ['importer-testbase.sh med DATABASE_URL i skallen', imp({ ...medAttrap, DATABASE_URL: POOLER }), 3],
   ['importer-testbase.sh med DATABASE_URL_DIRECT i skallen', imp({ ...medAttrap, DATABASE_URL_DIRECT: POOLER }), 3],

@@ -11,8 +11,9 @@
 #    · er DATABASE_URL, DATABASE_URL_DIRECT eller RESEND_API_KEY sat i
 #      forvejen, afbrydes der med exit 3 — skallen har nøgler til noget
 #      uden for containeren, og så er den forkerte skal at importere fra
-#      (samme vagt og samme kode som scripts/proeve-storage/vagter.ts på
-#      grenen claude/tender-noether-tjb6fs);
+#      (3 = «kunne ikke køre», samme vagt og samme kode som storage-
+#      prøvens vagter.ts på grenen claude/tender-noether-tjb6fs, som
+#      ikke er på main);
 #    · importøren kaldes direkte, ikke gennem `npm run import`, som kører
 #      med --env-file-if-exists=.env.
 #  scripts/import.ts matcher og SENDER alarmer i samme kørsel. Uden

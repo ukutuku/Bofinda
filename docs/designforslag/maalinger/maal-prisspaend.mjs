@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  Prisspændet i søgesidens resultathoved: hvor meget af det er huslejer,
 //  der står ved siden af «N med samlet pris til udlejer»?
-//  SKRIVEBESKYTTET mod --base: kun select.
+//  SKRIVEBESKYTTET mod en base (--maal test|prod): kun select.
 //
 //  Genbruger søgesidens egne funktioner — soeg() og opsummering() går
 //  begge gennem hvorVist(), så grundlaget er præcis det, siden viser, med
@@ -36,7 +36,7 @@ if (PROEVE && (process.env.DATABASE_URL || process.env.DATABASE_URL_DIRECT)) {
   console.error('FEJL: --proeve med DATABASE_URL sat. Afbryder.'); process.exit(2)
 }
 
-// --base: skrivebeskyttelsen håndhæves af BASEN (read-only-session, SHOW
+// --maal: skrivebeskyttelsen håndhæves af BASEN (read-only-session, SHOW
 // før og efter, aldrig :6543) — ikke af, at filen kun indeholder select.
 let maal = 'PGlite i processen (prøve)', laas = null
 if (BASE) {

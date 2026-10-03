@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  To ting, der er dyre at bryde uden at opdage det:
 //
 //    1. Rundturen — gem uden at ændre noget, og se om rækken overlever.
@@ -39,7 +40,12 @@ import { alertMatches, crawlRuns, fetchFailures, hostBlocks, listingImages, list
 import { matchAlarmer } from '../lib/alarm'
 import { byForPostnr } from '../lib/omraade'
 import { laesBolig as dacasLaes } from '../adapters/dacas'
-import { laesSag as homeLaes } from '../adapters/home'
+import { readFileSync } from 'node:fs'
+import {
+  laesSag as homeLaes, homeSignatur, homeAdapter,
+  STANDARD_DETALJEBUDGET_HOME, _nulstilHomeBudgetAdvarsel,
+} from '../adapters/home'
+import { noeglerISag, sagstypeFor } from './home-felter'
 import { laes as balderLaes } from '../adapters/balder'
 import { findSearchResponse as cejFind, laes as cejLaes } from '../adapters/cej'
 import {
@@ -83,14 +89,18 @@ import { billedUrl, TILLADTE_VAERTER } from '../lib/billede'
 import { eltilstand } from '../lib/eloplysning'
 import type { Bolig, Filtre, Gruppe } from '../lib/soeg'
 import {
-  facilitetsgrundlag, hvor, NYHEDSDATO, oekonomigrundlag, opsummering, soeg,
-  soegGrupperet, tavseKilder, udenDubletter,
+  boligenErI, erUdlejerannonce, facilitetsgrundlag, hentBolig, hvor, NYHEDSDATO,
+  oekonomigrundlag, opsummering, soeg, soegGrupperet, tavseKilder, udenDubletter,
 } from '../lib/soeg'
+import { dedupNoegle } from '../lib/dedup'
+import { belaegHolder } from '../lib/billedforbehold'
 import { FACILITET } from '../lib/faciliteter'
 import {
   mineBoliger, opdaterBolig, opretBolig, renTekst, somFormular, tjekAdresse,
   type Boliginput,
 } from '../lib/udlejer'
+import { MAKS_BILLEDER, tjekBilleder } from '../lib/billedloft'
+import { forklaring } from '../app/udlejer/boliger/forklaring'
 
 let fejl = 0
 const tjek = (navn: string, ok: boolean, note = '') => {
@@ -107,15 +117,55 @@ const tjek = (navn: string, ok: boolean, note = '') => {
  * base, er ikke en proeve — den er et groent flueben uden daekning, og det
  * er vaerre end ingenting, fordi nogen tror, den holder. Derfor skrives
  * hver overspringning ud, og antallet staar i bunden.
+ *
+ * ═══ HVER OVERSPRINGNING HAR TO GRUNDE, OG DE ER FORSKELLIGE ═══
+ *
+ * Den foerste er faelles og staar ovenfor: forholdet findes ikke paa en
+ * tom base. Den ANDEN er, hvad proeven ville sige, hvis man fjernede
+ * vagten alligevel — og den er ikke den samme de fem steder. Maalt 1.
+ * oktober 2026 ved at saette BOFINDA_PROEV_PRODUKTION=1 paa PGlite:
+ *
+ *     ✓ ingen aktiv bolig har billeder paa en ukendt vaert
+ *     ✗ ingen kilde har alle 48 kort paa forsiden
+ *     ✗ 2200 giver et bynavn
+ *     ✗ der findes tavse kilder at naevne
+ *     ✗ de daekker et positivt antal boliger
+ *
+ * DEN ENE BLIVER GROEN PAA INGENTING. Den taeller raekker og kraever
+ * nul; nul raekker giver nul. Fjernes vagten, staar der et flueben, hvor
+ * ingenting blev maalt — den vaerste udgang, fordi den ligner et bevis.
+ *
+ * DE FIRE ANDRE BLIVER ROEDE PAA INGENTING, og faren er en anden: den
+ * naeste «hjaelper» ved at goere dem groenne. Enten ved at svaekke
+ * praedikatet (`> 1` bliver til `>= 1`) eller ved at saa et fikstur for
+ * 2200 — og saa maaler proeven sit eget forlaeg i stedet for det
+ * rigtige udbud. Begge veje ender samme sted som den foerste.
+ *
+ * Derfor staar begge grunde ved HVERT kaldsted, ikke kun her. En
+ * faellesforklaring et sted laeses ikke af den, der staar ved linjen.
  */
 const MOD_PRODUKTION = process.env.BOFINDA_PROEV_PRODUKTION === '1'
 let sprunget = 0
+/**
+ * @param navn    Paastanden.
+ * @param kald    Selve maalingen.
+ * @param note    Tal til udskriften.
+ * @param udenData Hvad proeven ville SIGE paa en tom base — den anden
+ *   grund. `'groen'` betyder at overspringningen er det eneste, der
+ *   holder et falsk flueben ude; `'roed'` at den holder en falsk
+ *   «rettelse» ude. Den skrives ud, saa den staar paa skaermen og ikke
+ *   kun i en kommentar.
+ */
 const tjekProd = async (
   navn: string, kald: () => boolean | Promise<boolean>, note?: () => string | Promise<string>,
+  udenData: 'groen' | 'roed' = 'roed',
 ) => {
   if (!MOD_PRODUKTION) {
     sprunget++
-    console.log(`  ⊘ ${navn}  — kræver rigtige data (npm run test:prod)`)
+    const anden = udenData === 'groen'
+      ? 'uden dem ville den blive GRØN på ingenting'
+      : 'uden dem ville den blive RØD på ingenting'
+    console.log(`  ⊘ ${navn}  — kræver rigtige data (npm run test:prod); ${anden}`)
     return
   }
   tjek(navn, await kald(), note ? await note() : '')
@@ -163,6 +213,7 @@ async function main() {
   const udlejer = { id: u!.id, authUserId: 'test', email: u!.email, navn: null }
   let id = ''
   let rivalId = ''
+  let rival2Id = ''
   let proevekildeId = ''
   const ekstra: { boliger: string[]; brugere: string[]; kilder: string[] } =
     { boliger: [], brugere: [], kilder: [] }
@@ -207,6 +258,24 @@ async function main() {
   tjek('tom dør går igennem', ok('', { doer: null }))
   tjek('dør - afvises', !ok('', { doer: '-' }))
   tjek('dør "for enden af gangen" afvises', !ok('', { doer: 'for enden af gangen' }))
+
+  // ── Billedlisten: loft og dubletter ──────────────────────────
+  // Loftet stod kun i browseren, og serveren gemte hvad som helst. Reglen
+  // bor i lib/billedloft.ts, saa formularen og serveren laeser det samme tal.
+  console.log('\n══ billedlisten: loft og dubletter ══')
+  const urler = (n: number, navn = 'b') =>
+    Array.from({ length: n }, (_, k) => `${VIST_VAERT}/${navn}${k}.jpg`)
+  tjek(`${MAKS_BILLEDER} unikke går igennem`, tjekBilleder(urler(MAKS_BILLEDER)) === null)
+  tjek('ingen billeder går igennem', tjekBilleder([]) === null)
+  tjek(`${MAKS_BILLEDER + 1} afvises`, tjekBilleder(urler(MAKS_BILLEDER + 1)) !== null)
+  // Det tal, der staar i produktionen i dag: én annonce har 31.
+  tjek('31 billeder: beskeden siger, hvor mange der skal væk',
+    /har 31 billeder.*plads til 20.*Fjern 11 billeder/.test(tjekBilleder(urler(31)) ?? ''),
+    String(tjekBilleder(urler(31))))
+  tjek('én dublet afvises', tjekBilleder([`${VIST_VAERT}/a.jpg`, `${VIST_VAERT}/a.jpg`]) !== null)
+  // Under loftet, saa det er dublet-reglen og ikke loftet, der afviser.
+  tjek(`${MAKS_BILLEDER} kopier afvises (dubletter under loftet)`,
+    tjekBilleder(Array(MAKS_BILLEDER).fill(`${VIST_VAERT}/a.jpg`)) !== null)
 
   // ── Byen udledes af postnummeret ─────────────────────────────
   // ── Ingen tabel maa staa aaben ───────────────────────────────
@@ -272,8 +341,23 @@ async function main() {
   // kilden brugte TO vaerter og gennemgangen fandt kun den ene —
   // 25 boliger med 249 billeder stod uden.
   //
-  // Kraever rigtige data: paa en tom testbase er der ingen boliger at
-  // maale paa, og proeven ville bestaa uden at have set noget.
+  // ═══ TO GRUNDE TIL AT DEN SPRINGES OVER ═══
+  //
+  // 1 · DEN KRAEVER RIGTIGE DATA. Forholdet er «findes der en aktiv bolig
+  //     med billedraekker, hvor ingen af vaerterne er tilladt» — og det
+  //     kan kun maales paa et rigtigt udbud. Maalt paa testbasen: 0
+  //     aktive boliger HAR overhovedet billedraekker.
+  //
+  // 2 · UDEN DEM LYVER DEN. Praedikatet er `tabte.length === 0`, og nul
+  //     raekker giver nul. Den er den ENESTE af de fem, der bliver
+  //     GROEN paa en tom base (maalt 1. oktober 2026 med
+  //     BOFINDA_PROEV_PRODUKTION=1 paa PGlite). Fjerner man vagten for
+  //     at «faa den med i npm test», staar der et flueben, hvor
+  //     ingenting blev maalt — og netop den her regel er brudt TRE
+  //     gange i produktionen uden at nogen opdagede det.
+  //
+  // Overspringningen er altsaa ikke en mangel, der skal lukkes. Den er
+  // det eneste, der holder et falsk groent ude.
   console.log('\n══ ingen bolig må have billeder på en ukendt vært ══')
   // Raa SQL med vores egne aliaser: forespoergslen skal naevne den samme
   // tabel to gange — én gang for at faa vaertsnavnet frem, og én gang i
@@ -296,11 +380,21 @@ async function main() {
       tabte = ((r as unknown as { rows?: typeof tabte }).rows ?? (r as unknown as typeof tabte))
       return tabte.length === 0
     },
-    () => tabte.map((t) => `${t.vaert}: ${t.boliger} boliger`).join(' · '))
+    () => tabte.map((t) => `${t.vaert}: ${t.boliger} boliger`).join(' · '),
+    'groen')
 
-  // Den bogstavelige udgave, som kun giver mening med et rigtigt udbud:
-  // ingen enkelt kilde maa tage hele forsiden. Det gjorde home.dk — 48 af
-  // 48 — den dag den blev koblet paa.
+  // ═══ TO GRUNDE ═══
+  //
+  // 1 · DEN KRAEVER RIGTIGE DATA. Fordelingen af forsidens 48 kort paa
+  //     kilder findes kun i et rigtigt udbud. Det var ikke teoretisk:
+  //     home.dk tog 48 af 48 den dag, den blev koblet paa.
+  //
+  // 2 · UDEN DEM BLIVER DEN ROED. `fordeling.length > 1` paa nul kilder
+  //     er `false`. Faren er derfor ikke et falsk groent, men en
+  //     «rettelse»: svaekker man praedikatet til `>= 1` for at faa den
+  //     groen paa testbasen, kan den ALDRIG mere fejle — ogsaa ikke den
+  //     dag én kilde igen tager hele forsiden. Lad den vaere roed, og
+  //     lad vagten springe den over.
   console.log('\n══ ingen enkelt kilde må tage hele forsiden ══')
   let fordeling: [string, number][] = []
   await tjekProd('ingen kilde har alle 48 kort på forsiden',
@@ -316,6 +410,19 @@ async function main() {
     },
     () => fordeling.map(([k, n]) => `${k} ${n}`).join(' · '))
 
+  // ═══ TO GRUNDE ═══
+  //
+  // 1 · DEN KRAEVER RIGTIGE DATA. `byForPostnr` slaar op i de boliger, VI
+  //     allerede har, med samme `mode()`-forespoergsel som
+  //     omraadesiderne bygger deres navne af. Uden boliger i 2200 er der
+  //     intet navn at finde.
+  //
+  // 2 · UDEN DEM BLIVER DEN ROED — og den naerliggende «rettelse» er at
+  //     saa en bolig i 2200. Saa maaler proeven sit eget fikstur: den
+  //     bekraefter, at `mode()` kan laese den raekke, proeven lige har
+  //     skrevet, og siger intet om, at opslaget virker paa det rigtige
+  //     udbud. Linjen under — at et UKENDT postnummer giver null — kan
+  //     maales paa en tom base og goer det derfor uden vagt.
   console.log('\n══ byen udledes af postnummeret ══')
   await tjekProd('2200 giver et bynavn',
     async () => (await byForPostnr('2200')) !== null,
@@ -353,7 +460,7 @@ async function main() {
     antal: 3, repraesentant: bolig(n), prisMin: 1300000, prisMax: 1500000,
     arealMin: 70, arealMax: 90, type: 'lejlighed', ledigMin: null, ledigMax: null,
     ledigUkendte: 0, indflytningMin: null, indflytningMax: null,
-    ensPoster: true, alleOgsaaAndetsteds: false, nyesteMarkedet: new Date(),
+    ensPoster: true, alleOgsaaAndetsteds: false, nyhed: new Date(),
     nogenUdenEl: true, alleUdenElHarEgenMaaler: false, nogenUkendtDaekning: false,
     availability: {
       timing: { nu: 0, senere: 0, unknown: 3, conflict: 0 },
@@ -529,6 +636,335 @@ async function main() {
     hjemSag.availableFrom === '2026-10-01', String(hjemSag.availableFrom))
   tjek('… og lejen er sagens egen', hjemSag.rentMonthly === 1200000,
     String(hjemSag.rentMonthly))
+
+  // ── home.dk: optaellingen af feltnavne ───────────────────────
+  // `scripts/home-felter.ts` findes, fordi adapteren IKKE saetter
+  // deposit, prepaidRent og rooms, og fordi ingen har maalt, hvad de
+  // hedder i payloaden. Vaerktoejet TAELLER noeglerne i stedet for at
+  // slaa et formodet navn op — og det er netop en optaelling, der skal
+  // kunne stoles paa, for den bliver grundlaget for at udvide
+  // adapterens allowlist.
+  //
+  // Fixturen er konstrueret og laegger NABOENS sag foerst, som den
+  // eksisterende home-fixture ovenfor. Naboen har et beloebsfelt, SAGEN
+  // IKKE HAR (`rentalDepositUkendt`) og et ekstra stats-felt — saa en
+  // ubunden «foerste objekt med et offer»-laesning ville rapportere
+  // naboens feltnavne som boligens. Det er praecis den fejl, en
+  // optaelling maa vaere immun over for: den ville faa os til at skrive
+  // et feltnavn ind i adapteren, som den maalte bolig ikke har.
+  console.log('\n══ home.dk: feltoptaelling bundet til sagens id ══')
+  const HF_FLAD: unknown[] = [
+    'meta',                                                    // 0
+    { id: 2, offer: 3, stats: 6 },                             // 1  NABOEN — foerst
+    'NABO1',                                                   // 2
+    { rentalPricePerMonth: 4, rentalDepositUkendt: 5 },        // 3  EKSTRA beloebsfelt
+    { amount: 9000 },                                          // 4
+    { amount: 27000 },                                         // 5
+    { floorArea: 7, naboFelt: 8 },                             // 6  EKSTRA stats-felt
+    55,                                                        // 7
+    'kun-hos-naboen',                                          // 8
+    { id: 10, offer: 11, stats: 14 },                          // 9  SAGEN
+    'SAG1',                                                    // 10
+    { rentalPricePerMonth: 12, rentalUtilitiesPerMonth: 13 },  // 11
+    { amount: 12000 },                                         // 12
+    { amount: 1100 },                                          // 13
+    { floorArea: 15 },                                         // 14
+    70,                                                        // 15
+    { id: 17, offer: 18 },                                     // 16  TREDJE — uden stats
+    '177P000001',                                              // 17
+    {},                                                        // 18  tomt offer
+  ]
+
+  const hfSag = noeglerISag(HF_FLAD, 'SAG1')
+  tjek('præmis: naboens sag står FØRST i den flade liste',
+    JSON.stringify(HF_FLAD).indexOf('NABO1') < JSON.stringify(HF_FLAD).indexOf('SAG1'))
+  tjek('offer-nøglerne er SAGENS egne',
+    hfSag.offer.some((k) => k.startsWith('rentalPricePerMonth:'))
+    && hfSag.offer.some((k) => k.startsWith('rentalUtilitiesPerMonth:')),
+    hfSag.offer.join(' · '))
+  tjek('naboens ekstra beløbsfelt lækker IKKE ind som sagens',
+    !hfSag.offer.some((k) => k.startsWith('rentalDepositUkendt:')),
+    hfSag.offer.join(' · '))
+  tjek('stats-nøglerne er sagens egne — naboens ekstra felt er ude',
+    hfSag.stats.some((k) => k.startsWith('floorArea:'))
+    && !hfSag.stats.some((k) => k.startsWith('naboFelt:')),
+    hfSag.stats.join(' · '))
+  tjek('beløbsformede felter findes, og kun sagens',
+    hfSag.beloebsformede.join(',') === 'offer.rentalPricePerMonth,offer.rentalUtilitiesPerMonth',
+    hfSag.beloebsformede.join(','))
+
+  // Manglende felt er ikke en fejl — det er et tomt svar. En kilde, der
+  // ikke har `stats` paa en sag, skal give en tom liste, ikke et kast:
+  // fravaeret er selve maaleresultatet.
+  const hfUden = noeglerISag(HF_FLAD, '177P000001')
+  tjek('en sag uden stats giver tom liste, ikke et kast',
+    hfUden.stats.length === 0 && hfUden.offer.length === 0)
+  tjek('… og den har ingen beløbsformede felter at rapportere',
+    hfUden.beloebsformede.length === 0, hfUden.beloebsformede.join(','))
+
+  // Sagstypen kan ses paa sagsnummeret (adapterens eget hoved), og de to
+  // typer har dokumenteret forskellig dataform — derfor skal BEGGE maales.
+  tjek('sagstype: 177P… er projektlejemål',
+    sagstypeFor('177P009058') === 'projekt')
+  tjek('sagstype: 1770021465 er almindelig sag',
+    sagstypeFor('1770021465') === 'almindelig')
+  tjek('sagstype: ukendt form gættes ikke', sagstypeFor('SAG1') === 'ukendt')
+
+  // PRIVATLIV: optaellingen maa aldrig baere vaerdier ud. Allowlisten
+  // findes, fordi kilders datamodeller baerer sagsbehandlernoter med
+  // navne og telefonnumre paa nuvaerende lejere. Et vaerktoej, der
+  // dumpede hele objektet, ville vaere den lige vej uden om reglen.
+  const udskrift = JSON.stringify(hfSag)
+  tjek('optællingen bærer NAVNE, ikke værdier',
+    !udskrift.includes('12000') && !udskrift.includes('1100')
+    && !udskrift.includes('kun-hos-naboen') && !udskrift.includes('70'),
+    udskrift)
+
+  // ── home.dk: depositum, forudbetalt leje og vaerelser ────────
+  // MOD DE RIGTIGE KILDEPROEVER. scripts/kildeproever/home/ rummer to
+  // hentede detaljesider fra 15. sep. 2026 — én projektsag og én
+  // almindelig — reduceret til de maalte felter med ORIGINALE indekser
+  // og uaendrede kildevaerdier. Belaegget (url, tidspunkt, SHA-256) staar
+  // i feltbelaeg.json ved siden af.
+  //
+  // De to sagstyper proeves hver for sig, fordi de har forskellig
+  // dataform: projektsagen har `rentalUtilitiesPerMonth: null`, altsaa
+  // et fravaerende aconto-beloeb, hvor den almindelige har et tal.
+  console.log('\n══ home.dk: depositum, forudbetalt og vaerelser fra kilden ══')
+  const proeveFlad = (fil: string): unknown[] =>
+    JSON.parse(readFileSync(new URL(`./kildeproever/home/${fil}`, import.meta.url), 'utf8'))
+  const gitterFor = (id: string) => ({
+    id, url: `https://home.dk/sag-${id}/`, adresse: 'Prøvevej 1, 2300 København S',
+    postnr: '2300', areal: undefined, leje: undefined, type: 'lejlighed',
+    billeder: [] as string[],
+  })
+
+  // Projektsag 177P009541 — kildens egne tal: leje 14.300, depositum
+  // 42.900, forudbetalt 14.300, 2 vaerelser, INTET aconto-beloeb.
+  const pSag = homeLaes(proeveFlad('177P009541-nuxt-minimal.json'),
+    gitterFor('177P009541'), 'https://home.dk/sag-177P009541/')
+  tjek('projektsag: depositum er kildens 42.900 kr. i øre',
+    pSag.deposit === 4290000, String(pSag.deposit))
+  tjek('projektsag: forudbetalt leje er kildens 14.300 kr. i øre',
+    pSag.prepaidRent === 1430000, String(pSag.prepaidRent))
+  tjek('projektsag: værelsestallet er kildens 2', pSag.rooms === 2, String(pSag.rooms))
+  tjek('projektsag: huslejen er uændret 14.300 kr.',
+    pSag.rentMonthly === 1430000, String(pSag.rentMonthly))
+  tjek('projektsag: aconto er null hos kilden og forbliver UKENDT',
+    pSag.utilitiesOther === undefined, String(pSag.utilitiesOther))
+  // Kilden oplyser ingen samlet indflytningspris, og vi laegger ikke
+  // delene sammen: en sum, vi selv havde regnet, ville se lige saa
+  // sikker ud som en oplyst.
+  tjek('projektsag: indflytningsprisen er IKKE regnet af delene',
+    pSag.moveInCost === undefined, String(pSag.moveInCost))
+
+  // Almindelig sag 1770021346 — leje 15.800, aconto 600, depositum
+  // 15.800, forudbetalt 15.800, 2 vaerelser.
+  const aSag = homeLaes(proeveFlad('1770021346-nuxt-minimal.json'),
+    gitterFor('1770021346'), 'https://home.dk/sag-1770021346/')
+  tjek('almindelig sag: depositum er kildens 15.800 kr. i øre',
+    aSag.deposit === 1580000, String(aSag.deposit))
+  tjek('almindelig sag: forudbetalt leje er kildens 15.800 kr. i øre',
+    aSag.prepaidRent === 1580000, String(aSag.prepaidRent))
+  tjek('almindelig sag: værelsestallet er kildens 2', aSag.rooms === 2, String(aSag.rooms))
+  tjek('almindelig sag: aconto er kildens 600 kr.',
+    aSag.utilitiesOther === 60000, String(aSag.utilitiesOther))
+  tjek('almindelig sag: indflytningsprisen er IKKE regnet af delene',
+    aSag.moveInCost === undefined, String(aSag.moveInCost))
+
+  // ── home.dk: detaljevagten ───────────────────────────────────
+  //  home.dk koerte med budget = Infinity, fordi den manglede
+  //  listeGrundlag — og UDEN grundlaget er et budget tavst
+  //  virkningsloest (se scripts/test-adapterkontrakt.ts). Derfor hoerer
+  //  de tre ting sammen: grundlag, loft og takt.
+  console.log('\n══ home.dk: detaljevagten — grundlag, loft og takt ══')
+  {
+    const hm = homeAdapter()
+    tjek('home vagt: adapteren erklærer listeGrundlag, budget, vært og type',
+      typeof hm.listeGrundlag === 'function'
+      && hm.listeGrundlag!('https://home.dk/findes-ikke') === null
+      && hm.host === 'home.dk' && hm.sourceType === 'spider')
+
+    // Signaturen: gitteret har hverken status eller dato, så den kan kun
+    // bære leje, areal og type. Den grænse PRØVES her, så den ikke bliver
+    // en overraskelse — og så en senere udvidelse af gitteret bliver synlig.
+    const sig = homeSignatur(HJEM_G)
+    tjek('home vagt: signatur ændres ved ny leje',
+      homeSignatur({ ...HJEM_G, leje: 1300000 }) !== sig)
+    tjek('home vagt: … og ved nyt areal eller ny boligtype',
+      homeSignatur({ ...HJEM_G, areal: 71 }) !== sig
+      && homeSignatur({ ...HJEM_G, type: 'raekkehus' }) !== sig)
+    tjek('home vagt: signatur er stabil for uændret gitterrække',
+      homeSignatur({ ...HJEM_G }) === sig)
+    tjek('home vagt: adresse og billeder er IKKE i signaturen',
+      homeSignatur({ ...HJEM_G, adresse: 'Andenvej 2, 2300 København S' }) === sig
+      && homeSignatur({ ...HJEM_G, billeder: [] }) === sig)
+
+    // Takten. Tallet er ikke målt på home.dk — det er Heimstadens,
+    // overtaget fordi kildens tålmodighed er ukendt. Prøven låser, at
+    // den ER sat, og at den ikke smitter af på andre værter.
+    tjek('home takt: home.dk har mindst 5 sekunder mellem kald',
+      taktFor('home.dk') >= 5000, String(taktFor('home.dk')))
+    tjek('home takt: andre værter er upåvirkede (standard 1 s)',
+      taktFor('proeve-home-anden.invalid') === 1000)
+
+    // Budgettet: eget env-navn, egen standard, rører ikke de andre kilder.
+    const gemtHome = process.env.HOME_DETALJEBUDGET
+    const foerHome = {
+      hs: heimstadenAdapter().detaljeBudgetPrKoersel,
+      laros: larosAdapter().detaljeBudgetPrKoersel,
+    }
+    try {
+      delete process.env.HOME_DETALJEBUDGET
+      _nulstilHomeBudgetAdvarsel()
+      tjek(`home budget: standard ${STANDARD_DETALJEBUDGET_HOME} uden env`,
+        hm.detaljeBudgetPrKoersel === STANDARD_DETALJEBUDGET_HOME
+        && STANDARD_DETALJEBUDGET_HOME === 25, String(hm.detaljeBudgetPrKoersel))
+      process.env.HOME_DETALJEBUDGET = '4'
+      tjek('home budget: env=4 giver 4', hm.detaljeBudgetPrKoersel === 4)
+      process.env.HOME_DETALJEBUDGET = '0'
+      tjek('home budget: env=0 giver 0 — et loft på nul er et gyldigt valg',
+        hm.detaljeBudgetPrKoersel === 0, String(hm.detaljeBudgetPrKoersel))
+      process.env.HOME_DETALJEBUDGET = 'syv'
+      _nulstilHomeBudgetAdvarsel()
+      const advarsler: string[] = []
+      const rigtigWarn = console.warn
+      console.warn = (...a: unknown[]) => { advarsler.push(a.map(String).join(' ')) }
+      let daarlig: number | undefined
+      try { daarlig = hm.detaljeBudgetPrKoersel } finally { console.warn = rigtigWarn }
+      tjek('home budget: ugyldig env falder tilbage til standarden',
+        daarlig === STANDARD_DETALJEBUDGET_HOME, String(daarlig))
+      tjek('home budget: og den siger tydeligt, at værdien blev IGNORERET',
+        advarsler.some((a) => a.includes('IGNORERET') && a.includes('syv')),
+        JSON.stringify(advarsler))
+      // Uændret før og efter — ikke «=== et bestemt tal».
+      tjek('home budget: env rører IKKE andre kilder — uændret før og efter',
+        heimstadenAdapter().detaljeBudgetPrKoersel === foerHome.hs
+        && larosAdapter().detaljeBudgetPrKoersel === foerHome.laros,
+        `hs ${foerHome.hs} · laros ${foerHome.laros}`)
+    } finally {
+      if (gemtHome === undefined) delete process.env.HOME_DETALJEBUDGET
+      else process.env.HOME_DETALJEBUDGET = gemtHome
+      _nulstilHomeBudgetAdvarsel()
+    }
+  }
+
+  // ── Syntetiske randtilfaelde — IKKE kildeobservationer ───────
+  // Det her er opdigtede payloads i home.dk's form, bygget til at proeve
+  // tre ting, de to hentede sager ikke daekker: et oplyst NUL, et helt
+  // fravaerende felt, og en nabosag med andre vaerdier. De maa aldrig
+  // omtales som en tredje maaling af kilden.
+  console.log('\n══ home.dk: nul, manglende felt og nabosag (syntetisk) ══')
+
+  // Oplyst nul: kilden siger 0 kr. Det er et UDSAGN og skal overleve som
+  // 0 — ikke smelte sammen med «ikke oplyst». Samme skel som aconto-
+  // reglen: «udlejer opkraever intet» og «udlejer oplyser intet» er to
+  // forskellige saetninger, og vi paastaar ikke den ene om den anden.
+  const NUL_FLAD: unknown[] = [
+    'meta',                                                    // 0
+    { id: 2, offer: 3, stats: 8 },                             // 1
+    'NUL1',                                                    // 2
+    { rentalSecurityDeposit: 4, rentalPricePrePaid: 6 },       // 3
+    { amount: 5 },                                             // 4
+    0,                                                         // 5  oplyst NUL
+    { amount: 7 },                                             // 6
+    0,                                                         // 7  oplyst NUL
+    { rooms: 9 },                                              // 8
+    0,                                                         // 9  oplyst NUL
+  ]
+  const nulSag = homeLaes(NUL_FLAD, gitterFor('NUL1'), 'https://home.dk/x')
+  tjek('et oplyst nul bevares som 0 — ikke som ukendt',
+    nulSag.deposit === 0 && nulSag.prepaidRent === 0,
+    `${nulSag.deposit} / ${nulSag.prepaidRent}`)
+  tjek('… og det gælder også værelsestallet', nulSag.rooms === 0, String(nulSag.rooms))
+
+  // Manglende felter: sagen har hverken depositum, forudbetalt eller
+  // stats. Tre gange undefined — og ingen nuller opfundet undervejs.
+  const TOM_FLAD: unknown[] = [
+    'meta',                                                    // 0
+    { id: 2, offer: 3 },                                       // 1  intet stats
+    'TOM1',                                                    // 2
+    { rentalPricePerMonth: 4 },                                // 3  kun leje
+    { amount: 5 },                                             // 4
+    12000,                                                     // 5
+  ]
+  const tomSag = homeLaes(TOM_FLAD, gitterFor('TOM1'), 'https://home.dk/x')
+  tjek('manglende felter forbliver UKENDTE — ingen nuller opfindes',
+    tomSag.deposit === undefined && tomSag.prepaidRent === undefined
+    && tomSag.rooms === undefined,
+    `${tomSag.deposit} / ${tomSag.prepaidRent} / ${tomSag.rooms}`)
+  tjek('… men huslejen læses stadig', tomSag.rentMonthly === 1200000,
+    String(tomSag.rentMonthly))
+
+  // Nabosag med ANDRE vaerdier, lagt FOERST i den flade liste — samme
+  // faelde som ledigdatoen havde foer id-bindingen. Naboens depositum er
+  // 99.000 og sagens 42.900; en ubunden laesning ville tage naboens, og
+  // tallet ville se lige saa rigtigt ud som et rigtigt.
+  const NABO_FLAD: unknown[] = [
+    'meta',                                                    // 0
+    { id: 2, offer: 3, stats: 9 },                             // 1  NABOEN — foerst
+    'NABO9',                                                   // 2
+    { rentalSecurityDeposit: 4, rentalPricePrePaid: 6 },       // 3
+    { amount: 5 },                                             // 4
+    99000,                                                     // 5  naboens depositum
+    { amount: 7 },                                             // 6
+    88000,                                                     // 7  naboens forudbetalte
+    88,                                                        // 8
+    { rooms: 11 },                                             // 9
+    { id: 12, offer: 13, stats: 19 },                          // 10 SAGEN
+    7,                                                         // 11 naboens 7 vaerelser
+    'SAG9',                                                    // 12
+    { rentalSecurityDeposit: 14, rentalPricePrePaid: 16 },     // 13
+    { amount: 15 },                                            // 14
+    42900,                                                     // 15 sagens depositum
+    { amount: 17 },                                            // 16
+    14300,                                                     // 17 sagens forudbetalte
+    2,                                                         // 18 sagens 2 vaerelser
+    { rooms: 18 },                                             // 19
+  ]
+  const naboSag = homeLaes(NABO_FLAD, gitterFor('SAG9'), 'https://home.dk/x')
+  tjek('præmis: naboens sag står FØRST i den flade liste',
+    JSON.stringify(NABO_FLAD).indexOf('NABO9') < JSON.stringify(NABO_FLAD).indexOf('SAG9'))
+  tjek('depositum er SAGENS 42.900 — ikke naboens 99.000',
+    naboSag.deposit === 4290000, String(naboSag.deposit))
+  tjek('forudbetalt leje er SAGENS 14.300 — ikke naboens 88.000',
+    naboSag.prepaidRent === 1430000, String(naboSag.prepaidRent))
+  tjek('værelsestallet er SAGENS 2 — ikke naboens 7',
+    naboSag.rooms === 2, String(naboSag.rooms))
+
+  // ── Hele vejen gennem normaliseringen ────────────────────────
+  // Proeverne ovenfor stopper ved adapterens RawListing. Det er ikke nok
+  // til at sige, at felterne NAAR frem: `normaliser` er det lag, der
+  // oversaetter til raekken, og det er dér `?? null` kunne komme til at
+  // sluge et oplyst nul. Den her proever kaeden paa den RIGTIGE
+  // kildeproeve, saa paastanden om ende-til-ende har en roed linje bag sig.
+  const HJEM_VASK: VasketAdresse = {
+    street: 'Ørestads Boulevard', houseNumber: '34A', floor: '4', door: null,
+    postalCode: '2300', city: 'København S',
+    unitAddressUuid: crypto.randomUUID(), accessAddressUuid: null,
+    addressMatchLevel: 'unit', lat: null, lng: null,
+  }
+  const pNorm = await normaliser(pSag, HJEM_VASK)
+  tjek('normaliseret: værelser, depositum og forudbetalt når frem i øre',
+    pNorm.rooms === 2 && pNorm.deposit === 4290000 && pNorm.prepaidRent === 1430000,
+    `${pNorm.rooms} / ${pNorm.deposit} / ${pNorm.prepaidRent}`)
+  tjek('normaliseret: indflytningsprisen er STADIG ikke regnet af delene',
+    pNorm.moveInCost === null, String(pNorm.moveInCost))
+  // Projektsagen har ingen aconto, saa der er ingen total at vise. Vi
+  // gaetter ikke en total ud af huslejen alene.
+  tjek('normaliseret: uden aconto er der ingen total',
+    pNorm.totalMonthly === null, String(pNorm.totalMonthly))
+
+  // Et oplyst nul skal ogsaa overleve normaliseringen — `?? null` lader
+  // 0 passere, men det er praecis den slags, der stille kunne aendre sig.
+  const nulNorm = await normaliser(nulSag, HJEM_VASK)
+  tjek('normaliseret: et oplyst nul er stadig 0, ikke null',
+    nulNorm.deposit === 0 && nulNorm.prepaidRent === 0 && nulNorm.rooms === 0,
+    `${nulNorm.deposit} / ${nulNorm.prepaidRent} / ${nulNorm.rooms}`)
+  const tomNorm = await normaliser(tomSag, HJEM_VASK)
+  tjek('normaliseret: manglende felter er null, ikke 0',
+    tomNorm.deposit === null && tomNorm.prepaidRent === null && tomNorm.rooms === null,
+    `${tomNorm.deposit} / ${tomNorm.prepaidRent} / ${tomNorm.rooms}`)
 
   // ── UI læser DOMÆNET — aldrig legacy ─────────────────────────
   // Fixturerne er bygget så legacy og domæne SIGER NOGET FORSKELLIGT.
@@ -1104,22 +1540,11 @@ async function main() {
     // Tallene under afkrydsningerne skal beskrive soegningen UDEN
     // facilitetsfiltrene. Gjorde de ikke det, ville der staa "0 tier"
     // under et filter, der lige havde skjult flere hundrede boliger.
-    const g = await facilitetsgrundlag({})
-    const alt = await opsummering({})
-    // Her stod «oplyser + tier er hele søgningen». Den kunne ikke fejle:
-    // begge tal er `count(*) filter` over det SAMME praedikat i den samme
-    // raekke (lib/soeg.ts:755-756), og `OPLYST` kan aldrig vaere null, saa
-    // X og not X deler count(*) udtoemmende. Postgres' aritmetik blev
-    // proevet, ikke vores kode. Og `oplyser` laeses ingen steder: forsiden
-    // regner mellemgruppen som `antal - tier - facilitet`, saa linjen var
-    // det eneste kaldssted for feltet — og den sammenlignede det med sig
-    // selv. Det, kommentaren ovenfor lover, proeves paa de naeste linjer.
-    const gFiltreret = await facilitetsgrundlag({ elevator: true })
-    tjek('grundlaget ændrer sig IKKE af et facilitetsfilter',
-      gFiltreret.tier === g.tier && gFiltreret.elevator === g.elevator,
-      `tier ${gFiltreret.tier} vs ${g.tier}`)
-    await tjekProd('men søgningen gør — filteret udelukker stadig de ukendte',
-      async () => (await opsummering({ elevator: true })).antal < alt.antal)
+    //
+    // Proeven af det — «grundlaget ændrer sig IKKE af et facilitetsfilter»
+    // — stod her og kunne ikke blive roed: testbasen havde kun hendes bolig,
+    // og den oplyser elevator, saa tier var 0 med og uden filtrene. Den
+    // staar nu i fiksturet nedenfor, hvor der ER en tavs bolig at miste.
     tjek('hendes elevator tælles med i grundlaget',
       (await facilitetsgrundlag({ postnr: FULDT.postnr })).elevator >= 1)
 
@@ -1127,48 +1552,138 @@ async function main() {
     // dem der har faciliteten, dem der oplyser faciliteter uden den, og
     // dem der intet oplyser. Går de ikke op, mangler brugeren en gruppe
     // uden at kunne se hvilken — det gjorde de før, hvor kun to blev nævnt.
-    // Tallene tælles UAFHÆNGIGT her. Regnede prøven mellemgruppen som
-    // `antal - tier - har`, ville summen gå op per definition, og prøven
-    // ville ikke kunne fejle. De tre grupper skal måles hver for sig og
-    // tilsammen dække alle boliger.
-    const OPLYST = dsql`jsonb_array_length(coalesce(${listings.amenities}, '[]'::jsonb)) > 0`
-    const harSql = (navne: readonly string[]) => dsql`jsonb_exists_any(
-      coalesce(${listings.amenities}, '[]'::jsonb),
-      array[${dsql.join(navne.map((n) => dsql`${n}`), dsql`, `)}]::text[])`
-    for (const nøgle of ['kaeledyr', 'elevator', 'udeplads'] as const) {
-      const [m] = await db.select({
-        alle: dsql<number>`count(*)::int`,
-        har: dsql<number>`count(*) filter (where ${harSql(FACILITET[nøgle])})::int`,
-        uden: dsql<number>`count(*) filter (where ${OPLYST}
-          and not ${harSql(FACILITET[nøgle])})::int`,
-        tier: dsql<number>`count(*) filter (where not ${OPLYST})::int`,
-      }).from(listings).innerJoin(sources, eq(sources.id, listings.sourceId))
-        .where(udenDubletter(hvor({})))
-      const { alle, har, uden, tier } = m!
-      // To paastande, der foer stod i én linje og skjulte hinanden.
-      //
-      // DEN FOERSTE: at de tre praedikater deler saettet uden overlap og
-      // uden hul. Maales i SAMME forespoergsel, mod dens egen count(*).
-      // Ikke tautologisk: `uden` har sit eget praedikat (`OPLYST and not
-      // har`), ikke `alle - tier - har`. Overlapper to praedikater, eller
-      // opstaar der et hul, brister summen.
-      tjek(`${nøgle}: de tre grupper dækker alle boliger`,
-        har + uden + tier === alle,
-        `${har} + ${uden} + ${tier} = ${har + uden + tier}, i alt ${alle}`)
-      // DEN ANDEN: at grundlaget beskriver netop DET saet. Foer stod den
-      // gemt inde i summen ovenfor — mod `g.antal` fra en anden
-      // forespoergsel — og saa var det eneste, der kunne gaa galt, netop
-      // det her. Nu staar det for sig, med sin egen fejlbesked.
-      tjek(`${nøgle}: grundlaget beskriver samme sæt`, alle === g.antal,
-        `${g.antal} mod ${alle}`)
-      tjek(`${nøgle}: linjens tal er det målte`, har === g[nøgle], `${g[nøgle]} mod ${har}`)
-      // Navnet lovede foer mere end det maaler: det er ikke boligerne, der
-      // proeves, men at grundlagets `tier` er det samme tal, proeven selv
-      // taeller. Den KAN fejle — den binder lib/soeg.ts' `OPLYST` til
-      // proevens egen kopi — og den bliver staaende.
-      tjek(`${nøgle}: grundlagets tavse er de målte tavse`, tier === g.tier,
-        `${g.tier} mod ${tier}`)
+    //
+    // De tælles pr. BOLIG, ikke pr. repræsentant. Rangeringen regnes på
+    // det filtrerede sæt, så et kryds kan vise en ANDEN annonce for samme
+    // bolig end den, der vinder uden filter — og så var «vises ikke» usandt
+    // om en bolig, listen viste. Grupperingen sker her i JS med
+    // `dedupNoegle` fra lib/dedup.ts, ikke med `boligenErI` i lib/soeg.ts:
+    // prøven må ikke låne det udtryk, den prøver.
+    //
+    // ═══ FIKSTURET: EN BOLIG, HVOR DE TO TÆLLINGER ER UENIGE ═══
+    //
+    // Uden det kunne prøven ikke blive rød. Testbasen har på dette sted kun
+    // hendes bolig, og med én annonce pr. bolig giver tælling pr. bolig og
+    // pr. repræsentant det samme — prøven bestod også, da `boligenErI` var
+    // vendt tilbage til den gamle tælling. En tavs kopi af hendes bolig på
+    // en prøvekilde vinder repræsentantvalget (kildens annonce før
+    // udlejerens) og oplyser ingen faciliteter. Pr. repræsentant er boligen
+    // så «tier»; pr. bolig nævner den elevator og altan, og for kæledyr
+    // oplyser den faciliteter uden at nævne det. Alle tre nøgler skilles ad.
+    //
+    // Egen kilde uden kørsler, som resten af filen: den må ikke låne en
+    // rigtig kilde og arve dens historik i crawl_runs (se rivalen nedenfor).
+    const [grundlagskilde] = await db.insert(sources).values({
+      slug: `proeve-grundlag-${Date.now()}`,
+      name: 'Prøvekilde til grundlaget (kun til prøver)',
+      sourceType: 'feed',
+      baseUrl: 'https://proeve-grundlag.invalid',
+      enabled: false,
+    }).returning()
+    ekstra.kilder.push(grundlagskilde!.id)
+    const [hendesFoerGrundlag] = await db.select().from(listings).where(eq(listings.id, id))
+    const { id: _gId, ...hendesKolonnerG } = hendesFoerGrundlag!
+    const [tavsKopi] = await db.insert(listings).values({
+      ...hendesKolonnerG,
+      sourceId: grundlagskilde!.id,
+      sourceType: 'feed',
+      sourceCreatedAt: null,
+      externalKey: `proeve-grundlag-${Date.now()}`,
+      sourceUrl: 'https://proeve-grundlag.invalid/1',
+      landlordId: null, contactEmail: null, contactPhone: null,
+      amenities: [],
+    }).returning()
+    // Og en ANDEN tavs bolig — egen enhedsadresse, altså egen dedup-nøgle.
+    // Kopien ovenfor er samme bolig som hendes, og tællingen pr. bolig gør
+    // den oplyst; uden en bolig, der intet oplyser, er der ingen «tier» at
+    // miste, og prøven af grundlaget nedenfor kunne ikke blive rød.
+    const [tavsAnden] = await db.insert(listings).values({
+      ...hendesKolonnerG,
+      sourceId: grundlagskilde!.id,
+      sourceType: 'feed',
+      sourceCreatedAt: null,
+      externalKey: `proeve-grundlag-anden-${Date.now()}`,
+      sourceUrl: 'https://proeve-grundlag.invalid/2',
+      unitAddressUuid: `proeve-grundlag-enhed-${Date.now()}`,
+      accessAddressUuid: `proeve-grundlag-opgang-${Date.now()}`,
+      landlordId: null, contactEmail: null, contactPhone: null,
+      amenities: [],
+    }).returning()
+    // Forudsætningen skal selv holde, ellers måler resten ingenting: kopien
+    // er repræsentanten, og hun er skjult bag den.
+    tjek('fikstur: den tavse kopi vinder repræsentantvalget',
+      (await soeg({ postnr: FULDT.postnr }, 500)).some((b) => b.id === tavsKopi!.id)
+      && !(await iSoegningen()))
+    tjek('fikstur: den anden tavse bolig står for sig selv',
+      (await soeg({ postnr: FULDT.postnr }, 500)).some((b) => b.id === tavsAnden!.id))
+    const gB = await facilitetsgrundlag({})
+
+    // Grundlaget er søgningen UDEN facilitetsfiltrene. Med filtrene på ville
+    // den tavse bolig være væk før optællingen, og der stod «0 tier» under
+    // et filter, der lige havde skjult den.
+    const gFiltreret = await facilitetsgrundlag({ elevator: true })
+    tjek('grundlaget ændrer sig IKKE af et facilitetsfilter',
+      gFiltreret.antal === gB.antal && gFiltreret.tier === gB.tier
+      && gFiltreret.elevator === gB.elevator,
+      `antal ${gFiltreret.antal} mod ${gB.antal} · tier ${gFiltreret.tier} mod ${gB.tier}`)
+    tjek('men søgningen gør — filteret udelukker stadig de ukendte',
+      (await opsummering({ elevator: true })).antal < gB.antal,
+      `${(await opsummering({ elevator: true })).antal} mod ${gB.antal}`)
+
+    const raekkerIS = await db.select({
+      id: listings.id, amenities: listings.amenities,
+      addressMatchLevel: listings.addressMatchLevel,
+      unitAddressUuid: listings.unitAddressUuid,
+      accessAddressUuid: listings.accessAddressUuid,
+      sizeM2: listings.sizeM2, rooms: listings.rooms,
+      rentMonthly: listings.rentMonthly, houseNumber: listings.houseNumber,
+    }).from(listings).innerJoin(sources, eq(sources.id, listings.sourceId))
+      .where(hvor({}))
+    const boligerIS = new Map<string, typeof raekkerIS>()
+    for (const r of raekkerIS) {
+      const k = dedupNoegle(r) ?? `alene:${r.id}`
+      boligerIS.set(k, [...(boligerIS.get(k) ?? []), r])
     }
+    const facListe = (r: (typeof raekkerIS)[number]) =>
+      Array.isArray(r.amenities) ? (r.amenities as string[]) : []
+    for (const nøgle of ['kaeledyr', 'elevator', 'udeplads'] as const) {
+      const harDen = (r: (typeof raekkerIS)[number]) =>
+        facListe(r).some((a) => (FACILITET[nøgle] as readonly string[]).includes(a))
+      const alleB = [...boligerIS.values()]
+      const alle = alleB.length
+      const har = alleB.filter((b) => b.some(harDen)).length
+      const uden = alleB.filter((b) =>
+        b.some((r) => facListe(r).length > 0) && !b.some(harDen)).length
+      const tier = alleB.filter((b) => b.every((r) => facListe(r).length === 0)).length
+      // Her stod «de tre grupper dækker alle boliger» — `har + uden + tier`
+      // mod `alle`, alle fire talt her i JS. Den kunne ikke blive rød: en
+      // række med faciliteten har en ikke-tom liste, så de tre prædikater
+      // deler boligerne per definition. Den prøvede JS, ikke koden.
+      //
+      // Det, der kan gå galt, er de tal, SIDEN regner. Den skriver `antal`,
+      // `tier` og faciliteten fra grundlaget og regner midtergruppen som
+      // resten (app/page.tsx). Så midtergruppen, som siden regner den, skal
+      // være den målte — og dermed dækker linjens tre tal alle boliger.
+      const midten = gB.antal - gB.tier - gB[nøgle]
+      tjek(`${nøgle}: midtergruppen, som siden regner den, er den målte`,
+        midten === uden, `${midten} mod ${uden}`)
+      // At grundlaget beskriver netop DET sæt — og at dedup'en i SQL og
+      // beskrivelsen i lib/dedup.ts grupperer ens.
+      tjek(`${nøgle}: grundlaget beskriver samme sæt`, alle === gB.antal,
+        `${gB.antal} mod ${alle}`)
+      tjek(`${nøgle}: linjens tal er det målte`, har === gB[nøgle], `${gB[nøgle]} mod ${har}`)
+      tjek(`${nøgle}: grundlagets tavse er de målte tavse`, tier === gB.tier,
+        `${gB.tier} mod ${tier}`)
+      // «N nævner det» er de boliger, krydset VISER — uden domænefilter; se
+      // CLAUDE.md for hvorfor tallene kan skilles med et. Målt på listens
+      // egen vej — `opsummering` med filteret sat — ikke på grundlaget.
+      const vist = (await opsummering({ [nøgle]: true })).antal
+      tjek(`${nøgle}: «nævner det» er det antal, krydset viser`, vist === gB[nøgle],
+        `${gB[nøgle]} mod ${vist}`)
+    }
+    await db.delete(listings).where(eq(listings.id, tavsKopi!.id))
+    await db.delete(listings).where(eq(listings.id, tavsAnden!.id))
+    tjek('fikstur: uden kopien er hun i søgningen igen', await iSoegningen())
 
     // ── Tællingen skal tælle VISBARE billeder ────────────────────
     // `b.billeder` var `count(*) from listing_images` — rækker, ikke
@@ -1240,8 +1755,36 @@ async function main() {
     tjek('udeplads-filteret finder hende (altan)', await medFilter({ udeplads: true }))
     tjek('kæledyrsfilteret gør IKKE — hun sagde det ikke', !(await medFilter({ kaeledyr: true })))
 
-    // En anden kilde annoncerer den samme bolig — samme enhedsnoegle — og
-    // har flere billeder. Saa vinder den repraesentantvalget.
+    // ── NULL-frie ved konstruktion ───────────────────────────────
+    // `order by … desc` sætter NULL FØRST i Postgres, `asc` sidst — og repoet
+    // er bidt af det før (`slaaAdgangOp` i lib/adgang.ts på grenen
+    // claude/betaling-og-adgangskontrol, som ikke er flettet ind i main).
+    // Repræsentantvalgets første led og
+    // tællingen pr. bolig må derfor ikke KUNNE give NULL, heller ikke hvis
+    // `source_type` en dag mister sit NOT NULL. Et NULL i data kan prøven
+    // ikke lave — kolonnen tillader det ikke — så udtrykkene får NULL-input
+    // direkte. Med `=` i stedet for `is not distinct from`, eller uden
+    // `coalesce`, svarer de NULL, og prøven bliver rød.
+    console.log('\n══ repræsentantvalget og tællingen er NULL-frie ══')
+    const nulSvar = await db.execute(dsql`select
+      ${erUdlejerannonce(dsql`null::source_type`)} as ukendt,
+      ${erUdlejerannonce(dsql`'native'::source_type`)} as native,
+      ${erUdlejerannonce(dsql`'feed'::source_type`)} as feed`)
+    const nul = ((nulSvar as { rows?: unknown[] }).rows ?? (nulSvar as unknown[]))[0] as
+      { ukendt: boolean | null; native: boolean | null; feed: boolean | null }
+    tjek('erUdlejerannonce: en ukendt kildetype er falsk, ikke NULL',
+      nul.ukendt === false, String(nul.ukendt))
+    tjek('erUdlejerannonce: native er sand, feed er falsk',
+      nul.native === true && nul.feed === false, `${nul.native} · ${nul.feed}`)
+    const [iNulSaet] = await db.select({ b: boligenErI(dsql`null::boolean`) })
+      .from(listings).innerJoin(sources, eq(sources.id, listings.sourceId))
+      .where(eq(listings.id, id))
+    tjek('boligenErI: et sæt, der svarer NULL for rækken, giver falsk, ikke NULL',
+      iNulSaet?.b === false, String(iNulSaet?.b))
+
+    // En anden kilde annoncerer den samme bolig — samme enhedsnoegle. Saa
+    // vinder den repraesentantvalget: kildens annonce vises altid frem for
+    // en udlejerannonce (UDLEJERANNONCE i lib/soeg.ts), uanset billeder.
     // Rivalen SKAL vaere ikke-native — det er den vej dedup og
     // repraesentantvalg gaar, og det er det, proeven maaler. Men den maa
     // ikke laane en RIGTIG kilde.
@@ -1267,6 +1810,9 @@ async function main() {
       enabled: false,
     }).returning()
     proevekildeId = fremmed!.id
+    // Oprydningen i `finally` sletter pr. KILDE, ikke kun de id'er, proeven
+    // naaede at samle op — ogsaa under `test:prod`, som skriver i produktionen.
+    ekstra.kilder.push(fremmed!.id)
     const [hendes] = await db.select().from(listings).where(eq(listings.id, id))
     const { id: _glem, ...resten } = hendes!
     const [rival] = await db.insert(listings).values({
@@ -1288,28 +1834,238 @@ async function main() {
         listingId: rivalId, externalUrl: `${VIST_VAERT}/r${n}.jpg`, position: n,
       })))
 
+    const billederPaa = async (bolig: string, liste: string[]) => {
+      await db.delete(listingImages).where(eq(listingImages.listingId, bolig))
+      if (liste.length) await db.insert(listingImages).values(
+        liste.map((externalUrl, position) => ({ listingId: bolig, externalUrl, position })))
+    }
+    const vises = async (bolig: string) =>
+      (await soeg({ postnr: FULDT.postnr }, 500)).some((b) => b.id === bolig)
+
+    // ── Reglen: kildens annonce vises altid frem for udlejerens ──
+    // Foerste trin i `ikkeRepraesentant` (UDLEJERANNONCE i lib/soeg.ts).
+    // Valget faldt foer paa billeder, og en udlejerannonce kunne skjule
+    // kildens annonce for samme bolig ved at have flere — bag en aaben
+    // kontaktmur. En bedre taelling kunne ikke lukke det: «unik» er en
+    // byte-ens streng. Reglen goer.
+    console.log('\n══ kildens annonce vises frem for en udlejerannonce ══')
     const efterRival = await maerkat()
     tjek('med dublet: mærkatet siger IKKE udgivet', efterRival.slags === 'dublet',
       efterRival.slags)
     tjek('med dublet: den peger på den rigtige annonce',
       efterRival.slags === 'dublet' && efterRival.af.id === rivalId)
-    tjek('med dublet: og begrundelsen passer — flere billeder',
-      efterRival.slags === 'dublet' && efterRival.af.billeder === 4)
+    tjek('med dublet: vinderen er ikke en udlejerannonce',
+      efterRival.slags === 'dublet' && efterRival.af.udlejerannonce === false)
+    // Forklaringen skal sige REGLEN, ikke billederne — ogsaa her, hvor
+    // rivalen tilfaeldigvis har flest (4 mod 2). Byttes grenene i
+    // forklaring.ts om, star der «flere billeder», og saa er det roedt.
+    // Og den maa ikke sige «du kan rette den»: det ville love, at en
+    // rettelse hjalp, og for flere billeder goer den ikke.
+    const hende = (await mineBoliger(udlejer)).find((b) => b.id === id)!
+    const regeltekst = efterRival.slags === 'dublet' ? forklaring(hende, efterRival.af) : null
+    tjek('forklaringen: grunden er kilden, ikke billederne',
+      regeltekst?.grund === `den kommer fra ${efterRival.slags === 'dublet' ? efterRival.af.kilde : ''}`,
+      String(regeltekst?.grund))
+    tjek('forklaringen: flere billeder ændrer ikke valget — og intet løfte om rettelse',
+      !!regeltekst && regeltekst.slutning.includes('flere billeder ændrer ikke valget')
+      && !regeltekst.slutning.includes('rette den'))
+    tjek('forklaringen: den peger på etage og dør, hvis det ikke er samme bolig',
+      !!regeltekst && regeltekst.slutning.includes('også etage og dør'))
     tjek('med dublet: hun er FAKTISK ude af søgningen', !(await iSoegningen()))
 
-    // Rangeringen skal ogsaa taelle VISBARE billeder. Giver vi rivalen
-    // sine fire billeder paa en vaert, vi ikke kan vise fra, har den nul —
-    // og saa skal HUN vinde med sine to. Uden filtreringen i
-    // `ikkeRepraesentant` ville rivalens fire raa raekker slaa hendes to.
-    await db.delete(listingImages).where(eq(listingImages.listingId, rivalId))
-    await db.insert(listingImages).values(
-      [0, 1, 2, 3].map((n) => ({
-        listingId: rivalId, externalUrl: `${SKJULT_VAERT}/r${n}.jpg`, position: n,
-      })))
-    const usynligRival = await maerkat()
-    tjek('rival med billeder vi ikke kan vise taber valget',
-      usynligRival.slags === 'udgivet', usynligRival.slags)
-    tjek('… og så er HUN i søgningen', await iSoegningen())
+    // ── Løftet «den kan stadig åbnes på sit eget link» ───────────
+    // Et udsagn om hentBolig og detaljeruten, ikke om forklaring.ts. Den
+    // rene fil kan vise, at TEKSTEN produceres — ikke at linket VIRKER.
+    // /bolig/[id] giver 404 på netop én betingelse: at hentBolig svarer
+    // null (app/bolig/[id]/page.tsx). Så det er hentBolig, der prøves, og
+    // mens hun er skjult bag kildens annonce.
+    const paaLink = await hentBolig(id)
+    tjek('med dublet: hendes annonce kan stadig åbnes på sit eget link',
+      paaLink?.id === id, String(paaLink?.id))
+
+    // ── «tjek, at adressen er rigtig — også etage og dør» ─────────
+    // Et løfte om adressenøglen (lib/address.ts) og dedup'en, ikke om
+    // forklaring.ts: retter hun etagen eller døren i sin egen formular, skal
+    // hun skilles fra kildens annonce. Ellers beder teksten hende gøre noget,
+    // der ikke hjælper. Før stod det kun som tekst i prøven, og etagen kunne
+    // fjernes fra enhedsnøglen med hele npm test grøn. Prøven gælder
+    // enhedsniveau (hun har en dør); uden dør er etagen ikke i nøglen, og
+    // så er det døren, der skiller — se CLAUDE.md.
+    const [foerRet] = await db.select().from(listings).where(eq(listings.id, id))
+    const hendesFormular = { ...somFormular(foerRet!), billeder: FULDT.billeder }
+    await opdaterBolig(udlejer, id, { ...hendesFormular, etage: '4' })
+    tjek('en anden etage skiller hende fra kildens annonce', (await maerkat()).slags === 'udgivet')
+    await opdaterBolig(udlejer, id, { ...hendesFormular, doer: 'th' })
+    tjek('en anden dør skiller hende fra kildens annonce', (await maerkat()).slags === 'udgivet')
+    await opdaterBolig(udlejer, id, hendesFormular)
+    tjek('med den rigtige adresse igen er hun skjult bag kildens annonce',
+      (await maerkat()).slags === 'dublet')
+
+    // ── «også hos» må ikke nævne en annonce, brugeren ikke kan nå ──
+    // Kildens kort skrev «også hos Bofinda» om hendes annonce — den, reglen
+    // netop skjuler. Fra kortet kunne brugeren ikke nå den.
+    const kildensKort = (await soeg({ postnr: FULDT.postnr }, 500)).find((b) => b.id === rivalId)
+    tjek('kildens kort nævner ikke udlejerannoncen under «også hos»',
+      !!kildensKort && kildensKort.ogsaaHos.length === 0, JSON.stringify(kildensKort?.ogsaaHos))
+    // Og på forsiden, som går gennem soegGrupperet. Gruppekortets
+    // `alleOgsaaAndetsteds` bygger på det samme SAMME_BOLIG_ANDEN_KILDE.
+    const kildensVisning = (await soegGrupperet({ postnr: FULDT.postnr }, 500)).visninger
+      .find((v) => v.slags === 'bolig' && v.bolig.id === rivalId)
+    tjek('heller ikke på forsidens kort',
+      kildensVisning?.slags === 'bolig' && kildensVisning.bolig.ogsaaHos.length === 0,
+      kildensVisning?.slags === 'bolig' ? JSON.stringify(kildensVisning.bolig.ogsaaHos) : 'ikke fundet')
+
+    // Reglen er absolut. Hun faar 20 unikke billeder; kilden faar fire paa
+    // en vaert, vi ikke kan vise — altsaa nul. Foer reglen vandt hun.
+    await billederPaa(id, urler(20, 'hendes'))
+    await billederPaa(rivalId, [0, 1, 2, 3].map((n) => `${SKJULT_VAERT}/r${n}.jpg`))
+    const regel = await maerkat()
+    tjek('reglen: 20 unikke billeder slår IKKE en kilde med nul visbare',
+      regel.slags === 'dublet' && regel.af.id === rivalId, regel.slags)
+    tjek('reglen: kildens annonce står i søgningen', await vises(rivalId))
+    tjek('reglen: hendes gør ikke', !(await iSoegningen()))
+    // Og tallene i forklaringen er stadig de aerlige — reglen pynter ikke
+    // paa dem, den er bare ikke grunden.
+    tjek('reglen: vinderens tal er stadig 0 visbare',
+      regel.slags === 'dublet' && regel.af.billeder === 0,
+      regel.slags === 'dublet' ? String(regel.af.billeder) : regel.slags)
+    await billederPaa(id, FULDT.billeder)
+
+    // ── Reglen følger det FILTREREDE sæt — og teksterne med den ──
+    // Rangeringen regnes på det filtrerede sæt. Passer kildens annonce ikke
+    // et filter, er den ikke med i den søgning, og så vises hendes. Det er
+    // valgt med vilje: hendes annonce bærer det, søgningen beder om, og
+    // alternativet fjerner boligen fra en søgning, den hører til i. Så er
+    // det teksterne, der skal følge: forklaringen på Mine annoncer, linjen
+    // under facilitetsfiltrene og linjen om tavse kilder.
+    console.log('\n══ reglen følger det filtrerede sæt ══')
+    const PROEVEKILDE = fremmed!.name
+    const fElev = { postnr: FULDT.postnr, elevator: true }
+    // Udgangspunktet: kildens annonce har samme faciliteter som hendes.
+    const grundFoer = await facilitetsgrundlag(fElev)
+    await db.update(listings).set({ amenities: [] }).where(eq(listings.id, rivalId))
+    const iElevator = await soeg(fElev, 500)
+    tjek('filter, kildens annonce passer ikke: hendes vises',
+      iElevator.some((b) => b.id === id))
+    tjek('filter, kildens annonce passer ikke: kildens gør ikke',
+      !iElevator.some((b) => b.id === rivalId))
+    tjek('uden filteret er det stadig kildens', (await vises(rivalId)) && !(await iSoegningen()))
+    // Forklaringen må derfor ikke sige det ubetinget. Hun kan læse den og
+    // derefter finde sin annonce i netop sådan en søgning.
+    const betinget = await maerkat()
+    const betingetTekst = betinget.slags === 'dublet'
+      ? forklaring((await mineBoliger(udlejer)).find((b) => b.id === id)!, betinget.af) : null
+    tjek('forklaringen: betingelsen står i sætningen om kildens annonce',
+      !!betingetTekst && betingetTekst.slutning.includes('frem for udlejerens egen i hver søgning, den passer til'),
+      String(betingetTekst?.slutning))
+    tjek('forklaringen: og i overskriften',
+      !!betingetTekst && betingetTekst.overskrift.includes('hvor denne annonce for samme bolig også passer'),
+      String(betingetTekst?.overskrift))
+    // Hendes kort nævner kilden: kildens annonce findes og kan nås hos kilden.
+    // Kontrollen for prøven af kildens kort ovenfor — uden den kunne «også
+    // hos» være slået helt fra, og den var grøn.
+    const hendesKort = iElevator.find((b) => b.id === id)
+    tjek('hendes kort nævner kilden under «også hos»',
+      !!hendesKort && hendesKort.ogsaaHos.includes(PROEVEKILDE), JSON.stringify(hendesKort?.ogsaaHos))
+    // Grundlagslinjen under «Elevator»: boligen vises gennem hendes annonce,
+    // så den må hverken stå under «mangler oplysninger og vises ikke» eller
+    // mangle under «nævner det». Før talte linjen repræsentanten uden filter
+    // — kildens annonce uden faciliteter — og sagde «vises ikke».
+    const grundEfter = await facilitetsgrundlag(fElev)
+    tjek('grundlagslinjen: boligen står ikke under «vises ikke», når listen viser den',
+      grundEfter.tier === grundFoer.tier, `${grundEfter.tier} mod ${grundFoer.tier} før`)
+    tjek('grundlagslinjen: den står under «nævner det»',
+      grundEfter.elevator === grundFoer.elevator, `${grundEfter.elevator} mod ${grundFoer.elevator} før`)
+    const vistMedKryds = (await opsummering(fElev)).antal
+    tjek('grundlagslinjen: «nævner det» er det antal, krydset viser',
+      grundEfter.elevator === vistMedKryds, `${grundEfter.elevator} mod ${vistMedKryds}`)
+    // Linjen om tavse kilder: «… er N boliger derfra ude». Prøvekildens
+    // eneste bolig vises gennem hendes, så den er ikke ude.
+    const tkElevator = await tavseKilder(fElev)
+    tjek('tavse kilder: prøvekilden nævnes ikke — dens bolig vises gennem hendes',
+      !tkElevator.navne.includes(PROEVEKILDE), tkElevator.navne.join(', '))
+    // Modstykket: et kryds, hun heller ikke passer. Så ER boligen ude.
+    const tkKaeledyr = await tavseKilder({ postnr: FULDT.postnr, kaeledyr: true })
+    tjek('tavse kilder: med et kryds, hun heller ikke passer, nævnes den',
+      tkKaeledyr.navne.includes(PROEVEKILDE) && tkKaeledyr.antal >= 1,
+      `${tkKaeledyr.navne.join(', ')} · ${tkKaeledyr.antal}`)
+    // Med et domænefilter, prøvekildens annonce ikke passer, er boligen slet
+    // ikke i søgningen uden kryds — så fjerner krydset den heller ikke, og
+    // linjen må ikke sige «ude» om den. Før talte `tavseKilder` uden
+    // domænefilteret.
+    const fDom = { postnr: FULDT.postnr, markedsstatus: 'reserveret' as const }
+    tjek('tavse kilder med domænefilter: forudsætning — boligen er ikke i søgningen uden kryds',
+      !(await soeg(fDom, 500)).some((b) => b.id === rivalId || b.id === id))
+    const tkDomaene = await tavseKilder({ ...fDom, kaeledyr: true })
+    tjek('tavse kilder med domænefilter: en bolig, domænet har fjernet, er ikke «ude»',
+      !tkDomaene.navne.includes(PROEVEKILDE), `${tkDomaene.navne.join(', ')} · ${tkDomaene.antal}`)
+    await db.update(listings).set({ amenities: resten.amenities }).where(eq(listings.id, rivalId))
+    // Og en kilde, der OPLYSER faciliteter, er ikke tavs — heller ikke når
+    // krydset fjerner dens bolig. Uden kravet `oplyser === 0` ville linjen
+    // kalde en kilde som Propstep for én, der aldrig oplyser faciliteter.
+    const tkOplyser = await tavseKilder({ postnr: FULDT.postnr, kaeledyr: true })
+    tjek('tavse kilder: en kilde, der oplyser faciliteter, nævnes ikke — heller ikke når krydset fjerner dens bolig',
+      !tkOplyser.navne.includes(PROEVEKILDE), tkOplyser.navne.join(', '))
+
+    // ── Mellem ligestillede: UNIKKE, VISBARE billeder ─────────────
+    // Reglen skelner kun kilde fra udlejer. Taellingen skal derfor proeves
+    // mellem to annoncer, reglen IKKE skelner: to fra kilden. Proevede vi
+    // den mod hendes, ville «21 kopier taber» bestaa af den forkerte grund
+    // — hun taber jo altid nu. Hun staar i samme gruppe og er skjult hele
+    // vejen; spoergsmaalet er, hvem af de to der vises.
+    console.log('\n══ mellem to scrapede annoncer: 21 kopier må ikke slå 20 unikke ══')
+    const [rival2] = await db.insert(listings).values({
+      ...resten,
+      sourceId: fremmed!.id,
+      sourceType: 'feed',
+      sourceCreatedAt: null,
+      externalKey: `proeve-dublet2-${Date.now()}`,
+      sourceUrl: 'https://eksempel.invalid/dublet2',
+      landlordId: null, contactEmail: null, contactPhone: null,
+    }).returning()
+    rival2Id = rival2!.id
+    const kildensTyve = Array.from({ length: 20 }, (_, n) => `${VIST_VAERT}/kilde${n}.jpg`)
+    await billederPaa(rival2Id, kildensTyve)
+    await billederPaa(rivalId, Array(21).fill(`${VIST_VAERT}/kopi.jpg`))
+    tjek('21 kopier: den med 20 unikke vises', await vises(rival2Id))
+    tjek('21 kopier: den med kopierne gør ikke', !(await vises(rivalId)))
+    const kopier = await maerkat()
+    tjek('forklaringen: vinderen er den med 20 unikke, og tallet er 20',
+      kopier.slags === 'dublet' && kopier.af.id === rival2Id && kopier.af.billeder === 20,
+      kopier.slags === 'dublet' ? `${kopier.af.id === rival2Id} ${kopier.af.billeder}` : kopier.slags)
+
+    // Kontrollen. Taeller rangeringen stadig billeder? 21 UNIKKE skal slaa
+    // 20. Ellers kunne proeven ovenfor bestaa af en anden grund end distinct.
+    await billederPaa(rivalId, Array.from({ length: 21 }, (_, n) => `${VIST_VAERT}/egen${n}.jpg`))
+    tjek('kontrol: 21 unikke SLÅR 20', await vises(rivalId) && !(await vises(rival2Id)))
+
+    // Rangeringen taeller VISBARE billeder. Fire paa en vaert, vi ikke kan
+    // vise fra, er nul — og taber til tre, vi kan. Tre og ikke to: hun har
+    // selv to, og med to ville udfaldet hvile paa reglen og ikke paa taellingen.
+    await billederPaa(rivalId, [0, 1, 2, 3].map((n) => `${SKJULT_VAERT}/r${n}.jpg`))
+    await billederPaa(rival2Id, kildensTyve.slice(0, 3))
+    tjek('fire billeder vi ikke kan vise taber til tre, vi kan',
+      await vises(rival2Id) && !(await vises(rivalId)))
+
+    // Vinderens tal skal OGSAA vaere unikke: med 20 unikke giver raekker og
+    // unikke det samme, og saa kunne `repraesentantFor` taelle raekker, uden
+    // at nogen proeve saa det. 5 kopier oven i: forklaringen skal sige 20.
+    await billederPaa(rival2Id, [...kildensTyve, ...Array(5).fill(kildensTyve[0]!)])
+    const medKopier = await maerkat()
+    tjek('vinderen med 5 kopier: forklaringen siger 20, ikke 25',
+      medKopier.slags === 'dublet' && medKopier.af.billeder === 20,
+      medKopier.slags === 'dublet' ? String(medKopier.af.billeder) : medKopier.slags)
+
+    // Og hendes eget tal — «dine N» — er ogsaa unikt. Hendes raekker saettes
+    // DIREKTE i basen, uden om formularen.
+    await billederPaa(id, Array(21).fill(`${VIST_VAERT}/kopi.jpg`))
+    const hendesTal = (await mineBoliger(udlejer)).find((b) => b.id === id)!.billeder
+    tjek('forklaringen: hendes eget tal er 1, ikke 21', hendesTal === 1, String(hendesTal))
+    await billederPaa(id, FULDT.billeder)
+
+    await db.delete(listingImages).where(eq(listingImages.listingId, rival2Id))
+    await db.delete(listings).where(eq(listings.id, rival2Id))
+    rival2Id = ''
 
     // Og tilbage igen, saa proeven ikke bare maaler at noget forsvandt.
     await db.delete(listingImages).where(eq(listingImages.listingId, rivalId))
@@ -1317,6 +2073,232 @@ async function main() {
     rivalId = ''
     tjek('uden dublet: mærkatet siger udgivet igen', (await maerkat()).slags === 'udgivet')
     tjek('uden dublet: og hun er i søgningen igen', await iSoegningen())
+
+    // ── To udlejerannoncer: reglen er neutral, billederne afgoer ──
+    // En anden udlejer annoncerer samme bolig. Reglen skelner kun kilde fra
+    // udlejer, saa her afgoer billederne — og forklaringen skal sige det,
+    // med «du kan rette den». Uden den her proeve kunne `udlejerannonce`
+    // hardcodes til false, og alt var groent.
+    console.log('\n══ to udlejerannoncer på samme bolig: billederne afgør ══')
+    const [anden] = await db.insert(users)
+      .values({ email: `test-anden-udlejer-${Date.now()}@example.com`, role: 'landlord' })
+      .returning()
+    ekstra.brugere.push(anden!.id)
+    const [hendesRaekke] = await db.select().from(listings).where(eq(listings.id, id))
+    const { id: _hId, ...hendesKolonner } = hendesRaekke!
+    const [andenAnnonce] = await db.insert(listings).values({
+      ...hendesKolonner,
+      externalKey: `proeve-anden-udlejer-${Date.now()}`,
+      landlordId: anden!.id,
+    }).returning()
+    ekstra.boliger.push(andenAnnonce!.id)
+    await db.insert(listingImages).values([0, 1, 2, 3].map((n) => ({
+      listingId: andenAnnonce!.id, externalUrl: `${VIST_VAERT}/anden${n}.jpg`, position: n,
+    })))
+    const mellemUdlejere = await maerkat()
+    tjek('to udlejere: hun med 2 taber til den med 4',
+      mellemUdlejere.slags === 'dublet' && mellemUdlejere.af.id === andenAnnonce!.id,
+      mellemUdlejere.slags)
+    tjek('to udlejere: vinderen ER en udlejerannonce',
+      mellemUdlejere.slags === 'dublet' && mellemUdlejere.af.udlejerannonce === true)
+    const billedtekst = mellemUdlejere.slags === 'dublet'
+      ? forklaring((await mineBoliger(udlejer)).find((b) => b.id === id)!, mellemUdlejere.af) : null
+    tjek('to udlejere: forklaringen siger billederne — 4 mod dine 2',
+      billedtekst?.grund === 'den viser flere billeder — 4 mod dine 2', String(billedtekst?.grund))
+    tjek('to udlejere: og hun kan rette den',
+      !!billedtekst && billedtekst.slutning.includes('du kan rette den'))
+    // Modstykket: med flest billeder vinder hun — reglen holder hende ikke
+    // nede mod en anden udlejer.
+    await billederPaa(id, urler(5, 'flest'))
+    tjek('to udlejere: med 5 mod 4 vinder hun', (await maerkat()).slags === 'udgivet')
+    await billederPaa(id, FULDT.billeder)
+
+    // ── Forklaringens to sidste grene: trin 3 og 4 i rangeringen ──
+    // De kaldtes af ingen prøve, og trin 3 kunne vendes med hele npm test
+    // grøn. Den anden får lige så mange billeder som hende, så billederne
+    // ikke afgør. Hvem af de to der taber, hentes på taberens egen ejers
+    // Mine annoncer.
+    await billederPaa(andenAnnonce!.id, [0, 1].map((n) => `${VIST_VAERT}/anden${n}.jpg`))
+    const andenUdlejer = { id: anden!.id, authUserId: 'test', email: anden!.email, navn: null }
+    // Trin 4 — id'et — er tilfældigt fordelt mellem de to. Den med LAVEST
+    // id mister derfor sin total, så trin 3 og trin 4 peger hver sin vej: en
+    // fjernet trin 3-linje giver så den forkerte vinder hver gang, ikke kun
+    // når de to UUID'er tilfældigvis falder rigtigt.
+    const lav = id < andenAnnonce!.id
+      ? { id, ejer: udlejer } : { id: andenAnnonce!.id, ejer: andenUdlejer }
+    const hoej = lav.id === id
+      ? { id: andenAnnonce!.id, ejer: andenUdlejer } : { id, ejer: udlejer }
+    const [lavTotal] = await db.select({ t: listings.totalMonthly })
+      .from(listings).where(eq(listings.id, lav.id))
+    await db.update(listings).set({ totalMonthly: null }).where(eq(listings.id, lav.id))
+    const lavSyn = (await mineBoliger(lav.ejer)).find((b) => b.id === lav.id)!
+    tjek('trin 3: lige mange billeder — den med kendt total vinder, også over et lavere id',
+      lavSyn.synlighed.slags === 'dublet' && lavSyn.synlighed.af.id === hoej.id,
+      lavSyn.synlighed.slags)
+    const totaltekst = lavSyn.synlighed.slags === 'dublet'
+      ? forklaring(lavSyn, lavSyn.synlighed.af) : null
+    tjek('trin 3: forklaringen siger den samlede udgift',
+      totaltekst?.grund === 'den oplyser en samlet månedlig udgift, og det gør din ikke',
+      String(totaltekst?.grund))
+    // Totalen sættes tilbage — og dermed er den lave række den senest
+    // skrevne, så den står sidst i tabellen. Trin 4: lige på billeder og
+    // total, så id'et afgør, og den med lavest id vinder. En VENDT id-linje
+    // giver den forkerte vinder hver gang. En FJERNET overlader valget til
+    // den rækkefølge, rækkerne kommer i, og den er ikke fast — rækkefølgen
+    // her gør den bare til den forkerte i den plan, Postgres vælger. Et
+    // bevis for alle planer er det ikke (fælde 3 i CLAUDE.md).
+    await db.update(listings).set({ totalMonthly: lavTotal!.t }).where(eq(listings.id, lav.id))
+    const hoejSyn = (await mineBoliger(hoej.ejer)).find((b) => b.id === hoej.id)!
+    tjek('trin 4: lige på alt — den med højest id er skjult bag den med lavest',
+      hoejSyn.synlighed.slags === 'dublet' && hoejSyn.synlighed.af.id === lav.id,
+      `${hoejSyn.synlighed.slags} · lav ${lav.id.slice(0, 8)} · høj ${hoej.id.slice(0, 8)}`)
+    const ligetekst = hoejSyn.synlighed.slags === 'dublet'
+      ? forklaring(hoejSyn, hoejSyn.synlighed.af) : null
+    tjek('trin 4: forklaringen siger, at de står lige',
+      ligetekst?.grund === 'de to står lige på billeder og oplysninger, og valget faldt på den anden',
+      String(ligetekst?.grund))
+    await db.delete(listingImages).where(eq(listingImages.listingId, andenAnnonce!.id))
+    await db.delete(listings).where(eq(listings.id, andenAnnonce!.id))
+    tjek('to udlejere: uden den anden er hun udgivet igen', (await maerkat()).slags === 'udgivet')
+
+    // ── Linjen om tavse kilder med domænefilter: den positive vej ──
+    // Prøven i regelblokken kræver kun, at linjen TIER om en bolig, domænet
+    // allerede har fjernet. Her kræves, at den TALER: en kildes reserverede
+    // annonce står på listen uden kryds, og med krydset forsvinder boligen,
+    // fordi krydset gør hendes annonce til repræsentant, og den passer ikke
+    // domænet. Før talte linjen ikke den bolig med — en af rækkerne HAVDE
+    // faciliteten — og domænegrenen kunne tie helt med alt grønt.
+    // Kontrakten slås op på slug'en, så prøvekilden hedder 'propstep'. Kun i
+    // testbasen, hvor ingen rigtig kilde har den slug.
+    if (!MOD_PRODUKTION) {
+      console.log('\n══ tavse kilder med domænefilter: den positive vej ══')
+      const KONTRAKTNAVN = 'Prøvekilde med kontrakt (kun til prøver)'
+      const [kontraktkilde] = await db.insert(sources).values({
+        slug: 'propstep', name: KONTRAKTNAVN, sourceType: 'spider',
+        baseUrl: 'https://proeve-kontrakt.invalid', enabled: false,
+      }).returning()
+      ekstra.kilder.push(kontraktkilde!.id)
+      const [hendesNu] = await db.select().from(listings).where(eq(listings.id, id))
+      const { id: _kId, ...hendesK } = hendesNu!
+      const [reserveret] = await db.insert(listings).values({
+        ...hendesK,
+        sourceId: kontraktkilde!.id,
+        sourceType: 'spider',
+        sourceCreatedAt: null,
+        externalKey: `proeve-kontrakt-${Date.now()}`,
+        sourceUrl: 'https://proeve-kontrakt.invalid/1',
+        landlordId: null, contactEmail: null, contactPhone: null,
+        amenities: [],
+        availabilityFacts: { rawStatus: 'Reserved' },
+      }).returning()
+      const fRes = { postnr: FULDT.postnr, markedsstatus: 'reserveret' as const }
+      tjek('forudsætning: uden kryds står kildens reserverede annonce på listen',
+        (await soeg(fRes, 500)).some((b) => b.id === reserveret!.id))
+      tjek('forudsætning: med krydset forsvinder boligen — hendes annonce passer ikke domænet',
+        !(await soeg({ ...fRes, elevator: true }, 500))
+          .some((b) => b.id === reserveret!.id || b.id === id))
+      const tkRes = await tavseKilder({ ...fRes, elevator: true })
+      tjek('tavse kilder med domænefilter: kilden nævnes, og boligen tælles som ude',
+        tkRes.navne.includes(KONTRAKTNAVN) && tkRes.antal === 1,
+        `${tkRes.navne.join(', ')} · ${tkRes.antal}`)
+      // Straks væk igen — ikke først i `finally`. Slug'en er unik, og
+      // alarmprøven længere nede opretter sin egen 'propstep' (samme mønster,
+      // samme vagt); stod denne her stadig, kastede den insert.
+      await db.delete(listings).where(eq(listings.id, reserveret!.id))
+      await db.delete(sources).where(eq(sources.id, kontraktkilde!.id))
+    }
+
+    // ── «Tages boligen ned …, tager vi deres annonce ud af søgningen» ──
+    // Et løfte om importen, ikke om forklaringen, så det prøves gennem den
+    // rigtige koerKilde: en kilde annoncerer hendes bolig og holder så op.
+    // Rækken skrives af importen, og status sættes ikke i hånden — ellers
+    // målte prøven sit eget forlæg og ikke afmeldingen. Kun i testbasen:
+    // en importkørsel mod produktionen er ikke en prøve.
+    if (!MOD_PRODUKTION) {
+      console.log('\n══ tager kilden boligen ned, kan hendes vises ══')
+      const [hun] = await db.select().from(listings).where(eq(listings.id, id))
+      const afmeldListe = new Set(['a1', 'a2'])
+      const afmeldUrl = (n: string) => `https://proeve-afmeld.invalid/${n}`
+      const afmeldAdapter: SourceAdapter = {
+        id: `proeve-afmeld-${Date.now()}`, sourceType: 'spider', host: 'proeve-afmeld.invalid',
+        async discover() {
+          return [...afmeldListe].map((n) => ({ externalKey: n, url: afmeldUrl(n) }))
+        },
+        async extract(url: string): Promise<RawListing> {
+          const n = url.split('/').pop()!
+          // a1 er hendes bolig, som en kilde ville skrive den. a2 er en anden
+          // bolig hos samme kilde, så den næste kørsel ikke er tom: en kilde,
+          // der pludselig finder under halvdelen af medianen, afmelder intet.
+          return n === 'a1'
+            ? {
+              externalKey: n, sourceUrl: url, address: hun!.addressRaw, imageUrls: [],
+              rentMonthly: hun!.rentMonthly ?? undefined,
+              sizeM2: hun!.sizeM2 ?? undefined, rooms: hun!.rooms ?? undefined,
+            }
+            : {
+              externalKey: n, sourceUrl: url, address: 'Fyldvej 3, 2300 København S',
+              imageUrls: [], rentMonthly: 800000,
+            }
+        },
+      }
+      const KILDENAVN = 'Prøve: afmelding'
+      await koerKilde(afmeldAdapter, KILDENAVN)
+      const [afmeldKilde] = await db.select().from(sources)
+        .where(eq(sources.slug, afmeldAdapter.id))
+      ekstra.kilder.push(afmeldKilde!.id)
+      const mens = await maerkat()
+      tjek('kilden annoncerer hendes bolig: kildens annonce vises i stedet',
+        mens.slags === 'dublet' && mens.af.kilde === KILDENAVN,
+        mens.slags === 'dublet' ? mens.af.kilde : mens.slags)
+      tjek('og hun kan stadig åbnes på sit eget link', (await hentBolig(id))?.id === id)
+      afmeldListe.delete('a1')
+      const efterNed = await koerKilde(afmeldAdapter, KILDENAVN)
+      tjek('kilden holder op: koerKilde afmelder dens annonce',
+        efterNed.afmeldte === 1, JSON.stringify(efterNed))
+      tjek('og så vises hendes', (await maerkat()).slags === 'udgivet' && (await iSoegningen()))
+    }
+
+    // ── Loftet og dubletterne haandhaeves paa SERVEREN ───────────
+    // Ikke kun i tjekBilleder: i selve skrivevejen, og FOER noget skrives.
+    // `opdaterBolig` sletter billedraekkerne, foer den indsaetter de nye —
+    // en afvisning bagefter ville have toemt annoncen.
+    console.log('\n══ loftet og dubletterne håndhæves på serveren ══')
+    const hendesBilleder = async () => JSON.stringify(
+      await db.select({ u: listingImages.externalUrl, p: listingImages.position })
+        .from(listingImages).where(eq(listingImages.listingId, id))
+        .orderBy(listingImages.position))
+    const afvisning = async (f: () => Promise<unknown>) => {
+      try { await f(); return null } catch (e) { return (e as Error).message }
+    }
+    const [raekken] = await db.select().from(listings).where(eq(listings.id, id))
+    const billederFoer = await hendesBilleder()
+    const somHun = somFormular(raekken!)
+    for (const [navn, liste, ord] of [
+      [`${MAKS_BILLEDER + 1} billeder`, urler(MAKS_BILLEDER + 1, 'over'), `plads til ${MAKS_BILLEDER}`],
+      ['en dublet', [`${VIST_VAERT}/d.jpg`, `${VIST_VAERT}/d.jpg`], 'flere gange'],
+    ] as const) {
+      const m = await afvisning(() => opdaterBolig(udlejer, id, { ...somHun, billeder: [...liste] }))
+      tjek(`opdatér med ${navn}: afvist med en forklaring`, !!m && m.includes(ord), String(m))
+      tjek(`opdatér med ${navn}: billederne er urørte`, (await hendesBilleder()) === billederFoer)
+      const [efter] = await db.select().from(listings).where(eq(listings.id, id))
+      tjek(`opdatér med ${navn}: rækken er urørt`, ens(raekken, efter))
+    }
+    const mineAntal = async () => (await mineBoliger(udlejer)).length
+    const antalFoer = await mineAntal()
+    for (const [navn, liste] of [
+      [`${MAKS_BILLEDER + 1} billeder`, urler(MAKS_BILLEDER + 1, 'ny')],
+      ['en dublet', [`${VIST_VAERT}/d.jpg`, `${VIST_VAERT}/d.jpg`]],
+    ] as const) {
+      const m = await afvisning(() => opretBolig(udlejer, { ...FULDT, billeder: [...liste] }))
+      tjek(`opret med ${navn}: afvist`, m != null, String(m))
+      tjek(`opret med ${navn}: ingen annonce oprettet`, (await mineAntal()) === antalFoer)
+    }
+    // Modstykket: loftet selv skal kunne gemmes, ellers bestod proeven ved
+    // at afvise alt.
+    await opdaterBolig(udlejer, id, { ...somHun, billeder: urler(MAKS_BILLEDER, 'loft') })
+    tjek(`opdatér med præcis ${MAKS_BILLEDER}: gemt`,
+      JSON.parse(await hendesBilleder()).length === MAKS_BILLEDER)
+    await opdaterBolig(udlejer, id, { ...somHun, billeder: FULDT.billeder })
 
     // ── Grundlaget under "Fuld økonomi kendt" ────────────────────
     // Tre grupper: fuld, kun samlet aconto, ingen total. De kommer alle
@@ -1353,7 +2335,26 @@ async function main() {
     // ALDRIG faciliteter, saa et kryds fjerner dem helt. Navnene beregnes,
     // saa linjen retter sig selv — men saa skal den ogsaa vaere sand.
     console.log('\n══ tavse kilder ══')
-    const tk = await tavseKilder({})
+    // Med et facilitetsfilter, som siden kalder den: linjen siger, hvad
+    // krydset fjerner, og uden et kryds fjerner det ingenting.
+    //
+    // ═══ TO GRUNDE TIL AT DE TO NAESTE SPRINGES OVER ═══
+    //
+    // 1 · DE KRAEVER RIGTIGE DATA. «Hvilke kilder oplyser ALDRIG
+    //     faciliteter» er et udsagn om bestanden — tre kilder og 399
+    //     boliger, maalt 4. september 2026. Testbasen har kun det, denne
+    //     proeve selv har skrevet, og der er ingen tavs kilde at naevne.
+    //
+    // 2 · UDEN DEM BLIVER DE ROEDE, og «rettelsen» ligger lige for: saa en
+    //     kilde uden faciliteter, saa bliver `navne.length > 0` sand.
+    //     Men saa maaler de, at `tavseKilder` kan finde den raekke,
+    //     proeven lige har lagt — ikke at linjen paa skaermen er sand om
+    //     det rigtige udbud. Og det er netop dét, linjen paastaar.
+    //
+    // Resten af blokken maaler det, der KAN maales uden et udbud: at
+    // vores egen kilde ikke naevnes, og at domaenefilteret taelles med.
+    // De staar derfor uden vagt.
+    const tk = await tavseKilder({ elevator: true })
     await tjekProd('der findes tavse kilder at nævne',
       () => tk.navne.length > 0, () => tk.navne.join(', '))
     await tjekProd('de dækker et positivt antal boliger',
@@ -1368,7 +2369,7 @@ async function main() {
     const facFoer = (await db.select({ a: listings.amenities })
       .from(listings).where(eq(listings.id, id)))[0]!.a
     await db.update(listings).set({ amenities: [] }).where(eq(listings.id, id))
-    const tkTavs = await tavseKilder({})
+    const tkTavs = await tavseKilder({ elevator: true })
     await db.update(listings).set({ amenities: facFoer }).where(eq(listings.id, id))
     tjek('vores egen kilde nævnes ikke, heller ikke når den ER tavs',
       !tkTavs.navne.includes('Bofinda'), tkTavs.navne.join(', '))
@@ -1707,11 +2708,28 @@ async function main() {
       'OBS! billederne er ikke fra det præcise lejemål.',
       'Billederne er nødvendigvis ikke fra denne lejlighed, men en tilsvarende.',
     ]
+    // Adapteren leverer nu BELAEGGET, ikke booleanen — den udledes i
+    // lib/normalize.ts. Derfor proeves `imagesMayDifferEvidence`, og
+    // samtidig at spaendet FAKTISK indeholder faktummet: en attest, der
+    // ikke kan efterproeves, er ingen attest.
+    const belaeg = (t: string) =>
+      cejLaes(cejItem({ description: `<p>${t}</p>` }))!.imagesMayDifferEvidence
     tjek('cej forbehold: alle tre målte varianter fanges',
-      forbeholdstekster.every((t) => cejLaes(cejItem({ description: `<p>${t}</p>` }))!.imagesMayDiffer))
+      forbeholdstekster.every((t) => belaeg(t) != null))
+    tjek('cej forbehold: og hvert spænd bærer faktummet',
+      forbeholdstekster.every((t) => {
+        const b = belaeg(t)
+        return b != null && b.regel === 'cej' && belaegHolder(b)
+      }))
+    tjek('cej forbehold: spændet er et UDSNIT, ikke hele beskrivelsen',
+      forbeholdstekster.every((t) => {
+        const b = belaeg(t)!
+        return b.uddrag.length < t.length && t.includes(b.uddrag.split(' ')[0]!)
+      }))
     tjek('cej forbehold: AI-sætningen alene er IKKE forbeholdet',
-      !cejLaes(cejItem({ description: '<p>Billederne i annoncen er AI-redigerede.</p>' }))!.imagesMayDiffer)
-    tjek('cej forbehold: almindelig beskrivelse udløser intet', cb.imagesMayDiffer === false)
+      belaeg('Billederne i annoncen er AI-redigerede.') == null)
+    tjek('cej forbehold: almindelig beskrivelse udløser intet',
+      cb.imagesMayDifferEvidence === undefined)
 
     const indeholderPerson = (x: unknown) => {
       const tekst = JSON.stringify(x) ?? ''
@@ -2003,6 +3021,20 @@ async function main() {
     // Adapteren læser env ved HVER kørsel — og siger højt, når den ignorerer.
     const gemtBudgetEnv = process.env.HEIMSTADEN_DETALJEBUDGET
     const hsAd = heimstadenAdapter()
+    // Isolationen måles som UÆNDRET FØR OG EFTER, ikke som «=== undefined».
+    //
+    // Før stod her, at cej og birch havde `undefined`. Det er sandt i dag og
+    // er ikke det, prøven handler om: spørgsmålet er, om HEIMSTADENS variabel
+    // kan ramme en anden kilde. Får cej eller birch et loft en dag — og det
+    // er netop det, docs/kildetilladelser.md lægger op til for de otte
+    // uloftede kilder — så bliver prøven rød af en grund, der intet har med
+    // ændringen at gøre, og den næste retter prøven i stedet for at læse den.
+    // Snapshottet tages FØR variablen røres, så sammenligningen er prøvens
+    // eget forlæg og ikke en påstand om, hvad de to kilder tilfældigvis har.
+    const foerEnv = {
+      cej: cejAdapter().detaljeBudgetPrKoersel,
+      birch: birchAdapter().detaljeBudgetPrKoersel,
+    }
     try {
       delete process.env.HEIMSTADEN_DETALJEBUDGET
       tjek('budget: adapteren uden env giver 25', hsAd.detaljeBudgetPrKoersel === 25)
@@ -2022,9 +3054,13 @@ async function main() {
         JSON.stringify(advarsler))
 
       // Andre kilder må ikke kunne rammes af Heimstadens variabel.
-      tjek('budget: env rører IKKE andre kilder',
-        cejAdapter().detaljeBudgetPrKoersel === undefined
-        && birchAdapter().detaljeBudgetPrKoersel === undefined)
+      const efterEnv = {
+        cej: cejAdapter().detaljeBudgetPrKoersel,
+        birch: birchAdapter().detaljeBudgetPrKoersel,
+      }
+      tjek('budget: env rører IKKE andre kilder — uændret før og efter',
+        efterEnv.cej === foerEnv.cej && efterEnv.birch === foerEnv.birch,
+        `cej ${foerEnv.cej}→${efterEnv.cej} · birch ${foerEnv.birch}→${efterEnv.birch}`)
     } finally {
       if (gemtBudgetEnv === undefined) delete process.env.HEIMSTADEN_DETALJEBUDGET
       else process.env.HEIMSTADEN_DETALJEBUDGET = gemtBudgetEnv
@@ -2699,7 +3735,38 @@ async function main() {
         taktFor('www.laros.dk') >= 20000, String(taktFor('www.laros.dk')))
       tjek('laros takt: andre værter er upåvirkede (standard 1 s)',
         taktFor('proeve-anden-vaert.invalid') === 1000, String(taktFor('proeve-anden-vaert.invalid')))
-      _saetTakt('proeve-takt.invalid', 400)
+      // ── TAKTEN, MÅLT PÅ VÆGURET — MED EN MARGEN ──────────────
+      //  Påstanden her handler om, at pacingen SKETE: forskellen mellem
+      //  ~400 ms og 0. Den handler IKKE om, at en 400 ms timer aldrig
+      //  fyrer et millisekund tidligt — det er en påstand om Node, ikke
+      //  om `pace()` i lib/fetch.ts, og den hører ingen steder i dette
+      //  sæt. Uden margen målte den altså timerens præcision i stedet
+      //  for pacerens adfærd.
+      //
+      //  Målt 2. oktober 2026: **399 ms, rød**, mens tre prøvekørsler
+      //  kørte samtidig. Bagefter 100 forsøg mod den rigtige
+      //  `politeFetch` — 60 i tomgang, 40 under otte travle løkker på
+      //  fire kerner — gav min 400, median 401, max 405 og **ingen**
+      //  under 400. Mekanismen er altså IKKE genskabt, og rettelsen
+      //  hviler på påstandens form plus den ene observation.
+      //
+      //  En GitHub-runner er to delte kerner med naboer, og en
+      //  flakkende CI-check er værre end ingen: den lærer folk at køre
+      //  igen, til den bliver grøn.
+      //
+      //  Margenen koster ingen dækning, der betyder noget: takten er et
+      //  HELTAL i `VAERTSTAKT`, så en regression er et forkert tal eller
+      //  ingen pacing — ikke en drift på fem procent. Fjernes pacingen,
+      //  bliver tallet ~0 og påstanden rød med 360 ms at give af.
+      //  Tabellens egen værdi prøves eksakt og utimet lige ovenfor
+      //  (`taktFor`), så de to spørgsmål er delt: hvad står i tabellen,
+      //  og skete pacingen.
+      //
+      //  Det målte tal står stadig i udskriften, så en ægte regression
+      //  kan ses i stedet for kun at blive meldt.
+      const TAKT_MS = 400
+      const MARGEN_MS = 40
+      _saetTakt('proeve-takt.invalid', TAKT_MS)
       const rigtigFetchT = globalThis.fetch
       globalThis.fetch = (async () => new Response('ok', { status: 200 })) as typeof fetch
       try {
@@ -2707,7 +3774,9 @@ async function main() {
         await politeFetch('https://proeve-takt.invalid/a')
         await politeFetch('https://proeve-takt.invalid/b')
         const brugt = Date.now() - t0
-        tjek('laros takt: to kald mod samme vært holder takten (≥ 400 ms målt)', brugt >= 400, `${brugt} ms`)
+        tjek(
+          `laros takt: to kald mod samme vært holder takten (≥ ${TAKT_MS - MARGEN_MS} ms af ${TAKT_MS})`,
+          brugt >= TAKT_MS - MARGEN_MS, `${brugt} ms`)
       } finally { globalThis.fetch = rigtigFetchT }
 
       // Budgettet: eget env-navn, egen konservativ standard, rører ikke Heimstaden.
@@ -3163,6 +4232,10 @@ async function main() {
     if (rivalId) {
       await db.delete(listingImages).where(eq(listingImages.listingId, rivalId))
       await db.delete(listings).where(eq(listings.id, rivalId))
+    }
+    if (rival2Id) {
+      await db.delete(listingImages).where(eq(listingImages.listingId, rival2Id))
+      await db.delete(listings).where(eq(listings.id, rival2Id))
     }
     // Efter rivalen: boligerne peger paa kilden.
     if (proevekildeId) await db.delete(sources).where(eq(sources.id, proevekildeId))

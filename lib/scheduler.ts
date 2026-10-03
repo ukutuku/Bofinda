@@ -9,6 +9,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { rigtigeKilder, type Registreret } from '../adapters'
+import { besked } from './koersel'
 import { koerKilde, type KoerselsResultat } from './ingest'
 
 const INTERVAL_MS = Number(process.env.DISCOVERY_INTERVAL_MS ?? 15 * 60 * 1000)
@@ -50,7 +51,16 @@ export async function koerAlle(
       }
     }
     ud.push(r)
-    paaResultat(r)
+    // Rapporteringen maa ikke koste kilderne. `formatResultat` bygger en
+    // streng af resultatet, og et kast dér er en VISNINGSfejl — de oevrige
+    // kilder har intet med den at goere. Foer laa dette kald uden for
+    // try'en ovenfor, saa netop den fejl vaeltede resten af koerslen.
+    try {
+      paaResultat(r)
+    } catch (e) {
+      process.stdout.write(`[kilde ${k.adapter.id}] rapportering fejlede: `
+        + `${besked(e)}\n`)
+    }
   }
   return ud
 }

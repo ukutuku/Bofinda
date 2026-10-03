@@ -3,6 +3,7 @@ import { spor } from '../lib/maaling-server'
 import { antalFiltre } from '../lib/maalingsoeg'
 import type { Filtre, Soegeparametre } from '../lib/soeg'
 import { filtreFraParametre, harFiltre } from '../lib/soeg'
+import { typenavn } from '../lib/boligtype'
 
 // ═══════════════════════════════════════════════════════════════
 //  «Få besked om nye boliger som disse»
@@ -17,14 +18,9 @@ import { filtreFraParametre, harFiltre } from '../lib/soeg'
 // ═══════════════════════════════════════════════════════════════
 
 /** Menneskeligt navn til søgningen, af filtrene selv. */
-const TYPENAVN: Record<string, string> = {
-  lejlighed: 'Lejlighed', hus: 'Hus', raekkehus: 'Rækkehus',
-  vaerelse: 'Værelse', studiebolig: 'Studiebolig', andet: 'Bolig',
-}
-
 function navngiv(f: Filtre): string {
   const d: string[] = []
-  if (f.boligtyper?.length === 1) d.push(TYPENAVN[f.boligtyper[0]!] ?? f.boligtyper[0]!)
+  if (f.boligtyper?.length === 1) d.push(typenavn(f.boligtyper[0]!))
   if (f.vaerelserMin != null) d.push(`${f.vaerelserMin}+ vær.`)
   if (f.arealMin != null) d.push(`${f.arealMin}+ m²`)
   const sted = f.postnr ?? f.by
@@ -135,12 +131,27 @@ export function GemSoegning({ sp }: { sp: Soegeparametre }) {
         />
         <button type="submit">Send mig besked</button>
       </div>
+      {/* Ingen «intet andet». Der gemmes mere end mailen og filtrene:
+          `navn` laeses af formularen ovenfor, og staar feltet tomt, UDLEDER
+          `navngiv(filtre)` et — den del kan brugeren ikke fravaelge, saa den
+          skal staa her. Dertil tidsstemplerne. Et loefte, der udelader dem,
+          er ikke mindre forkert af at vaere kort, og /privatliv naevner i
+          forvejen «navnet du gav din gemte soegning». Listen her skal kunne
+          holdes op mod den side og passe. */}
       <p className="gem-vilkaar">
-        Vi gemmer <strong>din mailadresse</strong> og <strong>de filtre, du ser
-        ovenfor</strong> — intet andet. Vi bruger dem udelukkende til at sende dig
-        besked, når en ny bolig matcher. Ingen konto, ingen adgangskode.
-        {' '}Du får først mail, når du har trykket på linket i bekræftelsesmailen,
-        og hver besked har et afmeldingslink, der virker uden login.
+        Vi gemmer <strong>din mailadresse</strong>, <strong>de filtre, du ser
+        ovenfor</strong> og <strong>et navn til søgningen</strong> — det du selv
+        skriver, eller et, vi laver af filtrene, hvis du lader feltet stå tomt.
+        Dertil tidspunktet for oprettelsen og for hver besked, vi sender. Vi
+        bruger det udelukkende til at sende dig besked, når en ny bolig
+        matcher. Ingen konto, ingen adgangskode.
+        {/* «Du faar foerst mail» modsagde sig selv: bekraeftelsesmailen ER en
+            mail, og den kommer foer trykket. Det, der er sandt, er at
+            BOLIGBESKEDERNE venter — `matchAlarmer` filtrerer paa
+            `confirmed_at`. */}
+        {' '}Vi sender først boligbeskeder, når du har trykket på linket i
+        bekræftelsesmailen, og hver besked har et afmeldingslink, der virker
+        uden login.
         {' '}<a href="/privatliv">Sådan behandler vi dine oplysninger</a>.
       </p>
     </form>

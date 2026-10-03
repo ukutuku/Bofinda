@@ -169,7 +169,11 @@ function laesBilleder(property: Ukendt, gruppe: Ukendt | undefined): string[] {
 
 /** ALLOWLIST, led 2. Kun `property` — plus de to navngivne billedstier
  *  fra `propertyGroup`, som `laesBilleder` henter og intet andet. */
-function laesBolig(property: Ukendt, gitter: GitterRaekke, gruppe?: Ukendt): RawListing | null {
+/**
+ * Parsningen af én bolig, uden netvaerk. Eksporteret KUN til proeven:
+ * den skal kunne koere mod en frossen payload.
+ */
+export function laesBolig(property: Ukendt, gitter: GitterRaekke, gruppe?: Ukendt): RawListing | null {
   const id = tekst(property['id'])
   if (!id) return null
   // Laeste felter paa property: id, slug, name, location, transactionDetails,
@@ -239,6 +243,13 @@ function laesBolig(property: Ukendt, gitter: GitterRaekke, gruppe?: Ukendt): Raw
     utilitiesElectricity: el,
     utilitiesOther: rest,
     moveInCost,
+    // Kildens EGNE beloeb, hver for sig — allerede i oere, fordi de kun
+    // laeses naar `unit === 'cents'`. De foeres videre UAFHAENGIGT af
+    // `moveInCost`: summen kraever alle tre beloeb, men et depositum er
+    // en oplysning i sig selv, ogsaa naar den forudbetalte leje mangler.
+    // Der udledes aldrig et delbeloeb af totalen.
+    deposit: depositum,
+    prepaidRent: forudbetalt,
     lat: tal(punkt['y']),
     lng: tal(punkt['x']),
     // Laeses af kilden, gaettes ikke: onWaitingListSince er sat, naar

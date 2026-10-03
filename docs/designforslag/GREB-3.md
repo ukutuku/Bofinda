@@ -574,4 +574,3 @@ rettelsen ikke afhænger af, at alle linjer kopieres.
 | [`gengivelse/hero-maal.mjs`](gengivelse/hero-maal.mjs) | de delte målinger: kontrast, slør krævet, fotoets tegning, linjebrud, kreditering |
 | [`maalinger/`](maalinger) | prisspænd, chips, ny-mærkat og farver: scripts og de målte tal. Scripts mod en base kører i en read-only-session, som basen håndhæver (`laast-base.mjs`). Prisspænd og ny-mærkat har `--proeve` mod PGlite, chips har ingen |
 | [`greb3/`](greb3) | billederne og `maal.json` fra den kørsel, der står i denne fil |
-
