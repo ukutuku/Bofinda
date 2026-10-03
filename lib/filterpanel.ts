@@ -11,6 +11,7 @@
 //  ALDRIG kan drive fra `antal_filtre` i analytics.
 // ═══════════════════════════════════════════════════════════════
 
+import { FACILITETSNAVN, FACILITETSNOEGLER } from './faciliteter'
 import type { Filtre, Soegeparametre, Sortering } from './soeg'
 import { antalFiltre } from './maalingsoeg'
 
@@ -155,9 +156,10 @@ export function aktiveFiltre(
   if (f.boligtyper?.length) {
     c.push({ navn: f.boligtyper.map(typenavn).join(', '), fjern: ['type'] })
   }
-  if (f.kaeledyr) c.push({ navn: 'kæledyr tilladt', fjern: ['kaeledyr'] })
-  if (f.elevator) c.push({ navn: 'elevator', fjern: ['elevator'] })
-  if (f.udeplads) c.push({ navn: 'altan eller terrasse', fjern: ['udeplads'] })
+  // Udledt af FACILITET. Et nyt begreb faar sin chip af sig selv.
+  for (const n of FACILITETSNOEGLER) {
+    if (f[n]) c.push({ navn: FACILITETSNAVN[n], fjern: [n] })
+  }
   if (f.overtagelse != null) {
     c.push({
       navn: f.overtagelse === 'nu' ? 'kan overtages nu' : 'kan overtages senere',

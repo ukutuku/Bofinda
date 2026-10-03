@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne/0
 //  LØFTER OM IMPORT — og alt, hvad filerne trækker med sig.
 //
 //  Tyve filer har et løfte om, at de ikke rører databasen — nitten i
@@ -104,6 +105,10 @@ const LOEFTER: readonly Loefte[] = [
 
 /** Hoveder, der nævner databasen uden at love noget om filens import. */
 const IKKE_LOEFTER: Readonly<Record<string, string>> = {
+  'scripts/cloud/isoleret.mjs': 'løftet handler om de tre rene vagter; aabnIsoleret i samme modul åbner udtrykkeligt en forbindelse',
+  'scripts/proever.ts': 'beskriver en forkert afledning om en ANDEN prøves databasebehov, ikke sit eget importløfte',
+  'scripts/test-alarmmail.ts': 'kun afsnit 1–3 er uden base; afsnit 1b kører udtrykkeligt den rigtige afsendelse under testbasen',
+  'scripts/test-isolation.ts': 'afprøver vagterne uden at åbne en forbindelse; hovedet angiver udtrykkeligt postgres i importgrafen',
   'adapters/cej.ts': 'handler om, at persondata ikke når basen — ikke om filens import',
   'lib/kontaktmur.ts': 'handler om, at et nej ikke koster en forespørgsel — filen bruger basen',
   'scripts/backup.mjs': 'beskriver dumpets format',

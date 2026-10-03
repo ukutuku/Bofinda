@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: adaptere
 //  Depositum og forudbetalt leje som SELVSTAENDIGE felter.
 //
 //  ── HVORFOR DEN HER FIL FINDES ────────────────────────────────

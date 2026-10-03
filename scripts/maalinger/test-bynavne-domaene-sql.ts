@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  Prøver de gengivne blokke fra skriv-bynavne-domaene-sql.ts mod et facit,
 //  der er SKREVET UD HER, før blokkene køres.
 //

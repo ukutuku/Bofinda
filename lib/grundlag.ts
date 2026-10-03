@@ -107,12 +107,40 @@ function posterTekst(poster: readonly string[] | null): string {
  * `null` for 'med' og for ukendt total: der er intet forbehold at tage.
  * For 'med' står el allerede i opregningen; uden en total er der ikke
  * noget tal at tage forbehold FOR.
+ *
+ * ── HVORFOR ET RECORD OG IKKE EN IF-KÆDE ─────────────────────
+ *
+ * Formen var tre `if`'er og et `return null`. Alle fire `Eltilstand`
+ * var dækket, så den var rigtig — men en FEMTE værdi ville falde
+ * igennem til `return null`, og det er den værste af de fire
+ * oversættelser at falde igennem i:
+ *
+ *   `Ellinje` og boligsiden   siger «El indgår ikke» — en påstand
+ *   alarmmailen               siger det samme
+ *   `elUdsagn`                siger INGENTING
+ *
+ * `null` herfra bliver en tom streng i den genererede beskrivelse
+ * (`lib/normalize.ts`: `${forbehold ? ` — ${forbehold}` : ''}`), og den
+ * beskrivelse står i `listings.description` — altså i basen og på
+ * boligsiden. En femte tilstand ville dermed fjerne forbeholdet uden at
+ * efterlade et spor. `satisfies Record<Eltilstand, …>` gør det til
+ * TS2741 ved oversættelsen i stedet.
+ *
+ * Samme form som `ELTEKST` i lib/alarm.ts. Se CLAUDE.md's målte
+ * optælling af de fire oversættelser.
  */
+const ELUDSAGN = {
+  // 'med': el staar allerede i opregningen; der er intet forbehold.
+  med: null,
+  'egen-maaler': 'el betaler du selv til elselskabet',
+  'ikke-med': 'el kommer oveni',
+  'ukendt-daekning': 'uvist om el er med',
+} as const satisfies Record<Eltilstand, string | null>
+
 export function elUdsagn(el: Eltilstand | null): string | null {
-  if (el === 'ukendt-daekning') return 'uvist om el er med'
-  if (el === 'egen-maaler') return 'el betaler du selv til elselskabet'
-  if (el === 'ikke-med') return 'el kommer oveni'
-  return null
+  // `null` ind er ikke en tilstand — det er «ingen total», og saa er der
+  // ikke noget tal at tage forbehold FOR. Derfor uden for recordet.
+  return el == null ? null : ELUDSAGN[el]
 }
 
 /**

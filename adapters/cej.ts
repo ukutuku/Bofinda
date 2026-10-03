@@ -43,6 +43,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { DiscoveredListing, RawListing, SourceAdapter } from '../lib/adapter'
+import { findForbehold } from '../lib/billedforbehold'
 import { isoDato } from '../lib/dato'
 import { politeFetch } from '../lib/fetch'
 import { kronerTilOere } from '../lib/money'
@@ -69,7 +70,6 @@ const MAKS_SIDER = 30
  * Saetningen alene om AI-redigering udloeser IKKE forbeholdet — den
  * paastaar ikke, at billederne er fra en anden bolig.
  */
-const FORBEHOLD = /billeder\w*[^.]{0,60}?ikke[^.]{0,60}?fra\s+(den|denne|det)\b/i
 
 /** Kildens engelske amenity-/appliance-tags → vores ord. Ordene staar paa
  *  boligsiden og skal derfor vaere dansk. `balconyOrTerrace` skelner ikke
@@ -327,7 +327,7 @@ export function laes(item: Ukendt): RawListing | null {
     sourceUpdatedAt: tekst(item['updated']),
     amenities: faciliteter,
     imageUrls: billeder,
-    imagesMayDiffer: FORBEHOLD.test(beskrivelse),
+    imagesMayDifferEvidence: findForbehold(beskrivelse, 'cej') ?? undefined,
     // Hvad kilden SAGDE — fortolkningen bor i lib/kildekontrakt.ts.
     // Datoen er date-only; eksplicit null bevares, misdannet udelades.
     availability: {

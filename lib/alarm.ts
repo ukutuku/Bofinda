@@ -6,6 +6,9 @@
 //  tilbage.
 // ═══════════════════════════════════════════════════════════════
 
+import {
+  FACILITETSNAVN, FACILITETSNOEGLER, type Facilitetsnoegle,
+} from './faciliteter'
 import { and, asc, desc, eq, gt, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { alertMatches, crawlRuns, listings, savedSearches, sources, users } from '../db/schema'
@@ -178,9 +181,26 @@ export const aeldsteVentendeFoerst = (
 }
 
 /** Alt der ligger og venter — grupperet, så det kan læses som den besked,
- *  der ville være sendt, i den orden de sendes. */
-export async function ventende() {
-  const raekker = await db
+ *  der ville være sendt. */
+/**
+ * Hvad «venter» betyder, som ÉT udtryk.
+ *
+ * Eksporteret, fordi en MAALING skal gengive appens eget udtryk og ikke
+ * skrive det af. `scripts/generer-alarmkoe-sql.ts` kalder `.toSQL()` paa
+ * forespoergslen og klipper dens `from … where`-hale ud, saa den SQL,
+ * der koeres i produktionen, er appens egen. Aendres betingelsen her,
+ * aendres den genererede fil med — og proeven fejler, hvis den
+ * committede fil ikke laengere svarer til det genererede.
+ *
+ * Udtraekket er Analytics' (d59c613), og det afloeser et forbehold, jeg
+ * selv havde skrevet: at den haandskrevne SQL-fil kunne drive fra koden.
+ *
+ * `toSQL()` renderer kun og aabner ingen forbindelse — men `db` er en
+ * lazy getter, der bygger klienten ved opslaget og kraever
+ * `DATABASE_URL_DIRECT`. Generatoren koerer derfor under testbasen.
+ */
+export function ventendeForespoergsel() {
+  return db
     .select({
       soegningId: savedSearches.id,
       soegning: savedSearches.name,
@@ -220,6 +240,11 @@ export async function ventende() {
     // Inde i én mail: nyeste træf først. `id` til sidst, så to træf fra
     // samme øjeblik står ens fra kørsel til kørsel.
     .orderBy(desc(alertMatches.matchedAt), alertMatches.id)
+}
+
+/** Alt der ligger og venter — grupperet pr. soegning, i den orden de sendes. */
+export async function ventende() {
+  const raekker = await ventendeForespoergsel()
 
   const grupper = new Map<string, typeof raekker>()
   for (const r of raekker) {
@@ -231,6 +256,12 @@ export async function ventende() {
 }
 
 /** Kriterierne som en linje, så det kan ses hvad søgningen faktisk beder om. */
+const FILTERORD = {
+  kaeledyr: 'kæledyr tilladt',
+  elevator: 'elevator',
+  udeplads: 'altan el. terrasse',
+} as const satisfies Record<Facilitetsnoegle, string>
+
 export function beskrivFiltre(c: Record<string, unknown>): string {
   const f = somFiltre(c)
   const d: string[] = []
@@ -250,9 +281,15 @@ export function beskrivFiltre(c: Record<string, unknown>): string {
   if (f.overtagelse === 'senere') d.push('kan overtages senere')
   if (f.ansoegningsform === 'venteliste') d.push('venteliste')
   if (f.markedsstatus === 'reserveret') d.push('reserveret')
-  if (f.kaeledyr) d.push('kæledyr tilladt')
-  if (f.elevator) d.push('elevator')
-  if (f.udeplads) d.push('altan el. terrasse')
+  // MAILENS egne ord. Kortere end `FACILITETSNAVN`, fordi filterlinjen
+  // har mindre plads — samme forhold som de fire el-tekster i CLAUDE.md:
+  // spoergsmaalet besvares ét sted, teksten er flademes egen. `satisfies`
+  // goer et nyt begreb UDEN et ord til en oversaetterfejl her.
+  // `?? FACILITETSNAVN[n]`: `npm test` typetjekker IKKE, saa et nyt
+  // begreb uden en kort ordlyd ville ellers skrive «undefined» i en
+  // fremmeds indbakke. Faldbacken er sand — blot laengere — og
+  // `satisfies` paa FILTERORD goer manglen til en fejl under tsc.
+  for (const n of FACILITETSNOEGLER) if (f[n]) d.push(FILTERORD[n] ?? FACILITETSNAVN[n])
   return d.length ? d.join(' · ') : 'ingen filtre — alle boliger'
 }
 
@@ -292,7 +329,42 @@ export async function soegninger() {
 
 import { inArray } from 'drizzle-orm'
 import { maaSendeTil, sendMail } from './mail'
-import { eltilstand } from './eloplysning'
+import { eltilstand, type Eltilstand } from './eloplysning'
+
+/**
+ * Mailens ord for hver el-tilstand — BUNDET til unionen.
+ *
+ * ── HVORFOR DET ER ET RECORD OG IKKE EN TERNAERKAEDE ──────────
+ *
+ * Udledningen er ét sted (`eltilstand`), og det var den aldrig i tvivl
+ * om. OVERSAETTELSEN til tekst var derimod en ternaerkaede med
+ * fald-igennem, og det samme er den paa de tre andre flader:
+ *
+ *     app/Boligkort.tsx          → 'El indgår ikke — udlejer oplyser …'
+ *     app/bolig/[id]/page.tsx    → 'El indgår ikke i beløbet. …'
+ *     lib/grundlag.ts elUdsagn   → null
+ *     her                        → 'el indgår ikke — udlejer oplyser …'
+ *
+ * En FEMTE `Eltilstand` ville derfor tavst faa den paastand, de tre
+ * foerste har til faelles — og det er netop den, den FJERDE tilstand
+ * blev indfoert for at undgaa paa 254 boliger. `elUdsagn` er den
+ * grimmeste: den ville sige INGENTING.
+ *
+ * CLAUDE.md siger udtrykkeligt, at teksterne ER forskellige de fire
+ * steder, «fordi der er forskellig plads; spoergsmaalet besvares kun ét
+ * sted». Rettelsen er derfor IKKE at dele teksten — det ville bryde den
+ * regel. Den er at goere hver oversaettelse UDTOEMMENDE, saa en femte
+ * vaerdi er en oversaetterfejl paa hver flade i stedet for en tavs
+ * paastand. Her er den ene af de fire.
+ *
+ * `null` = der skal ingen linje staa.
+ */
+const ELTEKST = {
+  med: null,
+  'egen-maaler': 'el afregnes direkte med elselskabet',
+  'ukendt-daekning': 'aconto er ét samlet beløb — det fremgår ikke om el er med',
+  'ikke-med': 'el indgår ikke — udlejer oplyser ikke hvordan',
+} as const satisfies Record<Eltilstand, string | null>
 
 /** Højst én mail i timen per søgning, uanset hvor tit importen kører. */
 const MINDST_MELLEM_MAILS_MIN = 60
@@ -304,9 +376,124 @@ const und = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 export interface SendResultat {
   soegning: string
   modtager: string
+  /** Antal boliger i MAILEN — altsaa de sendbare, ikke hele koeen. */
   antal: number
+  /**
+   * Traef, der laa i koeen, men hvis bolig er taget ned. Mailes ikke.
+   *
+   * Et FELT og ikke en saetning i `grund`. Et tal kan maales; en streng
+   * skal parses for at blive til et tal, og saa er optaellingen bundet
+   * til ordlyden. Formen er Analytics' (d59c613).
+   */
+  udeladt: number
   sendt: boolean
   grund?: string
+}
+
+
+/**
+ * Én raekke fra `ventende()` — UDLEDT af selecten, ikke skrevet af.
+ *
+ * `Awaited<ReturnType<…>>[number][number]`: fjerner nogen en kolonne
+ * fra `ventende()`s select, bliver `byggAlarmmail` en oversaetterfejl i
+ * stedet for at laese `undefined`. En haandskrevet shape her ville vaere
+ * endnu et udtryk for det samme spoergsmaal.
+ */
+type Ventende = Awaited<ReturnType<typeof ventende>>[number][number]
+
+/**
+ * Maa denne bolig naevnes i en mail?
+ *
+ * Eksporteret, saa PROEVEN kan kalde det samme udtryk, afsendelsen
+ * kalder. Foerste udgave af proeven filtrerede selv med
+ * `.filter(b => b.status === 'active')` og maalte dermed sit eget
+ * forlaeg: modproeven, der fjernede filteret, blev kun roed paa
+ * kildetjekket — ikke paa en enkelt paastand om teksten. Det er
+ * `proevens-eget-forlaeg` fra faeldetabellen, i en proeve skrevet samme
+ * dag som raekken.
+ *
+ * Navnet er Analytics' (d59c613) og er bedre end det, der stod her
+ * foer (`kunAktive`): det navngiver SPOERGSMAALET og ikke mekanismen,
+ * og som praedikat pr. raekke kan `scripts/alarm.ts` bruge det til at
+ * saette sin egen etiket i stedet for at gentage `=== 'delisted'`.
+ */
+export const maaMailes = (b: { status: string }): boolean => b.status === 'active'
+
+/**
+ * Mailens krop — UDTRUKKET, saa den kan proeves.
+ *
+ * Teksten blev foer bygget inde i `sendAlarmer` og fandtes kun som
+ * argumenter til `sendMail`. Ingen proeve kunne derfor laese, hvad der
+ * faktisk stod i en alarmmail: `npm test` kalder ikke `sendAlarmer`, og
+ * selv hvis den gjorde, returnerer den kun `{ sendt, grund }`.
+ *
+ * Det er samme form som `Ellinje`: ét sted at stille spoergsmaalet, og
+ * saa kan det proeves. `scripts/test-alarmmail.ts` gengiver begge
+ * udgaver — ren tekst og HTML — og de tre rettelser i denne commit er
+ * hver bundet til en modproeve, der bliver roed.
+ *
+ * REN: ingen database, intet netvaerk. Den faar raekkerne ind.
+ */
+export function byggAlarmmail(
+  g: readonly Ventende[], f: Ventende, navn: string,
+): { emne: string; tekst: string; html: string; afmeldUrl: string; afmeldPost: string } {
+  const kriterier = somFiltre(f.kriterier)
+  const harGraense = kriterier.prisMin != null || kriterier.prisMax != null
+  const afmeldUrl = `${BASE}/afmeld/${f.token}`
+  const afmeldPost = `${BASE}/api/afmeld?t=${f.token}`
+  const emne = `${g.length} ${g.length === 1 ? 'ny bolig' : 'nye boliger'} — ${navn}`
+
+  const linjer = g.map((b) => {
+    const pris = b.total != null
+      ? `${kr(b.total)} kr/md til udlejer`
+      : `${kr(b.leje)} kr/md i husleje — total ukendt, aconto ikke oplyst`
+    const indf = b.indflytning != null ? ` · indflytning ${kr(b.indflytning)} kr.` : ''
+    // Ét sted, ligesom paa kortene. Mailen maa ikke sige "el indgaar
+    // ikke" om et beloeb, vi ikke kender indholdet af.
+    const t = eltilstand(b)
+    const elnote = t == null ? null : ELTEKST[t]
+    const maal = [b.areal && `${b.areal} m²`, b.vaerelser && `${b.vaerelser} vær.`]
+      .filter(Boolean).join(' · ')
+    return { adresse: b.adresse, maal, pris, indf, elnote,
+      url: `${BASE}/bolig/${b.boligId}`, kilde: b.kilde,
+      // TO SPOERGSMAAL, TO FELTER. `uvis` var ét felt og besvarede
+      // begge: om prisblokken skal vaere groen, OG om forbeholdet om
+      // «din graense» skal staa. De er ikke det samme, og en naiv
+      // rettelse af det andet ville have gjort en bolig UDEN kendt
+      // total GROEN — praecis den fejl, #14624f-reglen handler om.
+      ukendtTotal: b.total == null,
+      overGraense: b.total == null && harGraense }
+  })
+
+  const tekst = [
+    `${g.length} ${g.length === 1 ? 'ny bolig matcher' : 'nye boliger matcher'} "${navn}"`,
+    beskrivFiltre(f.kriterier),
+    '',
+    ...linjer.flatMap((l) => [
+      l.adresse, `  ${l.maal}`, `  ${l.pris}${l.indf}`,
+      ...(l.elnote ? [`  ${l.elnote}`] : []),
+      ...(l.overGraense ? ['  OBS: kan være dyrere end din grænse — den er sat på huslejen alene.'] : []),
+      `  ${l.url}`, '',
+    ]),
+    `Afmeld: ${afmeldUrl}`,
+  ].join('\n')
+
+  const html = `<div style="font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;color:#14161a;max-width:600px">
+<p style="margin:0 0 4px"><strong>${g.length} ${g.length === 1 ? 'ny bolig' : 'nye boliger'}</strong> matcher «${und(navn)}»</p>
+<p style="margin:0 0 20px;color:#5f6672;font-size:13px">${und(beskrivFiltre(f.kriterier))}</p>
+${linjer.map((l) => `<div style="border-top:1px solid #e8e5de;padding:14px 0">
+<a href="${l.url}" style="font-size:16px;font-weight:600;color:#14161a;text-decoration:none">${und(l.adresse)}</a>
+<div style="color:#5f6672;font-size:13px;margin-top:3px">${und(l.maal)}</div>
+<div style="margin-top:7px;font-weight:600;color:${l.ukendtTotal ? '#14161a' : '#14624f'}">${und(l.pris)}</div>
+${l.indf ? `<div style="color:#5f6672;font-size:13px">${und(l.indf.replace(' · ', ''))}</div>` : ''}
+${l.elnote ? `<div style="color:#9aa1ac;font-size:12px;margin-top:4px">${und(l.elnote.charAt(0).toUpperCase() + l.elnote.slice(1))}</div>` : ''}
+${l.overGraense ? '<div style="color:#8a5300;font-size:12.5px;margin-top:5px">Kan være dyrere end din grænse — den er sat på huslejen alene.</div>' : ''}
+<div style="color:#9aa1ac;font-size:12px;margin-top:6px">${und(l.kilde)}</div>
+</div>`).join('')}
+<p style="margin:22px 0 0;color:#9aa1ac;font-size:12px">
+Du får denne mail, fordi du har gemt en søgning på Bofinda.
+<a href="${afmeldUrl}" style="color:#9aa1ac">Afmeld</a>.</p></div>`
+  return { emne, tekst, html, afmeldUrl, afmeldPost }
 }
 
 /**
@@ -321,73 +508,72 @@ export async function sendAlarmer(): Promise<SendResultat[]> {
   const grupper = await ventende()
   const ud: SendResultat[] = []
 
-  for (const g of grupper) {
-    const f = g[0]!
+  for (const alle of grupper) {
+    const f = alle[0]!
     const navn = f.soegning ?? 'din søgning'
 
+    // ── BOLIGER, DER ER TAGET NED SIDEN MATCHET, UDGAAR ─────────
+    //
+    // `ventende()` HENTER `status` og filtrerede ikke paa den, og
+    // `sendAlarmer` naevnte feltet ikke. Vinduet er ikke teoretisk, det
+    // er designet: spaerretiden nedenfor udskyder op til en time, en
+    // fejlet afsendelse lader traeffet staa i koeen med vilje, og
+    // `ALARM_TILLADTE_MODTAGERE` springer modtagere over UDEN at saette
+    // `sent_at` — saa et traef kan ligge i ugevis og derefter gaa ud.
+    // Imens kan afmeldingen have taget boligen.
+    //
+    // De to andre flader, der viser samme raekke, siger det begge:
+    // `scripts/alarm.ts` skriver «⚠ IKKE LAENGERE LEDIG», og Min side
+    // skriver «Ikke laengere tilgaengelig». Mailen er den eneste, der
+    // lander UOPFORDRET — og var den eneste, der ikke spurgte.
+    //
+    // ── HVORFOR DEN UDGAAR HELT, OG IKKE BARE MAERKES ───────────
+    //
+    // Emnet taeller boliger («1 ny bolig»). En uopfordret mail, hvis
+    // eneste indhold er en bolig, hun ikke kan faa, er en mail, der
+    // ikke skulle vaere sendt — emnet ville skulle sige 0. Er der ANDRE
+    // boliger i gruppen, sendes de; da holder loftet praecis: hver
+    // bolig i mailen er én, hun kan handle paa.
+    //
+    // Filtreringen sker HER og ikke i `ventende()`, fordi
+    // forhaandsvisningen bruger samme funktion og SKAL se dem — den
+    // findes for, at et menneske kan efterse koeen foer afsendelse.
+    const g = alle.filter(maaMailes)
+    const nedtaget = alle.length - g.length
+    if (g.length === 0) {
+      ud.push({ soegning: navn, modtager: f.modtager, antal: 0, udeladt: nedtaget,
+        sendt: false, grund: `alle ${nedtaget} boliger er taget ned siden matchet` })
+      continue
+    }
+
     if (!f.paaMail || f.afmeldt) {
-      ud.push({ soegning: navn, modtager: f.modtager, antal: g.length,
+      // Afmeldingen er grunden til, at hele gruppen springes over.
+      // `antal` taeller her hele gruppen, og `udeladt` er 0 efter denne
+      // rapporteringskonvention. Statusfilteret ER beregnet ovenfor.
+      ud.push({ soegning: navn, modtager: f.modtager, antal: alle.length, udeladt: 0,
         sendt: false, grund: 'afmeldt — mail slået fra' })
       continue
     }
     if (f.sidstSendt && Date.now() - +f.sidstSendt < MINDST_MELLEM_MAILS_MIN * 60_000) {
       const min = Math.round((MINDST_MELLEM_MAILS_MIN * 60_000 - (Date.now() - +f.sidstSendt)) / 60_000)
-      ud.push({ soegning: navn, modtager: f.modtager, antal: g.length,
+      ud.push({ soegning: navn, modtager: f.modtager, antal: g.length, udeladt: nedtaget,
         sendt: false, grund: `sendt for nylig — venter ${min} min.` })
       continue
     }
 
-    // Siden til mennesker; POST-ruten til mailklientens ét-klik.
-    const afmeldUrl = `${BASE}/afmeld/${f.token}`
-    const afmeldPost = `${BASE}/api/afmeld?t=${f.token}`
-    const emne = `${g.length} ${g.length === 1 ? 'ny bolig' : 'nye boliger'} — ${navn}`
-
-    const linjer = g.map((b) => {
-      const pris = b.total != null
-        ? `${kr(b.total)} kr/md til udlejer`
-        : `${kr(b.leje)} kr/md i husleje — total ukendt, aconto ikke oplyst`
-      const indf = b.indflytning != null ? ` · indflytning ${kr(b.indflytning)} kr.` : ''
-      // Ét sted, ligesom paa kortene. Mailen maa ikke sige "el indgaar
-      // ikke" om et beloeb, vi ikke kender indholdet af.
-      const t = eltilstand(b)
-      const elnote = t == null || t === 'med' ? null
-        : t === 'egen-maaler' ? 'el afregnes direkte med elselskabet'
-          : t === 'ukendt-daekning' ? 'aconto er ét samlet beløb — det fremgår ikke om el er med'
-            : 'el indgår ikke — udlejer oplyser ikke hvordan'
-      const maal = [b.areal && `${b.areal} m²`, b.vaerelser && `${b.vaerelser} vær.`]
-        .filter(Boolean).join(' · ')
-      return { adresse: b.adresse, maal, pris, indf, elnote,
-        url: `${BASE}/bolig/${b.boligId}`, kilde: b.kilde, uvis: b.total == null }
-    })
-
-    const tekst = [
-      `${g.length} ${g.length === 1 ? 'ny bolig matcher' : 'nye boliger matcher'} "${navn}"`,
-      beskrivFiltre(f.kriterier),
-      '',
-      ...linjer.flatMap((l) => [
-        l.adresse, `  ${l.maal}`, `  ${l.pris}${l.indf}`,
-        ...(l.elnote ? [`  ${l.elnote}`] : []),
-        ...(l.uvis ? ['  OBS: kan være dyrere end din grænse — den er sat på huslejen alene.'] : []),
-        `  ${l.url}`, '',
-      ]),
-      `Afmeld: ${afmeldUrl}`,
-    ].join('\n')
-
-    const html = `<div style="font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;color:#14161a;max-width:600px">
-<p style="margin:0 0 4px"><strong>${g.length} ${g.length === 1 ? 'ny bolig' : 'nye boliger'}</strong> matcher «${und(navn)}»</p>
-<p style="margin:0 0 20px;color:#5f6672;font-size:13px">${und(beskrivFiltre(f.kriterier))}</p>
-${linjer.map((l) => `<div style="border-top:1px solid #e8e5de;padding:14px 0">
-<a href="${l.url}" style="font-size:16px;font-weight:600;color:#14161a;text-decoration:none">${und(l.adresse)}</a>
-<div style="color:#5f6672;font-size:13px;margin-top:3px">${und(l.maal)}</div>
-<div style="margin-top:7px;font-weight:600;color:${l.uvis ? '#14161a' : '#14624f'}">${und(l.pris)}</div>
-${l.indf ? `<div style="color:#5f6672;font-size:13px">${und(l.indf.replace(' · ', ''))}</div>` : ''}
-${l.elnote ? `<div style="color:#9aa1ac;font-size:12px;margin-top:4px">${und(l.elnote.charAt(0).toUpperCase() + l.elnote.slice(1))}</div>` : ''}
-${l.uvis ? '<div style="color:#8a5300;font-size:12.5px;margin-top:5px">Kan være dyrere end din grænse — den er sat på huslejen alene.</div>' : ''}
-<div style="color:#9aa1ac;font-size:12px;margin-top:6px">${und(l.kilde)}</div>
-</div>`).join('')}
-<p style="margin:22px 0 0;color:#9aa1ac;font-size:12px">
-Du får denne mail, fordi du har gemt en søgning på Bofinda.
-<a href="${afmeldUrl}" style="color:#9aa1ac">Afmeld</a>.</p></div>`
+    // ── «DIN GRAENSE» KUN NAAR DER FINDES EN ───────────────────
+    // Forbeholdet «Kan vaere dyrere end din graense — den er sat paa
+    // huslejen alene» fyrede paa `total == null` alene, uanset om
+    // soegningen HAVDE en prisgraense. En bekraeftet soegning paa
+    // «postnr 2300 · mindst 3 vaer.» fik saetningen paa hver bolig uden
+    // kendt total — om en graense, hun aldrig satte. Mailens egen
+    // filterlinje naevner ingen graense, saa mailen modsagde sig selv i
+    // samme vindue.
+    //
+    // Soegesiden har praecis denne vagt (app/page.tsx), og dens
+    // kommentar siger «Det er den samme regel som kortet og gem-boksen
+    // foelger» — mailen var ikke naevnt og foelger den ikke. Nu goer den.
+    const { emne, tekst, html, afmeldUrl, afmeldPost } = byggAlarmmail(g, f, navn)
 
     const r = await sendMail({ til: f.modtager, emne, tekst, html,
       afmeldUrl: afmeldPost, afmeldSideUrl: afmeldUrl })
@@ -401,7 +587,7 @@ Du får denne mail, fordi du har gemt en søgning på Bofinda.
         .where(eq(savedSearches.id, f.soegningId))
     }
     ud.push({ soegning: navn, modtager: f.modtager, antal: g.length,
-      sendt: r.sendt, grund: r.grund })
+      udeladt: nedtaget, sendt: r.sendt, grund: r.grund })
   }
   return ud
 }

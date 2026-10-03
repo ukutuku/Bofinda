@@ -1,5 +1,10 @@
 # Designløftet mod de tre mockups
 
+**Senere ændring, 3. oktober 2026:** Forsidens fotomærkat er fjernet
+efter ejerens ønske. `NEXT_PUBLIC_HERO_FOTO_KREDIT` bruges ikke længere.
+Billedet og kildedokumentationen er bevaret. Beskrivelser og målinger
+af mærkatet nedenfor dokumenterer den tidligere visning.
+
 Gennemført 13. september 2026 på `feature/frontend-lancering-v2`.
 Udgangspunkt: HEAD `9a06f68`, uændret ved påbegyndelsen.
 

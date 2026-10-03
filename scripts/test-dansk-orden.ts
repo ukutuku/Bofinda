@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  DANSK ORDEN — tekst, et menneske læser som en liste.
 //
 //  Tre steder sorterer for et menneske, og prøven går gennem de RIGTIGE

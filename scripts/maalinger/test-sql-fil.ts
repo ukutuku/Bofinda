@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: kerne
 //  Den committede SQL-fil er det, generatoren skriver i dag.
 //
 //    npx tsx --tsconfig tsconfig.scripts.json scripts/maalinger/test-sql-fil.ts

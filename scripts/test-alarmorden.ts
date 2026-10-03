@@ -1,4 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
+//  gruppe: besked
 //  ALARMENS ORDEN — hvem får mail først?
 //
 //  Den søgning, hvis ældste VENTENDE træf er ældst. Rækkefølgen afgør
