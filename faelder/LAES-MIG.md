@@ -18,6 +18,7 @@ form: 3
 faelde: `Successfully rebased and updated refs/heads/…`
 kort: (valgfri) én sætning, der står efter navnet i formlisten
 kostet: (valgfri) nej — fundet ved en måling, før nogen prøve var bygget på den
+kilde: (valgfri) #59 på 99a8c30, CLAUDE.md linje 1117
 ---
 Teksten i kolonnen «Hvad den IKKE dækker». Linjeskift bliver til
 mellemrum, så den må gerne brydes. En lodret streg skrives \| som i
@@ -29,6 +30,11 @@ tabellen — ellers splitter den rækken, og filen afvises.
   bevidst ændring dér.
 - `kostet` udelades for en fælde, der har kostet mindst én omgang. Den
   sætning står under formlisterne, med undtagelserne navngivet.
+- `kilde` står på en række, hvis tekst er **flyttet hertil fra en anden
+  gren** frem for skrevet her. PR og sha, så citatet kan efterprøves mod
+  sit forlæg. Den står ikke i tabellen — den er til den, der læser filen og
+  spørger «er det her nogens ord?». Fire rækker har den i dag; se afsnittet
+  om dem nedenfor.
 - Rækkefølgen i tabellen er form og derefter navn i dansk orden. Der er
   ingen numre: navnet er identifikatoren.
 
@@ -38,6 +44,75 @@ To grene, der hver lægger en fil, kolliderer kun i den genererede blok i
 CLAUDE.md. Tag en af siderne og kør `npm run faelder`. Blokken er
 bestemt af filerne alene, så resultatet er det samme, uanset hvilken side
 du tog.
+
+**Det gælder kun, hvis begge sider har deres rækker som FILER.** En gren,
+der skriver sin række som tekst i blokken, taber den — i begge
+fletterækkefølger, og den ene af dem tavst.
+
+### De fire rækker fra #59 — hvorfor de ligger her
+
+`ordet-målt`, `den-lånte-årsag`, `det-reproducerbare-tal` og
+`sammenlagte-påstande` er **ikke skrevet her**. De er flyttet ordret fra
+#59's tabel på `99a8c30`, hvor de står som håndskrevet tekst uden fil.
+Hver af de fire bærer `kilde:` med PR og sha.
+
+Grunden er mekanisk. Målt 3. oktober: `git merge-tree refs/remotes/pr/59
+refs/remotes/pr/61` giver konflikt i `CLAUDE.md`, to hunks. Begge
+fletterækkefølger blev kørt igennem, med og uden filerne, og opløst på de
+to måder nogen faktisk ville gøre det:
+
+| | de fire rækker | `test-faelder` |
+|---|---|---|
+| **uden filerne**, hel fil (`--ours`/`--theirs`) | **tabt** | **ALT GRØNT** |
+| **uden filerne**, hunk for hunk, #59's prosa beholdt | **tabt** | rød: `ukendte: ordet-maalt, den-lånte-årsag` |
+| **med filerne**, hel fil | bevaret | grøn |
+| **med filerne**, hunk for hunk, #59's prosa beholdt | bevaret | rød: `ukendte: ordet-maalt` — omdøbningen, se nedenfor |
+
+**Den første række er grunden til, at filerne ligger her, og den
+modsiger det, man ville tro.** Tabet blev antaget at være rødt, fordi
+blokken så ikke ville passe til filerne. Det gør den: generatoren skriver
+19 rækker, blokken har 19 rækker, prosakontrollen finder 9 henvisninger,
+alle gyldige. **Prosakontrollen er det eneste, der kunne have set de fire
+forsvinde — og den hele-fil-opløsning, der fjerner rækkerne, fjerner
+#59's prosa i samme træk.** Værnet fyrer kun for den, der opløser hunk
+for hunk; for den, der tager hele filen, er tabet lydløst. Det er den
+samme form som rækkerne i tabellen: et værn, der læses som dækkende, og
+hvis blinde vinkel er korreleret med selve fejlen.
+
+Med filerne her er «tag den genererede side» det **rigtige** træk i begge
+ordener. Konflikten består; den hurtige opløsning holder op med at være
+farlig. Det er billigere end at tvinge en fletterækkefølge og robust mod
+at nogen løser konflikten uden at have læst dette.
+
+**Et tab, der IKKE er løst her.** Hele-fil-opløsningen kaster også #59's
+prosanote om `ordet-målt`s (d) bort — den står efter tabellen, inde i den
+samme konflikthunk. Filerne redder rækkerne, ikke prosaen. Den, der
+fletter, skal beholde teksten efter slutmarkøren fra #59's side.
+
+**Tre ting blev afgjort her og kan omgøres med én linje hver.**
+
+1. **Rækken hedder `ordet-målt`, ikke `ordet-maalt`.** Den var den eneste
+   række, hvor en dansk form fandtes og ikke blev brugt; filnavnet er
+   `ordet-maalt.md` uanset, fordi det er `slug(navn)`. **Følgen er en
+   KENDT rød:** #59's prosa nævner `ordet-maalt` to gange uden for
+   blokken, og prøvens prosakontrol kræver, at et navn med bindestreg i
+   `**…**` eller `` `…` `` findes som række. Lander #59's prosa, står der
+   `ukendte: ordet-maalt`. **Rettelsen er de to omtaler i prosaen, ikke
+   rækkenavnet** — det er netop den kontrol, der findes for, at en
+   omdøbning ikke efterlader en henvisning, der peger på ingenting.
+2. **Formen på tre af dem er vores valg.** #59's formlister nævner ikke de
+   fire, så der var intet at citere. `ordet-målt` → form 3, fordi rækken
+   handler om et svar, der er sandt om noget smallere, end ordet læses som
+   — samme familie som `rørets-exitkode` og `transpilerede-positioner`.
+   `det-reproducerbare-tal` → form 1: gentagelsen ER forsvaret, og den
+   læses som udtømmende. `sammenlagte-påstande` → form 1, fordi én
+   påstand læses som tre; dens egen tekst peger på `prøvens-eget-forlæg`s
+   familie (form 2), men form 2 er defineret som et værn, der *ikke måler
+   det, det handler om*, og det måler den. #59's ejer kan flytte dem ved
+   at rette `form:` i filen og køre `npm run faelder`.
+3. **Én lodret streg i `den-lånte-årsag` er undsluppet til `\|`.** Den stod
+   rå inde i `` `| **navn** ·` `` og ville splitte rækken. Det er
+   tabelformatets krav og den eneste ændring i de 5.769 tegn tekst, der blev flyttet.
 
 ## Prosaen omkring tabellen
 

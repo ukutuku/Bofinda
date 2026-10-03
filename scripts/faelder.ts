@@ -22,6 +22,10 @@
 //    kort: (valgfri) én sætning i formlisten over tabellen
 //    kostet: (valgfri) «nej — <hvorfor>», hvis fælden blev fundet, før
 //            den kostede en omgang. Udeladt betyder, at den har.
+//    kilde: (valgfri) hvor teksten kom fra, hvis den er FLYTTET hertil fra
+//            en anden gren — PR og sha, så citatet kan efterprøves mod sit
+//            forlæg. Den står ikke i tabellen; den er til den, der læser
+//            filen og spørger «er det her nogens ord?».
 //    ---
 //    Teksten i kolonnen «Hvad den IKKE dækker». Linjeskift bliver til
 //    mellemrum; en lodret streg skrives \| som i tabellen.
@@ -74,6 +78,8 @@ export interface Faelde {
   faelde: string | null
   kort: string | null
   kostet: string | null
+  /** Hvor teksten kom fra, hvis den er flyttet hertil. Ikke i tabellen. */
+  kilde: string | null
   tekst: string
 }
 
@@ -93,7 +99,7 @@ export function laesFaelder(mappe = MAPPE): Faelde[] {
       const i = linje.indexOf(':')
       if (i < 1) { problemer.push(`${fil}: linjen «${linje}» er ikke «nøgle: værdi»`); continue }
       const k = linje.slice(0, i).trim()
-      if (!['navn', 'form', 'faelde', 'kort', 'kostet'].includes(k)) problemer.push(`${fil}: ukendt felt «${k}»`)
+      if (!['navn', 'form', 'faelde', 'kort', 'kostet', 'kilde'].includes(k)) problemer.push(`${fil}: ukendt felt «${k}»`)
       if (felter.has(k)) problemer.push(`${fil}: feltet «${k}» står to gange`)
       felter.set(k, linje.slice(i + 1).trim())
     }
@@ -112,6 +118,7 @@ export function laesFaelder(mappe = MAPPE): Faelde[] {
     ud.push({
       fil, navn, form: form as Formid, tekst, kostet,
       faelde: felter.get('faelde') || null, kort: felter.get('kort') || null,
+      kilde: felter.get('kilde') || null,
     })
   }
   const set = new Set<string>()
