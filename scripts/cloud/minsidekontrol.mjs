@@ -27,6 +27,7 @@
 //  det, der gør det MULIGT at prøve et billede, der fejler undervejs —
 //  den ene rute svarer 404 med vilje.
 // ═══════════════════════════════════════════════════════════════
+import { aabnIsoleret, kraevIsoleretUrl } from './isoleret.mjs'
 import net from 'node:net'
 import { spawn } from 'node:child_process'
 import { mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
@@ -48,20 +49,8 @@ const SKAERMMAPPE = skaermIdx >= 0 ? args[skaermIdx + 1] : null
 if (SKAERMMAPPE) mkdirSync(SKAERMMAPPE, { recursive: true })
 
 // ─── Vagt 1: isoleret base ─────────────────────────────────────
-const DBURL = process.env.DATABASE_URL ?? ''
-if (!DBURL) {
-  console.log('\n  ⚠ PRØVEN KØRTE IKKE — der er ingen DATABASE_URL.\n')
-  process.exit(2)
-}
-{
-  const u = new URL(DBURL)
-  const isoleret = ['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname)
-    && u.port === '55432' && u.pathname === '/bofinda_test'
-  if (!isoleret) {
-    console.log(`\n  ⚠ PRØVEN KØRTE IKKE — ${u.hostname}:${u.port}${u.pathname} er ikke testbasen.\n`)
-    process.exit(2)
-  }
-}
+const DBURL = process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL || ''
+kraevIsoleretUrl(DBURL)
 
 // ─── Vagt 2: bygget må ikke bære en indbagt Auth-adresse ───────
 // `NEXT_PUBLIC_*` bages ind ved BYG. Er bygget lavet med byg.sh, peger
@@ -97,8 +86,7 @@ if (!DBURL) {
   }
 }
 
-const { default: postgres } = await import('postgres')
-const sql = postgres(DBURL, { ssl: false, max: 4, onnotice: () => {} })
+const sql = await aabnIsoleret(process.env, { taelFra: ['listings', 'users'] })
 
 // ─── Grundlaget ────────────────────────────────────────────────
 const STEMPEL = Date.now()

@@ -26,23 +26,18 @@
 import http from 'node:http'
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import postgres from 'postgres'
+import { aabnIsoleret, kraevIsoleretUrl } from './isoleret.mjs'
 import { createServerClient } from '@supabase/ssr'
 
 const DB = process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL || ''
-{
-  const u = new URL(DB || 'x://')
-  if (u.hostname !== '127.0.0.1' || u.port !== '55432' || u.pathname !== '/bofinda_test') {
-    console.error('FEJL: kontrollen kører kun mod den isolerede testbase '
-      + '(127.0.0.1:55432/bofinda_test). Kør scripts/cloud/db-op.sh.')
-    process.exit(1)
-  }
-}
+kraevIsoleretUrl(DB)
 if (!existsSync('.next/BUILD_ID')) {
   console.error('FEJL: intet build i .next. Kør `npm run build` først — '
     + 'kontrollen bygger ikke selv, den genbruger gatens build.')
   process.exit(1)
 }
+
+const sql = await aabnIsoleret(process.env, { taelFra: ['listings', 'users'] })
 
 let fejl = 0
 const tjek = (navn, ok, note = '') => {
@@ -101,7 +96,6 @@ console.log(`\n  sessionscookies: ${AUTHCOOKIES.map(([n]) => n).join(', ')}  (v�
 
 // Brugerraekken i auth-stubben, saa /min-side kan binde uden at falde
 // paa fremmednoeglen. Samme greb som scripts/test-authbinding.ts.
-const sql = postgres(DB, { max: 1 })
 await sql`insert into auth.users (id, email) values (${BRUGER}, ${MAIL})
   on conflict (id) do nothing`
 

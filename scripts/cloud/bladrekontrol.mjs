@@ -19,7 +19,7 @@
 // ═══════════════════════════════════════════════════════════════
 import { chromium } from 'playwright-core'
 import { mkdirSync, readdirSync, statSync } from 'node:fs'
-import postgres from 'postgres'
+import { aabnIsoleret, kraevIsoleretUrl } from './isoleret.mjs'
 
 const UD = process.argv[2] || null
 if (UD) mkdirSync(UD, { recursive: true })
@@ -51,13 +51,8 @@ function findChromium() {
 
 // ─── Vagt 2: DATABASE_URL'ens form ─────────────────────────────
 const DBURL = process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL || ''
-{
-  const u = new URL(DBURL || 'x://')
-  if (!LOOPBACK.includes(u.hostname) || u.port !== '55432' || u.pathname !== '/bofinda_test') {
-    console.error('FEJL: kun mod den isolerede testbase.'); process.exit(2)
-  }
-}
-const sql = postgres(DBURL, { ssl: false, max: 2, onnotice: () => {} })
+kraevIsoleretUrl(DBURL)
+const sql = await aabnIsoleret(process.env)
 
 // ─── Vagt 3: DEN FAKTISKE FORBINDELSE ──────────────────────────
 // Formen på en URL er ikke et bevis — en tunnel kan ende et andet sted.

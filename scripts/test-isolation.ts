@@ -187,10 +187,11 @@ const TILLADT_EGEN_FORBINDELSE = new Map([
   ['kortkontrol.mjs', 1], ['lancering.mjs', 1], ['saa.mjs', 1],
   ['skaerm.mjs', 1],
 ])
-/** De seks, hastesagen flyttede. De må IKKE have en egen forbindelse. */
+/** De flyttede kaldere. De må IKKE have en egen forbindelse. */
 const SKAL_GENNEM_MODULET = [
   'beliggenhedkontrol.mjs', 'indflytningkontrol.mjs', 'kortsynk.mjs',
   'lysbordkontrol.mjs', 'mobilforenkling.mjs',
+  'bladrekontrol.mjs', 'minsidekontrol.mjs', 'prod-hoveder.mjs',
 ]
 
 const ROD = 'scripts/cloud'
