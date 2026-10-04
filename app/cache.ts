@@ -18,7 +18,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { unstable_cache } from 'next/cache'
-import { facetter, forsidetal } from '../lib/soeg'
+import { facetter, forsidetal, kvadratmeterpris } from '../lib/soeg'
 
 const MINUTTER = 5
 
@@ -28,6 +28,26 @@ export const facetterCached = unstable_cache(facetter, ['facetter'], {
 })
 
 export const forsidetalCached = unstable_cache(forsidetal, ['forsidetal'], {
+  revalidate: MINUTTER * 60,
+  tags: ['bestand'],
+})
+
+// ── Boligsidens prissammenligning ────────────────────────────────
+// Medianen for et postnummer er den samme for hver bolig i det, og den
+// ændrer sig kun, når importen kører. Den var den tungeste af boligsidens
+// tre forespørgsler (dedup-rangering over postnummeret), og den kørte
+// ved hver eneste visning. Hver forespørgsel koster to rundture til
+// basen (postgres.js beskriver først, når `prepare` er slået fra —
+// se docs/hastighed-2026-10.md), så den var en tredjedel af sidens
+// ventetid på serveren.
+//
+// Nøglen er postnummeret (unstable_cache tager argumentet med). Svaret
+// er offentligt — en median og et antal, intet om nogen bruger — og det
+// er de samme fem minutter som forsidens tal. «Baseret på N boliger»
+// kan altså halte op til fem minutter efter en import, ligesom
+// facetterne. Boligen selv (pris, status, forbehold) caches IKKE:
+// `hentBolig` kører ved hver visning, og siden er stadig force-dynamic.
+export const kvadratmeterprisCached = unstable_cache(kvadratmeterpris, ['kvadratmeterpris'], {
   revalidate: MINUTTER * 60,
   tags: ['bestand'],
 })

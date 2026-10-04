@@ -25,6 +25,9 @@ import {
   soegeUrlSorteret, soegeUrlUden,
 } from '../lib/filterpanel'
 import { Sider, sideUrl } from './Sider'
+import { HERO_SIZES, HERO_SRCSET } from '../lib/hero'
+import { renSoegning } from '../lib/soegeadresse'
+import { RenSoegeformular } from './RenSoegeformular'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,6 +50,10 @@ export const dynamic = 'force-dynamic'
  *            kreditering ikke paakraevet.
  *   Fil:     2048x1365, 636.485 bytes, uaendrede bytes fra kilden.
  *            sha256 a2b2795193c96f2508593dc1dca77f62ea986a10dd2600cef331e64e245d5b5f
+ *   Afledt:  public/hero/hero-stue-<bredde>.webp, skaleret og kodet af
+ *            scripts/hero-varianter.ts, som foerst tjekker sha256'en
+ *            ovenfor. Originalen er stadig `src`; varianterne staar i
+ *            srcset'en (lib/hero.ts).
  *
  * Se ogsaa `docs/kildetilladelser.md`, hvor rettighederne pr. kilde
  * staar samlet.
@@ -162,17 +169,15 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // standardsortering ryger. Omdirigeringen er idempotent — efter den er
   // der ingen tomme tilbage — så den kan ikke løkke. Den står FØR
   // målingen, så en søgning ikke tælles to gange.
+  //
+  // Reglen står i lib/soegeadresse.ts, fordi formularen nu rydder op selv,
+  // før den sender (RenSoegeformular). Redirectet bliver stående for den,
+  // der ikke har JavaScript — og de to skal svare det samme.
   {
-    const rent = new URLSearchParams()
-    let snavs = false
-    for (const [k, v] of Object.entries(sp)) {
-      for (const x of Array.isArray(v) ? v : v == null ? [] : [v]) {
-        if (x === '' || (k === 'sorter' && x === 'nyeste')) { snavs = true; continue }
-        rent.append(k, x)
-      }
-    }
+    const { rent, snavs } = renSoegning(Object.entries(sp).flatMap(([k, v]) =>
+      (Array.isArray(v) ? v : v == null ? [] : [v]).map((x) => [k, x] as const)))
     if (snavs) {
-      const q = rent.toString()
+      const q = new URLSearchParams(rent).toString()
       redirect(q ? `/?${q}` : '/')
     }
   }
@@ -488,6 +493,9 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // over listen.
   const formular = (
       <form className={soegt ? 'filtre soegt' : 'filtre'} method="get">
+        {/* Tegner intet. Fjerner tomme felter, før formularen sender,
+            så søgningen ikke koster et 307 og en rundtur mere. */}
+        <RenSoegeformular feltId="sted" />
         {/* ── Den kompakte søgelinje ────────────────────────────
             Område · «Filtre» · kortvalg · søg. Ikke mere.
 
@@ -985,8 +993,19 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
         <section className={heroFoto ? 'hero fuldbredde har-foto' : 'hero fuldbredde'}>
           {heroFoto && (
             <div className="hero-billede" aria-hidden="true">
+              {/* Forsidens LCP-element. Standardfotoet tilbydes som WebP i
+                  de bredder, lib/hero.ts lister; `src` er stadig originalen,
+                  så en browser uden srcset får det samme som før. En
+                  overstyring via NEXT_PUBLIC_HERO_FOTO har ingen varianter
+                  og vises, som den er.
+                  Ingen `fetchPriority`: React forhenter allerede fotoet med
+                  et <link rel=preload> (nu med srcset), og «high» gav ingen
+                  LCP-gevinst i målingen — kun en risiko for at tage linjen
+                  fra den CSS, første maling venter på. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={heroFoto} alt="" />
+              <img src={heroFoto} alt=""
+                {...(heroFoto === HERO_STANDARD
+                  ? { srcSet: HERO_SRCSET, sizes: HERO_SIZES } : {})} />
             </div>
           )}
           <div className="hero-indhold">
@@ -1164,6 +1183,14 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                   // Side 2 begynder derfor paa 49. Sidelokal position kan
                   // altid genskabes som `position - (side-1)*48`.
                   position={(side - 1) * PR_SIDE + i + 1}
+                  // Øverste kort på en RESULTATSIDE er dens LCP. På forsiden
+                  // er det hero-fotoet, så dér forbliver kortet lazy. Med et
+                  // VALGT kort (`?kort=1`) skjuler telefonen listen
+                  // (`.medkort:not(.kort-uvalgt) > .listeomraade`), og et
+                  // eager billede hentes også under display:none — det ville
+                  // tage linjen fra landkortet. Se `Billedprioritet` i
+                  // app/Boligkort.tsx.
+                  billedprioritet={soegt && (!kortVises || kortUvalgt) && i === 0 ? 'hoej' : undefined}
                 />
               ))}
             </div>

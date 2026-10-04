@@ -106,8 +106,14 @@ export async function alleOmraader(): Promise<Omraade[]> {
   return [...bedste.values()].sort((a, b) => b.antal - a.antal)
 }
 
-export async function findOmraade(s: string): Promise<Omraade | null> {
-  return (await alleOmraader()).find((o) => o.slug === s) ?? null
+/**
+ * `alle` er en liste fra `alleOmraader()`, som kalderen allerede har hentet
+ * i samme request. Områdesiden brugte listen tre gange — metadata, siden og
+ * naboerne — og hver gang var det to forespørgsler over hele bestanden.
+ * Grænsen (MINDST_BOLIGER) håndhæves stadig kun ét sted: i `alleOmraader`.
+ */
+export async function findOmraade(s: string, alle?: Omraade[]): Promise<Omraade | null> {
+  return (alle ?? await alleOmraader()).find((o) => o.slug === s) ?? null
 }
 
 const filterFor = (o: Omraade) =>
@@ -161,8 +167,9 @@ export async function statistik(o: Omraade): Promise<Statistik> {
  * postnummeret. Det er groft, men det er en oplysning vi HAR — modsat en
  * geografisk naerhed vi ville skulle opfinde.
  */
-export async function naboer(o: Omraade, antal = 8): Promise<Omraade[]> {
-  const alle = await alleOmraader()
+export async function naboer(o: Omraade, antal = 8, givne?: Omraade[]): Promise<Omraade[]> {
+  // `givne`: samme liste som `findOmraade` fik — se noten dér.
+  const alle = givne ?? await alleOmraader()
 
   if (o.slags === 'postnummer') {
     const mit = Number(o.vaerdi)

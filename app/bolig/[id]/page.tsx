@@ -1,12 +1,13 @@
 import { notFound } from 'next/navigation'
 import {
-  availabilityFor, hentBolig, kvadratmeterpris, MINDST_TIL_SAMMENLIGNING,
+  availabilityFor, hentBolig, MINDST_TIL_SAMMENLIGNING,
   type BoligDetalje,
 } from '../../../lib/soeg'
+import { kvadratmeterprisCached } from '../../cache'
 import { forklar } from '../../../lib/availability'
 import { billedUrl } from '../../../lib/billede'
 import { eltilstand } from '../../../lib/eloplysning'
-import { Galleri } from './Galleri'
+import { Galleri, type GalleriBillede } from './Galleri'
 import { Kontakt } from './Kontakt'
 import { Maaling } from '../../Maaling'
 import { Landkort } from '../../Landkort'
@@ -65,8 +66,8 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
   if (!b) notFound()
 
   const galleri = b.billeder
-    .map((x) => ({ lille: billedUrl(x.url, 800), stor: billedUrl(x.url, 1600) }))
-    .filter((x): x is { lille: string; stor: string } => !!x.lille && !!x.stor)
+    .map((x) => ({ lille: billedUrl(x.url, 800), stor: billedUrl(x.url, 1600), mini: billedUrl(x.url, 400) }))
+    .filter((x): x is GalleriBillede => !!x.lille && !!x.stor && !!x.mini)
 
   // `acontoIalt` er vaek. Den havde to forbrugere: restbeloebet
   // «Depositum og forudbetalt leje» (fjernet i 5bab5c7) og
@@ -120,9 +121,11 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
   // ── Prissammenligning ────────────────────────────────────────
   // Kun med kendt total OG areal: ellers sammenligner vi to forskellige
   // slags tal. Og kun hvor der er nok boliger bag medianen — se
-  // MINDST_TIL_SAMMENLIGNING.
+  // MINDST_TIL_SAMMENLIGNING. Medianen er cachet i fem minutter pr.
+  // postnummer (app/cache.ts); grundlaget og antallet står stadig ved
+  // tallet, og grænsen håndhæves før cachen.
   const kvm = b.total != null && b.areal != null && b.areal > 0 && b.postnr
-    ? await kvadratmeterpris(b.postnr)
+    ? await kvadratmeterprisCached(b.postnr)
     : null
   const egenKvm = kvm && b.total != null && b.areal ? b.total / b.areal : null
   const afvigelse = kvm && egenKvm != null

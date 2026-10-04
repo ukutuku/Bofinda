@@ -187,9 +187,36 @@ function nyhedsmaerkat(nyhed: Date | null, nu: Date, gruppe = false) {
   )
 }
 
+// ─── Billedets hentning ────────────────────────────────────────
+//
+//  Alle kortbilleder var `loading="lazy"`, også det øverste på en
+//  resultatside. Et lazy billede kan først bestilles, når layoutet er
+//  regnet — så de første kort startede samtidig ved første maling og
+//  delte linjen med hinanden. Målt i Chromium (simuleret 1,6 Mbit/s,
+//  4× CPU): på søgesiden kom det første kortbillede ~1,2 s efter FCP og
+//  var sidens LCP. Se docs/hastighed-2026-10.md.
+//
+//  `'hoej'` gives KUN til det øverste kort, og kun af en side, der ved,
+//  at kortet står øverst: resultatsiden og gruppesiden. Forsiden giver
+//  den ikke — dér er hero-fotoet LCP, og et tidligt kortbillede længere
+//  nede ville tage linjen fra det. Resten forbliver lazy.
+//
+//  Kun `eager`, ingen `fetchPriority`. Det er målt: med og uden «high»
+//  gav samme LCP (10 runder, mobil og desktop), så prioriteten tog kun
+//  linjen fra skrift og CSS. React forhenter billedet af sig selv.
+//
+//  Det er ikke `position`. Den er analysens globale plads (side 2
+//  begynder på 49) og må ikke også styre hentningen.
+export type Billedprioritet = 'hoej'
+const hentning = (p?: Billedprioritet) => p === 'hoej'
+  ? { loading: 'eager' as const }
+  : { loading: 'lazy' as const }
+
 // ─── Kortet ────────────────────────────────────────────────────
 
-export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: number }) {
+export function Kort({ b, nu, position, billedprioritet }: {
+  b: Bolig; nu: Date; position?: number; billedprioritet?: Billedprioritet
+}) {
   // Availability fra DOMÆNET — aldrig fra legacy ledigFra/ansoegning, og
   // aldrig fra Date.now(): referenceNow kommer eksplicit fra siden.
   const avail = availabilityFor(b, nu)
@@ -300,7 +327,7 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
                 : undefined}
               sizes={breddeTilladt(b.forside!, 800)
                 ? '(max-width: 620px) calc(100vw - 44px), 50vw' : undefined}
-              alt="" loading="lazy" />
+              alt="" {...hentning(billedprioritet)} />
             {/* Ét maerkat paa fotoet. Uden et foto er der ingen flade
                 at ligge paa, og saa staar det oeverst i kroppen — samme
                 udtryk, ét sted i koden. */}
@@ -435,7 +462,9 @@ export function Kort({ b, nu, position }: { b: Bolig; nu: Date; position?: numbe
 //  Er aconto-posterne ikke ens, står de slet ikke.
 // ═══════════════════════════════════════════════════════════════
 
-export function Gruppekort({ g, nu, position, filtre }: { g: Gruppe; nu: Date; position?: number; filtre?: Filtre }) {
+export function Gruppekort({ g, nu, position, filtre, billedprioritet }: {
+  g: Gruppe; nu: Date; position?: number; filtre?: Filtre; billedprioritet?: Billedprioritet
+}) {
   const { noegle: n, repraesentant: r } = g
 
   // Overtagelsen sammenfattes af MEDLEMMERNES domæneresultater — som
@@ -539,7 +568,7 @@ export function Gruppekort({ g, nu, position, filtre }: { g: Gruppe; nu: Date; p
                 : undefined}
               sizes={breddeTilladt(r.forside!, 800)
                 ? '(max-width: 620px) calc(100vw - 44px), 50vw' : undefined}
-              alt="" loading="lazy" />
+              alt="" {...hentning(billedprioritet)} />
             {nymaerkat && <div className="kort-maerkater">{nymaerkat}</div>}
           </div>
           {/* Repraesentantens forbehold: det er HANS billede, kortet viser. */}
@@ -727,8 +756,10 @@ function Ellinje({ tilstand }: { tilstand: Eltilstand | null }) {
  * lib/soeg — og saa spoergsmaalet «bliver position 40 nogensinde set?»
  * kan besvares. Uden den er en impression bare et tal uden sted.
  */
-export function Visningskort({ v, nu, position, filtre }: { v: Visning; nu: Date; position?: number; filtre?: Filtre }) {
+export function Visningskort({ v, nu, position, filtre, billedprioritet }: {
+  v: Visning; nu: Date; position?: number; filtre?: Filtre; billedprioritet?: Billedprioritet
+}) {
   return v.slags === 'gruppe'
-    ? <Gruppekort g={v.gruppe} nu={nu} position={position} filtre={filtre} />
-    : <Kort b={v.bolig} nu={nu} position={position} />
+    ? <Gruppekort g={v.gruppe} nu={nu} position={position} filtre={filtre} billedprioritet={billedprioritet} />
+    : <Kort b={v.bolig} nu={nu} position={position} billedprioritet={billedprioritet} />
 }

@@ -1746,6 +1746,27 @@ async function main() {
       JSON.stringify(await positioner()) === JSON.stringify(byttet))
     tjek('og kortets forside følger med', (await forsiden()) === byttet[0],
       String(await forsiden()))
+    // Boligsidens galleri læser rækkefølgen gennem hentBolig, som nu henter
+    // billederne i samme sætning som boligen (json_agg … order by position).
+    //
+    // To ting skal til, før prøven kan se et manglende `order by`, og begge
+    // er målt med en modprøve (order by fjernet → stadig grøn uden dem):
+    //   · rækken med position 0 flyttes bagerst i heapen med en no-op-
+    //     opdatering, så heapens orden ikke er position-ordenen;
+    //   · indeks- og bitmapscanning slås fra for netop den forespørgsel.
+    //     Ellers læser planen gennem img_listing_idx (listing_id, position)
+    //     og får rækkerne i position-orden af sig selv — fælden
+    //     «gentagelsesprøven» i CLAUDE.md. Testbasen er én session, så
+    //     indstillingen nulstilles straks efter.
+    await db.execute(dsql`update listing_images set position = position
+      where listing_id = ${id} and position = 0`)
+    await db.execute(dsql`set enable_indexscan = off`)
+    await db.execute(dsql`set enable_bitmapscan = off`)
+    const galleriOrden = (await hentBolig(id))?.billeder ?? []
+    await db.execute(dsql`reset enable_indexscan`)
+    await db.execute(dsql`reset enable_bitmapscan`)
+    tjek('og boligsidens galleri (hentBolig) følger position', JSON.stringify(galleriOrden.map((x) => x.url))
+      === JSON.stringify(byttet), galleriOrden.map((x) => x.position).join(','))
     tjek('position er 0,1,2 … og ikke huller',
       JSON.stringify((await db.select({ pos: listingImages.position }).from(listingImages)
         .where(eq(listingImages.listingId, id)).orderBy(listingImages.position))

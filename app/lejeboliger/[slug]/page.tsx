@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { cache } from 'react'
-import { findOmraade, naboer, statistik, type Omraade } from '../../../lib/omraade'
+import { alleOmraader, findOmraade, naboer, statistik, type Omraade } from '../../../lib/omraade'
 import { antalBoliger, soegGrupperet, type Soegeparametre } from '../../../lib/soeg'
 import { Visningskort, kr } from '../../Boligkort'
 import { Sider, sideUrl } from '../../Sider'
@@ -49,6 +49,25 @@ const nuFor = cache(() => new Date())
 const sideudsnit = cache(async (slags: string, vaerdi: string, side: number) =>
   soegGrupperet(filterFor(slags, vaerdi), PR_SIDE, nuFor(), side))
 
+/**
+ * Områdelisten, området og statistikken — også ÉN gang pr. request.
+ *
+ * Kun `sideudsnit` var memoiseret. `findOmraade` (to forespørgsler over hele
+ * bestanden) kørte i metadata, i siden og igen i `naboer`, og `statistik`
+ * (to til) i både metadata og siden: 13 forespørgsler efter hinanden pr.
+ * visning, hvoraf 6 var gentagelser. Målt i testbasens statement-log.
+ * Hver forespørgsel koster to rundture til basen (docs/hastighed-2026-10.md).
+ *
+ * Det er memoisering pr. request og ikke en cache på tværs: tallene er lige
+ * så friske som før. Nøglerne er primitive af samme grund som ovenfor.
+ */
+const omraaderFor = cache(() => alleOmraader())
+const omraadeFor = cache(async (slug: string) => findOmraade(slug, await omraaderFor()))
+const statistikFor = cache(async (slug: string) => {
+  const o = await omraadeFor(slug)
+  return o ? statistik(o) : null
+})
+
 /** Er sidetallet efter sidste gyldige side? Ét udtryk, brugt begge steder. */
 function udenForRaekkevidde(kortIAlt: number, side: number) {
   const sider = Math.max(1, Math.ceil(kortIAlt / PR_SIDE))
@@ -65,10 +84,10 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { slug } = await params
   const side = sidetal((await searchParams).side)
-  const o = await findOmraade(slug)
-  if (!o) return { title: 'Området findes ikke — Bofinda' }
+  const o = await omraadeFor(slug)
+  const s = await statistikFor(slug)
+  if (!o || !s) return { title: 'Området findes ikke — Bofinda' }
 
-  const s = await statistik(o)
   // Genbruger sidens egen tælling gennem cache() — ingen ekstra query.
   const { kortIAlt } = await sideudsnit(o.slags, o.vaerdi, side)
   const { forHoej } = udenForRaekkevidde(kortIAlt, side)
@@ -130,18 +149,20 @@ export default async function Side({ params, searchParams }: {
   const { slug } = await params
   const sp = await searchParams
   const side = sidetal(sp.side)
-  const o = await findOmraade(slug)
+  const o = await omraadeFor(slug)
   // findOmraade returnerer kun omraader over graensen, saa en for tynd side
   // giver 404 og kommer heller ikke i sitemap'et.
   if (!o) notFound()
 
   // Efter hinanden, ikke i Promise.all — se noten i app/page.tsx.
-  const s = await statistik(o)
+  // Område og statistik er de samme kald, generateMetadata lavede —
+  // cache() gør dem til ét pr. request, ligesom sideudsnittet.
+  const s = (await statistikFor(slug))!
   const nu = nuFor()
   // Samme kald som generateMetadata allerede lavede — cache() gør de to
   // til én forespørgsel.
   const { visninger, kortIAlt, komplet } = await sideudsnit(o.slags, o.vaerdi, side)
-  const nabo = await naboer(o)
+  const nabo = await naboer(o, 8, await omraaderFor())
   // Kort er ikke boliger: ens boliger paa samme vej staar som ét kort.
   const vist = antalBoliger(visninger)
   const { sider, forHoej } = udenForRaekkevidde(kortIAlt, side)

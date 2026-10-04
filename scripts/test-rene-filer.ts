@@ -77,6 +77,11 @@ interface Loefte {
 const LOEFTER: readonly Loefte[] = [
   { fil: 'docs/designforslag/gengivelse/proev-billedkontrol.mjs', loefte: 'Billedkontrollen i npm test — uden browser, app eller database.' },
   { fil: 'lib/koersel.ts', loefte: 'Ren logik: ingen database, ingen next-import.' },
+  // Importeres af en klientkomponent (app/RenSoegeformular.tsx): et
+  // værdi-import af databasen herfra ville trække postgres ind i browseren.
+  { fil: 'lib/soegeadresse.ts', loefte: 'Ren logik: ingen database, ingen next-import.' },
+  { fil: 'lib/hero.ts', loefte: 'Ren fil: ingen database, ingen next-import.' },
+  { fil: 'scripts/test-hastighed.ts', loefte: 'koeres uden database' },
   { fil: 'app/udlejer/boliger/forklaring.ts', loefte: 'Ren fil — ingen database, ingen React' },
   { fil: 'lib/faciliteter.ts', loefte: 'Ligger i sin EGEN fil uden databaseimport' },
   { fil: 'lib/billedloft.ts', loefte: 'Filen maa IKKE importere databasen' },
