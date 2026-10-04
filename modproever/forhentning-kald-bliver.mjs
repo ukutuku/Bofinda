@@ -11,6 +11,6 @@ export const forventning = {
   fil: 'app/bolig/[id]/forhentning.ts',
   moenster: '      h.billede.onload = null\n      h.billede.onerror = null\n',
   traeffere: 1,
-  naer: 'const afbryd = (behold?: string) => {',
+  naer: 'const afbryd = (...behold: (string | undefined)[]) => {',
   erstat: '',
 }

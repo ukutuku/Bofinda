@@ -20,10 +20,16 @@
 //        findes derfor ikke og kan ikke starte den næste nabo. Det er den
 //        eneste mekanisme — et kædenummer oven i ville aldrig kunne blive
 //        rødt (prøvet: modproever/forhentning-kald-bliver.mjs).
-//    2 · `skift` og `stop` afbryder det, der stadig hentes — undtagen
-//        det billede, der NU vises. Det henter browserens <img> også, og
-//        en afbrydelse dér ville gøre det nye hovedbillede langsommere
-//        eller hente det forfra. Det får sine kald fjernet og løber færdigt.
+//    2 · `skift` afbryder det, der stadig hentes — undtagen det billede,
+//        der NU vises, og det, brugeren lige har FORLADT. Det viste henter
+//        browserens <img> også, og en afbrydelse dér ville gøre det nye
+//        hovedbillede langsommere eller hente det forfra. Det forladte er
+//        det, man går tilbage til, når man fortryder et skift:
+//        afbrudt måtte det hentes forfra (målt på telefonprofilen,
+//        næste-næste-forrige, median af tre runder: 1.064 mod 453 ms).
+//        Begge får kaldene fjernet og løber færdigt. Ved det næste skift
+//        afbrydes det forladte, hvis brugeren ikke er gået tilbage.
+//        Lukning og afmontering afbryder alt.
 //    3 · Er hovedbilledet allerede i cachen, kan dets load komme FØR
 //        effekten, der melder skiftet. Derfor sætter `start` selv det
 //        viste billede, og `skift` til det samme billede gør ingenting —
@@ -53,17 +59,17 @@ export function lavForhentning(lav: () => Forhentningsbillede = () => new Image(
   let vist: number | null = null
   let aktive: Hentning[] = []
 
-  /** Afbryd det, der hentes. `behold` er det viste billedes URL. */
-  const afbryd = (behold?: string) => {
+  /** Afbryd det, der hentes, undtagen `behold` (vist og forladt). */
+  const afbryd = (...behold: (string | undefined)[]) => {
     const tilbage: Hentning[] = []
     for (const h of aktive) {
       h.billede.onload = null
       h.billede.onerror = null
-      if (h.url === behold) { tilbage.push(h); continue }
+      if (behold.includes(h.url)) { tilbage.push(h); continue }
       if (!h.billede.complete) h.billede.src = ''
     }
-    // Det beholdte billede bliver på listen uden kald, så et senere
-    // skift til et ANDET billede stadig kan afbryde det.
+    // De beholdte bliver på listen uden kald, så et senere skift stadig
+    // kan afbryde dem.
     aktive = tilbage
   }
 
@@ -98,8 +104,10 @@ export function lavForhentning(lav: () => Forhentningsbillede = () => new Image(
 
     skift(til, stor) {
       if (til === vist) return
+      const forlader = vist == null ? undefined : stor[vist]
       vist = til
-      afbryd(til == null ? undefined : stor[til])
+      if (til == null) afbryd()
+      else afbryd(stor[til], forlader)
     },
 
     stop() {

@@ -104,9 +104,32 @@ console.log('\n══ 1 · kæden alene ══\n')
 {
   const { f, log, store } = opstil()
   f.skift(0, store); f.start(0, store)
-  f.skift(1, store)          // stor-1 beholdes …
-  f.skift(4, store)          // … til brugeren springer videre, før den er hentet
-  tjek('et beholdt billede afbrydes, når der skiftes VÆK fra det', log.includes('afbryd stor-1'), log.join(' · '))
+  f.skift(1, store)          // stor-1 vises og beholdes …
+  f.skift(4, store)          // … brugeren forlader det, før det er hentet …
+  tjek('det forladte billede hentes færdigt ét skridt endnu', !log.includes('afbryd stor-1'), log.join(' · '))
+  f.skift(2, store)          // … og går videre igen
+  tjek('…men afbrydes ved det næste skift', log.includes('afbryd stor-1'), log.join(' · '))
+}
+
+{
+  const { f, log, hentet, hentning, store } = opstil()
+  f.skift(0, store); f.start(0, store)
+  // Næste, næste, forrige — før stor-1 er hentet. Brugeren ender på det
+  // billede, der lige blev forladt: afbrudt skulle det hentes forfra.
+  f.skift(1, store); f.skift(2, store); f.skift(1, store)
+  tjek('næste-næste-forrige: billedet, brugeren vender tilbage til, afbrydes aldrig',
+    !log.includes('afbryd stor-1'), log.join(' · '))
+  const foer = hentet().length
+  hentning('stor-1').faerdig()
+  tjek('…og dets færdig-kald starter intet', hentet().length === foer, hentet().join(', '))
+}
+
+{
+  const { f, log, store } = opstil()
+  f.skift(0, store); f.start(0, store)
+  f.skift(1, store)          // stor-1 beholdes som vist
+  f.skift(null, store)       // lukning: det forladte beholdes IKKE
+  tjek('lukning afbryder også det billede, der lige blev forladt', log.includes('afbryd stor-1'), log.join(' · '))
 }
 
 {
@@ -279,6 +302,14 @@ function galleri(antal = 6) {
   tjek('…den nye kæde starter ved hovedbilledets load: stor-2', g.hentet().at(-1) === 'stor-2', g.hentet().join(', '))
   g.tast('ArrowLeft')
   tjek('piletast tilbage → stor-2 afbrudt', g.log.includes('afbryd stor-2') && g.vist() === 'stor-0', g.log.join(' · '))
+}
+
+{
+  const g = galleri()
+  g.aabn(); g.hovedHentet()
+  g.tast('ArrowRight'); g.tast('ArrowRight'); g.tast('ArrowLeft')
+  tjek('piletaster næste-næste-forrige → stor-1 afbrydes aldrig, og det vises',
+    !g.log.includes('afbryd stor-1') && g.vist() === 'stor-1', g.log.join(' · '))
 }
 
 {
