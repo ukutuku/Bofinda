@@ -67,7 +67,15 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Sidefoden staar i bunden af vinduet, ogsaa paa korte sider. Foer
+     svaevede den midt paa skaermen paa /udlejer, afmeldingen og 404 med
+     en graa flade under sig, som om siden var holdt op for tidligt.
+     Kolonnen roerer ikke bredden: `.ramme` er et gitter i fuld bredde og
+     har ingen auto-margener, som en flex-kolonne ville krympe. */
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; flex-direction: column;
 }
+body > .ramme { flex: 1 0 auto; }
 a { color: inherit; }
 button { font-family: inherit; }
 h1, h2, h3 { letter-spacing: -0.021em; }
@@ -135,6 +143,10 @@ header.top .ramme.toplinje {
 /* Wordmarket ALENE. Undertitlen stod som en 11,5 px linje under og gjorde
    logoet til en billedtekst; i referencen er der ét ord. */
 .maerke {
+  /* 24 px er WCAG 2.5.8's gulv for en klikflade; ordmaerket er 22 px
+     tekst med `line-height: 1` og var 19 px hoejt. Gulvet flytter intet
+     — bjaelken centrerer i forvejen. */
+  display: inline-flex; align-items: center; min-height: 24px;
   flex: none; text-decoration: none;
   font-size: 22px; font-weight: 760; letter-spacing: .012em;
   color: var(--accent); text-transform: uppercase; line-height: 1;
@@ -578,7 +590,10 @@ footer.bund {
   display: flex; align-items: center; flex-wrap: wrap; gap: 9px;
   margin: 18px 0 14px; font-size: 13.5px; color: var(--daempet);
 }
-.detalje-sti a { color: var(--daempet); text-decoration: none; }
+.detalje-sti a {
+  color: var(--daempet); text-decoration: none;
+  display: inline-block; padding: 3px 0; margin: -3px 0; line-height: 18px;
+}
 .detalje-sti a:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
 .detalje-sti .sti-tilbage { color: var(--accent); font-weight: 570; }
 .detalje-sti .sti-skil { color: var(--svag); }
@@ -1008,7 +1023,9 @@ footer.bund {
 .gem-filtre { color: var(--daempet); font-size: 12px; margin-top: 1px; }
 .gem-raek { display: flex; gap: 8px; margin: 0; flex-wrap: wrap; }
 .gem .gem-vilkaar {
-  grid-column: 1 / -1; margin: 2px 0 0; font-size: 11px; max-width: none;
+  /* 12 px som `.gem-vilkaar` selv og prisnoten: det er vilkaar, man
+     siger ja til, og den eneste broedtekst paa siden under 12 px. */
+  grid-column: 1 / -1; margin: 2px 0 0; font-size: 12px; max-width: none;
 }
 @media (max-width: 760px) {
   .gem { grid-template-columns: 1fr; gap: 9px; }
@@ -1059,7 +1076,11 @@ footer.bund {
   padding: 18px 22px; display: flex; gap: 16px; flex-wrap: wrap;
   align-items: baseline; font-size: 12.5px; color: var(--svag);
 }
-.sidefod a { color: var(--daempet); }
+.sidefod a {
+  color: var(--daempet);
+  /* 24 px klikflade (var 19) — linkene staar taet paa en telefon. */
+  display: inline-block; padding: 3px 0; margin: -3px 0; line-height: 18px;
+}
 .sidefod span { max-width: 70ch; }
 
 /* ═══ FORSIDENS HERO ═══════════════════════════════════════════
@@ -1245,7 +1266,12 @@ footer.bund {
   margin: 13px 4px 2px; font-size: 13px;
 }
 .pop-navn { color: var(--svag); }
-.populaere a { color: var(--accent); text-decoration: none; font-weight: 540; }
+.populaere a {
+  color: var(--accent); text-decoration: none; font-weight: 540;
+  /* Klikfladen op til 24 px (var 20) uden at flytte grundlinjen: den
+     lodrette polstring aedes af en lige saa stor negativ margen. */
+  display: inline-block; padding: 3px 0; margin: -3px 0; line-height: 18px;
+}
 .populaere a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 /* Under 760 px bryder linjen i to: område og søg øverst, filter og
@@ -2548,7 +2574,11 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
   display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
   margin: 20px 0 14px; font-size: 13px; color: var(--svag);
 }
-.broedkrumme a { color: var(--daempet); text-decoration: none; }
+.broedkrumme a {
+  color: var(--daempet); text-decoration: none;
+  /* 24 px klikflade (var 19-21) uden at aendre raekkens hoejde. */
+  display: inline-block; padding: 3px 0; margin: -3px 0; line-height: 18px;
+}
 .broedkrumme a:hover { color: var(--accent); text-decoration: underline; }
 .broedkrumme [aria-current] { color: var(--tekst); font-weight: 550; }
 
