@@ -1,41 +1,101 @@
 # Hastighed · oktober 2026
 
-Arbejdsgren `claude/keen-edison-ajg10p`, grundlag `main` @ 31b5680. Målt 4. oktober 2026.
+Arbejdsgren `claude/keen-edison-ajg10p`, grundlag `main` @
+`31b5680d2362fe380dc3d49431f923608a097ceb`. Runde 1 målt 4. oktober 2026;
+runde 2 (rettelser efter kontrollen) samme dag. **Til kontrol — ikke en
+releasegodkendelse.**
 
 **Det her er laboratoriemålinger, ikke brugerdata.** Bofinda har ingen
 feltmåling af hastighed (ingen RUM, ingen Web Vitals fra rigtige besøg).
 Alle browsertal nedenfor er målt i Chromium på én maskine, mod en lokal base
-med syntetiske boliger og med simuleret netværk og CPU. De siger, hvor
-meget en ændring flytter et tal under ens forhold — ikke hvor hurtig siden
-er hos en bruger i Aalborg på 4G.
+med syntetiske boliger og med simuleret netværk og CPU. Databaselatens er
+SIMULERET med en proxy. De siger, hvor meget en ændring flytter et tal under
+ens forhold — ikke hvor hurtig siden er hos en bruger i Aalborg på 4G.
+Produktionstallene (fem GET pr. side fra containeren) står for sig og er
+heller ikke brugerdata.
+
+## Runde 2 — rettet efter kontrollen
+
+Afleveringen af `440c73e` blev kontrolleret og ikke godkendt. Kontrollen
+fandt to fejl i koden og fire mangler i rapporten. De er rettet, og to
+fejl mere i rapporten blev fundet undervejs; resten af ændringen er urørt.
+
+| Fund | Rettelse | Efterprøvet |
+|---|---|---|
+| **Galleriets forhentning stoppede først ved næste hovedbilledes load.** Et billedskift, en lukning eller en afmontering lod den gamle kæde hente videre, og dens færdig-kald startede den næste nabo til et billede, ingen så. | Kæden ligger nu i `app/bolig/[id]/forhentning.ts` (ren logik) og stoppes ved skift, lukning og afmontering. Det viste billedes hentning afbrydes ikke, og det billede, brugeren lige har forladt, hentes færdigt ét skridt (målt: 1.064 → 453 ms på næste-næste-forrige). | 47 påstande i `scripts/test-galleri-forhentning.ts`, 6 modprøver, kontrolpakkens egen harness og en browser mod produktionsbyg (se «Galleriet i en rigtig browser») |
+| **Prismedianens cache lovede «højst fem minutter».** Udokumenteret. | Målt på Next 15.5.24: stale-while-revalidate uden øvre alder. En fejlet genberegning beholder den gamle værdi, og et grundlag under 5 blev vist i over fem minutter. **Cachen er fjernet**; medianen regnes ved hver visning som på `main`. | se «Priscachen, efterprøvet» |
+| Regionen stod som dokumenteret største flaskehals og målt besparelse | Nu en hypotese og et undersøgelsesemne | — |
+| Regnestykket «~1,1 s på forsiden» | 4 × 150–160 ms = **600–640 ms**; 7 forespørgsler = **1.050–1.120 ms** | — |
+| Supply-overlappet manglede | Tilføjet som filoverlap (ikke en efterprøvet konflikt) | — |
+| Skærmbillederne til Design manglede | Vedlagt: hero før/efter og skrift-skiftet på gruppesiden | — |
+| (fundet undervejs) Skrift-skiftet på gruppesiden stod som en NY forskydning | Målt igen: skiftet findes også på `main`; det nye er, at skriften kommer ~240 ms senere | se «Til Design» |
+| (fundet undervejs) «Modellen passer på alle fire sider» | Forkert: den forklarer højst bolig- og gruppesiden | se «Produktionen, udefra» |
+
+**Revisioner.** Grundlag `31b5680d2362fe380dc3d49431f923608a097ceb`
+(uændret — basen er ikke skiftet). Runde 1: `440c73e30da4937be2c356ca27cd1fe0e5e1727a`
+(afvist). Runde 2: `8e4b1af8ee8f6964e414cec941a50304b9d93e38` og
+`08f87155dc0a5a1ee5355f8795b60ef24517d770` (koden) og den commit, der
+lægger denne rapport (fulde SHA'er i afleveringens `patches/revisioner.txt`).
+Ingen af dem er pushet.
+
+**Hvad der er målt igen, og hvad der er genbrugt.** Runde 2 rører kun
+boligsiden: `app/bolig/[id]/Galleri.tsx`, den nye `forhentning.ts`,
+`app/bolig/[id]/page.tsx` (medianen) og `app/cache.ts` (tilbage til `main`).
+`git diff --stat 440c73e 08f87155` på forsidens, søgningens, gruppesidens
+og områdesidens kode — `app/page.tsx`, `app/Boligkort.tsx`, `app/gruppe`,
+`app/lejeboliger`, `app/Landkort.tsx`, `lib/soeg.ts`, `lib/omraade.ts`,
+`lib/hero.ts`, `lib/soegeadresse.ts`, `app/RenSoegeformular.tsx`, `public/`,
+`app/layout.tsx`, `app/globals.css` — er tom. Runde 1's tal for de sider og
+for søge- og filterforløbet gælder derfor uændret og er genbrugt. Målt igen,
+under samme forhold for før og efter:
+
+- galleriforløbene (åbn, bladr, hurtige skift, spring via miniature, skift
+  før load, luk og genåbn, fejl, navigation, betjening),
+- boligsiden i browseren (første besøg og genbesøg),
+- boligsidens serverventetid under simuleret databaselatens.
+
+De oprindelige målinger fra runde 1 er bevaret uændret; runde 2 ligger for
+sig (`maalinger-endelig-revision/` i afleveringen).
 
 ## Kort fortalt
 
-Median over 5 runder skiftevis før/efter, samme byg-opsætning, samme data.
+Median over runderne, samme byg-opsætning og samme data for før og efter.
 Mobil = 390×844, DPR 3, 1,6 Mbit/s, 150 ms, 4× CPU. Desktop = 1350×940,
-10 Mbit/s, 40 ms. «Første besøg» = tom browsercache.
+10 Mbit/s, 40 ms. «Første besøg» = tom browsercache. «Før» = `main` @ 31b5680.
 
-| | Før | Efter |
-|---|---|---|
-| Forsiden, LCP, mobil, første besøg | 5.284 ms | **3.860 ms** (−27 %) |
-| Forsiden, LCP, desktop, første besøg | 1.196 ms | **652 ms** (−45 %) |
-| Forsiden, overført ved første besøg (mobil) | 1.026 kB | **732 kB** |
-| Søgeresultater, LCP, mobil, første besøg | 2.724 ms | **1.376 ms** (−49 %) |
-| Gruppeside, LCP, mobil, første besøg | 1.940 ms | **1.536 ms** (−21 %) |
-| Galleri: åbn lysbordet, mobil | 1.602 ms | **806 ms** (−50 %) |
-| Første byte efter en søgning, mobil | 236 ms | **83 ms** (−65 %) |
-| Boligsiden, serverens første byte, simuleret 80 ms databaserundtur | 508 ms | **177 ms** (−65 %) |
-| Områdeside, serverens første byte, samme simulering | 1.618 ms | **1.294 ms** (−20 %) |
+| | Før | Efter | Kilde |
+|---|---|---|---|
+| Forsiden, LCP, mobil, første besøg | 5.284 ms | **3.860 ms** (−27 %) | runde 1, 5 runder |
+| Forsiden, LCP, desktop, første besøg | 1.196 ms | **652 ms** (−45 %) | runde 1 |
+| Forsiden, overført ved første besøg (mobil) | 1.026 kB | **732 kB** | runde 1 |
+| Søgeresultater, LCP, mobil, første besøg | 2.724 ms | **1.376 ms** (−49 %) | runde 1 |
+| Gruppeside, LCP, mobil, første besøg | 1.940 ms | **1.536 ms** (−21 %) | runde 1 |
+| Første byte efter en søgning, mobil | 236 ms | **83 ms** (−65 %) | runde 1 |
+| Galleri: åbn lysbordet, mobil, første besøg | 2.625 ms | **1.144 ms** (−56 %) | runde 2, endeligt byg, 3 runder |
+| Galleri: spring via miniature, mobil, første besøg | 891 ms | **560 ms** (−37 %) | runde 2 |
+| Boligsiden, serverens første byte, simuleret 80 ms databaserundtur | 511 ms | **347 ms** (−32 %) | runde 2, 7 runder |
+| Områdeside, serverens første byte, samme simulering | 1.618 ms | **1.294 ms** (−20 %) | runde 1 |
+
+**To steder er det endelige byg langsommere end `main`** (runde 2, første
+besøg): næste-næste-forrige inden for 300 ms på mobil, 314 → 458 ms, og
+næste ×3 inden for 300 ms på desktop, 416 → 547 ms. Begge er prisen for, at
+hovedbilledet hentes først: `main` henter begge naboer allerede ved
+åbningen — derfor dens 2,6 s — og har dem klar, når brugeren trykker hurtigt
+lige efter. Se «Galleriet i en rigtig browser».
 
 Boligsidens LCP i browseren og alle genbesøg: ingen sikker forskel.
+**Runde 1's tal for boligsidens server (508 → 177 ms) og for lysbordet
+(1.602 → 806 ms) gælder ikke længere:** det første hvilede på den fjernede
+cache, det andet er målt igen på det endelige byg.
 
 ## Måleforhold
 
 | | |
 |---|---|
 | Byg | `next build` via `scripts/cloud/byg.sh` (produktionsbyg, testflise-URL), `next start` |
-| Før | `main` @ 31b5680, port 3100 |
-| Efter | arbejdsgrenen, port 3101 — samme byg-variabler, samme base, samme aktivserver |
+| Før | `main` @ 31b5680 |
+| Efter, runde 1 | 440c73e (arbejdsgrenens første aflevering) |
+| Efter, runde 2 | 08f87155 (endelig revision); hvert byg lavet af `git archive` af commit'en i en ren mappe — se `byggebinding.txt` |
 | Base | lokal Postgres 16 (`scripts/cloud/db-op.sh`), 280 syntetiske boliger (frø 20260908) |
 | Billeder | 585 billedrækker peget på 48 fotolignende JPEG'er (1600×1067, gns. 222 kB, beskæringer af forsidefotoet), én unik URL pr. række — se «Billederne i testbasen» |
 | Browser | Chromium 141.0.7390.37 (`/opt/pw-browsers/chromium`) via playwright-core |
@@ -43,8 +103,9 @@ Boligsidens LCP i browseren og alle genbesøg: ingen sikker forskel.
 | Desktop | 1350×940, DPR 1; 10 Mbit/s, 40 ms; ingen CPU-drosling |
 | Første besøg | ny browserkontekst, tom HTTP-cache |
 | Genbesøg | samme kontekst, `about:blank` imellem, HTTP-cachen bevaret |
-| Runder | 5, skiftevis A-B og B-A, efter én opvarmningsrunde pr. app |
+| Runder | runde 1: 5, skiftevis A-B og B-A. Runde 2: galleriet 3, boligsiden 5, serverlatens 7 — rækkefølgen af byg skiftet hver runde |
 | Tal | median, med spændet (min–maks) over runderne |
+| Boliger | runde 1's sider og runde 2's boligside/latens: `0d72345f` (5 billeder, kendt total og areal, så medianen regnes). Runde 2's galleri: `a450f8e4` (5 billeder) — tallene sammenlignes kun inden for samme kørsel |
 
 Serveren er varm i alle målinger (opvarmning først). Billedproxyen har
 lokalt ingen cache, så hvert billede skaleres af `sharp` ved hver
@@ -62,13 +123,19 @@ bearbejdning tilladt) i en mappe UDEN FOR repoet
 forespørgselsstreng pr. række, så hver række er en unik URL. Ændringen
 ligger kun i den lokale testbase og gælder før og efter ens. De oprindelige
 URL'er blev sat tilbage efter målingen, før browserkontrollerne kørte.
+Fotografierne er deterministiske: `vaerktoej/fotos-lav.mjs` (frø 20261004)
+gengiver de brugte filer byte for byte (efterprøvet mod `maalefotos.sha256`),
+og `fotos-paa.sql`/`fotos-af.sql` er afbildningen og tilbagelægningen.
 
-## Før og efter
+## Før og efter — runde 1
 
-Median (min–maks) over 5 runder. «Forskel» kaldes kun en forbedring eller
-forværring, når de to spænd ikke overlapper; ellers «ingen sikker
-forskel». Tabellerne er genereret af de rå målinger (`tabeller.py`), ikke
-skrevet af.
+Median (min–maks) over 5 runder; efter = 440c73e. «Forskel» kaldes kun en
+forbedring eller forværring, når de to spænd ikke overlapper; ellers
+«ingen sikker forskel». Tabellerne er genereret af de rå målinger
+(`tabeller.py`), ikke skrevet af. **Boligsidens rækker og galleriets
+rækker er overhalet af runde 2** (koden er ændret dér); resten gælder
+uændret, fordi forsidens, søgningens og gruppesidens kode ikke er rørt
+siden 440c73e.
 
 ### Sider
 
@@ -91,7 +158,7 @@ skrevet af.
 | Gruppeside | desktop | første besøg | 488 (428–544) | 368 (356–388) | −120 ms (−25 %) | 316 → 312 | 363 → 363 | 0,000 → 0,001 | 5 |
 | Gruppeside | desktop | genbesøg | 152 (148–164) | 132 (132–152) | ingen sikker forskel | 152 → 132 | 9 → 9 | 0,000 → 0,000 | 5 |
 
-CLS-tallet 0,002 på gruppesiden er skrift-skiftet — se «Resterende».
+CLS-tallet 0,002 på gruppesiden er skrift-skiftet. Det findes også på `main`, men blev dér udeladt af CLS — se «Til Design».
 
 ### Forløb
 
@@ -118,6 +185,107 @@ fra den nye sides navigationsstart.
 | Galleri | desktop | «næste» 1 | 2 (2–4) | 2 (2–3) | uændret |
 | Galleri | desktop | «næste» 2 | 2 (2–3) | 2 (1–3) | uændret |
 | Galleri | desktop | «næste» 3 | 2 (2–3) | 2 (1–2) | uændret |
+
+## Runde 2 — galleriet i en rigtig browser
+
+`galleri-maal.mjs` følger hver 1600px-forespørgsel med Chrome DevTools
+Protocol (start, modtagne bytes, færdig, afbrudt) og tidsstempler hver
+handling med samme ur. Første besøg = ny kontekst. Tiden er fra handlingen,
+til det rigtige billede er hentet og malet. «Ikke vist» = 1600px-hentninger
+af et billede, forløbet aldrig viste.
+
+**Kørsel 1 — valget af regel** (A = `main`, E1 = 440c73e, F = 8e4b1af,
+F2 = måle-variant af F med det forladte billede beholdt; første besøg, 3
+runder; fuld tabel i `galleri/tabeller.md`):
+
+| Forløb | Profil | A | E1 | F | F2 |
+|---|---|---|---|---|---|
+| Næste, næste, forrige (150 ms) | mobil | 312 (311–314) | 466 (428–470) | **1.064 (1.057–1.072)** | 453 (442–455) |
+| Næste ×3 (150 ms) | mobil | 937 (923–952) | 1.109 (1.052–1.126) | 897 (875–912) | 875 (870–900) |
+| Spring via miniature | mobil | 912 (896–930) | 803 (800–806) | 581 (561–584) | 559 (555–583) |
+| Åbn og skift før hovedbilledet | desktop | 574 (561–652) | 467 (454–472) | 448 (442–449) | 491 (490–519) |
+
+F afbrød det halvt hentede billede, brugeren forlod, og måtte hente det
+forfra, når brugeren gik tilbage. F2 beholder det ét skridt. Øvrige forløb
+overlapper. Desktop-rækken «åbn og skift før hovedbilledet» skiller F og F2,
+men forespørgselsforløbet er det samme i begge — de to hovedbilleder hentes
+parallelt, og ingen forhentning starter, før billede 2 er færdigt — så
+forskellen ligger i billedsvarene (billede 2 færdigt ved 434–442 mod
+471–508 ms) og ikke i reglen. F2's regel blev committet som 08f87155.
+
+**Kørsel 2 — den endelige revision mod `main`** (byggebundet: det målte byg
+er 08f87155; 3 runder; `galleri-endelig/`):
+
+| Forløb | Profil | Trin | Før (`main`) | Efter (08f87155) |
+|---|---|---|---|---|
+| Åbn + «næste» ×3 med 1 s pause | mobil | åbn | 2.625 (2.582–2.658) | **1.144 (1.135–1.158)** |
+| | mobil | «næste» 1–3 | 10 / 10 / 10 | 10 / 7 / 9 |
+| | desktop | åbn | 571 (562–577) | **396 (370–397)** |
+| Næste, næste, forrige (150 ms) | mobil | til vist | **314 (312–318)** | 458 (441–469) |
+| | desktop | til vist | 313 (303–313) | 304 (303–312) |
+| Næste ×3 (150 ms) | mobil | til vist | 933 (925–935) | **881 (877–883)** |
+| | desktop | til vist | **416 (414–447)** | 547 (512–563) |
+| Spring via miniature (1 → 3) | mobil | til vist | 891 (877–938) | **560 (555–576)** |
+| | desktop | til vist | 313 (297–330) | **247 (247–280)** |
+| Åbn og skift før hovedbilledet | mobil | til vist | 2.917 (2.801–2.983) | **1.685 (1.682–1.692)** |
+| | desktop | til vist | 600 (588–620) | **466 (447–486)** |
+| Luk med Esc, genåbn efter 4 s | mobil | åbn / genåbn | 2.618 / 23 | **1.135** / 21 |
+| | desktop | åbn / genåbn | 569 / 4 | **378** / 4 |
+
+Fed = sikker forskel (spændene overlapper ikke). Genbesøg: to sikre
+forskelle, begge små og i det endelige bygs favør — åbn på desktop 14 → 12 ms
+og åbn i luk-forløbet på mobil 88 → 63 ms; resten af genbesøgene overlapper.
+I de to «150 ms»-forløb udgør selve tastetrykkene 300 ms af tiden.
+
+**Livscyklussen** — det, kontrollen fandt, målt i browseren:
+
+| Kontrol (3 kørsler pr. profil) | `main` | 440c73e | F | 08f87155 |
+|---|---|---|---|---|
+| 1600-hentninger startet EFTER Esc, mobil | 0 | **3 af 3 kørsler** | 0 | 0 |
+| Spring 1 → 3: hentning af andet end billede 3 og dets naboer EFTER springet, mobil / desktop | 0 / 0 | **3 / 1** | 0 / 0 | 0 / 0 |
+| Nabo fejler → kæden fortsætter til den forrige | 3 / 3 | 3 / 3 | 3 / 3 | 3 / 3 |
+| Betjening: pile, knap, miniature, swipe (mobil), Esc, fokus tilbage | 3 / 3 | 3 / 3 | 3 / 3 | 3 / 3 |
+
+(440c73e og F fra kørsel 1, 08f87155 fra kørsel 2.) En hentning «efter
+navigation væk» blev registreret i 1 af 3 desktop-kørsler for 440c73e, F og
+08f87155: naboen blev færdig 9–21 ms EFTER, at navigationen var startet,
+men mens siden stadig levede med lysbordet åbent, og den gyldige kæde
+startede næste nabo; browseren afbrød den 30–40 ms senere ved nedlukningen,
+med 0 bytes overført. Afmontering i React kan ikke ses i browseren her:
+appen har ingen klientnavigation (ingen `next/link`), så siden forlades
+altid med en fuld navigation. React-afmonteringen er prøvet med
+hook-attrapper og modprøve (`galleri-stop-vaek`).
+
+**Hentninger** (første besøg, median startet / afbrudt / ikke vist · bytes
+af ikke viste): spring via miniature på mobil 5 / 0 / 3 · 310 kB på `main`
+mod 5 / 1 / 3 · 206 kB på 08f87155; næste-næste-forrige 5 / 0 / 3 · 271 kB
+mod 4 / 1 / 2 · 71 kB. `main` henter mere, fordi den forhenter begge naboer
+ved åbningen. Fuld tabel i `galleri-endelig/tabeller.md`.
+
+## Runde 2 — boligsiden
+
+**I browseren** (bolig `0d72345f`, 5 runder, `bolig-browser/`): ingen sikker
+forskel mellem `main`, 440c73e og 08f87155 i FCP, LCP eller CLS, mobil
+eller desktop, første besøg eller genbesøg. LCP på mobil, første besøg:
+1.100 / 1.092 / 1.136 ms (spænd 1.036–1.180). Det endelige byg overfører
+1 kB mere (forhentningens kode). Mod en lokal base uden latens fylder
+forespørgslerne for lidt til at ses i browseren — det gør de i simuleringen
+nedenfor.
+
+**Serverens første byte med simuleret databaselatens** (latensproxy 40 ms
+hver vej, 7 runder, `latens/`):
+
+| Side | `main` | 440c73e | 08f87155 |
+|---|---|---|---|
+| `/bolig/0d72345f…` (med medianen) | 511 ms (508–513) | 179 ms (176–183) | **347 ms (341–353)** |
+| `/bolig/a450f8e4…` (uden) | 342 ms (338–367) | 179 ms (174–183) | **178 ms (176–182)** |
+
+**Forespørgsler pr. visning** (talt med `taelleproxy.mjs`, Parse-beskeder,
+3 visninger hver): `0d72345f` 3 / 1 / **2**, `a450f8e4` 2 / 1 / **1**.
+440c73e's 1 var et cachetræf på medianen; den cache er fjernet (se
+«Priscachen, efterprøvet»). Gevinsten, der er tilbage, er billederne i
+samme sætning som boligen: én forespørgsel = to rundture = ~160 ms i
+simuleringen.
 
 ## Flaskehalsene og rettelserne
 
@@ -190,10 +358,21 @@ delte linjen med to forhentede 1600-naboer og fire-fem miniaturer i
 - Lysbordets hovedbillede får `fetchPriority="high"`; miniaturerne bruger
   400-varianten med `fetchPriority="low"`. Naboerne forhentes først, når
   billedet er vist (eller fejlet), og én ad gangen: den næste, så den
-  forrige. Bladrer brugeren videre, annulleres det, der stadig hentes til
-  det forrige billede. Begge dele er målt frem: med begge naboer på én
-  gang efter visningen ventede første «næste» ~0,49 s; med én ad gangen
-  uden annullering ventede andet «næste» ~0,26 s.
+  forrige. Med begge naboer på én gang efter visningen ventede første
+  «næste» ~0,49 s; med én ad gangen uden annullering ventede andet «næste»
+  ~0,26 s (runde 1).
+- **Runde 2: kæden hører til det viste billede.** I 440c73e lå
+  annulleringen i starten af den NÆSTE kæde — en forældet forhentning løb
+  videre efter et skift, en lukning eller en afmontering, og dens
+  færdig-kald startede den næste nabo til et billede, ingen så (målt i
+  browseren: billede 5 hentet efter Esc i 3 af 3 kørsler). Nu ligger
+  kæden i `app/bolig/[id]/forhentning.ts` og stoppes ved skift, lukning og
+  afmontering: `skift`/`stop` fjerner kaldene fra alt, der hentes, og
+  afbryder det, undtagen det billede, der NU vises (browserens `<img>` deler
+  hentningen), og det, brugeren lige har forladt (det, man går tilbage til —
+  afbrudt måtte det hentes forfra: 1.064 mod 453 ms, se «Runde 2 — galleriet
+  i en rigtig browser»). Kommer hovedbilledets load fra cachen før
+  effekten, der melder skiftet, gør skiftet til samme billede ingenting.
 - Det skjulte landkort på mobil hentede Leaflet og fliser: under
   `display: none` giver `getBoundingClientRect()` nuller, og
   afstandsprøven kaldte det «nær». Nu afvises en flade uden layoutboks.
@@ -216,7 +395,9 @@ total og areal), gruppesiden 2.
 Drizzle parameteriserer alt, så det gælder hver forespørgsel.
 
 Efterprøvet lokalt med en TCP-proxy, der lægger 40 ms i hver retning (80 ms
-rundtur) foran testbasen — en SIMULERING, ikke en måling af produktionen:
+rundtur) foran testbasen — en SIMULERING, ikke en måling af produktionen.
+Runde 1 (efter = 440c73e; **boligsidens række er overhalet** af runde 2:
+347 ms uden den fjernede cache, se «Runde 2 — boligsiden»):
 
 | Side | Før (ms) | Efter (ms) | Forskel |
 |---|---|---|---|
@@ -233,26 +414,41 @@ forespørgselstallet lovede (13 → 7 burde give ~0,96 s): formentlig fordi
 Next 15.5 streamer metadata, så `generateMetadata` og siden kørte deres
 dubletter samtidig gennem puljen. Det er en formodning, ikke målt.
 
-**Produktionen, udefra.** Fem GET pr. side mod bofinda.dk fra containeren,
-4. oktober 2026 (rå tal i afleveringens `raa/produktion/ttfb-raa.tsv`). Serverventetid
-(time_starttransfer − time_pretransfer, median): `/privatliv` (statisk,
-CDN) ≈ 75 ms, `/` ≈ 1.190 ms, `/?sted=2300` ≈ 950 ms, `/bolig/…` ≈ 530 ms,
-`/gruppe?b=…` ≈ 405 ms. Svarene bærer `x-vercel-id: iad1::iad1` — funktionen
-kører i Vercels region iad1 (Washington). Modellen «antal forespørgsler × 2
-× rundtur» passer på alle fire sider med en rundtur på ~75–80 ms. Det er en
-SLUTNING: basens region er ikke målt (ingen adgang, og login mod
-produktionens pooler er med vilje ikke forsøgt). Ligger basen i EU, er
-det største enkeltgreb ikke i koden — se «Til Git & Release».
+**Produktionen, udefra — og hvad der IKKE vides.** Tre slags oplysninger,
+holdt adskilt:
+
+| | Hvad | Status |
+|---|---|---|
+| **Målt** | Fem GET pr. side mod bofinda.dk fra containeren, 4. oktober 2026 kl. 07:21–07:25 UTC (`runde1-oprindelig/raa/produktion/ttfb-raa.tsv` og `produktion-get/` i afleveringen). Serverventetid = `time_starttransfer − time_pretransfer`, median (min–maks): `/privatliv` (statisk, CDN) 76 ms (62–113), `/` 1.189 ms (1.067–1.278), `/?sted=2300` 954 ms (875–1.034), `/bolig/…` 526 ms (508–546), `/gruppe?b=…` 403 ms (398–413). | målt, men kun 5 GET pr. side fra én maskine |
+| **Målt** | Alle svar bærer `x-vercel-id: iad1::iad1::…` — funktionen svarede fra Vercels region iad1 (Washington). | en header, ikke en konfiguration |
+| **Ukendt** | Hvor basen ligger. Ingen adgang til Supabase-projektet, og login mod produktionens pooler er med vilje ikke forsøgt. | ikke målt |
+| **Model** | postgres.js sender to rundture pr. forespørgsel (`prepare: false`, se ovenfor). Med en rundtur på ~75–80 ms bliver det 150–160 ms pr. forespørgsel. | en slutning, ikke en måling |
+
+**Modellen forklarer højst to af de fire sider — ikke alle fire, som der
+stod før.** Rundturen på ~75–80 ms er ikke målt: den er valgt, så modellen
+kommer i nærheden af boligsiden (2 eller 3 forespørgsler på `main`, afhængigt
+af om boligen har kendt total og areal — ikke undersøgt for den målte bolig:
+300–480 ms mod målt 526 ms) og gruppesiden (2: 300–320 ms mod målt 403 ms).
+At den passer dér, er altså ikke et bevis. Den samme rundtur forklarer ikke
+forsiden (4 forespørgsler: 600–640 ms mod målt 1.189 ms) eller søgningen (4:
+600–640 ms mod målt 954 ms). Den forskel er ikke forklaret. En kold
+`facetter`/`forsidetal`-cache (fem forespørgsler mere) eller gengivelsestid
+er mulige forklaringer, men ingen af dem er målt.
+
+**Regionen er derfor en hypotese og et undersøgelsesemne — ikke en
+dokumenteret flaskehals og ikke en målt besparelse.** Hvis basen ligger
+langt fra iad1, og hvis rundturen er ~75–80 ms, koster hver forespørgsel
+150–160 ms: **600–640 ms** på forsiden (4 forespørgsler) og **1.050–1.120 ms**
+på en side med 7 (søgning med filtre, eller områdesiden efter rettelsen).
+Hvor meget en flytning sparer, kan først siges, når basens placering er
+kendt, og der er målt bagefter.
 
 **Rettet i koden** (uden at røre rækkefølgen eller `prepare`):
 
-- Boligsidens median (`kvadratmeterpris`) caches i 5 minutter pr.
-  postnummer med samme tag og levetid som `facetter` og `forsidetal`
-  (`app/cache.ts`). Svaret er offentligt — median og antal — og
-  `MINDST_TIL_SAMMENLIGNING` håndhæves før cachen. Boligen selv caches ikke.
 - `hentBolig` henter billederne i samme sætning (`json_agg … order by
-  position`). Boligsiden går dermed fra 3 forespørgsler til 1 ved et
-  cachetræf.
+  position`). Boligsiden går fra 3 forespørgsler til 2 (fra 2 til 1 uden
+  kendt total og areal). I 440c73e var medianen desuden cachet, så siden
+  kom ned på 1; den cache er fjernet (se «Priscachen, efterprøvet»).
 - Søgeformularen sender ikke længere sine tomme felter. Før svarede siden
   307 til den rene adresse ved hver søgning og hvert «Vis resultater» — en
   fuld rundtur mere. Reglen ligger nu ét sted (`lib/soegeadresse.ts`) og
@@ -264,39 +460,89 @@ det største enkeltgreb ikke i koden — se «Til Git & Release».
   React `cache()`, ligesom sidens `sideudsnit` allerede var — ingen deling
   mellem requests, altså ingen ændring i datafriskhed.
 
-Forespørgsler pr. visning, talt i testbasens statement-log (anden visning,
-så Next' 5-minutters cache er varm; `parse`/`bind`/`execute` talt som én):
+Forespørgsler pr. visning, talt i testbasens statement-log (runde 1) og med
+`taelleproxy.mjs` (runde 2, boligsiden); anden visning, så `facetter`- og
+`forsidetal`-cachen er varm:
 
 | Side | Før | Efter |
 |---|---|---|
 | `/` | 4 | 4 |
 | `/?sted=Attrapby` | 4 | 4 |
 | `/?sted=Attrapby&overtagelse=nu&elevator=1` | 7 | 7 |
-| `/bolig/…` med kendt total og areal | 3 | 1 (2 ved første visning i postnummeret, 5 min.) |
+| `/bolig/…` med kendt total og areal | 3 | 2 |
 | `/bolig/…` uden | 2 | 1 |
 | `/gruppe?b=…` | 2 | 2 |
 | `/lejeboliger/9001` og `/lejeboliger/attrapby` | 13 | 7 |
 
-Den synlige tekst på alle otte sider er byte-ens før og efter (HTML uden
-`<script>`/`<style>`, tags fjernet, mellemrum samlet).
+Den synlige tekst på alle otte sider var byte-ens før og efter i runde 1 (HTML
+uden `<script>`/`<style>`, tags fjernet, mellemrum samlet). I runde 2 er
+boligsidens synlige tekst byte-ens på `main`, 440c73e og 08f87155 for begge
+målte boliger (`kontrol/synlig-tekst-bolig.txt`).
+
+## Priscachen, efterprøvet
+
+440c73e cachede boligsidens median i `unstable_cache` med `revalidate: 300`
+og skrev, at tallet højst var fem minutter gammelt. Det var ikke
+dokumenteret, og det holder ikke.
+
+**Kilden** (`node_modules/next/dist/server/web/spec-extension/unstable-cache.js`
+i den låste Next 15.5.24, linje 145–193): en forældet post RETURNERES til
+den aktuelle forespørgsel, og genberegningen startes i baggrunden. Fejler
+den, logges `revalidating cache with key: …`, og den gamle værdi bliver
+liggende.
+
+**Målt på et produktionsbyg af 440c73e** mod testbasen gennem en fejlproxy
+(`priscache/`; «sandhed» = den rigtige `kvadratmeterpris()` direkte mod
+basen):
+
+| Trin | Sandhed | Vist |
+|---|---|---|
+| Første visning | 169 kr/m², 49 boliger | 169, 49 |
+| Medianen ændret i basen, inden for 300 s | 190 | **169** (cachetræf) |
+| Første visning efter 5 min 21 s uden trafik | 190 | **169** (stale-while-revalidate) |
+| Næste visning | 190 | 190 |
+| Genberegningen afbrudt, 3 visninger | 220 | **190** ×3 (fejlen slugt) |
+| Fejlen ophørt: første / næste visning | 220 | **190** / 220 |
+| Ægte genstart af samme byg | 190 | **169** (filcachen overlever) |
+| Grundlaget faldet til 4 boliger (under `MINDST_TIL_SAMMENLIGNING`) | ingen sammenligning | **«baseret på 49 boliger»** |
+| … første visning efter 5 min 12 s | ingen | **«baseret på 49 boliger»** |
+| … næste visning | ingen | ingen |
+
+**Invalideringen, der faktisk sker:** ingen på efterspørgsel —
+`revalidateTag('bestand')` kaldes intet sted, og det eneste
+`revalidatePath('/udlejer/boliger')` rammer ikke `/bolig/…`; importøren kører
+uden Next. Kun tid, og kun som stale-while-revalidate: den første visning
+efter udløbet får den gamle værdi, uanset hvor gammel den er, og en fejlet
+genberegning forlænger den.
+
+**Beslutning:** cachen er fjernet. En sammenligning, der vises under
+grænsen, er netop det, CLAUDE.md siger aldrig må ske. Medianen regnes ved
+hver visning som på `main`; billederne i samme sætning bliver. Vercels
+datacache er ikke målt — tallene gælder Next' egen filcache lokalt.
+
+Samme mekanisme bruges af `facetterCached` og `forsidetalCached` fra
+`main`, som ikke er rørt. Kommentaren i `app/cache.ts` og CLAUDE.md siger
+«højst fem minutter bagud» om dem; målingen her viser, at mekanismen ikke
+giver en øvre grænse. Ikke rettet her (ingen generel cacheomlægning) — se
+«Resterende».
 
 ## Kontrol
 
-Alt på det endelige træ og det endelige byg.
+På den endelige revision og dens byg, medmindre andet står.
 
 | Kontrol | Resultat |
 |---|---|
-| `npx tsc --noEmit` og `-p tsconfig.scripts.json` | exit 0, exit 0 |
-| `npm test` | exit 0 · 1.528 ✓ · 0 ✗ · 32 prøver, 4 grupper |
-| `next build` (via `scripts/cloud/byg.sh`) | grønt; ingen OSM-URL i klientbundtet; First Load JS uændret (delt 103 kB; `/` 106 kB, `/bolig/[id]` 107 kB); sidekode `/` 838 B → 1,21 kB, `/bolig/[id]` 1,93 → 2,04 kB |
-| Synlig tekst før/efter, 8 sider | byte-ens |
-| HTML for de fire målte sider, målt byg mod endeligt byg | ens bortset fra byg-id og et id pr. request |
-| Skærmbilleder af `.hero`, 390@3, 1350@1, 1440@2 | samme mål; gns. forskel 0,23–0,58/255 |
+| `npx tsc --noEmit` og `-p tsconfig.scripts.json` | exit 0 og exit 0 (`kontrol/tsc-*-08f8715.log`) |
+| `npm test` på 08f87155 | exit 0 · 1.577 ✓ · 0 ✗ · 33 prøver, 4 grupper (`kontrol/npm-test-08f8715.log`; runde 1: 1.528 ✓) |
+| `scripts/test-galleri-forhentning.ts` alene | exit 0 · 47 ✓ · 0 ✗ |
+| Kontrolpakkens egen harness (`proev-galleri.cjs`, tilpasset kopi) | på 440c73e: 6 af 6 forventede observationer, alle tre defekter reproduceret (exit 0). På den endelige: kontrollerne reproduceret, de tre defekter IKKE (3 af 6, exit 1 — harnessens exitkode kræver, at defekterne findes). Originalen stopper på sin blob-vagt (`3cf1fce`, exit 1); tilpasningen er en `require`-shim for `./forhentning` og ingen anden ændring (`proev-galleri-r2.diff`) |
+| `next build` (via `scripts/cloud/byg.sh`) | exit 0; ingen OSM-URL i klientbundtet. `/bolig/[id]`: sidekode 1,93 kB (`main`) → 2,04 (440c73e) → 2,36 kB, First Load JS 107 → 107 → **108 kB** (forhentningens kode, ~0,3 kB). Øvrige ruter som i runde 1 |
+| Synlig tekst før/efter, 8 sider (runde 1) | byte-ens |
 
-**Repoets egne browserkontroller** (`scripts/cloud/*.mjs`), kørt mod før og
-efter med testbasens oprindelige data:
+**Repoets egne browserkontroller** (`scripts/cloud/*.mjs`) mod det
+endelige byg med testbasens oprindelige data, samme tal som `main` i runde 1:
 
-| Kontrol | Før | Efter |
+| Kontrol | `main` (runde 1) | 08f87155 |
 |---|---|---|
 | herokontrol | 49 ✓ · 0 ✗ | 49 ✓ · 0 ✗ |
 | fotokontrol (4 fotos, ét stående) | 103 ✓ · 0 ✗ | 103 ✓ · 0 ✗ |
@@ -306,149 +552,208 @@ efter med testbasens oprindelige data:
 | beliggenhedkontrol | 43 ✓ · 0 ✗ | 43 ✓ · 0 ✗ |
 | browserkontrol | 28 ✓ · 0 ✗ | 28 ✓ · 0 ✗ |
 
-`fotokontrol` slutter med vilje med exit 2 uden rigtige fotografier i
-testmiljøet; den blev derfor også kørt med fire beskæringer af forsidefotoet,
-ét af dem stående, så lysbordsprøven faktisk kørte.
+`fotokontrol` slutter med vilje med exit 2 uden rigtige fotografier; den
+blev derfor også kørt med fire beskæringer af forsidefotoet, ét stående
+(exit 0).
 
-**Modprøver** — hvert nyt værn er gjort rødt med vilje og grønt igen:
+**Modprøver** — hvert nyt værn gjort rødt med vilje gennem
+`scripts/modproeve.mjs`, der bygger sit eget arbejdstræ af indekset:
 
 | Mutation | Udfald |
 |---|---|
-| en hero-variant fjernet | `test-hastighed`: rød på «findes» og «ingen forældet variant» |
-| `renSoegning` samler ikke gentagne navne | `test-hastighed`: rød på netop det tilfælde |
-| `import { db }` i `lib/soegeadresse.ts` | `test-rene-filer`: rød på filen og på prøven, der importerer den |
-| `order by` fjernet i `hentBolig`s `json_agg` | `test-redigering`: rød på galleri-rækkefølgen (1 af 580) |
-| samme, men uden at flytte rækken i heapen | grøn — derfor flyttes den; prøvens kommentar siger hvorfor |
-| samme, før indeks/bitmap blev slået fra i prøven | grøn — fælden «gentagelsesprøven»; rettet i prøven |
+| en hero-variant fjernet (runde 1) | `test-hastighed`: rød på «findes» og «ingen forældet variant» |
+| `renSoegning` samler ikke gentagne navne (runde 1) | `test-hastighed`: rød på netop det tilfælde |
+| `import { db }` i `lib/soegeadresse.ts` (runde 1) | `test-rene-filer`: rød på filen og på prøven, der importerer den |
+| `order by` fjernet i `hentBolig`s `json_agg` (runde 1) | `test-redigering`: rød på galleri-rækkefølgen |
+| `galleri-skift-vaek` — lysbordet melder ikke skift/lukning | fanget · 10 røde |
+| `galleri-stop-vaek` — ingen stop ved afmontering | fanget · 2 røde |
+| `forhentning-kald-bliver` — afbrydelsen fjerner ikke kaldene | fanget · 12 røde |
+| `forhentning-behold-vaek` — det viste billede afbrydes også | fanget · 5 røde |
+| `forhentning-samme-billede` — skift til samme billede stopper kæden | fanget · 1 rød |
+| `forhentning-forladt-afbrydes` — det forladte billede afbrydes | fanget · 3 røde |
+
+**En modprøve slap igennem, og det ændrede koden.** Første udgave havde et
+kædenummer oven i afbrydelsen. Modprøven, der fjernede nummerets tjek, blev
+grøn: så længe `skift`/`stop` fjerner kaldene fra alt, der hentes, kan et
+forældet færdig-kald aldrig komme, og nummeret kunne aldrig afgøre noget.
+Det er taget ud, og modprøven er rettet mod den mekanisme, der virker.
+Undervejs afviste kørerens vagt 4 også en modprøve, hvis holdepunkt var
+forældet efter en ændring — rettet og kørt igen.
 
 ## Til Git & Release
 
-1. **Funktionsregion.** `x-vercel-id` siger iad1. Bekræft basens region i
-   Supabase (værtsnavnet i `DATABASE_URL`: `aws-0-<region>.pooler…`). Ligger
-   den i EU, så flyt funktionerne dertil (Vercel-projektets indstilling
-   eller `regions` i `vercel.json`) og mål bagefter i produktionen.
-   Ifølge modellen er det ~150–160 ms pr. forespørgsel, altså ~1,1 s på
-   forsiden og ~1,1 s på en områdeside selv efter rettelsen (7
-   forespørgsler). Billedproxyens kolde vej (hent fra danske kildeværter +
-   sharp, målt 1,6 s ved et `MISS`) ville også få kortere vej. Ikke
-   ændret her: det er deployment-konfiguration.
+1. **Region — et undersøgelsesemne, ikke en anbefaling.** `x-vercel-id`
+   siger iad1; basens placering er ukendt. Bekræft den i Supabase
+   (værtsnavnet i `DATABASE_URL`: `aws-0-<region>.pooler…`). Ligger den
+   langt fra iad1, er en flytning af funktionerne (Vercel-projektets
+   indstilling eller `regions` i `vercel.json`) værd at prøve — og måle
+   bagefter i produktionen. Hvis rundturen er ~75–80 ms, er det 150–160 ms
+   pr. forespørgsel: **600–640 ms** på forsiden (4) og **1.050–1.120 ms**
+   på en side med 7. Det er en model, ikke en målt besparelse; se
+   «Produktionen, udefra». Ikke ændret her: det er deployment-konfiguration.
 2. **Ingen migrationer.** Rettelserne kræver ingen skemaændring og intet
    nyt indeks. Kortlægningen af indekserne mod prædikaterne i `hvor()`,
    `lib/omraade.ts` og boligsiden fandt intet manglende indeks, der
    betyder noget ved ~1.500 synlige boliger: alt, der kan bruge et
    btree-indeks, har et, og resten (`coalesce`-prisen, `ILIKE '%by%'`,
    `jsonb_exists_any(coalesce(…))`) kan ikke bruge ét i sin nuværende
-   form. Prisen ligger i forespørgslernes form og i rundturene. Kandidater
-   til senere — et partielt indeks på aktive rækker (afmeldte slettes
-   aldrig, så hver dedup-scanning vokser med historikken), og
+   form. Kandidater til senere — et partielt indeks på aktive rækker og
    `listing_full_economy_idx`, som ingen brugervendt forespørgsel ser ud
    til at bruge — er betinget af EXPLAIN ANALYZE mod produktionens
-   datamængde, og ingen af dem er efterprøvet. CLAUDE.md forbyder
+   datamængde og ikke efterprøvet. CLAUDE.md forbyder
    `collate "da-x-icu"` på et indeks.
 3. **Analysen: `map_interaction` falder på mobil.** Det skjulte landkort
    sendte zoom- og pan-events ved sin programmatiske første visning, uden
-   at nogen havde rørt det (Leaflets `_resetView` fyrer `zoomend` og
-   `moveend`). Det kort bygges ikke længere, så de events forsvinder. Faldet
-   er en rettelse af tallet, ikke et tab af brug. Analysens ejer bør vide
-   det, før tragten læses. Selve lytterne er ikke rørt.
-4. **CLAUDE.md** bør have reglen om de to rundture pr. forespørgsel ved
-   siden af «Sider med flere forespørgsler kører dem efter hinanden», og
-   tallet for boligsidens forespørgsler opdateres. Ikke rettet her: filen
-   er fælles for flere sessioner.
+   at nogen havde rørt det. Det kort bygges ikke længere, så de events
+   forsvinder. Faldet er en rettelse af tallet, ikke et tab af brug.
+4. **CLAUDE.md** (fælles for flere sessioner, ikke rettet her): reglen om
+   de to rundture pr. forespørgsel hører ved siden af «Sider med flere
+   forespørgsler kører dem efter hinanden»; boligsidens forespørgselstal er
+   2 (1 uden kendt total og areal); og «`facetter()` og `forsidetal()`
+   caches i fem minutter» bør sige, at det er stale-while-revalidate uden
+   øvre alder.
 
 ## Filoverlap til integrationen
 
-| Fil | Ændring | Ejer at orientere |
+| Fil | Ændring (endelig revision mod `main`) | Ejer at orientere |
 |---|---|---|
 | `app/page.tsx` | hero-`<img>`: srcset/sizes; prop til første kort; `RenSoegeformular` i formularen; redirectet bruger `renSoegning` | Design (hero, ingen visuel ændring) |
-| `app/Boligkort.tsx` | prop `billedprioritet` på `Kort`/`Gruppekort`/`Visningskort`; kun `loading` | Design (ingen visuel ændring; se skrift-forskydningen under «Resterende») |
-| `app/bolig/[id]/Galleri.tsx` | lysbordets prioritet, forhentning efter visning, `mini` til miniaturer | Design (ingen visuel ændring) |
-| `app/bolig/[id]/page.tsx` | `mini`-URL; median via `kvadratmeterprisCached` | — |
+| `app/Boligkort.tsx` | prop `billedprioritet` på `Kort`/`Gruppekort`/`Visningskort`; kun `loading` | Design (se skrift-skiftet under «Til Design») |
+| `app/bolig/[id]/Galleri.tsx` | lysbordets prioritet; forhentningen gennem `./forhentning`; `mini` til miniaturer | Design (ingen visuel ændring) |
+| `app/bolig/[id]/forhentning.ts` | NY: forhentningens livscyklus, ren logik | — |
+| `app/bolig/[id]/page.tsx` | `mini`-URL; kommentar om, at medianen ikke caches (kaldet er som på `main`) | Supply (se nedenfor) |
 | `app/gruppe/page.tsx` | prop til første kort | — |
 | `app/Landkort.tsx` | afstandsprøven afviser en flade uden layoutboks | — |
-| `app/cache.ts` | `kvadratmeterprisCached` | — |
 | `app/lejeboliger/[slug]/page.tsx` | område, områdeliste og statistik memoiseret pr. request | — |
 | `lib/omraade.ts` | `findOmraade`/`naboer` tager en allerede hentet områdeliste (valgfrit) | — |
-| `lib/soeg.ts` | `hentBolig`: billeder i samme sætning | — |
+| `lib/soeg.ts` | `hentBolig`: billeder i samme sætning | Supply (se nedenfor) |
+| `scripts/test-rene-filer.ts` | fem poster i `LOEFTER` | Supply (se nedenfor) |
 | `docs/kildetilladelser.md` | de afledte hero-filer | — |
-| Nye | `lib/hero.ts`, `lib/soegeadresse.ts`, `app/RenSoegeformular.tsx`, `scripts/hero-varianter.ts`, `scripts/test-hastighed.ts`, `public/hero/*.webp` | — |
+| Nye | `lib/hero.ts`, `lib/soegeadresse.ts`, `app/RenSoegeformular.tsx`, `scripts/hero-varianter.ts`, `scripts/test-hastighed.ts`, `scripts/test-galleri-forhentning.ts`, seks filer i `modproever/`, `public/hero/*.webp` | — |
+
+`app/cache.ts` er IKKE længere ændret (byte-ens med `main`).
+
+**Supply-sporet — filoverlap, IKKE en efterprøvet konflikt.** Supplys
+revision `0f213771f318fb138b3209f2e6bafcc42cf3f761` rører tre af de samme
+filer som denne ændring:
+
+| Fil | Denne ændring (endelig revision) |
+|---|---|
+| `app/bolig/[id]/page.tsx` | `mini`-URL'en til galleriet; kommentaren om, at medianen ikke caches (selve kaldet er tilbage som på `main`) |
+| `lib/soeg.ts` | `hentBolig`: billederne i samme sætning (`json_agg … order by position`) |
+| `scripts/test-rene-filer.ts` | fem poster i `LOEFTER` (tre fra runde 1, to fra runde 2) |
+
+Revisionen findes ikke i denne klon og ikke på remoten (`git fetch origin
+0f21377…` → «not our ref»). Der er derfor hverken kørt en prøvefletning
+eller læst Supplys linjer; hvad Supply ændrer i hver af de tre filer, er
+ikke set herfra. Andre sessioners grene er ikke flettet ind.
+
+**Ved integrationen skal begge sider bevares:** Supplys domænebaserede
+overtagelsesrettelse, det fælles `referenceNow` og at der IKKE falder
+tilbage til afviste datoer — sammen med rettelserne her (`hentBolig`s
+billeder i samme sætning, `mini`-URL'en, ingen tværgående cache på
+medianen). Efter fletningen bør `npm test` køres, og `test-redigering`s
+prøve af galleriets rækkefølge gennem `hentBolig` skal være grøn.
 
 **Målte konflikter med åbne grene.** `git merge-tree --write-tree` mod
-hver grens hoved 4. oktober 2026, sammenholdt med de konflikter, grenen
-allerede har mod `main`, så kun de konflikter, denne ændring tilføjer,
-står her:
+hver grens hoved, kørt igen på den endelige revision (klonen er ikke
+shallow, 579 commits; `integration/merge-tree-endelig-revision.txt`):
 
 | Gren | Konflikter mod `main` i forvejen | Nye konflikter pga. denne ændring |
 |---|---|---|
-| `skive/s4-brugeromraade` @ 5e830bf (brugerområdet) | 0 | `app/Boligkort.tsx`, `app/page.tsx`, `app/gruppe/page.tsx`, `app/lejeboliger/[slug]/page.tsx` |
+| `skive/s4-brugeromraade` @ 5e830bf | 0 | `app/Boligkort.tsx`, `app/page.tsx`, `app/gruppe/page.tsx`, `app/lejeboliger/[slug]/page.tsx` — samme fire som 440c73e |
 | `bjaergning/tastaturbetjening-a11y` @ 394e8ee | 9 filer | de samme fire |
 | `arbejde/oktober` @ 444720e | 4 filer | `app/Boligkort.tsx` |
 
-For brugerområdet er alle fire additive: begge sider tilføjer en ny prop
-på de samme linjer — `billedprioritet` her, `favorit` dér — og på
-områdesiden står `naboer(o, 8, …)` og `favoritIder()` side om side.
-Opløsningen er at beholde begge. En prøvefletning løst sådan gav
-`tsc --noEmit` exit 0; de løste filer ligger i afleveringens
-`integration/`. Brugerområdet gør siderne personlige (favoritstatus i
-HTML'en), og det skærper kun reglen om, at HTML aldrig må deles i en
-cache: denne ændrings caches er på dataniveau og indeholder intet om
-brugeren.
+Runde 2 tilføjer ingen konflikter: `app/bolig/[id]/page.tsx` flettes rent
+med alle tre. For brugerområdet er de fire additive (`billedprioritet` her,
+`favorit` dér, side om side); runde 1's løste filer ligger i
+`integration/runde1-proevefletning/`. Intet i Auth/brugerområdet er rørt,
+og ingen svar, der læser cookies eller en bruger, caches — runde 2 fjerner
+endda den eneste nye cache.
 
-**Intet i Auth/brugerområdet er rørt** (`app/udlejer/**`, `lib/auth.ts`,
-`middleware.ts`, `app/Samtykke.tsx`). Ingen svar, der læser cookies eller
-en bruger, er blevet cachet: den eneste nye cache er medianen, et
-offentligt aggregat over postnummeret.
+## Til Design
+
+Intet visuelt er tegnet om. To ting skal Design se og tage stilling til —
+et tal under en tærskel er ikke en godkendelse:
+
+1. **Forsidens hero før og efter** (`skaermbilleder/hero-*.png`, 390@3,
+   1350@1 og 1440@2). Efter-billedet er WebP q90-varianten, som telefonen
+   vælger. Målt forskel: gennemsnitligt 0,23–0,58/255 pr. kanal.
+2. **Skrift-skiftet på gruppesiden** (`skaermbilleder/skrift-skift/`).
+   **Rettelse til runde 1:** der stod, at forskydningen var ny. Det er den
+   ikke. Målt i 10 første besøg pr. byg (mobilprofilen): skiftet fra
+   reserveskrift til Inter flytter de SAMME fem tekstknuder med de samme
+   1–3 px — brødkrummen 3 px til højre og 1 px op, overskriften og
+   indledningen 2 px op, og i det første kort én tekst 1 px op og én 19 px
+   bredere — og browseren giver det samme layout-shift-tal
+   (0,0021) i alle 20 kørsler, på `main` og på den endelige revision.
+   Forskellen er, (a) at browseren på `main` markerede alle 10 skift
+   `hadRecentInput` og derfor udelod dem af CLS, mens det endelige byg kun
+   fik markeringen i 1 af 10 — der var intet brugerinput, og siden sætter
+   ikke flaget; hvorfor det sættes, er ikke undersøgt — og (b) at skriften
+   kommer senere: skriftfilen er færdig efter 1.171 mod 1.411 ms (median),
+   fordi det tidlige kortbillede deler linjen med den, så teksten står med
+   reserveskrift i ~528 ms efter første maling mod ~304 ms på `main`.
+   Vedlagt: `dpr3-*-reserveskrift.png` og `dpr3-*-inter.png` (1170×1800,
+   skriftfilen holdt tilbage og sluppet, billederne hentet — forskellen er
+   alene skriften), `dpr3-*-forskel-x4.png` og `dpr3-Ffinal-side-om-side.png`;
+   `naturlig-*` er udsnit af de rigtige, uforstyrrede indlæsninger
+   (skærmoptagelsens billede lige før og lige efter skiftet, 390×844), og
+   `opsummering.txt` har tallene. CLS-tallet er lavt (0,0021), men tallet
+   er ikke en godkendelse: om reserveskriften må stå et kvart sekund
+   længere, og om skiftet skal undgås (fx med en tilpasset reserveskrift),
+   er Designs afgørelse. Intet er tegnet om.
 
 ## Resterende problemer og begrænsninger
 
 **I produktet, ikke rettet her:**
 
-1. **Funktionsregionen** (se «Til Git & Release») er den største enkelte
-   post på alle server-renderede sider og på billedproxyens kolde vej.
-2. **Forsidens LCP på mobil er stadig ~3,9 s ved første besøg** på 1,6
-   Mbit/s. En telefon med DPR 3 får 1920-varianten (327 kB), fordi den kan
-   vise den. Mindre filer kræver en kvalitetsbeslutning, og den er Designs:
-   1280-varianten (174 kB) giver 2,1 px pr. css-px mod 3,2 i dag; AVIF
-   kræver et `<picture>`, og så skal `.hero-billede img`'s CSS med. Chrome
-   henter desuden de første kortbilleder under folden samtidig med fotoet.
-3. **Første maling venter på CSS.** På boligsiden er LCP lig FCP (~1,1 s
-   mobil): billedet er færdigt før første maling. `globals.css` (67,6 kB
-   minificeret) blokerer alle sider, og `leaflet.css` blokerer `/` og
-   `/bolig/[id]`, også hvor intet kort vises. CSS er Designs.
-4. **Skrift-skiftet giver en forskydning på 1–2 px** på gruppesiden ved
-   første besøg på mobil (CLS 0,0021 i 4–6 af 10 runder; før 0). Det
-   tidlige kortbillede deler linjen med skriftfilen, så Inter i nogle
-   kørsler kommer efter første maling. Langt under grænsen for «god»
-   (0,1), men nyt. Design bør vide det.
-5. **Serverforespørgsler, der ikke er rørt:** forsiden og søgningen har
-   stadig 4 (op til 7), gruppesiden 2. Kandidater, efterprøvet i koden af
-   kortlægningen, men hverken bygget eller målt: slå `availabilityGrundlag`
-   og `opsummering` sammen (de har samme WHERE), og lad `gruppevindue` og
-   `korteneFor` blive én sætning. Hver sparer én forespørgsel = to rundture.
-   Begge rører tal med mange regler i CLAUDE.md og bør være egne opgaver.
-6. **Middleware kører på filer i `public/`** — også forsidefotoet og dets
-   varianter — og sætter cookies på dem for samtykkende brugere. En
-   undtagelse i matcheren er ligetil, men den styrer analysens session og
-   ligger op ad samtykket. Ikke rørt.
-7. **Samtykkebanneret renderer siden to gange** (server action + reload).
-   Frontend/samtykke. Ikke rørt.
-8. **`Cache-Control: no-store`** på de dynamiske sider kan holde dem ude af
-   back/forward-cachen. Ikke målt.
-9. **`public/`-filer revalideres ved hvert besøg** (`max-age=0`). En
-   `headers()`-regel for `/hero/` ville spare en rundtur ved genbesøg, men
-   `docs/kildetilladelser.md` bygger en OSM-påstand på, at `next.config.ts`
-   ingen `headers()` har. Ikke rørt.
+1. **Regionen** er en hypotese, ikke en dokumenteret flaskehals (se «Til
+   Git & Release»). Forsidens og søgningens serverventetid i produktionen
+   (~1,2 og ~0,95 s) er ikke forklaret af modellen.
+2. **Galleriets byttehandel.** Hovedbilledet først gør åbningen 1,5 s
+   hurtigere på mobil, men et meget hurtigt tryk lige efter åbningen kan
+   vente på en nabo, `main` havde hentet parallelt: næste-næste-forrige på
+   mobil 314 → 458 ms, næste ×3 på desktop 416 → 547 ms. Ikke afbødet:
+   det ville kræve at hente naboer samtidig med hovedbilledet, hvilket er
+   det, runde 1 målte som 1,6 s åbning.
+3. **Forsidens LCP på mobil er stadig ~3,9 s ved første besøg** på 1,6
+   Mbit/s. En telefon med DPR 3 får 1920-varianten (327 kB). Mindre filer
+   er en kvalitetsbeslutning for Design.
+4. **Første maling venter på CSS.** `globals.css` (67,6 kB minificeret)
+   blokerer alle sider, og `leaflet.css` blokerer `/` og `/bolig/[id]`,
+   også hvor intet kort vises. CSS er Designs.
+5. **Skrift-skiftet** (se «Til Design»): ikke nyt, men reserveskriften står
+   længere (~304 → ~528 ms efter første maling på gruppesiden, mobil).
+6. **`facetter`/`forsidetal`-cachen** er samme stale-while-revalidate uden
+   øvre alder som den fjernede median. Forsidens tal kan derfor være ældre
+   end de fem minutter, kommentaren lover. Ikke rørt.
+7. **Serverforespørgsler, der ikke er rørt:** forsiden og søgningen har
+   stadig 4 (op til 7), gruppesiden 2. Kandidater, hverken bygget eller
+   målt: slå `availabilityGrundlag` og `opsummering` sammen, og lad
+   `gruppevindue` og `korteneFor` blive én sætning.
+8. **Middleware kører på filer i `public/`** og sætter cookies på dem for
+   samtykkende brugere. Ikke rørt.
+9. **Samtykkebanneret renderer siden to gange.** Frontend/samtykke. Ikke rørt.
+10. **`Cache-Control: no-store`** på de dynamiske sider kan holde dem ude af
+    back/forward-cachen. Ikke målt.
+11. **Et højreswipe i lysbordet navigerede tilbage i historikken** i
+    emuleret Chromium (mobilprofilen) — ens på `main` og den endelige
+    revision. Med en tom historik virker swipet som forrige billede. Ikke
+    undersøgt på fysiske telefoner; ikke rørt.
 
 **I målingen:**
 
 - 280 syntetiske boliger mod ~1.470 aktive i produktionen. Databasetider
-  herfra siger intet om produktionens; derfor er de ikke brugt.
+  herfra siger intet om produktionens.
 - Lokal `next start` taler HTTP/1.1; produktionen taler HTTP/2 bag Vercels
   CDN. Prioritering og deling af linjen opfører sig forskelligt.
 - Kun Chromium. Ingen Safari, ingen Firefox, ingen fysiske telefoner.
-- Billederne er beskæringer af ét foto; størrelserne svarer til kildernes,
-  men motivet er ikke deres.
-- Genbesøg varierer: samme byg gav 370 og 432 ms i median på mobil
-  søgning i to kørsler. Forskelle under ~60 ms ved genbesøg er støj.
-- Ingen feltdata. Skal hastighed måles hos brugerne, kræver det en RUM-
-  måling (fx Web Vitals) — med samtykke og en linje i privatlivspolitikken.
+- Billederne er beskæringer af ét foto.
+- Genbesøg varierer: forskelle under ~60 ms ved genbesøg er støj.
+- Byg i to forskellige mapper er ikke byte-ens (modul-id og
+  server action-hash afhænger af mappen). Runde 2's gallerital er derfor
+  målt på selve det endelige byg og ikke overført fra varianten.
+- Ingen feltdata. Skal hastighed måles hos brugerne, kræver det en
+  RUM-måling — med samtykke og en linje i privatlivspolitikken.
