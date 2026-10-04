@@ -1,9 +1,8 @@
 import { notFound } from 'next/navigation'
 import {
-  availabilityFor, hentBolig, MINDST_TIL_SAMMENLIGNING,
+  availabilityFor, hentBolig, kvadratmeterpris, MINDST_TIL_SAMMENLIGNING,
   type BoligDetalje,
 } from '../../../lib/soeg'
-import { kvadratmeterprisCached } from '../../cache'
 import { forklar } from '../../../lib/availability'
 import { billedUrl } from '../../../lib/billede'
 import { eltilstand } from '../../../lib/eloplysning'
@@ -121,11 +120,16 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
   // ── Prissammenligning ────────────────────────────────────────
   // Kun med kendt total OG areal: ellers sammenligner vi to forskellige
   // slags tal. Og kun hvor der er nok boliger bag medianen — se
-  // MINDST_TIL_SAMMENLIGNING. Medianen er cachet i fem minutter pr.
-  // postnummer (app/cache.ts); grundlaget og antallet står stadig ved
-  // tallet, og grænsen håndhæves før cachen.
+  // MINDST_TIL_SAMMENLIGNING.
+  //
+  // Medianen regnes ved hver visning og caches IKKE på tværs af
+  // forespørgsler. unstable_cache i Next 15.5 svarer med den gamle værdi
+  // efter udløbet og genberegner bagefter — uden øvre alder, og en fejlet
+  // genberegning beholder den gamle. Så kunne «baseret på 49 boliger» stå,
+  // efter at grundlaget var faldet under grænsen. Målt i
+  // docs/hastighed-2026-10.md.
   const kvm = b.total != null && b.areal != null && b.areal > 0 && b.postnr
-    ? await kvadratmeterprisCached(b.postnr)
+    ? await kvadratmeterpris(b.postnr)
     : null
   const egenKvm = kvm && b.total != null && b.areal ? b.total / b.areal : null
   const afvigelse = kvm && egenKvm != null

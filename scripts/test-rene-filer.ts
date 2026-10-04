@@ -82,6 +82,9 @@ const LOEFTER: readonly Loefte[] = [
   { fil: 'lib/soegeadresse.ts', loefte: 'Ren logik: ingen database, ingen next-import.' },
   { fil: 'lib/hero.ts', loefte: 'Ren fil: ingen database, ingen next-import.' },
   { fil: 'scripts/test-hastighed.ts', loefte: 'koeres uden database' },
+  // Importeres af lysbordet (app/bolig/[id]/Galleri.tsx, en klientkomponent).
+  { fil: 'app/bolig/[id]/forhentning.ts', loefte: 'Ren logik: ingen database, ingen React.' },
+  { fil: 'scripts/test-galleri-forhentning.ts', loefte: 'koeres uden database' },
   { fil: 'app/udlejer/boliger/forklaring.ts', loefte: 'Ren fil — ingen database, ingen React' },
   { fil: 'lib/faciliteter.ts', loefte: 'Ligger i sin EGEN fil uden databaseimport' },
   { fil: 'lib/billedloft.ts', loefte: 'Filen maa IKKE importere databasen' },

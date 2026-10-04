@@ -10,6 +10,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { lavForhentning, type Forhentning } from './forhentning'
 
 export interface GalleriBillede {
   lille: string
@@ -24,7 +25,7 @@ export function Galleri({ billeder }: { billeder: GalleriBillede[] }) {
   const [aaben, setAaben] = useState<number | null>(null)
   const roer = useRef<number | null>(null)
   const dialog = useRef<HTMLDialogElement>(null)
-  const forhentes = useRef<HTMLImageElement[]>([])
+  const forhentning = useRef<Forhentning | null>(null)
 
   const luk = useCallback(() => setAaben(null), [])
   const gaa = useCallback((retning: number) => {
@@ -89,25 +90,17 @@ export function Galleri({ billeder }: { billeder: GalleriBillede[] }) {
   // ventetid). «Naeste» er den vej, man blader. Fejler et billede,
   // fortsaettes der alligevel, saa bladringen ikke straffes.
   //
-  // Bladrer brugeren videre, foer forhentningen er faerdig, annulleres
-  // det, der stadig hentes til det FORRIGE billede: ellers delte den
-  // gamle forrige-nabo linjen med den nye naeste-nabo, og andet tryk paa
-  // «naeste» ventede (maalt: ~0,26 s).
-  const forhentNaboer = useCallback((vist: number) => {
-    for (const i of forhentes.current) {
-      if (!i.complete) { i.onload = null; i.onerror = null; i.src = '' }
-    }
-    forhentes.current = []
-    const hent = (n: number, saa?: () => void) => {
-      const b = billeder[(n + billeder.length) % billeder.length]
-      if (!b) { saa?.(); return }
-      const i = new Image()
-      if (saa) { i.onload = saa; i.onerror = saa }
-      forhentes.current.push(i)
-      i.src = b.stor
-    }
-    hent(vist + 1, () => hent(vist - 1))
-  }, [billeder])
+  // Kaeden hoerer til DET VISTE billede og stopper, saa snart det ikke
+  // vises laengere: ved billedskift, lukning og afmontering — ikke foerst
+  // ved det naeste hovedbilledes load. Reglerne og hvorfor staar i
+  // ./forhentning.ts; her er kun ledningerne.
+  const forhent = () => (forhentning.current ??= lavForhentning())
+  const store = () => billeder.map((b) => b.stor)
+  useEffect(() => {
+    forhent().skift(aaben, store())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aaben, billeder])
+  useEffect(() => () => forhentning.current?.stop(), [])
 
   const start = (x: number) => { roer.current = x }
   const slut = (x: number) => {
@@ -191,7 +184,7 @@ export function Galleri({ billeder }: { billeder: GalleriBillede[] }) {
           <button type="button" className="pil venstre" onClick={() => gaa(-1)} aria-label="Forrige">‹</button>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="lys-billede" src={billeder[aaben]!.stor} alt="" fetchPriority="high"
-            onLoad={() => forhentNaboer(aaben)} onError={() => forhentNaboer(aaben)} />
+            onLoad={() => forhent().start(aaben, store())} onError={() => forhent().start(aaben, store())} />
           <button type="button" className="pil hoejre" onClick={() => gaa(1)} aria-label="Næste">›</button>
 
           <div className="minier" onClick={(e) => e.stopPropagation()}>
