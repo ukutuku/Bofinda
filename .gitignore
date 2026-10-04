@@ -35,3 +35,7 @@ skaermbilleder/
 # staar ikke i SPRING_OVER — men den maa ikke kunne committes. Uden
 # skraastreg, saa et symlink ikke slipper forbi (abad7ae).
 .proever-modproev
+
+# Testharnessens outputroder. De angives eksplicit pr. udfoerelse og
+# hoerer ikke i versionsstyringen — se scripts/kildeproever/laros/.
+scripts/kildeproever/laros/resultater/
