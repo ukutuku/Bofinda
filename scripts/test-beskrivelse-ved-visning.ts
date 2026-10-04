@@ -157,5 +157,44 @@ const b6 = await hentBolig(udl!.id)
 tjek('6 · native med tom kolonne giver null — ikke en udledning, hun ikke har skrevet',
   b6?.beskrivelse === null, String(b6?.beskrivelse))
 
+// ── 7 · referenceNow: SAMME raekke, to sider af domaenets datoskifte ──
+//
+// Teksten siger nu det samme som faktablokken, og faktablokkens svar
+// afhaenger af HVORNAAR man spoerger: en dato i fremtiden er «senere»,
+// den samme dato i dag er «nu». Proeven viser, at `hentBolig` regner paa
+// den referenceNow, den FAAR — ikke paa en klokke inde i sig selv. Var
+// det sidste tilfaeldet, kunne siden og teksten staa paa hver sin tid.
+//
+// Kilden er `balder`, fordi dens datofelt er godkendt som tidsevidens i
+// KILDEKONTRAKTER (`brugbarSomTiming: true`). Paa propstep, lokalbolig og
+// findbolig er feltet AFVIST, og svaret ville vaere «ukendt» paa begge
+// sider af skiftet — det daekkes af scripts/test-overtagelse-i-teksten.ts.
+const [balderKilde] = await db.insert(sources).values({
+  slug: 'balder', name: 'Balder', sourceType: 'spider',
+  baseUrl: 'https://www.balder.dk', enabled: false,
+}).returning()
+const [dato] = await db.insert(listings).values({
+  sourceId: balderKilde!.id, sourceType: 'spider', externalKey: 'v-dato',
+  sourceUrl: 'https://www.balder.dk/1',
+  addressRaw: 'Else Alfelts Vej 1, 2300 København S',
+  street: 'Else Alfelts Vej', houseNumber: '1', postalCode: '2300', city: 'København S',
+  propertyType: FELTER.propertyType, rooms: FELTER.rooms, sizeM2: FELTER.sizeM2,
+  rentMonthly: FELTER.rentMonthly, totalMonthly: FELTER.totalMonthly,
+  totalMonthlyComponents: FELTER.totalMonthlyComponents,
+  addressMatchLevel: 'unit', unitAddressUuid: 'intern:v:dato', status: 'active',
+  availabilityFacts: { sourceAvailabilityDate: '2026-11-01' },
+  description: null,
+}).returning({ id: listings.id })
+
+const foer = await hentBolig(dato!.id, new Date('2026-10-31T12:00:00Z'))
+tjek('7 · FOER skiftet: teksten baerer kildens dato',
+  foer!.beskrivelse!.includes('Ledig fra 1. november 2026.'), String(foer?.beskrivelse).slice(-46))
+const efter = await hentBolig(dato!.id, new Date('2026-11-01T12:00:00Z'))
+tjek('7 · EFTER skiftet: samme raekke, samme fakta → «Kan overtages nu.»',
+  efter!.beskrivelse!.includes('Kan overtages nu.')
+  && !efter!.beskrivelse!.includes('Ledig fra'), String(efter?.beskrivelse).slice(-46))
+tjek('7 · altsaa regnes teksten paa den referenceNow, der gives med',
+  foer!.beskrivelse !== efter!.beskrivelse)
+
 process.stdout.write(fejl ? `\n${fejl} FEJL\n` : '\nAlle prøver bestået.\n')
 if (fejl) process.exit(1)

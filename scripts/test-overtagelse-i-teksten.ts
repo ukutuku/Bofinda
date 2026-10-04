@@ -25,6 +25,7 @@ import { fortolkAvailability, overtagelsesudsagn } from '../lib/availability'
 import { KILDEKONTRAKTER } from '../lib/kildekontrakt'
 import { genererBeskrivelse } from '../lib/normalize'
 import type { AvailabilityFacts } from '../lib/adapter'
+import { readFileSync } from 'node:fs'
 import { isoDato } from '../lib/dato'
 
 /** IsoDate er en maerket type — datoen skal gennem kildens egen vagt. */
@@ -103,6 +104,24 @@ console.log('\n══ 5 · «nu» og kildens eget ord ══')
     tekst('home', { rentalAvailableNow: true }).includes('Kan overtages nu.'))
   const snarest = udsagn('dacas', { takeoverText: 'Snarest' })
   tjek('kun takeoverText → «snarest», kildens eget ord', snarest.slags === 'snarest', snarest.slags)
+}
+
+console.log('\n══ 6 · ÉN klokke: siden og teksten maa ikke staa paa hver sin tid ══')
+{
+  // Faktablokken regner paa `availabilityFor(b, nu)`, og teksten regnes
+  // inde i `hentBolig`. Faar de to hver sin referenceNow, kan siden sige
+  // «Kan overtages nu» over en tekst, der siger «Ledig fra i morgen» —
+  // samme modsigelse, ny aarsag. Vagten laeser KILDEN, fordi det er det
+  // eneste sted forholdet kan ses; en koerende proeve ville skulle ramme
+  // netop det sekund, hvor de to klokker er forskellige.
+  const kilde = readFileSync(new URL('../app/bolig/[id]/page.tsx', import.meta.url), 'utf8')
+  const krop = kilde.slice(kilde.indexOf('export default async function Side'))
+  const klokker = krop.match(/new Date\(\)/g) ?? []
+  tjek('siden har præcis ÉN new Date()', klokker.length === 1, `${klokker.length} fundet`)
+  tjek('hentBolig faar den med', /hentBolig\(id, nu\)/.test(krop))
+  tjek('availabilityFor faar den SAMME', /availabilityFor\(b, nu\)/.test(krop))
+  tjek('faktablokken laeser det faelles udsagn, ikke sin egen gren',
+    /overtagelsesudsagn\(avail!\.timing\)/.test(krop) && !/t\.status === 'senere'/.test(krop))
 }
 
 console.log(fejl === 0 ? '\n  ALT GRØNT\n' : `\n  ${fejl} FEJLEDE\n`)

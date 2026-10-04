@@ -103,6 +103,10 @@ const LOEFTER: readonly Loefte[] = [
   { fil: 'scripts/test-boligtype.ts', loefte: 'koeres uden database' },
   { fil: 'scripts/test-rene-filer.ts', loefte: 'koeres uden database, som scripts/test-boligtype.ts' },
   { fil: 'scripts/maalinger/gengiv.ts', loefte: 'Gengiv en drizzle-forespørgsel som ren SQL-tekst — uden en database.' },
+  // Laesescriptet til Laros' raasvar. Det importerer kun node-indbyggede
+  // moduler, saa loeftet er proevbart paa samme maade som de oevrige.
+  { fil: 'scripts/hent-laros-raasvar.mjs',
+    loefte: 'ingen database, ingen produktionsnoegler, ingen import af' },
 ]
 
 /** Hoveder, der nævner databasen uden at love noget om filens import. */
