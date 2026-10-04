@@ -3,7 +3,7 @@ import {
   availabilityFor, hentBolig, kvadratmeterpris, MINDST_TIL_SAMMENLIGNING,
   type BoligDetalje,
 } from '../../../lib/soeg'
-import { forklar } from '../../../lib/availability'
+import { forklar, overtagelsesudsagn } from '../../../lib/availability'
 import { billedUrl } from '../../../lib/billede'
 import { eltilstand } from '../../../lib/eloplysning'
 import { Galleri } from './Galleri'
@@ -57,10 +57,11 @@ const datoIso = (iso: string) => {
 
 export default async function Side({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const b = await hentBolig(id)
+  // Samme klokke til baade domaenet og den udledte beskrivelse.
+  const nu = new Date()
+  const b = await hentBolig(id, nu)
   // ReferenceNow: ét eksplicit nu pr. request. Availability kommer fra
   // DOMÆNET — aldrig fra legacy ledigFra/ansoegning.
-  const nu = new Date()
   const avail = b ? availabilityFor(b, nu) : null
   if (!b) notFound()
 
@@ -608,17 +609,15 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
                   fravær af viden skal kunne ses. */}
               <dt>Overtagelse</dt>
               <dd>{(() => {
-                const t = avail!.timing
-                if (t.status === 'nu') {
-                  const kunTekst = t.evidens.length > 0
-                    && t.evidens.every((e) => e.faktum === 'takeoverText')
-                  return kunTekst ? 'Snarest' : 'Kan overtages nu'
-                }
-                if (t.status === 'senere') {
-                  const d = t.evidens.find((e) => e.faktum === 'sourceAvailabilityDate')?.vaerdi
-                  return d ? `Kan overtages fra ${datoIso(d)}` : 'Kan overtages senere'
-                }
-                if (t.status === 'conflict') return 'Modstridende oplysninger fra kilden'
+                // Afgoerelsen ligger i `overtagelsesudsagn`; her vaelges kun
+                // ORDENE. Beskrivelsen laeser det SAMME udsagn — det var de
+                // to udtryk, der modsagde hinanden paa denne side.
+                const o = overtagelsesudsagn(avail!.timing)
+                if (o.slags === 'snarest') return 'Snarest'
+                if (o.slags === 'nu') return 'Kan overtages nu'
+                if (o.slags === 'senere') return `Kan overtages fra ${datoIso(o.dato)}`
+                if (o.slags === 'senere-uden-dato') return 'Kan overtages senere'
+                if (o.slags === 'conflict') return 'Modstridende oplysninger fra kilden'
                 return <span className="mangler">
                   Bofinda kan ikke fastslå, hvornår boligen kan overtages ud fra
                   de oplysninger, vi har fra kilden.

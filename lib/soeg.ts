@@ -18,7 +18,7 @@ import { beskrivelseFor } from './normalize'
 import { KILDEKONTRAKTER } from './kildekontrakt'
 import { laesAvailabilityFacts } from './fakta'
 import {
-  fortolkAvailability, sammenfatGruppe,
+  fortolkAvailability, overtagelsesudsagn, sammenfatGruppe,
   type Availability, type Gruppesammenfatning,
 } from './availability'
 
@@ -1845,7 +1845,7 @@ export async function facetter() {
 //  kan ikke laekke ved en uopmaerksom aendring i UI'et senere.
 // ═══════════════════════════════════════════════════════════════
 
-export async function hentBolig(id: string) {
+export async function hentBolig(id: string, referenceNow: Date = new Date()) {
   const [b] = await db
     .select({
   id: listings.id,
@@ -1947,7 +1947,11 @@ export async function hentBolig(id: string) {
     street: b.vej, houseNumber: b.husnr, postalCode: b.postnr, city: b.by,
     rentMonthly: b.leje, totalMonthly: b.total, totalMonthlyComponents: b.poster,
     utilitiesElectricity: b.el, electricityOwnMeter: b.elEgenMaaler,
-    availableFrom: b.ledigFra,
+    // SAMME udsagn som faktablokken tegner. Ikke `b.ledigFra`: for
+    // Propstep, LokalBolig og findbolig.nu er datofeltet efterproevet og
+    // AFVIST som tidsevidens (`brugbarSomTiming: false`), og teksten
+    // gjorde det afviste felt til en bekraeftet dato.
+    overtagelse: overtagelsesudsagn(availabilityFor(b, referenceNow).timing),
   })
 
   return { ...resten, beskrivelse, billeder }

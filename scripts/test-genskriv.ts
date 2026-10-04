@@ -46,7 +46,7 @@ const FELTER = {
   street: 'Prøvegade', houseNumber: '1', postalCode: '5000', city: 'Prøveby',
   rentMonthly: 900_000, totalMonthly: 1_050_000,
   totalMonthlyComponents: ['rent', 'heat', 'water'],
-  utilitiesElectricity: null, electricityOwnMeter: null, availableFrom: null,
+  utilitiesElectricity: null, electricityOwnMeter: null, overtagelse: { slags: 'ukendt' as const },
 }
 const FOERSTE = 'Lejlighed på 2 værelser og 64 m² på Prøvegade 1 i 5000 Prøveby.'
 const GAMMEL = `${FOERSTE} ${gammelOekonomi(900_000, 1_050_000, FELTER.totalMonthlyComponents)}`

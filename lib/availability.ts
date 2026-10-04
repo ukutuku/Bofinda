@@ -75,6 +75,56 @@ export interface Akse<S extends string> {
   uenighed?: Readonly<Record<string, readonly Evidensspor[]>>
 }
 
+/**
+ * HVAD VI SIGER OM OVERTAGELSEN — afgjort ét sted.
+ *
+ * Faktablokken paa boligsiden og den genererede beskrivelse svarede foer
+ * paa hvert sit grundlag: blokken paa domaenet, beskrivelsen paa
+ * `listings.available_from` raat. Resultatet stod paa skaermen samtidig og
+ * modsagde sig selv — «Bofinda kan ikke fastslaa, hvornaar boligen kan
+ * overtages» tre afsnit over «Ledig fra 1. januar 2027.» Maalt 4. oktober
+ * 2026 paa bofinda.dk: 15 af 55 stikproevede boligsider, 5 af 5 for hver af
+ * Propstep, LokalBolig og findbolig.nu.
+ *
+ * Grunden til at blokken havde ret: for netop de tre kilder er datofeltet
+ * EFTERPROEVET OG AFVIST som tidsevidens — `brugbarSomTiming: false` i
+ * KILDEKONTRAKTER. Propsteps aeldste vaerdi er 2002-08-31, LokalBoligs
+ * 2021-04-01, og findbolig.nu's felt er aldrig holdt op mod kildens egen
+ * side. Beskrivelsen gjorde et afvist felt til en bekraeftet dato.
+ *
+ * Derfor afgoeres spoergsmaalet her, og begge steder laeser svaret. Ordene
+ * er forskellige de to steder — en faktablok har plads til en etiket, en
+ * broedtekst skal vaere en saetning — men UDSAGNET er det samme. Samme form
+ * som `eltilstand` i lib/eloplysning.ts.
+ *
+ * `ukendt` har ingen saetning i broedteksten. Det er ikke en udeladelse:
+ * en tekst, der TIER om overtagelsen, modsiger ikke en faktablok, der
+ * siger «vi kan ikke fastslaa det». En tekst, der gaetter, goer.
+ */
+export type Overtagelsesudsagn =
+  | { slags: 'nu' }
+  /** Kildens eget ord («Snarest»), ikke vores klassifikation. */
+  | { slags: 'snarest' }
+  | { slags: 'senere'; dato: string }
+  | { slags: 'senere-uden-dato' }
+  | { slags: 'conflict' }
+  | { slags: 'ukendt' }
+
+export function overtagelsesudsagn(t: Akse<Timingstatus>): Overtagelsesudsagn {
+  if (t.status === 'nu') {
+    // Kun takeoverText bag konklusionen = kilden har sagt et ORD, ikke en
+    // dato. Da vises ordet, ikke klassifikationen.
+    const kunTekst = t.evidens.length > 0 && t.evidens.every((e) => e.faktum === 'takeoverText')
+    return kunTekst ? { slags: 'snarest' } : { slags: 'nu' }
+  }
+  if (t.status === 'senere') {
+    const dato = t.evidens.find((e) => e.faktum === 'sourceAvailabilityDate')?.vaerdi
+    return dato ? { slags: 'senere', dato } : { slags: 'senere-uden-dato' }
+  }
+  if (t.status === 'conflict') return { slags: 'conflict' }
+  return { slags: 'ukendt' }
+}
+
 export interface Availability {
   marked: Akse<Markedsstatus>
   timing: Akse<Timingstatus>

@@ -10,6 +10,7 @@
 
 import type { Forbeholdsbelaeg } from './billedforbehold'
 import type { AvailabilityFacts, RawListing } from './adapter'
+import type { Overtagelsesudsagn } from './availability'
 import { vaskAdresse } from './address'
 import { oereTilKroner } from './money'
 import { eltilstand } from './eloplysning'
@@ -175,7 +176,13 @@ export function genererBeskrivelse(f: {
   // havde vi et udtryk mere for noget, der allerede er beregnet ét sted.
   utilitiesElectricity: number | null
   electricityOwnMeter: boolean | null
-  availableFrom: Date | null
+  /**
+   * DOMAENETS svar paa overtagelsen — ikke `listings.available_from`.
+   * Feltet er bevidst ikke valgfrit: en kalder, der ikke kan skaffe
+   * domaenet, skal SKRIVE `{ slags: 'ukendt' }` og dermed vaelge tavshed.
+   * Et valgfrit felt ville lade den samme udeladelse ske ved et uheld.
+   */
+  overtagelse: Overtagelsesudsagn
 }): string | null {
   const kr = (o: number) => oereTilKroner(o).toLocaleString('da-DK')
   const s: string[] = []
@@ -253,9 +260,21 @@ export function genererBeskrivelse(f: {
     }
   }
 
-  if (f.availableFrom) {
-    const d = f.availableFrom
-    s.push(`Ledig fra ${d.getDate()}. ${MDR[d.getMonth()]} ${d.getFullYear()}.`)
+  // Samme udsagn som faktablokken paa boligsiden — kun ordene er en
+  // saetning i stedet for en etiket. `ukendt` giver INGEN saetning: en
+  // tekst, der tier, modsiger ikke en faktablok, der siger «vi kan ikke
+  // fastslaa det». En tekst, der gaetter, goer. Se noten ved
+  // `Overtagelsesudsagn` i lib/availability.ts.
+  const o = f.overtagelse
+  if (o.slags === 'nu') s.push('Kan overtages nu.')
+  else if (o.slags === 'snarest') s.push('Kilden skriver, at boligen kan overtages snarest.')
+  else if (o.slags === 'senere') {
+    const [aar, md, dag] = o.dato.split('-').map(Number)
+    s.push(`Ledig fra ${dag}. ${MDR[md! - 1]} ${aar}.`)
+  } else if (o.slags === 'senere-uden-dato') {
+    s.push('Boligen kan overtages senere; kilden oplyser ikke hvornår.')
+  } else if (o.slags === 'conflict') {
+    s.push('Kilden oplyser modstridende ting om, hvornår boligen kan overtages.')
   }
 
   return s.length ? s.join(' ') : null
@@ -388,7 +407,12 @@ export async function normaliser(
       rentMonthly: r.rentMonthly ?? null, totalMonthly, totalMonthlyComponents,
       utilitiesElectricity: r.utilitiesElectricity ?? null,
       electricityOwnMeter: r.electricityOwnMeter ?? null,
-      availableFrom,
+      // DEN GEMTE tekst siger INTET om overtagelsen, og det er et valg.
+      // Domaenets svar afhaenger af `referenceNow` — «senere» bliver «nu»,
+      // naar dagen kommer — saa en saetning, der stoebes ved importen, er
+      // en gemt udledning, der begynder at drive samme sekund. Den viste
+      // tekst regnes i `hentBolig` af domaenet; se `beskrivelseFor`.
+      overtagelse: { slags: 'ukendt' },
     }),
   }
 }

@@ -8,7 +8,7 @@ const raekker = Array.from({ length: 2000 }, (_, i) => ({
   totalMonthlyComponents: i % 3 === 0 ? ['rent', 'other'] : ['rent', 'heat', 'water'],
   utilitiesElectricity: i % 7 === 0 ? 30000 : null,
   electricityOwnMeter: i % 11 === 0 ? true : null,
-  availableFrom: i % 2 ? new Date(2026, 10, 1) : null,
+  overtagelse: i % 2 ? { slags: 'senere' as const, dato: '2026-11-01' } : { slags: 'ukendt' as const },
 }))
 // Varm op, saa JIT'en ikke maales med.
 for (let r = 0; r < 5; r++) for (const f of raekker) genererBeskrivelse(f as never)

@@ -39,7 +39,7 @@ const tjek = (navn: string, ok: boolean, note = '') => {
 const BASIS = {
   propertyType: 'lejlighed' as const, rooms: 2, sizeM2: 64,
   street: 'Prøvegade', houseNumber: '1', postalCode: '5000', city: 'Odense C',
-  availableFrom: null, rentMonthly: 900_000, totalMonthly: 1_050_000,
+  overtagelse: { slags: 'ukendt' as const }, rentMonthly: 900_000, totalMonthly: 1_050_000,
 }
 
 const lav = (poster: string[] | null, el: number | null, egen: boolean | null) =>

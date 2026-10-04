@@ -258,7 +258,13 @@ async function main() {
       continue
     }
 
-    const ny = genererBeskrivelse(felter as Parameters<typeof genererBeskrivelse>[0])
+    // Den GEMTE tekst siger intet om overtagelsen — domaenets svar
+    // afhaenger af `referenceNow` og hoerer derfor til ved visningen, hvor
+    // `hentBolig` regner det. Valget skrives ud; castet maa ikke skjule det.
+    const ny = genererBeskrivelse({
+      ...(felter as Omit<Parameters<typeof genererBeskrivelse>[0], 'overtagelse'>),
+      overtagelse: { slags: 'ukendt' },
+    })
     if (ny == null || ny === r.description) { uaendret++; continue }
     aendringer.push({ id: r.id, slug: r.slug, status: r.status, foer: r.description!, efter: ny })
   }

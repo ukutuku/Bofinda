@@ -47,7 +47,7 @@ const FELTER = {
   totalMonthlyComponents: ['rent', 'heat', 'water'],
   utilitiesElectricity: null,
   electricityOwnMeter: null,
-  availableFrom: null,
+  overtagelse: { slags: 'ukendt' as const },
 }
 const UDLEDT = genererBeskrivelse(FELTER)!
 process.stdout.write(`\n  udledningen lyder: «${UDLEDT}»\n\n`)
