@@ -72,6 +72,14 @@ export function Landkort({ maerker, etiket = 'Kort over boligerne' }: {
     const naer = () => {
       const el = boks.current
       if (!el) return false
+      // En flade uden layoutboks er ikke «nær». Under `display: none` —
+      // kortspalten på en telefon efter en søgning — giver
+      // getBoundingClientRect() lutter nuller, og 0 < innerHeight + 200
+      // er sandt. Så hentede hver mobil søgning Leaflet og byggede et kort
+      // med fliser, ingen kunne se — også fra OpenStreetMap, hvis politik
+      // kun tillader fliser til det udsnit, brugeren ser. Resize-lytteren
+      // nedenfor fanger, hvis skærmen bliver bred nok til at vise det.
+      if (el.getClientRects().length === 0) return false
       const r = el.getBoundingClientRect()
       // 200 px foer kanten, saa kortet naar at staa klar.
       return r.top < window.innerHeight + 200 && r.bottom > -200

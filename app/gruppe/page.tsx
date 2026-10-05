@@ -116,7 +116,10 @@ export default async function Side(
 
       <div className="listeomraade">
         <div className="liste">
-          {boliger.map((b) => <Kort key={b.id} b={b} nu={nu} />)}
+          {/* Øverste kort er sidens LCP — se `Billedprioritet`. */}
+          {boliger.map((b, i) => (
+            <Kort key={b.id} b={b} nu={nu} billedprioritet={i === 0 ? 'hoej' : undefined} />
+          ))}
         </div>
       </div>
     </div>

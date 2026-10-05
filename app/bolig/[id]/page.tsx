@@ -6,7 +6,7 @@ import {
 import { forklar, overtagelsesudsagn } from '../../../lib/availability'
 import { billedUrl } from '../../../lib/billede'
 import { eltilstand } from '../../../lib/eloplysning'
-import { Galleri } from './Galleri'
+import { Galleri, type GalleriBillede } from './Galleri'
 import { Kontakt } from './Kontakt'
 import { Maaling } from '../../Maaling'
 import { Landkort } from '../../Landkort'
@@ -66,8 +66,8 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
   if (!b) notFound()
 
   const galleri = b.billeder
-    .map((x) => ({ lille: billedUrl(x.url, 800), stor: billedUrl(x.url, 1600) }))
-    .filter((x): x is { lille: string; stor: string } => !!x.lille && !!x.stor)
+    .map((x) => ({ lille: billedUrl(x.url, 800), stor: billedUrl(x.url, 1600), mini: billedUrl(x.url, 400) }))
+    .filter((x): x is GalleriBillede => !!x.lille && !!x.stor && !!x.mini)
 
   // `acontoIalt` er vaek. Den havde to forbrugere: restbeloebet
   // «Depositum og forudbetalt leje» (fjernet i 5bab5c7) og
@@ -122,6 +122,13 @@ export default async function Side({ params }: { params: Promise<{ id: string }>
   // Kun med kendt total OG areal: ellers sammenligner vi to forskellige
   // slags tal. Og kun hvor der er nok boliger bag medianen — se
   // MINDST_TIL_SAMMENLIGNING.
+  //
+  // Medianen regnes ved hver visning og caches IKKE på tværs af
+  // forespørgsler. unstable_cache i Next 15.5 svarer med den gamle værdi
+  // efter udløbet og genberegner bagefter — uden øvre alder, og en fejlet
+  // genberegning beholder den gamle. Så kunne «baseret på 49 boliger» stå,
+  // efter at grundlaget var faldet under grænsen. Målt i
+  // docs/hastighed-2026-10.md.
   const kvm = b.total != null && b.areal != null && b.areal > 0 && b.postnr
     ? await kvadratmeterpris(b.postnr)
     : null

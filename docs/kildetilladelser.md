@@ -912,6 +912,17 @@ Bytes er **uændrede fra kilden** — ingen omkodning, ingen skalering,
 ingen retouchering. Beskæringen sker i CSS (`object-fit: cover` +
 `object-position`), så filen i repoet altid kan holdes op mod kildens.
 
+**Afledte filer, oktober 2026.** `public/hero/hero-stue-<bredde>.webp`
+(640–2048 px) er skaleret og kodet som WebP (kvalitet 90) af
+`scripts/hero-varianter.ts`, som først tjekker originalens sha256 ovenfor
+og nægter at køre, hvis den afviger. Originalen er uændret og stadig
+`src`; varianterne står kun i srcset'en (`lib/hero.ts`). Formålet med
+reglen ovenfor holder derfor: originalen kan holdes op mod kildens, og
+varianterne kan genskabes af originalen. Pexels-licensen tillader
+bearbejdning. Ingen retouchering, intet nyt udsnit. Grunden står i
+`docs/hastighed-2026-10.md`: originalen var forsidens LCP-element og tog
+over fem sekunder at hente på en simuleret telefonforbindelse.
+
 Licensen forbyder at identificerbare personer fremstilles i et
 nedsættende lys, og at billedet sælges videre som et selvstændigt
 produkt. Ingen af delene er på tale: der er ingen personer i motivet, og
@@ -1067,7 +1078,8 @@ Derfor findes `byg.sh` overhovedet.
 #### Krav 2c — offline-kopi, prefetch, arkiv?
 
 Målt: ingen service worker, ingen `caches.open`, intet `next-pwa`, intet
-workbox, ingen flisefiler i `public/` (kun `hero-stue.jpg`), og
+workbox, ingen flisefiler i `public/` (kun `hero-stue.jpg` og dets
+WebP-varianter i `public/hero/`), og
 `next.config.ts` har ingen `headers()`. Der er ingen kode, der gemmer en
 flise nogen steder.
 

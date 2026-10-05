@@ -1923,18 +1923,27 @@ export async function hentBolig(id: string, referenceNow: Date = new Date()) {
         and ${listings.contactEmail} is not null)`,
       harKontaktTlf: sql<boolean>`(${listings.sourceType} = 'native'
         and ${listings.contactPhone} is not null)`,
+      // Billederne i SAMME sætning. De var en forespørgsel for sig, og
+      // hver forespørgsel koster to rundture til basen, når `prepare` er
+      // slået fra (postgres.js beskriver først — se
+      // docs/hastighed-2026-10.md). Rækkefølgen ER `position`, og det
+      // første billede er forsidebilledet: `order by` står derfor INDE i
+      // json_agg, ellers er ordenen tilfældig. Sætningen har et join, så
+      // Drizzle kvalificerer kolonnerne, og `${listings.id}` binder til
+      // den ydre række (jf. noten om `isSingleTable` ved UNIKKE_BILLEDER).
+      billeder: sql<{ url: string; position: number }[]>`(
+        select coalesce(json_agg(json_build_object(
+                 'url', ${listingImages.externalUrl},
+                 'position', ${listingImages.position})
+               order by ${listingImages.position}), '[]'::json)
+        from ${listingImages}
+        where ${listingImages.listingId} = ${listings.id})`,
     })
     .from(listings)
     .innerJoin(sources, eq(sources.id, listings.sourceId))
     .where(eq(listings.id, id))
     .limit(1)
   if (!b) return null
-
-  const billeder = await db
-    .select({ url: listingImages.externalUrl, position: listingImages.position })
-    .from(listingImages)
-    .where(eq(listingImages.listingId, id))
-    .orderBy(asc(listingImages.position))
 
   // Beskrivelsen afgoeres ÉT sted. `gemtBeskrivelse` destruktureres ud, saa
   // kolonnen ikke kan laeses direkte af en skabelon: er den med i typen,
@@ -1954,7 +1963,7 @@ export async function hentBolig(id: string, referenceNow: Date = new Date()) {
     overtagelse: overtagelsesudsagn(availabilityFor(b, referenceNow).timing),
   })
 
-  return { ...resten, beskrivelse, billeder }
+  return { ...resten, beskrivelse }
 }
 
 export type BoligDetalje = NonNullable<Awaited<ReturnType<typeof hentBolig>>>
