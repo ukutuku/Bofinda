@@ -38,6 +38,22 @@
 
 import { useEffect, useRef, useState } from 'react'
 
+/** `form.reset()` for de felter, der står INDE i `rod` — og ingen andre.
+ *  Samme regel som reset: hvert felt tilbage til sin `default…`-værdi. */
+function nulstilFelterne(rod: HTMLElement) {
+  for (const e of rod.querySelectorAll('input, select, textarea')) {
+    if (e instanceof HTMLInputElement) {
+      if (e.type === 'checkbox' || e.type === 'radio') e.checked = e.defaultChecked
+      else e.value = e.defaultValue
+    } else if (e instanceof HTMLSelectElement) {
+      const valgt = [...e.options].findIndex((o) => o.defaultSelected)
+      e.selectedIndex = valgt >= 0 ? valgt : 0
+    } else if (e instanceof HTMLTextAreaElement) {
+      e.value = e.defaultValue
+    }
+  }
+}
+
 /** Faste id'er: knappen og vinduet skal kunne finde hinanden uden en
  *  context, og fokus skal kunne vende tilbage til netop den knap. */
 const KNAP_ID = 'filterknap'
@@ -113,11 +129,15 @@ export function Filterdialog({
   const luk = () => {
     const d = dialog.current
     if (!d) return
-    // Felterne tilbage til det, søgningen FAKTISK er sat til. `reset()`
-    // sætter dem til deres `defaultValue`, og den kommer fra de gældende
-    // filtre — så en forladt kladde ikke overlever som noget, der ligner
-    // en gældende søgning.
-    d.closest('form')?.reset()
+    // Felterne tilbage til det, søgningen FAKTISK er sat til — så en
+    // forladt kladde ikke overlever som noget, der ligner en gældende
+    // søgning. Hvert felts `default…` kommer fra de gældende filtre.
+    //
+    // KUN VINDUETS EGNE FELTER. Her stod `form.reset()`, og formularen er
+    // større end vinduet: på forsiden står pris, størrelse, indflytning og
+    // husdyr i panelet, og på resultatsiden står området i søgelinjen. En
+    // lukning af vinduet slettede altså det, hun lige havde skrevet dér.
+    nulstilFelterne(d)
     d.close()
   }
 

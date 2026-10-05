@@ -2828,3 +2828,409 @@ form.filtre.soegt .soegefelt input { font-size: 14.5px; }
   .fakta { margin-top: 8px; }
   .kort-fod { padding-top: 8px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Designløft efter den fastlagte reference (bofinda_original.png)
+   ───────────────────────────────────────────────────────────────
+   Står SIDST med vilje: blokken overtager forsidens hero, panel,
+   tal, funktionskort og udlejerbånd, og kortene. Reglerne ovenfor er
+   urørte, så en sammenligning før/efter er én blok at læse.
+   Afvigelser fra referencen står ved den regel, der laver dem.
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --ikon-pote: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cellipse cx='7' cy='9' rx='1.7' ry='2.3'/%3E%3Cellipse cx='11' cy='5.6' rx='1.7' ry='2.3'/%3E%3Cellipse cx='15.5' cy='6.2' rx='1.7' ry='2.3'/%3E%3Cellipse cx='18.6' cy='10.4' rx='1.6' ry='2.1'/%3E%3Cpath d='M8.2 17.4c0-2.6 2.1-5.4 4.3-5.4s4.3 2.8 4.3 5.4c0 2-1.7 2.6-4.3 2.1-2.6.5-4.3-.1-4.3-2.1Z'/%3E%3C/svg%3E");
+  --ikon-seng: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 18V7M3 14h18v4M21 14v-2.5a3 3 0 0 0-3-3h-7v5.5'/%3E%3Ccircle cx='7' cy='11' r='1.8'/%3E%3C/svg%3E");
+  --ikon-noegle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='8' cy='15' r='4.2'/%3E%3Cpath d='M11 12l8.5-8.5M16.5 6.5l2.5 2.5M14.5 8.5l2 2'/%3E%3C/svg%3E");
+  --ikon-klokke: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 16V11a6 6 0 0 1 12 0v5l1.6 2H4.4Z'/%3E%3Cpath d='M10 20.5a2.2 2.2 0 0 0 4 0'/%3E%3C/svg%3E");
+  --ikon-pil-ned: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  --varm:  #f6f2ec;
+}
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ── Hero: stort foto, tekst til venstre, lys varm flade ─────────
+   Referencen: fotoet er synligt på hele højre side og falder blødt ud
+   mod en lys venstreside, hvor teksten står. Sløret dækker KUN
+   venstre tredjedel og bunden; før lå et lag over hele billedet. */
+.hero {
+  padding: clamp(40px, 4.2vw, 62px) 0 0;
+  background: var(--varm);
+  margin-bottom: 0;
+}
+/* Fotoet fylder heroens højre to tredjedele, som i referencen, og
+   falder ud mod venstre. Lå det under hele bredden, blev beskæringen
+   kun lodret, og motivet havnede bag teksten. */
+/* Venstre kant regnes af TEKSTEN, ikke af vinduet: tekstblokken er højst
+   ~600 px bred fra rammens indre kant, og fotoet begynder først efter
+   den. Ellers lå brødteksten over fotoet ved 1920 px, og herokontrollen
+   kræver 4,5:1 over ethvert motiv — også et helt sort. Sløret ligger
+   derfor på fotoets egen venstre kant og aldrig under teksten. */
+.hero-billede { left: max(34%, calc((100% - var(--ramme)) / 2 + 622px), 622px); }
+.hero-billede::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, var(--varm) 0%, rgba(246,242,236,.55) 12%, rgba(246,242,236,0) 30%);
+}
+.hero-billede img { object-position: 50% 62%; }
+.hero.har-foto::after {
+  background:
+    linear-gradient(180deg, rgba(246,242,236,0) 58%, rgba(246,242,236,.75) 80%, var(--varm) 96%);
+}
+.hero-oejenbryn {
+  font-size: 12.5px; font-weight: 600; letter-spacing: .17em;
+  color: #3d4540; margin-bottom: 16px;
+}
+.hero h1 {
+  font-size: clamp(32px, 3.3vw, 47px); font-weight: 660;
+  letter-spacing: -0.032em; line-height: 1.08; max-width: 15ch;
+  color: #14211e; margin-bottom: 16px;
+}
+.h1-linje { display: block; }
+.hero-manchet { font-size: clamp(15.5px, 1.25vw, 18px); max-width: 46ch; color: #39403d; }
+
+/* Panelet: referencens brede hvide kort, der flyder ned over heroens
+   underkant, med fanerne hægtet på øverste venstre hjørne. */
+.hero-soeg {
+  margin-top: clamp(22px, 2vw, 30px); transform: translateY(56px);
+}
+.hero { margin-bottom: 56px; }
+.soegefaner {
+  display: inline-flex; position: relative; z-index: 1;
+  background: #fff; border: 1px solid var(--linje); border-bottom: 0;
+  border-radius: var(--r-l) var(--r-l) 0 0; padding: 6px 6px 0;
+  box-shadow: 0 -4px 14px rgba(20,22,26,.04);
+}
+.soegefaner a {
+  display: inline-flex; align-items: center; gap: 9px; min-height: 48px;
+  padding: 0 22px; color: #3c4441; text-decoration: none;
+  font-size: 15px; font-weight: 560; border-bottom: 2px solid transparent;
+}
+.soegefaner a[aria-current="page"] {
+  color: var(--accent-mrk); font-weight: 650; border-bottom-color: var(--accent);
+}
+.soegefaner a:not([aria-current]) { background: var(--sand); border-radius: 11px 11px 0 0; }
+.soegefaner a:not([aria-current]):hover { color: var(--accent-mrk); }
+.soegefaner a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px; }
+.sf-ikon {
+  width: 19px; height: 19px; background: currentColor;
+  -webkit-mask: var(--ikon-hus) center/contain no-repeat; mask: var(--ikon-hus) center/contain no-repeat;
+}
+.sfi-seng { -webkit-mask-image: var(--ikon-seng); mask-image: var(--ikon-seng); }
+.hero form.filtre {
+  border-radius: 0 var(--r-l) var(--r-l) var(--r-l);
+  padding: 16px 16px 14px;
+  box-shadow: 0 2px 4px rgba(20,22,26,.04), 0 18px 44px rgba(20,22,26,.10);
+}
+.forsidepanel { display: flex; gap: 12px; align-items: stretch; }
+/* Kolonnerne følger antallet af felter: «Husdyr tilladt» står kun,
+   når en kilde oplyser det (et filter, der aldrig kan give træf, vises
+   ikke). Fire eller fem felter fylder derfor altid hele rækken. */
+.fp-felter {
+  flex: 1 1 auto; min-width: 0; display: grid;
+  grid-template-columns: minmax(0, 1.3fr); grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  border: 1px solid var(--linje); border-radius: var(--r);
+}
+.fp-felt {
+  display: flex; flex-direction: column; justify-content: center; gap: 5px;
+  padding: 11px 16px; min-width: 0; border-left: 1px solid var(--linje);
+}
+.fp-felt:first-child { border-left: 0; }
+.fp-felt label, .fp-navn {
+  font-size: 13px; font-weight: 600; color: var(--tekst); line-height: 1.3;
+}
+.fp-vaerdi { display: flex; align-items: center; gap: 9px; min-width: 0; position: relative; }
+.fp-ikon {
+  width: 18px; height: 18px; flex: none; background: #59615e;
+  -webkit-mask: var(--ikon-sted) center/contain no-repeat; mask: var(--ikon-sted) center/contain no-repeat;
+}
+.fi-areal { -webkit-mask-image: var(--ikon-maal); mask-image: var(--ikon-maal); }
+.fi-kalender { -webkit-mask-image: var(--ikon-kalender); mask-image: var(--ikon-kalender); }
+.fi-pote { -webkit-mask-image: var(--ikon-pote); mask-image: var(--ikon-pote); }
+.fp-vaerdi input, .fp-vaerdi select {
+  font: inherit; font-size: 15px; color: var(--tekst); border: 0; background: none;
+  padding: 3px 0; min-width: 0; width: 100%; min-height: 28px;
+}
+.fp-vaerdi input::placeholder { color: #6a716e; }
+.fp-vaerdi select {
+  -webkit-appearance: none; appearance: none; padding-right: 22px; cursor: pointer;
+  text-overflow: ellipsis;
+}
+.fp-valg .fp-vaerdi::after {
+  content: ''; position: absolute; right: 0; top: 50%; width: 15px; height: 15px;
+  margin-top: -7.5px; background: #59615e; pointer-events: none;
+  -webkit-mask: var(--ikon-pil-ned) center/contain no-repeat; mask: var(--ikon-pil-ned) center/contain no-repeat;
+}
+.fp-pris input { width: 0; flex: 1 1 0; }
+.fp-til { color: var(--svag); }
+.fp-vaerdi input:focus, .fp-vaerdi select:focus { outline: none; }
+.fp-felt:focus-within { background: var(--accent-lys); box-shadow: inset 0 0 0 2px var(--accent); }
+.fp-felt:first-child:focus-within { border-radius: var(--r) 0 0 var(--r); }
+.fp-felt:last-child:focus-within { border-radius: 0 var(--r) var(--r) 0; }
+.fp-knap {
+  min-height: 64px; padding: 0 30px; font-size: 16px; border-radius: var(--r);
+  background: var(--accent-mrk);
+}
+.fp-knap:hover { background: #052a25; }
+.hero .populaere {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px 18px;
+  margin: 12px 4px 0; flex-wrap: wrap;
+}
+.pop-liste {
+  margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 20px;
+  font-size: 13.5px; min-width: 0;
+}
+.pop-liste .pop-navn { color: #3e4542; font-weight: 520; }
+.pop-liste a {
+  color: var(--accent-mrk); text-decoration: none; font-weight: 520;
+  display: inline-block; padding: 2px 0; margin: -2px 0;
+}
+.pop-liste a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.hero .populaere .filterknap {
+  display: inline-flex; margin: 0; min-height: 40px; font-size: 14px; padding: 0 14px;
+  color: var(--tekst); font-weight: 570;
+}
+
+/* ── Tallene: referencens ikonrække på den lyse flade ─────────────
+   Ingen kortflade — referencen lader dem stå på bunden, adskilt af
+   lodrette streger. Tallene er de regnede; se noten ved .talstribe. */
+.talstribe.punkter {
+  margin-top: 20px; background: none; border: 0; box-shadow: none; border-radius: 0;
+}
+.talstribe.punkter li { padding: 10px 26px; }
+.talstribe.punkter li::before { width: 32px; height: 32px; background: var(--accent-mrk); opacity: 1; }
+.talstribe.punkter strong { font-size: 25px; font-weight: 680; color: #14211e; letter-spacing: -0.02em; }
+.talstribe.punkter strong.ord { font-size: 17px; color: #14211e; }
+.talstribe.punkter span { font-size: 13.5px; color: #4f5753; }
+.hero ~ .grundlagsnote { margin: 4px 26px 0; font-size: 12.5px; color: var(--svag); }
+
+/* ── Funktionskort: fire på en række ─────────────────────────── */
+.funktioner { margin-top: 22px; }
+.funktioner .kortgitter { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+.funktioner .infokort {
+  border-radius: var(--r-l); padding: 20px 22px 20px;
+  box-shadow: 0 1px 2px rgba(20,22,26,.03), 0 8px 24px rgba(20,22,26,.05);
+}
+.funktioner .ik-flise { width: 46px; height: 46px; border-radius: 12px; background: #e9f1ed; margin-bottom: 14px; }
+.funktioner .ik-flise::before { inset: 12px; background: var(--accent-mrk); }
+.ik-klokke::before { -webkit-mask-image: var(--ikon-klokke); mask-image: var(--ikon-klokke); }
+.ik-noegle::before { -webkit-mask-image: var(--ikon-noegle); mask-image: var(--ikon-noegle); }
+.funktioner .infokort h3 { font-size: 17.5px; font-weight: 650; margin-bottom: 8px; color: #14211e; }
+.funktioner .infokort p { font-size: 14.5px; color: #4f5753; line-height: 1.55; }
+.funktioner .ik-link {
+  margin-top: auto; padding-top: 16px; color: var(--accent-mrk); font-weight: 620;
+  min-height: 24px;
+}
+
+/* ── Udlejerbåndet: grønt, fotografisk, med et hvidt kort ────────
+   Referencens facadefoto findes ikke med afklaret herkomst; båndet
+   bruger et andet udsnit af det samme stuefoto. Anmeldelsen er
+   erstattet af formularens egne trin. */
+.udlejerbaand {
+  position: relative; isolation: isolate; margin-top: 28px;
+  display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, .5fr) auto;
+  align-items: center; gap: 28px; padding: 44px clamp(26px, 3.4vw, 48px);
+  background: var(--accent-mrk); min-height: 290px;
+}
+.ub-foto { position: absolute; inset: 0 0 0 36%; z-index: -2; }
+/* Et tæt udsnit af vinduet og reolen, så båndet ikke gentager heroens
+   motiv. Skaleringen sker fra et 2048 px-original, så udsnittet stadig
+   nedskaleres ved 1440 px. */
+.ub-foto { overflow: hidden; }
+.ub-foto img {
+  width: 100%; height: 100%; object-fit: cover; object-position: 92% 30%; display: block;
+  transform: scale(1.7); transform-origin: 94% 34%;
+}
+.udlejerbaand::before {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(90deg, var(--accent-mrk) 0%, var(--accent-mrk) 36%,
+    rgba(8,58,52,.78) 48%, rgba(8,58,52,.18) 68%, rgba(8,58,52,0) 80%);
+}
+.ub-tekst { max-width: 50ch; }
+.udlejerbaand h2 { font-size: clamp(25px, 2.4vw, 34px); font-weight: 680; line-height: 1.15; }
+.udlejerbaand .ub-knap { margin-top: 22px; border-radius: var(--r); gap: 8px; }
+.ub-kort {
+  grid-column: 3; background: #fff; color: var(--tekst);
+  border-radius: var(--r-l); padding: 22px 26px; max-width: 330px;
+  box-shadow: 0 18px 40px rgba(0,0,0,.18);
+}
+.ub-kort h3 { margin: 0 0 12px; font-size: 16px; font-weight: 650; color: #14211e; }
+.ub-kort ol { margin: 0; padding: 0; list-style: none; counter-reset: trin; display: grid; gap: 10px; }
+.ub-kort li {
+  counter-increment: trin; display: grid; grid-template-columns: 26px 1fr; gap: 10px;
+  font-size: 14.5px; line-height: 1.45; color: #39403d;
+}
+.ub-kort li::before {
+  content: counter(trin); width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center; background: #e9f1ed; color: var(--accent-mrk);
+  font-size: 13px; font-weight: 700;
+}
+.resultathoved { margin-top: 8px; }
+.hero ~ .resultathoved { margin-top: 48px; }
+
+@media (max-width: 1100px) {
+  .fp-felter { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-flow: row; }
+  .fp-felt:nth-child(4) { border-left: 0; }
+  .fp-felt:nth-child(n+4) { border-top: 1px solid var(--linje); }
+  .funktioner .kortgitter { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .udlejerbaand { grid-template-columns: minmax(0, 1fr) auto; }
+  .ub-kort { grid-column: 2; }
+}
+@media (max-width: 900px) {
+  /* Ingen venstreside at lægge teksten i: fotoet står som et billede
+     over teksten i stedet for under et slør over det hele. Referencen
+     viser ikke heroen på en telefon; det her holder fotoet SYNLIGT,
+     som desktopreferencen beder om, frem for at vaske det ud. */
+  .hero { padding-top: 0; }
+  .hero-billede { position: relative; inset: auto; left: auto; height: clamp(200px, 46vw, 340px); z-index: 0; }
+  .hero-billede::after { display: none; }
+  .hero.har-foto::after { display: none; }
+  .hero-indhold { padding-top: 24px; }
+  .forsidepanel { flex-direction: column; }
+  .fp-knap { min-height: 52px; }
+  .udlejerbaand { grid-template-columns: minmax(0, 1fr); padding: 0 0 26px; min-height: 0; }
+  .ub-foto { position: relative; inset: auto; height: 190px; z-index: 0; }
+  .udlejerbaand::before { display: none; }
+  .ub-tekst, .ub-kort { margin: 0 22px; }
+  .ub-kort { grid-column: 1; max-width: none; }
+}
+@media (max-width: 760px) {
+  .hero-soeg { transform: translateY(40px); }
+  .hero { margin-bottom: 40px; padding-top: 0; }
+  .hero-indhold { padding-top: 22px; }
+  .fp-felter { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row; }
+  .fp-felt { border-left: 1px solid var(--linje); border-top: 1px solid var(--linje); }
+  .fp-felt:nth-child(1) { grid-column: 1 / -1; border-left: 0; border-top: 0; }
+  .fp-felt:nth-child(even) { border-left: 0; }
+  .fp-felt:last-child:nth-child(even) { grid-column: 1 / -1; }
+  .fp-felt:first-child:focus-within, .fp-felt:last-child:focus-within { border-radius: 0; }
+  .soegefaner a { padding: 0 16px; }
+  .talstribe.punkter { margin-top: 22px; }
+  .funktioner .kortgitter { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .funktioner .infokort {
+    display: grid; grid-template-columns: 44px minmax(0, 1fr); column-gap: 14px;
+    padding: 16px 18px;
+  }
+  .funktioner .ik-flise { grid-row: 1 / span 3; width: 44px; height: 44px; margin: 0; }
+  .funktioner .ik-flise::before { inset: 11px; }
+  .funktioner .ik-link { padding-top: 8px; }
+}
+@media (max-width: 520px) {
+  .fp-vaerdi input, .fp-vaerdi select { font-size: 16px; }
+  .fp-felt { padding: 10px 13px; }
+  .talstribe.punkter li { padding: 7px 4px; }
+  .talstribe.punkter strong { font-size: 17px; }
+  .hero .populaere { flex-direction: column; align-items: stretch; }
+  .hero .populaere .filterknap { min-height: 44px; }
+}
+
+/* ── Boligkortene: referencens billedbårne mobilkort ─────────────
+   Stort foto med mærkatet på billedet, fed overskrift, et tydeligt
+   beløb og en grå faktalinje. Markuppen er urørt; prisen beholder sin
+   GRØNNE farve, hvor referencen er sort: grøn betyder «total til
+   udlejer kendt», sort «kun husleje» (se .kort-pris.kun-leje). Den
+   forskel er et prisforbehold og vinder over billedet. Hjertet er
+   udeladt: favoritter findes ikke. */
+.kort {
+  border-color: #ebe7df; border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(20,22,26,.03), 0 6px 20px rgba(20,22,26,.05);
+}
+.kort-billede { aspect-ratio: 16/10; }
+.kort-maerkater .maerkat.m-ny {
+  background: var(--accent-mrk); color: #fff; border-radius: 7px;
+  font-size: 12px; font-weight: 620; padding: 4px 10px;
+}
+.kort-maerkater { left: 12px; top: 12px; }
+.kort-krop { padding: 16px 18px 16px; }
+.kort-overskrift { font-size: 18px; font-weight: 680; letter-spacing: -0.022em; line-height: 1.28; color: #14211e; }
+.adresse { font-size: 14.5px; color: #4f5753; margin-top: 4px; }
+.kort-meta { font-size: 13px; color: #626a66; margin-top: 8px; }
+.oekonomi-linje { margin-top: 12px; }
+.kort-pris { font-size: 24px; font-weight: 720; color: var(--accent-mrk); letter-spacing: -0.03em; }
+.kort-pris.kun-leje { color: #14211e; }
+.kort-pris small { font-size: 13px; color: #59615d; }
+@container boligkort (max-width: 460px) {
+  .kort-billede { aspect-ratio: 3/2; }
+  .kort-krop { padding: 14px 16px 14px; }
+  .kort-overskrift { font-size: 18px; }
+}
+@media (max-width: 760px) {
+  .hero-soeg { margin-top: 22px; }
+}
+
+/* ── Søgeresultater og boligdetalje: samme formsprog (TILPASNING) ──
+   Referencen viser hverken resultatsiden eller boligsiden. De får
+   forsidens greb — den mørkegrønne handlingsknap, panelets skygge og
+   radier og den varme flade — uden nye elementer eller flyttet indhold. */
+.soegeknap { background: var(--accent-mrk); }
+.soegeknap:hover { background: #052a25; }
+form.filtre.soegt {
+  border-color: #ebe7df; border-radius: var(--r-l);
+  box-shadow: 0 2px 4px rgba(20,22,26,.04), 0 14px 34px rgba(20,22,26,.07);
+}
+.sidetitel h1, .detalje-hoved h1 { color: #14211e; }
+.oek-kort {
+  border-color: #ebe7df;
+  box-shadow: 0 2px 4px rgba(20,22,26,.04), 0 18px 44px rgba(20,22,26,.09);
+}
+.oek-tal { color: var(--accent-mrk); }
+/* Kildens navn kan være langt; knappen bryder hellere end at løbe ud. */
+.oek-kort .knap {
+  background: var(--accent-mrk); border-radius: var(--r);
+  padding: 14px 16px; overflow-wrap: anywhere; text-wrap: balance; min-height: 52px;
+}
+.oek-kort .knap:hover { background: #052a25; }
+.blok { border-color: #ebe7df; border-radius: var(--r-l); box-shadow: 0 1px 2px rgba(20,22,26,.03), 0 6px 20px rgba(20,22,26,.04); }
+
+/* ═══════════════════════════════════════════════════════════════
+   Færdiggørelse af designløftet: forklaringerne ved felterne,
+   «Flere filtre» uden byer og en kompakt mobil.
+   Referenceudtrykket er uændret; her rettes rækkefølge og plads.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Panelet bryder efter felterne og knappen, så forklaringerne står på
+   deres egen række under dem — læselige, ikke klemt ind i cellerne. */
+.forsidepanel { flex-wrap: wrap; row-gap: 10px; }
+.fp-felter { flex: 1 1 0; }
+.fp-noter {
+  flex: 1 1 100%; display: grid; gap: 4px 28px; margin: 0; padding: 2px 4px 0;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+.fp-note { margin: 0; font-size: 12.5px; line-height: 1.5; color: #4f5753; }
+.fp-note b { color: var(--tekst); font-weight: 620; }
+/* Knappen bliver i højre side, også når der ingen genveje er foran den. */
+.hero .populaere .filterknap { margin-left: auto; }
+
+/* Rækkefølgen: tal → Nyeste boliger → funktionskort og udlejerbånd. */
+.hero ~ .resultathoved { margin-top: 36px; }
+.funktioner { margin-top: 48px; }
+
+/* ── Mobil: søgehandlingen i første skærmbillede ─────────────────
+   Komposition og afstande, ikke mindre skrift: fotoet er lavere,
+   luften mellem delene strammere, og felterne står tættere. Teksten
+   bevarer sine størrelser (brødtekst 15 px, felter 16 px), og alle
+   klikflader er mindst 44 px høje. */
+@media (max-width: 760px) {
+  .hero-billede { height: clamp(132px, 36vw, 260px); }
+  .hero-indhold { padding-top: 16px; }
+  .hero-oejenbryn { margin-bottom: 8px; }
+  .hero h1 { margin-bottom: 8px; }
+  /* Ingen overlapning på en telefon: fotoet står OVER teksten, så der er
+     intet at lægge panelet ind over, og en forskydning er bare luft. */
+  .hero-soeg { margin-top: 16px; transform: none; }
+  .hero { margin-bottom: 0; }
+  .soegefaner { padding: 4px 4px 0; }
+  .soegefaner a { min-height: 44px; }
+  .hero form.filtre { padding: 12px; }
+  .forsidepanel { gap: 10px; }
+  .fp-felt { padding: 8px 12px; gap: 3px; }
+  .fp-knap { min-height: 50px; }
+  .hero ~ .resultathoved { margin-top: 28px; }
+  .funktioner { margin-top: 32px; }
+}
+@media (max-width: 520px) {
+  .hero h1 { font-size: 30px; }
+  .hero-manchet { font-size: 15px; line-height: 1.5; }
+  .fp-felt { padding: 8px 12px; }
+}

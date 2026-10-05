@@ -75,13 +75,45 @@ const fyld = (liste) => {
   for (let i = 0; i < 4; i++) ud.push(liste[i % liste.length])
   return ud
 }
-const MOTIVER = RIGTIGE
-  ? fyld(fotos.map((f) => `${AKTIV}/foto/${f}`))
-  : ['staaende', 'liggende', 'lys', 'moerk'].map((f) => `${AKTIV}/form-${f}.png`)
+const browser = await chromium.launch({ executablePath: findChromium() })
+
+// ── Hvilke motiver er liggende, og hvilke er staaende? ─────────
+//  Maalt i browseren paa filernes egne maal, ikke paa navnet. Foer tog
+//  kontrollen de FOERSTE fire filer i navneorden, og det staaende motiv
+//  sorterede sidst («maal-staaende.jpg» efter «maal-48.jpg») — saa
+//  lysbordets staaende proeve blev aldrig koert, og kortets beskaering
+//  saa kun liggende motiver. Nu faar galleriet tre liggende og ét
+//  staaende, og de to kort faar hver sin retning. Mangler en retning i
+//  mappen, siges det, og proeven, der kraever den, staar som IKKE koert.
+const motivmaal = RIGTIGE ? await (async () => {
+  const ctx = await browser.newContext()
+  const p = await ctx.newPage()
+  const ud = await p.evaluate((urls) => Promise.all(urls.map((u) => new Promise((ok) => {
+    const i = new Image()
+    i.onload = () => ok({ u, b: i.naturalWidth, h: i.naturalHeight })
+    i.onerror = () => ok({ u, b: 0, h: 0 })
+    i.src = u
+  }))), fotos.map((f) => `${AKTIV}/foto/${f}`))
+  await ctx.close()
+  return ud
+})() : []
+const LIGGENDE = motivmaal.filter((m) => m.b > m.h).map((m) => m.u)
+const STAAENDE = motivmaal.filter((m) => m.h > m.b).map((m) => m.u)
+const MOTIVER = !RIGTIGE
+  ? ['staaende', 'liggende', 'lys', 'moerk'].map((f) => `${AKTIV}/form-${f}.png`)
+  : LIGGENDE.length && STAAENDE.length
+    ? [...fyld(LIGGENDE).slice(0, 3), STAAENDE[0]]
+    : fyld(fotos.map((f) => `${AKTIV}/foto/${f}`))
+// Kortenes forsidebilleder: det ene liggende, det andet staaende.
+const KORTMOTIVER = [MOTIVER[0], RIGTIGE ? (STAAENDE[0] ?? MOTIVER[0]) : MOTIVER[0]]
+const retning = (u) => (STAAENDE.includes(u) ? 'staaende' : LIGGENDE.includes(u) ? 'liggende' : 'genereret')
 
 console.log(RIGTIGE
   ? `\n  FOTOKONTROL — ${fotos.length} fotografi(er) fra ${svar.mappe}\n`
-    + `    ${fotos.join(', ')}\n`
+    + `    ${LIGGENDE.length} liggende · ${STAAENDE.length} staaende (maalt i browseren)\n`
+    + `    galleriets motiver: ${MOTIVER.map((u) => `${u.split('/').pop()} (${retning(u)})`).join(', ')}\n`
+    + `    kortenes forsidebilleder: ${KORTMOTIVER.map((u) => `${u.split('/').pop()} (${retning(u)})`).join(', ')}\n`
+    + (STAAENDE.length ? '' : '    ⚠ INTET staaende motiv i mappen — de staaende proever koeres IKKE.\n')
     + (fotos.length < 4
       ? `    Bemaerk: der er ${fotos.length}, ikke fire. Motivet gentages i galleriet,\n`
         + '    saa de tre ruder og «Se alle N billeder» kan proeves — det er det SAMME\n'
@@ -101,7 +133,6 @@ const MAERKAT = RIGTIGE
 const sql = postgres(url, { max: 1 })
 
 mkdirSync(UD, { recursive: true })
-const browser = await chromium.launch({ executablePath: findChromium() })
 
 // ── Hvilke annoncer kan vi overhovedet SE? ─────────────────────
 //  Foerste udgave valgte de to annoncer med flest billeder direkte i
@@ -139,7 +170,7 @@ try {
   // Annonce 1 faar ALLE motiver, saa galleriet og lysbordet kan proeves.
   // Annonce 2 faar det foerste motiv alene — kortets forsidebillede.
   await saetMotiver(IDS[0], MOTIVER)
-  await saetMotiver(IDS[1], [MOTIVER[0]])
+  await saetMotiver(IDS[1], [KORTMOTIVER[1]])
 
   for (const bredde of [1440, 768, 390]) {
     const merke = bredde === 390 ? 'mobil' : bredde === 768 ? 'tablet' : 'desktop'
@@ -176,37 +207,55 @@ try {
       document.body.appendChild(d)
     }, MAERKAT)
 
-    // ── Kortet: det foerste motiv som forsidebillede ────────────
+    // ── Kortet: hvert kort med sit eget motiv som forsidebillede ──
+    //  Kortbillederne er lazy. Foer blev de maalt fra toppen af siden,
+    //  og ligger listen under foldet, er et lazy-billede endnu ikke
+    //  hentet: 0×0 blev meldt som «ikke dekodet» om et billede, ingen
+    //  havde bedt om. Nu rulles hvert kort ind, og der ventes paa, at
+    //  billedet ER det tildelte motiv (`u` i proxyadressen) og er
+    //  dekodet. Lazy-loading er urørt.
     await p.goto(`${BASE}/`, { waitUntil: 'networkidle', timeout: 90_000 })
     await p.waitForTimeout(400)
     await saetMaerkat()
-    const kort = await p.evaluate((ids) => {
-      const ud = []
-      for (const id of ids) {
+    const kort = []
+    for (const [i, id] of IDS.entries()) {
+      const a = p.locator(`a.kort[data-bolig="${id}"]`).first()
+      if (!(await a.count())) { kort.push({ id, fandt: false }); continue }
+      await a.scrollIntoViewIfNeeded()
+      const ventet = KORTMOTIVER[i]
+      const klar = await p.waitForFunction(([id, u]) => {
+        const img = document.querySelector(`a.kort[data-bolig="${id}"] .kort-billede img`)
+        if (!img) return false
+        const kilde = new URL(img.currentSrc || img.src, location.href).searchParams.get('u')
+        return kilde === u && img.complete && img.naturalWidth > 0
+      }, [id, ventet], { timeout: 20_000 }).then(() => true).catch(() => false)
+      await p.mouse.move(2, 2)
+      kort.push({ ...(await p.evaluate((id) => {
         const a = document.querySelector(`a.kort[data-bolig="${id}"]`)
         const img = a && a.querySelector('.kort-billede img')
-        if (!img) { ud.push({ id, fandt: false }); continue }
-        const r = img.getBoundingClientRect()
-        const s = getComputedStyle(img)
-        const ramme = img.parentElement.getBoundingClientRect()
-        ud.push({
+        if (!img) return { id, fandt: false }
+        const ramme = img.parentElement
+        return {
           id, fandt: true,
+          kilde: new URL(img.currentSrc || img.src, location.href).searchParams.get('u'),
           nat: [img.naturalWidth, img.naturalHeight],
-          vist: [Math.round(r.width), Math.round(r.height)],
-          rammeForhold: +(ramme.width / ramme.height).toFixed(3),
-          objectFit: s.objectFit,
-          dekodet: img.naturalWidth > 0,
+          // Layoutkassen, ikke den tegnede: hover skalerer billedet.
+          vist: [img.offsetWidth, img.offsetHeight],
+          rammeForhold: +(ramme.clientWidth / ramme.clientHeight).toFixed(3),
+          objectFit: getComputedStyle(img).objectFit,
+          dekodet: img.complete && img.naturalWidth > 0,
           kortHoejde: Math.round(a.getBoundingClientRect().height),
           kortBredde: Math.round(a.getBoundingClientRect().width),
-        })
-      }
-      return ud
-    }, IDS)
+        }
+      }, id)), klar, ventet })
+    }
 
     for (const k of kort) {
       const maerke = `${merke} · kort ${k.id.slice(0, 8)}`
       if (!k.fandt) { tjek(`${maerke} · billedet er i kortet`, false, 'intet <img>'); continue }
-      tjek(`${maerke} · motivet er dekodet`, k.dekodet, `${k.nat[0]}×${k.nat[1]} px`)
+      tjek(`${maerke} · kortet viser det tildelte motiv (${retning(k.ventet)})`,
+        k.kilde === k.ventet, `${(k.kilde ?? 'intet').split('/').pop()} — ventet ${k.ventet.split('/').pop()}`)
+      tjek(`${maerke} · motivet er dekodet efter indrulning`, k.klar && k.dekodet, `${k.nat[0]}×${k.nat[1]} px`)
       // `cover` beskaerer; `fill` ville STRAEKKE. Det er forskellen
       // mellem et beskaaret motiv og et forvraenget.
       tjek(`${maerke} · beskæres (cover), strækkes ikke`, k.objectFit === 'cover', k.objectFit)

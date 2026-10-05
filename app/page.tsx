@@ -491,6 +491,51 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
   // Samme formular i begge tilstande — kun pladsen skifter. Paa forsiden
   // ligger den inde i hero-baandet, paa resultatsiden staar den alene
   // over listen.
+  // Værelser som fane og genvej — kun når søgningen KAN give træf.
+  const vaerelser = typeGrundlag.typer.find((t) => t.type === 'vaerelse')?.antal ?? 0
+
+  // ── Forklaringerne står ÉT sted og bruges to ───────────────────
+  // Felterne pris, indflytning og husdyr står i forsidens panel og i
+  // filtervinduet på resultatsiden. Forklaringen skal følge feltet hen,
+  // hvor det står — i c0575bf lå den kun i vinduets `soegt`-gren og
+  // faldt ud af forsiden. To afskrifter af samme sætning driver fra
+  // hinanden; derfor beregnes de her og bruges begge steder.
+  const prisNote = 'Prisen er husleje plus den aconto, kilden opkræver. '
+    + 'Boliger, hvor vi kun kender huslejen, måles på den.'
+  // Drives af fortolkAvailability — aldrig af rå jsonb, legacy
+  // available_from eller application_type. Grundlaget gælder DEN AKTUELLE
+  // søgning, og de ukendte har ord: et filter viser kun dokumenterede
+  // træf, og så skal det stå, hvor mange der ikke kunne vurderes.
+  const overtagelseNote = (
+    <>
+      {avGrundlag.timing.nu.toLocaleString('da-DK')} kan overtages nu ·{' '}
+      {avGrundlag.timing.senere.toLocaleString('da-DK')} senere ·{' '}
+      {(avGrundlag.timing.unknown + avGrundlag.timing.conflict).toLocaleString('da-DK')} uden
+      oplyst dato — de vises ikke, hvis du vælger et tidspunkt
+    </>
+  )
+  // Faciliteter er en POSITIV liste: et filter viser kun boliger, hvis
+  // kilde NÆVNER faciliteten, og de tre grupper skal stå. Samme linje i
+  // vinduet og under panelets «Husdyr tilladt».
+  const facilitetLinje = (n: (typeof FACILITETSNOEGLER)[number]) => {
+    const oplyser = grundlag[n]
+    return (
+      <>
+        <b>{stortForbogstav(FACILITETSNAVN[n])}</b>:{' '}
+        {oplyser.toLocaleString('da-DK')} nævner det ·{' '}
+        {(grundlag.antal - grundlag.tier - oplyser).toLocaleString('da-DK')}
+        {' '}nævner andre faciliteter ·{' '}
+        {grundlag.tier.toLocaleString('da-DK')} mangler oplysninger og vises ikke
+      </>
+    )
+  }
+  const husdyrIPanelet = fac.faciliteter.kaeledyr > 0
+  // Genvejene i panelets bund. Byerne er én slags; de øvrige afhænger
+  // ikke af dem, og «Flere filtre» afhænger af ingen af dem.
+  const populaereByer = fac.byer.filter((b) => b.by).slice(0, 6)
+  const harGenveje = populaereByer.length > 0 || vaerelser > 0 || husdyrIPanelet
+    || avGrundlag.timing.nu > 0
+
   const formular = (
       <form className={soegt ? 'filtre soegt' : 'filtre'} method="get">
         {/* Tegner intet. Fjerner tomme felter, før formularen sender,
@@ -506,6 +551,98 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             tomme felt slette det, bjælken lige havde fået.
 
             Området er ÉT felt. Se noten ved `omraade` ovenfor. */}
+        {!soegt ? (
+          /* ── Forsidens panel: referencens fem felter ─────────────
+             By · pris · størrelse · indflytning · husdyr, i ét hvidt
+             panel. Felterne er de SAMME parametre, filtervinduet bruger
+             (`prisMin`, `prisMax`, `areal`, `overtagelse`, `kaeledyr`),
+             og vinduet springer dem derfor over på forsiden — to felter
+             med samme `name` i én formular sender værdien to gange. */
+          <div className="forsidepanel">
+            <div className="fp-felter">
+            <div className="fp-felt fp-sted">
+              <label htmlFor="sted">By eller område</label>
+              <div className="fp-vaerdi">
+                <span className="fp-ikon fi-sted" aria-hidden="true" />
+                <input
+                  id="sted" type="text" name="sted" defaultValue={omraade}
+                  placeholder="F.eks. København" list="byer"
+                  enterKeyHint="search"
+                />
+              </div>
+              <datalist id="byer">
+                {fac.byer.map((b) => <option key={`${b.by}-${b.postnr}`} value={b.by ?? ''} />)}
+              </datalist>
+            </div>
+            <div className="fp-felt fp-pris" role="group" aria-labelledby="fp-pris-navn"
+              aria-describedby="fp-pris-note">
+              <span className="fp-navn" id="fp-pris-navn">Pris pr. måned</span>
+              <div className="fp-vaerdi">
+                <input id="fp-prisMin" name="prisMin" defaultValue={en(sp.prisMin) ?? ''} inputMode="numeric"
+                  placeholder="Min" aria-label="Mindstepris pr. måned i kroner"
+                  aria-describedby="fp-pris-note" />
+                <span className="fp-til" aria-hidden="true">–</span>
+                <input id="fp-prisMax" name="prisMax" defaultValue={en(sp.prisMax) ?? ''} inputMode="numeric"
+                  placeholder="Max" aria-label="Højeste pris pr. måned i kroner"
+                  aria-describedby="fp-pris-note" />
+              </div>
+            </div>
+            <div className="fp-felt fp-areal">
+              <label htmlFor="fp-areal">Størrelse</label>
+              <div className="fp-vaerdi">
+                <span className="fp-ikon fi-areal" aria-hidden="true" />
+                {/* Kun en nedre grænse: basen har `arealMin` og intet loft. */}
+                <input id="fp-areal" name="areal" defaultValue={en(sp.areal) ?? ''} inputMode="numeric"
+                  placeholder="Mindst m²" />
+              </div>
+            </div>
+            <div className="fp-felt fp-valg">
+              <label htmlFor="fp-overtagelse">Indflytning</label>
+              <div className="fp-vaerdi">
+                <span className="fp-ikon fi-kalender" aria-hidden="true" />
+                {/* Ingen datovælger: overtagelse kendes kun som «nu» eller
+                    «senere» (fortolkAvailability). En dato, søgningen ikke
+                    kan holde, ville være et løfte uden dækning. */}
+                <select id="fp-overtagelse" name="overtagelse" defaultValue={f.overtagelse ?? ''}
+                  aria-describedby="fp-overtagelse-note">
+                  <option value="">Alle</option>
+                  <option value="nu">Kan overtages nu</option>
+                  <option value="senere">Kan overtages senere</option>
+                </select>
+              </div>
+            </div>
+            {husdyrIPanelet && (
+              <div className="fp-felt fp-valg">
+                <label htmlFor="fp-kaeledyr">Husdyr tilladt</label>
+                <div className="fp-vaerdi">
+                  <span className="fp-ikon fi-pote" aria-hidden="true" />
+                  <select id="fp-kaeledyr" name="kaeledyr" defaultValue={f.kaeledyr ? '1' : ''}
+                    aria-describedby="fp-kaeledyr-note">
+                    <option value="">Alle</option>
+                    <option value="1">Kun hvor det er oplyst</option>
+                  </select>
+                </div>
+              </div>
+            )}
+            </div>
+            <button className="soegeknap fp-knap" type="submit">
+              Søg boliger<span className="sk-pil" aria-hidden="true">→</span>
+            </button>
+            {/* Forklaringerne følger felterne ind i panelet. De står EFTER
+                knappen i træet, så de ikke skubber søgehandlingen ned på en
+                telefon; `aria-describedby` binder hver til sit felt, så en
+                skærmlæser læser den ved feltet uanset rækkefølgen. */}
+            <div className="fp-noter">
+              <p id="fp-pris-note" className="fp-note">{prisNote}</p>
+              <p id="fp-overtagelse-note" className="fp-note">
+                <b>Indflytning</b>: {overtagelseNote}
+              </p>
+              {husdyrIPanelet && (
+                <p id="fp-kaeledyr-note" className="fp-note">{facilitetLinje('kaeledyr')}</p>
+              )}
+            </div>
+          </div>
+        ) : (
         <div className="soegebar">
           <div className="soegefelt sf-sted">
             <label htmlFor="sted">By eller område</label>
@@ -568,6 +705,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             Søg<span className="sk-pil" aria-hidden="true">→</span>
           </button>
         </div>
+        )}
 
         {/* ── Vinduet står EFTER søgelinjen, ikke inde i den ─────
             Rækkefølgen i DOM'en er ikke et layoutvalg. Formularens
@@ -640,6 +778,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                 søgning som listen, og det kan de ikke uden en ny
                 forespørgsel pr. tastetryk. Et tal, der er regnet på noget
                 andet end resultatet, er værre end intet tal. */}
+            {soegt && (
             <section className="fd-afsnit">
               <h3>Pris pr. måned</h3>
               <div className="fd-par">
@@ -665,11 +804,9 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                   </div>
                 </div>
               </div>
-              <p className="fd-note">
-                Prisen er husleje plus den aconto, kilden opkræver. Boliger,
-                hvor vi kun kender huslejen, måles på den.
-              </p>
+              <p className="fd-note">{prisNote}</p>
             </section>
+            )}
 
             {/* ── Værelser ──────────────────────────────────────
                 Knapper og ikke et felt: basen har kun en NEDRE grænse
@@ -695,6 +832,7 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             {/* ── Størrelse ─────────────────────────────────────
                 Også kun en nedre grænse i basen, så feltet hedder
                 «mindst» og ikke «fra … til». */}
+            {soegt && (
             <section className="fd-afsnit">
               <h3>Størrelse</h3>
               {/* Kun ét felt. Referencen har Min. OG Max. for størrelse;
@@ -712,7 +850,9 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                 </div>
               </div>
             </section>
+            )}
 
+            {soegt && (
             <section className="fd-afsnit">
               <h3>Overtagelse</h3>
               <div className="fd-felt">
@@ -724,18 +864,10 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                   <option value="senere">Kan overtages senere</option>
                 </select>
               </div>
-              {/* Drives af fortolkAvailability — aldrig af rå jsonb, legacy
-                  available_from eller application_type. Grundlaget gælder DEN
-                  AKTUELLE søgning, og de ukendte har ord: et filter viser kun
-                  dokumenterede træf, og så skal det stå, hvor mange der ikke
-                  kunne vurderes. */}
-              <p id="overtagelse-note" className="filtergrundlag">
-                {avGrundlag.timing.nu.toLocaleString('da-DK')} kan overtages nu ·{' '}
-                {avGrundlag.timing.senere.toLocaleString('da-DK')} senere ·{' '}
-                {(avGrundlag.timing.unknown + avGrundlag.timing.conflict).toLocaleString('da-DK')} uden
-                oplyst dato — de vises ikke, hvis du vælger et tidspunkt
-              </p>
+              {/* Se `overtagelseNote`: samme sætning som under panelets felt. */}
+              <p id="overtagelse-note" className="filtergrundlag">{overtagelseNote}</p>
             </section>
+            )}
 
             {FACILITETSNOEGLER.some((n) => fac.faciliteter[n] > 0) && (
               <section className="fd-afsnit">
@@ -745,7 +877,9 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                       tælles en facilitet til nul, vises afkrydsningen ikke
                       — et valg, der aldrig giver træf, er værre end intet
                       valg. Et nyt begreb får sin afkrydsning af sig selv. */}
-                  {FACILITETSNOEGLER.filter((n) => fac.faciliteter[n] > 0).map((n) => (
+                  {/* På forsiden står «Husdyr tilladt» i panelet; samme navn må
+                      ikke stå to gange i formularen. */}
+                  {FACILITETSNOEGLER.filter((n) => fac.faciliteter[n] > 0 && (soegt || !(n === 'kaeledyr' && husdyrIPanelet))).map((n) => (
                     <label key={n} className="valgknap">
                       <input type="checkbox" id={n} name={n} value="1" aria-describedby="faciliteter-note" defaultChecked={f[n]} />
                       <span>{stortForbogstav(FACILITETSNAVN[n])}</span>
@@ -776,18 +910,9 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
                       Stod opregningen i hånden, skulle reglen huskes ved
                       hver udvidelse — og et nyt begreb ville få en
                       afkrydsning uden en linje. Nu kan de to ikke skilles. */}
-                  {FACILITETSNOEGLER.filter((n) => fac.faciliteter[n] > 0).map((n) => {
-                    const oplyser = grundlag[n]
-                    return (
-                      <p key={n} className="filtergrundlag">
-                        <b>{stortForbogstav(FACILITETSNAVN[n])}</b>:{' '}
-                        {oplyser.toLocaleString('da-DK')} nævner det ·{' '}
-                        {(grundlag.antal - grundlag.tier - oplyser).toLocaleString('da-DK')}
-                        {' '}nævner andre faciliteter ·{' '}
-                        {grundlag.tier.toLocaleString('da-DK')} mangler oplysninger og vises ikke
-                      </p>
-                    )
-                  })}
+                  {FACILITETSNOEGLER.filter((n) => fac.faciliteter[n] > 0).map((n) => (
+                    <p key={n} className="filtergrundlag">{facilitetLinje(n)}</p>
+                  ))}
                 </div>
               </section>
             )}
@@ -898,16 +1023,28 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
 
         {/* Referencens «Populære søgninger». Byerne er IKKE skrevet
             ind: de er de mest udbredte i bestanden, som `facetter()`
-            allerede har talt dem. Skifter udbuddet, skifter linjen. */}
-        {!soegt && fac.byer.length > 0 && (
-          <p className="populaere">
-            <span className="pop-navn">Populære søgninger:</span>
-            {fac.byer.filter((b) => b.by).slice(0, 6).map((b) => (
-              <a key={`${b.by}-${b.postnr}`} href={`/?sted=${encodeURIComponent(b.by!)}`}>
-                {b.by}
-              </a>
-            ))}
-          </p>
+            allerede har talt dem. Skifter udbuddet, skifter linjen.
+
+            «Flere filtre» står UDEN FOR betingelsen. I c0575bf lå den
+            inden i `fac.byer.length > 0`, så en tom byliste tog den
+            primære vej til filtrene med sig. */}
+        {!soegt && (
+          <div className="populaere">
+            {harGenveje && (
+              <p className="pop-liste">
+                <span className="pop-navn">Populære søgninger:</span>
+                {populaereByer.map((b) => (
+                  <a key={`${b.by}-${b.postnr}`} href={`/?sted=${encodeURIComponent(b.by!)}`}>
+                    {b.by}
+                  </a>
+                ))}
+                {vaerelser > 0 && <a href="/?type=vaerelse">Værelser</a>}
+                {husdyrIPanelet && <a href="/?kaeledyr=1">Husdyr tilladt</a>}
+                {avGrundlag.timing.nu > 0 && <a href="/?overtagelse=nu">Kan overtages nu</a>}
+              </p>
+            )}
+            <Filterknap aabnHref={aabnFiltre} etiket="Flere filtre" antal={chips.length} />
+          </div>
         )}
       </form>
   )
@@ -1009,19 +1146,77 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
             </div>
           )}
           <div className="hero-indhold">
-            <p className="hero-oejenbryn">Lejeboliger med overblik</p>
-            <h1>Find dit næste hjem</h1>
+            <p className="hero-oejenbryn">Find dit næste hjem</p>
+            <h1>Ledige lejeboliger <span className="h1-linje">– samlet ét sted</span></h1>
             <p className="hero-manchet">
-              Se husleje, oplyst aconto og indflytningspris samlet.
-              Vi viser tydeligt, når oplysninger mangler.
+              Bofinda samler lejeboliger fra flere udbydere og viser husleje,
+              oplyst aconto og indflytningspris samlet. Mangler en oplysning,
+              står det tydeligt.
             </p>
           </div>
-          <div className="hero-soeg">{formular}</div>
+          <div className="hero-soeg">
+            {/* Referencens faner. «Kort» er udeladt: et kort uden søgning
+                vises ikke (se reglen om kortet), så fanen ville føre til
+                ingenting. «Værelser» står kun, når der er værelser. */}
+            <nav className="soegefaner" aria-label="Hvad søger du?">
+              <a href="/" aria-current="page"><span className="sf-ikon sfi-hus" aria-hidden="true" />Lejeboliger</a>
+              {vaerelser > 0 && (
+                <a href="/?type=vaerelse"><span className="sf-ikon sfi-seng" aria-hidden="true" />Værelser</a>
+              )}
+            </nav>
+            {formular}
+          </div>
         </section>
 
         </>
       )}
 
+
+      {/* ── Tallene lige under søgningen ──────────────────────────
+          Rækkefølgen er en BEVIDST afvigelse fra referencens forside:
+          hero og søgepanel → tal og grundlag → Nyeste boliger →
+          funktionskort og udlejerbånd. Referencen lægger markedsføringen
+          før boligerne; den boligsøgende skal møde boligerne først.
+          Flyttet i markuppen, ikke med CSS `order`, så tabulator- og
+          læserækkefølgen følger det, øjet ser.
+
+          Markuppen for tallene er ORDRET den samme <ul>/<li>, så
+          `Hastighedspunkt` og de prøver, der læser `.punkter`, rammer det
+          samme. */}
+      {!soegt && (<>
+        <ul className="talstribe punkter">
+          <li className="ts-hus">
+            <strong>{tal.boliger.toLocaleString('da-DK')}</strong>
+            <span>lejeboliger fra {tal.kilder} {tal.kilder === 1 ? 'kilde' : 'kilder'}</span>
+          </li>
+          <li className="ts-moent">
+            {/* To grupper, ikke én. Stod der kun det oplyste tal, kunne
+                laeseren ikke se, hvor stor resten var. Begge tal kommer
+                fra den SAMME foresporgsel og gaar op i hovedtallet. */}
+            <strong>{tal.kendtTotal.toLocaleString('da-DK')}</strong>
+            <span>
+              med hele udgiften til udlejer oplyst ·{' '}
+              {(tal.boliger - tal.kendtTotal).toLocaleString('da-DK')} uden
+            </span>
+          </li>
+          <li className="ts-kalender">
+            <strong>{avGrundlag.timing.nu.toLocaleString('da-DK')}</strong>
+            <span>kan overtages nu</span>
+          </li>
+          {/* Uden en maaling staar der hverken en kadence eller et tal —
+              se `Hastighed.tsx`. Maalingen selv er uroert. */}
+          <Hastighedspunkt minutterP90={tal.minutterP90} />
+        </ul>
+
+        {/* De tre grupper står under rækken, så «kan overtages nu» ikke
+            læses som resten af bestanden. Samme linje som før. */}
+        <p className="note grundlagsnote">
+          {avGrundlag.timing.nu.toLocaleString('da-DK')} kan overtages nu ·{' '}
+          {avGrundlag.timing.senere.toLocaleString('da-DK')} kan overtages senere ·{' '}
+          {(avGrundlag.timing.unknown + avGrundlag.timing.conflict).toLocaleString('da-DK')} uden afklaret overtagelsestidspunkt
+        </p>
+
+      </>)}
 
       {/* ── Resultatheaderen ──────────────────────────────────────
           De samme fem oplysninger som før, i ét hoved i stedet for fem
@@ -1233,90 +1428,80 @@ export default async function Side({ searchParams }: { searchParams: Promise<Soe
           soegning ikke, jf. `harFiltre`. */}
       {soegt && <GemSoegning sp={sp} />}
 
-      {/* ── Talstriben — EFTER boligerne ──────────────────────
-          Den stod mellem søgefeltet og det første boligkort og fyldte
-          164 px på en telefon. Tallene er rigtige og skal blive, men de
-          er baggrund: en bruger, der lige har søgt, skal møde boliger,
-          ikke en opgørelse over bestanden. Målt på 390 px lå det første
-          boligkort 821 px nede — under folden på en 844 px høj skærm.
-
-          Markuppen er ORDRET den samme <ul>/<li> som før, så
-          `Hastighedspunkt` og de prøver, der læser `.punkter`, rammer
-          det samme. Kun pladsen på siden er en anden — samme slags
-          flytning som gem-boksen fik, og af samme grund. */}
+      {/* ── Funktionskort og udlejerbånd — EFTER boligerne ─────────
+          Referencens markedsføringsdel. Den står efter listen og
+          pagineringen og før kildelinjen nederst; se noten ved tallene
+          om, hvorfor rækkefølgen afviger fra referencens forside. */}
       {!soegt && (<>
-        <ul className="talstribe punkter">
-          <li className="ts-hus">
-            <strong>{tal.boliger.toLocaleString('da-DK')}</strong>
-            <span>lejeboliger fra {tal.kilder} {tal.kilder === 1 ? 'kilde' : 'kilder'}</span>
-          </li>
-          <li className="ts-moent">
-            {/* To grupper, ikke én. Stod der kun det oplyste tal, kunne
-                laeseren ikke se, hvor stor resten var. Begge tal kommer
-                fra den SAMME foresporgsel og gaar op i hovedtallet. */}
-            <strong>{tal.kendtTotal.toLocaleString('da-DK')}</strong>
-            <span>
-              med hele udgiften til udlejer oplyst ·{' '}
-              {(tal.boliger - tal.kendtTotal).toLocaleString('da-DK')} uden
-            </span>
-          </li>
-          <li className="ts-kalender">
-            <strong>{avGrundlag.timing.nu.toLocaleString('da-DK')}</strong>
-            <span>kan overtages nu</span>
-          </li>
-          {/* Uden en maaling staar der hverken en kadence eller et tal —
-              se `Hastighed.tsx`. Maalingen selv er uroert. */}
-          <Hastighedspunkt minutterP90={tal.minutterP90} />
-        </ul>
-
-        <p className="note grundlagsnote">
-          {avGrundlag.timing.nu.toLocaleString('da-DK')} kan overtages nu ·{' '}
-          {avGrundlag.timing.senere.toLocaleString('da-DK')} kan overtages senere ·{' '}
-          {(avGrundlag.timing.unknown + avGrundlag.timing.conflict).toLocaleString('da-DK')} uden afklaret overtagelsestidspunkt
-        </p>
-      </>)}
-
-      {!soegt && (<>
-        <section className="sektion">
-          <h2 className="sektion-titel">Sådan bruger du Bofinda</h2>
+        <section className="sektion funktioner" aria-labelledby="funktioner-titel">
+          <h2 className="sr-only" id="funktioner-titel">Sådan bruger du Bofinda</h2>
           <div className="kortgitter">
             <article className="infokort">
               <span className="ik-flise ik-moent" aria-hidden="true" />
               <h3>Overblik over prisen</h3>
               <p>
-                Se husleje, oplyst aconto og indflytningspris.
-                Mangler en oplysning, gør vi dig opmærksom på det.
+                Se husleje, oplyst aconto og indflytningspris. Mangler en
+                oplysning, gør vi dig opmærksom på det.
               </p>
             </article>
             <article className="infokort">
               <span className="ik-flise ik-filter" aria-hidden="true" />
               <h3>Søg efter dine ønsker</h3>
               <p>
-                Find boliger efter område, pris og størrelse. Ved filtre
-                for faciliteter kan du se, når oplysninger mangler.
+                Find boliger efter område, pris og størrelse. Ved filtre for
+                faciliteter kan du se, når oplysninger mangler.
               </p>
+              <a className="ik-link" href={aabnFiltre}>Se alle filtre<span aria-hidden="true"> →</span></a>
             </article>
             <article className="infokort">
               <span className="ik-flise ik-klokke" aria-hidden="true" />
               <h3>Besked om nye boliger</h3>
               <p>
-                Gem din søgning, og få en mail, når nye boliger
-                matcher dine ønsker.
+                Gem din søgning, og få en mail, når nye boliger matcher
+                dine ønsker.
               </p>
+            </article>
+            <article className="infokort">
+              <span className="ik-flise ik-noegle" aria-hidden="true" />
+              <h3>For udlejere</h3>
+              <p>
+                Opret din bolig med billeder, husleje og aconto, og bliv
+                fundet af boligsøgende.
+              </p>
+              <a className="ik-link" href="/udlejer">Læs mere<span aria-hidden="true"> →</span></a>
             </article>
           </div>
         </section>
 
-        <section className="udlejerbaand">
+        {/* Referencens anmeldelse er erstattet af et sandt kort: hvordan
+            man opretter en annonce. Fotoet er et andet udsnit af det
+            samme rettighedsafklarede hero-foto — der findes intet
+            facadefoto med afklaret herkomst. */}
+        <section className="udlejerbaand" aria-labelledby="ub-titel">
+          <div className="ub-foto" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={heroFoto || HERO_STANDARD} alt="" loading="lazy" />
+          </div>
           <div className="ub-tekst">
             <p className="ub-oejenbryn">For udlejere</p>
-            <h2>Udlej din bolig på Bofinda</h2>
+            <h2 id="ub-titel">Udlej din bolig.<br />Bliv fundet af boligsøgende.</h2>
             <p>
-              Vis din bolig frem med billeder og pris, og bliv fundet
-              af boligsøgende.
+              Din annonce står sammen med de boliger, vi henter fra andre
+              portaler — med husleje, aconto og indflytningspris. Det er
+              gratis indtil videre.
             </p>
+            <a className="ub-knap" href="/udlejer/opret">Opret annonce<span aria-hidden="true">→</span></a>
           </div>
-          <a className="ub-knap" href="/udlejer/opret">Opret annonce →</a>
+          <div className="ub-kort">
+            <h3>Sådan opretter du en annonce</h3>
+            <ol>
+              {/* Formularens egne trin (TRIN i Annonceformular.tsx), efter
+                  kontoen. Ændres trinene, skal listen med. */}
+              <li>Opret en udlejerkonto</li>
+              <li>Beskriv boligen: adresse, pris og billeder</li>
+              <li>Skriv, hvordan lejere når dig, og udgiv</li>
+            </ol>
+          </div>
         </section>
       </>)}
 

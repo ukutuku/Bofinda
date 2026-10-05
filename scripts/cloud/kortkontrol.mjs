@@ -193,6 +193,27 @@ for (const bredde of BREDDER) {
 
   for (const [navn, sti] of SIDER) {
     await p.goto(APP + sti, { waitUntil: 'networkidle' })
+    // ── Lazy-billederne: rul dem ind, FØR de tælles ─────────────
+    //  Kortbillederne har `loading="lazy"` og hentes først, når de
+    //  nærmer sig skærmen. «alle billeder er hentet» målte derfor, hvor
+    //  langt listen stod fra toppen — ikke om billederne kunne hentes.
+    //  I c0575bf var den rød med 27–34 «tomme» på både basen og grenen.
+    //  Nu rulles hvert SYNLIGT kortbillede ind, og der ventes på
+    //  dekodningen. Lazy-loading er urørt; en skjult liste (kortvisningen
+    //  på smal skærm) rulles ikke og måles ikke, se `listeSkjult`.
+    const rul = await p.evaluate(async () => {
+      const billeder = [...document.querySelectorAll('.liste a.kort .kort-billede img')]
+        .filter((i) => i.getBoundingClientRect().width > 0)
+      for (const img of billeder) {
+        img.scrollIntoView({ block: 'center' })
+        for (let i = 0; i < 80 && !(img.complete && img.naturalWidth > 0); i++) {
+          await new Promise((r) => setTimeout(r, 50))
+        }
+      }
+      scrollTo(0, 0)
+      return { rullet: billeder.length, dekodet: billeder.filter((i) => i.naturalWidth > 0).length }
+    })
+    console.log(`  · ${rul.rullet} synlige kortbilleder rullet ind, ${rul.dekodet} dekodet efter rul`)
     // Musen ud af listen: hover skalerer billedet, og en måling med den
     // over et kort er en måling af noget andet end layoutet.
     await p.mouse.move(bredde - 2, 2)
