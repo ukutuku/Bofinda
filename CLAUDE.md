@@ -436,6 +436,20 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   `scripts/cloud/kortberoering.mjs` med rå CDP-berøring; et swipe, der
   slippes i fart, får Chromium til at undertrykke et tryk lige efter
   (fling), og det er browserens, ikke kortets.
+  **K11 måles pr. trin, ikke som ét samlet tal** (7. okt. 2026). Den
+  gamle grænse — højst tre nye billeder efter hensigt, næste, forrige,
+  forrige på et kort, data valgte — var rød på et lovligt kort med fem
+  billeder og blind på fire: forsidebilledet var hentet, før tællingen
+  begyndte, så en komponent, der forhentede HELE listen ved hensigten,
+  gav tre nye. Nu sår kontrollen egne prøvekort med 4, 5 og 8 billeder i
+  kendt, unik orden (postnummer 9005, slettet igen på præfikset) og
+  kræver ved første visning, hensigten og hvert trin, at det synlige
+  billede er det forventede og indlæst, at intet NYT er hentet ud over
+  det synlige og ÉN nabo i trinnets retning, og at listen er hentet én
+  gang — kun målt på målkortets egne billed-URL'er. Ved 8 billeder må
+  nogle billeder aldrig hentes. Modprøven
+  `modproever/kortkarusel-forhent-hele-listen.mjs` forhenter hele listen
+  ved hensigten og fanges af [K11] selv.
 - **En grøn total må aldrig stå uden at el er gjort rede for.** Prisblokken
   bliver grøn (`.kort-pris` uden `.kun-leje`), så snart `total` er sat —
   uanset hvad totalen dækker. Mangler el i den, skal kortet sige det.

@@ -23,7 +23,13 @@
 //    [K10] lazy-loading: kun forsidebilledet må være eager, ingen
 //          billedliste hentes ved sidevisning, og ved 390 px er ikke alle
 //          billeder hentet, før der rulles
-//    [K11] interaktion henter listen ÉN gang og kun naboerne
+//    [K11] billedlisten hentes ÉN gang, og hvert skridt henter højst
+//          det synlige billede og ÉN nabo — i den retning, der bladres.
+//          Målt på EGNE prøvekort med 4, 5 og 8 billeder i kendt, unik
+//          orden: første visning, hensigt og hvert trin hver for sig, kun
+//          på målkortets egne billed-URL'er og dets eget listekald. Ved 8
+//          billeder er nogle billeder forbudte hele forløbet. Det ene
+//          listekald måles desuden på listens rigtige kort i hver bredde.
 //    [K12] intet vandret overløb
 //    [K13] tryk, mens billedlisten afventes, tabes ikke: listens første
 //          svar holdes tilbage, to SEPARATE tryk sendes — med mus,
@@ -47,12 +53,15 @@
 //  det var DETTE værn, der fangede den (`rød-af-en-anden-grund`).
 //
 //  Kører KUN mod det isolerede testmiljø. Basen åbnes gennem
-//  isoleret.mjs og læses kun — scriptet skriver intet.
+//  isoleret.mjs. Scriptet skriver ét sted: K11 sår sine egne prøvekort
+//  under et præfiks pr. kørsel og sletter dem på præfikset igen — samme
+//  form som kortkontrol.mjs. Fremmede rækker røres ikke.
 //
 //  Brug:  node scripts/cloud/kortkarusel.mjs [mappe-til-skærmbilleder]
 // ═══════════════════════════════════════════════════════════════
 import pw from 'playwright-core'
 import { mkdirSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { aabnIsoleretEllerStop } from './isoleret.mjs'
 
 const APP = process.env.BOFINDA_APP ?? 'http://127.0.0.1:3100'
@@ -288,9 +297,10 @@ for (const [navn, sti] of SIDER) {
 
     if (UD) await p.screenshot({ path: `${UD}/${navn}-${bredde}.png` })
 
-    // ── K11 · interaktion: listen én gang, kun naboerne ──────────
-    // Et kort med mindst fire billeder, så «kun naboerne» kan skelnes
-    // fra «alle».
+    // ── K5/K6/K9 og K11's listekald på listens rigtige kort ────────
+    // Et kort med mindst fire billeder at blade i. Det er data, der
+    // vælger det — derfor måles HER kun det, der gælder ethvert kort:
+    // listen hentes én gang.
     const mål = vurderet.find((k) => k.n >= 4 && !k.gruppe) ?? vurderet.find((k) => k.n >= 3)
     præmis(!!mål, 'der er et kort med mindst tre billeder at blade i')
     if (mål) {
@@ -366,21 +376,15 @@ for (const [navn, sti] of SIDER) {
           prøve('K5', kildeUrl(await vist()) === ønsket[mål.n - 1], 'og viser basens sidste billede')
           prøve('K6', p.url() === urlFør && navigationer() === navFør, 'tre pileklik, ingen navigation')
           prøve('K6', (await p.evaluate(() => history.length)) === histFør, 'og historikken er urørt')
-          // K11 — efter hensigt og tre klik.
-          const efter = net.slice(start)
-          const json = efter.filter((x) => x.t === 'json').length
-          const billeder = new Set(efter.filter((x) => x.t === 'billede').map((x) => x.u))
+          // K11 — efter hensigt og tre klik: listen ÉN gang. HVILKE
+          // billeder der hentes, måles ikke her, men på egne prøvekort i
+          // K11-afsnittet nederst (se dér, hvorfor et samlet tal ikke kan).
+          const json = net.slice(start).filter((x) => x.t === 'json').length
           prøve('K11', json === 1, 'billedlisten hentet præcis én gang', `${json}`)
-          prøve('K11', billeder.size <= 3 && billeder.size < mål.n,
-            'kun naboerne hentet, ikke hele listen', `${billeder.size} af ${mål.n}`)
         }
       } else {
-        const efter = net.slice(start)
-        const json = efter.filter((x) => x.t === 'json').length
-        const billeder = new Set(efter.filter((x) => x.t === 'billede').map((x) => x.u))
+        const json = net.slice(start).filter((x) => x.t === 'json').length
         prøve('K11', json === 1, 'billedlisten hentet præcis én gang (swipe)', `${json}`)
-        prøve('K11', billeder.size <= 3 && billeder.size < mål.n,
-          'kun naboerne hentet (swipe)', `${billeder.size} af ${mål.n}`)
       }
     }
 
@@ -602,7 +606,7 @@ async function scenarie(navn, bredde, kort, fn, valg = {}) {
     // Musen væk fra listen, FØR siden indlæses: en hensigt må ikke komme
     // af, at markøren tilfældigvis står over et kort.
     await s.p.mouse.move(2, 2)
-    await s.p.goto(APP + STI_K, { waitUntil: 'networkidle' })
+    await s.p.goto(APP + (valg.sti ?? STI_K), { waitUntil: 'networkidle' })
     await hydreret(s.p)
     if (kort) {
       await (await s.p.$(rammeSel(kort.href))).scrollIntoViewIfNeeded()
@@ -917,6 +921,284 @@ if (kort) {
     await s.p.waitForTimeout(800)
     prøve('K14', kald.length === før, 'falsk ur: 10 minutter senere er der intet nyt kald', `${før} → ${kald.length} kald`)
   }, { ur: true })
+}
+
+// ═══ K11 · listen ÉN gang — og pr. trin kun det synlige billede og ÉN nabo ═══
+//
+//  Den gamle K11 talte de NYE billeder efter hensigt, næste, forrige og
+//  forrige på et kort, data valgte, og krævede højst tre. Grænsen var
+//  forkert begge veje:
+//
+//    · FOR STRENG på 5 billeder. Hvert trin forhenter lovligt én nabo:
+//      hensigt → nr. 2, næste → nr. 3, forrige → nr. 5, forrige → nr. 4.
+//      Fire nye af fem er rigtig adfærd. Efter en ny såning havde det
+//      valgte kort fem billeder, og K11 var rød på både 9ec440a og
+//      cd5749e med de samme linjer.
+//    · BLIND på 4 billeder. Tællingen begyndte, EFTER forsidebilledet
+//      var hentet, så en komponent, der forhentede HELE listen allerede
+//      ved hensigten, gav nr. 2–4 — tre nye, under grænsen (koordinatorens
+//      fund; modprøven `kortkarusel-forhent-hele-listen.mjs` er netop den).
+//
+//  Et samlet tal for hele forløbet kan ikke skelne de to. Her prøves hvert
+//  trin for sig mod billedernes IDENTITET:
+//
+//    første visning  kun forsidebilledet (nr. 1) er hentet; ingen liste
+//    hensigt         listen hentes ÉN gang; nyt er højst naboen nr. 2 —
+//                    der er ingen retning endnu, og den ene tilladte nabo
+//                    er den, «næste» vil vise
+//    hvert trin      det synlige billede er det forventede og FAKTISK
+//                    indlæst (currentSrc, complete, decode, svar 200); nyt
+//                    er højst det synlige og ÉN nabo i trinnets retning;
+//                    naboen ER hentet — nu eller tidligere — så en
+//                    observation, der intet ser, ikke bliver grøn
+//    hele forløbet   præcis de forventede billeder; ved 8 er nogle
+//                    FORBUDTE og må aldrig hentes
+//
+//  Det «tilladte» er kontraktens (det synlige og ÉN nabo i retningen),
+//  regnet af handlingerne alene — ikke af komponentens kode.
+//
+//  FORSIDEBILLEDET OG CACHEN. Forsidebilledet hentes ved første visning og
+//  tælles dér. Et billede, der allerede er hentet (forsidebilledet eller
+//  en tidligere nabo), giver ingen NY identitet, når det vises eller
+//  forhentes igen — Chromium tager det fra hukommelsen, og en
+//  hukommelsestræffer når ofte slet ikke `request`-hændelsen. Derfor
+//  regnes «nyt» som en identitet, kortet ikke havde hentet FØR trinnet, og
+//  en gentaget forespørgsel på et kendt billede skrives ud, men er ikke en
+//  overtrædelse. Det synlige billede kræves indlæst uanset vej.
+//
+//  KUN MÅLKORTET. Observationerne filtreres på målkortets egne billed-URL'er
+//  og dets eget `/api/kortbilleder/<id>`. Siden viser kun prøvekortene, men
+//  de andre kort henter deres forsidebilleder lazy, og dem må målingen
+//  ikke tælle.
+//
+//  EGNE PRØVEKORT, fordi data ikke kan bære prøven: den såede base har
+//  højst 5 billeder pr. bolig, og hvilket kort sideløkken vælger, skifter
+//  med såningen — det var dét, der gjorde den gamle K11 rød. Kortene sås
+//  på et postnummer, ingen anden bolig har, hver på sin egen vej (ingen
+//  gruppe), med billed-URL'er, der er unikke og bærer deres plads
+//  (`?k11=<N>-<plads>`). De slettes på præfikset i `finally`.
+const K11_POSTNR = '9005'
+const K11_STI = `/?sted=${K11_POSTNR}&kort=0`
+const K11_FORLØB = [
+  // [navn, bredde, billeder, handlinger]
+  ['4 billeder · mus', 1440, 4, ['hensigt', 'næste', 'forrige', 'forrige']],
+  ['5 billeder · mus', 1440, 5, ['hensigt', 'næste', 'forrige', 'forrige']],
+  ['8 billeder · mus', 1440, 8, ['hensigt', 'næste', 'næste', 'forrige', 'forrige', 'forrige']],
+  ['8 billeder · berøring', 390, 8, ['hensigt', 'næste', 'forrige', 'forrige']],
+]
+const K11_N = [...new Set(K11_FORLØB.map(([, , n]) => n))]
+
+/** Kontraktens grænse: pr. trin det synlige billede og ÉN nabo. */
+function k11Plan(N, handlinger) {
+  let nu = 0
+  const trin = handlinger.map((h) => {
+    if (h === 'næste') nu = (nu + 1) % N
+    if (h === 'forrige') nu = (nu - 1 + N) % N
+    const nabo = h === 'forrige' ? (nu - 1 + N) % N : (nu + 1) % N
+    return { h, vist: nu, nabo }
+  })
+  const forventet = new Set([0, ...trin.flatMap((t) => [t.vist, t.nabo])])
+  const forbudt = [...Array(N).keys()].filter((i) => !forventet.has(i))
+  return { trin, forventet, forbudt }
+}
+const nr = (xs) => {
+  const a = [...xs].sort((x, y) => x - y)
+  return a.length ? a.map((i) => `nr. ${i + 1}`).join(', ') : 'ingen'
+}
+const sammeMængde = (a, b) => a.size === b.size && [...a].every((x) => b.has(x))
+
+async function k11Forløb(navn, bredde, kort, handlinger) {
+  const { id, urls } = kort
+  const N = urls.length
+  const { trin, forventet, forbudt } = k11Plan(N, handlinger)
+  if (N >= 8) {
+    præmis(forbudt.length > 0, `K11 · ${navn}: forløbet har billeder, der aldrig må hentes (${nr(forbudt)})`)
+  }
+  await scenarie(`K11 · ${navn}`, bredde, null, async (s) => {
+    const { p } = s
+    const hentet = (fra = 0) => new Set(s.net.slice(fra)
+      .filter((x) => x.t === 'billede' && urls.includes(x.u)).map((x) => urls.indexOf(x.u)))
+    const lister = () => s.net.filter((x) => x.t === 'json' && x.u === `/api/kortbilleder/${id}`).length
+    const vent = async (pred, ms = 8000) => {
+      const slut = Date.now() + ms
+      while (!pred() && Date.now() < slut) await p.waitForTimeout(50)
+    }
+    const a = await p.$(`.liste > .kortramme > a.kort[data-bolig="${id}"]`)
+    if (!a) throw new Error(`prøvekortet med ${N} billeder står ikke på ${K11_STI}`)
+    const href = await a.getAttribute('href')
+    const sel = rammeSel(href)
+    await (await p.$(sel)).scrollIntoViewIfNeeded()
+    const urlFør = p.url()
+    const navFør = s.navigationer()
+
+    /** Det synlige billede: identitet, indlæst, dekodet, billedrutens svar 200. */
+    const synligt = (t, i, tekst) => prøve('K11',
+      t.u === urls[i] && t.indlaest && t.dekodet && s.svar.get(urls[i]) === 200,
+      `${navn} · ${tekst}: det synlige billede er nr. ${i + 1}, indlæst`,
+      `${t.u === urls[i] ? 'rigtigt' : `forkert (nr. ${urls.indexOf(t.u) + 1})`} · complete+naturalWidth ${t.indlaest}`
+      + ` · decode ${t.dekodet} · svar ${s.svar.get(urls[i]) ?? 'intet'} · tæller ${t.taeller}`)
+
+    // ── første visning ─────────────────────────────────────────────
+    const t0 = await ventTil(p, href, (t) => t.u === urls[0] && t.indlaest)
+    await p.waitForTimeout(600)
+    const h0 = hentet()
+    console.log(`  · ${navn} · første visning: hentet ${nr(h0)} · ${lister()} listekald`)
+    synligt(t0, 0, 'første visning')
+    prøve('K11', sammeMængde(h0, new Set([0])), `${navn} · første visning: kun forsidebilledet er hentet`,
+      `hentet ${nr(h0)}`)
+    prøve('K11', lister() === 0, `${navn} · første visning: ingen billedliste hentet`, `${lister()} kald`)
+
+    // ── hensigt og hvert navigationstrin ───────────────────────────
+    const cdp = bredde < 700 ? await s.ctx.newCDPSession(p) : null
+    const midt = async () => {
+      const e = await p.$(`${sel} .kort-billede`)
+      if (!e) throw new Error('billedfeltet findes ikke')
+      const b = await e.boundingBox()
+      return { b, x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) }
+    }
+    const berør = (type, touchPoints) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints })
+    // Som kortberoering.mjs: fingeren står stille, før den løftes — et
+    // swipe sluppet i fart starter en fling, og det er browserens sag.
+    const swipe = async (retning) => {
+      const { b, y } = await midt()
+      const x0 = Math.round(b.x + b.width * (retning === 'venstre' ? 0.8 : 0.2))
+      const d = retning === 'venstre' ? -25 : 25
+      await berør('touchStart', [{ x: x0, y, id: 1 }])
+      for (let i = 1; i <= 6; i++) await berør('touchMove', [{ x: x0 + i * d, y, id: 1 }])
+      for (let i = 0; i < 4; i++) {
+        await berør('touchMove', [{ x: x0 + 6 * d, y, id: 1 }])
+        await p.waitForTimeout(40)
+      }
+      await berør('touchEnd', [])
+    }
+    const gør = cdp ? {
+      // En finger på billedet ER hensigten; den afbrydes, så intet tryk
+      // og intet swipe følger med — trinnet er hensigten alene.
+      hensigt: async () => {
+        const { x, y } = await midt()
+        await berør('touchStart', [{ x, y, id: 1 }])
+        await p.waitForTimeout(50)
+        await berør('touchCancel', [])
+      },
+      næste: () => swipe('venstre'),
+      forrige: () => swipe('højre'),
+    } : {
+      hensigt: async () => { await (await p.$(sel)).hover() },
+      næste: () => musTryk(p, href, '.kb-naeste'),
+      forrige: () => musTryk(p, href, '.kb-forrige'),
+    }
+
+    for (const [k, { h, vist, nabo }] of trin.entries()) {
+      const tekst = `trin ${k + 1} · ${h}`
+      const før = hentet()
+      const start = s.net.length
+      await gør[h]()
+      // Vent på en POSITIV tilstand, aldrig på `networkidle`.
+      if (h !== 'hensigt') {
+        await ventTil(p, href, (t) => t.u === urls[vist] && t.indlaest && t.live === `Billede ${vist + 1} af ${N}`)
+      } else {
+        await vent(() => lister() >= 1)
+      }
+      await vent(() => hentet().has(nabo))
+      // Et ekstra kald udløses i samme opgave som naboens; 600 ms mere er
+      // rigeligt til, at det står i loggen.
+      await p.waitForTimeout(600)
+      const t = await tilstand(p, href)
+      const iTrin = hentet(start)
+      const nye = [...iTrin].filter((i) => !før.has(i))
+      const igen = [...iTrin].filter((i) => før.has(i))
+      const tilladt = new Set([vist, nabo])
+      console.log(`  · ${navn} · ${tekst}: synligt nr. ${vist + 1} · nyt ${nr(nye)} · igen ${nr(igen)}`
+        + ` · i alt ${nr(hentet())} · ${lister()} listekald`)
+      synligt(t, vist, tekst)
+      prøve('K11', nye.every((i) => tilladt.has(i)),
+        `${navn} · ${tekst}: nyt hentet er højst det synlige og naboen (${nr(tilladt)})`,
+        `nyt ${nr(nye)}`)
+      prøve('K11', hentet().has(nabo), `${navn} · ${tekst}: naboen nr. ${nabo + 1} er hentet — nu eller før`,
+        `i alt ${nr(hentet())}`)
+      prøve('K11', lister() === 1, `${navn} · ${tekst}: billedlisten er hentet præcis én gang`, `${lister()} kald`)
+    }
+
+    // ── hele forløbet ──────────────────────────────────────────────
+    const alt = hentet()
+    prøve('K11', sammeMængde(alt, forventet), `${navn} · hele forløbet: hentet præcis ${nr(forventet)}`,
+      `hentet ${nr(alt)}`)
+    if (forbudt.length) {
+      prøve('K11', forbudt.every((i) => !alt.has(i)), `${navn} · hele forløbet: ${nr(forbudt)} blev aldrig hentet`,
+        `hentet ${nr(alt)}`)
+    }
+    præmis(p.url() === urlFør && s.navigationer() === navFør, `K11 · ${navn}: forløbet blev på siden`)
+    await cdp?.detach()
+  }, { sti: K11_STI })
+}
+
+console.log(`\n══ K11 · egne prøvekort med ${K11_N.join(', ')} billeder ══`)
+{
+  const k11sql = await aabnIsoleretEllerStop()
+  const K11_PRAEFIKS = `kortkarusel-k11-${Date.now()}-${randomUUID()}-`
+  const koersel = randomUUID().slice(0, 8)
+  const aktiv = `http://127.0.0.1:${process.env.BOFINDA_AKTIVPORT ?? 55433}`
+  const k11 = new Map()
+  try {
+    try {
+      const [kilde] = await k11sql`select id from sources where slug = 'test-alfa'`
+      if (!kilde) throw new Error('Kilden test-alfa findes ikke — kør scripts/cloud/op.sh først.')
+      const [{ fremmede }] = await k11sql`
+        select count(*)::int as fremmede from listings where postal_code = ${K11_POSTNR}`
+      præmis(fremmede === 0, `K11: postnummer ${K11_POSTNR} har ingen andre boliger (${fremmede})`)
+      let foto = 1
+      for (const N of K11_N) {
+        const noegle = `${K11_PRAEFIKS}${N}`
+        const vej = `Bladrevej ${N}`
+        const [r] = await k11sql`
+          insert into listings (source_id, source_type, external_key, source_url, address_raw,
+            street, house_number, postal_code, city, unit_address_uuid, address_match_level,
+            property_type, size_m2, rooms, rent_monthly, utilities_heat,
+            total_monthly, total_monthly_components, images_may_differ,
+            status, first_seen_at, last_seen_at)
+          values (${kilde.id}, 'spider', ${noegle}, ${'https://eksempel.invalid/' + noegle},
+            ${`${vej} 1, ${K11_POSTNR} Bladreby`}, ${vej}, '1',
+            ${K11_POSTNR}, 'Bladreby', ${'intern:v3:kortkarusel:' + randomUUID()}, 'unit',
+            'lejlighed', 72, 3, 1000000, 100000,
+            1100000, ${k11sql.array(['rent', 'heat'])}, false,
+            'active', now(), now())
+          returning id`
+        const urls = Array.from({ length: N }, (_, i) =>
+          `${aktiv}/foto/maal-${String(foto++).padStart(2, '0')}.jpg?k11=${N}-${i}&koersel=${koersel}`)
+        for (const [i, u] of urls.entries()) {
+          await k11sql`insert into listing_images (listing_id, external_url, position) values (${r.id}, ${u}, ${i})`
+        }
+        // Læst tilbage i basens orden: listen ER kendt, ordnet og unik.
+        const tilbage = (await k11sql`
+          select external_url from listing_images where listing_id = ${r.id} order by position`)
+          .map((x) => x.external_url)
+        præmis(tilbage.length === N && tilbage.every((u, i) => u === urls[i]) && new Set(tilbage).size === N,
+          `K11: prøvekortet med ${N} billeder har ${N} unikke billeder i kendt orden`)
+        k11.set(N, { id: r.id, urls })
+      }
+    } catch (e) {
+      kørte++; fejl++
+      console.log(`  ✗ [nedbrud] K11 · såning: ${String(e.message ?? e).split('\n')[0]}`)
+    }
+    console.log(`  · sået ${k11.size} prøvekort under «${K11_PRAEFIKS}»`)
+    for (const [navn, bredde, N, handlinger] of K11_FORLØB) {
+      const kort = k11.get(N)
+      præmis(!!kort, `K11 · ${navn}: prøvekortet findes`)
+      if (kort) await k11Forløb(navn, bredde, kort, handlinger)
+    }
+  } finally {
+    try {
+      const slettede = await k11sql`
+        delete from listings where external_key like ${K11_PRAEFIKS + '%'} returning id`
+      const [{ rest }] = await k11sql`
+        select count(*)::int as rest from listing_images
+        where listing_id = any(${slettede.map((r) => r.id)}::uuid[])`
+      console.log(`  · ${slettede.length} af ${K11_N.length} prøvekort slettet igen`
+        + `${rest ? ` — ADVARSEL: ${rest} forældreløse billedrækker` : ''}`)
+    } finally {
+      await k11sql.end()
+    }
+  }
 }
 
 await br.close()
