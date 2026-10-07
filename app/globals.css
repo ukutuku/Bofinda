@@ -3261,11 +3261,12 @@ form.filtre.soegt {
    lazy-margen ved første layout. Målt: 38 af 38 hentet før
    DOMContentLoaded ved 390 px mod 17 på 1ce5b316. */
 .kort.kompakt .kort-billedblok { display: block; align-self: stretch; width: 100%; }
-.kort.kompakt .kort-billede {
-  aspect-ratio: 3 / 2;
-  /* Lodret rul er browserens; det vandrette swipe er kortets. */
-  touch-action: pan-y;
-}
+.kort.kompakt .kort-billede { aspect-ratio: 3 / 2; }
+/* Kun et kort, der FAKTISK bladrer, tager den vandrette bevægelse:
+   lodret rul og knibezoom er stadig browserens. Før stod `pan-y` på
+   alle kompakte kort og spærrede knibezoom på hvert billede — også på
+   kort med ét billede, som slet ikke har en gestus (A5). */
+.kortramme.bladrer .kort.kompakt .kort-billede { touch-action: pan-y pinch-zoom; }
 .kort.kompakt.uden-billede .kort-billede {
   display: grid; place-items: center; background: var(--linje-svag);
 }

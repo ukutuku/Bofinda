@@ -105,7 +105,8 @@ export function KortRamme({ id, antal, children }: {
   /** Accepterede tryk, der endnu ikke er udført: antal og samlet skridt. */
   const vent = useRef({ tryk: 0, skridt: 0 })
   const forhentet = useRef(new Set<string>())
-  const beroering = useRef<{ x: number; y: number } | null>(null)
+  /** Den igangværende enkeltfingergestus på billedet — og hvilken finger. */
+  const beroering = useRef<{ id: number; x: number; y: number } | null>(null)
   const slugKlik = useRef(false)
   const [indeks, setIndeks] = useState(0)
   const [i_alt, setIAlt] = useState(antal)
@@ -231,16 +232,26 @@ export function KortRamme({ id, antal, children }: {
     const r = ramme.current
     if (!r || antal < 2) return
     const feltet = (e: Event) => (e.target as Element | null)?.closest('.kort-billede')
+    // A5 · Kun ÉN finger på billedet er et swipe. En ny berøring afslutter
+    // altid en gammel gestus: to fingre fra start, finger nr. 2 midt i en
+    // bevægelse, en berøring uden for billedfeltet, og en afbrudt berøring
+    // (touchcancel, fx når browseren tager over til zoom). Før blev en
+    // gammel start stående, og når en finger senere løftedes, regnedes
+    // dens vej som et swipe — også et tryk på en pil.
+    const afbryd = () => { beroering.current = null }
     const start = (e: TouchEvent) => {
-      if (!feltet(e) || e.touches.length !== 1) return
-      beroering.current = { x: e.touches[0]!.clientX, y: e.touches[0]!.clientY }
+      if (e.touches.length !== 1 || !feltet(e)) { afbryd(); return }
+      const t = e.touches[0]!
+      beroering.current = { id: t.identifier, x: t.clientX, y: t.clientY }
       hensigt()
     }
     const slut = (e: TouchEvent) => {
       const s = beroering.current
       beroering.current = null
-      if (!s) return
-      const t = e.changedTouches[0]!
+      // Kun når den SAMME finger løftes, og ingen anden er tilbage.
+      if (!s || e.touches.length !== 0) return
+      const t = [...e.changedTouches].find((x) => x.identifier === s.id)
+      if (!t) return
       const dx = t.clientX - s.x
       const dy = t.clientY - s.y
       if (Math.abs(dx) < SWIPE || Math.abs(dx) < Math.abs(dy) * 1.5) return
@@ -248,18 +259,32 @@ export function KortRamme({ id, antal, children }: {
       window.setTimeout(() => { slugKlik.current = false }, 500)
       gaa(dx < 0 ? 1 : -1)
     }
+    // A2 · Det klik, swipet SELV kan afføde, kommer uden en ny pointerdown
+    // — det er browserens efterslæb fra samme berøring. Et selvstændigt
+    // tryk eller et tastetryk begynder med sin egen pointerdown/keydown, og
+    // så gælder slugningen ikke længere. Før slugte den det NÆSTE klik i
+    // 500 ms, hvad det end var: et tryk på Næste efter et swipe forsvandt.
+    // Slugningen rammer desuden kun et klik på billedfeltet — dér, hvor
+    // swipet var — aldrig pilene.
+    const nyHandling = () => { slugKlik.current = false }
     const klik = (e: MouseEvent) => {
-      if (!slugKlik.current) return
+      if (!slugKlik.current || !feltet(e)) return
       slugKlik.current = false
       e.preventDefault()
       e.stopPropagation()
     }
     r.addEventListener('touchstart', start, { passive: true })
     r.addEventListener('touchend', slut, { passive: true })
+    r.addEventListener('touchcancel', afbryd, { passive: true })
+    r.addEventListener('pointerdown', nyHandling, true)
+    r.addEventListener('keydown', nyHandling, true)
     r.addEventListener('click', klik, true)
     return () => {
       r.removeEventListener('touchstart', start)
       r.removeEventListener('touchend', slut)
+      r.removeEventListener('touchcancel', afbryd)
+      r.removeEventListener('pointerdown', nyHandling, true)
+      r.removeEventListener('keydown', nyHandling, true)
       r.removeEventListener('click', klik, true)
     }
   }, [antal, gaa, hensigt])
@@ -275,7 +300,7 @@ export function KortRamme({ id, antal, children }: {
   return (
     // Musens hensigt, ikke en finger, der ruller forbi: på touch er det
     // kun en berøring af selve billedet, der tæller (se `start` ovenfor).
-    <div className="kortramme" ref={ramme}
+    <div className={antal > 1 && bladring ? 'kortramme bladrer' : 'kortramme'} ref={ramme}
       onPointerEnter={(e) => { if (e.pointerType !== 'touch') hensigt() }}>
       {children}
       {antal > 1 && bladring && (

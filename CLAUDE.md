@@ -423,6 +423,19 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   kontrollen holder svaret tilbage, lader det fejle eller spoler et falsk
   ur 10 minutter frem — alt i browseren (`page.route`, `page.clock`) — og
   har fire modprøver mere i `modproever/`.
+  **Berøringen er også en del af kontrakten** (A2/A5, 7. okt. 2026).
+  Kun det klik, et swipe SELV kan afføde, sluges — det kommer uden en ny
+  `pointerdown`. Et selvstændigt tryk eller tastetryk inden for 500 ms
+  efter et swipe udføres (Næste, Forrige, Enter, et tryk på billedet
+  eller titlen), og slugningen rammer kun billedfeltet, aldrig pilene.
+  Kun ÉN finger på billedet er et swipe: flere fingre, en berøring uden
+  for billedet og `touchcancel` afbryder gestussen, og den tæller kun,
+  når samme finger løftes. `touch-action: pan-y pinch-zoom` står kun på
+  et kort, der bladrer (`.kortramme.bladrer`), så knibezoom og lodret
+  rul er browserens — også på et kort med ét billede. Målt i
+  `scripts/cloud/kortberoering.mjs` med rå CDP-berøring; et swipe, der
+  slippes i fart, får Chromium til at undertrykke et tryk lige efter
+  (fling), og det er browserens, ikke kortets.
 - **En grøn total må aldrig stå uden at el er gjort rede for.** Prisblokken
   bliver grøn (`.kort-pris` uden `.kun-leje`), så snart `total` er sat —
   uanset hvad totalen dækker. Mangler el i den, skal kortet sige det.
