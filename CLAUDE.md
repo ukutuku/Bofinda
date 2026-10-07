@@ -221,8 +221,9 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   etagen ikke er i nøglen, og så er det døren, der skiller. Alle i
   `scripts/test-redigering.ts`.
 - **En manglende oplysning skal være synlig, ikke fraværende.** Kender vi
-  ikke totalen, skriver kortet "Udlejer oplyser ikke aconto — spørg om varme
-  og vand." Vi kan ikke skelne "udlejer opkræver intet" fra "udlejer oplyser
+  ikke totalen, skriver det fulde kort "Udlejer oplyser ikke aconto — spørg
+  om varme og vand.", og listens kompakte front skriver «husleje · aconto
+  ikke oplyst» i prislinjen. Vi kan ikke skelne "udlejer opkræver intet" fra "udlejer oplyser
   intet", så vi påstår ingen af delene — vi siger, hvad brugeren skal spørge
   om. Et gæt her ville love hende noget om hendes økonomi, som ikke holder.
 - **428 af 1.226 synlige boliger har ingen facilitetsdata overhovedet, og
@@ -349,17 +350,18 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   **Hvor mange steder teksten står, er TALT og ikke skønnet.** Linjen
   her sagde «brugt af begge korttyper, boligsiden og alarmmailen» og
   «forskellige de fire steder». Tallet fire holdt — opregningen gjorde
-  ikke: de to korttyper deler ÉN implementering (`Ellinje`, jf. reglen
-  nedenfor), og `elUdsagn` manglede helt, selv om den betjener flest
+  ikke: de to fulde korttyper deler ÉN implementering (`Ellinje`, jf.
+  reglen nedenfor), og `elUdsagn` manglede helt, selv om den betjener flest
   flader. Optællingen står derfor som en tabel, så det er tallet, der er
   bundet til koden.
 
-  **Fire steder oversætter en `Eltilstand` til el-forbeholdet.** Alle fire
+  **Fem steder oversætter en `Eltilstand` til el-forbeholdet.** Alle fem
   er nu `satisfies Record<Eltilstand, …>` eller skal blive det:
 
   | Sted | Flader den betjener | Formen |
   |---|---|---|
-  | `Ellinje` i `app/Boligkort.tsx` | begge korttyper | ternær · mangler binding |
+  | `Ellinje` i `app/Boligkort.tsx` | det fulde kort (gruppesidens medlemmer) | ternær · mangler binding |
+  | `KORT_EL` i `app/Boligkort.tsx` | listens kompakte front, begge korttyper — prislinjens korte forbehold | **bundet** |
   | `app/bolig/[id]/page.tsx` | boligsiden | ternær · mangler binding |
   | `ELTEKST` i `lib/alarm.ts` | alarmmailen | **bundet** |
   | `ELUDSAGN` i `lib/grundlag.ts` | `grundlagstekst` (begge korttyper + Mine gemte) og den genererede `listings.description` | **bundet** |
@@ -371,16 +373,44 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   med samme nøgle, og de hører med i optællingen, fordi en femte tilstand
   også rammer dem — de falder bare til et `else`, der er sandt i dag.
 
-  **Seks steder i alt rører unionen.** Ændres `Eltilstand`, er det dem,
+  **Syv steder i alt rører unionen.** Ændres `Eltilstand`, er det dem,
   der skal gennemgås — og de to ubundne i tabellen er de eneste, hvor en
   femte værdi stadig går tavst igennem. `elUdsagn` var den værste af de
   fire at falde igennem i: den svarer `null`, og det bliver en tom streng
   i beskrivelsen, altså et forbehold, der forsvinder uden spor.
+- **Boligkortets FRONT i listen er kompakt: billede, tæller, kort titel og
+  ÉN prislinje.** Bestilt 7. oktober 2026 efter Rentola som reference for
+  informationstæthed. `Kort` med `form="kompakt"` og `Gruppekort` i
+  `app/Boligkort.tsx`. Adresse, by, overtagelse, aconto-boksen,
+  el/varme/vand-posterne, kildemærkatet og «Se de N adresser» står IKKE på
+  fronten — dataene er urørte og står på boligsiden og på gruppesidens
+  fulde kort (`form="fuld"`, standarden). Prisen er stadig ærlig, bare
+  kortere: «til udlejer» eller «husleje» står i SAMME linje som beløbet,
+  med el-forbeholdet (`KORT_EL`) eller «aconto ikke oplyst» bagefter.
+  Kortene i samme række er lige høje af struktur — billedfelt 3:2,
+  titel klippet til to linjer med en mindstehøjde på to, prislinjen
+  skubbet til bunden med `margin-top: auto` — aldrig af en fast højde.
+  Et kort uden foto får rammen med «Ingen billeder», ikke et
+  eksempelbillede, så det står lige så højt som naboerne.
+  **Bladringen** (`app/KortBilleder.tsx`): pilene står UDEN FOR linket
+  (søskende, ikke børn), så et pileklik aldrig åbner annoncen, og der er
+  ingen pile under to billeder. **Intet hentes ved sidevisning**: listen
+  hentes fra `/api/kortbilleder/<id>` først ved hensigt (mus ind, fokus,
+  berøring af billedet), og derefter forhentes kun naboen i den retning,
+  der bladres. Forsidebilledet beholder `hentning()` — lazy, og eager kun
+  for Performances første kort. **Billedfeltet skal have fuld bredde, FØR
+  billedet er hentet** (`align-self: stretch` på `.kort-billedblok`): uden
+  den krympede feltet til 20 px, hvert kort blev 145 px højt, og alle
+  listens billeder lå inden for browserens lazy-margen — 38 af 38 hentet
+  før DOMContentLoaded. `scripts/cloud/kortkarusel.mjs` måler alt dette i
+  en rigtig browser og har tre modprøver.
 - **En grøn total må aldrig stå uden at el er gjort rede for.** Prisblokken
   bliver grøn (`.kort-pris` uden `.kun-leje`), så snart `total` er sat —
   uanset hvad totalen dækker. Mangler el i den, skal kortet sige det.
-  Linjen bor ét sted, `Ellinje` i `app/Boligkort.tsx`, fordi de to
-  korttyper ellers driver fra hinanden: gruppekortet manglede den helt,
+  Linjen bor ét sted pr. kortform — `Ellinje` på det fulde kort og
+  `KORT_EL` i den kompakte fronts prislinje («til udlejer · el indgår
+  ikke») — og begge korttyper kalder samme sted, fordi de ellers driver
+  fra hinanden: gruppekortet manglede den helt,
   mens enkeltkortet havde den, og det stod på **171 gruppekort over 675
   boliger**, før nogen så det. Balder gjorde det synligt — alle dens 59
   boliger har varme og vand uden el — men fejlen var der i forvejen hos
@@ -516,8 +546,11 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   (`isSingleTable`), og i en underforespørgsel binder det til den INDERSTE
   tabel. `mineBoliger`s billedtal var derfor altid 0, og Mine annoncer
   skrev «flere billeder — 4 mod dine 0» til en udlejer med fire.
-  · Kortet navngiver alle kilderne. På et gruppekort kun når det gælder
-  HELE gruppen: repræsentanten må ikke tale for de andre.
+  · Det fulde kort (gruppesiden) navngiver alle kilderne. På et gruppekort
+  kun når det gælder HELE gruppen: repræsentanten må ikke tale for de
+  andre. **Listens kompakte front viser ingen kilde** (Rentola-tæthed,
+  bestilt 7. oktober 2026); kilderne står på boligsiden og på gruppesidens
+  fulde kort, og «også hos»-reglerne nedenfor gælder dér.
   · **En udlejerannonce står aldrig under «også hos».** Reglen skjuler den
   bag kildens annonce, så brugeren kan ikke nå den fra kildens kort, og et
   link ville åbne netop den vej, reglen lukker. Undtagelsen står i
@@ -539,7 +572,12 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   · Nøglen bærer, om totalen er kendt. Prisen er `coalesce(total, husleje)`,
   så en gruppe med begge slags ville skrive "til udlejer" om boliger, hvor
   vi kun kender huslejen.
-  · Kortet påstår kun det, der gælder for hele gruppen. Forskellige arealer
+  · Kortet påstår kun det, der gælder for hele gruppen. Den kompakte front
+  siger derfor kun antal, værelser, arealspænd og prisspænd — og mærkaterne
+  «N af M matcher», «1 af 3 reserveret» og blandet ansøgning, som er
+  tællinger og dermed sande om gruppen. Overtagelse står ikke på fronten
+  overhovedet; den står pr. bolig på gruppesiden. På det fulde kort gælder
+  det gamle: forskellige arealer
   bliver et spænd, forskellige ledigdatoer bliver "flere ledigdatoer" — ikke
   den tidligste, som om den var alles — uens aconto-poster står slet ikke, og
   en blandet boligtype bliver til "boliger", ikke til repræsentantens type.

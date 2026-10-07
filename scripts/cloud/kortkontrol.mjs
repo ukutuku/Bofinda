@@ -9,7 +9,8 @@
 //    · intet vandret overløb, og intet barn bredere end sit kort
 //    · billedrammen er ÉN form: billedets kasse = rammens kasse, og
 //      rammen er aldrig bredere end sin spalte
-//    · et kort uden foto strækkes ikke til naboens højde
+//    · et kort uden foto står lige så højt som naboerne (den kompakte
+//      front: rammen med «Ingen billeder», ikke et sammenklappet kort)
 //    · økonomien er ikke afkortet — ingen ellipsis, ingen linjeklip,
 //      ingen tekst der er bredere end sin kasse
 //    · kortet er ét klikmål: ingen indlejrede interaktive elementer
@@ -105,8 +106,11 @@ const MAAL = () => {
     }
   })
 
-  // Strækkes et kort uden foto til naboens højde? Kun målbart når de to
-  // slags deler en række.
+  // Står et kort uden foto lige så højt som naboerne? Den kompakte front
+  // har rammen med «Ingen billeder», så rækken er lige høj. (Før var
+  // påstanden den modsatte — at kortet IKKE blev strakt — fordi det fulde
+  // kort uden foto var en tekstblok, der ikke skulle have tomrum.) Kun
+  // målbart når de to slags deler en række.
   const rækker = new Map()
   for (const e of kort) {
     const y = Math.round(boks(e).y / 4) * 4
@@ -121,7 +125,7 @@ const MAAL = () => {
   // Afkortning i økonomien. `.ukendt`, `.el`, `.poster`, prisen og
   // indflytningsprisen må aldrig klippes: de bærer de forbehold, hele
   // kortets troværdighed hviler på.
-  const ØKO = '.kort-pris, .kort-indflytning, .ukendt, .el, .poster, .gruppe-match, .gruppe-flere'
+  const ØKO = '.kort-pris, .kort-prislinje, .kp-betyder, .kort-indflytning, .ukendt, .el, .poster, .gruppe-match, .gruppe-flere'
   const klippet = []
   for (const e of liste.querySelectorAll(ØKO)) {
     const s = getComputedStyle(e)
@@ -278,12 +282,13 @@ for (const bredde of BREDDER) {
     prøve(m.billeder.every((b) => b.indlæst), `alle billeder er hentet`,
       `${m.billeder.filter((b) => !b.indlæst).length} tomme`)
 
-    const strakt = m.blandede.flatMap((r) => {
+    const skæveHøjder = m.blandede.flatMap((r) => {
       const medFoto = Math.max(...r.filter((x) => !x.uden).map((x) => x.h))
-      return r.filter((x) => x.uden && Math.abs(x.h - medFoto) < 2)
+      return r.filter((x) => x.uden && Math.abs(x.h - medFoto) >= 2).map((x) => `${x.h}≠${medFoto}`)
     })
-    prøve(strakt.length === 0,
-      `kort uden foto strækkes ikke (${m.blandede.length} blandede rækker)`, `${strakt.length} strakte`)
+    prøve(skæveHøjder.length === 0,
+      `kort uden foto står lige så højt som naboerne (${m.blandede.length} blandede rækker)`,
+      skæveHøjder.slice(0, 3).join(' · '))
 
     prøve(m.klippet.length === 0, 'ingen afkortning i økonomi og forbehold',
       m.klippet.slice(0, 2).map((x) => x.klasse).join(' · '))

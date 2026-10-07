@@ -3234,3 +3234,116 @@ form.filtre.soegt {
   .hero-manchet { font-size: 15px; line-height: 1.5; }
   .fp-felt { padding: 8px 12px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Kompakte boligkort — Rentolas informationstæthed, Bofindas udtryk.
+   ───────────────────────────────────────────────────────────────
+   Listens kort viser billede, titel og ÉN prislinje (app/Boligkort.tsx,
+   `form="kompakt"`). Gruppesidens fulde kort er urørte.
+
+   ENS HØJDE AF STRUKTUR, IKKE AF FASTE HØJDER: billedet har ét format
+   (3:2) ved alle bredder, titlen reserverer to linjer, og prislinjen
+   står nederst (`margin-top: auto`) i et kort, der strækkes til rækkens
+   højde. Intet klippes for at få det til at gå op; titlen kan højst
+   blive to linjer af sig selv, og to-linje-loftet er kun en sikring.
+   ═══════════════════════════════════════════════════════════════ */
+.liste > .kortramme { align-self: stretch; }
+.kortramme { position: relative; display: flex; min-width: 0; }
+.kortramme > .kort { flex: 1 1 auto; min-width: 0; }
+.kort.kompakt { display: flex; flex-direction: column; }
+/* Kortet løftes ikke ved hover: pilene ligger uden for linket og ville
+   blive stående, mens billedet under dem flyttede sig. */
+.kortramme > .kort.kompakt:hover { transform: none; }
+/* Fuld bredde FØR billedet er hentet. Grundreglen har `align-self: start`,
+   og i en flex-kolonne krymper blokken så til indholdets bredde — et
+   ikke-hentet billede er 0 px bredt, billedfeltet blev 20 × 13 px, hvert
+   kort ~145 px højt, og ALLE kortenes billeder lå inden for browserens
+   lazy-margen ved første layout. Målt: 38 af 38 hentet før
+   DOMContentLoaded ved 390 px mod 17 på 1ce5b316. */
+.kort.kompakt .kort-billedblok { display: block; align-self: stretch; width: 100%; }
+.kort.kompakt .kort-billede {
+  aspect-ratio: 3 / 2;
+  /* Lodret rul er browserens; det vandrette swipe er kortets. */
+  touch-action: pan-y;
+}
+.kort.kompakt.uden-billede .kort-billede {
+  display: grid; place-items: center; background: var(--linje-svag);
+}
+.ingen-foto { font-size: 13px; color: var(--svag); }
+.kort.kompakt .kort-krop {
+  flex: 1 1 auto; display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 16px 16px;
+}
+.kort.kompakt .kort-overskrift {
+  font-size: 17px; line-height: 1.3; min-height: 2.6em;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+/* ÉN linje: beløbet og hvad det betyder står i samme linje. Er der ikke
+   plads, ombrydes betydningen under — en ombrydning, ikke en blok. */
+.kort-prislinje {
+  margin: auto 0 0; display: flex; flex-wrap: wrap; align-items: baseline;
+  column-gap: 6px; row-gap: 0;
+}
+.kort-prislinje .kort-pris { order: 0; display: inline; margin: 0; }
+.kort-prislinje .kort-pris { font-size: 22px; line-height: 1.15; }
+.kort-prislinje .kort-pris small { font-size: 13px; }
+.kp-betyder { font-size: 13px; line-height: 1.4; color: #59615d; white-space: nowrap; }
+.kp-forbehold { font-size: 13px; line-height: 1.4; color: #59615d; }
+
+/* Mærkaterne på billedet: «ny» i Bofindas grønne, status hvide. */
+.kort.kompakt .kort-maerkater { right: 64px; }
+.m-status {
+  background: rgba(255,255,255,.94); color: var(--tekst);
+  border-radius: 7px; font-size: 12px; font-weight: 600; padding: 4px 9px;
+  box-shadow: 0 1px 3px rgba(20,22,26,.16);
+}
+/* Billedforbeholdet står PÅ billedet — det handler om det, man ser, og
+   det må ikke gøre kortet højere end naboerne. */
+.kort.kompakt .billedforbehold {
+  position: absolute; left: 0; right: 0; bottom: 0; margin: 0;
+  padding: 6px 12px; font-size: 12px; line-height: 1.35;
+  background: rgba(20,22,26,.74); color: #fff;
+}
+
+/* ── Bladringen ───────────────────────────────────────────────── */
+.kb-lag {
+  position: absolute; left: 0; right: 0; top: 0; aspect-ratio: 3 / 2;
+  pointer-events: none;
+}
+.kb-taeller {
+  position: absolute; top: 10px; right: 10px;
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(20,22,26,.66); color: #fff; border-radius: var(--r-pille);
+  font-size: 12px; font-weight: 600; padding: 3px 9px;
+  font-variant-numeric: tabular-nums;
+}
+.kb-ikon {
+  width: 13px; height: 13px; background: currentColor;
+  -webkit-mask: var(--ikon-kamera) center/contain no-repeat; mask: var(--ikon-kamera) center/contain no-repeat;
+}
+:root {
+  --ikon-kamera: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 8h3l2-3h6l2 3h3v11H4z'/%3E%3Ccircle cx='12' cy='13' r='3.5'/%3E%3C/svg%3E");
+}
+.kb-pil {
+  pointer-events: auto; position: absolute; top: 50%; transform: translateY(-50%);
+  width: 40px; height: 40px; min-height: 40px; padding: 0; border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(255,255,255,.94); color: var(--accent-mrk); border: 0;
+  font-size: 26px; line-height: 1; box-shadow: 0 2px 8px rgba(20,22,26,.22);
+  cursor: pointer;
+}
+.kb-pil:hover { background: #fff; color: var(--accent-mrk); }
+.kb-pil:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.kb-pil > span { display: block; margin-top: -3px; }
+.kb-forrige { left: 10px; }
+.kb-naeste { right: 10px; }
+/* Med en mus vises pilene, når kortet peges på eller en pil har fokus.
+   Uden mus står de altid — men diskret og mindre. */
+@media (hover: hover) and (pointer: fine) {
+  .kb-pil { opacity: 0; transition: opacity .15s ease; }
+  .kortramme:hover .kb-pil, .kortramme:focus-within .kb-pil { opacity: 1; }
+}
+@media (hover: none) {
+  .kb-pil { width: 34px; height: 34px; min-height: 34px; font-size: 22px; opacity: .9; }
+}
+@media (prefers-reduced-motion: reduce) { .kb-pil { transition: none; } }

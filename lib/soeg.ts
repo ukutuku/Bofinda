@@ -1845,6 +1845,27 @@ export async function facetter() {
 //  kan ikke laekke ved en uopmaerksom aendring i UI'et senere.
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * Kortets billedliste — hentes FØRST, når nogen bladrer på et kort.
+ *
+ * Listen var ikke en del af søgningens svar, og det er med vilje: 48 kort
+ * med op til tyve billeder hver ville lægge næsten tusind signerede
+ * adresser i hver side, og kun et fåtal bliver nogensinde bladret i.
+ * Kortet har allerede forsidebilledet og antallet (`forside`, `billeder`).
+ *
+ * Samme filter som de to: `VISBAR_VAERT` og `position`, så billede 1 i
+ * listen ER kortets forsidebillede, og antallet er det samme tal. Kun
+ * aktive boliger — en nedtaget bolig står ikke på et kort.
+ */
+export async function hentKortbilleder(id: string): Promise<string[]> {
+  const raekker = await db.execute<{ url: string }>(sql`
+    select i.external_url as url from listing_images i
+    join ${listings} l on l.id = i.listing_id
+    where i.listing_id = ${id} and l.status = 'active' and ${VISBAR_VAERT}
+    order by i.position`)
+  return [...raekker].map((r) => r.url)
+}
+
 export async function hentBolig(id: string, referenceNow: Date = new Date()) {
   const [b] = await db
     .select({

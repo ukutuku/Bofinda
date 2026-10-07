@@ -252,20 +252,24 @@ console.log('\n══ 4 · elUdsagn er udtømmende — og CLAUDE.md\'s tal er TA
   // steder» og opregnede tre flader forkert; nu står tabellen der, og
   // denne linje holder den fast. Kilderne tælles, ikke læses.
   const { readFileSync } = await import('node:fs')
+  // Tredje kolonne: bundet med `satisfies Record<Eltilstand, …>`. Den
+  // kompakte boligkortfront (`KORT_EL`) kom til som det FEMTE sted — med
+  // sin egen, kortere ordlyd og bundet fra starten.
   const steder = [
-    ['app/Boligkort.tsx', /tilstand === 'egen-maaler'/],
-    ['app/bolig/[id]/page.tsx', /t === 'egen-maaler'/],
-    ['lib/alarm.ts', /satisfies Record<Eltilstand, string \| null>/],
-    ['lib/grundlag.ts', /satisfies Record<Eltilstand, string \| null>/],
+    ['app/Boligkort.tsx · Ellinje', 'app/Boligkort.tsx', /tilstand === 'egen-maaler'/, false],
+    ['app/Boligkort.tsx · KORT_EL', 'app/Boligkort.tsx',
+      /const KORT_EL = \{[^}]*\} satisfies Record<Eltilstand, string \| null>/, true],
+    ['app/bolig/[id]/page.tsx', 'app/bolig/[id]/page.tsx', /t === 'egen-maaler'/, false],
+    ['lib/alarm.ts', 'lib/alarm.ts', /satisfies Record<Eltilstand, string \| null>/, true],
+    ['lib/grundlag.ts', 'lib/grundlag.ts', /satisfies Record<Eltilstand, string \| null>/, true],
   ] as const
-  const fundne = steder.filter(([f, re]) => re.test(readFileSync(f, 'utf8')))
-  tjek('FIRE steder oversætter en Eltilstand til el-forbeholdet',
-    fundne.length === 4, `${fundne.length}: ${fundne.map(([f]) => f).join(', ')}`)
-  const bundne = steder.filter(([f]) => /alarm|grundlag/.test(f))
-    .filter(([f, re]) => re.test(readFileSync(f, 'utf8')))
-  tjek('… og to af dem er bundet med satisfies i dag', bundne.length === 2)
+  const fundne = steder.filter(([, f, re]) => re.test(readFileSync(f, 'utf8')))
+  tjek('FEM steder oversætter en Eltilstand til el-forbeholdet',
+    fundne.length === 5, `${fundne.length}: ${fundne.map(([n]) => n).join(', ')}`)
+  const bundne = fundne.filter(([, , , bundet]) => bundet)
+  tjek('… og tre af dem er bundet med satisfies i dag', bundne.length === 3)
   tjek('CLAUDE.md bærer den målte tabel, ikke en opregning',
-    /Fire steder oversætter en `Eltilstand` til el-forbeholdet/
+    /Fem steder oversætter en `Eltilstand` til el-forbeholdet/
       .test(readFileSync('CLAUDE.md', 'utf8')))
 }
 

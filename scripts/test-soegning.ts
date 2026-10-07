@@ -493,12 +493,16 @@ async function koer() {
         gr.availability.timing.nu === 1 && gr.availability.timing.senere === 2
         && gr.availability.timing.unknown === 1)
       const t = kortTekst(createElement(Gruppekort, { g: gr, nu }))
+      // Den kompakte front (Rentola-tæthed): forbeholdet er et mærkat på
+      // billedet, og titlen siger, at kortet taler for ALLE fire — så
+      // prisspændet læses som gruppens, ikke som den matchendes.
       tjek('10A · kortet siger hvor mange der matcher',
-        t.includes('1 af 4 boliger matcher din søgning'), t.slice(0, 150))
-      tjek('10A · og at prisen dækker alle fire',
-        t.includes('Pris og areal dækker alle 4'))
-      tjek('10A · linket siger ALLE adresser, ikke bare «de»',
-        t.includes('Se alle 4 adresser'))
+        t.includes('1 af 4 matcher'), t.slice(0, 150))
+      tjek('10A · og at prisen dækker alle fire: titlen er gruppens, spændet er hele gruppens',
+        t.includes('4 boliger') && t.includes('9.000–21.000'), t.slice(0, 180))
+      const html = renderToStaticMarkup(createElement(Gruppekort, { g: gr, nu }))
+      tjek('10A · linket fører til hele gruppen og bærer antallet',
+        /href="\/gruppe\?/.test(html) && html.includes('data-gruppe-antal="4"'))
       // Den billigste bolig matcher IKKE. Uden linjen ovenfor ville
       // «9.000 kr» læses som en bolig, der kan overtages nu.
       tjek('10A · den billigste i intervallet matcher ikke — derfor linjen',
@@ -507,7 +511,7 @@ async function koer() {
       const noegle = await gruppenoegleFraBolig(gr.repraesentant.id)
       const efterKlik = noegle ? await hentGruppe(noegle) : []
       tjek('10A · efter klik ses hele gruppen — og kortet sagde det',
-        efterKlik.length === 4 && t.includes('Se alle 4 adresser'),
+        efterKlik.length === 4 && t.includes('4 boliger'),
         `${efterKlik.length} boliger`)
     }
     tjek('10A · matchende BOLIGER er 1, ikke 4', s.antal === 1)
@@ -553,10 +557,11 @@ async function koer() {
       tjek('10A\u2032 · tre af fire oplyser ingenting', gr.indflytningUkendte === 3,
         String(gr.indflytningUkendte))
       const t = kortTekst(createElement(Gruppekort, { g: gr, nu }))
-      tjek('10A\u2032 · beloebet staar som «fra», ikke som gruppens pris',
-        /indflytning fra 25\.000 kr\./.test(t), t.slice(0, 180))
-      tjek('10A\u2032 · og daekningen staar ved siden af',
-        t.includes('oplyst for 1 af 4'), t.slice(0, 180))
+      // Indflytningsprisen står ikke på den kompakte front — for nogen.
+      // Den står pr. bolig på gruppesiden og boligsiden. Et tal, der
+      // gælder én af fire, kan altså ikke stå som gruppens.
+      tjek('10A\u2032 · den kompakte front nævner slet ikke indflytning',
+        !t.includes('indflytning'), t.slice(0, 180))
       // MODPRØVEN I SAMME FIL: var daekningen udeladt, ville teksten vaere
       // «indflytning 25.000 kr.» uden forbehold — og det er praecis den
       // saetning, der ikke maa kunne staa.
@@ -610,7 +615,7 @@ async function koer() {
       tjek('10C · markedsstatus: én reserveret, én ukendt',
         gr.availability.marked.reserveret === 1 && gr.availability.marked.unknown === 1)
       const t = kortTekst(createElement(Gruppekort, { g: gr, nu }))
-      tjek('10C · kortet siger det', t.includes('1 af 2 boliger matcher din søgning'))
+      tjek('10C · kortet siger det', t.includes('1 af 2 matcher'))
       tjek('10C · og mærkatet «reserveret» står IKKE, fordi det ikke gælder alle',
         !t.includes('reserveret Sonde') && t.includes('1 af 2 reserveret'))
     }
@@ -632,8 +637,8 @@ async function koer() {
       const t = kortTekst(createElement(Gruppekort, { g: v.gruppe, nu }))
       tjek('10D · matchende == antal', v.gruppe.matchende === 2 && v.gruppe.antal === 2)
       tjek('10D · ingen forbeholdslinje, når intet er blandet',
-        !t.includes('matcher din søgning'), t.slice(0, 120))
-      tjek('10D · og linket siger «de», ikke «alle»', t.includes('Se de 2 adresser'))
+        !t.includes('matcher'), t.slice(0, 120))
+      tjek('10D · og titlen siger gruppens antal', t.includes('2 boliger'))
     }
     // Uden domænefilter stilles spørgsmålet slet ikke.
     const uden = await soegGrupperet(filtreFraParametre({ postnr: '6300' }), 48, nu)
@@ -642,7 +647,7 @@ async function koer() {
       u?.slags === 'gruppe' && u.gruppe.matchende === null)
     if (u?.slags === 'gruppe') {
       tjek('10D · og kortet nævner det ikke',
-        !kortTekst(createElement(Gruppekort, { g: u.gruppe, nu })).includes('matcher din søgning'))
+        !kortTekst(createElement(Gruppekort, { g: u.gruppe, nu })).includes('matcher'))
     }
   }
 
@@ -1156,7 +1161,7 @@ async function koer() {
       `${visteId.length} adresser, forventet ${forventedeId.length}`)
     if (sp.overtagelse) {
       tjek('15 · blandet indflytning beholder forklaringen og begge adresser',
-        kort.includes('Se alle 2 adresser') && v.gruppe.matchende === 1 && visteId.length === 2)
+        kort.includes('1 af 2 matcher') && v.gruppe.matchende === 1 && visteId.length === 2)
     }
   }
 

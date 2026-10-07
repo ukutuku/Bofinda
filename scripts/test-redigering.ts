@@ -439,7 +439,9 @@ async function main() {
   // test paa betingelsen ville bestaa, selv om linjen blev flyttet ud af
   // det groenne korts gren.
   console.log('\n══ grøn total kræver el-forbehold ══')
-  const ELTEKST = /El indgår ikke|el afregnes direkte/
+  // Stort E er det fulde korts linje (`Ellinje`), lille e den kompakte
+  // fronts (`KORT_EL`) — samme udsagn i to længder.
+  const ELTEKST = /[Ee]l indgår ikke|el afregnes direkte/
   const GROEN = /class="kort-pris"/
 
   const bolig = (o: Partial<Bolig>): Bolig => ({
@@ -1011,12 +1013,21 @@ async function main() {
   }
   const gruppeHtml = (av: ReturnType<typeof tomSammenfatning>) =>
     vis(createElement(Gruppekort, { nu: KORTNU, g: gruppe({ availability: av }) }))
+  // Den kompakte front (Rentola-tæthed) bærer INGEN overtagelseslinje —
+  // heller ikke en sammenfattet. Tidligere stod tællingerne her («1 kan
+  // overtages nu · 2 senere», «tidligst fra …»); nu står overtagelsen pr.
+  // bolig på gruppesiden, hvor hvert medlem er et fuldt kort. Prøven
+  // påstår derfor FRAVÆRET af enhver overtagelsesformulering på fronten —
+  // og at statusmærkaterne (delvis reserveret, blandet ansøgning), der
+  // stadig gælder hele gruppen, står.
+  const OVERTAGELSESORD = [/kan overtages/, /senere/, /tidligst fra/,
+    /overtagelse ikke afklaret/, /uden afklaret overtagelse/, /ledig nu/]
+  const udenOvertagelse = (h: string) => OVERTAGELSESORD.every((r) => !r.test(h))
   const gA = gruppeHtml(gAv({ timing: { nu: 1, senere: 2, unknown: 0, conflict: 0 } }))
-  tjek('A: 1 nu + 2 senere → tællinger, ikke én status',
-    gA.includes('1 kan overtages nu · 2 senere'))
+  tjek('A: 1 nu + 2 senere → ingen overtagelseslinje på den kompakte front',
+    udenOvertagelse(gA), gA.slice(0, 200))
   const gB = gruppeHtml(gAv({ timing: { nu: 0, senere: 2, unknown: 1, conflict: 0 } }))
-  tjek('B: unknown forsvinder ikke ud af en blandet linje',
-    gB.includes('2 senere · 1 uden afklaret overtagelse'))
+  tjek('B: unknown + senere → heller ingen', udenOvertagelse(gB))
   const gC = gruppeHtml(gAv({ timing: { nu: 3, senere: 0, unknown: 0, conflict: 0 },
     marked: { paa_markedet: 2, reserveret: 1, udlejet: 0, unknown: 0, conflict: 0 } }))
   tjek('C: delvis reserveret vises som «1 af 3 reserveret»',
@@ -1027,14 +1038,10 @@ async function main() {
     gD.includes('1 venteliste · 2 almindelig'))
   const gE = gruppeHtml(gAv({ timing: { nu: 0, senere: 3, unknown: 0, conflict: 0 },
     tidligstSenere: '2026-10-01', ensSenereDato: false }))
-  tjek('E: forskellige datoer → «tidligst fra», aldrig som alles dato',
-    gE.includes('tidligst fra 1. oktober 2026') && !gE.includes('kan overtages fra'))
-  const gE2 = gruppeHtml(gAv({ timing: { nu: 0, senere: 3, unknown: 0, conflict: 0 },
-    tidligstSenere: '2026-11-01', ensSenereDato: true }))
-  tjek('… og ens datoer → «kan overtages fra»',
-    gE2.includes('kan overtages fra 1. november 2026'))
+  tjek('E: forskellige datoer → ingen dato på fronten, heller ikke «tidligst fra»',
+    udenOvertagelse(gE) && !gE.includes('oktober'))
   const ALLE_NU = gruppeHtml(gAv({ timing: { nu: 3, senere: 0, unknown: 0, conflict: 0 } }))
-  tjek('alle nu → én status er ærlig', ALLE_NU.includes('kan overtages nu'))
+  tjek('alle nu → heller ingen status på fronten', udenOvertagelse(ALLE_NU))
 
   // ── Availability: fakta, ikke stemmer ────────────────────────
   // Fast referenceNow. Funktionen kalder aldrig systemuret — samme lære
@@ -1338,7 +1345,9 @@ async function main() {
   console.log('\n══ ukendt total → ingen el-linje ══')
   const EL_TEKSTER = [
     'El indgår ikke',
+    'el indgår ikke',
     'Aconto er ét samlet beløb',
+    'aconto samlet',
     'el afregnes direkte',
   ]
   const harElLinje = (html: string) => EL_TEKSTER.some((t) => html.includes(t))
@@ -1362,7 +1371,10 @@ async function main() {
   ] as const) {
     tjek(`${navn}: ingen el-linje`, !harElLinje(html),
       EL_TEKSTER.filter((t) => html.includes(t)).join(' + '))
-    tjek(`${navn}: men manglen siges`, html.includes('Udlejer oplyser ikke aconto'))
+    // Fuld form: «Udlejer oplyser ikke aconto — spørg …». Kompakt front:
+    // «husleje · aconto ikke oplyst» i prislinjen. Begge SIGER manglen.
+    tjek(`${navn}: men manglen siges`,
+      html.includes('Udlejer oplyser ikke aconto') || html.includes('aconto ikke oplyst'))
   }
   // Praemissen: med en KENDT total skal el-linjen stadig komme. Ellers
   // ville proeven ovenfor bestaa ved at fjerne linjen helt.
@@ -1376,8 +1388,8 @@ async function main() {
   // er "El indgår ikke" en paastand, vi ikke har daekning for.
   //
   // Det er de 254 boliger fra LokalBolig, Propstep og Dacas.
-  const IKKE_MED = /El indgår ikke/
-  const UKENDT = /ét samlet beløb/
+  const IKKE_MED = /[Ee]l indgår ikke/
+  const UKENDT = /ét samlet beløb|aconto samlet — el uvist/
   const KLUMP = { poster: ['rent', 'other'], el: null, elEgenMaaler: null }
 
   tjek('udledningen: klump uden navngiven post → ukendt-daekning',
