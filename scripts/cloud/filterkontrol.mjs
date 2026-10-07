@@ -596,18 +596,21 @@ for (const bredde of [390, 768, 1100, 1440]) {
           medFoto: kort.filter((e) => !e.classList.contains('uden-billede')).length,
           grupper: kort.filter((e) => e.dataset.gruppe).length,
           ukendtPris: kort.filter((e) => e.querySelector('.kort-pris.kun-leje')).length,
+          // Det fulde kort har boksen `.ukendt`; listens kompakte front
+          // siger det samme i prislinjen: «husleje · aconto ikke oplyst».
           ukendtUdenForbehold: kort.filter((e) =>
-            e.querySelector('.kort-pris.kun-leje') && !e.querySelector('.ukendt')).length,
+            e.querySelector('.kort-pris.kun-leje') && !e.querySelector('.ukendt')
+            && !/aconto ikke oplyst/.test(e.querySelector('.kort-prislinje')?.textContent ?? '')).length,
           overløb: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         }
       })
       prøve(m.udenOverskrift === 0, 'hvert kort har en overskrift', `${m.udenOverskrift} uden`)
       prøve(m.klippede.length === 0, 'ingen klippet tekst i kortene', m.klippede.join(', '))
-      // Den længste i det såede udsnit er 18 tegn. Det er ikke en prøve
-      // af lang tekst, det er en prøve af, at der står noget. Den rigtige
-      // sættes ind nedenfor og skrives tilbage igen.
-      prøve(m.laengste != null && m.laengste.length > 0,
-        'adressen står på hvert kort', `længste i udsnittet: «${m.laengste}» (${m.laengste?.length} tegn)`)
+      // Kortstramningen (7. okt. 2026): adressen står IKKE på listens
+      // kompakte front — den står på boligsiden og på gruppesidens fulde
+      // kort. Prøven her påstod før det modsatte.
+      prøve(!m.laengste,
+        'adressen står ikke på listens kort (kompakt front)', `længste i udsnittet: «${m.laengste ?? ''}»`)
       prøve(m.medFoto > 0 && m.udenFoto > 0,
         'både kort med og uden foto er med', `${m.medFoto} med · ${m.udenFoto} uden`)
       prøve(m.grupper > 0, 'gruppekort er med i udsnittet', `${m.grupper} grupper`)
@@ -670,15 +673,21 @@ if (!process.env.DATABASE_URL) {
             .map((x) => `${x.className}:${x.offsetWidth}>${k}`)
           const adr = e.querySelector('.adresse')
           return {
-            fundet: true, adresse: adr?.textContent?.trim() ?? null,
+            fundet: true, adresse: adr?.textContent?.trim() ?? null, tekst: e.innerText,
             klippet: adr ? adr.scrollWidth > adr.clientWidth + 1 : null,
             forBrede: forBrede.slice(0, 3),
             overløb: document.documentElement.scrollWidth - document.documentElement.clientWidth,
           }
         }, id)
-        prøve(m?.fundet === true && (m.adresse ?? '').includes('Stenlængegårdens'),
-          `${bredde} px · den lange adresse står på kortet`, m?.adresse ?? 'kortet blev ikke fundet')
-        prøve(m?.klippet === false && m.forBrede.length === 0,
+        // Adressen står ikke på den kompakte front; den lange adresse skal
+        // stå på boligsiden og må ikke ødelægge kortet.
+        const side = await (await p.request.get(APP + `/bolig/${id}`)).text()
+        prøve(m?.fundet === true && m.adresse === null && !m.tekst.includes('Stenlængegårdens')
+          && side.includes('Stenlængegårdens'),
+          `${bredde} px · den lange adresse står ikke på kortet, men på boligsiden`,
+          m ? `kort: «${m.adresse ?? ''}» · boligside: ${side.includes('Stenlængegårdens') ? 'ja' : 'nej'}`
+            : 'kortet blev ikke fundet')
+        prøve(m?.klippet !== true && m.forBrede.length === 0,
           `${bredde} px · den brydes i stedet for at klippes eller flyde ud`,
           m?.forBrede.join(', ') || 'intet for bredt')
         prøve(m?.overløb === 0, `${bredde} px · intet vandret overløb`, `${m?.overløb} px`)

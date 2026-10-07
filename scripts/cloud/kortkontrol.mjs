@@ -573,7 +573,15 @@ if (process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL) {
     const kn = p.getByRole('button', { name: 'Kun det nødvendige' })
     if (await kn.count()) { await kn.first().click(); await p.waitForTimeout(600) }
     console.log('\nIndflytningspris og billedforbehold')
+    // Boligsiden for indflytningsboligen — dér skal tallet stå, når det
+    // ikke længere står på kortet. Hentes i løkken (én gang), så blokken
+    // også kan køres uden bredder — som test-kortkontrol-oprydning gør.
+    let boligsidenIndflytning = null
     for (const bredde of BREDDER) {
+      if (boligsidenIndflytning === null) {
+        await p.goto(APP + `/bolig/${ider[0]}`, { waitUntil: 'networkidle' })
+        boligsidenIndflytning = await p.evaluate(() => document.body.innerText)
+      }
       await p.setViewportSize({ width: bredde, height: 1200 })
       await p.goto(APP + '/?sted=Attrapby&kort=0', { waitUntil: 'networkidle' })
       await p.mouse.move(bredde - 2, 2)
@@ -612,6 +620,12 @@ if (process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL) {
           forbehold: forb?.textContent?.trim() ?? null,
           afstand: forb && bil
             ? Math.round(forb.getBoundingClientRect().top - bil.getBoundingClientRect().bottom) : null,
+          // Den kompakte front lægger forbeholdet SOM et bånd i bunden af
+          // billedet, ikke under det: det står på det foto, det handler om.
+          iFotoet: forb && bil ? (() => {
+            const f = forb.getBoundingClientRect(), g = bil.getBoundingClientRect()
+            return f.top >= g.top - 1 && f.bottom <= g.bottom + 1 && f.left >= g.left - 1 && f.right <= g.right + 1
+          })() : null,
           forbKlippet: forb ? forb.scrollWidth > forb.clientWidth + 1 : null,
           overløb: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         }
@@ -621,19 +635,17 @@ if (process.env.DATABASE_URL_DIRECT || process.env.DATABASE_URL) {
         // ikke, er `indflytning` null, og påstanden fejler af sig selv.
         // `fundet` gør grunden synlig i stedet for at lade den gætte.
         prøve(r.fundet === 2, `${bredde} px · begge prøveboliger står på siden`, `${r.fundet} af 2`)
-        prøve(r.indflytning?.includes('34.500') && r.indKlippet === false,
-          `${bredde} px · indflytningsprisen står og klippes ikke`, r.indflytning ?? 'mangler')
-        prøve(r.hierarki != null && r.hierarki.indflytning < r.hierarki.maaned
-          && r.hierarki.egenRaekke >= 0,
-          `${bredde} px · månedsprisen vejer tungest, indflytningsprisen står under den`,
-          r.hierarki
-            ? `måned ${r.hierarki.maaned} px · indflytning ${r.hierarki.indflytning} px`
-              + ` · ${r.hierarki.egenRaekke} px under prisblokken`
-            : 'prisblok eller indflytningslinje mangler')
+        // Kortstramningen (Rentola-tæthed, 7. okt. 2026): indflytningsprisen
+        // står IKKE på listens kompakte front. Den er ikke væk — den står
+        // på boligsiden, og det er dét, den anden påstand måler.
+        prøve(r.indflytning === null,
+          `${bredde} px · indflytningsprisen står ikke på den kompakte front`, r.indflytning ?? '')
+        prøve(boligsidenIndflytning.includes('34.500'),
+          `${bredde} px · … men står på boligsiden`, boligsidenIndflytning ? 'fundet' : 'mangler')
         prøve(r.forbehold?.includes('anden bolig') && r.forbKlippet === false,
           `${bredde} px · billedforbeholdet står og klippes ikke`, r.forbehold ?? 'mangler')
-        prøve(r.afstand != null && r.afstand >= 0 && r.afstand <= 24,
-          `${bredde} px · billedforbeholdet står ved sit foto`, `${r.afstand} px under billedet`)
+        prøve(r.iFotoet === true,
+          `${bredde} px · billedforbeholdet står på sit foto`, `${r.afstand} px fra billedets underkant`)
         prøve(r.overløb === 0, `${bredde} px · intet vandret overløb`, `${r.overløb} px`)
       })
       if (UD && (bredde === 390 || bredde === 1440)) {
