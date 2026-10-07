@@ -25,6 +25,23 @@
 //          billeder hentet, før der rulles
 //    [K11] interaktion henter listen ÉN gang og kun naboerne
 //    [K12] intet vandret overløb
+//    [K13] tryk, mens billedlisten afventes, tabes ikke: listens første
+//          svar holdes tilbage, to SEPARATE tryk sendes — med mus,
+//          tastatur og swipe — og efter svaret står tælleren og det
+//          FAKTISK INDLÆSTE billede (currentSrc, complete, decode, svar
+//          200) dér, trykkene i rækkefølge fører hen. Stadig ét listekald.
+//    [K14] en midlertidig listefejl (HTTP 500 og afbrudt forbindelse)
+//          huskes ikke: forsidebilledet bliver stående; har nogen
+//          trykket, står der en besked — synligt og i aria-live, og igen
+//          ved en fejl mere — mens en fejl, der kun kom af en hensigt,
+//          er tavs; intet forsøges af sig selv (heller ikke efter 10 min
+//          på et falsk ur); den næste eksplicitte navigation — mus,
+//          tastatur, touch — henter igen og blader. Et GYLDIGT tomt svar
+//          og et svar med ét billede fjerner pilene, siger hvorfor, og
+//          forsøger aldrig igen.
+//
+//  K13/K14 styrer billedlistens svar i BROWSEREN med `page.route` —
+//  lokalt, ingen server eller base røres, og intet hostet.
 //
 //  Hver røde linje bærer sit [K…]-mærke, så en modprøve kan kræve, at
 //  det var DETTE værn, der fangede den (`rød-af-en-anden-grund`).
@@ -116,7 +133,14 @@ async function nySide(bredde) {
   })
   let navigationer = 0
   p.on('framenavigated', (f) => { if (f === p.mainFrame()) navigationer++ })
-  return { ctx, p, net, navigationer: () => navigationer }
+  // Hvad billedruten SVAREDE pr. kildebillede — til K13/K14's «faktisk
+  // indlæst», så et billede ikke kun er en skrevet src.
+  const svar = new Map()
+  p.on('response', (r) => {
+    const u = new URL(r.url())
+    if (u.pathname.startsWith('/api/billede')) svar.set(u.searchParams.get('u'), r.status())
+  })
+  return { ctx, p, net, svar, navigationer: () => navigationer }
 }
 
 // Hydrering: KortRamme er en klientkomponent. Et klik før React har
@@ -420,6 +444,481 @@ for (const [navn, sti] of SIDER) {
     await ctx.close()
   }
 }
+
+// ═══ K13 / K14 · billedlisten afventer eller fejler ═════════════════
+//
+//  Billedlistens svar styres i BROWSEREN pr. kald, i den rækkefølge
+//  kaldene kommer:
+//
+//    holdt       holdes, til prøven slipper det — så går det til appen
+//    holdtFejl   holdes, og slippes som HTTP 500
+//    holdtTom    holdes, og slippes som et gyldigt tomt svar
+//    fejl500     HTTP 500 straks
+//    netfejl     forbindelsen afbrydes (fetch afvises)
+//    tom         gyldigt svar uden billeder
+//    et          det rigtige svar, skåret til ét billede
+//    videre      (og alt efter planen) appens eget svar
+//
+//  Hvert scenarie får en frisk side: billedlisten huskes pr. kort i
+//  komponenten, og et scenarie må ikke arve et andets liste.
+//
+//  ── VENT PÅ EN TILSTAND, ALDRIG PÅ `networkidle` ──────────────
+//  `waitForLoadState('networkidle')` svarer STRAKS, når siden allerede
+//  har været i ro. Første udgave af disse prøver ventede sådan efter at
+//  have sluppet svaret, aflæste kortet, før svaret var behandlet — og
+//  «næste + forrige» (slutbillede = startbillede) var grøn på den GAMLE
+//  komponent, som ender på 5/5. Modprøven mod 5bc170f viste det. Nu
+//  ventes der på en POSITIV tilstand, der ikke kan være opfyldt før
+//  svaret: billedet er basens forventede og indlæst, OG aria-live
+//  annoncerer resultatet («Billede N af M»). Står tilstanden ikke efter
+//  8 s, aflæses kortet alligevel, og påstandene er røde.
+//
+//  ── ET NEDBRUD ER IKKE ET FANGET VÆRN ─────────────────────────
+//  Bryder et scenarie ned (fx fordi en pil mangler), skrives det som
+//  `✗ [nedbrud]` — ikke under K13/K14 — og resten kører videre. En
+//  modprøve, der kræver «✗ [K14]», tæller altså aldrig et nedbrud.
+// Ordret de samme som i app/KortBilleder.tsx. Ændres den ene, er
+// K14 rød, til den anden følger med.
+const FEJLTEKST = 'De øvrige billeder kunne ikke hentes. Prøv igen med pilene.'
+const INGEN_FLERE = 'Der er ikke flere billeder af denne bolig.'
+const STI_K = '/?sted=9001'
+
+async function styr(p, plan) {
+  const kald = []
+  await p.route('**/api/kortbilleder/**', async (route) => {
+    const handling = plan.shift() ?? 'videre'
+    const k = { handling, sluppet: false, afgjort: false }
+    kald.push(k)
+    try {
+      if (handling === 'holdt' || handling === 'holdtFejl' || handling === 'holdtTom') {
+        await new Promise((r) => { k.slip = r })
+        k.sluppet = true
+        if (handling === 'holdtFejl') {
+          return await route.fulfill({ status: 500, contentType: 'text/plain', body: 'syntetisk fejl' })
+        }
+        if (handling === 'holdtTom') {
+          return await route.fulfill({ status: 200, contentType: 'application/json', body: '{"billeder":[]}' })
+        }
+        return await route.continue()
+      }
+      if (handling === 'fejl500') {
+        return await route.fulfill({ status: 500, contentType: 'text/plain', body: 'syntetisk fejl' })
+      }
+      if (handling === 'netfejl') return await route.abort('failed')
+      if (handling === 'tom') {
+        return await route.fulfill({ status: 200, contentType: 'application/json', body: '{"billeder":[]}' })
+      }
+      if (handling === 'et') {
+        const r = await route.fetch()
+        const j = await r.json()
+        return await route.fulfill({ response: r, json: { billeder: j.billeder.slice(0, 1) } })
+      }
+      return await route.continue()
+    } finally {
+      k.afgjort = true
+    }
+  })
+  const slip = async (i) => {
+    for (let n = 0; n < 100 && !kald[i]?.slip; n++) await p.waitForTimeout(50)
+    if (!kald[i]?.slip) throw new Error(`kald ${i + 1} kom aldrig — intet at slippe`)
+    kald[i].slip()
+  }
+  /** Vent, til kald nr. n er afgjort i browseren, og giv siden tid til at
+   *  behandle det. Bruges kun, hvor det forventede er, at INTET sker. */
+  const afgjort = async (n) => {
+    for (let i = 0; i < 160 && !(kald.length >= n && kald[n - 1].afgjort); i++) await p.waitForTimeout(50)
+    await p.waitForTimeout(400)
+  }
+  return { kald, slip, afgjort }
+}
+
+const rammeSel = (href) => `.liste > .kortramme:has(a.kort[href="${href}"])`
+
+/** Kortets tilstand som brugeren og skærmlæseren møder den. */
+const tilstand = (p, href) => p.$eval(rammeSel(href), async (r) => {
+  const img = r.querySelector('.kort-billede img')
+  let u = null
+  try { u = new URL(img.currentSrc).searchParams.get('u') } catch {}
+  let dekodet = false
+  try { await img.decode(); dekodet = true } catch {}
+  const f = r.querySelector('.kb-fejl')
+  const fb = f?.getBoundingClientRect()
+  return {
+    taeller: r.querySelector('.kb-taeller')?.textContent.replace(/\s+/g, ' ').trim() ?? null,
+    pile: r.querySelectorAll('.kb-pil').length,
+    fejltekst: f?.textContent ?? null,
+    fejlSynlig: !!(f && fb.width > 0 && fb.height > 0 && getComputedStyle(f).visibility !== 'hidden'),
+    live: r.querySelector('[aria-live]')?.textContent ?? '',
+    u, indlaest: img.complete && img.naturalWidth > 0, dekodet,
+  }
+})
+
+/** Vent på en POSITIV tilstand — højst `ms` — og returnér den aflæste. */
+async function ventTil(p, href, pred, ms = 8000) {
+  const slut = Date.now() + ms
+  let t = await tilstand(p, href)
+  while (!pred(t) && Date.now() < slut) {
+    await p.waitForTimeout(100)
+    t = await tilstand(p, href)
+  }
+  return t
+}
+
+/** Tæller, annoncering og billede: samme sted, og billedet er HENTET. */
+async function slutbillede(mærke, s, kort, ønsket, i, tekst) {
+  const N = ønsket.length
+  const annonce = `Billede ${i + 1} af ${N}`
+  const t = await ventTil(s.p, kort.href, (t) =>
+    t.u === ønsket[i] && t.indlaest && t.live === annonce)
+  prøve(mærke, t.taeller === `${i + 1} / ${N}`, `${tekst}: tælleren`, `${t.taeller}`)
+  prøve(mærke, t.live === annonce, `${tekst}: skærmlæseren hører det samme`, `«${t.live}»`)
+  prøve(mærke, t.u === ønsket[i] && t.indlaest && t.dekodet && s.svar.get(ønsket[i]) === 200,
+    `${tekst}: det faktisk indlæste billede er basens nr. ${i + 1}`,
+    `${t.u === ønsket[i] ? 'rigtigt' : `forkert (${String(t.u).slice(-28)})`} · complete+naturalWidth ${t.indlaest}`
+    + ` · decode ${t.dekodet} · svar ${s.svar.get(ønsket[i]) ?? 'intet'}`)
+  return t
+}
+
+const lister = (s) => s.net.filter((x) => x.t === 'json').length
+
+/** Mus: peg på kortet (hensigt), klik så på pilens plads. */
+async function musTryk(p, href, klasse) {
+  const r = await p.$(rammeSel(href))
+  await r.hover()
+  const pil = await r.$(klasse)
+  if (!pil) throw new Error(`pilen ${klasse} findes ikke på kortet`)
+  const b = await pil.boundingBox()
+  await p.mouse.click(b.x + b.width / 2, b.y + b.height / 2)
+  // To SEPARATE tryk: hver får sin egen hændelse og sine mikroopgaver.
+  await p.waitForTimeout(150)
+}
+
+/** Et scenarie på en frisk side. Bryder det ned, er det `[nedbrud]`. */
+async function scenarie(navn, bredde, kort, fn, valg = {}) {
+  const s = await nySide(bredde)
+  try {
+    // Et falskt ur skal installeres FØR siden indlæses.
+    if (valg.ur) await s.p.clock.install()
+    // Musen væk fra listen, FØR siden indlæses: en hensigt må ikke komme
+    // af, at markøren tilfældigvis står over et kort.
+    await s.p.mouse.move(2, 2)
+    await s.p.goto(APP + STI_K, { waitUntil: 'networkidle' })
+    await hydreret(s.p)
+    if (kort) {
+      await (await s.p.$(rammeSel(kort.href))).scrollIntoViewIfNeeded()
+      await ventTil(s.p, kort.href, (t) => t.u === billederFor.get(kort.id)[0] && t.indlaest)
+      await s.p.waitForTimeout(200)
+    }
+    await fn(s)
+  } catch (e) {
+    kørte++; fejl++
+    console.log(`  ✗ [nedbrud] ${navn}: ${String(e.message ?? e).split('\n')[0]}`)
+  } finally {
+    await s.ctx.close()
+  }
+}
+
+/** Et enkeltkort med mindst fem billeder (som koordinatorens probe). */
+let kort = null
+await scenarie('kortvalg', 1440, null, async (s) => {
+  const kandidater = await s.p.$$eval('.liste > .kortramme', (rs) => rs
+    .map((r) => r.querySelector(':scope > a.kort[data-bolig]'))
+    .filter((a) => a && a.closest('.kortramme').querySelector('.kb-naeste'))
+    .map((a) => ({ id: a.dataset.bolig, href: a.getAttribute('href') })))
+  kort = kandidater.find((k) => antalFor(k.id) >= 5) ?? kandidater.find((k) => antalFor(k.id) >= 3) ?? null
+})
+præmis(!!kort, `et enkeltkort med mindst tre billeder til K13/K14 (${kort ? antalFor(kort.id) : 0})`)
+
+if (kort) {
+  const ønsket = billederFor.get(kort.id)
+  const N = ønsket.length
+
+  console.log('\n══ K13 · tryk, mens billedlisten afventes ══')
+
+  // ── mus: næste + næste og næste + forrige, listen holdt tilbage ──
+  for (const [navn, tryk, slut] of [
+    ['næste + næste', ['.kb-naeste', '.kb-naeste'], 2],
+    ['næste + forrige', ['.kb-naeste', '.kb-forrige'], 0],
+  ]) {
+    await scenarie(`mus · ${navn}`, 1440, kort, async (s) => {
+      const { kald, slip } = await styr(s.p, ['holdt'])
+      for (const k of tryk) await musTryk(s.p, kort.href, k)
+      const før = await tilstand(s.p, kort.href)
+      prøve('K13', lister(s) === 1 && kald.length === 1 && !kald[0].sluppet,
+        `mus · ${navn}: ét listekald, stadig holdt, da begge tryk var sendt`, `${lister(s)} kald`)
+      prøve('K13', før.taeller === `1 / ${N}` && før.u === ønsket[0] && før.live === '',
+        `mus · ${navn}: intet er flyttet eller annonceret, før listen er her`, `${før.taeller} · «${før.live}»`)
+      await slip(0)
+      await slutbillede('K13', s, kort, ønsket, slut, `mus · ${navn}`)
+      prøve('K13', lister(s) === 1, `mus · ${navn}: stadig ét listekald`, `${lister(s)}`)
+    })
+  }
+
+  // ── tastatur: Tab til pilene (fokus = hensigt), Enter, Enter ──
+  await scenarie('tastatur · Enter + Enter', 1440, kort, async (s) => {
+    const { kald, slip } = await styr(s.p, ['holdt'])
+    await s.p.focus(`${rammeSel(kort.href)} > a.kort`)
+    await s.p.keyboard.press('Tab')          // «forrige» — fokus starter listen
+    await s.p.keyboard.press('Tab')          // «næste»
+    await s.p.keyboard.press('Enter')
+    await s.p.waitForTimeout(150)
+    await s.p.keyboard.press('Enter')
+    await s.p.waitForTimeout(150)
+    prøve('K13', kald.length === 1 && !kald[0].sluppet,
+      'tastatur · Enter + Enter: ét listekald, holdt', `${kald.length}`)
+    const før = await tilstand(s.p, kort.href)
+    prøve('K13', før.taeller === `1 / ${N}` && før.u === ønsket[0] && før.live === '',
+      'tastatur: intet er flyttet eller annonceret, før listen er her', `${før.taeller} · «${før.live}»`)
+    await slip(0)
+    await slutbillede('K13', s, kort, ønsket, 2, 'tastatur · Enter + Enter')
+    prøve('K13', lister(s) === 1, 'tastatur: stadig ét listekald', `${lister(s)}`)
+  })
+
+  // ── swipe på 390: to swipes mod venstre, listen holdt tilbage ──
+  await scenarie('swipe · to swipes', 390, kort, async (s) => {
+    const { kald, slip } = await styr(s.p, ['holdt'])
+    const navFør = s.navigationer()
+    const b = await (await s.p.$(`${rammeSel(kort.href)} .kort-billede`)).boundingBox()
+    const cdp = await s.ctx.newCDPSession(s.p)
+    const y = Math.round(b.y + b.height / 2)
+    for (let n = 0; n < 2; n++) {
+      const x0 = Math.round(b.x + b.width * 0.8)
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x0, y }] })
+      for (let i = 1; i <= 6; i++) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x0 - i * 25, y }] })
+      }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+      await s.p.waitForTimeout(150)
+    }
+    await cdp.detach()
+    prøve('K13', kald.length === 1 && !kald[0].sluppet, 'swipe · to swipes: ét listekald, holdt', `${kald.length}`)
+    const før = await tilstand(s.p, kort.href)
+    prøve('K13', før.taeller === `1 / ${N}` && før.u === ønsket[0] && før.live === '',
+      'swipe: intet er flyttet eller annonceret, før listen er her', `${før.taeller} · «${før.live}»`)
+    await slip(0)
+    await slutbillede('K13', s, kort, ønsket, 2, 'swipe · to swipes')
+    prøve('K13', lister(s) === 1, 'swipe: stadig ét listekald', `${lister(s)}`)
+    prøve('K13', new URL(s.p.url()).search === new URL(APP + STI_K).search && s.navigationer() === navFør,
+      'swipe: åbnede ikke annoncen', s.p.url())
+  })
+
+  // ── den normale, færdighentede kontrol ──
+  await scenarie('færdighentet', 1440, kort, async (s) => {
+    const { kald, afgjort } = await styr(s.p, [])
+    await s.p.hover(rammeSel(kort.href))
+    await afgjort(1)
+    prøve('K13', kald.length === 1 && lister(s) === 1, 'færdighentet: listen er her før første tryk', `${lister(s)}`)
+    await musTryk(s.p, kort.href, '.kb-naeste')
+    await slutbillede('K13', s, kort, ønsket, 1, 'færdighentet · næste')
+    await musTryk(s.p, kort.href, '.kb-naeste')
+    await slutbillede('K13', s, kort, ønsket, 2, 'færdighentet · næste igen')
+    await musTryk(s.p, kort.href, '.kb-forrige')
+    await slutbillede('K13', s, kort, ønsket, 1, 'færdighentet · forrige')
+    prøve('K13', lister(s) === 1, 'færdighentet: stadig ét listekald', `${lister(s)}`)
+  })
+
+  // ── to tryk i SAMME opgave på en liste, der er her ──
+  //  To `click()` i én og samme opgave: ingen mikroopgave og ingen render
+  //  imellem. Det andet tryk må ikke regne fra en gammel render. På
+  //  5bc170f var `indeks` en lukket værdi i `gaa`, og så giver det 2/5
+  //  i stedet for 3/5. To SEPARATE klik ville ikke kunne se forskel —
+  //  React når at rendere imellem — så scenariet er bygget, så det KAN
+  //  blive rødt (koordinatorens probe, D1 mod D2).
+  await scenarie('færdighentet · to tryk i samme opgave', 1440, kort, async (s) => {
+    const { afgjort } = await styr(s.p, [])
+    await s.p.hover(rammeSel(kort.href))
+    await afgjort(1)
+    await s.p.$eval(`${rammeSel(kort.href)} .kb-naeste`, (b) => { b.click(); b.click() })
+    await slutbillede('K13', s, kort, ønsket, 2, 'færdighentet · to tryk i samme opgave')
+  })
+
+  console.log('\n══ K14 · en midlertidig listefejl ══')
+
+  // ── mus: hensigt fejler, første tryk fejler, næste tryk lykkes ──
+  for (const [navn, fejlform] of [['HTTP 500', 'fejl500'], ['netværksfejl', 'netfejl']]) {
+    await scenarie(`K14 · ${navn}`, 1440, kort, async (s) => {
+      const { kald, afgjort } = await styr(s.p, [fejlform, fejlform, 'videre'])
+      await s.p.hover(rammeSel(kort.href))              // hensigt → kald 1, fejler
+      await afgjort(1)
+      const efterHensigt = await tilstand(s.p, kort.href)
+      prøve('K14', kald.length === 1 && efterHensigt.pile === 2 && !efterHensigt.fejlSynlig,
+        `${navn}: en fejlet hensigt er tavs — pilene står, ingen besked endnu`,
+        `${kald.length} kald · ${efterHensigt.pile} pile · besked ${efterHensigt.fejlSynlig}`)
+      await musTryk(s.p, kort.href, '.kb-naeste')       // eksplicit → kald 2, fejler
+      const t = await ventTil(s.p, kort.href, (t) => t.fejlSynlig)
+      prøve('K14', kald.length === 2, `${navn}: et eksplicit tryk efter fejlen forsøger igen`, `${kald.length} kald`)
+      prøve('K14', t.taeller === `1 / ${N}` && t.u === ønsket[0] && t.indlaest && t.dekodet,
+        `${navn}: forsidebilledet og tælleren bliver stående`, `${t.taeller} · ${t.u === ønsket[0]}`)
+      prøve('K14', t.fejlSynlig && t.fejltekst === FEJLTEKST && t.live === FEJLTEKST,
+        `${navn}: beskeden står synligt og i aria-live`, `«${t.fejltekst}» · «${t.live}»`)
+      prøve('K14', t.pile === 2, `${navn}: pilene står, så der kan forsøges igen`, `${t.pile}`)
+      if (UD) await (await s.p.$(rammeSel(kort.href))).screenshot({ path: `${UD}/k14-fejl-${fejlform}-1440.png` })
+      // Intet forsøges af sig selv — hverken af tid eller af en ny hensigt.
+      await s.p.mouse.move(2, 2)
+      await s.p.waitForTimeout(1500)
+      await s.p.hover(rammeSel(kort.href))
+      await s.p.waitForTimeout(400)
+      prøve('K14', kald.length === 2, `${navn}: intet nyt kald af tid eller af musen alene`, `${kald.length} kald`)
+      await musTryk(s.p, kort.href, '.kb-naeste')       // eksplicit → kald 3, lykkes
+      const efter = await slutbillede('K14', s, kort, ønsket, 1, `${navn} · efter genforsøget`)
+      prøve('K14', kald.length === 3, `${navn}: det næste eksplicitte tryk hentede igen`, `${kald.length} kald`)
+      prøve('K14', !efter.fejlSynlig && efter.fejltekst === null, `${navn}: beskeden er væk igen`, `${efter.fejltekst}`)
+    })
+  }
+
+  // ── touch på 390: netfejl → det næste tryk lykkes ──
+  //  Et tryk på pilen FOKUSERER knappen (Chromium sender mousedown), og
+  //  fokus er en hensigt — så det første kald kommer sandsynligvis fra
+  //  den, og trykket venter på det. Det andet tryk er et rent eksplicit
+  //  genforsøg: efter fejlen starter en hensigt intet.
+  await scenarie('K14 · touch', 390, kort, async (s) => {
+    const { kald } = await styr(s.p, ['netfejl', 'videre'])
+    const tryk = async () => {
+      const pil = await s.p.$(`${rammeSel(kort.href)} .kb-naeste`)
+      if (!pil) throw new Error('pilen .kb-naeste findes ikke på kortet')
+      const b = await pil.boundingBox()
+      await s.p.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2)
+    }
+    await tryk()
+    const t = await ventTil(s.p, kort.href, (t) => t.fejlSynlig)
+    prøve('K14', kald.length === 1 && t.fejlSynlig && t.taeller === `1 / ${N}` && t.u === ønsket[0],
+      'touch · netværksfejl: besked, forsidebilledet står', `${kald.length} kald · ${t.taeller} · ${t.fejltekst}`)
+    if (UD) await (await s.p.$(rammeSel(kort.href))).screenshot({ path: `${UD}/k14-fejl-touch-390.png` })
+    await tryk()
+    await slutbillede('K14', s, kort, ønsket, 1, 'touch · efter genforsøget')
+    prøve('K14', kald.length === 2, 'touch: det næste tryk hentede igen', `${kald.length} kald`)
+    prøve('K14', new URL(s.p.url()).search === new URL(APP + STI_K).search, 'touch: åbnede ikke annoncen', s.p.url())
+  })
+
+  // ── højst ét igangværende kald, også under genforsøget ──
+  await scenarie('K14 · ét kald under genforsøget', 1440, kort, async (s) => {
+    const { kald, slip, afgjort } = await styr(s.p, ['fejl500', 'holdt'])
+    await s.p.hover(rammeSel(kort.href))
+    await afgjort(1)
+    await musTryk(s.p, kort.href, '.kb-naeste')       // kald 2, holdt
+    await musTryk(s.p, kort.href, '.kb-naeste')       // venter på kald 2
+    prøve('K14', kald.length === 2 && !kald[1].sluppet,
+      'genforsøg: to tryk under det holdte kald giver ikke et tredje', `${kald.length} kald`)
+    await slip(1)
+    // At begge tryk udføres i rækkefølge, er K13's egenskab — derfor mærket.
+    await slutbillede('K13', s, kort, ønsket, 2, 'genforsøg · begge tryk under det holdte kald udført')
+    prøve('K14', kald.length === 2, 'genforsøg: stadig to kald i alt', `${kald.length} kald`)
+  })
+
+  // ── tryk, der ventede på et kald, der fejlede, genspilles ikke ──
+  await scenarie('K14 · tabte tryk', 1440, kort, async (s) => {
+    const { kald, slip } = await styr(s.p, ['holdtFejl', 'videre'])
+    await musTryk(s.p, kort.href, '.kb-naeste')
+    await musTryk(s.p, kort.href, '.kb-naeste')
+    await slip(0)
+    const t = await ventTil(s.p, kort.href, (t) => t.fejlSynlig)
+    await s.p.waitForTimeout(1000)
+    prøve('K14', kald.length === 1 && t.fejlSynlig && t.taeller === `1 / ${N}`,
+      'holdt kald fejler: én besked, tælleren står, intet automatisk genforsøg',
+      `${kald.length} kald · ${t.taeller} · ${t.fejlSynlig}`)
+    await musTryk(s.p, kort.href, '.kb-naeste')
+    await slutbillede('K14', s, kort, ønsket, 1, 'de tabte tryk genspilles ikke — ét skridt')
+    prøve('K14', kald.length === 2, 'det næste tryk hentede igen', `${kald.length} kald`)
+  })
+
+  // ── gyldigt tomt og gyldigt ét billede: ingen pile, intet genforsøg ──
+  for (const [navn, svarform] of [['gyldigt tomt svar', 'tom'], ['gyldigt svar med ét billede', 'et']]) {
+    await scenarie(`K14 · ${navn}`, 1440, kort, async (s) => {
+      const { kald } = await styr(s.p, [svarform])
+      await s.p.hover(rammeSel(kort.href))
+      const t = await ventTil(s.p, kort.href, (t) => t.pile === 0)
+      prøve('K14', t.pile === 0 && t.taeller === null && !t.fejlSynlig,
+        `${navn}: pile og tæller forsvinder, ingen fejlbesked`, `${t.pile} pile · ${t.taeller} · ${t.fejltekst}`)
+      prøve('K14', t.u === ønsket[0] && t.indlaest, `${navn}: forsidebilledet står`, `${t.u === ønsket[0]}`)
+      await s.p.mouse.move(2, 2)
+      await s.p.waitForTimeout(800)
+      await s.p.hover(rammeSel(kort.href))
+      await s.p.waitForTimeout(400)
+      prøve('K14', kald.length === 1, `${navn}: gemt som gyldigt — intet nyt kald`, `${kald.length} kald`)
+    })
+  }
+
+  // ── tastaturfokus på en pil, der forsvinder, lander på kortet ──
+  await scenarie('K14 · fokus', 1440, kort, async (s) => {
+    await styr(s.p, ['tom'])
+    await s.p.focus(`${rammeSel(kort.href)} > a.kort`)
+    await s.p.keyboard.press('Tab')                    // «forrige» → hensigt → tomt svar
+    await ventTil(s.p, kort.href, (t) => t.pile === 0)
+    const aktiv = await s.p.evaluate(() => {
+      const a = document.activeElement
+      return { tag: a?.tagName ?? null, href: a?.getAttribute('href') ?? null }
+    })
+    prøve('K14', aktiv.tag === 'A' && aktiv.href === kort.href,
+      'pilen forsvinder under fokus: fokus flyttes til kortet, ikke til <body>', `${aktiv.tag} ${aktiv.href}`)
+    const t = await ventTil(s.p, kort.href, (t) => t.live === INGEN_FLERE)
+    prøve('K14', t.live === INGEN_FLERE, '… og springet forklares i aria-live', `«${t.live}»`)
+  })
+
+  // ── et tryk venter, og svaret er gyldigt tomt ──
+  await scenarie('K14 · ventende tryk, gyldigt tomt svar', 1440, kort, async (s) => {
+    const { kald, slip } = await styr(s.p, ['holdtTom'])
+    await s.p.focus(`${rammeSel(kort.href)} > a.kort`)
+    await s.p.keyboard.press('Tab')                    // «forrige» → hensigt → kald 1, holdt
+    await s.p.keyboard.press('Tab')                    // «næste»
+    await s.p.keyboard.press('Enter')
+    await s.p.waitForTimeout(150)
+    prøve('K14', kald.length === 1 && !kald[0].sluppet, 'ventende tryk + tomt svar: ét kald, holdt', `${kald.length}`)
+    await slip(0)
+    const t = await ventTil(s.p, kort.href, (t) => t.pile === 0 && t.live === INGEN_FLERE)
+    const aktiv = await s.p.evaluate(() => document.activeElement?.getAttribute('href') ?? document.activeElement?.tagName)
+    prøve('K14', t.pile === 0 && t.taeller === null && !t.fejlSynlig,
+      'ventende tryk + gyldigt tomt svar: pilene forsvinder, ingen fejlbesked', `${t.pile} pile · ${t.fejltekst}`)
+    prøve('K14', t.live === INGEN_FLERE, '… og der siges hvorfor', `«${t.live}»`)
+    prøve('K14', aktiv === kort.href, '… og fokus står på kortet', `${aktiv}`)
+    prøve('K14', t.u === ønsket[0] && t.indlaest, '… og forsidebilledet står', `${t.u === ønsket[0]}`)
+    if (UD) await (await s.p.$(rammeSel(kort.href))).screenshot({ path: `${UD}/k14-gyldigt-tomt-1440.png` })
+  })
+
+  // ── tastatur: hensigten fejler, Enter fejler, Enter fejler IGEN, Enter lykkes ──
+  await scenarie('K14 · tastatur, to fejl i træk', 1440, kort, async (s) => {
+    const { kald, slip, afgjort } = await styr(s.p, ['fejl500', 'fejl500', 'holdtFejl', 'videre'])
+    await s.p.focus(`${rammeSel(kort.href)} > a.kort`)
+    await s.p.keyboard.press('Tab')                    // «forrige» → hensigt → kald 1, fejler tavst
+    await afgjort(1)
+    await s.p.keyboard.press('Tab')                    // «næste» — efter en fejl starter fokus intet
+    await s.p.waitForTimeout(300)
+    prøve('K14', kald.length === 1, 'tastatur: fokus efter en fejl starter intet nyt kald', `${kald.length} kald`)
+    await s.p.keyboard.press('Enter')                  // kald 2, fejler
+    let t = await ventTil(s.p, kort.href, (t) => t.fejlSynlig && t.live === FEJLTEKST)
+    prøve('K14', kald.length === 2 && t.fejlSynlig && t.live === FEJLTEKST,
+      'tastatur · Enter efter fejlen: forsøger igen, fejler, siger det', `${kald.length} kald · «${t.live}»`)
+    await s.p.keyboard.press('Enter')                  // kald 3, holdt
+    t = await ventTil(s.p, kort.href, (t) => t.live === '' && !t.fejlSynlig)
+    prøve('K14', kald.length === 3 && !kald[2].sluppet && t.live === '' && !t.fejlSynlig,
+      'tastatur · genforsøget er i gang: den gamle besked er ryddet', `${kald.length} kald · «${t.live}» · ${t.fejlSynlig}`)
+    await slip(2)                                      // … og fejler igen
+    t = await ventTil(s.p, kort.href, (t) => t.fejlSynlig && t.live === FEJLTEKST)
+    prøve('K14', t.fejlSynlig && t.live === FEJLTEKST,
+      'tastatur · anden fejl i træk: beskeden kommer IGEN, synligt og i aria-live', `«${t.live}» · ${t.fejlSynlig}`)
+    prøve('K14', t.taeller === `1 / ${N}` && t.u === ønsket[0], 'tastatur: forsidebilledet og tælleren står stadig', `${t.taeller}`)
+    await s.p.keyboard.press('Enter')                  // kald 4, lykkes
+    await slutbillede('K14', s, kort, ønsket, 1, 'tastatur · efter genforsøget')
+    prøve('K14', kald.length === 4, 'tastatur: fire kald i alt — ét pr. eksplicit forsøg og hensigten', `${kald.length}`)
+  })
+
+  // ── intet genforsøg af sig selv — heller ikke efter 10 minutter ──
+  //  Et vindue på nogle sekunders rigtig tid ser ikke en timer, der først
+  //  fyrer efter 5 s. Her kører siden på et falsk ur, og efter fejlen
+  //  spoles 10 minutter frem: hver setTimeout og setInterval i den tid
+  //  fyrer. Planen bliver ved med at fejle, så et genforsøg ville SES.
+  await scenarie('K14 · falsk ur', 1440, kort, async (s) => {
+    const { kald } = await styr(s.p, ['fejl500', 'fejl500', 'fejl500', 'fejl500', 'fejl500', 'fejl500'])
+    await musTryk(s.p, kort.href, '.kb-naeste')
+    const t = await ventTil(s.p, kort.href, (t) => t.fejlSynlig)
+    prøve('K14', t.fejlSynlig, 'falsk ur: fejlen er vist', `${t.fejltekst}`)
+    const før = kald.length
+    await s.p.mouse.move(2, 2)
+    await s.p.clock.runFor(10 * 60_000)
+    await s.p.waitForTimeout(800)
+    prøve('K14', kald.length === før, 'falsk ur: 10 minutter senere er der intet nyt kald', `${før} → ${kald.length} kald`)
+  }, { ur: true })
+}
+
 await br.close()
 
 console.log(`\n${fejl === 0 ? 'KORTKARUSEL GRØN' : `KORTKARUSEL RØD — ${fejl} fejl`} · ${kørte} målinger`)

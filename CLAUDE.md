@@ -404,6 +404,25 @@ Læs `BRIEF.md` for opgaven. Reglerne her gælder altid, i hver session.
   listens billeder lå inden for browserens lazy-margen — 38 af 38 hentet
   før DOMContentLoaded. `scripts/cloud/kortkarusel.mjs` måler alt dette i
   en rigtig browser og har tre modprøver.
+  **Ventetiden og fejlen er en del af kontrakten** (K13/K14, fundet af
+  koordinatoren 7. okt. 2026 i `5bc170f`). Et tryk, mens listen hentes,
+  tabes ikke: det viste billedes plads står i en ref (`nu`), og ventende
+  tryk lægges sammen og udføres, når listen kommer — før regnede to tryk
+  begge fra billede 1. Pile, tastatur og swipe går gennem samme `gaa()`.
+  Undtagelsen er bevidst: FEJLER kaldet, trykkene ventede på, genspilles
+  de ikke — det ville være et forsøg, ingen bad om; man får beskeden og
+  trykker igen. **En fejl er ikke en tom liste**: HTTP-fejl og afvist
+  `fetch` gemmes ikke, og forsidebilledet bliver stående. Har nogen
+  trykket, står der «De øvrige billeder kunne ikke hentes. Prøv igen med
+  pilene.» — synligt og i aria-live, og igen ved en fejl mere; en fejl,
+  der KUN kom af en hensigt (mus ind, fokus), er tavs. Kun en ny
+  eksplicit navigation henter igen — aldrig en timer eller en
+  musebevægelse. Et gyldigt svar med under to billeder fjerner pilene og
+  siger hvorfor. Højst ét listekald pr. kort ad gangen; et kald, der
+  hænger, har ingen tidsgrænse (kendt, ikke bestilt). K13/K14 i
+  kontrollen holder svaret tilbage, lader det fejle eller spoler et falsk
+  ur 10 minutter frem — alt i browseren (`page.route`, `page.clock`) — og
+  har fire modprøver mere i `modproever/`.
 - **En grøn total må aldrig stå uden at el er gjort rede for.** Prisblokken
   bliver grøn (`.kort-pris` uden `.kun-leje`), så snart `total` er sat —
   uanset hvad totalen dækker. Mangler el i den, skal kortet sige det.

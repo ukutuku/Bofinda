@@ -3317,6 +3317,16 @@ form.filtre.soegt {
   font-size: 12px; font-weight: 600; padding: 3px 9px;
   font-variant-numeric: tabular-nums;
 }
+/* Billedlisten kunne ikke hentes. Midt på billedet, mellem pilene, så
+   den hverken dækker tælleren, mærkaterne eller billedforbeholdet; laget
+   tager ikke imod klik, så kortet kan stadig åbnes. */
+.kb-fejl {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  max-width: calc(100% - 120px); box-sizing: border-box;
+  background: rgba(20,22,26,.8); color: #fff; border-radius: 8px;
+  font-size: 13px; font-weight: 560; line-height: 1.35; text-align: center;
+  padding: 6px 10px;
+}
 .kb-ikon {
   width: 13px; height: 13px; background: currentColor;
   -webkit-mask: var(--ikon-kamera) center/contain no-repeat; mask: var(--ikon-kamera) center/contain no-repeat;
